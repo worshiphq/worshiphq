@@ -241,8 +241,18 @@ function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow
         {canWrite && (
           <div className="mt-6 flex gap-2">
             <Button className="flex-1" onClick={onEdit}><Pencil className="size-4" /> Edit profile</Button>
-            <form action={deletePerson.bind(null, person.id)} onSubmit={(e) => { if (!confirm(`Delete ${person.fullName}?`)) e.preventDefault(); else onClose(); }}>
-              <Button type="submit" variant="danger"><Trash2 className="size-4" /></Button>
+            <form
+              action={deletePerson.bind(null, person.id)}
+              onSubmit={(e) => {
+                if (!confirm(`Remove ${person.fullName} from your members? This cannot be undone.`)) {
+                  e.preventDefault();
+                } else {
+                  // Defer closing so the drawer doesn't unmount before the action dispatches.
+                  setTimeout(onClose, 0);
+                }
+              }}
+            >
+              <Button type="submit" variant="danger"><Trash2 className="size-4" /> Delete</Button>
             </form>
           </div>
         )}
