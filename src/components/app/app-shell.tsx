@@ -12,7 +12,17 @@ import { nav } from "@/config/nav";
 import { can, type Session } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
-export function AppShell({ session, children }: { session: Session; children: React.ReactNode }) {
+type BranchLite = { id: string; name: string; isHQ: boolean };
+
+export function AppShell({
+  session,
+  branches,
+  children,
+}: {
+  session: Session;
+  branches: BranchLite[];
+  children: React.ReactNode;
+}) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
 
@@ -82,7 +92,8 @@ export function AppShell({ session, children }: { session: Session; children: Re
       </AnimatePresence>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar session={session} onMenu={() => setMobileOpen(true)} />
+        <Topbar session={session} branches={branches} onMenu={() => setMobileOpen(true)} />
+        {session.isDemo && <DemoBanner />}
         <main className="flex-1">
           <AnimatePresence mode="wait">
             <motion.div
@@ -98,6 +109,17 @@ export function AppShell({ session, children }: { session: Session; children: Re
           </AnimatePresence>
         </main>
       </div>
+    </div>
+  );
+}
+
+function DemoBanner() {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 border-b border-gold/30 bg-gold-soft px-4 py-2 text-center text-xs text-gold">
+      <span className="font-medium">You&rsquo;re exploring the read-only demo.</span>
+      <Link href="/sign-up" className="font-semibold underline underline-offset-2">
+        Create your free church account →
+      </Link>
     </div>
   );
 }

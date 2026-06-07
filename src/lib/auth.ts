@@ -1,43 +1,121 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
+import crypto from "node:crypto";
+import bcrypt from "bcryptjs";
+import { db } from "@/lib/db";
+import { env } from "@/lib/env";
 import { type Session, can, ROLE_PERMISSIONS } from "@/lib/permissions";
 
-/**
- * Lightweight cookie-based session for stub mode. The shape mirrors what Auth.js
- * (NextAuth) would provide, so swapping in real auth later is a drop-in change:
- * replace getSession() with auth() and keep the same Session type downstream.
- */
 export type { Session };
 export { can, ROLE_PERMISSIONS };
 
 const COOKIE = "whq_session";
+const SECRET = env.NEXTAUTH_SECRET ?? "dev-insecure-secret-change-me";
 
-/** Demo accounts — any password works in stub mode. */
-export const demoUsers: (Session & { password: string })[] = [
-  { name: "Pastor Daniel", email: "pastor@grace.org", password: "demo", role: "Owner", branch: "Accra Central", avatarName: "Daniel Mensah" },
-  { name: "Abena (Admin)", email: "admin@grace.org", password: "demo", role: "Admin", branch: "Accra Central", avatarName: "Abena Osei" },
-  { name: "Kwabena (Finance)", email: "finance@grace.org", password: "demo", role: "Finance", branch: "East Legon", avatarName: "Kwabena Owusu" },
-];
+// ── Signed-cookie helpers (HMAC so the payload can't be tampered) ──
+type Payload = { uid: string } | { demo: true };
 
-const DEFAULT_SESSION: Session = {
-  name: "Pastor Daniel",
-  email: "pastor@grace.org",
-  role: "Owner",
-  branch: "Accra Central",
-  avatarName: "Daniel Mensah",
-};
+function sign(payload: Payload): string {
+  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
+  const mac = crypto.createHmac("sha256", SECRET).update(body).digest("base64url");
+  return `${body}.${mac}`;
+}
 
-/** Returns the current session. In stub mode, falls back to a demo Owner so the
-    app is always explorable without signing in. */
-export async function getSession(): Promise<Session> {
-  const store = await cookies();
-  const raw = store.get(COOKIE)?.value;
-  if (!raw) return DEFAULT_SESSION;
+function verify(token: string): Payload | null {
+  const [body, mac] = token.split(".");
+  if (!body || !mac) return null;
+  const expected = crypto.createHmac("sha256", SECRET).update(body).digest("base64url");
+  if (!crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(expected))) return null;
   try {
-    return { ...DEFAULT_SESSION, ...JSON.parse(raw) } as Session;
+    return JSON.parse(Buffer.from(body, "base64url").toString());
   } catch {
-    return DEFAULT_SESSION;
+    return null;
   }
+}
+
+async function setCookie(payload: Payload) {
+  const store = await cookies();
+  store.set(COOKIE, sign(payload), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 60 * 24 * 30,
+  });
+}
+
+// ── Password hashing ──
+export const hashPassword = (pw: string) => bcrypt.hash(pw, 10);
+export const verifyPassword = (pw: string, hash: string) => bcrypt.compare(pw, hash);
+
+// ── Session lifecycle ──
+export async function startUserSession(userId: string) {
+  await setCookie({ uid: userId });
+}
+export async function startDemoSession() {
+  await setCookie({ demo: true });
+}
+export async function clearSession() {
+  const store = await cookies();
+  store.delete(COOKIE);
+}
+
+/** Current session (null when signed out). Reads a signed cookie and loads the DB user. */
+export async function getSession(): Promise<Session | null> {
+  const store = await cookies();
+  const token = store.get(COOKIE)?.value;
+  if (!token) return null;
+  const payload = verify(token);
+  if (!payload) return null;
+
+  if ("demo" in payload) {
+    const church = await db.church.findUnique({ where: { slug: "demo" } });
+    if (!church) return null;
+    return {
+      userId: "demo",
+      name: "Demo Visitor",
+      email: "demo@worshiphq.org",
+      role: "Owner",
+      churchId: church.id,
+      churchName: church.name,
+      branch: "Accra Central",
+      avatarName: "Demo Visitor",
+      isDemo: true,
+    };
+  }
+
+  const user = await db.user.findUnique({ where: { id: payload.uid }, include: { church: true, branch: true } });
+  if (!user) return null;
+  return {
+    userId: user.id,
+    name: user.name,
+    email: user.email,
+    role: user.role,
+    churchId: user.churchId,
+    churchName: user.church.name,
+    branch: user.branch?.name ?? "All branches",
+    branchId: user.branchId,
+    avatarName: user.name,
+    isDemo: user.church.isDemo,
+  };
+}
+
+/** Use in app pages/actions: returns the session or redirects to sign-in. */
+export async function requireSession(): Promise<Session> {
+  const session = await getSession();
+  if (!session) redirect("/sign-in");
+  return session;
+}
+
+/** Guard for write actions — demo church is read-only. */
+export class DemoReadOnlyError extends Error {
+  constructor() {
+    super("This is the read-only demo. Create a free account to make changes.");
+  }
+}
+export function assertCanWrite(session: Session) {
+  if (session.isDemo) throw new DemoReadOnlyError();
 }
 
 export { COOKIE as SESSION_COOKIE };

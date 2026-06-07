@@ -9,15 +9,17 @@ generator client {
   provider = "prisma-client-js"
 }
 
-// Prisma 7: connection URLs live in prisma.config.ts (DATABASE_URL / DIRECT_URL),
-// not in the schema. The datasource here only declares the provider.
 datasource db {
-  provider = "postgresql"
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
 }
 
 // ── Tenancy ───────────────────────────────────────────────
 model Church {
   id           String   @id @default(cuid())
+  slug         String   @unique
+  isDemo       Boolean  @default(false)
   name         String
   denomination String?
   city         String?
@@ -203,6 +205,7 @@ model Gift {
   branch        Branch?    @relation(fields: [branchId], references: [id])
   personId      String?
   person        Person?    @relation(fields: [personId], references: [id])
+  donorName     String? // for gifts from non-members / visitors
   fundId        String?
   fund          Fund?      @relation(fields: [fundId], references: [id])
   amount        Decimal    @db.Decimal(12, 2)

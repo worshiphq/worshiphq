@@ -87,7 +87,7 @@ export function PricingSection({ showComparison = true }: { showComparison?: boo
                     {plan.members} · {plan.branches}
                   </div>
 
-                  <Link href="/sign-in" className="mt-5">
+                  <Link href="/sign-up" className="mt-5">
                     <Button variant={plan.featured ? "primary" : "secondary"} className="w-full">
                       {plan.cta}
                     </Button>

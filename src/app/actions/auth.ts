@@ -1,49 +1,107 @@
 "use server";
 
-import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
-import { demoUsers, SESSION_COOKIE, type Session } from "@/lib/auth";
+import { revalidatePath } from "next/cache";
+import { db } from "@/lib/db";
+import {
+  getSession,
+  startUserSession,
+  startDemoSession,
+  clearSession,
+  hashPassword,
+  verifyPassword,
+} from "@/lib/auth";
 
-/** Sign in (stub mode: any password works; unknown emails get an Owner demo session). */
+function slugify(name: string) {
+  return (
+    name
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "")
+      .slice(0, 40) || "church"
+  );
+}
+
+async function uniqueSlug(base: string) {
+  let slug = base;
+  let n = 1;
+  while (await db.church.findUnique({ where: { slug } })) slug = `${base}-${++n}`;
+  return slug;
+}
+
+/** Create a brand-new church + Owner account, then sign in. */
+export async function signUp(formData: FormData) {
+  const churchName = String(formData.get("church") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  const email = String(formData.get("email") ?? "").toLowerCase().trim();
+  const password = String(formData.get("password") ?? "");
+
+  if (!churchName || !name || !email || password.length < 6) {
+    redirect("/sign-up?error=invalid");
+  }
+  if (await db.user.findUnique({ where: { email } })) {
+    redirect("/sign-up?error=exists");
+  }
+
+  const slug = await uniqueSlug(slugify(churchName));
+  const church = await db.church.create({
+    data: {
+      slug,
+      name: churchName,
+      country: "Ghana",
+      branches: { create: { name: "Main Branch", isHQ: true } },
+    },
+    include: { branches: true },
+  });
+
+  const user = await db.user.create({
+    data: {
+      churchId: church.id,
+      branchId: church.branches[0]?.id,
+      email,
+      name,
+      passwordHash: await hashPassword(password),
+      role: "Owner",
+    },
+  });
+
+  await startUserSession(user.id);
+  redirect("/app");
+}
+
+/** Sign in an existing user. */
 export async function signIn(formData: FormData) {
   const email = String(formData.get("email") ?? "").toLowerCase().trim();
-  const match = demoUsers.find((u) => u.email === email);
+  const password = String(formData.get("password") ?? "");
 
-  const session: Session = match
-    ? { name: match.name, email: match.email, role: match.role, branch: match.branch, avatarName: match.avatarName }
-    : {
-        name: email ? email.split("@")[0] : "Pastor Daniel",
-        email: email || "pastor@grace.org",
-        role: "Owner",
-        branch: "Accra Central",
-        avatarName: "Daniel Mensah",
-      };
+  const user = await db.user.findUnique({ where: { email } });
+  if (!user || !user.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
+    redirect("/sign-in?error=invalid");
+  }
+  await startUserSession(user.id);
+  redirect("/app");
+}
 
-  const store = await cookies();
-  store.set(SESSION_COOKIE, JSON.stringify(session), {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
-  });
+/** Enter the read-only demo church (no account needed). */
+export async function enterDemo() {
+  await startDemoSession();
   redirect("/app");
 }
 
 export async function signOut() {
-  const store = await cookies();
-  store.delete(SESSION_COOKIE);
+  await clearSession();
   redirect("/sign-in");
 }
 
-/** Switch the active branch for the current session. */
-export async function switchBranch(branch: string) {
-  const store = await cookies();
-  const raw = store.get(SESSION_COOKIE)?.value;
-  const current: Partial<Session> = raw ? JSON.parse(raw) : {};
-  store.set(SESSION_COOKIE, JSON.stringify({ ...current, branch }), {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+/** Switch the signed-in user's active branch. */
+export async function switchBranch(branchName: string) {
+  const session = await getSession();
+  if (!session || session.isDemo) return;
+  const branch = await db.branch.findFirst({
+    where: { churchId: session.churchId, name: branchName },
   });
+  if (branch) {
+    await db.user.update({ where: { id: session.userId }, data: { branchId: branch.id } });
+    revalidatePath("/app", "layout");
+  }
 }

@@ -57,16 +57,16 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.25, ease }}
             className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row"
           >
-            <Link href="/sign-in">
+            <Link href="/sign-up">
               <Button size="lg" className="group">
                 Start free
                 <ArrowRight className="transition-transform group-hover:translate-x-0.5" />
               </Button>
             </Link>
-            <Link href="/contact">
+            <Link href="/sign-in">
               <Button size="lg" variant="glass">
                 <PlayCircle />
-                Request demo
+                View live demo
               </Button>
             </Link>
           </motion.div>

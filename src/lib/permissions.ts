@@ -1,12 +1,17 @@
 import type { Role } from "@/lib/demo/data";
 
-/** Session shape — mirrors what Auth.js would provide. Client-safe (no server imports). */
+/** Session shape — client-safe (no server imports). Backed by a real DB user. */
 export interface Session {
+  userId: string;
   name: string;
   email: string;
   role: Role;
+  churchId: string;
+  churchName: string;
   branch: string;
+  branchId?: string | null;
   avatarName: string;
+  isDemo: boolean;
 }
 
 export const ROLE_PERMISSIONS: Record<Role, string[]> = {

@@ -5,12 +5,21 @@ import { Search, Bell, ChevronDown, Check, LogOut, Settings, Building2, Menu } f
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { OfflineIndicator } from "@/components/app/offline-indicator";
-import { branches } from "@/lib/demo/data";
 import { switchBranch, signOut } from "@/app/actions/auth";
 import type { Session } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 
-export function Topbar({ session, onMenu }: { session: Session; onMenu: () => void }) {
+type BranchLite = { id: string; name: string; isHQ: boolean };
+
+export function Topbar({
+  session,
+  branches,
+  onMenu,
+}: {
+  session: Session;
+  branches: BranchLite[];
+  onMenu: () => void;
+}) {
   const [branchOpen, setBranchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);

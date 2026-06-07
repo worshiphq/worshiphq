@@ -19,15 +19,15 @@ export function FinalCTA() {
             Free forever for up to 50 members.
           </p>
           <div className="mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link href="/sign-in">
+            <Link href="/sign-up">
               <Button size="lg" className="group">
                 Start free
                 <ArrowRight className="transition-transform group-hover:translate-x-0.5" />
               </Button>
             </Link>
-            <Link href="/contact">
+            <Link href="/sign-in">
               <Button size="lg" variant="glass">
-                Request a demo
+                View live demo
               </Button>
             </Link>
           </div>

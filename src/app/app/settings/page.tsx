@@ -1,10 +1,10 @@
 import { PageHeader } from "@/components/app/page-header";
 import { SettingsClient } from "@/components/app/settings-client";
-import { getSession } from "@/lib/auth";
+import { requireSession } from "@/lib/auth";
 import { features } from "@/lib/env";
 
 export default async function SettingsPage() {
-  const session = await getSession();
+  const session = await requireSession();
   // `features` is computed server-side from env so secret keys are never exposed.
   return (
     <div>
