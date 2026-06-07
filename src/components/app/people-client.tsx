@@ -2,9 +2,10 @@
 
 import { useMemo, useState } from "react";
 import {
-  Search, Plus, Upload, QrCode, Phone, Mail, MapPin, X, Users, Pencil, Trash2,
-  Briefcase, Heart, Calendar, Shield, Building2, User,
+  Search, Plus, Phone, Mail, MapPin, X, Users, Pencil, Trash2,
+  Briefcase, Heart, Shield, User,
 } from "lucide-react";
+import { ImportModal } from "@/components/app/import-modal";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -67,9 +68,7 @@ export function PeopleClient({
   return (
     <div>
       <PageHeader title="People" description="Your whole congregation — members, families and visitors.">
-        <Button variant="secondary" size="sm" disabled={!canWrite}>
-          <Upload /> Import CSV
-        </Button>
+        {canWrite && <ImportModal />}
         <Button size="sm" onClick={() => setCreating(true)} disabled={!canWrite}>
           <Plus /> Add member
         </Button>
