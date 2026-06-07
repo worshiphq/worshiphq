@@ -1,37 +1,40 @@
 @import "tailwindcss";
 
 /* ════════════════════════════════════════════════════════════════
-   WorshipHQ design system — dark, premium "command center"
+   WorshipHQ design system — warm "sanctuary" light
+   Premium, light and approachable: warm ivory surfaces, soft shadows,
+   a grounded indigo-violet accent and sacred gold. Built for the
+   everyday church admin, not a dev tool.
    ════════════════════════════════════════════════════════════════ */
 
 @theme {
-  /* ── Surfaces (deep near-black with a faint warm/violet undertone) ── */
-  --color-base: #08080c;
-  --color-surface: #0f0f16;
-  --color-surface-2: #16161f;
-  --color-elevated: #1c1c28;
-  --color-line: #262630;
-  --color-line-soft: #1d1d26;
+  /* ── Surfaces (warm ivory / paper) ── */
+  --color-base: #faf8f4;
+  --color-surface: #ffffff;
+  --color-surface-2: #f3efe7;
+  --color-elevated: #ffffff;
+  --color-line: #e8e2d6;
+  --color-line-soft: #f0ebe1;
 
-  /* ── Text ── */
-  --color-ink: #ececf1;
-  --color-ink-muted: #9a9aaa;
-  --color-ink-faint: #65656f;
+  /* ── Text (warm near-black) ── */
+  --color-ink: #1c1a16;
+  --color-ink-muted: #6b6456;
+  --color-ink-faint: #9a9384;
 
-  /* ── Primary: electric indigo → violet ── */
-  --color-primary: #6d5ef8;
-  --color-primary-bright: #9b6dff;
-  --color-primary-soft: #2a2350;
+  /* ── Primary: grounded indigo → violet (legible on white) ── */
+  --color-primary: #5b43db;
+  --color-primary-bright: #6e54e8;
+  --color-primary-soft: #ece9fd;
 
   /* ── Secondary: sacred warm gold ── */
-  --color-gold: #e5b567;
-  --color-gold-soft: #3a2f1c;
+  --color-gold: #b07d20;
+  --color-gold-soft: #f7eeda;
 
-  /* ── Status ── */
-  --color-success: #34d399;
-  --color-warning: #fbbf24;
-  --color-danger: #f87171;
-  --color-info: #60a5fa;
+  /* ── Status (tuned for light backgrounds) ── */
+  --color-success: #15966b;
+  --color-warning: #b45309;
+  --color-danger: #dc2626;
+  --color-info: #2563eb;
 
   /* aliases so default utilities (bg-background/text-foreground) keep working */
   --color-background: var(--color-base);
@@ -116,7 +119,7 @@
     border: 2px solid transparent;
     background-clip: content-box;
   }
-  *::-webkit-scrollbar-thumb:hover { background: var(--color-elevated); background-clip: content-box; }
+  *::-webkit-scrollbar-thumb:hover { background: var(--color-ink-faint); background-clip: content-box; }
   h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.02em; }
 }
 
@@ -124,12 +127,13 @@
    Custom utilities
    ════════════════════════════════════════════════════════════════ */
 
-/* Glassmorphism surface */
+/* Glassmorphism surface (frosted white on light) */
 @utility glass {
-  background: color-mix(in oklab, var(--color-surface) 72%, transparent);
+  background: color-mix(in oklab, var(--color-surface) 78%, transparent);
   backdrop-filter: blur(16px) saturate(140%);
   -webkit-backdrop-filter: blur(16px) saturate(140%);
-  border: 1px solid color-mix(in oklab, #fff 7%, transparent);
+  border: 1px solid color-mix(in oklab, var(--color-ink) 8%, transparent);
+  box-shadow: 0 8px 30px -16px rgba(60, 50, 30, 0.18);
 }
 
 /* Gradient text (indigo → violet → gold-ish) */
@@ -157,13 +161,12 @@
     0 18px 50px -18px color-mix(in oklab, var(--color-gold) 45%, transparent);
 }
 
-/* Hairline card with subtle gradient sheen */
+/* Hairline card with soft, premium light-mode shadow */
 @utility card-surface {
-  background:
-    linear-gradient(180deg, color-mix(in oklab, #fff 4%, transparent) 0%, transparent 30%),
-    var(--color-surface);
+  background: var(--color-surface);
   border: 1px solid var(--color-line);
   border-radius: var(--radius-2xl);
+  box-shadow: 0 1px 2px rgba(28, 26, 22, 0.04), 0 12px 28px -20px rgba(60, 50, 30, 0.15);
 }
 
 /* Fine grain/noise overlay (apply to a positioned ::before via .grain) */

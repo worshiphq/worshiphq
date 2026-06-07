@@ -16,11 +16,12 @@ import {
 import { compactNumber } from "@/lib/utils";
 
 const tooltipStyle = {
-  background: "#1c1c28",
-  border: "1px solid #262630",
+  background: "#ffffff",
+  border: "1px solid #e8e2d6",
   borderRadius: 12,
   fontSize: 12,
-  color: "#ececf1",
+  color: "#1c1a16",
+  boxShadow: "0 12px 30px -12px rgba(60,50,30,0.25)",
 } as const;
 
 export function TrendAreaChart({ data }: { data: { month: string; amount: number; attendance: number }[] }) {
