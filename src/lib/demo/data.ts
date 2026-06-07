@@ -4,7 +4,7 @@
  * In production these come from the database (Prisma); the shapes mirror the schema.
  */
 
-export type Role = "Owner" | "Admin" | "Finance" | "Leader" | "Volunteer";
+export type Role = "Owner" | "Admin" | "Pastor" | "Finance" | "Media" | "Leader" | "Volunteer";
 export type Engagement = "thriving" | "steady" | "at-risk" | "new";
 
 export interface Person {

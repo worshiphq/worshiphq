@@ -30,9 +30,14 @@ model Church {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  // JSON config: which fields to show on the public join form
+  // e.g. { "occupation": true, "dateOfBirth": true, "nationality": false, ... }
+  registrationFields Json?
+
   branches      Branch[]
   users         User[]
   people        Person[]
+  departments   Department[]
   households     Household[]
   groups        Group[]
   funds         Fund[]
@@ -71,9 +76,26 @@ model Branch {
 enum Role {
   Owner
   Admin
+  Pastor
   Finance
+  Media
   Leader
   Volunteer
+}
+
+// ── Departments ──────────────────────────────────────────
+model Department {
+  id          String   @id @default(cuid())
+  churchId    String
+  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name        String
+  description String?
+  createdAt   DateTime @default(now())
+
+  people Person[]
+
+  @@unique([churchId, name])
+  @@index([churchId])
 }
 
 model User {
@@ -109,6 +131,7 @@ model Person {
   branch      Branch?      @relation(fields: [branchId], references: [id])
   firstName   String
   lastName    String
+  otherNames  String?
   email       String?
   phone       String?
   status      PersonStatus @default(active)
@@ -120,6 +143,41 @@ model Person {
   notes       String?
   customFields Json?
 
+  // ── Rich profile fields (from registration / admin entry) ──
+  gender         String?   // Male, Female
+  title          String?   // e.g. Rev., Deaconess, Elder
+  dateOfBirth    DateTime? // full DOB
+  occupation     String?
+  employer       String?
+  previousChurch String?
+  dateOfMembership DateTime?
+  placeOfBirth   String?
+  nationality    String?  @default("Ghanaian")
+  country        String?  @default("Ghana")
+  region         String?
+  district       String?
+  town           String?
+  nationalId     String?
+  houseAddress   String?
+  homeTown       String?
+  workPhone      String?
+  postalAddress  String?
+  homePhone      String?
+  specialInterest String?
+  maritalStatus  String?  // Single, Married, Divorced, Widowed
+  baptized       Boolean? // Has been baptised?
+
+  // ── Emergency contact ──
+  emergencyName    String?
+  emergencyPhone   String?
+  emergencyRelation String?
+  emergencyEmail   String?
+  emergencyAddress String?
+
+  // ── Department ──
+  departmentId String?
+  department   Department? @relation(fields: [departmentId], references: [id])
+
   householdId String?
   household   Household? @relation(fields: [householdId], references: [id])
   groups      Group[]    @relation("GroupMembers")
@@ -130,6 +188,7 @@ model Person {
 
   @@index([churchId])
   @@index([branchId])
+  @@index([departmentId])
 }
 
 model Household {
