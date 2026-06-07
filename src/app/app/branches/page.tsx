@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { requireSession } from "@/lib/auth";
 import { getBranches } from "@/lib/data/modules";
+import { createBranch } from "@/app/actions/branches";
+import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { formatCurrency } from "@/config/brand";
 
 export const metadata = { title: "Branches" };
@@ -19,7 +21,18 @@ export default async function BranchesPage() {
   return (
     <div>
       <PageHeader title="Branches" description="Run every campus from one command center, with roll-up reporting.">
-        <Button size="sm" disabled={session.isDemo}><Plus /> Add branch</Button>
+        <ActionDialog
+          triggerLabel="Add branch"
+          triggerIcon={<Plus />}
+          title="Add a branch"
+          description="Create a campus or satellite location."
+          submitLabel="Add branch"
+          action={createBranch}
+          disabled={session.isDemo}
+        >
+          <Field label="Branch name" name="name" placeholder="East Legon" required />
+          <Field label="City" name="city" placeholder="Accra" />
+        </ActionDialog>
       </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -10,6 +10,7 @@ import {
   Check,
   CircleDot,
   Sparkles,
+  UserPlus,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,11 +18,21 @@ import { Badge } from "@/components/ui/badge";
 import { Input, Label } from "@/components/ui/input";
 import type { Session } from "@/lib/permissions";
 import { ROLE_PERMISSIONS } from "@/lib/permissions";
+import { updateChurch, updateBranding, inviteTeammate } from "@/app/actions/settings";
 import { plans } from "@/config/pricing";
 import { formatCurrency } from "@/config/brand";
 import { cn } from "@/lib/utils";
 
 type FeatureMap = Record<string, boolean>;
+type Church = {
+  name: string;
+  denomination: string;
+  city: string;
+  country: string;
+  address: string;
+  accentColor: string;
+} | null;
+type TeamUser = { name: string; email: string; role: string };
 
 const tabs = [
   { key: "church", label: "Church profile", icon: Building },
@@ -42,8 +53,22 @@ const integrationList = [
   { key: "database", name: "Database", desc: "PostgreSQL persistence" },
 ];
 
-export function SettingsClient({ session, features }: { session: Session; features: FeatureMap }) {
+const ACCENTS = ["#5b43db", "#b07d20", "#15966b", "#db2777", "#2563eb"];
+
+export function SettingsClient({
+  session,
+  features,
+  church,
+  users,
+}: {
+  session: Session;
+  features: FeatureMap;
+  church: Church;
+  users: TeamUser[];
+}) {
   const [tab, setTab] = useState<(typeof tabs)[number]["key"]>("church");
+  const [accent, setAccent] = useState(church?.accentColor ?? "#5b43db");
+  const ro = session.isDemo;
 
   return (
     <div className="grid gap-6 lg:grid-cols-[200px_1fr]">
@@ -63,18 +88,26 @@ export function SettingsClient({ session, features }: { session: Session; featur
       </nav>
 
       <div>
+        {ro && (
+          <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
+            You&rsquo;re viewing the read-only demo. Create a free account to edit your church.
+          </div>
+        )}
+
         {tab === "church" && (
           <Card className="p-6">
             <h3 className="font-display text-lg font-semibold">Church profile</h3>
             <p className="text-sm text-ink-muted">Basic information about your church.</p>
-            <div className="mt-5 grid gap-4 sm:grid-cols-2">
-              <div><Label>Church name</Label><Input defaultValue="Grace Temple" /></div>
-              <div><Label>Denomination</Label><Input defaultValue="Pentecostal" /></div>
-              <div><Label>City</Label><Input defaultValue="Accra" /></div>
-              <div><Label>Country</Label><Input defaultValue="Ghana" /></div>
-              <div className="sm:col-span-2"><Label>Address</Label><Input defaultValue="12 Independence Ave, Osu, Accra" /></div>
-            </div>
-            <Button className="mt-5">Save changes</Button>
+            <form action={updateChurch} className="mt-5">
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div><Label>Church name</Label><Input name="name" defaultValue={church?.name ?? ""} required disabled={ro} /></div>
+                <div><Label>Denomination</Label><Input name="denomination" defaultValue={church?.denomination ?? ""} disabled={ro} /></div>
+                <div><Label>City</Label><Input name="city" defaultValue={church?.city ?? ""} disabled={ro} /></div>
+                <div><Label>Country</Label><Input name="country" defaultValue={church?.country ?? "Ghana"} disabled={ro} /></div>
+                <div className="sm:col-span-2"><Label>Address</Label><Input name="address" defaultValue={church?.address ?? ""} disabled={ro} /></div>
+              </div>
+              <Button type="submit" className="mt-5" disabled={ro}>Save changes</Button>
+            </form>
           </Card>
         )}
 
@@ -82,43 +115,100 @@ export function SettingsClient({ session, features }: { session: Session; featur
           <Card className="p-6">
             <h3 className="font-display text-lg font-semibold">Branding</h3>
             <p className="text-sm text-ink-muted">Make WorshipHQ feel like your church.</p>
-            <div className="mt-5 space-y-4">
+            <form action={updateBranding} className="mt-5 space-y-4">
+              <input type="hidden" name="accentColor" value={accent} />
               <div>
                 <Label>Accent color</Label>
                 <div className="flex gap-2">
-                  {["#6D5EF8", "#E5B567", "#34D399", "#F472B6", "#60A5FA"].map((c) => (
-                    <button key={c} className="size-9 rounded-lg ring-1 ring-white/10" style={{ background: c }} />
+                  {ACCENTS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setAccent(c)}
+                      className={cn(
+                        "size-9 rounded-lg ring-2 ring-offset-2 ring-offset-surface transition",
+                        accent === c ? "ring-ink" : "ring-transparent",
+                      )}
+                      style={{ background: c }}
+                      aria-label={`Accent ${c}`}
+                    />
                   ))}
                 </div>
               </div>
-              <div><Label>Church logo</Label>
-                <div className="grid h-24 place-items-center rounded-xl border border-dashed border-line text-sm text-ink-faint">Drop a logo here</div>
-              </div>
-            </div>
-            <Button className="mt-5">Save branding</Button>
+              <Button type="submit" disabled={ro}>Save branding</Button>
+            </form>
           </Card>
         )}
 
         {tab === "team" && (
-          <Card>
-            <div className="border-b border-line p-6">
-              <h3 className="font-display text-lg font-semibold">Users & roles</h3>
-              <p className="text-sm text-ink-muted">Role-based access control. You are signed in as <Badge variant="primary">{session.role}</Badge></p>
-            </div>
-            <div className="divide-y divide-line-soft">
-              {Object.entries(ROLE_PERMISSIONS).map(([role, perms]) => (
-                <div key={role} className="flex items-start justify-between gap-4 p-5">
-                  <div>
-                    <div className="font-medium">{role}</div>
-                    <div className="mt-1 text-xs text-ink-faint">
-                      {perms.includes("*") ? "Full access to everything" : `Access: ${perms.join(", ")}`}
+          <div className="space-y-4">
+            <Card>
+              <div className="flex items-center justify-between border-b border-line p-6">
+                <div>
+                  <h3 className="font-display text-lg font-semibold">Your team</h3>
+                  <p className="text-sm text-ink-muted">
+                    Signed in as <Badge variant="primary">{session.role}</Badge>
+                  </p>
+                </div>
+              </div>
+              <div className="divide-y divide-line-soft">
+                {users.map((u) => (
+                  <div key={u.email} className="flex items-center justify-between gap-4 p-5">
+                    <div>
+                      <div className="font-medium">{u.name}</div>
+                      <div className="text-xs text-ink-faint">{u.email}</div>
+                    </div>
+                    <Badge variant="default">{u.role}</Badge>
+                  </div>
+                ))}
+              </div>
+            </Card>
+
+            {(session.role === "Owner" || session.role === "Admin") && (
+              <Card className="p-6">
+                <h3 className="flex items-center gap-2 font-display text-base font-semibold">
+                  <UserPlus className="size-4" /> Invite a teammate
+                </h3>
+                <form action={inviteTeammate} className="mt-4 grid gap-3 sm:grid-cols-2">
+                  <Input name="name" placeholder="Full name" required disabled={ro} />
+                  <Input name="email" type="email" placeholder="email@church.org" required disabled={ro} />
+                  <select
+                    name="role"
+                    defaultValue="Leader"
+                    disabled={ro}
+                    className="flex h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                  >
+                    {["Admin", "Finance", "Leader", "Volunteer"].map((r) => (
+                      <option key={r}>{r}</option>
+                    ))}
+                  </select>
+                  <Input name="password" placeholder="Temp password (optional)" disabled={ro} />
+                  <Button type="submit" className="sm:col-span-2" disabled={ro}>Send invite</Button>
+                </form>
+                <p className="mt-2 text-xs text-ink-faint">
+                  They&rsquo;ll sign in with this email and temporary password (they can change it later).
+                </p>
+              </Card>
+            )}
+
+            <Card>
+              <div className="border-b border-line p-6">
+                <h3 className="font-display text-base font-semibold">What each role can access</h3>
+              </div>
+              <div className="divide-y divide-line-soft">
+                {Object.entries(ROLE_PERMISSIONS).map(([role, perms]) => (
+                  <div key={role} className="flex items-start justify-between gap-4 p-5">
+                    <div>
+                      <div className="font-medium">{role}</div>
+                      <div className="mt-1 text-xs text-ink-faint">
+                        {perms.includes("*") ? "Full access to everything" : `Access: ${perms.join(", ")}`}
+                      </div>
                     </div>
                   </div>
-                  <Badge variant="default">{role === session.role ? "You" : "Role"}</Badge>
-                </div>
-              ))}
-            </div>
-          </Card>
+                ))}
+              </div>
+            </Card>
+          </div>
         )}
 
         {tab === "billing" && (
@@ -127,21 +217,21 @@ export function SettingsClient({ session, features }: { session: Session; featur
             <p className="text-sm text-ink-muted">Powered by Paystack · billed in ₵.</p>
             <div className="mt-5 flex items-center justify-between rounded-2xl border border-primary/30 bg-primary/10 p-5">
               <div>
-                <div className="flex items-center gap-2"><Sparkles className="size-4 text-primary-bright" /><span className="font-display text-lg font-semibold">Growth plan</span></div>
-                <div className="mt-1 text-sm text-ink-muted">Up to 1,000 members · 3 branches</div>
+                <div className="flex items-center gap-2"><Sparkles className="size-4 text-primary-bright" /><span className="font-display text-lg font-semibold">Free plan</span></div>
+                <div className="mt-1 text-sm text-ink-muted">Up to 50 members · 1 branch</div>
               </div>
               <div className="text-right">
-                <div className="font-display text-2xl font-bold">{formatCurrency(plans[2].monthly)}<span className="text-sm font-normal text-ink-faint">/mo</span></div>
-                <div className="text-xs text-ink-faint">Renews 5 Jul 2026</div>
+                <div className="font-display text-2xl font-bold">{formatCurrency(plans[0].monthly)}<span className="text-sm font-normal text-ink-faint">/mo</span></div>
+                <div className="text-xs text-ink-faint">Upgrade anytime</div>
               </div>
             </div>
             <div className="mt-3 flex gap-2">
-              <Button variant="secondary">Change plan</Button>
+              <Button variant="secondary" disabled={ro}>Upgrade plan</Button>
               <Button variant="ghost">Billing history</Button>
             </div>
             {!features.payments && (
               <p className="mt-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning">
-                Paystack is in stub mode — add PAYSTACK_SECRET_KEY in .env.local to enable live billing.
+                Paystack is in stub mode — add PAYSTACK_SECRET_KEY to enable live billing & giving.
               </p>
             )}
           </Card>

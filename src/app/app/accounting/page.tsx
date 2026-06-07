@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { requireSession } from "@/lib/auth";
 import { getAccounting } from "@/lib/data/modules";
+import { createTransaction } from "@/app/actions/accounting";
+import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { formatCurrency } from "@/config/brand";
 import { formatDate } from "@/lib/utils";
 
@@ -19,7 +21,25 @@ export default async function AccountingPage() {
     <div>
       <PageHeader title="Accounting" description="Fund accounting, balances and audit-ready records — native in ₵.">
         <Button variant="secondary" size="sm"><Download /> Export report</Button>
-        <Button size="sm" disabled={session.isDemo}><Plus /> New transaction</Button>
+        <ActionDialog
+          triggerLabel="New transaction"
+          triggerIcon={<Plus />}
+          title="Record transaction"
+          description="Log income or an expense against a fund."
+          submitLabel="Save transaction"
+          action={createTransaction}
+          disabled={session.isDemo}
+        >
+          <Field label="Description" name="description" placeholder="Sunday offering deposit" required />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Type" name="type" options={["Income", "Expense"]} />
+            <Field label="Amount (₵)" name="amount" type="number" step="0.01" placeholder="0.00" required />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Category" name="category" placeholder="Offering / Operations" defaultValue="General" />
+            <Field label="Fund" name="fund" placeholder="General" defaultValue="General" />
+          </div>
+        </ActionDialog>
       </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

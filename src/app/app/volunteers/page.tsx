@@ -7,6 +7,8 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { requireSession } from "@/lib/auth";
 import { getVolunteers } from "@/lib/data/modules";
+import { scheduleAssignment } from "@/app/actions/volunteers";
+import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Volunteers" };
@@ -20,7 +22,20 @@ export default async function VolunteersPage() {
     <div>
       <PageHeader title="Volunteers & scheduling" description="Build rosters, match skills and keep every team covered.">
         <Button variant="secondary" size="sm"><Bell /> Send reminders</Button>
-        <Button size="sm" disabled={session.isDemo}><Plus /> Schedule team</Button>
+        <ActionDialog
+          triggerLabel="Schedule team"
+          triggerIcon={<Plus />}
+          title="Schedule a volunteer"
+          description="Assign someone to a team for a service."
+          submitLabel="Add to roster"
+          action={scheduleAssignment}
+          disabled={session.isDemo}
+        >
+          <Field label="Person" name="person" placeholder="Akosua Mensah" required />
+          <Field label="Team" name="team" placeholder="Worship Team" required />
+          <Field label="Role" name="role" placeholder="Vocals" defaultValue="Volunteer" />
+          <Field label="Service date" name="date" type="date" required />
+        </ActionDialog>
       </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -3,6 +3,31 @@ import { db } from "@/lib/db";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
+// ── Settings ──────────────────────────────────────────────
+export async function getChurchSettings(churchId: string) {
+  const [church, users] = await Promise.all([
+    db.church.findUnique({ where: { id: churchId } }),
+    db.user.findMany({
+      where: { churchId },
+      orderBy: { createdAt: "asc" },
+      select: { name: true, email: true, role: true },
+    }),
+  ]);
+  return {
+    church: church
+      ? {
+          name: church.name,
+          denomination: church.denomination ?? "",
+          city: church.city ?? "",
+          country: church.country ?? "Ghana",
+          address: church.address ?? "",
+          accentColor: church.accentColor ?? "#5b43db",
+        }
+      : null,
+    users,
+  };
+}
+
 // ── Branches ──────────────────────────────────────────────
 export async function getBranches(churchId: string) {
   const branches = await db.branch.findMany({ where: { churchId }, orderBy: { isHQ: "desc" } });

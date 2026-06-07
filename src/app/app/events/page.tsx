@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { requireSession } from "@/lib/auth";
 import { getEvents } from "@/lib/data/modules";
+import { createEvent } from "@/app/actions/events";
+import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { formatCurrency } from "@/config/brand";
 import { formatDate } from "@/lib/utils";
 
@@ -20,7 +22,27 @@ export default async function EventsPage() {
     <div>
       <PageHeader title="Events & calendar" description="Services, seminars and camps — with registration and QR check-in.">
         <Button variant="secondary" size="sm"><CalendarDays /> Public calendar</Button>
-        <Button size="sm" disabled={session.isDemo}><Plus /> Create event</Button>
+        <ActionDialog
+          triggerLabel="Create event"
+          triggerIcon={<Plus />}
+          title="Create event"
+          description="Add a service, seminar or camp."
+          submitLabel="Create event"
+          action={createEvent}
+          disabled={session.isDemo}
+        >
+          <Field label="Event title" name="title" placeholder="Sunday Celebration Service" required />
+          <Field label="Type" name="type" options={["Service", "Seminar", "Camp", "Special", "Retreat", "Conference"]} />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Date" name="date" type="date" required />
+            <Field label="Time" name="time" type="time" defaultValue="09:00" />
+          </div>
+          <Field label="Capacity" name="capacity" type="number" placeholder="500" />
+          <div className="grid grid-cols-2 gap-3">
+            <Field label="Pricing" name="paid" options={["Free", "Paid"]} />
+            <Field label="Price (₵)" name="price" type="number" placeholder="0" />
+          </div>
+        </ActionDialog>
       </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

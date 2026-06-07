@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { requireSession } from "@/lib/auth";
 import { getAttendance } from "@/lib/data/modules";
+import { recordService } from "@/app/actions/attendance";
+import { ActionDialog, Field } from "@/components/app/action-dialog";
 
 export const metadata = { title: "Attendance" };
 
@@ -18,7 +20,19 @@ export default async function AttendancePage() {
     <div>
       <PageHeader title="Attendance" description="Record and track who's gathering, service by service.">
         <Button variant="secondary" size="sm"><QrCode /> QR check-in</Button>
-        <Button size="sm" disabled={session.isDemo}><Plus /> Record service</Button>
+        <ActionDialog
+          triggerLabel="Record service"
+          triggerIcon={<Plus />}
+          title="Record service attendance"
+          description="Log a headcount for a service or meeting."
+          submitLabel="Save attendance"
+          action={recordService}
+          disabled={session.isDemo}
+        >
+          <Field label="Service" name="serviceName" placeholder="Sunday 1st Service" defaultValue="Sunday Service" required />
+          <Field label="Date" name="date" type="date" required />
+          <Field label="Headcount" name="count" type="number" placeholder="e.g. 240" required />
+        </ActionDialog>
       </PageHeader>
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
