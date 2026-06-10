@@ -56,7 +56,7 @@ const integrationList = [
   { key: "database", name: "Database", desc: "PostgreSQL persistence" },
 ];
 
-const ACCENTS = ["#5b43db", "#b07d20", "#15966b", "#db2777", "#2563eb"];
+const ACCENTS = ["#0d7377", "#b07d20", "#15966b", "#db2777", "#2563eb"];
 
 const ALL_REG_FIELDS = [
   { key: "otherNames", label: "Other names" },
@@ -112,7 +112,7 @@ export function SettingsClient({
   departments: Dept[];
 }) {
   const [tab, setTab] = useState<(typeof tabs)[number]["key"]>("church");
-  const [accent, setAccent] = useState(church?.accentColor ?? "#5b43db");
+  const [accent, setAccent] = useState(church?.accentColor ?? "#0d7377");
   const ro = session.isDemo;
   const isAdmin = session.role === "Owner" || session.role === "Admin";
 

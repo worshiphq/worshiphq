@@ -30,7 +30,7 @@ export default async function SettingsPage() {
         city: church.city ?? "",
         country: church.country ?? "Ghana",
         address: church.address ?? "",
-        accentColor: church.accentColor ?? "#5b43db",
+        accentColor: church.accentColor ?? "#0d7377",
         logoUrl: church.logoUrl ?? "",
         slug: church.slug,
         registrationFields: (church.registrationFields as Record<string, boolean> | null) ?? null,

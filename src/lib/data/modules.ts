@@ -21,7 +21,7 @@ export async function getChurchSettings(churchId: string) {
           city: church.city ?? "",
           country: church.country ?? "Ghana",
           address: church.address ?? "",
-          accentColor: church.accentColor ?? "#5b43db",
+          accentColor: church.accentColor ?? "#0d7377",
         }
       : null,
     users,

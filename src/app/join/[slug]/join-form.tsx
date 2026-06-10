@@ -27,7 +27,7 @@ function FieldInput({
   defaultValue?: string;
 }) {
   const base =
-    "flex h-11 w-full rounded-xl border border-[#e8e2d6] bg-white px-3.5 text-sm text-[#1c1a16] placeholder:text-[#a09888] focus-visible:border-[#5b43db]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#5b43db]/20";
+    "flex h-11 w-full rounded-xl border border-[#e8e2d6] bg-white px-3.5 text-sm text-[#1c1a16] placeholder:text-[#a09888] focus-visible:border-[#0d7377]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0d7377]/20";
   return (
     <div>
       <label className="mb-1.5 block text-sm font-medium text-[#6b6560]">

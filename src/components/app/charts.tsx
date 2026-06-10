@@ -30,14 +30,14 @@ export function TrendAreaChart({ data }: { data: { month: string; amount: number
       <AreaChart data={data} margin={{ top: 10, right: 8, left: -10, bottom: 0 }}>
         <defs>
           <linearGradient id="g1" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stopColor="#9B6DFF" stopOpacity={0.55} />
-            <stop offset="100%" stopColor="#6D5EF8" stopOpacity={0.02} />
+            <stop offset="0%" stopColor="#0d9488" stopOpacity={0.55} />
+            <stop offset="100%" stopColor="#0d7377" stopOpacity={0.02} />
           </linearGradient>
         </defs>
         <XAxis dataKey="month" stroke="#65656f" fontSize={12} tickLine={false} axisLine={false} />
         <YAxis stroke="#65656f" fontSize={12} tickLine={false} axisLine={false} tickFormatter={(v) => `₵${compactNumber(v)}`} />
         <Tooltip contentStyle={tooltipStyle} formatter={(v) => [`₵${Number(v).toLocaleString()}`, "Giving"]} cursor={{ stroke: "#262630" }} />
-        <Area type="monotone" dataKey="amount" stroke="#9B6DFF" strokeWidth={2.5} fill="url(#g1)" />
+        <Area type="monotone" dataKey="amount" stroke="#0d9488" strokeWidth={2.5} fill="url(#g1)" />
       </AreaChart>
     </ResponsiveContainer>
   );
@@ -49,15 +49,15 @@ export function AttendanceBarChart({ data }: { data: { month: string; attendance
       <BarChart data={data} margin={{ top: 10, right: 8, left: -10, bottom: 0 }}>
         <XAxis dataKey="month" stroke="#65656f" fontSize={12} tickLine={false} axisLine={false} />
         <YAxis stroke="#65656f" fontSize={12} tickLine={false} axisLine={false} />
-        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(109,94,248,0.08)" }} formatter={(v) => [Number(v).toLocaleString(), "Attendance"]} />
-        <Bar dataKey="attendance" radius={[6, 6, 0, 0]} fill="#6D5EF8" />
+        <Tooltip contentStyle={tooltipStyle} cursor={{ fill: "rgba(13,148,136,0.08)" }} formatter={(v) => [Number(v).toLocaleString(), "Attendance"]} />
+        <Bar dataKey="attendance" radius={[6, 6, 0, 0]} fill="#0d9488" />
       </BarChart>
     </ResponsiveContainer>
   );
 }
 
 export function FundDonut({ data }: { data: { name: string; value: number }[] }) {
-  const colors = ["#6D5EF8", "#9B6DFF", "#E5B567", "#34D399", "#60A5FA"];
+  const colors = ["#0d9488", "#14b8a6", "#E5B567", "#34D399", "#60A5FA"];
   const total = data.reduce((s, d) => s + d.value, 0);
   return (
     <div className="flex items-center gap-4">

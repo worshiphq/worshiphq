@@ -5,7 +5,7 @@ export function LaptopFrame({ children, className }: { children: React.ReactNode
   return (
     <div className={cn("relative w-full", className)}>
       {/* Screen */}
-      <div className="relative rounded-2xl border border-line bg-[#0c0c12] p-2 shadow-[0_40px_120px_-30px_rgba(109,94,248,0.45)]">
+      <div className="relative rounded-2xl border border-line bg-[#0c0c12] p-2 shadow-[0_40px_120px_-30px_rgba(13,115,119,0.4)]">
         <div className="overflow-hidden rounded-lg ring-1 ring-white/5">
           <div className="aspect-[16/10] w-full">{children}</div>
         </div>

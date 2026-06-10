@@ -1,7 +1,7 @@
 import { cn, initials } from "@/lib/utils";
 
 const GRADIENTS = [
-  "from-[#6D5EF8] to-[#9B6DFF]",
+  "from-[#0d9488] to-[#14b8a6]",
   "from-[#E5B567] to-[#C9954F]",
   "from-[#34D399] to-[#059669]",
   "from-[#60A5FA] to-[#2563EB]",

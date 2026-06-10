@@ -29,7 +29,7 @@ export function Hero() {
         {/* Large warm radial — off-center for asymmetry */}
         <div
           className="absolute -right-20 -top-32 size-[50rem] rounded-full opacity-[0.12] blur-[120px]"
-          style={{ background: "conic-gradient(from 180deg at 60% 40%, #5b43db, #b07d20 40%, #5b43db 80%)" }}
+          style={{ background: "conic-gradient(from 180deg at 60% 40%, #0d7377, #b07d20 40%, #0d7377 80%)" }}
         />
         {/* Subtle gold accent — bottom left */}
         <div
@@ -98,7 +98,7 @@ export function Hero() {
                 />
                 <defs>
                   <linearGradient id="hero-line" x1="0%" y1="0%" x2="100%" y2="0%">
-                    <stop offset="0%" stopColor="#5b43db" stopOpacity="0.6" />
+                    <stop offset="0%" stopColor="#0d9488" stopOpacity="0.6" />
                     <stop offset="100%" stopColor="#b07d20" stopOpacity="0.4" />
                   </linearGradient>
                 </defs>

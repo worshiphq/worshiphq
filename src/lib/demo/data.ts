@@ -120,8 +120,8 @@ export const todaysBirthdays = people.filter((p) => p.birthday === DEMO_TODAY).s
 
 // ── Giving ──────────────────────────────────────────────
 export const funds = [
-  { id: "tithes", name: "Tithes", color: "#6D5EF8" },
-  { id: "offering", name: "Sunday Offering", color: "#9B6DFF" },
+  { id: "tithes", name: "Tithes", color: "#0d9488" },
+  { id: "offering", name: "Sunday Offering", color: "#14b8a6" },
   { id: "building", name: "Building Fund", color: "#E5B567" },
   { id: "missions", name: "Missions", color: "#34D399" },
   { id: "welfare", name: "Welfare", color: "#60A5FA" },

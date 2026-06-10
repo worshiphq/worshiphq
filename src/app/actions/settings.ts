@@ -33,7 +33,7 @@ export async function updateBranding(formData: FormData) {
   assertCanWrite(session);
   await db.church.update({
     where: { id: session.churchId },
-    data: { accentColor: String(formData.get("accentColor") ?? "#5b43db") },
+    data: { accentColor: String(formData.get("accentColor") ?? "#0d7377") },
   });
   revalidatePath("/app/settings");
 }

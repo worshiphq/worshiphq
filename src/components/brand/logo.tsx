@@ -49,8 +49,8 @@ export function LogoMark({ className }: { className?: string }) {
       <svg viewBox="0 0 512 512" className="size-[62%]" fill="none" aria-hidden>
         <defs>
           <linearGradient id="lm" x1="120" y1="150" x2="400" y2="380" gradientUnits="userSpaceOnUse">
-            <stop stopColor="#6D5EF8" />
-            <stop offset="1" stopColor="#9B6DFF" />
+            <stop stopColor="#0d7377" />
+            <stop offset="1" stopColor="#0d9488" />
           </linearGradient>
         </defs>
         <path
