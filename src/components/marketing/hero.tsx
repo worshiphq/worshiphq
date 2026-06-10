@@ -20,24 +20,25 @@ export function Hero() {
   });
   const productY = useTransform(scrollYProgress, [0, 1], [0, -60]);
   const productScale = useTransform(scrollYProgress, [0, 0.5], [1, 0.95]);
-  const bgY = useTransform(scrollYProgress, [0, 1], [0, 120]);
+  const bgY = useTransform(scrollYProgress, [0, 1], [0, 80]);
+  const imgScale = useTransform(scrollYProgress, [0, 1], [1.05, 1.15]);
 
   return (
     <section ref={ref} className="relative overflow-hidden pb-10 pt-28 sm:pt-36 md:pb-20">
-      {/* ── Organic background shapes (not generic aurora blobs) ── */}
-      <motion.div className="pointer-events-none absolute inset-0" style={{ y: bgY }} aria-hidden>
-        {/* Large warm radial — off-center for asymmetry */}
-        <div
-          className="absolute -right-20 -top-32 size-[50rem] rounded-full opacity-[0.12] blur-[120px]"
-          style={{ background: "conic-gradient(from 180deg at 60% 40%, #0d7377, #b07d20 40%, #0d7377 80%)" }}
-        />
-        {/* Subtle gold accent — bottom left */}
-        <div
-          className="absolute -bottom-20 -left-20 size-[30rem] rounded-full opacity-[0.08] blur-[100px]"
-          style={{ background: "radial-gradient(circle, #b07d20 0%, transparent 70%)" }}
-        />
-        {/* Noise grain */}
-        <div className="grain absolute inset-0" />
+      {/* ── Background image with parallax ── */}
+      <motion.div className="pointer-events-none absolute inset-0 -z-10" style={{ y: bgY }} aria-hidden>
+        <motion.div className="absolute inset-0" style={{ scale: imgScale }}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=1920&q=80&auto=format"
+            alt=""
+            className="size-full object-cover"
+          />
+        </motion.div>
+        {/* Gradient overlay — warm, sanctuary feel */}
+        <div className="absolute inset-0 bg-gradient-to-b from-base/95 via-base/85 to-base" />
+        {/* Subtle warm tint */}
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-gold/5" />
       </motion.div>
 
       {/* ── Geometric accent lines ── */}
@@ -49,13 +50,13 @@ export function Hero() {
       </div>
 
       <div className="relative mx-auto max-w-6xl px-5">
-        {/* ── Eyebrow — asymmetric, left-aligned on desktop ── */}
         <div className="mx-auto max-w-3xl text-center">
+          {/* ── Eyebrow badge ── */}
           <motion.div
             initial={{ opacity: 0, x: -12 }}
             animate={{ opacity: 1, x: 0 }}
             transition={{ duration: 0.5, ease }}
-            className="mb-5 inline-flex items-center gap-2.5 rounded-full border border-gold/25 bg-gold/5 px-4 py-2 text-xs font-medium tracking-wide text-gold"
+            className="mb-5 inline-flex items-center gap-2.5 rounded-full border border-gold/25 bg-gold/5 px-4 py-2 text-xs font-medium tracking-wide text-gold backdrop-blur-sm"
           >
             <span className="relative flex size-2">
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-gold opacity-50" />
@@ -64,31 +65,24 @@ export function Hero() {
             Built for churches in {brand.region.country}
           </motion.div>
 
-          {/* ── Headline — editorial split with weight contrast ── */}
+          {/* ── Headline ── */}
           <motion.h1
             initial={{ opacity: 0, y: 24 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.08, ease }}
-            className="font-display text-[2.75rem] font-bold leading-[1.05] tracking-tight sm:text-6xl md:text-[4.5rem] md:leading-[1.02]"
+            transition={{ duration: 0.8, ease }}
+            className="font-display text-4xl font-bold leading-[1.08] tracking-tight sm:text-5xl md:text-6xl"
           >
-            <span className="text-ink">Manage your church.</span>
-            <br />
+            Your ministry,{" "}
             <span className="relative inline-block">
-              <span className="relative z-10 bg-gradient-to-r from-primary via-primary-bright to-gold bg-clip-text text-transparent">
-                Beautifully.
-              </span>
-              {/* Decorative underline stroke */}
+              <span className="text-gradient">beautifully</span>
               <motion.svg
-                initial={{ pathLength: 0 }}
-                animate={{ pathLength: 1 }}
-                transition={{ duration: 1.2, delay: 0.7, ease: [0.22, 1, 0.36, 1] }}
-                viewBox="0 0 286 12"
-                className="absolute -bottom-1 left-0 w-full"
+                className="absolute -bottom-2 left-0 h-3 w-full"
+                viewBox="0 0 200 12"
                 fill="none"
                 preserveAspectRatio="none"
               >
                 <motion.path
-                  d="M2 8.5c47-6 96-8 143-7 47 1 93 5 139 3"
+                  d="M2 8 C40 2, 80 12, 120 6 C160 0, 190 10, 198 4"
                   stroke="url(#hero-line)"
                   strokeWidth="3"
                   strokeLinecap="round"
@@ -104,6 +98,8 @@ export function Hero() {
                 </defs>
               </motion.svg>
             </span>
+            <br />
+            organized.
           </motion.h1>
 
           {/* ── Subhead ── */}
@@ -111,10 +107,9 @@ export function Hero() {
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7, delay: 0.2, ease }}
-            className="mx-auto mt-6 max-w-lg text-base leading-relaxed text-ink-muted sm:text-lg"
+            className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-ink-muted sm:text-lg"
           >
-            People, giving, events, communications and more — all in one
-            place. Built for the way churches in {brand.region.country} actually work.
+            Members, giving, attendance, events, messaging — one calm headquarters for everything your church runs.
           </motion.p>
 
           {/* ── CTA row ── */}
@@ -158,32 +153,11 @@ export function Hero() {
           style={{ y: productY, scale: productScale }}
           className="relative mx-auto mt-14 max-w-4xl sm:mt-20"
         >
-          {/* Ambient glow behind the laptop */}
           <div className="absolute inset-x-8 -bottom-10 top-8 -z-10 rounded-[2rem] bg-primary/10 blur-[60px]" />
 
-          {/* Floating stat chips — staggered, organic placement */}
-          <FloatingChip
-            className="-left-3 top-8 sm:-left-12"
-            delay={0.9}
-            label="Active members"
-            value={3085}
-            color="primary"
-          />
-          <FloatingChip
-            className="-right-3 top-20 sm:-right-14"
-            delay={1.1}
-            label="Monthly giving"
-            value={58400}
-            prefix="₵"
-            color="gold"
-          />
-          <FloatingChip
-            className="-left-3 bottom-12 sm:-left-10"
-            delay={1.3}
-            label="Branches"
-            value={4}
-            color="success"
-          />
+          <FloatingChip className="-left-3 top-8 sm:-left-12" delay={0.9} label="Active members" value={3085} color="primary" />
+          <FloatingChip className="-right-3 top-20 sm:-right-14" delay={1.1} label="Monthly giving" value={58400} prefix="₵" color="gold" />
+          <FloatingChip className="-left-3 bottom-12 sm:-left-10" delay={1.3} label="Branches" value={4} color="success" />
 
           <LaptopFrame>
             <DashboardMockup />
@@ -195,44 +169,24 @@ export function Hero() {
 }
 
 function FloatingChip({
-  className,
-  label,
-  value,
-  prefix = "",
-  delay,
-  color = "primary",
+  className, label, value, prefix = "", delay, color = "primary",
 }: {
-  className?: string;
-  label: string;
-  value: number;
-  prefix?: string;
-  delay: number;
-  color?: "primary" | "gold" | "success";
+  className?: string; label: string; value: number; prefix?: string; delay: number; color?: "primary" | "gold" | "success";
 }) {
-  const borderColor = {
-    primary: "border-primary/20",
-    gold: "border-gold/20",
-    success: "border-success/20",
-  }[color];
-  const dotColor = {
-    primary: "bg-primary",
-    gold: "bg-gold",
-    success: "bg-success",
-  }[color];
-
+  const dotColor = { primary: "bg-primary-bright", gold: "bg-gold", success: "bg-success" }[color];
   return (
     <motion.div
-      initial={{ opacity: 0, scale: 0.85, y: 14 }}
-      animate={{ opacity: 1, scale: 1, y: 0 }}
-      transition={{ duration: 0.7, delay, ease }}
-      className={`absolute z-20 hidden rounded-2xl border ${borderColor} bg-surface/95 px-4 py-3 shadow-lg backdrop-blur-sm sm:block ${className}`}
+      initial={{ opacity: 0, x: color === "gold" ? 20 : -20 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.7, delay, ease: [0.22, 1, 0.36, 1] }}
+      className={`absolute z-20 hidden rounded-2xl border border-line bg-surface/90 px-4 py-3 shadow-lg backdrop-blur-md sm:block ${className}`}
     >
-      <div className="flex items-center gap-2">
-        <div className={`size-1.5 rounded-full ${dotColor}`} />
-        <span className="text-[10px] font-medium uppercase tracking-wider text-ink-faint">{label}</span>
+      <div className="flex items-center gap-2 text-xs text-ink-muted">
+        <span className={`size-1.5 rounded-full ${dotColor}`} />
+        {label}
       </div>
-      <div className="mt-1 font-display text-xl font-bold text-ink">
-        <AnimatedNumber value={value} prefix={prefix} />
+      <div className="mt-0.5 font-display text-lg font-bold tracking-tight">
+        {prefix}<AnimatedNumber value={value} />
       </div>
     </motion.div>
   );

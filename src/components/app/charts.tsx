@@ -85,3 +85,42 @@ export function FundDonut({ data }: { data: { name: string; value: number }[] })
     </div>
   );
 }
+
+const memberColors = ["#0d9488", "#14b8a6", "#E5B567", "#34D399", "#60A5FA", "#F472B6", "#818CF8"];
+
+export function MembershipDonut({ data }: { data: { name: string; count: number }[] }) {
+  const total = data.reduce((s, d) => s + d.count, 0) || 1;
+  const chartData = data.map((d) => ({ name: d.name, value: d.count }));
+  return (
+    <div className="space-y-4">
+      <ResponsiveContainer width="100%" height={180}>
+        <PieChart>
+          <Pie
+            data={chartData.length > 0 ? chartData : [{ name: "No data", value: 1 }]}
+            dataKey="value"
+            innerRadius={55}
+            outerRadius={80}
+            paddingAngle={3}
+            stroke="none"
+            startAngle={90}
+            endAngle={-270}
+          >
+            {chartData.map((_, i) => (
+              <Cell key={i} fill={memberColors[i % memberColors.length]} />
+            ))}
+          </Pie>
+          <Tooltip contentStyle={tooltipStyle} formatter={(v) => [Number(v).toLocaleString(), "Members"]} />
+        </PieChart>
+      </ResponsiveContainer>
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2">
+        {data.slice(0, 6).map((d, i) => (
+          <div key={d.name} className="flex items-center gap-2 text-xs">
+            <span className="size-2 shrink-0 rounded-full" style={{ background: memberColors[i % memberColors.length] }} />
+            <span className="truncate text-ink-muted">{d.name}</span>
+            <span className="ml-auto font-semibold tabular-nums">{d.count}</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}

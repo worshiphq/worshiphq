@@ -10,7 +10,7 @@ export async function getDashboard(churchId: string) {
   const weekAgo = new Date(Date.now() - 7 * 86400000);
   const todayMMDD = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-  const [activeMembers, weeklyAttendance, monthGiving, reachAgg, gifts, attendance, events, people] =
+  const [activeMembers, weeklyAttendance, monthGiving, reachAgg, gifts, attendance, events, people, departments, recent] =
     await Promise.all([
       db.person.count({ where: { churchId, status: "active" } }),
       db.attendanceRecord.count({ where: { churchId, date: { gte: weekAgo } } }),
@@ -19,7 +19,9 @@ export async function getDashboard(churchId: string) {
       db.gift.findMany({ where: { churchId, date: { gte: sixMonthsAgo } }, select: { amount: true, date: true } }),
       db.attendanceRecord.findMany({ where: { churchId, date: { gte: sixMonthsAgo } }, select: { date: true } }),
       db.event.findMany({ where: { churchId, startsAt: { gte: now } }, orderBy: { startsAt: "asc" }, take: 4 }),
-      db.person.findMany({ where: { churchId }, select: { firstName: true, lastName: true, birthday: true, status: true } }),
+      db.person.findMany({ where: { churchId }, select: { firstName: true, lastName: true, birthday: true, status: true, gender: true, departmentId: true } }),
+      db.department.findMany({ where: { churchId }, select: { id: true, name: true, _count: { select: { people: true } } } }),
+      db.person.findMany({ where: { churchId }, orderBy: { joinedAt: "desc" }, take: 6, select: { firstName: true, lastName: true, gender: true, status: true, joinedAt: true, department: { select: { name: true } } } }),
     ]);
 
   // 6-month trend buckets
@@ -43,7 +45,7 @@ export async function getDashboard(churchId: string) {
   const todaysBirthdays = people
     .filter((p) => p.birthday === todayMMDD)
     .slice(0, 5)
-    .map((p) => ({ name: `${p.firstName} ${p.lastName}` }));
+    .map((p) => ({ name: `${p.firstName} ${p.lastName}`, gender: p.gender }));
 
   const careTasks = people
     .filter((p) => p.status === "visitor" || p.status === "inactive")
@@ -56,6 +58,16 @@ export async function getDashboard(churchId: string) {
       priority: (p.status === "visitor" ? "high" : "medium") as "high" | "medium" | "low",
     }));
 
+  const departmentBreakdown = departments.map((d) => ({ name: d.name, count: d._count.people }));
+
+  const recentMembers = recent.map((p) => ({
+    name: `${p.firstName} ${p.lastName}`,
+    gender: p.gender,
+    department: p.department?.name ?? null,
+    status: p.status,
+    joined: p.joinedAt.toLocaleDateString("en-GH", { month: "short", day: "numeric" }),
+  }));
+
   return {
     kpis: {
       activeMembers,
@@ -65,7 +77,9 @@ export async function getDashboard(churchId: string) {
     },
     trend: buckets.map((b) => ({ month: b.month, amount: b.amount, attendance: b.attendance })),
     todaysBirthdays,
-    events: events.map((e) => ({ id: e.id, title: e.title, date: e.startsAt.toISOString(), branch: "" , time: e.startsAt.toLocaleTimeString("en-GH", { hour: "2-digit", minute: "2-digit" }) })),
+    events: events.map((e) => ({ id: e.id, title: e.title, date: e.startsAt.toISOString(), branch: "", time: e.startsAt.toLocaleTimeString("en-GH", { hour: "2-digit", minute: "2-digit" }) })),
     careTasks,
+    recentMembers,
+    departmentBreakdown,
   };
 }

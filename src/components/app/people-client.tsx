@@ -3,13 +3,13 @@
 import { useMemo, useState } from "react";
 import {
   Search, Plus, Phone, Mail, MapPin, X, Users, Pencil, Trash2,
-  Briefcase, Heart, Shield, User,
+  Briefcase, Heart, Shield, User, Grid3X3, List, ChevronRight,
 } from "lucide-react";
 import { ImportModal } from "@/components/app/import-modal";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar } from "@/components/ui/avatar";
+import { MemberAvatar } from "@/components/ui/member-avatar";
 import { Input, Label } from "@/components/ui/input";
 import { createPerson, updatePerson, deletePerson } from "@/app/actions/people";
 import type { PersonRow } from "@/lib/data/people";
@@ -33,21 +33,16 @@ type Stats = { total: number; active: number; visitors: number; ministries: numb
 type Dept = { id: string; name: string };
 
 export function PeopleClient({
-  people,
-  stats,
-  canWrite,
-  departments,
+  people, stats, canWrite, departments,
 }: {
-  people: PersonRow[];
-  stats: Stats;
-  canWrite: boolean;
-  departments: Dept[];
+  people: PersonRow[]; stats: Stats; canWrite: boolean; departments: Dept[];
 }) {
   const [query, setQuery] = useState("");
   const [segment, setSegment] = useState<(typeof segments)[number]["key"]>("all");
   const [selected, setSelected] = useState<PersonRow | null>(null);
   const [editing, setEditing] = useState<PersonRow | null>(null);
   const [creating, setCreating] = useState(false);
+  const [view, setView] = useState<"list" | "grid">("list");
 
   const filtered = useMemo(() => {
     return people.filter((p) => {
@@ -70,24 +65,31 @@ export function PeopleClient({
       <PageHeader title="People" description="Your whole congregation — members, families and visitors.">
         {canWrite && <ImportModal />}
         <Button size="sm" onClick={() => setCreating(true)} disabled={!canWrite}>
-          <Plus /> Add member
+          <Plus className="size-4" /> Add member
         </Button>
       </PageHeader>
 
+      {/* ── Stat cards ── */}
       <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "Total people", value: stats.total },
-          { label: "Active members", value: stats.active },
-          { label: "Visitors", value: stats.visitors },
-          { label: "Ministries", value: stats.ministries },
+          { label: "Total people", value: stats.total, icon: Users, color: "bg-primary/10 text-primary-bright" },
+          { label: "Active members", value: stats.active, icon: User, color: "bg-success/10 text-success" },
+          { label: "Visitors", value: stats.visitors, icon: Heart, color: "bg-gold/10 text-gold" },
+          { label: "Departments", value: stats.ministries, icon: Grid3X3, color: "bg-info/10 text-info" },
         ].map((s) => (
-          <div key={s.label} className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
-            <div className="text-xs text-ink-muted">{s.label}</div>
-            <div className="mt-1 font-display text-2xl font-bold">{s.value}</div>
+          <div key={s.label} className="group rounded-2xl border border-line bg-surface p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-md">
+            <div className="flex items-center justify-between">
+              <div className="text-xs font-medium text-ink-muted">{s.label}</div>
+              <span className={cn("grid size-8 place-items-center rounded-lg", s.color)}>
+                <s.icon className="size-3.5" />
+              </span>
+            </div>
+            <div className="mt-2 font-display text-2xl font-bold">{s.value}</div>
           </div>
         ))}
       </div>
 
+      {/* ── Filters bar ── */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-1.5">
           {segments.map((s) => (
@@ -95,28 +97,70 @@ export function PeopleClient({
               key={s.key}
               onClick={() => setSegment(s.key)}
               className={cn(
-                "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
-                segment === s.key ? "bg-primary/10 text-primary-bright" : "text-ink-muted hover:bg-surface-2",
+                "rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-200",
+                segment === s.key ? "bg-primary/10 text-primary-bright shadow-sm" : "text-ink-muted hover:bg-surface-2",
               )}
             >
               {s.label}
             </button>
           ))}
         </div>
-        <div className="relative">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder="Search people..."
-            className="h-10 w-full rounded-xl border border-line bg-surface pl-9 pr-3 text-sm placeholder:text-ink-faint focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 sm:w-64"
-          />
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-lg border border-line">
+            <button
+              onClick={() => setView("list")}
+              className={cn("grid size-9 place-items-center rounded-l-lg transition-colors", view === "list" ? "bg-primary/10 text-primary-bright" : "text-ink-faint hover:bg-surface-2")}
+            >
+              <List className="size-4" />
+            </button>
+            <button
+              onClick={() => setView("grid")}
+              className={cn("grid size-9 place-items-center rounded-r-lg border-l border-line transition-colors", view === "grid" ? "bg-primary/10 text-primary-bright" : "text-ink-faint hover:bg-surface-2")}
+            >
+              <Grid3X3 className="size-4" />
+            </button>
+          </div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
+            <input
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Search people..."
+              className="h-10 w-full rounded-xl border border-line bg-surface pl-9 pr-3 text-sm placeholder:text-ink-faint focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 sm:w-64"
+            />
+          </div>
         </div>
       </div>
 
       {filtered.length === 0 ? (
         <EmptyState query={query} hasAny={people.length > 0} canWrite={canWrite} onAdd={() => setCreating(true)} />
+      ) : view === "grid" ? (
+        /* ── Grid view ── */
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filtered.map((p, i) => {
+            const eng = engagementStyle[p.engagement];
+            return (
+              <div
+                key={p.id}
+                onClick={() => setSelected(p)}
+                className="group cursor-pointer rounded-2xl border border-line bg-surface p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/20 hover:shadow-md"
+                style={{ animationDelay: `${i * 30}ms` }}
+              >
+                <div className="flex flex-col items-center text-center">
+                  <MemberAvatar name={p.fullName} gender={p.gender} size="lg" />
+                  <h3 className="mt-3 font-display text-sm font-semibold">{p.fullName}</h3>
+                  <p className="mt-0.5 text-xs text-ink-faint">{p.email ?? p.phone ?? "---"}</p>
+                  <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+                    <Badge variant={eng.variant} className="text-[10px]">{eng.label}</Badge>
+                    {p.department && <Badge variant="default" className="text-[10px]">{p.department}</Badge>}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
       ) : (
+        /* ── List/table view ── */
         <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
           <table className="w-full text-sm">
             <thead className="border-b border-line bg-surface-2/50 text-left text-xs uppercase tracking-wide text-ink-faint">
@@ -126,6 +170,7 @@ export function PeopleClient({
                 <th className="hidden p-4 font-medium lg:table-cell">Branch</th>
                 <th className="p-4 font-medium">Status</th>
                 <th className="hidden p-4 font-medium sm:table-cell">Joined</th>
+                <th className="p-4 font-medium w-10"></th>
               </tr>
             </thead>
             <tbody>
@@ -135,11 +180,11 @@ export function PeopleClient({
                   <tr
                     key={p.id}
                     onClick={() => setSelected(p)}
-                    className="cursor-pointer border-b border-line-soft transition-colors last:border-0 hover:bg-surface-2/50"
+                    className="group cursor-pointer border-b border-line-soft transition-colors last:border-0 hover:bg-surface-2/50"
                   >
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <Avatar name={p.fullName} size="sm" />
+                        <MemberAvatar name={p.fullName} gender={p.gender} size="sm" />
                         <div>
                           <div className="font-medium text-ink">{p.fullName}</div>
                           <div className="text-xs text-ink-faint">{p.email ?? p.phone ?? "---"}</div>
@@ -156,6 +201,9 @@ export function PeopleClient({
                     <td className="hidden p-4 text-ink-muted lg:table-cell">{p.branch ?? "---"}</td>
                     <td className="p-4"><Badge variant={eng.variant}>{eng.label}</Badge></td>
                     <td className="hidden p-4 text-ink-muted sm:table-cell">{formatDate(p.joined)}</td>
+                    <td className="p-4">
+                      <ChevronRight className="size-4 text-ink-faint opacity-0 transition-opacity group-hover:opacity-100" />
+                    </td>
                   </tr>
                 );
               })}
@@ -194,7 +242,7 @@ function EmptyState({ query, hasAny, canWrite, onAdd }: { query: string; hasAny:
         {query ? `No one matches "${query}".` : "Build your directory by adding members or importing from a spreadsheet."}
       </p>
       {!hasAny && canWrite && (
-        <Button className="mt-5" onClick={onAdd}><Plus /> Add member</Button>
+        <Button className="mt-5" onClick={onAdd}><Plus className="size-4" /> Add member</Button>
       )}
     </div>
   );
@@ -204,100 +252,97 @@ function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow
   const eng = engagementStyle[person.engagement];
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
-      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l border-line bg-surface p-6 shadow-2xl animate-fade-up">
-        <div className="flex items-start justify-between">
+      <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l border-line bg-surface shadow-2xl animate-fade-up">
+        {/* Header with gradient accent */}
+        <div className="relative bg-gradient-to-br from-primary/8 via-surface to-surface px-6 pb-4 pt-6">
+          <button onClick={onClose} className="absolute right-4 top-4 grid size-9 place-items-center rounded-lg text-ink-muted transition-colors hover:bg-surface-2">
+            <X className="size-5" />
+          </button>
           <div className="flex items-center gap-4">
-            <Avatar name={person.fullName} size="lg" />
+            <MemberAvatar name={person.fullName} gender={person.gender} size="lg" className="ring-4 ring-surface" />
             <div>
               <h2 className="font-display text-xl font-bold">
                 {person.title ? `${person.title} ` : ""}{person.fullName}
               </h2>
-              <div className="mt-1 flex flex-wrap items-center gap-2">
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <Badge variant={eng.variant}>{eng.label}</Badge>
                 <Badge variant="default" className="capitalize">{person.status}</Badge>
                 {person.department && <Badge variant="primary">{person.department}</Badge>}
               </div>
             </div>
           </div>
-          <button onClick={onClose} className="grid size-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-2">
-            <X className="size-5" />
-          </button>
         </div>
 
-        <div className="mt-6 space-y-1">
-          <DetailRow icon={Phone} value={person.phone ?? "No phone"} />
-          <DetailRow icon={Mail} value={person.email ?? "No email"} />
-          <DetailRow icon={MapPin} value={person.location ?? person.town ?? "No location"} />
-          {person.occupation && <DetailRow icon={Briefcase} value={person.occupation} />}
-          {person.gender && <DetailRow icon={User} value={person.gender} />}
-          {person.maritalStatus && <DetailRow icon={Heart} value={person.maritalStatus} />}
-          {person.nationality && <DetailRow icon={Shield} value={person.nationality} />}
-        </div>
-
-        <Section title="Household"><p className="text-sm text-ink-muted">{person.household ?? "---"}</p></Section>
-
-        {person.department && (
-          <Section title="Department">
-            <Badge variant="primary">{person.department}</Badge>
-          </Section>
-        )}
-
-        <Section title="Ministry involvement">
-          {person.ministries.length ? (
-            <div className="flex flex-wrap gap-1.5">{person.ministries.map((m) => <Badge key={m} variant="primary">{m}</Badge>)}</div>
-          ) : (
-            <p className="text-sm text-ink-faint">Not yet in a ministry.</p>
-          )}
-        </Section>
-
-        <Section title="Key dates">
-          <div className="grid grid-cols-2 gap-3">
-            <DateBox label="Birthday" value={person.dateOfBirth ? formatDate(person.dateOfBirth) : person.birthday ?? "---"} />
-            <DateBox label="Joined" value={formatDate(person.joined)} />
+        <div className="px-6 pb-6">
+          <div className="mt-4 space-y-1">
+            <DetailRow icon={Phone} value={person.phone ?? "No phone"} />
+            <DetailRow icon={Mail} value={person.email ?? "No email"} />
+            <DetailRow icon={MapPin} value={person.location ?? person.town ?? "No location"} />
+            {person.occupation && <DetailRow icon={Briefcase} value={person.occupation} />}
+            {person.gender && <DetailRow icon={User} value={person.gender} />}
+            {person.maritalStatus && <DetailRow icon={Heart} value={person.maritalStatus} />}
+            {person.nationality && <DetailRow icon={Shield} value={person.nationality} />}
           </div>
-        </Section>
 
-        {(person.emergencyName || person.emergencyPhone) && (
-          <Section title="Emergency contact">
-            <div className="rounded-xl border border-line bg-surface-2/40 p-3 text-sm">
-              {person.emergencyName && <div className="font-medium">{person.emergencyName}</div>}
-              {person.emergencyRelation && <div className="text-xs text-ink-faint">{person.emergencyRelation}</div>}
-              {person.emergencyPhone && <div className="mt-1 text-ink-muted">{person.emergencyPhone}</div>}
+          <Section title="Household"><p className="text-sm text-ink-muted">{person.household ?? "---"}</p></Section>
+
+          {person.department && (
+            <Section title="Department"><Badge variant="primary">{person.department}</Badge></Section>
+          )}
+
+          <Section title="Ministry involvement">
+            {person.ministries.length ? (
+              <div className="flex flex-wrap gap-1.5">{person.ministries.map((m) => <Badge key={m} variant="primary">{m}</Badge>)}</div>
+            ) : (
+              <p className="text-sm text-ink-faint">Not yet in a ministry.</p>
+            )}
+          </Section>
+
+          <Section title="Key dates">
+            <div className="grid grid-cols-2 gap-3">
+              <DateBox label="Birthday" value={person.dateOfBirth ? formatDate(person.dateOfBirth) : person.birthday ?? "---"} />
+              <DateBox label="Joined" value={formatDate(person.joined)} />
             </div>
           </Section>
-        )}
 
-        {canWrite && (
-          <div className="mt-6 flex gap-2">
-            <Button className="flex-1" onClick={onEdit}><Pencil className="size-4" /> Edit profile</Button>
-            <form
-              action={deletePerson.bind(null, person.id)}
-              onSubmit={(e) => {
-                if (!confirm(`Remove ${person.fullName} from your members? This cannot be undone.`)) {
-                  e.preventDefault();
-                } else {
-                  setTimeout(onClose, 0);
-                }
-              }}
-            >
-              <Button type="submit" variant="danger"><Trash2 className="size-4" /> Delete</Button>
-            </form>
-          </div>
-        )}
+          {(person.emergencyName || person.emergencyPhone) && (
+            <Section title="Emergency contact">
+              <div className="rounded-xl border border-line bg-surface-2/40 p-3 text-sm">
+                {person.emergencyName && <div className="font-medium">{person.emergencyName}</div>}
+                {person.emergencyRelation && <div className="text-xs text-ink-faint">{person.emergencyRelation}</div>}
+                {person.emergencyPhone && <div className="mt-1 text-ink-muted">{person.emergencyPhone}</div>}
+              </div>
+            </Section>
+          )}
+
+          {canWrite && (
+            <div className="mt-6 flex gap-2">
+              <Button className="flex-1" onClick={onEdit}><Pencil className="size-4" /> Edit profile</Button>
+              <form
+                action={deletePerson.bind(null, person.id)}
+                onSubmit={(e) => {
+                  if (!confirm(`Remove ${person.fullName} from your members? This cannot be undone.`)) {
+                    e.preventDefault();
+                  } else {
+                    setTimeout(onClose, 0);
+                  }
+                }}
+              >
+                <Button type="submit" variant="danger"><Trash2 className="size-4" /></Button>
+              </form>
+            </div>
+          )}
+        </div>
       </div>
     </>
   );
 }
 
 function PersonForm({
-  person,
-  departments,
-  onClose,
+  person, departments, onClose,
 }: {
-  person: PersonRow | null;
-  departments: Dept[];
-  onClose: () => void;
+  person: PersonRow | null; departments: Dept[]; onClose: () => void;
 }) {
   const isEdit = !!person;
   const selectBase =
@@ -305,7 +350,7 @@ function PersonForm({
 
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50" onClick={onClose} />
+      <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-2xl max-h-[90vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-line bg-surface p-6 shadow-2xl animate-fade-up">
         <div className="mb-5 flex items-center justify-between">
           <h2 className="font-display text-xl font-bold">{isEdit ? "Edit member" : "Add member"}</h2>
@@ -314,7 +359,6 @@ function PersonForm({
         <form action={isEdit ? updatePerson : createPerson} onSubmit={() => setTimeout(onClose, 0)} className="space-y-5">
           {isEdit && <input type="hidden" name="id" value={person!.id} />}
 
-          {/* Basic info */}
           <fieldset>
             <legend className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Personal</legend>
             <div className="grid grid-cols-2 gap-3">
@@ -326,24 +370,19 @@ function PersonForm({
               <div>
                 <Label htmlFor="gender">Gender</Label>
                 <select id="gender" name="gender" defaultValue={person?.gender ?? ""} className={selectBase}>
-                  <option value="">---</option>
-                  <option value="Male">Male</option>
-                  <option value="Female">Female</option>
+                  <option value="">---</option><option value="Male">Male</option><option value="Female">Female</option>
                 </select>
               </div>
               <div>
                 <Label htmlFor="title">Title</Label>
                 <select id="title" name="title" defaultValue={person?.title ?? ""} className={selectBase}>
                   <option value="">---</option>
-                  {["Mr", "Mrs", "Ms", "Dr", "Rev", "Pastor", "Elder", "Deacon", "Deaconess"].map((t) => (
-                    <option key={t}>{t}</option>
-                  ))}
+                  {["Mr", "Mrs", "Ms", "Dr", "Rev", "Pastor", "Elder", "Deacon", "Deaconess"].map((t) => <option key={t}>{t}</option>)}
                 </select>
               </div>
             </div>
           </fieldset>
 
-          {/* Contact */}
           <fieldset>
             <legend className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Contact</legend>
             <div className="grid grid-cols-2 gap-3">
@@ -352,7 +391,6 @@ function PersonForm({
             </div>
           </fieldset>
 
-          {/* Details */}
           <fieldset>
             <legend className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Details</legend>
             <div className="grid grid-cols-2 gap-3">
@@ -371,7 +409,6 @@ function PersonForm({
             </div>
           </fieldset>
 
-          {/* Location */}
           <fieldset>
             <legend className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Location</legend>
             <div className="grid grid-cols-2 gap-3">
@@ -383,16 +420,13 @@ function PersonForm({
             </div>
           </fieldset>
 
-          {/* Church */}
           <fieldset>
             <legend className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Church</legend>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label htmlFor="status">Status</Label>
                 <select id="status" name="status" defaultValue={person?.status ?? "active"} className={selectBase}>
-                  <option value="active">Active member</option>
-                  <option value="visitor">Visitor</option>
-                  <option value="inactive">Inactive</option>
+                  <option value="active">Active member</option><option value="visitor">Visitor</option><option value="inactive">Inactive</option>
                 </select>
               </div>
               {departments.length > 0 && (
@@ -400,16 +434,13 @@ function PersonForm({
                   <Label htmlFor="departmentId">Department</Label>
                   <select id="departmentId" name="departmentId" defaultValue={person?.departmentId ?? ""} className={selectBase}>
                     <option value="">---</option>
-                    {departments.map((d) => (
-                      <option key={d.id} value={d.id}>{d.name}</option>
-                    ))}
+                    {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                   </select>
                 </div>
               )}
             </div>
           </fieldset>
 
-          {/* Emergency */}
           <fieldset>
             <legend className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Emergency contact</legend>
             <div className="grid grid-cols-2 gap-3">
@@ -437,8 +468,10 @@ function PersonForm({
 
 function DetailRow({ icon: Icon, value }: { icon: typeof Phone; value: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-lg px-1 py-2 text-sm">
-      <Icon className="size-4 text-ink-faint" />
+    <div className="flex items-center gap-3 rounded-lg px-1 py-2 text-sm transition-colors hover:bg-surface-2/50">
+      <span className="grid size-8 place-items-center rounded-lg bg-surface-2/60">
+        <Icon className="size-3.5 text-ink-faint" />
+      </span>
       <span className="text-ink-muted">{value}</span>
     </div>
   );

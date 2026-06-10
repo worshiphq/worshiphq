@@ -44,28 +44,28 @@ export const spotlights: Spotlight[] = [
     title: "Know every member by name",
     body: "Build a living picture of your congregation — households, ministries, attendance history and engagement, all in one profile. Spot who's thriving and who needs a call.",
     points: ["Households & family links", "Smart lists & tags", "Engagement scoring", "CSV import with duplicate detection"],
-    image: "https://images.unsplash.com/photo-1511632765486-a01980e01a18?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1609234656388-0ff363383899?auto=format&fit=crop&w=1200&q=80",
   },
   {
     eyebrow: "Giving",
     title: "Giving as easy as a text message",
     body: "Your members already use Mobile Money — meet them there. Accept MTN MoMo, Telecel Cash, AirtelTigo and cards, set up recurring giving, and send receipts automatically.",
     points: ["MTN MoMo, Telecel & AirtelTigo", "Recurring giving & pledges", "Automated receipts & year-end statements", "Giving dashboards in ₵"],
-    image: "https://images.unsplash.com/photo-1556742502-ec7c0e9f34b1?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1504052434569-70ad5836ab65?auto=format&fit=crop&w=1200&q=80",
   },
   {
     eyebrow: "Reminders & automations",
     title: "Care that never forgets",
     body: "Birthdays, anniversaries, first-time-visitor follow-ups and gentle nudges for members who've been away — all sent automatically, so no one slips through the cracks.",
     points: ["Automatic birthday & anniversary SMS", "First-time visitor sequences", "Lapsed-member nudges", "Custom workflows"],
-    image: "https://images.unsplash.com/photo-1543269865-cbf427effbad?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1478147427282-58a87a120781?auto=format&fit=crop&w=1200&q=80",
   },
   {
     eyebrow: "Communications",
     title: "One message, your whole church",
     body: "Send a Sunday reminder by SMS, a monthly newsletter by email, or a targeted note to your worship team — then see exactly what was delivered.",
     points: ["SMS broadcasts (Ghana-ready)", "Email builder", "Segmentation & scheduling", "Delivery analytics"],
-    image: "https://images.unsplash.com/photo-1531058020387-3be344556be6?auto=format&fit=crop&w=1200&q=80",
+    image: "https://images.unsplash.com/photo-1507692049790-de58290a4334?auto=format&fit=crop&w=1200&q=80",
   },
 ];
 
