@@ -19,7 +19,7 @@ export const brand = {
   /** Spoken / everyday brand. */
   shortName: "WorshipHQ",
 
-  tagline: "Your church's command center.",
+  tagline: "Your Complete Church Management System.",
   supportingLine:
     "Everything your church needs to manage, connect, and grow — in one beautiful place.",
   description:
