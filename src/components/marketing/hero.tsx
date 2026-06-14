@@ -8,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { LaptopFrame } from "./laptop-frame";
 import { DashboardMockup } from "./dashboard-mockup";
 import { AnimatedNumber } from "@/components/ui/animated-number";
-import { brand } from "@/config/brand";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
@@ -62,7 +61,7 @@ export function Hero() {
               <span className="absolute inline-flex size-full animate-ping rounded-full bg-gold opacity-50" />
               <span className="relative inline-flex size-2 rounded-full bg-gold" />
             </span>
-            Built for churches in {brand.region.country}
+            Built for the local church, everywhere
           </motion.div>
 
           {/* ── Headline ── */}
