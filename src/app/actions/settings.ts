@@ -5,6 +5,30 @@ import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, hashPassword } from "@/lib/auth";
 import type { Role } from "@prisma/client";
 
+/** Update the signed-in user's own display name (and optional email). */
+export async function updateProfile(formData: FormData) {
+  const session = await requireSession();
+  // Demo and impersonation sessions aren't backed by a real user row.
+  if (session.isDemo || session.impersonating) return;
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
+
+  const email = String(formData.get("email") ?? "").toLowerCase().trim();
+  const data: { name: string; email?: string } = { name };
+
+  // Allow changing email only if it isn't taken by someone else.
+  if (email && email !== session.email) {
+    const taken = await db.user.findUnique({ where: { email } });
+    if (!taken) data.email = email;
+  }
+
+  await db.user.update({ where: { id: session.userId }, data });
+
+  revalidatePath("/app/settings");
+  revalidatePath("/app", "layout");
+}
+
 export async function updateChurch(formData: FormData) {
   const session = await requireSession();
   assertCanWrite(session);

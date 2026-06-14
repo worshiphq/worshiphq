@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   Building, Palette, Users2, CreditCard, Plug, Check, CircleDot,
-  Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown,
+  Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, UserCircle,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import type { Session } from "@/lib/permissions";
 import { ROLE_PERMISSIONS } from "@/lib/permissions";
 import {
   updateChurch, updateBranding, inviteTeammate,
-  updateRegistrationFields, changeUserRole, removeTeamMember,
+  updateRegistrationFields, changeUserRole, removeTeamMember, updateProfile,
 } from "@/app/actions/settings";
 import { createDepartment, deleteDepartment } from "@/app/actions/departments";
 import { plans } from "@/config/pricing";
@@ -37,6 +37,7 @@ type TeamUser = { id: string; name: string; email: string; role: string };
 type Dept = { id: string; name: string };
 
 const tabs = [
+  { key: "account", label: "My account", icon: UserCircle },
   { key: "church", label: "Church profile", icon: Building },
   { key: "branding", label: "Branding", icon: Palette },
   { key: "team", label: "Users & roles", icon: Users2 },
@@ -149,6 +150,38 @@ export function SettingsClient({
           <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
             You&rsquo;re viewing the read-only demo. Create a free account to edit your church.
           </div>
+        )}
+
+        {/* ── My account ── */}
+        {tab === "account" && (
+          <Card className="p-6">
+            <h3 className="font-display text-lg font-semibold">My account</h3>
+            <p className="text-sm text-ink-muted">
+              Your display name shown across the app and in your church&rsquo;s team list. Use your real name, a role
+              (e.g. &ldquo;Media Team&rdquo;), or your church name.
+            </p>
+            {session.impersonating ? (
+              <div className="mt-5 rounded-xl border border-dashed border-line p-4 text-sm text-ink-faint">
+                You&rsquo;re viewing this church as support — account editing is disabled here.
+              </div>
+            ) : (
+              <form action={updateProfile} className="mt-5 max-w-md space-y-4">
+                <div>
+                  <Label htmlFor="profileName">Display name</Label>
+                  <Input id="profileName" name="name" defaultValue={session.name} placeholder="e.g. Media Team" required disabled={ro} />
+                </div>
+                <div>
+                  <Label htmlFor="profileEmail">Login email</Label>
+                  <Input id="profileEmail" name="email" type="email" defaultValue={session.email} disabled={ro} />
+                  <p className="mt-1 text-xs text-ink-faint">Used to sign in. Leave unchanged if you&rsquo;re unsure.</p>
+                </div>
+                <div className="flex items-center gap-2 text-xs text-ink-faint">
+                  <CircleDot className="size-3.5" /> Signed in as <span className="font-medium text-ink-muted">{session.role}</span>
+                </div>
+                <SubmitButton disabled={ro} successMessage="Profile updated">Save profile</SubmitButton>
+              </form>
+            )}
+          </Card>
         )}
 
         {/* ── Church profile ── */}
