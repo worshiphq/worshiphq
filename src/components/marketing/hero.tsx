@@ -11,7 +11,10 @@ import { AnimatedNumber } from "@/components/ui/animated-number";
 
 const ease = [0.22, 1, 0.36, 1] as const;
 
-export function Hero() {
+const DEFAULT_SUBHEAD =
+  "Members, giving, attendance, events, messaging — one calm headquarters for everything your church runs.";
+
+export function Hero({ subhead = DEFAULT_SUBHEAD }: { subhead?: string }) {
   const ref = useRef<HTMLElement>(null);
   const { scrollYProgress } = useScroll({
     target: ref,
@@ -50,20 +53,6 @@ export function Hero() {
 
       <div className="relative mx-auto max-w-6xl px-5">
         <div className="mx-auto max-w-3xl text-center">
-          {/* ── Eyebrow badge ── */}
-          <motion.div
-            initial={{ opacity: 0, x: -12 }}
-            animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.5, ease }}
-            className="mb-5 inline-flex items-center gap-2.5 rounded-full border border-gold/25 bg-gold/5 px-4 py-2 text-xs font-medium tracking-wide text-gold backdrop-blur-sm"
-          >
-            <span className="relative flex size-2">
-              <span className="absolute inline-flex size-full animate-ping rounded-full bg-gold opacity-50" />
-              <span className="relative inline-flex size-2 rounded-full bg-gold" />
-            </span>
-            Built for the local church, everywhere
-          </motion.div>
-
           {/* ── Headline ── */}
           <motion.h1
             initial={{ opacity: 0, y: 24 }}
@@ -108,7 +97,7 @@ export function Hero() {
             transition={{ duration: 0.7, delay: 0.2, ease }}
             className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-ink-muted sm:text-lg"
           >
-            Members, giving, attendance, events, messaging — one calm headquarters for everything your church runs.
+            {subhead}
           </motion.p>
 
           {/* ── CTA row ── */}

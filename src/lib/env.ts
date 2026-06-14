@@ -88,6 +88,10 @@ const schema = z.object({
 
   // ── STOCK IMAGES ─────────────────────────────────────
   UNSPLASH_ACCESS_KEY: str,
+
+  // ── SUPERADMIN (platform owner) ──────────────────────
+  SUPERADMIN_EMAIL: z.string().default("worshiphqapp@gmail.com"),
+  SUPERADMIN_PASSWORD: str, // plain; when unset, superadmin login is disabled in prod
 });
 
 function loadEnv() {

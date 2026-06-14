@@ -20,6 +20,7 @@ model Church {
   id           String   @id @default(cuid())
   slug         String   @unique
   isDemo       Boolean  @default(false)
+  suspended    Boolean  @default(false)
   name         String
   denomination String?
   city         String?
@@ -417,6 +418,28 @@ model Transaction {
   date        DateTime @default(now())
 
   @@index([churchId])
+}
+
+// ── Platform (SuperAdmin) ─────────────────────────────────
+// Editable site/marketing content, stored as JSON keyed by section. The
+// marketing site reads these with a fallback to hardcoded defaults, so the app
+// renders fine even before any row exists.
+model SiteContent {
+  key       String   @id // e.g. "hero", "testimonials", "pricing"
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// Platform-wide announcements the SuperAdmin broadcasts to all churches.
+model Announcement {
+  id        String    @id @default(cuid())
+  title     String
+  body      String
+  level     String    @default("info") // info | warning | success
+  active    Boolean   @default(true)
+  startsAt  DateTime  @default(now())
+  endsAt    DateTime?
+  createdAt DateTime  @default(now())
 }
 
 // ── Billing ───────────────────────────────────────────────

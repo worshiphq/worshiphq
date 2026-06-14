@@ -12,6 +12,8 @@ export interface Session {
   branchId?: string | null;
   avatarName: string;
   isDemo: boolean;
+  /** True when a SuperAdmin is viewing this church as invisible support. */
+  impersonating?: boolean;
 }
 
 export const ROLE_PERMISSIONS: Record<Role, string[]> = {

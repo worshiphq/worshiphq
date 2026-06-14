@@ -4,23 +4,27 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { X } from "lucide-react";
+import { X, ShieldCheck, Megaphone, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { Logo } from "@/components/brand/logo";
 import { nav } from "@/config/nav";
 import { can, type Session } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import { exitImpersonation } from "@/app/actions/admin";
+import type { ActiveAnnouncement } from "@/lib/data/announcements";
 
 type BranchLite = { id: string; name: string; isHQ: boolean };
 
 export function AppShell({
   session,
   branches,
+  announcements = [],
   children,
 }: {
   session: Session;
   branches: BranchLite[];
+  announcements?: ActiveAnnouncement[];
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -93,7 +97,11 @@ export function AppShell({
 
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar session={session} branches={branches} onMenu={() => setMobileOpen(true)} />
+        {session.impersonating && <ImpersonationBanner churchName={session.churchName} />}
         {session.isDemo && <DemoBanner />}
+        {announcements.map((a) => (
+          <AnnouncementBanner key={a.id} announcement={a} />
+        ))}
         <main className="flex-1">
           <AnimatePresence mode="wait">
             <motion.div
@@ -120,6 +128,40 @@ function DemoBanner() {
       <Link href="/sign-up" className="font-semibold underline underline-offset-2">
         Create your free church account →
       </Link>
+    </div>
+  );
+}
+
+function ImpersonationBanner({ churchName }: { churchName: string }) {
+  return (
+    <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-teal-500/30 bg-teal-500/10 px-4 py-2 text-center text-xs text-teal-700">
+      <span className="flex items-center gap-1.5 font-medium">
+        <ShieldCheck className="size-3.5" />
+        Support mode — viewing {churchName}. The church cannot see you.
+      </span>
+      <form action={exitImpersonation}>
+        <button type="submit" className="font-semibold underline underline-offset-2">
+          Return to admin →
+        </button>
+      </form>
+    </div>
+  );
+}
+
+const ANNOUNCEMENT_STYLES: Record<string, { wrap: string; icon: typeof Megaphone }> = {
+  info: { wrap: "border-sky-500/30 bg-sky-500/10 text-sky-700", icon: Megaphone },
+  warning: { wrap: "border-amber-500/30 bg-amber-500/10 text-amber-700", icon: AlertTriangle },
+  success: { wrap: "border-emerald-500/30 bg-emerald-500/10 text-emerald-700", icon: CheckCircle2 },
+};
+
+function AnnouncementBanner({ announcement }: { announcement: ActiveAnnouncement }) {
+  const style = ANNOUNCEMENT_STYLES[announcement.level] ?? ANNOUNCEMENT_STYLES.info;
+  const Icon = style.icon;
+  return (
+    <div className={cn("flex flex-wrap items-center justify-center gap-x-2 gap-y-1 border-b px-4 py-2 text-center text-xs", style.wrap)}>
+      <Icon className="size-3.5 shrink-0" />
+      <span className="font-semibold">{announcement.title}</span>
+      <span className="opacity-90">{announcement.body}</span>
     </div>
   );
 }

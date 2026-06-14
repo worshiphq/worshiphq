@@ -14,7 +14,14 @@ const COOKIE = "whq_session";
 const SECRET = env.NEXTAUTH_SECRET ?? "dev-insecure-secret-change-me";
 
 // ── Signed-cookie helpers (HMAC so the payload can't be tampered) ──
-type Payload = { uid: string } | { demo: true };
+// - { uid }            → a normal church user
+// - { demo }           → the read-only demo church
+// - { sa }             → the platform SuperAdmin (uses the /admin area)
+// - { sa, ghost }      → SuperAdmin impersonating a church (ghost = churchId)
+type Payload =
+  | { uid: string }
+  | { demo: true }
+  | { sa: true; ghost?: string };
 
 function sign(payload: Payload): string {
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
@@ -61,6 +68,51 @@ export async function clearSession() {
   store.delete(COOKIE);
 }
 
+// ── SuperAdmin (platform owner) ──
+/** Verify SuperAdmin credentials against env. Returns false if not configured. */
+export function checkSuperAdmin(email: string, password: string): boolean {
+  const expectedEmail = env.SUPERADMIN_EMAIL.toLowerCase();
+  const expectedPw = env.SUPERADMIN_PASSWORD;
+  if (!expectedPw) return false; // login disabled until a password is set
+  const emailOk = email.toLowerCase().trim() === expectedEmail;
+  // Constant-time password compare.
+  const a = Buffer.from(password);
+  const b = Buffer.from(expectedPw);
+  const pwOk = a.length === b.length && crypto.timingSafeEqual(a, b);
+  return emailOk && pwOk;
+}
+
+export async function startSuperAdminSession() {
+  await setCookie({ sa: true });
+}
+
+/** SuperAdmin "magic links" into a church as invisible support. */
+export async function startGhostSession(churchId: string) {
+  await setCookie({ sa: true, ghost: churchId });
+}
+
+/** Leave a church and return to the admin area. */
+export async function stopGhostSession() {
+  await setCookie({ sa: true });
+}
+
+/** Returns the SuperAdmin identity if the current cookie is a SuperAdmin one. */
+export async function getSuperAdmin(): Promise<{ email: string; ghost?: string } | null> {
+  const store = await cookies();
+  const token = store.get(COOKIE)?.value;
+  if (!token) return null;
+  const payload = verify(token);
+  if (!payload || !("sa" in payload)) return null;
+  return { email: env.SUPERADMIN_EMAIL, ghost: payload.ghost };
+}
+
+/** Guard for /admin pages: returns the SuperAdmin or redirects to admin login. */
+export async function requireSuperAdmin(): Promise<{ email: string; ghost?: string }> {
+  const sa = await getSuperAdmin();
+  if (!sa) redirect("/admin/login");
+  return sa;
+}
+
 /** Current session (null when signed out). Reads a signed cookie and loads the DB user. */
 export async function getSession(): Promise<Session | null> {
   const store = await cookies();
@@ -82,6 +134,27 @@ export async function getSession(): Promise<Session | null> {
       branch: "Accra Central",
       avatarName: "Demo Visitor",
       isDemo: true,
+    };
+  }
+
+  // SuperAdmin impersonating a church → synthesize an Owner session for it.
+  // This identity is NOT a row in the church's User table, so it never appears
+  // in their team/roles list. The SuperAdmin's email is never exposed here.
+  if ("sa" in payload) {
+    if (!payload.ghost) return null; // bare superadmin isn't an app session
+    const church = await db.church.findUnique({ where: { id: payload.ghost } });
+    if (!church) return null;
+    return {
+      userId: "support",
+      name: "WorshipHQ Support",
+      email: "",
+      role: "Owner",
+      churchId: church.id,
+      churchName: church.name,
+      branch: "All branches",
+      avatarName: "WorshipHQ Support",
+      isDemo: false,
+      impersonating: true,
     };
   }
 

@@ -89,12 +89,14 @@ export interface Testimonial {
 }
 
 export const testimonials: Testimonial[] = [
-  { quote: "We moved 1,200 members onto WorshipHQ in a weekend. Mobile Money giving alone has transformed our offerings.", name: "Rev. Daniel Mensah", role: "Senior Pastor", church: "Grace Temple, Accra" },
-  { quote: "The automatic birthday messages make every member feel seen. Our follow-up of first-time visitors has never been this consistent.", name: "Pastor Abena Osei", role: "Connections Pastor", church: "City Light Chapel, Kumasi" },
-  { quote: "As a finance officer, the fund accounting and audit trail give me total peace of mind. Reports that used to take days now take minutes.", name: "Mr. Kwabena Owusu", role: "Finance Officer", church: "Living Word Ministry, Tema" },
-  { quote: "Running four branches from one dashboard is a game-changer. Leadership finally sees the whole picture in real time.", name: "Bishop Selorm Agbeko", role: "Presiding Bishop", church: "Faith Cathedral, Accra" },
-  { quote: "Even when the network drops, the app still works. For us in Ghana, that reliability is everything.", name: "Pastor Ama Sarpong", role: "Administrator", church: "Hope Assembly, Spintex" },
-  { quote: "Our youth love the QR check-in. Camp registration that used to be chaos is now effortless.", name: "Yaw Boateng", role: "Youth Director", church: "Refuge Church, East Legon" },
+  { quote: "We moved 1,200 members onto WorshipHQ in a weekend. Online and mobile giving alone has transformed our offerings.", name: "Rev. Daniel Mensah", role: "Senior Pastor", church: "Grace Temple, Accra · Ghana" },
+  { quote: "The automatic birthday messages make every member feel seen. Our follow-up of first-time visitors has never been this consistent.", name: "Pastor Grace Adeyemi", role: "Connections Pastor", church: "City Light Chapel, Lagos · Nigeria" },
+  { quote: "As a finance officer, the fund accounting and audit trail give me total peace of mind. Reports that used to take days now take minutes.", name: "James Whitfield", role: "Finance Director", church: "Cornerstone Church, Dallas · USA" },
+  { quote: "Running four campuses from one dashboard is a game-changer. Leadership finally sees the whole picture in real time.", name: "Bishop Selorm Agbeko", role: "Presiding Bishop", church: "Faith Cathedral, Nairobi · Kenya" },
+  { quote: "Even when the network drops, the app still works. That reliability has been everything for our church.", name: "Maria Santos", role: "Administrator", church: "Igreja da Esperança, São Paulo · Brazil" },
+  { quote: "Our youth love the QR check-in. Camp registration that used to be chaos is now effortless.", name: "Daniel Park", role: "Youth Director", church: "Living Hope, Manila · Philippines" },
+  { quote: "Volunteer scheduling used to eat my whole week. Now the rosters and reminders just run themselves.", name: "Sarah Thompson", role: "Operations Pastor", church: "Riverside Community, London · UK" },
+  { quote: "The giving statements and reports keep us fully transparent with our congregation and our board.", name: "Emeka Okafor", role: "Church Treasurer", church: "Redeemed Assembly, Abuja · Nigeria" },
 ];
 
 export interface Faq {

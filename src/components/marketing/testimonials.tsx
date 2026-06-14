@@ -3,14 +3,15 @@
 import { motion } from "motion/react";
 import { Reveal } from "@/components/ui/reveal";
 import { Avatar } from "@/components/ui/avatar";
-import { testimonials } from "@/config/marketing";
+import { testimonials as defaultTestimonials, type Testimonial } from "@/config/marketing";
 
-// Two rows that scroll automatically and continuously in opposite directions.
-const ROW_A = [...testimonials, ...testimonials];
-const ROW_B_BASE = [...testimonials.slice(3), ...testimonials.slice(0, 3)];
-const ROW_B = [...ROW_B_BASE, ...ROW_B_BASE];
+export function Testimonials({ items }: { items?: Testimonial[] }) {
+  const list = items && items.length ? items : defaultTestimonials;
+  // Two rows that scroll automatically and continuously in opposite directions.
+  const rowA = [...list, ...list];
+  const rowBBase = [...list.slice(3), ...list.slice(0, 3)];
+  const rowB = [...rowBBase, ...rowBBase];
 
-export function Testimonials() {
   return (
     <section className="relative py-28 overflow-hidden">
       {/* Divider with diamond */}
@@ -38,8 +39,8 @@ export function Testimonials() {
 
       {/* ── Auto-scrolling testimonial rows ── */}
       <div className="relative mt-14 flex flex-col gap-4">
-        <Marquee items={ROW_A} direction="left" duration={45} />
-        <Marquee items={ROW_B} direction="right" duration={55} />
+        <Marquee items={rowA} direction="left" duration={45} />
+        <Marquee items={rowB} direction="right" duration={55} />
 
         {/* Fade edges */}
         <div className="pointer-events-none absolute inset-y-0 left-0 w-24 bg-gradient-to-r from-base to-transparent" />
@@ -54,7 +55,7 @@ function Marquee({
   direction,
   duration,
 }: {
-  items: typeof testimonials;
+  items: Testimonial[];
   direction: "left" | "right";
   duration: number;
 }) {
@@ -78,7 +79,7 @@ function Marquee({
   );
 }
 
-function TestimonialCard({ t }: { t: (typeof testimonials)[number] }) {
+function TestimonialCard({ t }: { t: Testimonial }) {
   return (
     <figure className="w-[380px] shrink-0 rounded-2xl border border-line bg-surface p-6 transition-colors duration-300 hover:border-primary/20">
       <span className="block font-display text-4xl leading-none text-primary/15 select-none">&ldquo;</span>

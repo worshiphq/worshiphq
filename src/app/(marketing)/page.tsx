@@ -7,16 +7,18 @@ import { Testimonials } from "@/components/marketing/testimonials";
 import { PricingSection } from "@/components/marketing/pricing-section";
 import { FAQ } from "@/components/marketing/faq";
 import { FinalCTA } from "@/components/marketing/final-cta";
+import { getMarketingContent } from "@/lib/data/site-content";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const content = await getMarketingContent();
   return (
     <>
-      <Hero />
+      <Hero subhead={content.heroSubhead} />
       <TrustBar />
       <FeatureGrid />
       <Spotlights />
       <HowItWorks />
-      <Testimonials />
+      <Testimonials items={content.testimonials} />
       <PricingSection />
       <FAQ />
       <FinalCTA />
