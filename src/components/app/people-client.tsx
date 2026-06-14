@@ -8,6 +8,8 @@ import {
 import { ImportModal } from "@/components/app/import-modal";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { OnFormComplete } from "@/components/ui/form-effects";
 import { Badge } from "@/components/ui/badge";
 import { MemberAvatar } from "@/components/ui/member-avatar";
 import { Input, Label } from "@/components/ui/input";
@@ -324,12 +326,11 @@ function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow
                 onSubmit={(e) => {
                   if (!confirm(`Remove ${person.fullName} from your members? This cannot be undone.`)) {
                     e.preventDefault();
-                  } else {
-                    setTimeout(onClose, 0);
                   }
                 }}
               >
-                <Button type="submit" variant="danger"><Trash2 className="size-4" /></Button>
+                <SubmitButton variant="danger" pendingLabel="Removing…" successMessage="Member removed"><Trash2 className="size-4" /></SubmitButton>
+                <OnFormComplete onComplete={onClose} />
               </form>
             </div>
           )}
@@ -356,7 +357,7 @@ function PersonForm({
           <h2 className="font-display text-xl font-bold">{isEdit ? "Edit member" : "Add member"}</h2>
           <button onClick={onClose} className="grid size-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-2"><X className="size-5" /></button>
         </div>
-        <form action={isEdit ? updatePerson : createPerson} onSubmit={() => setTimeout(onClose, 0)} className="space-y-5">
+        <form action={isEdit ? updatePerson : createPerson} className="space-y-5">
           {isEdit && <input type="hidden" name="id" value={person!.id} />}
 
           <fieldset>
@@ -458,8 +459,11 @@ function PersonForm({
 
           <div className="flex gap-2 border-t border-line pt-4">
             <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
-            <Button type="submit" className="flex-1">{isEdit ? "Save changes" : "Add member"}</Button>
+            <SubmitButton className="flex-1" successMessage={isEdit ? "Changes saved" : "Member added"}>
+              {isEdit ? "Save changes" : "Add member"}
+            </SubmitButton>
           </div>
+          <OnFormComplete onComplete={onClose} />
         </form>
       </div>
     </>

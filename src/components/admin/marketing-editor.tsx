@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Plus, Trash2, Save } from "lucide-react";
 import type { Testimonial } from "@/config/marketing";
 import { saveMarketing } from "@/app/actions/admin";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 export function MarketingEditor({
   heroSubhead,
@@ -78,12 +79,13 @@ export function MarketingEditor({
         </div>
       </section>
 
-      <button
-        type="submit"
-        className="flex items-center gap-2 rounded-xl bg-teal-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-400"
+      <SubmitButton
+        pendingLabel="Saving…"
+        successMessage="Content saved — live now"
+        className="rounded-xl bg-teal-500 px-5 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-teal-400"
       >
         <Save className="size-4" /> Save changes
-      </button>
+      </SubmitButton>
     </form>
   );
 }

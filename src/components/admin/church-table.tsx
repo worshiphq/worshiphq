@@ -9,11 +9,14 @@ import {
   setChurchPlan,
   deleteChurch,
 } from "@/app/actions/admin";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { useFeedback } from "@/components/ui/feedback";
 
 const PLANS = ["free", "starter", "growth", "unlimited"];
 
 export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
   const [q, setQ] = useState("");
+  const { run } = useFeedback();
   const filtered = churches.filter(
     (c) =>
       c.name.toLowerCase().includes(q.toLowerCase()) ||
@@ -74,7 +77,12 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                 <td className="px-4 py-3">
                   <select
                     defaultValue={c.plan}
-                    onChange={(e) => setChurchPlan(c.id, e.target.value)}
+                    onChange={(e) =>
+                      run(() => setChurchPlan(c.id, e.target.value), {
+                        pending: "Updating plan…",
+                        success: "Plan updated",
+                      })
+                    }
                     className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs capitalize text-slate-200 focus:outline-none"
                   >
                     {PLANS.map((p) => (
@@ -92,17 +100,23 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
                     <form action={impersonateChurch.bind(null, c.id)}>
-                      <button
-                        type="submit"
+                      <SubmitButton
+                        size="sm"
+                        pendingLabel="Entering…"
+                        className="h-auto rounded-lg bg-teal-500/15 px-2.5 py-1.5 text-xs font-medium text-teal-300 shadow-none hover:bg-teal-500/25"
                         title="Step into dashboard"
-                        className="flex items-center gap-1.5 rounded-lg bg-teal-500/15 px-2.5 py-1.5 text-xs font-medium text-teal-300 transition-colors hover:bg-teal-500/25"
                       >
                         <LogIn className="size-3.5" /> Enter
-                      </button>
+                      </SubmitButton>
                     </form>
                     <button
                       type="button"
-                      onClick={() => setChurchSuspended(c.id, !c.suspended)}
+                      onClick={() =>
+                        run(() => setChurchSuspended(c.id, !c.suspended), {
+                          pending: c.suspended ? "Reactivating…" : "Suspending…",
+                          success: c.suspended ? "Church reactivated" : "Church suspended",
+                        })
+                      }
                       title={c.suspended ? "Reactivate" : "Suspend"}
                       className="grid size-8 place-items-center rounded-lg text-slate-400 transition-colors hover:bg-white/5 hover:text-amber-300"
                     >
@@ -113,7 +127,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                         type="button"
                         onClick={() => {
                           if (confirm(`Delete ${c.name}? This permanently removes all their data.`)) {
-                            deleteChurch(c.id);
+                            run(() => deleteChurch(c.id), { pending: "Deleting…", success: "Church deleted" });
                           }
                         }}
                         title="Delete church"

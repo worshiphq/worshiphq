@@ -1,12 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useFormStatus } from "react-dom";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Modal } from "@/components/ui/modal";
 
 /**
  * A button that opens a modal with a form bound to a server action.
- * The form auto-closes after submit (deferred so the action dispatches first).
+ * The submit button shows a spinner + busy overlay while saving, the form
+ * closes only AFTER the action completes, and a success toast is shown.
  * Field inputs are passed as children from the (server) page.
  */
 export function ActionDialog({
@@ -20,6 +23,8 @@ export function ActionDialog({
   disabled,
   variant = "primary",
   size = "sm",
+  pendingLabel = "Saving…",
+  successMessage = "Saved",
 }: {
   triggerLabel: string;
   triggerIcon?: React.ReactNode;
@@ -31,6 +36,8 @@ export function ActionDialog({
   disabled?: boolean;
   variant?: "primary" | "secondary";
   size?: "sm" | "md";
+  pendingLabel?: string;
+  successMessage?: string;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -40,15 +47,30 @@ export function ActionDialog({
         {triggerLabel}
       </Button>
       <Modal open={open} onClose={() => setOpen(false)} title={title} description={description}>
-        <form action={action} onSubmit={() => setTimeout(() => setOpen(false), 0)} className="space-y-4">
+        <form action={action} className="space-y-4">
           {children}
-          <Button type="submit" className="w-full">
+          <SubmitButton className="w-full" pendingLabel={pendingLabel} successMessage={successMessage}>
             {submitLabel}
-          </Button>
+          </SubmitButton>
+          <CloseOnComplete onDone={() => setOpen(false)} />
         </form>
       </Modal>
     </>
   );
+}
+
+/** Closes the dialog once the bound server action finishes. */
+function CloseOnComplete({ onDone }: { onDone: () => void }) {
+  const { pending } = useFormStatus();
+  const was = useRef(false);
+  useEffect(() => {
+    if (pending) was.current = true;
+    else if (was.current) {
+      was.current = false;
+      onDone();
+    }
+  }, [pending, onDone]);
+  return null;
 }
 
 /** Reusable labelled field row for use inside ActionDialog. */

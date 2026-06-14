@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Check, AlertCircle } from "lucide-react";
 import { signUp } from "@/app/actions/auth";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label } from "@/components/ui/input";
 
 export const metadata: Metadata = { title: "Create your church" };
@@ -59,9 +59,9 @@ export default async function SignUpPage({
           <Label htmlFor="password">Password</Label>
           <Input id="password" name="password" type="password" placeholder="At least 6 characters" required minLength={6} />
         </div>
-        <Button type="submit" size="lg" className="w-full">
+        <SubmitButton size="lg" className="w-full" pendingLabel="Creating your church…">
           Create church account
-        </Button>
+        </SubmitButton>
       </form>
 
       <p className="mt-6 text-center text-sm text-ink-muted">

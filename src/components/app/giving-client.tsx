@@ -7,6 +7,8 @@ import { StatCard } from "@/components/app/stat-card";
 import { FundDonut } from "@/components/app/charts";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { OnFormComplete } from "@/components/ui/form-effects";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Input, Label } from "@/components/ui/input";
@@ -121,7 +123,7 @@ function RecordGiftDialog({ funds, onClose }: { funds: { name: string }[]; onClo
           <h2 className="font-display text-xl font-bold">Record a gift</h2>
           <button onClick={onClose} className="grid size-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-2"><X className="size-5" /></button>
         </div>
-        <form action={recordGift} onSubmit={() => setTimeout(onClose, 0)} className="space-y-4">
+        <form action={recordGift} className="space-y-4">
           <input type="hidden" name="method" value={method} />
           <div><Label htmlFor="donor">Donor</Label><Input id="donor" name="donor" placeholder="Member name (or leave as Anonymous)" /></div>
           <div className="grid grid-cols-2 gap-3">
@@ -150,8 +152,9 @@ function RecordGiftDialog({ funds, onClose }: { funds: { name: string }[]; onClo
           </div>
           <div className="flex gap-2 pt-1">
             <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
-            <Button type="submit" className="flex-1">Record gift</Button>
+            <SubmitButton className="flex-1" pendingLabel="Recording…" successMessage="Gift recorded">Record gift</SubmitButton>
           </div>
+          <OnFormComplete onComplete={onClose} />
         </form>
         <p className="mt-3 text-center text-xs text-ink-faint">Recorded in your church&rsquo;s ledger. Add a Paystack key to charge MoMo for real.</p>
       </div>

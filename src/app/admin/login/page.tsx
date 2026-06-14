@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { ShieldCheck } from "lucide-react";
 import { getSuperAdmin } from "@/lib/auth";
 import { superAdminSignIn } from "@/app/actions/admin";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 export default async function AdminLoginPage({
   searchParams,
@@ -51,12 +52,13 @@ export default async function AdminLoginPage({
               className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3.5 text-sm text-slate-100 focus:border-teal-400/60 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
             />
           </div>
-          <button
-            type="submit"
-            className="h-11 w-full rounded-xl bg-teal-500 text-sm font-semibold text-white transition-colors hover:bg-teal-400"
+          <SubmitButton
+            pendingLabel="Signing in…"
+            overlay={false}
+            className="h-11 w-full rounded-xl bg-teal-500 text-sm font-semibold text-white shadow-none transition-colors hover:bg-teal-400"
           >
             Sign in
-          </button>
+          </SubmitButton>
         </form>
       </div>
     </div>

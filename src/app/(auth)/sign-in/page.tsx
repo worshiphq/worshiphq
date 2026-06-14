@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { AlertCircle, Eye } from "lucide-react";
 import { signIn, enterDemo } from "@/app/actions/auth";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label } from "@/components/ui/input";
 
 export const metadata: Metadata = { title: "Log in" };
@@ -40,9 +40,9 @@ export default async function SignInPage({
           </div>
           <Input id="password" name="password" type="password" placeholder="••••••••" required />
         </div>
-        <Button type="submit" size="lg" className="w-full">
+        <SubmitButton size="lg" className="w-full" pendingLabel="Logging in…">
           Log in
-        </Button>
+        </SubmitButton>
       </form>
 
       <div className="my-5 flex items-center gap-3 text-xs text-ink-faint">
@@ -50,9 +50,9 @@ export default async function SignInPage({
       </div>
 
       <form action={enterDemo}>
-        <Button type="submit" variant="secondary" size="lg" className="w-full">
+        <SubmitButton variant="secondary" size="lg" className="w-full" pendingLabel="Loading demo…">
           <Eye /> View live demo
-        </Button>
+        </SubmitButton>
       </form>
 
       <p className="mt-6 text-center text-sm text-ink-muted">

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { startOnlineGift } from "@/app/actions/public-giving";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 const PRESETS = [20, 50, 100, 200, 500];
 const METHODS = ["MTN MoMo", "Telecel Cash", "AirtelTigo", "Card"];
@@ -127,13 +128,13 @@ export function GiveForm({
       </fieldset>
 
       <div className="border-t border-[#e8e2d6] pt-6">
-        <button
-          type="submit"
-          className="w-full rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+        <SubmitButton
+          pendingLabel="Redirecting to secure checkout…"
+          className="w-full rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
           style={{ backgroundColor: accentColor }}
         >
           Give ₵{amount || "0"} now
-        </button>
+        </SubmitButton>
         <p className="mt-3 text-center text-xs text-[#a09888]">
           Secure giving to {churchName} via Paystack. You'll receive a receipt by SMS or email.
         </p>

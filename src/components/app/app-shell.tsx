@@ -12,6 +12,7 @@ import { nav } from "@/config/nav";
 import { can, type Session } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { exitImpersonation } from "@/app/actions/admin";
+import { SubmitButton } from "@/components/ui/submit-button";
 import type { ActiveAnnouncement } from "@/lib/data/announcements";
 
 type BranchLite = { id: string; name: string; isHQ: boolean };
@@ -140,9 +141,15 @@ function ImpersonationBanner({ churchName }: { churchName: string }) {
         Support mode — viewing {churchName}. The church cannot see you.
       </span>
       <form action={exitImpersonation}>
-        <button type="submit" className="font-semibold underline underline-offset-2">
+        <SubmitButton
+          variant="ghost"
+          size="sm"
+          overlay
+          pendingLabel="Returning…"
+          className="h-auto bg-transparent px-0 py-0 font-semibold text-teal-700 underline underline-offset-2 shadow-none hover:bg-transparent"
+        >
           Return to admin →
-        </button>
+        </SubmitButton>
       </form>
     </div>
   );

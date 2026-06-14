@@ -1,7 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import { Suspense } from "react";
 import { Bricolage_Grotesque, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
 import { brand } from "@/config/brand";
 import { ServiceWorker } from "@/components/pwa/service-worker";
+import { FeedbackProvider } from "@/components/ui/feedback";
+import { NavProgress } from "@/components/ui/nav-progress";
 import "./globals.css";
 
 const display = Bricolage_Grotesque({
@@ -67,7 +70,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" suppressHydrationWarning>
       <body className={`${display.variable} ${sans.variable} ${mono.variable} antialiased`}>
-        {children}
+        <Suspense fallback={null}>
+          <NavProgress />
+        </Suspense>
+        <FeedbackProvider>{children}</FeedbackProvider>
         <ServiceWorker />
       </body>
     </html>

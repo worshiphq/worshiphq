@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Badge } from "@/components/ui/badge";
 import { Input, Label } from "@/components/ui/input";
 import type { Session } from "@/lib/permissions";
@@ -168,7 +169,7 @@ export function SettingsClient({
                   <p className="mt-1 text-xs text-ink-faint">Paste a link to your church logo. It will appear on the join form and app.</p>
                 </div>
               </div>
-              <Button type="submit" className="mt-5" disabled={ro}>Save changes</Button>
+              <SubmitButton className="mt-5" disabled={ro} successMessage="Changes saved">Save changes</SubmitButton>
             </form>
           </Card>
         )}
@@ -198,7 +199,7 @@ export function SettingsClient({
                   ))}
                 </div>
               </div>
-              <Button type="submit" disabled={ro}>Save branding</Button>
+              <SubmitButton disabled={ro} successMessage="Branding saved">Save branding</SubmitButton>
             </form>
           </Card>
         )}
@@ -233,9 +234,9 @@ export function SettingsClient({
                           >
                             {ALL_ROLES.map((r) => <option key={r}>{r}</option>)}
                           </select>
-                          <Button type="submit" size="sm" variant="secondary" className="h-8 px-2 text-xs">
+                          <SubmitButton size="sm" variant="secondary" overlay={false} successMessage="Role updated" className="h-8 px-2 text-xs">
                             Update
-                          </Button>
+                          </SubmitButton>
                         </form>
                       ) : (
                         <Badge variant="default">{u.role}</Badge>
@@ -243,9 +244,9 @@ export function SettingsClient({
                       {isAdmin && u.id !== session.userId && u.role !== "Owner" && (
                         <form action={removeTeamMember}>
                           <input type="hidden" name="userId" value={u.id} />
-                          <Button type="submit" size="sm" variant="danger" className="h-8 px-2">
+                          <SubmitButton size="sm" variant="danger" overlay={false} successMessage="Member removed" className="h-8 px-2">
                             <Trash2 className="size-3" />
-                          </Button>
+                          </SubmitButton>
                         </form>
                       )}
                     </div>
@@ -273,7 +274,7 @@ export function SettingsClient({
                     ))}
                   </select>
                   <Input name="password" placeholder="Temp password (optional)" disabled={ro} />
-                  <Button type="submit" className="sm:col-span-2" disabled={ro}>Send invite</Button>
+                  <SubmitButton className="sm:col-span-2" disabled={ro} pendingLabel="Sending invite…" successMessage="Invite sent">Send invite</SubmitButton>
                 </form>
                 <p className="mt-2 text-xs text-ink-faint">
                   They&rsquo;ll sign in with this email and temporary password.
@@ -327,9 +328,9 @@ export function SettingsClient({
                           }
                         }}
                       >
-                        <Button type="submit" size="sm" variant="ghost" className="text-danger">
+                        <SubmitButton size="sm" variant="ghost" overlay={false} successMessage="Department deleted" className="text-danger">
                           <Trash2 className="size-3.5" />
-                        </Button>
+                        </SubmitButton>
                       </form>
                     )}
                   </div>
@@ -342,7 +343,7 @@ export function SettingsClient({
               <form action={createDepartment} className="mt-3 flex gap-3">
                 <Input name="name" placeholder="e.g. Choir, Ushering, Youth" required disabled={ro} className="flex-1" />
                 <Input name="description" placeholder="Description (optional)" disabled={ro} className="flex-1" />
-                <Button type="submit" disabled={ro}>Add</Button>
+                <SubmitButton disabled={ro} pendingLabel="Adding…" successMessage="Department added">Add</SubmitButton>
               </form>
             </Card>
           </div>
@@ -393,7 +394,7 @@ export function SettingsClient({
                       </label>
                     ))}
                   </div>
-                  <Button type="submit" className="mt-4" disabled={ro}>Save form configuration</Button>
+                  <SubmitButton className="mt-4" disabled={ro} successMessage="Form configuration saved">Save form configuration</SubmitButton>
                 </form>
               </Card>
             )}

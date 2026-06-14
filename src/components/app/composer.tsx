@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Mail, Send, Smartphone } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Textarea } from "@/components/ui/input";
 import { sendBroadcast } from "@/app/actions/communications";
 import { cn } from "@/lib/utils";
@@ -66,9 +66,14 @@ export function Composer({ segments, canWrite }: { segments: string[]; canWrite:
           <Textarea name="message" value={message} onChange={(e) => setMessage(e.target.value)} className="min-h-28" required />
         </div>
 
-        <Button type="submit" className="w-full" disabled={!canWrite}>
+        <SubmitButton
+          className="w-full"
+          disabled={!canWrite}
+          pendingLabel={`Sending ${channel}…`}
+          successMessage={`${channel} broadcast sent`}
+        >
           <Send /> Send {channel} broadcast
-        </Button>
+        </SubmitButton>
         <p className="text-center text-xs text-ink-faint">
           Sender ID: WorshipHQ · GHS billing{" "}
           {channel === "SMS" ? "· SMS logs to console until an Arkesel key is added" : "· email logs to console until a Resend key is added"}

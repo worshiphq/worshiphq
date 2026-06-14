@@ -1,6 +1,7 @@
 "use client";
 
 import { selfRegister } from "@/app/actions/join";
+import { SubmitButton } from "@/components/ui/submit-button";
 
 const GHANA_REGIONS = [
   "Greater Accra", "Ashanti", "Central", "Western", "Eastern",
@@ -273,13 +274,13 @@ export function JoinForm({
       )}
 
       <div className="border-t border-[#e8e2d6] pt-6">
-        <button
-          type="submit"
-          className="w-full rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-sm transition-colors hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+        <SubmitButton
+          pendingLabel="Submitting…"
+          className="w-full rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
           style={{ backgroundColor: accentColor }}
         >
           Submit registration
-        </button>
+        </SubmitButton>
         <p className="mt-3 text-center text-xs text-[#a09888]">
           Your details are shared only with {churchName} leadership. By submitting, you consent to your information being stored securely.
         </p>

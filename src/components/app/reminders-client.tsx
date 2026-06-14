@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
+import { useFeedback } from "@/components/ui/feedback";
 import { toggleAutomation } from "@/app/actions/automations";
 import { cn } from "@/lib/utils";
 
@@ -25,6 +26,7 @@ export function RemindersClient({
   canWrite: boolean;
 }) {
   const [pending, start] = useTransition();
+  const { toast } = useFeedback();
 
   return (
     <div>
@@ -63,7 +65,12 @@ export function RemindersClient({
                 role="switch"
                 aria-checked={a.active}
                 disabled={!canWrite || pending}
-                onClick={() => start(() => toggleAutomation(a.id, !a.active))}
+                onClick={() =>
+                  start(async () => {
+                    await toggleAutomation(a.id, !a.active);
+                    toast(a.active ? "Automation paused" : "Automation activated", "success");
+                  })
+                }
                 className={cn("relative h-6 w-11 shrink-0 rounded-full border border-line transition-colors disabled:opacity-50", a.active ? "bg-primary" : "bg-surface-2")}
               >
                 <span className={cn("absolute top-0.5 size-4 rounded-full bg-white transition-all", a.active ? "left-[1.45rem]" : "left-0.5")} />

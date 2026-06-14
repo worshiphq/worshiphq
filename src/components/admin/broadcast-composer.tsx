@@ -2,6 +2,8 @@
 
 import { Megaphone, Trash2, Eye, EyeOff } from "lucide-react";
 import { createAnnouncement, toggleAnnouncement, deleteAnnouncement } from "@/app/actions/admin";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { useFeedback } from "@/components/ui/feedback";
 
 interface AnnouncementRow {
   id: string;
@@ -20,6 +22,7 @@ const LEVEL_STYLES: Record<string, string> = {
 };
 
 export function BroadcastComposer({ announcements }: { announcements: AnnouncementRow[] }) {
+  const { run } = useFeedback();
   const field =
     "w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-teal-400/60 focus:outline-none";
 
@@ -46,12 +49,13 @@ export function BroadcastComposer({ announcements }: { announcements: Announceme
             <input name="endsAt" type="date" className={field} />
           </div>
         </div>
-        <button
-          type="submit"
-          className="rounded-xl bg-teal-500 px-5 py-2.5 text-sm font-semibold text-white hover:bg-teal-400"
+        <SubmitButton
+          pendingLabel="Publishing…"
+          successMessage="Announcement published"
+          className="rounded-xl bg-teal-500 px-5 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-teal-400"
         >
           Publish to all churches
-        </button>
+        </SubmitButton>
       </form>
 
       {/* Existing */}
@@ -76,7 +80,12 @@ export function BroadcastComposer({ announcements }: { announcements: Announceme
                 <div className="flex shrink-0 items-center gap-1">
                   <button
                     type="button"
-                    onClick={() => toggleAnnouncement(a.id, !a.active)}
+                    onClick={() =>
+                      run(() => toggleAnnouncement(a.id, !a.active), {
+                        pending: a.active ? "Hiding…" : "Showing…",
+                        success: a.active ? "Hidden" : "Now visible",
+                      })
+                    }
                     title={a.active ? "Hide" : "Show"}
                     className="grid size-8 place-items-center rounded-lg text-slate-400 hover:bg-white/5 hover:text-white"
                   >
@@ -85,7 +94,8 @@ export function BroadcastComposer({ announcements }: { announcements: Announceme
                   <button
                     type="button"
                     onClick={() => {
-                      if (confirm("Delete this announcement?")) deleteAnnouncement(a.id);
+                      if (confirm("Delete this announcement?"))
+                        run(() => deleteAnnouncement(a.id), { pending: "Deleting…", success: "Deleted" });
                     }}
                     className="grid size-8 place-items-center rounded-lg text-slate-400 hover:bg-red-500/10 hover:text-red-300"
                   >
