@@ -10,14 +10,17 @@ export async function getDashboard(churchId: string) {
   const weekAgo = new Date(Date.now() - 7 * 86400000);
   const todayMMDD = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-  const [activeMembers, weeklyAttendance, monthGiving, reachAgg, gifts, attendance, events, people, departments, recent] =
+  const [activeMembers, weekAgg, monthGiving, reachAgg, gifts, attendance, events, people, departments, recent] =
     await Promise.all([
       db.person.count({ where: { churchId, status: "active" } }),
-      db.attendanceRecord.count({ where: { churchId, date: { gte: weekAgo } } }),
+      db.attendanceSession.aggregate({
+        _sum: { adults: true, teens: true, children: true, visitors: true },
+        where: { churchId, date: { gte: weekAgo } },
+      }),
       db.gift.aggregate({ _sum: { amount: true }, where: { churchId, date: { gte: startOfMonth } } }),
       db.communication.aggregate({ _sum: { delivered: true }, where: { churchId } }),
       db.gift.findMany({ where: { churchId, date: { gte: sixMonthsAgo } }, select: { amount: true, date: true } }),
-      db.attendanceRecord.findMany({ where: { churchId, date: { gte: sixMonthsAgo } }, select: { date: true } }),
+      db.attendanceSession.findMany({ where: { churchId, date: { gte: sixMonthsAgo } }, select: { date: true, adults: true, teens: true, children: true, visitors: true } }),
       db.event.findMany({ where: { churchId, startsAt: { gte: now } }, orderBy: { startsAt: "asc" }, take: 4 }),
       db.person.findMany({ where: { churchId }, select: { firstName: true, lastName: true, birthday: true, status: true, gender: true, departmentId: true } }),
       db.department.findMany({ where: { churchId }, select: { id: true, name: true, _count: { select: { people: true } } } }),
@@ -39,7 +42,7 @@ export async function getDashboard(churchId: string) {
   for (const a of attendance) {
     const k = `${a.date.getFullYear()}-${a.date.getMonth()}`;
     const i = idx.get(k);
-    if (i !== undefined) buckets[i].attendance += 1;
+    if (i !== undefined) buckets[i].attendance += a.adults + a.teens + a.children + a.visitors;
   }
 
   const todaysBirthdays = people
@@ -71,7 +74,11 @@ export async function getDashboard(churchId: string) {
   return {
     kpis: {
       activeMembers,
-      weeklyAttendance,
+      weeklyAttendance:
+        (weekAgg._sum.adults ?? 0) +
+        (weekAgg._sum.teens ?? 0) +
+        (weekAgg._sum.children ?? 0) +
+        (weekAgg._sum.visitors ?? 0),
       monthlyGiving: Number(monthGiving._sum.amount ?? 0),
       messageReach: reachAgg._sum.delivered ?? 0,
     },

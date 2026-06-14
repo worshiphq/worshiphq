@@ -47,6 +47,7 @@ model Church {
   campaigns     Campaign[]
   events        Event[]
   attendance    AttendanceRecord[]
+  attendanceSessions AttendanceSession[]
   assignments   VolunteerAssignment[]
   communications Communication[]
   automations   Automation[]
@@ -67,6 +68,7 @@ model Branch {
   people      Person[]
   events      Event[]
   attendance  AttendanceRecord[]
+  attendanceSessions AttendanceSession[]
   gifts       Gift[]
   users       User[]
 
@@ -220,6 +222,29 @@ model Tag {
 }
 
 // ── Attendance ────────────────────────────────────────────
+// A service/meeting on a given day. Holds demographic headcounts and (optionally)
+// individually checked-in people via AttendanceRecord.
+model AttendanceSession {
+  id          String   @id @default(cuid())
+  churchId    String
+  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  branchId    String?
+  branch      Branch?  @relation(fields: [branchId], references: [id])
+  serviceName String
+  date        DateTime
+  note        String?
+  adults      Int      @default(0)
+  teens       Int      @default(0)
+  children    Int      @default(0)
+  visitors    Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  records AttendanceRecord[]
+
+  @@index([churchId])
+  @@index([date])
+}
+
 model AttendanceRecord {
   id          String   @id @default(cuid())
   churchId    String
@@ -228,12 +253,17 @@ model AttendanceRecord {
   branch      Branch?  @relation(fields: [branchId], references: [id])
   personId    String?
   person      Person?  @relation(fields: [personId], references: [id])
+  sessionId   String?
+  session     AttendanceSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  guestName   String?  // for unidentified / visitor self check-ins
+  category    String   @default("adult") // adult | teen | child | visitor
   serviceName String
   date        DateTime
   method      String   @default("qr") // qr | manual | self
 
   @@index([churchId])
   @@index([date])
+  @@index([sessionId])
 }
 
 // ── Giving ────────────────────────────────────────────────

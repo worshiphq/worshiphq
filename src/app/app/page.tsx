@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   Users, CalendarCheck2, HandCoins, MessageSquare, Cake, ArrowRight,
-  Plus, UserPlus, Send, CalendarPlus, Heart, Clock, TrendingUp, ChevronRight,
+  UserPlus, Send, CalendarPlus, Heart, Clock, TrendingUp, ChevronRight,
 } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { TrendAreaChart, AttendanceBarChart, MembershipDonut } from "@/components/app/charts";
@@ -13,6 +13,8 @@ import { requireSession } from "@/lib/auth";
 import { getDashboard } from "@/lib/data/dashboard";
 import { formatDate } from "@/lib/utils";
 import { DashboardAnimations } from "@/components/app/dashboard-animations";
+import { QuickAddMenu } from "@/components/app/quick-add-menu";
+import { PageTips } from "@/components/app/page-tips";
 
 const quickActions = [
   { icon: UserPlus, label: "Add member", href: "/app/people", color: "bg-primary/10 text-primary-bright" },
@@ -30,6 +32,14 @@ export default async function DashboardPage() {
 
   return (
     <DashboardAnimations>
+      <PageTips
+        tourId="dashboard"
+        steps={[
+          { target: "quick-add", title: "Quick add", body: "Jump straight to adding a member, recording a gift, taking attendance or sending an SMS." },
+          { target: "dash-kpis", title: "Your church at a glance", body: "Live totals for members, weekly attendance, giving and message reach — updated as you work." },
+          { target: "dash-quick-actions", title: "Common tasks", body: "One-tap shortcuts to the things you do most often." },
+        ]}
+      />
       <div className="space-y-6">
         {/* ── Header ── */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
@@ -41,12 +51,12 @@ export default async function DashboardPage() {
           </div>
           <div className="flex items-center gap-2">
             <SyncStatus />
-            <Button size="sm"><Plus className="size-4" /> Quick add</Button>
+            <QuickAddMenu />
           </div>
         </div>
 
         {/* ── KPI Cards ── */}
-        <div data-animate="stagger" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div data-tour="dash-kpis" data-animate="stagger" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <KPICard label="Active members" value={kpis.activeMembers} icon={Users} trend={12} color="primary" />
           <KPICard label="Weekly attendance" value={kpis.weeklyAttendance} icon={CalendarCheck2} trend={5} color="success" />
           <KPICard label="Monthly giving" value={kpis.monthlyGiving} prefix="₵" icon={HandCoins} trend={8} color="gold" />
@@ -54,7 +64,7 @@ export default async function DashboardPage() {
         </div>
 
         {/* ── Quick actions ── */}
-        <div data-animate="stagger" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div data-tour="dash-quick-actions" data-animate="stagger" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {quickActions.map((a) => (
             <Link key={a.label} href={a.href}>
               <div className="group flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/25 hover:shadow-md cursor-pointer">

@@ -3,6 +3,7 @@ import { getPeople, getPeopleStats } from "@/lib/data/people";
 import { db } from "@/lib/db";
 import { PeopleClient } from "@/components/app/people-client";
 import { JoinLinkCard } from "@/components/app/join-link-card";
+import { PageTips } from "@/components/app/page-tips";
 
 export const metadata = { title: "People" };
 
@@ -20,13 +21,26 @@ export default async function PeoplePage() {
   ]);
   return (
     <div className="space-y-5">
-      {church && !church.isDemo && <JoinLinkCard slug={church.slug} />}
-      <PeopleClient
-        people={people}
-        stats={stats}
-        canWrite={!session.isDemo}
-        departments={departments}
+      <PageTips
+        tourId="people"
+        steps={[
+          { target: "people-invite", title: "Let members register themselves", body: "Share this link (or its QR) so members fill in their own details — they appear in your list automatically." },
+          { target: "people-list", title: "Your whole congregation", body: "Search, filter and switch between grid and list. Click anyone to open their full profile, or add a member manually." },
+        ]}
       />
+      {church && !church.isDemo && (
+        <div data-tour="people-invite">
+          <JoinLinkCard slug={church.slug} />
+        </div>
+      )}
+      <div data-tour="people-list">
+        <PeopleClient
+          people={people}
+          stats={stats}
+          canWrite={!session.isDemo}
+          departments={departments}
+        />
+      </div>
     </div>
   );
 }

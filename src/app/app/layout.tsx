@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app/app-shell";
+import { TourProvider } from "@/components/app/tour";
 import { getActiveAnnouncements } from "@/lib/data/announcements";
 
 export const metadata: Metadata = {
@@ -35,7 +36,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   }
   return (
     <AppShell session={session} branches={branches} announcements={announcements}>
-      {children}
+      <TourProvider>{children}</TourProvider>
     </AppShell>
   );
 }
