@@ -1,4 +1,5 @@
 import "server-only";
+import crypto from "node:crypto";
 import { env, features } from "@/lib/env";
 
 export type InitResult = {
@@ -9,6 +10,11 @@ export type InitResult = {
   error?: string;
 };
 
+/** Generate a unique Paystack-safe transaction reference. */
+export function newPaymentReference(): string {
+  return `whq_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
 /**
  * Initialize a Paystack transaction (GHS). Supports Mobile Money (MTN MoMo,
  * Telecel Cash, AirtelTigo Money) and cards. In stub mode it returns a fake
@@ -18,8 +24,14 @@ export async function initializePayment(opts: {
   email: string;
   amountGhs: number;
   metadata?: Record<string, unknown>;
+  /** Supply your own reference (so you can correlate before redirecting). */
+  reference?: string;
+  /** Where Paystack returns the donor after payment. */
+  callbackUrl?: string;
+  /** Where the stub-mode flow should send the donor (no real checkout). */
+  stubReturnUrl?: string;
 }): Promise<InitResult> {
-  const reference = `whq_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+  const reference = opts.reference ?? newPaymentReference();
 
   if (!features.payments) {
     console.info(`[Paystack:stub] init ₵${opts.amountGhs} for ${opts.email} (ref ${reference})`);
@@ -27,7 +39,7 @@ export async function initializePayment(opts: {
       ok: true,
       stubbed: true,
       reference,
-      authorizationUrl: `${env.NEXT_PUBLIC_APP_URL}/app/giving?demo_paid=${reference}`,
+      authorizationUrl: opts.stubReturnUrl ?? `${env.NEXT_PUBLIC_APP_URL}/app/giving?demo_paid=${reference}`,
     };
   }
 
@@ -40,7 +52,7 @@ export async function initializePayment(opts: {
         amount: Math.round(opts.amountGhs * 100), // pesewas
         currency: "GHS",
         channels: ["mobile_money", "card", "bank"],
-        callback_url: env.PAYSTACK_CALLBACK_URL,
+        callback_url: opts.callbackUrl ?? env.PAYSTACK_CALLBACK_URL,
         metadata: opts.metadata,
         reference,
       }),
@@ -56,4 +68,19 @@ export async function initializePayment(opts: {
   } catch (e) {
     return { ok: false, stubbed: false, reference, error: (e as Error).message };
   }
+}
+
+/**
+ * Verify a Paystack webhook signature. Paystack signs the raw request body with
+ * HMAC-SHA512 using your secret key and sends it as the `x-paystack-signature`
+ * header. We prefer PAYSTACK_WEBHOOK_SECRET if set, else the secret key.
+ */
+export function verifyPaystackSignature(rawBody: string, signature: string | null): boolean {
+  if (!signature) return false;
+  const key = env.PAYSTACK_WEBHOOK_SECRET ?? env.PAYSTACK_SECRET_KEY;
+  if (!key) return false;
+  const expected = crypto.createHmac("sha512", key).update(rawBody).digest("hex");
+  // Constant-time compare; lengths must match or timingSafeEqual throws.
+  if (expected.length !== signature.length) return false;
+  return crypto.timingSafeEqual(Buffer.from(expected), Buffer.from(signature));
 }

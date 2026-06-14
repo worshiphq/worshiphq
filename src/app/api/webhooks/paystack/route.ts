@@ -1,0 +1,82 @@
+import type { NextRequest } from "next/server";
+import { verifyPaystackSignature } from "@/lib/integrations/paystack";
+import { recordOnlineGift, methodFromPaystackChannel } from "@/lib/giving/record";
+
+// Webhooks must never be statically cached and always run on the server.
+export const dynamic = "force-dynamic";
+
+/**
+ * Paystack webhook receiver.
+ *
+ * Paystack POSTs payment events here and signs the raw body with HMAC-SHA512.
+ * On `charge.success` we read the gift metadata we attached at init time and
+ * record the Gift (idempotently, keyed on the transaction reference), then fire
+ * the donor's receipt.
+ */
+export async function POST(request: NextRequest) {
+  const rawBody = await request.text();
+  const signature = request.headers.get("x-paystack-signature");
+
+  if (!verifyPaystackSignature(rawBody, signature)) {
+    return new Response("Invalid signature", { status: 401 });
+  }
+
+  let event: PaystackEvent;
+  try {
+    event = JSON.parse(rawBody);
+  } catch {
+    return new Response("Bad payload", { status: 400 });
+  }
+
+  if (event.event !== "charge.success") {
+    // Acknowledge everything else so Paystack doesn't retry.
+    return Response.json({ received: true });
+  }
+
+  const data = event.data ?? {};
+  const meta = (data.metadata ?? {}) as GiftMetadata;
+
+  // Only handle our online-giving charges; ignore subscription/other charges.
+  if (meta.kind !== "online_gift" || !meta.churchId || !data.reference) {
+    return Response.json({ received: true, ignored: true });
+  }
+
+  try {
+    const result = await recordOnlineGift({
+      churchId: meta.churchId,
+      reference: data.reference,
+      amountGhs: (data.amount ?? 0) / 100, // pesewas → cedis
+      donorName: meta.donorName ?? "Anonymous",
+      email: data.customer?.email ?? meta.email ?? null,
+      phone: meta.phone ?? null,
+      fundName: meta.fundName ?? null,
+      method: methodFromPaystackChannel(data.channel, meta.method),
+    });
+    return Response.json({ received: true, created: result.created });
+  } catch (e) {
+    console.error("[Paystack webhook] failed to record gift:", e);
+    // 500 → Paystack will retry, which is safe because recording is idempotent.
+    return new Response("Processing error", { status: 500 });
+  }
+}
+
+interface GiftMetadata {
+  kind?: string;
+  churchId?: string;
+  donorName?: string;
+  email?: string;
+  phone?: string;
+  fundName?: string;
+  method?: string;
+}
+
+interface PaystackEvent {
+  event: string;
+  data?: {
+    reference?: string;
+    amount?: number;
+    channel?: string;
+    customer?: { email?: string };
+    metadata?: GiftMetadata;
+  };
+}
