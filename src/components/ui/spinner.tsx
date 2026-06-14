@@ -20,7 +20,7 @@ export function Spinner({
       role="status"
       aria-label="Loading"
       className={cn(
-        "inline-block animate-spin rounded-full border-current border-t-transparent",
+        "whq-spin inline-block rounded-full border-current border-t-transparent",
         SIZES[size],
         className,
       )}

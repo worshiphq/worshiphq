@@ -83,7 +83,7 @@ export function DemoForm() {
             <Button type="submit" size="lg" className="w-full" disabled={state === "loading"}>
               {state === "loading" ? (
                 <>
-                  <Loader2 className="animate-spin" /> Sending…
+                  <Loader2 className="whq-spin" /> Sending…
                 </>
               ) : (
                 "Request demo"

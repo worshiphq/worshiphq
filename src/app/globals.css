@@ -231,11 +231,26 @@
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
 }
 
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* Loading spinner — must keep rotating even when the user prefers reduced
+   motion (a spinner that doesn't spin reads as "frozen / broken"). The class
+   selector + !important beats the universal reduced-motion override below. */
+.whq-spin {
+  animation: spin 0.7s linear infinite !important;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.001ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
+  }
+  /* Re-exempt the loading spinner. */
+  .whq-spin {
+    animation: spin 0.7s linear infinite !important;
   }
 }
