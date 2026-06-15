@@ -2,18 +2,12 @@ import "server-only";
 import { db } from "@/lib/db";
 import { sendSms } from "@/lib/integrations/sms";
 import { features } from "@/lib/env";
+import { normalisePhone } from "@/lib/phone";
+
+export { normalisePhone };
 
 const CODE_TTL_MIN = 10;
 const MAX_ATTEMPTS = 5;
-
-/** Normalise a Ghana (or international) phone to digits, defaulting to 233. */
-export function normalisePhone(raw: string): string {
-  let p = raw.replace(/[^\d+]/g, "");
-  if (p.startsWith("+")) p = p.slice(1);
-  if (p.startsWith("0")) p = "233" + p.slice(1); // 0XXXXXXXXX → 233XXXXXXXXX
-  else if (p.length === 9) p = "233" + p; // XXXXXXXXX → 233XXXXXXXXX
-  return p;
-}
 
 function genCode(): string {
   return String(Math.floor(100000 + Math.random() * 900000)); // 6 digits

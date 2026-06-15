@@ -1,25 +1,40 @@
 import "server-only";
 import { env, features } from "@/lib/env";
+import { normalisePhone } from "@/lib/phone";
 
 export type SmsResult = { ok: boolean; provider: string; stubbed: boolean; id?: string; error?: string };
 
 // Approved sender IDs (e.g. Hubtel "HostHub") aren't our brand name, so we brand
-// every message body with a heading so recipients know it's from WorshipHQ.
-const SMS_HEADING = "WorshipHQ";
+// every message body with a heading (default "WorshipHQ"; church messages pass
+// their own church name) so recipients know who it's from.
+const DEFAULT_HEADING = "WorshipHQ";
 
-function withHeading(message: string): string {
-  return message.startsWith(SMS_HEADING) ? message : `${SMS_HEADING}\n${message}`;
+function withHeading(message: string, heading: string | null): string {
+  if (!heading) return message;
+  return message.startsWith(heading) ? message : `${heading}\n${message}`;
 }
 
 /**
  * Send an SMS. In stub mode (no provider key) it logs to the console and
  * succeeds, so the whole app works without real credentials. Drop in a key
  * (e.g. ARKESEL_API_KEY) and it will call the real Ghana provider.
+ *
+ * `opts.heading` overrides the branding line (pass null for none).
  */
-export async function sendSms(to: string | string[], rawMessage: string): Promise<SmsResult> {
-  const recipients = Array.isArray(to) ? to : [to];
+export async function sendSms(
+  to: string | string[],
+  rawMessage: string,
+  opts?: { heading?: string | null },
+): Promise<SmsResult> {
+  // Normalise to the digits-only format providers require (Hubtel rejects "024…").
+  const recipients = (Array.isArray(to) ? to : [to]).map(normalisePhone).filter((p) => p.length >= 11);
   const provider = env.SMS_PROVIDER;
-  const message = withHeading(rawMessage);
+  const heading = opts?.heading === undefined ? DEFAULT_HEADING : opts.heading;
+  const message = withHeading(rawMessage, heading);
+
+  if (recipients.length === 0) {
+    return { ok: false, provider, stubbed: false, error: "No valid phone numbers" };
+  }
 
   if (!features.sms) {
     console.info(

@@ -1,12 +1,13 @@
-import { Plus, Download, Wallet, TrendingUp, TrendingDown, Scale } from "lucide-react";
+import { Plus, Download, Wallet, TrendingUp, TrendingDown, Scale, Trash2 } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { StatCard } from "@/components/app/stat-card";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { SubmitButton } from "@/components/ui/submit-button";
 import { Badge } from "@/components/ui/badge";
 import { requireSession } from "@/lib/auth";
 import { getAccounting } from "@/lib/data/modules";
-import { createTransaction } from "@/app/actions/accounting";
+import { createTransaction, deleteTransaction } from "@/app/actions/accounting";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { formatCurrency } from "@/config/brand";
 import { formatDate } from "@/lib/utils";
@@ -16,6 +17,7 @@ export const metadata = { title: "Accounting" };
 export default async function AccountingPage() {
   const session = await requireSession();
   const { transactions, income, expenses, fundBalances } = await getAccounting(session.churchId);
+  const canWrite = !session.isDemo;
 
   return (
     <div>
@@ -61,7 +63,7 @@ export default async function AccountingPage() {
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead className="border-b border-line text-left text-xs uppercase tracking-wide text-ink-faint">
-                  <tr><th className="p-4 font-medium">Description</th><th className="hidden p-4 font-medium sm:table-cell">Fund</th><th className="hidden p-4 font-medium md:table-cell">Date</th><th className="p-4 text-right font-medium">Amount</th></tr>
+                  <tr><th className="p-4 font-medium">Description</th><th className="hidden p-4 font-medium sm:table-cell">Fund</th><th className="hidden p-4 font-medium md:table-cell">Date</th><th className="p-4 text-right font-medium">Amount</th>{canWrite && <th className="p-4" />}</tr>
                 </thead>
                 <tbody>
                   {transactions.map((t) => (
@@ -70,6 +72,15 @@ export default async function AccountingPage() {
                       <td className="hidden p-4 text-ink-muted sm:table-cell">{t.fund}</td>
                       <td className="hidden p-4 text-ink-muted md:table-cell">{formatDate(t.date)}</td>
                       <td className={`p-4 text-right font-semibold ${t.amount > 0 ? "text-success" : "text-ink"}`}>{t.amount > 0 ? "+" : "−"}{formatCurrency(Math.abs(t.amount))}</td>
+                      {canWrite && (
+                        <td className="p-4 text-right">
+                          <form action={deleteTransaction.bind(null, t.id)}>
+                            <SubmitButton variant="ghost" size="sm" overlay={false} successMessage="Transaction deleted" className="text-ink-faint hover:text-danger">
+                              <Trash2 className="size-4" />
+                            </SubmitButton>
+                          </form>
+                        </td>
+                      )}
                     </tr>
                   ))}
                 </tbody>

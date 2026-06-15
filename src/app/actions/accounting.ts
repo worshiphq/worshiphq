@@ -28,3 +28,11 @@ export async function createTransaction(formData: FormData) {
 
   revalidatePath("/app/accounting");
 }
+
+/** Delete a transaction (admins only). */
+export async function deleteTransaction(id: string) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  await db.transaction.deleteMany({ where: { id, churchId: session.churchId } });
+  revalidatePath("/app/accounting");
+}

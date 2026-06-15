@@ -95,7 +95,7 @@ export const DEPARTMENT_FIELD_ID = "department";
 export const DEFAULT_FORM: FormField[] = [
   { id: "firstName", label: "First name", type: "text", required: true, system: true, locked: true },
   { id: "lastName", label: "Last name", type: "text", required: true, system: true, locked: true },
-  { id: "phone", label: "Phone (mobile)", type: "tel", required: true, system: true },
+  { id: "phone", label: "Phone Number (Call & SMS)", type: "tel", required: true, system: true },
   { id: "email", label: "Email", type: "email", system: true },
   { id: "gender", label: "Gender", type: "select", options: GENDER, system: true },
   { id: "dateOfBirth", label: "Date of birth", type: "date", system: true },
@@ -151,7 +151,7 @@ export function getFormDefinition(raw: unknown): FormField[] {
     const enabled = SYSTEM_FIELD_CATALOG.filter((f) => map[f.id] === true);
     fields = [
       DEFAULT_FORM[0], DEFAULT_FORM[1],
-      { id: "phone", label: "Phone (mobile)", type: "tel", required: true, system: true },
+      { id: "phone", label: "Phone Number (Call & SMS)", type: "tel", required: true, system: true },
       { id: "email", label: "Email", type: "email", system: true },
       ...enabled,
     ];

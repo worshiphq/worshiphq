@@ -66,7 +66,12 @@ export async function sendChurchSms(
   opts?: { note?: string },
 ): Promise<ChurchSmsResult> {
   const recipients = (Array.isArray(to) ? to : [to]).filter(Boolean);
-  const cost = segmentsFor(message) * recipients.length;
+
+  // Brand the message with the church's name so members know who it's from
+  // (the SMS sender ID is the platform's, e.g. "HostHub").
+  const church = await db.church.findUnique({ where: { id: churchId }, select: { name: true } });
+  const heading = church?.name ?? "WorshipHQ";
+  const cost = segmentsFor(`${heading}\n${message}`) * recipients.length;
 
   const balance = await getSmsBalance(churchId);
   if (recipients.length === 0) return { ok: true, sent: 0, cost: 0, balance };
@@ -74,7 +79,7 @@ export async function sendChurchSms(
     return { ok: false, sent: 0, cost, balance, insufficient: true };
   }
 
-  const res = await sendSms(recipients, message);
+  const res = await sendSms(recipients, message, { heading });
   if (!res.ok) return { ok: false, sent: 0, cost, balance };
 
   const updated = await db.church.update({
