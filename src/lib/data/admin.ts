@@ -12,6 +12,7 @@ export interface ChurchRow {
   plan: string;
   members: number;
   users: number;
+  smsCredits: number;
   givingThisMonth: number;
   createdAt: string;
 }
@@ -30,6 +31,7 @@ export async function getAllChurches(): Promise<ChurchRow[]> {
       city: true,
       suspended: true,
       isDemo: true,
+      smsCredits: true,
       createdAt: true,
       subscription: { select: { plan: true } },
       _count: { select: { people: true, users: true } },
@@ -55,6 +57,7 @@ export async function getAllChurches(): Promise<ChurchRow[]> {
     plan: c.subscription?.plan ?? "free",
     members: c._count.people,
     users: c._count.users,
+    smsCredits: c.smsCredits,
     givingThisMonth: givingMap.get(c.id) ?? 0,
     createdAt: c.createdAt.toISOString(),
   }));

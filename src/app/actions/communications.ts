@@ -1,10 +1,11 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite } from "@/lib/auth";
-import { sendSms } from "@/lib/integrations/sms";
 import { sendEmail } from "@/lib/integrations/email";
+import { sendChurchSms } from "@/lib/sms/credits";
 import type { Channel } from "@prisma/client";
 
 /** Send (or stub-send) a broadcast and log it as a campaign. */
@@ -27,12 +28,18 @@ export async function sendBroadcast(formData: FormData) {
       ? people.map((p) => p.email).filter((e): e is string => !!e)
       : people.map((p) => p.phone).filter((p): p is string => !!p);
 
-  // Fire the (stubbed unless keys present) integration.
+  let sent = recipients.length;
+
   if (recipients.length) {
     if (channel === "Email") {
       await sendEmail({ to: recipients, subject: name, html: `<p>${message}</p>` });
     } else {
-      await sendSms(recipients, message);
+      // SMS is billed against the church's prepaid credits.
+      const result = await sendChurchSms(session.churchId, recipients, message, { note: name });
+      if (result.insufficient) {
+        redirect("/app/communications?error=credits");
+      }
+      sent = result.sent;
     }
   }
 
@@ -43,11 +50,12 @@ export async function sendBroadcast(formData: FormData) {
       channel,
       body: message,
       segment: String(formData.get("segment") ?? "All members"),
-      sent: recipients.length,
-      delivered: recipients.length, // optimistic in stub mode
+      sent,
+      delivered: sent, // optimistic in stub mode
       status: "sent",
     },
   });
 
   revalidatePath("/app/communications");
+  revalidatePath("/app");
 }

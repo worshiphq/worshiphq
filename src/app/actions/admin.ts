@@ -12,6 +12,7 @@ import {
   requireSuperAdmin,
 } from "@/lib/auth";
 import { saveMarketingContent, type MarketingContent } from "@/lib/data/site-content";
+import { addCredits } from "@/lib/sms/credits";
 
 // ── Auth ──
 export async function superAdminSignIn(formData: FormData) {
@@ -59,6 +60,13 @@ export async function setChurchPlan(churchId: string, plan: string) {
     create: { churchId, plan },
     update: { plan },
   });
+  revalidatePath("/admin");
+}
+
+export async function grantSmsCredits(churchId: string, credits: number) {
+  await requireSuperAdmin();
+  if (!credits || !Number.isFinite(credits)) return;
+  await addCredits(churchId, Math.round(credits), "bonus", { note: "Granted by WorshipHQ" });
   revalidatePath("/admin");
 }
 

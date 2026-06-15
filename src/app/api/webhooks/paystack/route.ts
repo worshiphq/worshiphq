@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { verifyPaystackSignature } from "@/lib/integrations/paystack";
 import { recordOnlineGift, methodFromPaystackChannel } from "@/lib/giving/record";
+import { addCredits } from "@/lib/sms/credits";
 
 // Webhooks must never be statically cached and always run on the server.
 export const dynamic = "force-dynamic";
@@ -36,6 +37,23 @@ export async function POST(request: NextRequest) {
   const data = event.data ?? {};
   const meta = (data.metadata ?? {}) as GiftMetadata;
 
+  // SMS credit top-up → add credits to the church wallet (idempotent on reference).
+  if (meta.kind === "sms_topup" && meta.churchId && data.reference) {
+    try {
+      const credits = Number(meta.credits ?? 0);
+      if (credits > 0) {
+        await addCredits(meta.churchId, credits, "topup", {
+          reference: data.reference,
+          note: `${credits} SMS credits`,
+        });
+      }
+      return Response.json({ received: true, kind: "sms_topup" });
+    } catch (e) {
+      console.error("[Paystack webhook] failed to add SMS credits:", e);
+      return new Response("Processing error", { status: 500 });
+    }
+  }
+
   // Only handle our online-giving charges; ignore subscription/other charges.
   if (meta.kind !== "online_gift" || !meta.churchId || !data.reference) {
     return Response.json({ received: true, ignored: true });
@@ -68,6 +86,8 @@ interface GiftMetadata {
   phone?: string;
   fundName?: string;
   method?: string;
+  credits?: number | string;
+  bundleId?: string;
 }
 
 interface PaystackEvent {

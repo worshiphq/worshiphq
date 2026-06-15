@@ -21,6 +21,8 @@ model Church {
   slug         String   @unique
   isDemo       Boolean  @default(false)
   suspended    Boolean  @default(false)
+  smsCredits       Int     @default(50) // prepaid SMS units (50 free on signup)
+  smsWelcomeMember Boolean @default(true) // SMS a welcome to members who self-register
   name         String
   denomination String?
   city         String?
@@ -53,6 +55,7 @@ model Church {
   automations   Automation[]
   reminders     Reminder[]
   transactions  Transaction[]
+  smsTransactions SmsTransaction[]
   subscription  Subscription?
 }
 
@@ -448,6 +451,22 @@ model Transaction {
   fund        String?
   amount      Decimal  @db.Decimal(12, 2) // positive = income, negative = expense
   date        DateTime @default(now())
+
+  @@index([churchId])
+}
+
+// ── SMS credits ───────────────────────────────────────────
+// Prepaid wallet ledger. `credits` is signed: + for top-ups/bonus, − for usage.
+model SmsTransaction {
+  id           String   @id @default(cuid())
+  churchId     String
+  church       Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  kind         String   // topup | usage | bonus | refund
+  credits      Int      // signed change
+  balanceAfter Int
+  note         String?
+  reference    String?  // Paystack reference for top-ups
+  createdAt    DateTime @default(now())
 
   @@index([churchId])
 }

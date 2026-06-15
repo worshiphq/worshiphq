@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { sendSms } from "@/lib/integrations/sms";
+import { sendChurchSms } from "@/lib/sms/credits";
 import type { Channel } from "@prisma/client";
 
 /** Today's date as MM-DD (matches Person.birthday / Person.anniversary). */
@@ -53,7 +53,9 @@ export async function runAutomations(now = new Date()): Promise<{
       for (const t of targets) {
         if (!t.phone) continue;
         const message = messageFor(a.trigger, t.firstName, church.name);
-        const res = await sendSms(t.phone, message);
+        // Billed to the church's SMS credits; stop this church if they run out.
+        const res = await sendChurchSms(church.id, t.phone, message, { note: `${a.name} (automated)` });
+        if (res.insufficient) break;
         if (res.ok) sent++;
       }
 

@@ -8,6 +8,7 @@ import {
   setChurchSuspended,
   setChurchPlan,
   deleteChurch,
+  grantSmsCredits,
 } from "@/app/actions/admin";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { useFeedback } from "@/components/ui/feedback";
@@ -47,6 +48,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
             <tr className="border-b border-white/10 bg-white/[0.02] text-left text-xs uppercase tracking-wide text-slate-500">
               <th className="px-4 py-3 font-medium">Church</th>
               <th className="px-4 py-3 font-medium">Members</th>
+              <th className="px-4 py-3 font-medium">SMS</th>
               <th className="px-4 py-3 font-medium">Giving (mo)</th>
               <th className="px-4 py-3 font-medium">Plan</th>
               <th className="px-4 py-3 font-medium">Status</th>
@@ -73,6 +75,20 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                   </div>
                 </td>
                 <td className="px-4 py-3 text-slate-300">{c.members}</td>
+                <td className="px-4 py-3">
+                  <button
+                    type="button"
+                    title="Grant SMS credits"
+                    onClick={() => {
+                      const v = prompt(`Grant SMS credits to ${c.name}:`, "500");
+                      const n = Number(v);
+                      if (n > 0) run(() => grantSmsCredits(c.id, n), { pending: "Granting…", success: `Granted ${n} credits` });
+                    }}
+                    className="rounded-md bg-white/5 px-2 py-1 text-xs text-slate-200 hover:bg-white/10"
+                  >
+                    {c.smsCredits.toLocaleString()} +
+                  </button>
+                </td>
                 <td className="px-4 py-3 text-slate-300">₵{c.givingThisMonth.toLocaleString()}</td>
                 <td className="px-4 py-3">
                   <select
@@ -142,7 +158,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-500">
+                <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">
                   No churches match “{q}”.
                 </td>
               </tr>

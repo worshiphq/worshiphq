@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getFormDefinition, isSystemColumn, DEPARTMENT_FIELD_ID } from "@/lib/forms/registration";
+import { sendChurchSms } from "@/lib/sms/credits";
 
 const DATE_FIELDS = new Set(["dateOfBirth", "dateOfMembership"]);
 
@@ -18,7 +19,7 @@ export async function selfRegister(formData: FormData) {
 
   const church = await db.church.findUnique({
     where: { slug: churchSlug },
-    select: { id: true, isDemo: true, registrationFields: true },
+    select: { id: true, name: true, isDemo: true, registrationFields: true, smsWelcomeMember: true },
   });
   if (!church || church.isDemo) return;
 
@@ -77,6 +78,17 @@ export async function selfRegister(formData: FormData) {
   if (Object.keys(customFields).length > 0) set.customFields = customFields;
 
   await db.person.create({ data });
+
+  // Optional welcome SMS to the new member (billed to the church's credits).
+  const phone = typeof set.phone === "string" ? set.phone : "";
+  if (church.smsWelcomeMember && phone) {
+    await sendChurchSms(
+      church.id,
+      phone,
+      `Welcome to ${church.name}, ${firstName}! 🎉 Thanks for registering. We're glad to have you in the family.`,
+      { note: "Welcome (self-registration)" },
+    );
+  }
 
   redirect(`/join/${churchSlug}/thank-you`);
 }
