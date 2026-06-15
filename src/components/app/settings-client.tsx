@@ -14,9 +14,11 @@ import type { Session } from "@/lib/permissions";
 import { ROLE_PERMISSIONS } from "@/lib/permissions";
 import {
   updateChurch, inviteTeammate,
-  updateRegistrationFields, changeUserRole, removeTeamMember, updateProfile,
+  changeUserRole, removeTeamMember, updateProfile,
 } from "@/app/actions/settings";
 import { BrandingForm } from "@/components/app/branding-form";
+import { FormBuilder } from "@/components/app/form-builder";
+import { getFormDefinition } from "@/lib/forms/registration";
 import { createDepartment, deleteDepartment } from "@/app/actions/departments";
 import { plans } from "@/config/pricing";
 import { formatCurrency } from "@/config/brand";
@@ -32,7 +34,7 @@ type Church = {
   accentColor: string;
   logoUrl: string;
   slug: string;
-  registrationFields: Record<string, boolean> | null;
+  registrationFields: unknown;
 } | null;
 type TeamUser = { id: string; name: string; email: string; role: string };
 type Dept = { id: string; name: string };
@@ -59,44 +61,6 @@ const integrationList = [
   { key: "database", name: "Database", desc: "PostgreSQL persistence" },
 ];
 
-const ALL_REG_FIELDS = [
-  { key: "otherNames", label: "Other names" },
-  { key: "gender", label: "Gender" },
-  { key: "title", label: "Title" },
-  { key: "dateOfBirth", label: "Date of birth" },
-  { key: "occupation", label: "Occupation" },
-  { key: "employer", label: "Employer" },
-  { key: "previousChurch", label: "Previous church" },
-  { key: "dateOfMembership", label: "Date of membership" },
-  { key: "placeOfBirth", label: "Place of birth" },
-  { key: "nationality", label: "Nationality" },
-  { key: "country", label: "Country" },
-  { key: "region", label: "Region" },
-  { key: "district", label: "District" },
-  { key: "town", label: "Town" },
-  { key: "nationalId", label: "National ID" },
-  { key: "houseAddress", label: "House address" },
-  { key: "homeTown", label: "Home town" },
-  { key: "workPhone", label: "Work phone" },
-  { key: "postalAddress", label: "Postal address" },
-  { key: "homePhone", label: "Home phone" },
-  { key: "specialInterest", label: "Special interests / skills" },
-  { key: "maritalStatus", label: "Marital status" },
-  { key: "baptized", label: "Have you been baptised?" },
-  { key: "emergencyName", label: "Emergency contact name" },
-  { key: "emergencyPhone", label: "Emergency contact phone" },
-  { key: "emergencyRelation", label: "Emergency contact relation" },
-  { key: "emergencyEmail", label: "Emergency contact email" },
-  { key: "emergencyAddress", label: "Emergency contact address" },
-  { key: "department", label: "Department / ministry" },
-];
-
-const DEFAULT_ENABLED = [
-  "gender", "dateOfBirth", "occupation", "town", "region",
-  "maritalStatus", "baptized", "department",
-  "emergencyName", "emergencyPhone", "emergencyRelation",
-];
-
 const ALL_ROLES = ["Admin", "Pastor", "Finance", "Media", "Leader", "Volunteer"];
 
 export function SettingsClient({
@@ -115,12 +79,6 @@ export function SettingsClient({
   const [tab, setTab] = useState<(typeof tabs)[number]["key"]>("church");
   const ro = session.isDemo;
   const isAdmin = session.role === "Owner" || session.role === "Admin";
-
-  // Registration fields state
-  const savedConfig = church?.registrationFields ?? null;
-  const enabledByDefault = savedConfig
-    ? Object.keys(savedConfig).filter((k) => savedConfig[k])
-    : DEFAULT_ENABLED;
 
   const joinUrl = church?.slug
     ? `${typeof window !== "undefined" ? window.location.origin : ""}/join/${church.slug}`
@@ -381,28 +339,7 @@ export function SettingsClient({
             </Card>
 
             {isAdmin && (
-              <Card className="p-6">
-                <h3 className="font-display text-base font-semibold">Customize join form fields</h3>
-                <p className="mt-1 text-sm text-ink-muted">
-                  Toggle which fields members see on the public registration form. First name, last name, phone, and email are always shown.
-                </p>
-                <form action={updateRegistrationFields} className="mt-4">
-                  <div className="grid gap-2 sm:grid-cols-2">
-                    {ALL_REG_FIELDS.map((f) => (
-                      <label key={f.key} className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-surface-2">
-                        <input
-                          type="checkbox"
-                          name={`field_${f.key}`}
-                          defaultChecked={enabledByDefault.includes(f.key)}
-                          className="size-4 rounded border-line accent-primary"
-                        />
-                        {f.label}
-                      </label>
-                    ))}
-                  </div>
-                  <SubmitButton className="mt-4" disabled={ro} successMessage="Form configuration saved">Save form configuration</SubmitButton>
-                </form>
-              </Card>
+              <FormBuilder initial={getFormDefinition(church?.registrationFields ?? null)} readOnly={ro} />
             )}
           </div>
         )}

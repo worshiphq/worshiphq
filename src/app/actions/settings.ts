@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, hashPassword } from "@/lib/auth";
+import { getFormDefinition } from "@/lib/forms/registration";
 import type { Role } from "@prisma/client";
 
 /** Update the signed-in user's own display name (and optional email). */
@@ -70,26 +71,29 @@ export async function updateBranding(formData: FormData) {
   revalidatePath("/app", "layout");
 }
 
-/** Update which fields appear on the public join form. */
-export async function updateRegistrationFields(formData: FormData) {
+/** Save the full registration form definition (from the form builder). */
+export async function saveRegistrationForm(formData: FormData) {
   const session = await requireSession();
   assertCanWrite(session);
   if (session.role !== "Owner" && session.role !== "Admin") return;
 
-  // Build the config from checkbox values
-  const config: Record<string, boolean> = {};
-  for (const [key, value] of formData.entries()) {
-    if (key.startsWith("field_")) {
-      config[key.replace("field_", "")] = value === "on";
-    }
+  const raw = String(formData.get("definition") ?? "[]");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return;
   }
+  // Normalise through getFormDefinition so we only ever store valid fields.
+  const fields = getFormDefinition(parsed);
 
   await db.church.update({
     where: { id: session.churchId },
-    data: { registrationFields: config },
+    data: { registrationFields: fields as object },
   });
 
   revalidatePath("/app/settings");
+  revalidatePath("/join", "layout");
 }
 
 /** Invite a teammate — creates a User in this church with a temporary password. */
