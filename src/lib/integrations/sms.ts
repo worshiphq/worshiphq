@@ -29,7 +29,27 @@ export async function sendSms(to: string | string[], message: string): Promise<S
       const data = await res.json();
       return { ok: res.ok, provider, stubbed: false, id: data?.data?.[0]?.id };
     }
-    // hubtel / mnotify / twilio implementations follow the same shape.
+
+    if (provider === "hubtel") {
+      // Hubtel sends one message per recipient via a simple GET endpoint.
+      let lastId: string | undefined;
+      let allOk = true;
+      for (const to of recipients) {
+        const url = new URL("https://smsc.hubtel.com/v1/messages/send");
+        url.searchParams.set("clientsecret", env.HUBTEL_CLIENT_SECRET!);
+        url.searchParams.set("clientid", env.HUBTEL_CLIENT_ID!);
+        url.searchParams.set("from", env.HUBTEL_SENDER_ID);
+        url.searchParams.set("to", to);
+        url.searchParams.set("content", message);
+        const res = await fetch(url.toString());
+        const data = await res.json().catch(() => ({}));
+        allOk = allOk && res.ok;
+        lastId = data?.messageId ?? data?.MessageId ?? lastId;
+      }
+      return { ok: allOk, provider, stubbed: false, id: lastId };
+    }
+
+    // mnotify / twilio implementations follow the same shape.
     console.warn(`[SMS] provider "${provider}" not yet implemented — logging instead`);
     return { ok: true, provider, stubbed: true };
   } catch (e) {

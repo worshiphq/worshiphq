@@ -171,6 +171,7 @@ export async function getSession(): Promise<Session | null> {
     branchId: user.branchId,
     avatarName: user.name,
     isDemo: user.church.isDemo,
+    phoneVerified: user.phoneVerified,
   };
 }
 

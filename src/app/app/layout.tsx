@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app/app-shell";
@@ -11,6 +12,12 @@ export const metadata: Metadata = {
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
+
+  // Admins/teammates must verify their phone before using the app (real users only).
+  if (!session.isDemo && !session.impersonating && session.phoneVerified === false) {
+    redirect("/verify-phone");
+  }
+
   const [branches, announcements, church] = await Promise.all([
     db.branch.findMany({
       where: { churchId: session.churchId },
@@ -18,7 +25,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       select: { id: true, name: true, isHQ: true },
     }),
     getActiveAnnouncements(),
-    db.church.findUnique({ where: { id: session.churchId }, select: { suspended: true } }),
+    db.church.findUnique({
+      where: { id: session.churchId },
+      select: { suspended: true, logoUrl: true, accentColor: true },
+    }),
   ]);
 
   // Suspended churches are locked out — but SuperAdmin support can still enter.
@@ -35,7 +45,13 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     );
   }
   return (
-    <AppShell session={session} branches={branches} announcements={announcements}>
+    <AppShell
+      session={session}
+      branches={branches}
+      announcements={announcements}
+      churchLogo={church?.logoUrl ?? null}
+      accentColor={church?.accentColor ?? null}
+    >
       <TourProvider>{children}</TourProvider>
     </AppShell>
   );

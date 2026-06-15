@@ -111,6 +111,8 @@ model User {
   name         String
   passwordHash String?
   role         Role     @default(Volunteer)
+  phone         String?
+  phoneVerified Boolean  @default(false)
   // A User (logs in) may be linked to a Person (a congregant record).
   personId     String?  @unique
   person       Person?  @relation(fields: [personId], references: [id])
@@ -448,6 +450,23 @@ model Transaction {
   date        DateTime @default(now())
 
   @@index([churchId])
+}
+
+// ── Phone verification (OTP) ──────────────────────────────
+// Holds a one-time code sent by SMS. For signup it also stashes the pending
+// account details (as JSON) so the account is created only after verification.
+model PhoneVerification {
+  id        String   @id @default(cuid())
+  phone     String
+  code      String
+  purpose   String   @default("signup") // signup | login
+  payload   Json? // pending signup details (church, name, email, passwordHash)
+  userId    String? // for "login" purpose: the user verifying their phone
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([phone])
 }
 
 // ── Platform (SuperAdmin) ─────────────────────────────────

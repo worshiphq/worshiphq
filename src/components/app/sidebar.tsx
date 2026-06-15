@@ -4,14 +4,14 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { PanelLeftClose, PanelLeft } from "lucide-react";
-import { Logo, LogoMark } from "@/components/brand/logo";
+import { ChurchLogo } from "@/components/app/church-logo";
 import { nav } from "@/config/nav";
 import { can } from "@/lib/permissions";
 import type { Role } from "@/lib/demo/data";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-export function Sidebar({ role }: { role: Role }) {
+export function Sidebar({ role, churchName, churchLogo }: { role: Role; churchName: string; churchLogo?: string | null }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -26,7 +26,7 @@ export function Sidebar({ role }: { role: Role }) {
       )}
     >
       <div className={cn("flex h-16 items-center border-b border-line px-4", collapsed && "justify-center px-0")}>
-        {collapsed ? <LogoMark className="size-8" /> : <Logo href="/app" />}
+        <ChurchLogo logo={churchLogo} name={churchName} collapsed={collapsed} />
       </div>
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-5">

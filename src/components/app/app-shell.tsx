@@ -7,13 +7,15 @@ import { AnimatePresence, motion } from "motion/react";
 import { X, ShieldCheck, Megaphone, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
-import { Logo } from "@/components/brand/logo";
+import { ChurchLogo } from "@/components/app/church-logo";
 import { nav } from "@/config/nav";
 import { can, type Session } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
+import { themeFromAccent } from "@/lib/color";
 import { exitImpersonation } from "@/app/actions/admin";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { ActiveAnnouncement } from "@/lib/data/announcements";
+import type { CSSProperties } from "react";
 
 type BranchLite = { id: string; name: string; isHQ: boolean };
 
@@ -21,19 +23,35 @@ export function AppShell({
   session,
   branches,
   announcements = [],
+  churchLogo = null,
+  accentColor = null,
   children,
 }: {
   session: Session;
   branches: BranchLite[];
   announcements?: ActiveAnnouncement[];
+  churchLogo?: string | null;
+  accentColor?: string | null;
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
 
+  // Apply the church's accent as theme CSS variables so the whole dashboard
+  // follows their brand colour. Falls back to the default teal in globals.css.
+  const themeStyle: CSSProperties = {};
+  if (accentColor) {
+    const t = themeFromAccent(accentColor);
+    Object.assign(themeStyle, {
+      "--color-primary": t.primary,
+      "--color-primary-bright": t.bright,
+      "--color-primary-soft": t.soft,
+    });
+  }
+
   return (
-    <div className="flex min-h-dvh bg-base">
-      <Sidebar role={session.role} />
+    <div className="flex min-h-dvh bg-base" style={themeStyle}>
+      <Sidebar role={session.role} churchName={session.churchName} churchLogo={churchLogo} />
 
       {/* Mobile drawer */}
       <AnimatePresence>
@@ -54,7 +72,7 @@ export function AppShell({
               className="fixed inset-y-0 left-0 z-50 flex w-72 flex-col border-r border-line bg-surface lg:hidden"
             >
               <div className="flex h-16 items-center justify-between border-b border-line px-4">
-                <Logo href="/app" />
+                <ChurchLogo logo={churchLogo} name={session.churchName} />
                 <button onClick={() => setMobileOpen(false)} className="grid size-9 place-items-center rounded-lg text-ink-muted">
                   <X className="size-5" />
                 </button>

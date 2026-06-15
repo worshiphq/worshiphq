@@ -20,7 +20,11 @@ export default async function SignUpPage({
       ? "An account with that email already exists. Try logging in."
       : error === "invalid"
         ? "Please fill in every field (password must be at least 6 characters)."
-        : null;
+        : error === "sms"
+          ? "We couldn't send the verification SMS. Check the phone number and try again."
+          : error === "expired"
+            ? "Your verification session expired. Please sign up again."
+            : null;
 
   return (
     <div>
@@ -56,11 +60,15 @@ export default async function SignUpPage({
           <Input id="email" name="email" type="email" placeholder="you@church.org" required />
         </div>
         <div>
+          <Label htmlFor="phone">Phone (for verification)</Label>
+          <Input id="phone" name="phone" type="tel" placeholder="024 000 0000" required />
+        </div>
+        <div>
           <Label htmlFor="password">Password</Label>
           <Input id="password" name="password" type="password" placeholder="At least 6 characters" required minLength={6} />
         </div>
-        <SubmitButton size="lg" className="w-full" pendingLabel="Creating your church…">
-          Create church account
+        <SubmitButton size="lg" className="w-full" pendingLabel="Sending code…">
+          Continue — verify phone
         </SubmitButton>
       </form>
 

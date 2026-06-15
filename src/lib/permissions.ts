@@ -14,6 +14,8 @@ export interface Session {
   isDemo: boolean;
   /** True when a SuperAdmin is viewing this church as invisible support. */
   impersonating?: boolean;
+  /** Whether this user has completed phone verification (admins must). */
+  phoneVerified?: boolean;
 }
 
 export const ROLE_PERMISSIONS: Record<Role, string[]> = {

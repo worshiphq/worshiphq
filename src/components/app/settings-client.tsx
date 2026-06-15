@@ -13,9 +13,10 @@ import { Input, Label } from "@/components/ui/input";
 import type { Session } from "@/lib/permissions";
 import { ROLE_PERMISSIONS } from "@/lib/permissions";
 import {
-  updateChurch, updateBranding, inviteTeammate,
+  updateChurch, inviteTeammate,
   updateRegistrationFields, changeUserRole, removeTeamMember, updateProfile,
 } from "@/app/actions/settings";
+import { BrandingForm } from "@/components/app/branding-form";
 import { createDepartment, deleteDepartment } from "@/app/actions/departments";
 import { plans } from "@/config/pricing";
 import { formatCurrency } from "@/config/brand";
@@ -57,8 +58,6 @@ const integrationList = [
   { key: "ai", name: "AI assist", desc: "Care copilot & smart lists" },
   { key: "database", name: "Database", desc: "PostgreSQL persistence" },
 ];
-
-const ACCENTS = ["#0d7377", "#b07d20", "#15966b", "#db2777", "#2563eb"];
 
 const ALL_REG_FIELDS = [
   { key: "otherNames", label: "Other names" },
@@ -114,7 +113,6 @@ export function SettingsClient({
   departments: Dept[];
 }) {
   const [tab, setTab] = useState<(typeof tabs)[number]["key"]>("church");
-  const [accent, setAccent] = useState(church?.accentColor ?? "#0d7377");
   const ro = session.isDemo;
   const isAdmin = session.role === "Owner" || session.role === "Admin";
 
@@ -196,12 +194,8 @@ export function SettingsClient({
                 <div><Label>City</Label><Input name="city" defaultValue={church?.city ?? ""} disabled={ro} /></div>
                 <div><Label>Country</Label><Input name="country" defaultValue={church?.country ?? "Ghana"} disabled={ro} /></div>
                 <div className="sm:col-span-2"><Label>Address</Label><Input name="address" defaultValue={church?.address ?? ""} disabled={ro} /></div>
-                <div className="sm:col-span-2">
-                  <Label>Church logo URL</Label>
-                  <Input name="logoUrl" placeholder="https://example.com/logo.png" defaultValue={church?.logoUrl ?? ""} disabled={ro} />
-                  <p className="mt-1 text-xs text-ink-faint">Paste a link to your church logo. It will appear on the join form and app.</p>
-                </div>
               </div>
+              <p className="mt-3 text-xs text-ink-faint">Add your church logo in the <span className="font-medium text-ink-muted">Branding</span> tab.</p>
               <SubmitButton className="mt-5" disabled={ro} successMessage="Changes saved">Save changes</SubmitButton>
             </form>
           </Card>
@@ -209,32 +203,11 @@ export function SettingsClient({
 
         {/* ── Branding ── */}
         {tab === "branding" && (
-          <Card className="p-6">
-            <h3 className="font-display text-lg font-semibold">Branding</h3>
-            <p className="text-sm text-ink-muted">Make WorshipHQ feel like your church.</p>
-            <form action={updateBranding} className="mt-5 space-y-4">
-              <input type="hidden" name="accentColor" value={accent} />
-              <div>
-                <Label>Accent color</Label>
-                <div className="flex gap-2">
-                  {ACCENTS.map((c) => (
-                    <button
-                      key={c}
-                      type="button"
-                      onClick={() => setAccent(c)}
-                      className={cn(
-                        "size-9 rounded-lg ring-2 ring-offset-2 ring-offset-surface transition",
-                        accent === c ? "ring-ink" : "ring-transparent",
-                      )}
-                      style={{ background: c }}
-                      aria-label={`Accent ${c}`}
-                    />
-                  ))}
-                </div>
-              </div>
-              <SubmitButton disabled={ro} successMessage="Branding saved">Save branding</SubmitButton>
-            </form>
-          </Card>
+          <BrandingForm
+            initialLogo={church?.logoUrl ?? ""}
+            initialAccent={church?.accentColor ?? "#0d7377"}
+            readOnly={ro}
+          />
         )}
 
         {/* ── Team / roles ── */}

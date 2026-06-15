@@ -44,7 +44,7 @@ export async function updateChurch(formData: FormData) {
       city: String(formData.get("city") ?? "").trim() || null,
       country: String(formData.get("country") ?? "Ghana").trim() || "Ghana",
       address: String(formData.get("address") ?? "").trim() || null,
-      logoUrl: String(formData.get("logoUrl") ?? "").trim() || null,
+      // logoUrl is managed in the Branding tab (updateBranding), not here.
     },
   });
 
@@ -55,11 +55,19 @@ export async function updateChurch(formData: FormData) {
 export async function updateBranding(formData: FormData) {
   const session = await requireSession();
   assertCanWrite(session);
-  await db.church.update({
-    where: { id: session.churchId },
-    data: { accentColor: String(formData.get("accentColor") ?? "#0d7377") },
-  });
+
+  const accentColor = String(formData.get("accentColor") ?? "#0d7377");
+  // logoUrl is a data URL (base64) or empty to clear. Cap size (~1.5MB base64).
+  const logoRaw = String(formData.get("logoUrl") ?? "");
+  const data: { accentColor: string; logoUrl?: string | null } = { accentColor };
+  if (formData.has("logoUrl")) {
+    if (!logoRaw) data.logoUrl = null;
+    else if (logoRaw.startsWith("data:image/") && logoRaw.length < 1_500_000) data.logoUrl = logoRaw;
+  }
+
+  await db.church.update({ where: { id: session.churchId }, data });
   revalidatePath("/app/settings");
+  revalidatePath("/app", "layout");
 }
 
 /** Update which fields appear on the public join form. */
