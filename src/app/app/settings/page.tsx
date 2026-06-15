@@ -1,25 +1,30 @@
 import { PageHeader } from "@/components/app/page-header";
 import { SettingsClient } from "@/components/app/settings-client";
-import { requireSession } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { features } from "@/lib/env";
 
 export const metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
-  const session = await requireSession();
+  const session = await requireModule("settings");
 
-  const [church, users, departments] = await Promise.all([
+  const [church, users, departments, customRoles] = await Promise.all([
     db.church.findUnique({ where: { id: session.churchId } }),
     db.user.findMany({
       where: { churchId: session.churchId },
       orderBy: { createdAt: "asc" },
-      select: { id: true, name: true, email: true, role: true },
+      select: { id: true, name: true, email: true, role: true, customRole: { select: { id: true, name: true } } },
     }),
     db.department.findMany({
       where: { churchId: session.churchId },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
+    }),
+    db.customRole.findMany({
+      where: { churchId: session.churchId },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, sections: true, canDelete: true },
     }),
   ]);
 
@@ -46,6 +51,7 @@ export default async function SettingsPage() {
         church={churchData}
         users={users}
         departments={departments}
+        customRoles={customRoles}
       />
     </div>
   );

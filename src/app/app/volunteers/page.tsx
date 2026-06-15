@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
-import { requireSession } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { getVolunteers } from "@/lib/data/modules";
 import { scheduleAssignment } from "@/app/actions/volunteers";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
@@ -14,7 +14,7 @@ import { formatDate } from "@/lib/utils";
 export const metadata = { title: "Volunteers" };
 
 export default async function VolunteersPage() {
-  const session = await requireSession();
+  const session = await requireModule("volunteers");
   const { teams, assignments } = await getVolunteers(session.churchId);
   const confirmed = assignments.filter((a) => a.confirmed).length;
 

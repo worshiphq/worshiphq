@@ -1,4 +1,4 @@
-import { requireSession } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { getGiving } from "@/lib/data/giving";
 import { GivingClient } from "@/components/app/giving-client";
 import { GivingLinkCard } from "@/components/app/giving-link-card";
@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 export const metadata = { title: "Giving" };
 
 export default async function GivingPage() {
-  const session = await requireSession();
+  const session = await requireModule("giving");
   const [data, church] = await Promise.all([
     getGiving(session.churchId),
     db.church.findUnique({ where: { id: session.churchId }, select: { slug: true, isDemo: true } }),

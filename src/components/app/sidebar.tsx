@@ -6,12 +6,11 @@ import { useState } from "react";
 import { PanelLeftClose, PanelLeft } from "lucide-react";
 import { ChurchLogo } from "@/components/app/church-logo";
 import { nav } from "@/config/nav";
-import { can } from "@/lib/permissions";
-import type { Role } from "@/lib/demo/data";
+import { hasSection } from "@/lib/permissions";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-export function Sidebar({ role, churchName, churchLogo }: { role: Role; churchName: string; churchLogo?: string | null }) {
+export function Sidebar({ sections, churchName, churchLogo }: { sections: string[]; churchName: string; churchLogo?: string | null }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -31,7 +30,7 @@ export function Sidebar({ role, churchName, churchLogo }: { role: Role; churchNa
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-5">
         {nav.map((section, i) => {
-          const items = section.items.filter((it) => can(role, it.key) || it.key === "dashboard");
+          const items = section.items.filter((it) => hasSection({ sections }, it.key));
           if (!items.length) return null;
           return (
             <div key={i}>

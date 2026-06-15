@@ -6,7 +6,7 @@ import { Composer } from "@/components/app/composer";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { requireSession } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { getCommunications } from "@/lib/data/modules";
 import { getPeopleStats } from "@/lib/data/people";
 import { getSmsBalance } from "@/lib/sms/credits";
@@ -19,7 +19,7 @@ export default async function CommunicationsPage({
 }: {
   searchParams: Promise<{ error?: string }>;
 }) {
-  const session = await requireSession();
+  const session = await requireModule("communications");
   const { error } = await searchParams;
   const [{ campaigns, stats }, people, smsBalance] = await Promise.all([
     getCommunications(session.churchId),

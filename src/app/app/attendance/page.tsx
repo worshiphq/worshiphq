@@ -6,7 +6,7 @@ import { AttendanceBarChart } from "@/components/app/charts";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { requireSession } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { getAttendanceOverview } from "@/lib/data/attendance";
 import { recordService, startCheckIn } from "@/app/actions/attendance";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
@@ -15,7 +15,7 @@ import { PageTips } from "@/components/app/page-tips";
 export const metadata = { title: "Attendance" };
 
 export default async function AttendancePage() {
-  const session = await requireSession();
+  const session = await requireModule("attendance");
   const { kpis, trend, mostRecent, history } = await getAttendanceOverview(session.churchId);
   const past = history.slice(mostRecent ? 1 : 0);
 

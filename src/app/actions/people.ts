@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { requireSession, assertCanWrite } from "@/lib/auth";
+import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { getFormDefinition } from "@/lib/forms/registration";
 import { buildPersonData } from "@/lib/forms/person-data";
 import { nextMemberId, resolveDepartmentIds } from "@/lib/members/helpers";
@@ -78,7 +78,7 @@ export async function updatePerson(formData: FormData) {
 
 export async function deletePerson(id: string) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanDelete(session);
   await db.person.deleteMany({ where: { id, churchId: session.churchId } });
   revalidatePath("/app/people");
   revalidatePath("/app");

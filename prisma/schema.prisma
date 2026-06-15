@@ -41,6 +41,7 @@ model Church {
 
   branches      Branch[]
   users         User[]
+  customRoles   CustomRole[]
   people        Person[]
   departments   Department[]
   households     Household[]
@@ -107,6 +108,22 @@ model Department {
   @@index([churchId])
 }
 
+// Admin-defined role with custom section access + delete permission.
+model CustomRole {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name      String
+  sections  String[] // module keys this role can see
+  canDelete Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  users User[]
+
+  @@unique([churchId, name])
+  @@index([churchId])
+}
+
 model User {
   id           String   @id @default(cuid())
   churchId     String
@@ -117,6 +134,8 @@ model User {
   name         String
   passwordHash String?
   role         Role     @default(Volunteer)
+  customRoleId String?
+  customRole   CustomRole? @relation(fields: [customRoleId], references: [id])
   phone         String?
   phoneVerified Boolean  @default(false)
   // A User (logs in) may be linked to a Person (a congregant record).

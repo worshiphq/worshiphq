@@ -96,6 +96,15 @@ export async function saveRegistrationForm(formData: FormData) {
   revalidatePath("/join", "layout");
 }
 
+const BUILT_IN_ROLES: Role[] = ["Owner", "Admin", "Pastor", "Finance", "Media", "Leader", "Volunteer"];
+
+/** A role <select> value is either a built-in enum or "custom:<id>". */
+function parseRoleValue(value: string): { role: Role; customRoleId: string | null } {
+  if (value.startsWith("custom:")) return { role: "Volunteer", customRoleId: value.slice(7) };
+  const role = (BUILT_IN_ROLES.includes(value as Role) ? value : "Volunteer") as Role;
+  return { role, customRoleId: null };
+}
+
 /** Invite a teammate — creates a User in this church with a temporary password. */
 export async function inviteTeammate(formData: FormData) {
   const session = await requireSession();
@@ -104,7 +113,7 @@ export async function inviteTeammate(formData: FormData) {
 
   const email = String(formData.get("email") ?? "").toLowerCase().trim();
   const name = String(formData.get("name") ?? "").trim();
-  const role = String(formData.get("role") ?? "Volunteer") as Role;
+  const { role, customRoleId } = parseRoleValue(String(formData.get("role") ?? "Volunteer"));
   if (!email || !name) return;
 
   const exists = await db.user.findUnique({ where: { email } });
@@ -117,6 +126,7 @@ export async function inviteTeammate(formData: FormData) {
       email,
       name,
       role,
+      customRoleId,
       passwordHash: await hashPassword(tempPassword),
     },
   });
@@ -131,20 +141,53 @@ export async function changeUserRole(formData: FormData) {
   if (session.role !== "Owner" && session.role !== "Admin") return;
 
   const userId = String(formData.get("userId") ?? "").trim();
-  const newRole = String(formData.get("role") ?? "").trim() as Role;
-  if (!userId || !newRole) return;
+  const value = String(formData.get("role") ?? "").trim();
+  if (!userId || !value) return;
 
-  // Can't change your own role or promote beyond your own
+  // Can't change your own role
   if (userId === session.userId) return;
+  const { role, customRoleId } = parseRoleValue(value);
   // Only Owner can make someone else Owner
-  if (newRole === "Owner" && session.role !== "Owner") return;
+  if (role === "Owner" && session.role !== "Owner") return;
 
   await db.user.updateMany({
     where: { id: userId, churchId: session.churchId },
-    data: { role: newRole },
+    data: { role, customRoleId },
   });
 
   revalidatePath("/app/settings");
+  revalidatePath("/app", "layout");
+}
+
+/** Create a custom role with section access + delete permission (Owner/Admin). */
+export async function createCustomRole(formData: FormData) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  if (session.role !== "Owner" && session.role !== "Admin") return;
+
+  const name = String(formData.get("name") ?? "").trim();
+  if (!name) return;
+  const sections = formData.getAll("sections").map(String);
+  const canDelete = formData.get("canDelete") === "on" || formData.get("canDelete") === "yes";
+
+  await db.customRole.upsert({
+    where: { churchId_name: { churchId: session.churchId, name } },
+    create: { churchId: session.churchId, name, sections, canDelete },
+    update: { sections, canDelete },
+  });
+
+  revalidatePath("/app/settings");
+}
+
+export async function deleteCustomRole(id: string) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  if (session.role !== "Owner" && session.role !== "Admin") return;
+  // Detach any users on this role first (they fall back to their base role).
+  await db.user.updateMany({ where: { customRoleId: id, churchId: session.churchId }, data: { customRoleId: null } });
+  await db.customRole.deleteMany({ where: { id, churchId: session.churchId } });
+  revalidatePath("/app/settings");
+  revalidatePath("/app", "layout");
 }
 
 /** Remove a team member (Owner/Admin only, can't remove yourself). */

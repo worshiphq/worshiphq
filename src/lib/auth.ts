@@ -5,7 +5,7 @@ import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { type Session, can, ROLE_PERMISSIONS } from "@/lib/permissions";
+import { type Session, can, ROLE_PERMISSIONS, ALL_MODULES, modulesForRole } from "@/lib/permissions";
 
 export type { Session };
 export { can, ROLE_PERMISSIONS };
@@ -134,6 +134,8 @@ export async function getSession(): Promise<Session | null> {
       branch: "Accra Central",
       avatarName: "Demo Visitor",
       isDemo: true,
+      sections: [...ALL_MODULES],
+      canDelete: true,
     };
   }
 
@@ -155,16 +157,29 @@ export async function getSession(): Promise<Session | null> {
       avatarName: "WorshipHQ Support",
       isDemo: false,
       impersonating: true,
+      sections: [...ALL_MODULES],
+      canDelete: true,
     };
   }
 
-  const user = await db.user.findUnique({ where: { id: payload.uid }, include: { church: true, branch: true } });
+  const user = await db.user.findUnique({
+    where: { id: payload.uid },
+    include: { church: true, branch: true, customRole: true },
+  });
   if (!user) return null;
+
+  // Custom role overrides the built-in role's access + delete permission.
+  const sections = user.customRole ? user.customRole.sections : modulesForRole(user.role);
+  const canDelete = user.customRole ? user.customRole.canDelete : true;
+
   return {
     userId: user.id,
     name: user.name,
     email: user.email,
     role: user.role,
+    customRole: user.customRole?.name ?? null,
+    sections,
+    canDelete,
     churchId: user.churchId,
     churchName: user.church.name,
     branch: user.branch?.name ?? "All branches",
@@ -190,6 +205,21 @@ export class DemoReadOnlyError extends Error {
 }
 export function assertCanWrite(session: Session) {
   if (session.isDemo) throw new DemoReadOnlyError();
+}
+
+/** Guard for delete actions — blocked for demo and for roles without delete rights. */
+export function assertCanDelete(session: Session) {
+  if (session.isDemo) throw new DemoReadOnlyError();
+  if (!session.canDelete) throw new Error("Your role doesn't have permission to delete records.");
+}
+
+/** Require the session to have access to a module/section, else redirect. */
+export async function requireModule(module: string): Promise<Session> {
+  const session = await requireSession();
+  if (module !== "dashboard" && !session.sections.includes(module)) {
+    redirect("/app");
+  }
+  return session;
 }
 
 export { COOKIE as SESSION_COOKIE };

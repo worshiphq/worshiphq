@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   Building, Palette, Users2, CreditCard, Plug, Check, CircleDot,
-  Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, UserCircle,
+  Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, UserCircle, Shield,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,9 @@ import { ROLE_PERMISSIONS } from "@/lib/permissions";
 import {
   updateChurch, inviteTeammate,
   changeUserRole, removeTeamMember, updateProfile,
+  createCustomRole, deleteCustomRole,
 } from "@/app/actions/settings";
+import { ALL_MODULES } from "@/lib/permissions";
 import { BrandingForm } from "@/components/app/branding-form";
 import { FormBuilder } from "@/components/app/form-builder";
 import { getFormDefinition } from "@/lib/forms/registration";
@@ -36,8 +38,15 @@ type Church = {
   slug: string;
   registrationFields: unknown;
 } | null;
-type TeamUser = { id: string; name: string; email: string; role: string };
+type TeamUser = { id: string; name: string; email: string; role: string; customRole?: { id: string; name: string } | null };
 type Dept = { id: string; name: string };
+type CustomRoleRow = { id: string; name: string; sections: string[]; canDelete: boolean };
+
+const MODULE_LABELS: Record<string, string> = {
+  people: "People", attendance: "Attendance", events: "Events", volunteers: "Volunteers",
+  giving: "Giving", accounting: "Accounting", communications: "Communications",
+  reminders: "Reminders", branches: "Branches", settings: "Settings",
+};
 
 const tabs = [
   { key: "account", label: "My account", icon: UserCircle },
@@ -69,12 +78,14 @@ export function SettingsClient({
   church,
   users,
   departments,
+  customRoles,
 }: {
   session: Session;
   features: FeatureMap;
   church: Church;
   users: TeamUser[];
   departments: Dept[];
+  customRoles: CustomRoleRow[];
 }) {
   const [tab, setTab] = useState<(typeof tabs)[number]["key"]>("church");
   const ro = session.isDemo;
@@ -193,17 +204,22 @@ export function SettingsClient({
                           <input type="hidden" name="userId" value={u.id} />
                           <select
                             name="role"
-                            defaultValue={u.role}
+                            defaultValue={u.customRole ? `custom:${u.customRole.id}` : u.role}
                             className="h-8 rounded-lg border border-line bg-surface px-2 text-xs"
                           >
-                            {ALL_ROLES.map((r) => <option key={r}>{r}</option>)}
+                            {ALL_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
+                            {customRoles.length > 0 && (
+                              <optgroup label="Custom roles">
+                                {customRoles.map((cr) => <option key={cr.id} value={`custom:${cr.id}`}>{cr.name}</option>)}
+                              </optgroup>
+                            )}
                           </select>
                           <SubmitButton size="sm" variant="secondary" overlay={false} successMessage="Role updated" className="h-8 px-2 text-xs">
                             Update
                           </SubmitButton>
                         </form>
                       ) : (
-                        <Badge variant="default">{u.role}</Badge>
+                        <Badge variant="default">{u.customRole?.name ?? u.role}</Badge>
                       )}
                       {isAdmin && u.id !== session.userId && u.role !== "Owner" && (
                         <form action={removeTeamMember}>
@@ -234,8 +250,13 @@ export function SettingsClient({
                     className="flex h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   >
                     {ALL_ROLES.map((r) => (
-                      <option key={r}>{r}</option>
+                      <option key={r} value={r}>{r}</option>
                     ))}
+                    {customRoles.length > 0 && (
+                      <optgroup label="Custom roles">
+                        {customRoles.map((cr) => <option key={cr.id} value={`custom:${cr.id}`}>{cr.name}</option>)}
+                      </optgroup>
+                    )}
                   </select>
                   <Input name="password" placeholder="Temp password (optional)" disabled={ro} />
                   <SubmitButton className="sm:col-span-2" disabled={ro} pendingLabel="Sending invite…" successMessage="Invite sent">Send invite</SubmitButton>
@@ -246,9 +267,62 @@ export function SettingsClient({
               </Card>
             )}
 
+            {/* ── Custom roles ── */}
+            {isAdmin && (
+              <Card className="p-6">
+                <h3 className="flex items-center gap-2 font-display text-base font-semibold">
+                  <Shield className="size-4" /> Custom roles
+                </h3>
+                <p className="mt-1 text-sm text-ink-muted">
+                  Create a role that can only see certain sections — e.g. an &ldquo;Attendance&rdquo; role that sees only attendance. Choose whether they can delete records or only add.
+                </p>
+
+                {customRoles.length > 0 && (
+                  <div className="mt-4 divide-y divide-line-soft rounded-xl border border-line">
+                    {customRoles.map((cr) => (
+                      <div key={cr.id} className="flex items-start justify-between gap-3 p-4">
+                        <div>
+                          <div className="font-medium">{cr.name}</div>
+                          <div className="mt-0.5 text-xs text-ink-faint">
+                            {cr.sections.length ? cr.sections.map((s) => MODULE_LABELS[s] ?? s).join(", ") : "No sections"}
+                            {" · "}{cr.canDelete ? "can delete" : "add only"}
+                          </div>
+                        </div>
+                        <form action={deleteCustomRole.bind(null, cr.id)}>
+                          <SubmitButton size="sm" variant="ghost" overlay={false} successMessage="Role deleted" className="text-danger">
+                            <Trash2 className="size-3.5" />
+                          </SubmitButton>
+                        </form>
+                      </div>
+                    ))}
+                  </div>
+                )}
+
+                <form action={createCustomRole} className="mt-4 space-y-3">
+                  <Input name="name" placeholder="Role name (e.g. Attendance team)" required disabled={ro} />
+                  <div>
+                    <Label>Sections this role can see</Label>
+                    <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                      {ALL_MODULES.map((m) => (
+                        <label key={m} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-surface-2">
+                          <input type="checkbox" name="sections" value={m} className="size-4 rounded border-line accent-primary" />
+                          {MODULE_LABELS[m] ?? m}
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <label className="flex items-center gap-2 text-sm text-ink-muted">
+                    <input type="checkbox" name="canDelete" className="size-4 rounded border-line accent-primary" />
+                    Allow this role to delete records (otherwise they can only add/edit)
+                  </label>
+                  <SubmitButton disabled={ro} pendingLabel="Saving…" successMessage="Role saved">Create role</SubmitButton>
+                </form>
+              </Card>
+            )}
+
             <Card>
               <div className="border-b border-line p-6">
-                <h3 className="font-display text-base font-semibold">What each role can access</h3>
+                <h3 className="font-display text-base font-semibold">What each built-in role can access</h3>
               </div>
               <div className="divide-y divide-line-soft">
                 {Object.entries(ROLE_PERMISSIONS).map(([role, perms]) => (

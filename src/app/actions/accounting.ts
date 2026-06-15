@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, assertCanWrite } from "@/lib/auth";
+import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 
 export async function createTransaction(formData: FormData) {
   const session = await requireSession();
@@ -32,7 +32,7 @@ export async function createTransaction(formData: FormData) {
 /** Delete a transaction (admins only). */
 export async function deleteTransaction(id: string) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanDelete(session);
   await db.transaction.deleteMany({ where: { id, churchId: session.churchId } });
   revalidatePath("/app/accounting");
 }

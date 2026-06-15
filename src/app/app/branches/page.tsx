@@ -4,7 +4,7 @@ import { StatCard } from "@/components/app/stat-card";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { requireSession } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { getBranches } from "@/lib/data/modules";
 import { createBranch } from "@/app/actions/branches";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
@@ -13,7 +13,7 @@ import { formatCurrency } from "@/config/brand";
 export const metadata = { title: "Branches" };
 
 export default async function BranchesPage() {
-  const session = await requireSession();
+  const session = await requireModule("branches");
   const branches = await getBranches(session.churchId);
   const totalMembers = branches.reduce((s, b) => s + b.members, 0);
   const totalGiving = branches.reduce((s, b) => s + b.giving, 0);

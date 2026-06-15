@@ -9,7 +9,7 @@ import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { ChurchLogo } from "@/components/app/church-logo";
 import { nav } from "@/config/nav";
-import { can, type Session } from "@/lib/permissions";
+import { hasSection, type Session } from "@/lib/permissions";
 import { cn } from "@/lib/utils";
 import { themeFromAccent } from "@/lib/color";
 import { exitImpersonation } from "@/app/actions/admin";
@@ -51,7 +51,7 @@ export function AppShell({
 
   return (
     <div className="flex min-h-dvh bg-base" style={themeStyle}>
-      <Sidebar role={session.role} churchName={session.churchName} churchLogo={churchLogo} />
+      <Sidebar sections={session.sections} churchName={session.churchName} churchLogo={churchLogo} />
 
       {/* Mobile drawer */}
       <AnimatePresence>
@@ -79,7 +79,7 @@ export function AppShell({
               </div>
               <nav className="flex-1 space-y-5 overflow-y-auto p-3">
                 {nav.map((section, i) => {
-                  const items = section.items.filter((it) => can(session.role, it.key) || it.key === "dashboard");
+                  const items = section.items.filter((it) => hasSection(session, it.key));
                   if (!items.length) return null;
                   return (
                     <div key={i}>

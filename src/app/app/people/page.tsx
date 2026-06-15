@@ -1,4 +1,4 @@
-import { requireSession } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { getPeople, getPeopleStats } from "@/lib/data/people";
 import { db } from "@/lib/db";
 import { PeopleClient } from "@/components/app/people-client";
@@ -9,7 +9,7 @@ import { getFormDefinition } from "@/lib/forms/registration";
 export const metadata = { title: "People" };
 
 export default async function PeoplePage() {
-  const session = await requireSession();
+  const session = await requireModule("people");
   const [people, stats, departments, church] = await Promise.all([
     getPeople(session.churchId),
     getPeopleStats(session.churchId),

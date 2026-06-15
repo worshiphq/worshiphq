@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Trash2, Users } from "lucide-react";
-import { requireSession } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { env } from "@/lib/env";
 import { getAttendanceSession, getCheckInCandidates } from "@/lib/data/attendance";
 import { deleteSession } from "@/app/actions/attendance";
@@ -18,7 +18,7 @@ export default async function AttendanceSessionPage({
   params: Promise<{ id: string }>;
 }) {
   const { id } = await params;
-  const session = await requireSession();
+  const session = await requireModule("attendance");
   const [data, candidates] = await Promise.all([
     getAttendanceSession(session.churchId, id),
     getCheckInCandidates(session.churchId, id),

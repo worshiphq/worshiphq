@@ -4,7 +4,7 @@ import { StatCard } from "@/components/app/stat-card";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { requireSession } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { getEvents } from "@/lib/data/modules";
 import { createEvent } from "@/app/actions/events";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
@@ -14,7 +14,7 @@ import { formatDate } from "@/lib/utils";
 export const metadata = { title: "Events" };
 
 export default async function EventsPage() {
-  const session = await requireSession();
+  const session = await requireModule("events");
   const events = await getEvents(session.churchId);
   const totalRegistered = events.reduce((s, e) => s + e.registered, 0);
 

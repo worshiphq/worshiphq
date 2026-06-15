@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Badge } from "@/components/ui/badge";
-import { requireSession } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { getAccounting } from "@/lib/data/modules";
 import { createTransaction, deleteTransaction } from "@/app/actions/accounting";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
@@ -15,7 +15,7 @@ import { formatDate } from "@/lib/utils";
 export const metadata = { title: "Accounting" };
 
 export default async function AccountingPage() {
-  const session = await requireSession();
+  const session = await requireModule("accounting");
   const { transactions, income, expenses, fundBalances } = await getAccounting(session.churchId);
   const canWrite = !session.isDemo;
 

@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { Card } from "@/components/ui/card";
-import { requireSession } from "@/lib/auth";
+import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { SmsCreditsPanel } from "@/components/app/sms-credits-panel";
 import { formatDate } from "@/lib/utils";
@@ -10,7 +10,7 @@ import { formatDate } from "@/lib/utils";
 export const metadata = { title: "SMS credits" };
 
 export default async function SmsCreditsPage() {
-  const session = await requireSession();
+  const session = await requireModule("communications");
   const [church, transactions] = await Promise.all([
     db.church.findUnique({
       where: { id: session.churchId },
