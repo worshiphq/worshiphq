@@ -3,14 +3,23 @@ import { env, features } from "@/lib/env";
 
 export type SmsResult = { ok: boolean; provider: string; stubbed: boolean; id?: string; error?: string };
 
+// Approved sender IDs (e.g. Hubtel "HostHub") aren't our brand name, so we brand
+// every message body with a heading so recipients know it's from WorshipHQ.
+const SMS_HEADING = "WorshipHQ";
+
+function withHeading(message: string): string {
+  return message.startsWith(SMS_HEADING) ? message : `${SMS_HEADING}\n${message}`;
+}
+
 /**
  * Send an SMS. In stub mode (no provider key) it logs to the console and
  * succeeds, so the whole app works without real credentials. Drop in a key
  * (e.g. ARKESEL_API_KEY) and it will call the real Ghana provider.
  */
-export async function sendSms(to: string | string[], message: string): Promise<SmsResult> {
+export async function sendSms(to: string | string[], rawMessage: string): Promise<SmsResult> {
   const recipients = Array.isArray(to) ? to : [to];
   const provider = env.SMS_PROVIDER;
+  const message = withHeading(rawMessage);
 
   if (!features.sms) {
     console.info(
