@@ -22,6 +22,7 @@ const TYPE_LABELS: Record<FieldType, string> = {
   email: "Email",
   select: "Dropdown",
   checkbox: "Checkbox",
+  image: "Photo upload",
 };
 
 let customSeq = 0;

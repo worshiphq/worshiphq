@@ -14,7 +14,8 @@ export type FieldType =
   | "tel"
   | "email"
   | "select"
-  | "checkbox";
+  | "checkbox"
+  | "image";
 
 export interface FieldCondition {
   fieldId: string; // show this field only when…
@@ -35,7 +36,7 @@ export interface FormField {
 
 /** Person columns a system field can map to (id === column key). */
 export const SYSTEM_COLUMNS = [
-  "firstName", "lastName", "otherNames", "email", "phone",
+  "firstName", "lastName", "otherNames", "email", "phone", "photoUrl",
   "gender", "title", "dateOfBirth", "occupation", "employer",
   "previousChurch", "dateOfMembership", "placeOfBirth", "nationality",
   "country", "region", "district", "town", "nationalId", "houseAddress",
@@ -57,6 +58,7 @@ const YESNO = ["Yes", "No"];
 
 /** Catalogue of system fields an admin can add from the builder palette. */
 export const SYSTEM_FIELD_CATALOG: FormField[] = [
+  { id: "photoUrl", label: "Profile photo", type: "image", system: true },
   { id: "otherNames", label: "Other names", type: "text", system: true },
   { id: "gender", label: "Gender", type: "select", options: GENDER, system: true },
   { id: "title", label: "Title", type: "select", options: TITLES, system: true },
@@ -108,7 +110,7 @@ export const DEFAULT_FORM: FormField[] = [
   { id: "emergencyPhone", label: "Emergency contact phone", type: "tel", system: true },
 ];
 
-const VALID_TYPES: FieldType[] = ["text", "textarea", "number", "date", "tel", "email", "select", "checkbox"];
+const VALID_TYPES: FieldType[] = ["text", "textarea", "number", "date", "tel", "email", "select", "checkbox", "image"];
 
 /** Coerce one stored object into a valid FormField (defensive against bad JSON). */
 function coerceField(raw: unknown): FormField | null {

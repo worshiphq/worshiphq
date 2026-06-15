@@ -23,6 +23,8 @@ model Church {
   suspended    Boolean  @default(false)
   smsCredits       Int     @default(50) // prepaid SMS units (50 free on signup)
   smsWelcomeMember Boolean @default(true) // SMS a welcome to members who self-register
+  memberPrefix String? // member ID prefix, e.g. "GBC" (derived from name if unset)
+  memberSeq    Int     @default(0) // last issued member number
   name         String
   denomination String?
   city         String?
@@ -98,7 +100,8 @@ model Department {
   description String?
   createdAt   DateTime @default(now())
 
-  people Person[]
+  people  Person[] @relation("PrimaryDepartment") // legacy single-department link
+  members Person[] @relation("PersonDepartments") // many-to-many membership
 
   @@unique([churchId, name])
   @@index([churchId])
@@ -137,6 +140,7 @@ model Person {
   church      Church       @relation(fields: [churchId], references: [id], onDelete: Cascade)
   branchId    String?
   branch      Branch?      @relation(fields: [branchId], references: [id])
+  memberId    String? // human-friendly ID, e.g. GBC-0001 (unique per church)
   firstName   String
   lastName    String
   otherNames  String?
@@ -183,8 +187,11 @@ model Person {
   emergencyAddress String?
 
   // ── Department ──
+  // departmentId is the legacy single department (kept for back-compat / data
+  // safety). `departments` is the new many-to-many (a member can be in several).
   departmentId String?
-  department   Department? @relation(fields: [departmentId], references: [id])
+  department   Department? @relation("PrimaryDepartment", fields: [departmentId], references: [id])
+  departments  Department[] @relation("PersonDepartments")
 
   householdId String?
   household   Household? @relation(fields: [householdId], references: [id])
@@ -194,6 +201,7 @@ model Person {
   attendance  AttendanceRecord[]
   user        User?
 
+  @@unique([churchId, memberId])
   @@index([churchId])
   @@index([branchId])
   @@index([departmentId])

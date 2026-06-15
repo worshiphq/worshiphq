@@ -23,8 +23,8 @@ export async function getDashboard(churchId: string) {
       db.attendanceSession.findMany({ where: { churchId, date: { gte: sixMonthsAgo } }, select: { date: true, adults: true, teens: true, children: true, visitors: true } }),
       db.event.findMany({ where: { churchId, startsAt: { gte: now } }, orderBy: { startsAt: "asc" }, take: 4 }),
       db.person.findMany({ where: { churchId }, select: { firstName: true, lastName: true, birthday: true, status: true, gender: true, departmentId: true } }),
-      db.department.findMany({ where: { churchId }, select: { id: true, name: true, _count: { select: { people: true } } } }),
-      db.person.findMany({ where: { churchId }, orderBy: { joinedAt: "desc" }, take: 6, select: { firstName: true, lastName: true, gender: true, status: true, joinedAt: true, department: { select: { name: true } } } }),
+      db.department.findMany({ where: { churchId }, select: { id: true, name: true, _count: { select: { members: true } } } }),
+      db.person.findMany({ where: { churchId }, orderBy: { joinedAt: "desc" }, take: 6, select: { firstName: true, lastName: true, gender: true, status: true, joinedAt: true, departments: { select: { name: true }, take: 1 } } }),
     ]);
 
   // 6-month trend buckets
@@ -61,12 +61,12 @@ export async function getDashboard(churchId: string) {
       priority: (p.status === "visitor" ? "high" : "medium") as "high" | "medium" | "low",
     }));
 
-  const departmentBreakdown = departments.map((d) => ({ name: d.name, count: d._count.people }));
+  const departmentBreakdown = departments.map((d) => ({ name: d.name, count: d._count.members }));
 
   const recentMembers = recent.map((p) => ({
     name: `${p.firstName} ${p.lastName}`,
     gender: p.gender,
-    department: p.department?.name ?? null,
+    department: p.departments[0]?.name ?? null,
     status: p.status,
     joined: p.joinedAt.toLocaleDateString("en-GH", { month: "short", day: "numeric" }),
   }));

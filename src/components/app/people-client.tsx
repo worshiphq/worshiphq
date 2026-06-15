@@ -12,9 +12,11 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { OnFormComplete } from "@/components/ui/form-effects";
 import { Badge } from "@/components/ui/badge";
 import { MemberAvatar } from "@/components/ui/member-avatar";
-import { Input, Label } from "@/components/ui/input";
+import { Label } from "@/components/ui/input";
 import { createPerson, updatePerson, deletePerson } from "@/app/actions/people";
+import { MemberFormFields, type MemberDefaults } from "@/components/app/member-form-fields";
 import type { PersonRow } from "@/lib/data/people";
+import type { FormField } from "@/lib/forms/registration";
 import { formatDate, cn } from "@/lib/utils";
 
 const segments = [
@@ -35,9 +37,9 @@ type Stats = { total: number; active: number; visitors: number; ministries: numb
 type Dept = { id: string; name: string };
 
 export function PeopleClient({
-  people, stats, canWrite, departments,
+  people, stats, canWrite, departments, formFields,
 }: {
-  people: PersonRow[]; stats: Stats; canWrite: boolean; departments: Dept[];
+  people: PersonRow[]; stats: Stats; canWrite: boolean; departments: Dept[]; formFields: FormField[];
 }) {
   const [query, setQuery] = useState("");
   const [segment, setSegment] = useState<(typeof segments)[number]["key"]>("all");
@@ -54,7 +56,8 @@ export function PeopleClient({
         return (
           p.fullName.toLowerCase().includes(q) ||
           (p.email ?? "").toLowerCase().includes(q) ||
-          (p.department ?? "").toLowerCase().includes(q) ||
+          (p.memberId ?? "").toLowerCase().includes(q) ||
+          p.departments.some((d) => d.toLowerCase().includes(q)) ||
           p.ministries.some((m) => m.toLowerCase().includes(q))
         );
       }
@@ -149,12 +152,12 @@ export function PeopleClient({
                 style={{ animationDelay: `${i * 30}ms` }}
               >
                 <div className="flex flex-col items-center text-center">
-                  <MemberAvatar name={p.fullName} gender={p.gender} size="lg" />
+                  <MemberAvatar name={p.fullName} photoUrl={p.photoUrl} gender={p.gender} size="lg" />
                   <h3 className="mt-3 font-display text-sm font-semibold">{p.fullName}</h3>
-                  <p className="mt-0.5 text-xs text-ink-faint">{p.email ?? p.phone ?? "---"}</p>
+                  <p className="mt-0.5 text-xs text-ink-faint">{p.memberId ?? p.email ?? p.phone ?? "---"}</p>
                   <div className="mt-3 flex flex-wrap justify-center gap-1.5">
                     <Badge variant={eng.variant} className="text-[10px]">{eng.label}</Badge>
-                    {p.department && <Badge variant="default" className="text-[10px]">{p.department}</Badge>}
+                    {p.departments[0] && <Badge variant="default" className="text-[10px]">{p.departments[0]}</Badge>}
                   </div>
                 </div>
               </div>
@@ -186,16 +189,19 @@ export function PeopleClient({
                   >
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <MemberAvatar name={p.fullName} gender={p.gender} size="sm" />
+                        <MemberAvatar name={p.fullName} photoUrl={p.photoUrl} gender={p.gender} size="sm" />
                         <div>
                           <div className="font-medium text-ink">{p.fullName}</div>
-                          <div className="text-xs text-ink-faint">{p.email ?? p.phone ?? "---"}</div>
+                          <div className="text-xs text-ink-faint">{p.memberId ?? p.email ?? p.phone ?? "---"}</div>
                         </div>
                       </div>
                     </td>
                     <td className="hidden p-4 md:table-cell">
-                      {p.department ? (
-                        <Badge variant="default" className="text-[10px]">{p.department}</Badge>
+                      {p.departments.length ? (
+                        <div className="flex flex-wrap gap-1">
+                          {p.departments.slice(0, 2).map((d) => <Badge key={d} variant="default" className="text-[10px]">{d}</Badge>)}
+                          {p.departments.length > 2 && <span className="text-xs text-ink-faint">+{p.departments.length - 2}</span>}
+                        </div>
                       ) : (
                         <span className="text-xs text-ink-faint">---</span>
                       )}
@@ -226,6 +232,7 @@ export function PeopleClient({
         <PersonForm
           person={editing}
           departments={departments}
+          formFields={formFields}
           onClose={() => { setCreating(false); setEditing(null); }}
         />
       )}
@@ -262,15 +269,15 @@ function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow
             <X className="size-5" />
           </button>
           <div className="flex items-center gap-4">
-            <MemberAvatar name={person.fullName} gender={person.gender} size="lg" className="ring-4 ring-surface" />
+            <MemberAvatar name={person.fullName} photoUrl={person.photoUrl} gender={person.gender} size="lg" className="ring-4 ring-surface" />
             <div>
               <h2 className="font-display text-xl font-bold">
                 {person.title ? `${person.title} ` : ""}{person.fullName}
               </h2>
+              {person.memberId && <div className="mt-0.5 font-mono text-xs text-ink-faint">{person.memberId}</div>}
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <Badge variant={eng.variant}>{eng.label}</Badge>
                 <Badge variant="default" className="capitalize">{person.status}</Badge>
-                {person.department && <Badge variant="primary">{person.department}</Badge>}
               </div>
             </div>
           </div>
@@ -289,8 +296,12 @@ function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow
 
           <Section title="Household"><p className="text-sm text-ink-muted">{person.household ?? "---"}</p></Section>
 
-          {person.department && (
-            <Section title="Department"><Badge variant="primary">{person.department}</Badge></Section>
+          {person.departments.length > 0 && (
+            <Section title="Departments">
+              <div className="flex flex-wrap gap-1.5">
+                {person.departments.map((d) => <Badge key={d} variant="primary">{d}</Badge>)}
+              </div>
+            </Section>
           )}
 
           <Section title="Ministry involvement">
@@ -340,12 +351,29 @@ function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow
   );
 }
 
+function buildDefaults(fields: FormField[], person: PersonRow): MemberDefaults {
+  const scalars: Record<string, string> = {};
+  for (const f of fields) {
+    if (f.id === "department" || f.type === "image") continue;
+    if (f.system) {
+      const v = (person as unknown as Record<string, unknown>)[f.id];
+      if (f.id === "baptized") scalars[f.id] = v === true ? "Yes" : v === false ? "No" : "";
+      else if (v != null) scalars[f.id] = String(v);
+    } else {
+      const cv = person.customFields[f.label];
+      if (cv) scalars[f.id] = cv;
+    }
+  }
+  return { scalars, departments: person.departments, photoUrl: person.photoUrl ?? "" };
+}
+
 function PersonForm({
-  person, departments, onClose,
+  person, departments, formFields, onClose,
 }: {
-  person: PersonRow | null; departments: Dept[]; onClose: () => void;
+  person: PersonRow | null; departments: Dept[]; formFields: FormField[]; onClose: () => void;
 }) {
   const isEdit = !!person;
+  const defaults = person ? buildDefaults(formFields, person) : undefined;
   const selectBase =
     "flex h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30";
 
@@ -354,108 +382,30 @@ function PersonForm({
       <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-2xl max-h-[90vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-line bg-surface p-6 shadow-2xl animate-fade-up">
         <div className="mb-5 flex items-center justify-between">
-          <h2 className="font-display text-xl font-bold">{isEdit ? "Edit member" : "Add member"}</h2>
+          <div>
+            <h2 className="font-display text-xl font-bold">{isEdit ? "Edit member" : "Add member"}</h2>
+            {isEdit && person?.memberId && (
+              <p className="mt-0.5 text-xs text-ink-faint">
+                <span className="font-mono">{person.memberId}</span> · Joined {formatDate(person.joined)}
+              </p>
+            )}
+          </div>
           <button onClick={onClose} className="grid size-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-2"><X className="size-5" /></button>
         </div>
         <form action={isEdit ? updatePerson : createPerson} className="space-y-5">
           {isEdit && <input type="hidden" name="id" value={person!.id} />}
 
-          <fieldset>
-            <legend className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Personal</legend>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="firstName">First name</Label><Input id="firstName" name="firstName" required defaultValue={person?.firstName} /></div>
-              <div><Label htmlFor="lastName">Last name</Label><Input id="lastName" name="lastName" required defaultValue={person?.lastName} /></div>
-            </div>
-            <div className="mt-3 grid grid-cols-3 gap-3">
-              <div><Label htmlFor="otherNames">Other names</Label><Input id="otherNames" name="otherNames" defaultValue={person?.otherNames ?? ""} /></div>
-              <div>
-                <Label htmlFor="gender">Gender</Label>
-                <select id="gender" name="gender" defaultValue={person?.gender ?? ""} className={selectBase}>
-                  <option value="">---</option><option value="Male">Male</option><option value="Female">Female</option>
-                </select>
-              </div>
-              <div>
-                <Label htmlFor="title">Title</Label>
-                <select id="title" name="title" defaultValue={person?.title ?? ""} className={selectBase}>
-                  <option value="">---</option>
-                  {["Mr", "Mrs", "Ms", "Dr", "Rev", "Pastor", "Elder", "Deacon", "Deaconess"].map((t) => <option key={t}>{t}</option>)}
-                </select>
-              </div>
-            </div>
-          </fieldset>
+          {/* Same fields as the public join form, configured in Settings → Join link */}
+          <MemberFormFields fields={formFields} departments={departments} defaults={defaults} />
 
-          <fieldset>
-            <legend className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Contact</legend>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="email">Email</Label><Input id="email" name="email" type="email" defaultValue={person?.email ?? ""} /></div>
-              <div><Label htmlFor="phone">Mobile phone</Label><Input id="phone" name="phone" placeholder="+233 ..." defaultValue={person?.phone ?? ""} /></div>
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Details</legend>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="dateOfBirth">Date of birth</Label><Input id="dateOfBirth" name="dateOfBirth" type="date" defaultValue={person?.dateOfBirth ? person.dateOfBirth.split("T")[0] : ""} /></div>
-              <div><Label htmlFor="birthday">Birthday (MM-DD)</Label><Input id="birthday" name="birthday" placeholder="06-05" defaultValue={person?.birthday ?? ""} /></div>
-              <div><Label htmlFor="occupation">Occupation</Label><Input id="occupation" name="occupation" defaultValue={person?.occupation ?? ""} /></div>
-              <div>
-                <Label htmlFor="maritalStatus">Marital status</Label>
-                <select id="maritalStatus" name="maritalStatus" defaultValue={person?.maritalStatus ?? ""} className={selectBase}>
-                  <option value="">---</option>
-                  {["Single", "Married", "Divorced", "Widowed"].map((s) => <option key={s}>{s}</option>)}
-                </select>
-              </div>
-              <div><Label htmlFor="nationality">Nationality</Label><Input id="nationality" name="nationality" defaultValue={person?.nationality ?? "Ghanaian"} /></div>
-              <div><Label htmlFor="nationalId">National ID</Label><Input id="nationalId" name="nationalId" placeholder="GHA-..." defaultValue={person?.nationalId ?? ""} /></div>
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Location</legend>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="region">Region</Label><Input id="region" name="region" defaultValue={person?.region ?? ""} /></div>
-              <div><Label htmlFor="town">Town</Label><Input id="town" name="town" defaultValue={person?.town ?? ""} /></div>
-              <div><Label htmlFor="homeTown">Home town</Label><Input id="homeTown" name="homeTown" defaultValue={person?.homeTown ?? ""} /></div>
-              <div><Label htmlFor="houseAddress">House address</Label><Input id="houseAddress" name="houseAddress" defaultValue={person?.houseAddress ?? ""} /></div>
-              <div><Label htmlFor="location">Location (legacy)</Label><Input id="location" name="location" defaultValue={person?.location ?? ""} /></div>
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Church</legend>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label htmlFor="status">Status</Label>
-                <select id="status" name="status" defaultValue={person?.status ?? "active"} className={selectBase}>
-                  <option value="active">Active member</option><option value="visitor">Visitor</option><option value="inactive">Inactive</option>
-                </select>
-              </div>
-              {departments.length > 0 && (
-                <div>
-                  <Label htmlFor="departmentId">Department</Label>
-                  <select id="departmentId" name="departmentId" defaultValue={person?.departmentId ?? ""} className={selectBase}>
-                    <option value="">---</option>
-                    {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                  </select>
-                </div>
-              )}
-            </div>
-          </fieldset>
-
-          <fieldset>
-            <legend className="mb-3 text-sm font-semibold uppercase tracking-wide text-ink-faint">Emergency contact</legend>
-            <div className="grid grid-cols-2 gap-3">
-              <div><Label htmlFor="emergencyName">Name</Label><Input id="emergencyName" name="emergencyName" defaultValue={person?.emergencyName ?? ""} /></div>
-              <div><Label htmlFor="emergencyPhone">Phone</Label><Input id="emergencyPhone" name="emergencyPhone" defaultValue={person?.emergencyPhone ?? ""} /></div>
-              <div>
-                <Label htmlFor="emergencyRelation">Relationship</Label>
-                <select id="emergencyRelation" name="emergencyRelation" defaultValue={person?.emergencyRelation ?? ""} className={selectBase}>
-                  <option value="">---</option>
-                  {["Spouse", "Parent", "Sibling", "Child", "Friend", "Other"].map((r) => <option key={r}>{r}</option>)}
-                </select>
-              </div>
-            </div>
-          </fieldset>
+          <div>
+            <Label htmlFor="status">Membership status</Label>
+            <select id="status" name="status" defaultValue={person?.status ?? "active"} className={selectBase}>
+              <option value="active">Active member</option>
+              <option value="visitor">Visitor</option>
+              <option value="inactive">Inactive</option>
+            </select>
+          </div>
 
           <div className="flex gap-2 border-t border-line pt-4">
             <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>

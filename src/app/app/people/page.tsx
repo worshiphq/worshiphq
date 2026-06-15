@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { PeopleClient } from "@/components/app/people-client";
 import { JoinLinkCard } from "@/components/app/join-link-card";
 import { PageTips } from "@/components/app/page-tips";
+import { getFormDefinition } from "@/lib/forms/registration";
 
 export const metadata = { title: "People" };
 
@@ -17,8 +18,9 @@ export default async function PeoplePage() {
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
-    db.church.findUnique({ where: { id: session.churchId }, select: { slug: true, isDemo: true } }),
+    db.church.findUnique({ where: { id: session.churchId }, select: { slug: true, isDemo: true, registrationFields: true } }),
   ]);
+  const formFields = getFormDefinition(church?.registrationFields ?? null);
   return (
     <div className="space-y-5">
       <PageTips
@@ -39,6 +41,7 @@ export default async function PeoplePage() {
           stats={stats}
           canWrite={!session.isDemo}
           departments={departments}
+          formFields={formFields}
         />
       </div>
     </div>
