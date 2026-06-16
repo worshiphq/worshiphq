@@ -24,6 +24,7 @@ export interface Session {
   branch: string;
   branchId?: string | null;
   avatarName: string;
+  avatarUrl?: string | null;
   isDemo: boolean;
   /** True when a SuperAdmin is viewing this church as invisible support. */
   impersonating?: boolean;

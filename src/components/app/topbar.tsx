@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Search, Bell, ChevronDown, Check, LogOut, Settings, Building2, Menu } from "lucide-react";
-import { Avatar } from "@/components/ui/avatar";
+import { Search, Bell, ChevronDown, Check, LogOut, Settings, Building2, Menu, UserCircle } from "lucide-react";
+import { MemberAvatar } from "@/components/ui/member-avatar";
 import { Badge } from "@/components/ui/badge";
 import { OfflineIndicator } from "@/components/app/offline-indicator";
 import { switchBranch, signOut } from "@/app/actions/auth";
@@ -118,10 +118,10 @@ export function Topbar({
             onClick={() => setProfileOpen((v) => !v)}
             className={cn("flex items-center gap-2 rounded-xl border border-line bg-surface p-1 pr-2.5", pending && "opacity-60")}
           >
-            <Avatar name={session.avatarName} size="sm" />
+            <MemberAvatar name={session.avatarName} photoUrl={session.avatarUrl} size="sm" />
             <span className="hidden text-left sm:block">
               <span className="block text-xs font-medium leading-tight">{session.name}</span>
-              <span className="block text-[10px] leading-tight text-ink-muted">{session.role}</span>
+              <span className="block text-[10px] leading-tight text-ink-muted">{session.customRole ?? session.role}</span>
             </span>
             <ChevronDown className="size-4 text-ink-muted" />
           </button>
@@ -133,9 +133,14 @@ export function Topbar({
                   <div className="text-sm font-medium">{session.name}</div>
                   <div className="text-xs text-ink-muted">{session.email}</div>
                 </div>
-                <a href="/app/settings" className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2">
-                  <Settings className="size-4" /> Settings
+                <a href="/app/account" className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2">
+                  <UserCircle className="size-4" /> My account
                 </a>
+                {session.sections.includes("settings") && (
+                  <a href="/app/settings" className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2">
+                    <Settings className="size-4" /> Settings
+                  </a>
+                )}
                 <form action={signOut}>
                   <button className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-danger hover:bg-danger/10">
                     <LogOut className="size-4" /> Sign out

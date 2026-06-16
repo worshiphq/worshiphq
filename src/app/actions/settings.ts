@@ -2,11 +2,11 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, assertCanWrite, hashPassword } from "@/lib/auth";
+import { requireSession, assertCanWrite, hashPassword, verifyPassword } from "@/lib/auth";
 import { getFormDefinition } from "@/lib/forms/registration";
 import type { Role } from "@prisma/client";
 
-/** Update the signed-in user's own display name (and optional email). */
+/** Update the signed-in user's own name, email and profile photo. */
 export async function updateProfile(formData: FormData) {
   const session = await requireSession();
   // Demo and impersonation sessions aren't backed by a real user row.
@@ -16,7 +16,7 @@ export async function updateProfile(formData: FormData) {
   if (!name) return;
 
   const email = String(formData.get("email") ?? "").toLowerCase().trim();
-  const data: { name: string; email?: string } = { name };
+  const data: { name: string; email?: string; photoUrl?: string | null } = { name };
 
   // Allow changing email only if it isn't taken by someone else.
   if (email && email !== session.email) {
@@ -24,10 +24,35 @@ export async function updateProfile(formData: FormData) {
     if (!taken) data.email = email;
   }
 
+  // Profile photo (data URL or empty to clear).
+  if (formData.has("photoUrl")) {
+    const photo = String(formData.get("photoUrl") ?? "");
+    if (!photo) data.photoUrl = null;
+    else if (photo.startsWith("data:image/") && photo.length < 1_500_000) data.photoUrl = photo;
+  }
+
   await db.user.update({ where: { id: session.userId }, data });
 
-  revalidatePath("/app/settings");
+  revalidatePath("/app/account");
   revalidatePath("/app", "layout");
+}
+
+/** Change the signed-in user's password (requires current password). */
+export async function changePassword(formData: FormData) {
+  const session = await requireSession();
+  if (session.isDemo || session.impersonating) return { ok: false, error: "Not available here." };
+
+  const current = String(formData.get("current") ?? "");
+  const next = String(formData.get("next") ?? "");
+  if (next.length < 6) return { ok: false, error: "New password must be at least 6 characters." };
+
+  const user = await db.user.findUnique({ where: { id: session.userId }, select: { passwordHash: true } });
+  if (!user?.passwordHash || !(await verifyPassword(current, user.passwordHash))) {
+    return { ok: false, error: "Your current password is incorrect." };
+  }
+
+  await db.user.update({ where: { id: session.userId }, data: { passwordHash: await hashPassword(next) } });
+  return { ok: true };
 }
 
 export async function updateChurch(formData: FormData) {

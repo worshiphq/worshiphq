@@ -136,6 +136,7 @@ model User {
   role         Role     @default(Volunteer)
   customRoleId String?
   customRole   CustomRole? @relation(fields: [customRoleId], references: [id])
+  photoUrl      String?  // staff profile picture (data URL)
   phone         String?
   phoneVerified Boolean  @default(false)
   // A User (logs in) may be linked to a Person (a congregant record).

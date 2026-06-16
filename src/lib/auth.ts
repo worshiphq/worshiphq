@@ -185,6 +185,7 @@ export async function getSession(): Promise<Session | null> {
     branch: user.branch?.name ?? "All branches",
     branchId: user.branchId,
     avatarName: user.name,
+    avatarUrl: user.photoUrl,
     isDemo: user.church.isDemo,
     phoneVerified: user.phoneVerified,
   };

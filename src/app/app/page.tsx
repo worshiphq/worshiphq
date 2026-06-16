@@ -17,15 +17,16 @@ import { QuickAddMenu } from "@/components/app/quick-add-menu";
 import { PageTips } from "@/components/app/page-tips";
 
 const quickActions = [
-  { icon: UserPlus, label: "Add member", href: "/app/people", color: "bg-primary/10 text-primary-bright" },
-  { icon: HandCoins, label: "Record gift", href: "/app/giving", color: "bg-gold/10 text-gold" },
-  { icon: Send, label: "Send SMS", href: "/app/communications", color: "bg-info/10 text-info" },
-  { icon: CalendarPlus, label: "New event", href: "/app/events", color: "bg-success/10 text-success" },
+  { icon: UserPlus, label: "Add member", href: "/app/people", section: "people", color: "bg-primary/10 text-primary-bright" },
+  { icon: HandCoins, label: "Record gift", href: "/app/giving", section: "giving", color: "bg-gold/10 text-gold" },
+  { icon: Send, label: "Send SMS", href: "/app/communications", section: "communications", color: "bg-info/10 text-info" },
+  { icon: CalendarPlus, label: "New event", href: "/app/events", section: "events", color: "bg-success/10 text-success" },
 ];
 
 export default async function DashboardPage() {
   const session = await requireSession();
   const { kpis, trend, todaysBirthdays, events, careTasks, recentMembers, departmentBreakdown } = await getDashboard(session.churchId);
+  const has = (m: string) => session.sections.includes(m);
   const h = new Date().getHours();
   const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   const today = new Date().toLocaleDateString("en-GH", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -57,15 +58,15 @@ export default async function DashboardPage() {
 
         {/* ── KPI Cards ── */}
         <div data-tour="dash-kpis" data-animate="stagger" className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <KPICard label="Active members" value={kpis.activeMembers} icon={Users} trend={12} color="primary" />
-          <KPICard label="Weekly attendance" value={kpis.weeklyAttendance} icon={CalendarCheck2} trend={5} color="success" />
-          <KPICard label="Monthly giving" value={kpis.monthlyGiving} prefix="₵" icon={HandCoins} trend={8} color="gold" />
-          <KPICard label="Message reach" value={kpis.messageReach} icon={MessageSquare} trend={-3} color="info" />
+          {has("people") && <KPICard label="Active members" value={kpis.activeMembers} icon={Users} trend={12} color="primary" />}
+          {has("attendance") && <KPICard label="Weekly attendance" value={kpis.weeklyAttendance} icon={CalendarCheck2} trend={5} color="success" />}
+          {has("giving") && <KPICard label="Monthly giving" value={kpis.monthlyGiving} prefix="₵" icon={HandCoins} trend={8} color="gold" />}
+          {has("communications") && <KPICard label="Message reach" value={kpis.messageReach} icon={MessageSquare} trend={-3} color="info" />}
         </div>
 
         {/* ── Quick actions ── */}
         <div data-tour="dash-quick-actions" data-animate="stagger" className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {quickActions.map((a) => (
+          {quickActions.filter((a) => has(a.section)).map((a) => (
             <Link key={a.label} href={a.href}>
               <div className="group flex items-center gap-3 rounded-2xl border border-line bg-surface p-4 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/25 hover:shadow-md cursor-pointer">
                 <span className={`grid size-10 place-items-center rounded-xl ${a.color} transition-transform duration-200 group-hover:scale-110`}>
@@ -78,30 +79,37 @@ export default async function DashboardPage() {
         </div>
 
         {/* ── Charts row ── */}
-        <div className="grid gap-4 lg:grid-cols-3">
-          <Card className="lg:col-span-2" data-animate="fade">
-            <div className="flex items-center justify-between p-5 pb-0">
-              <div>
-                <h3 className="font-display text-lg font-semibold">Giving trend</h3>
-                <p className="text-xs text-ink-muted">Monthly giving over the last 6 months</p>
-              </div>
-              <span className="flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
-                <TrendingUp className="size-3" /> +8.2%
-              </span>
-            </div>
-            <div className="p-3"><TrendAreaChart data={trend} /></div>
-          </Card>
+        {(has("giving") || has("attendance")) && (
+          <div className="grid gap-4 lg:grid-cols-3">
+            {has("giving") && (
+              <Card className="lg:col-span-2" data-animate="fade">
+                <div className="flex items-center justify-between p-5 pb-0">
+                  <div>
+                    <h3 className="font-display text-lg font-semibold">Giving trend</h3>
+                    <p className="text-xs text-ink-muted">Monthly giving over the last 6 months</p>
+                  </div>
+                  <span className="flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-1 text-xs font-medium text-success">
+                    <TrendingUp className="size-3" /> +8.2%
+                  </span>
+                </div>
+                <div className="p-3"><TrendAreaChart data={trend} /></div>
+              </Card>
+            )}
 
-          <Card data-animate="fade">
-            <div className="p-5 pb-0">
-              <h3 className="font-display text-lg font-semibold">Attendance</h3>
-              <p className="text-xs text-ink-muted">Records logged by month</p>
-            </div>
-            <div className="p-3"><AttendanceBarChart data={trend} /></div>
-          </Card>
-        </div>
+            {has("attendance") && (
+              <Card className={has("giving") ? "" : "lg:col-span-3"} data-animate="fade">
+                <div className="p-5 pb-0">
+                  <h3 className="font-display text-lg font-semibold">Attendance</h3>
+                  <p className="text-xs text-ink-muted">Records logged by month</p>
+                </div>
+                <div className="p-3"><AttendanceBarChart data={trend} /></div>
+              </Card>
+            )}
+          </div>
+        )}
 
         {/* ── Membership Summary + Recent Members ── */}
+        {has("people") && (
         <div className="grid gap-4 lg:grid-cols-3">
           <Card data-animate="fade">
             <div className="p-5">
@@ -145,9 +153,11 @@ export default async function DashboardPage() {
             </div>
           </Card>
         </div>
+        )}
 
         {/* ── Bottom row: Birthdays, Events, Care ── */}
         <div className="grid gap-4 lg:grid-cols-3">
+          {has("people") && (
           <Card data-animate="fade">
             <div className="flex items-center justify-between p-5 pb-3">
               <h3 className="flex items-center gap-2 font-display text-lg font-semibold">
@@ -171,7 +181,9 @@ export default async function DashboardPage() {
               ))}
             </div>
           </Card>
+          )}
 
+          {has("events") && (
           <Card data-animate="fade">
             <div className="flex items-center justify-between p-5 pb-3">
               <h3 className="flex items-center gap-2 font-display text-lg font-semibold">
@@ -199,7 +211,9 @@ export default async function DashboardPage() {
               ))}
             </div>
           </Card>
+          )}
 
+          {has("people") && (
           <Card data-animate="fade">
             <div className="flex items-center justify-between p-5 pb-3">
               <h3 className="flex items-center gap-2 font-display text-lg font-semibold">
@@ -221,6 +235,7 @@ export default async function DashboardPage() {
               ))}
             </div>
           </Card>
+          )}
         </div>
       </div>
     </DashboardAnimations>
