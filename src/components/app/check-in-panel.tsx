@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Search, UserPlus, X, Check } from "lucide-react";
+import { Search, UserPlus, X, Check, ScanLine } from "lucide-react";
 import { MemberAvatar } from "@/components/ui/member-avatar";
 import { QrCode } from "@/components/ui/qr-code";
+import { QrScanner } from "@/components/app/qr-scanner";
 import { Button } from "@/components/ui/button";
 import { useFeedback } from "@/components/ui/feedback";
-import { checkInMember, undoCheckIn } from "@/app/actions/attendance";
+import { checkInMember, checkInByMemberId, undoCheckIn } from "@/app/actions/attendance";
 
 interface Candidate {
   id: string;
@@ -43,8 +44,16 @@ export function CheckInPanel({
   canWrite: boolean;
 }) {
   const [q, setQ] = useState("");
+  const [scanOpen, setScanOpen] = useState(false);
   const [pending, start] = useTransition();
   const { toast } = useFeedback();
+
+  function handleScan(value: string) {
+    start(async () => {
+      const res = await checkInByMemberId(sessionId, value);
+      toast(res.name ? `${res.name} · ${res.message}` : res.message, res.ok ? "success" : "error");
+    });
+  }
 
   const filtered = q
     ? candidates.filter((c) => c.name.toLowerCase().includes(q.toLowerCase())).slice(0, 8)
@@ -69,8 +78,17 @@ export function CheckInPanel({
     <div className="grid gap-4 lg:grid-cols-3">
       {/* Check-in by name */}
       <div className="rounded-2xl border border-line bg-surface p-5 lg:col-span-2">
-        <h3 className="font-display text-lg font-semibold">Check in members</h3>
-        <p className="text-sm text-ink-muted">Search a member and tap to mark them present.</p>
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h3 className="font-display text-lg font-semibold">Check in members</h3>
+            <p className="text-sm text-ink-muted">Search a member and tap, or scan their QR code.</p>
+          </div>
+          {canWrite && (
+            <Button variant="secondary" size="sm" onClick={() => setScanOpen(true)}>
+              <ScanLine className="size-4" /> Scan QR
+            </Button>
+          )}
+        </div>
 
         {canWrite ? (
           <div className="relative mt-4">
@@ -158,6 +176,8 @@ export function CheckInPanel({
           </Button>
         </div>
       </div>
+
+      {scanOpen && <QrScanner onScan={handleScan} onClose={() => setScanOpen(false)} />}
     </div>
   );
 }

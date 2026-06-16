@@ -3,8 +3,9 @@
 import { useMemo, useState } from "react";
 import {
   Search, Plus, Phone, Mail, MapPin, X, Users, Pencil, Trash2,
-  Briefcase, Heart, Shield, User, Grid3X3, List, ChevronRight, Download, MessageSquare,
+  Briefcase, Heart, Shield, User, Grid3X3, List, ChevronRight, Download, MessageSquare, QrCode as QrIcon,
 } from "lucide-react";
+import { QRCodeCanvas } from "qrcode.react";
 import { ImportModal } from "@/components/app/import-modal";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
@@ -264,6 +265,7 @@ function EmptyState({ query, hasAny, canWrite, onAdd }: { query: string; hasAny:
 function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow; canWrite: boolean; onClose: () => void; onEdit: () => void }) {
   const eng = engagementStyle[person.engagement];
   const [smsOpen, setSmsOpen] = useState(false);
+  const [qrOpen, setQrOpen] = useState(false);
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -279,7 +281,11 @@ function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow
               <h2 className="font-display text-xl font-bold">
                 {person.title ? `${person.title} ` : ""}{person.fullName}
               </h2>
-              {person.memberId && <div className="mt-0.5 font-mono text-xs text-ink-faint">{person.memberId}</div>}
+              {person.memberId && (
+                <button onClick={() => setQrOpen(true)} className="mt-0.5 inline-flex items-center gap-1 font-mono text-xs text-ink-faint hover:text-primary-bright">
+                  {person.memberId} <QrIcon className="size-3" />
+                </button>
+              )}
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <Badge variant={eng.variant}>{eng.label}</Badge>
                 <Badge variant="default" className="capitalize">{person.status}</Badge>
@@ -356,6 +362,33 @@ function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow
         </div>
       </div>
       {smsOpen && <SmsModal person={person} onClose={() => setSmsOpen(false)} />}
+      {qrOpen && person.memberId && <MemberQrModal person={person} onClose={() => setQrOpen(false)} />}
+    </>
+  );
+}
+
+function MemberQrModal({ person, onClose }: { person: PersonRow; onClose: () => void }) {
+  function download() {
+    const canvas = document.getElementById("member-qr-canvas") as HTMLCanvasElement | null;
+    if (!canvas) return;
+    const a = document.createElement("a");
+    a.href = canvas.toDataURL("image/png");
+    a.download = `${person.memberId}-${person.fullName.replace(/\s+/g, "-")}.png`;
+    a.click();
+  }
+  return (
+    <>
+      <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed left-1/2 top-1/2 z-[60] w-full max-w-xs -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line bg-surface p-6 text-center shadow-2xl animate-fade-up">
+        <button onClick={onClose} className="absolute right-3 top-3 grid size-8 place-items-center rounded-lg text-ink-muted hover:bg-surface-2"><X className="size-4" /></button>
+        <h2 className="font-display text-lg font-bold">{person.fullName}</h2>
+        <p className="font-mono text-xs text-ink-faint">{person.memberId}</p>
+        <div className="mt-4 inline-block rounded-2xl bg-white p-3 ring-1 ring-line">
+          <QRCodeCanvas id="member-qr-canvas" value={person.memberId ?? ""} size={200} level="M" fgColor="#0d7377" />
+        </div>
+        <p className="mt-3 text-xs text-ink-muted">Scan at check-in to mark {person.firstName} present.</p>
+        <Button className="mt-4 w-full" variant="secondary" onClick={download}><Download className="size-4" /> Download QR</Button>
+      </div>
     </>
   );
 }

@@ -96,6 +96,50 @@ export async function checkInMember(sessionId: string, personId: string) {
   revalidatePath(`/app/attendance/${sessionId}`);
 }
 
+/** Check a member in by scanning their member-ID QR code. Returns a result. */
+export async function checkInByMemberId(
+  sessionId: string,
+  rawCode: string,
+): Promise<{ ok: boolean; name?: string; message: string }> {
+  const session = await requireSession();
+  assertCanWrite(session);
+
+  const memberId = rawCode.trim().toUpperCase();
+  if (!memberId) return { ok: false, message: "Empty code" };
+
+  const person = await db.person.findFirst({
+    where: { churchId: session.churchId, memberId },
+    select: { id: true, firstName: true, lastName: true, status: true, dateOfBirth: true, birthday: true },
+  });
+  if (!person) return { ok: false, message: `No member with ID ${memberId}` };
+
+  const sess = await db.attendanceSession.findFirst({ where: { id: sessionId, churchId: session.churchId } });
+  if (!sess) return { ok: false, message: "Session not found" };
+
+  const dup = await db.attendanceRecord.findFirst({ where: { sessionId, personId: person.id } });
+  if (dup) return { ok: true, name: `${person.firstName} ${person.lastName}`, message: "Already checked in" };
+
+  const category = categoryForPerson(person);
+  await db.attendanceRecord.create({
+    data: {
+      churchId: session.churchId,
+      branchId: sess.branchId ?? undefined,
+      personId: person.id,
+      sessionId,
+      category,
+      serviceName: sess.serviceName,
+      date: new Date(),
+      method: "qr",
+    },
+  });
+  await db.attendanceSession.update({
+    where: { id: sessionId },
+    data: { [CATEGORY_FIELD[category]]: { increment: 1 } },
+  });
+  revalidatePath(`/app/attendance/${sessionId}`);
+  return { ok: true, name: `${person.firstName} ${person.lastName}`, message: "Checked in" };
+}
+
 /** Remove a check-in and decrement the matching category. */
 export async function undoCheckIn(recordId: string) {
   const session = await requireSession();
