@@ -7,9 +7,8 @@ import { Input, Label } from "@/components/ui/input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Button } from "@/components/ui/button";
 import { useFeedback } from "@/components/ui/feedback";
+import { ImageCropper } from "@/components/ui/image-cropper";
 import { updateProfile, changePassword } from "@/app/actions/settings";
-
-const MAX_DIM = 400;
 
 export function AccountForm({
   name,
@@ -23,6 +22,7 @@ export function AccountForm({
   photoUrl: string | null;
 }) {
   const [photo, setPhoto] = useState(photoUrl ?? "");
+  const [editing, setEditing] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pwRef = useRef<HTMLFormElement>(null);
   const { run } = useFeedback();
@@ -31,18 +31,7 @@ export function AccountForm({
     const file = files?.[0];
     if (!file || !file.type.startsWith("image/")) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height));
-        const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
-        const c = document.createElement("canvas");
-        c.width = w; c.height = h;
-        c.getContext("2d")?.drawImage(img, 0, 0, w, h);
-        setPhoto(c.toDataURL("image/jpeg", 0.85));
-      };
-      img.src = reader.result as string;
-    };
+    reader.onload = () => setEditing(reader.result as string);
     reader.readAsDataURL(file);
   }
 
@@ -88,8 +77,11 @@ export function AccountForm({
                 </button>
               )}
             </div>
-            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => handlePhoto(e.target.files)} />
+            <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { handlePhoto(e.target.files); e.target.value = ""; }} />
           </div>
+          {editing && (
+            <ImageCropper src={editing} onCancel={() => setEditing(null)} onConfirm={(d) => { setPhoto(d); setEditing(null); }} />
+          )}
           <div>
             <Label htmlFor="name">Display name</Label>
             <Input id="name" name="name" defaultValue={name} required placeholder="e.g. Media Team" />

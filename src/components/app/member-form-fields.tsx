@@ -3,9 +3,8 @@
 import { useRef, useState } from "react";
 import { UploadCloud, X } from "lucide-react";
 import { type FormField, DEPARTMENT_FIELD_ID } from "@/lib/forms/registration";
+import { ImageCropper } from "@/components/ui/image-cropper";
 import { cn } from "@/lib/utils";
-
-const MAX_DIM = 400;
 
 export interface MemberDefaults {
   scalars?: Record<string, string>;
@@ -115,22 +114,12 @@ function DepartmentChecks({
 
 function PhotoUpload({ value, onChange, name }: { value: string; onChange: (v: string) => void; name: string }) {
   const ref = useRef<HTMLInputElement>(null);
-  function handle(files: FileList | null) {
+  const [editing, setEditing] = useState<string | null>(null);
+  function pick(files: FileList | null) {
     const file = files?.[0];
     if (!file || !file.type.startsWith("image/")) return;
     const reader = new FileReader();
-    reader.onload = () => {
-      const img = new Image();
-      img.onload = () => {
-        const scale = Math.min(1, MAX_DIM / Math.max(img.width, img.height));
-        const w = Math.round(img.width * scale), h = Math.round(img.height * scale);
-        const canvas = document.createElement("canvas");
-        canvas.width = w; canvas.height = h;
-        canvas.getContext("2d")?.drawImage(img, 0, 0, w, h);
-        onChange(canvas.toDataURL("image/jpeg", 0.85));
-      };
-      img.src = reader.result as string;
-    };
+    reader.onload = () => setEditing(reader.result as string);
     reader.readAsDataURL(file);
   }
   return (
@@ -152,7 +141,10 @@ function PhotoUpload({ value, onChange, name }: { value: string; onChange: (v: s
           </button>
         )}
       </div>
-      <input ref={ref} type="file" accept="image/*" className="hidden" onChange={(e) => handle(e.target.files)} />
+      <input ref={ref} type="file" accept="image/*" className="hidden" onChange={(e) => { pick(e.target.files); e.target.value = ""; }} />
+      {editing && (
+        <ImageCropper src={editing} onCancel={() => setEditing(null)} onConfirm={(d) => { onChange(d); setEditing(null); }} />
+      )}
     </div>
   );
 }
