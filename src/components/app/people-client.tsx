@@ -467,6 +467,20 @@ function PersonForm({
           {/* Same fields as the public join form, configured in Settings → Join link */}
           <MemberFormFields fields={formFields} departments={departments} defaults={defaults} />
 
+          {isEdit && (
+            <div>
+              <Label htmlFor="memberId">Member ID</Label>
+              <input
+                id="memberId"
+                name="memberId"
+                defaultValue={person?.memberId ?? ""}
+                placeholder="e.g. GBC-0001"
+                className="flex h-11 w-full rounded-xl border border-line bg-surface px-3.5 font-mono text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
+              />
+              <p className="mt-1 text-xs text-ink-faint">Must be unique. Leave as-is unless you need to renumber.</p>
+            </div>
+          )}
+
           <div>
             <Label htmlFor="status">Membership status</Label>
             <select id="status" name="status" defaultValue={person?.status ?? "active"} className={selectBase}>

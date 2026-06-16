@@ -62,16 +62,34 @@ export async function updatePerson(formData: FormData) {
   const status = (String(formData.get("status") ?? "active") as PersonStatus) || "active";
   const deptIds = await resolveDepartmentIds(session.churchId, departmentNames);
 
-  await db.person.update({
-    where: { id },
-    data: {
-      ...(data as Prisma.PersonUpdateInput),
-      status,
-      ...(Object.keys(customFields).length ? { customFields } : {}),
-      departments: { set: deptIds.map((d) => ({ id: d })) },
-      department: deptIds.length ? { connect: { id: deptIds[0] } } : { disconnect: true },
-    },
-  });
+  // Admin-editable member ID (unique per church).
+  const memberId = String(formData.get("memberId") ?? "").trim() || null;
+
+  try {
+    await db.person.update({
+      where: { id },
+      data: {
+        ...(data as Prisma.PersonUpdateInput),
+        status,
+        memberId,
+        ...(Object.keys(customFields).length ? { customFields } : {}),
+        departments: { set: deptIds.map((d) => ({ id: d })) },
+        department: deptIds.length ? { connect: { id: deptIds[0] } } : { disconnect: true },
+      },
+    });
+  } catch {
+    // Likely a duplicate member ID — retry without changing it.
+    await db.person.update({
+      where: { id },
+      data: {
+        ...(data as Prisma.PersonUpdateInput),
+        status,
+        ...(Object.keys(customFields).length ? { customFields } : {}),
+        departments: { set: deptIds.map((d) => ({ id: d })) },
+        department: deptIds.length ? { connect: { id: deptIds[0] } } : { disconnect: true },
+      },
+    });
+  }
 
   revalidatePath("/app/people");
 }

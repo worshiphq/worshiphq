@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getFormDefinition } from "@/lib/forms/registration";
 
 export const dynamic = "force-dynamic";
 
@@ -34,19 +35,48 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
 
   if (type === "people") {
     if (!session.sections.includes("people")) return new Response("Forbidden", { status: 403 });
-    const people = await db.person.findMany({
-      where: { churchId },
-      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-      include: { departments: { select: { name: true } }, branch: { select: { name: true } } },
-    });
+    const [people, church] = await Promise.all([
+      db.person.findMany({
+        where: { churchId },
+        orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+        include: { departments: { select: { name: true } }, branch: { select: { name: true } } },
+      }),
+      db.church.findUnique({ where: { id: churchId }, select: { registrationFields: true } }),
+    ]);
     filename = "members.csv";
+
+    // Custom-field columns come from the church's form definition.
+    const customLabels = getFormDefinition(church?.registrationFields ?? null)
+      .filter((f) => !f.system && f.id !== "department")
+      .map((f) => f.label);
+
+    const headers = [
+      "Member ID", "First Name", "Last Name", "Other Names", "Email", "Phone", "Gender", "Title",
+      "Date of Birth", "Marital Status", "Occupation", "Employer", "Previous Church", "Date of Membership",
+      "Place of Birth", "Nationality", "Country", "Region", "District", "Town", "Home Town",
+      "National ID", "House Address", "Postal Address", "Work Phone", "Home Phone", "Special Interest",
+      "Baptized", "Departments", "Branch", "Status",
+      "Emergency Name", "Emergency Phone", "Emergency Relation", "Emergency Email", "Emergency Address",
+      "Notes", "Joined",
+      ...customLabels,
+    ];
     csv = toCsv(
-      ["Member ID", "First Name", "Last Name", "Other Names", "Email", "Phone", "Gender", "Status", "Departments", "Branch", "Date of Birth", "Town", "Region", "Marital Status", "Joined"],
-      people.map((p) => [
-        p.memberId, p.firstName, p.lastName, p.otherNames, p.email, p.phone, p.gender, p.status,
-        p.departments.map((d) => d.name).join("; "), p.branch?.name, p.dateOfBirth ? fmtDate(p.dateOfBirth) : "",
-        p.town, p.region, p.maritalStatus, fmtDate(p.joinedAt),
-      ]),
+      headers,
+      people.map((p) => {
+        const cf = (p.customFields as Record<string, string> | null) ?? {};
+        return [
+          p.memberId, p.firstName, p.lastName, p.otherNames, p.email, p.phone, p.gender, p.title,
+          p.dateOfBirth ? fmtDate(p.dateOfBirth) : "", p.maritalStatus, p.occupation, p.employer,
+          p.previousChurch, p.dateOfMembership ? fmtDate(p.dateOfMembership) : "", p.placeOfBirth,
+          p.nationality, p.country, p.region, p.district, p.town, p.homeTown, p.nationalId,
+          p.houseAddress, p.postalAddress, p.workPhone, p.homePhone, p.specialInterest,
+          p.baptized === true ? "Yes" : p.baptized === false ? "No" : "",
+          p.departments.map((d) => d.name).join("; "), p.branch?.name, p.status,
+          p.emergencyName, p.emergencyPhone, p.emergencyRelation, p.emergencyEmail, p.emergencyAddress,
+          p.notes, fmtDate(p.joinedAt),
+          ...customLabels.map((l) => cf[l] ?? ""),
+        ];
+      }),
     );
   } else if (type === "giving") {
     if (!session.sections.includes("giving")) return new Response("Forbidden", { status: 403 });
