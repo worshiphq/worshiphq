@@ -8,11 +8,21 @@ import { Input, Textarea } from "@/components/ui/input";
 import { sendBroadcast } from "@/app/actions/communications";
 import { cn } from "@/lib/utils";
 
-export function Composer({ segments, canWrite }: { segments: string[]; canWrite: boolean }) {
+export function Composer({
+  departments,
+  canWrite,
+}: {
+  departments: { id: string; name: string }[];
+  canWrite: boolean;
+}) {
   const [channel, setChannel] = useState<"SMS" | "Email">("SMS");
+  const [target, setTarget] = useState("all");
   const [message, setMessage] = useState(
     "Shalom! Join us this Sunday at 8am for our Celebration Service. God bless you!",
   );
+
+  const selectCls =
+    "flex h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30";
 
   return (
     <Card>
@@ -44,15 +54,32 @@ export function Composer({ segments, canWrite }: { segments: string[]; canWrite:
 
         <div>
           <label className="mb-1.5 block text-sm font-medium text-ink-muted">Send to</label>
-          <select
-            name="segment"
-            className="flex h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-          >
-            {segments.map((s) => (
-              <option key={s}>{s}</option>
-            ))}
+          <select name="target" value={target} onChange={(e) => setTarget(e.target.value)} className={selectCls}>
+            <option value="all">Everyone</option>
+            <option value="active">Active members</option>
+            <option value="visitor">Visitors</option>
+            {departments.length > 0 && (
+              <optgroup label="By department">
+                {departments.map((d) => <option key={d.id} value={`dept:${d.id}`}>{d.name}</option>)}
+              </optgroup>
+            )}
+            <option value="custom">{channel === "Email" ? "Specific emails…" : "Specific numbers…"}</option>
           </select>
         </div>
+
+        {target === "custom" && (
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink-muted">
+              {channel === "Email" ? "Email addresses" : "Phone numbers"}
+            </label>
+            <Textarea
+              name="contacts"
+              placeholder={channel === "Email" ? "a@b.com, c@d.com" : "024 000 0000, 020 111 2222"}
+              className="min-h-16"
+            />
+            <p className="mt-1 text-xs text-ink-faint">Separate with commas, spaces or new lines.</p>
+          </div>
+        )}
 
         <div>
           <div className="mb-1.5 flex items-center justify-between text-sm">
@@ -70,13 +97,12 @@ export function Composer({ segments, canWrite }: { segments: string[]; canWrite:
           className="w-full"
           disabled={!canWrite}
           pendingLabel={`Sending ${channel}…`}
-          successMessage={`${channel} broadcast sent`}
+          successMessage={`${channel} sent`}
         >
-          <Send /> Send {channel} broadcast
+          <Send /> Send {channel}
         </SubmitButton>
         <p className="text-center text-xs text-ink-faint">
-          Sender ID: WorshipHQ · GHS billing{" "}
-          {channel === "SMS" ? "· SMS logs to console until an Arkesel key is added" : "· email logs to console until a Resend key is added"}
+          {channel === "SMS" ? "SMS is billed to your credits · sender shows your church name" : "Email delivery analytics included"}
         </p>
       </form>
     </Card>

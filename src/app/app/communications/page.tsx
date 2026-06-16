@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { requireModule } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { getCommunications } from "@/lib/data/modules";
 import { getPeopleStats } from "@/lib/data/people";
 import { getSmsBalance } from "@/lib/sms/credits";
@@ -21,17 +22,12 @@ export default async function CommunicationsPage({
 }) {
   const session = await requireModule("communications");
   const { error } = await searchParams;
-  const [{ campaigns, stats }, people, smsBalance] = await Promise.all([
+  const [{ campaigns, stats }, people, smsBalance, departments] = await Promise.all([
     getCommunications(session.churchId),
     getPeopleStats(session.churchId),
     getSmsBalance(session.churchId),
+    db.department.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
-
-  const segments = [
-    `All members (${people.total})`,
-    `Active members (${people.active})`,
-    `Visitors (${people.visitors})`,
-  ];
 
   return (
     <div>
@@ -57,7 +53,7 @@ export default async function CommunicationsPage({
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-2"><Composer segments={segments} canWrite={!session.isDemo} /></div>
+        <div className="lg:col-span-2"><Composer departments={departments} canWrite={!session.isDemo} /></div>
 
         <Card className="lg:col-span-3">
           <div className="flex items-center justify-between border-b border-line p-5">

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   Search, Plus, Phone, Mail, MapPin, X, Users, Pencil, Trash2,
-  Briefcase, Heart, Shield, User, Grid3X3, List, ChevronRight, Download,
+  Briefcase, Heart, Shield, User, Grid3X3, List, ChevronRight, Download, MessageSquare,
 } from "lucide-react";
 import { ImportModal } from "@/components/app/import-modal";
 import { PageHeader } from "@/components/app/page-header";
@@ -12,8 +12,9 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { OnFormComplete } from "@/components/ui/form-effects";
 import { Badge } from "@/components/ui/badge";
 import { MemberAvatar } from "@/components/ui/member-avatar";
-import { Label } from "@/components/ui/input";
+import { Label, Textarea } from "@/components/ui/input";
 import { createPerson, updatePerson, deletePerson } from "@/app/actions/people";
+import { sendSmsToPerson } from "@/app/actions/communications";
 import { MemberFormFields, type MemberDefaults } from "@/components/app/member-form-fields";
 import type { PersonRow } from "@/lib/data/people";
 import type { FormField } from "@/lib/forms/registration";
@@ -262,6 +263,7 @@ function EmptyState({ query, hasAny, canWrite, onAdd }: { query: string; hasAny:
 
 function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow; canWrite: boolean; onClose: () => void; onEdit: () => void }) {
   const eng = engagementStyle[person.engagement];
+  const [smsOpen, setSmsOpen] = useState(false);
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -335,6 +337,9 @@ function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow
           {canWrite && (
             <div className="mt-6 flex gap-2">
               <Button className="flex-1" onClick={onEdit}><Pencil className="size-4" /> Edit profile</Button>
+              {person.phone && (
+                <Button variant="secondary" onClick={() => setSmsOpen(true)}><MessageSquare className="size-4" /> SMS</Button>
+              )}
               <form
                 action={deletePerson.bind(null, person.id)}
                 onSubmit={(e) => {
@@ -349,6 +354,34 @@ function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow
             </div>
           )}
         </div>
+      </div>
+      {smsOpen && <SmsModal person={person} onClose={() => setSmsOpen(false)} />}
+    </>
+  );
+}
+
+function SmsModal({ person, onClose }: { person: PersonRow; onClose: () => void }) {
+  return (
+    <>
+      <div className="fixed inset-0 z-[60] bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="fixed left-1/2 top-1/2 z-[60] w-full max-w-md -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line bg-surface p-6 shadow-2xl animate-fade-up">
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="font-display text-lg font-bold">Send SMS</h2>
+            <p className="text-xs text-ink-faint">To {person.fullName} · {person.phone}</p>
+          </div>
+          <button onClick={onClose} className="grid size-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-2"><X className="size-5" /></button>
+        </div>
+        <form action={sendSmsToPerson} className="space-y-3">
+          <input type="hidden" name="personId" value={person.id} />
+          <Textarea name="message" required placeholder={`Hi ${person.firstName}, …`} className="min-h-28" />
+          <div className="flex gap-2">
+            <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
+            <SubmitButton className="flex-1" pendingLabel="Sending…" successMessage="SMS sent">Send SMS</SubmitButton>
+          </div>
+          <OnFormComplete onComplete={onClose} />
+          <p className="text-center text-xs text-ink-faint">Billed to your SMS credits · sender shows your church name.</p>
+        </form>
       </div>
     </>
   );
