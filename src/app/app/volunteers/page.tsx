@@ -7,8 +7,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { requireModule } from "@/lib/auth";
 import { getVolunteers } from "@/lib/data/modules";
-import { scheduleAssignment } from "@/app/actions/volunteers";
+import { scheduleAssignment, deleteAssignment } from "@/app/actions/volunteers";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
+import { DeleteForm } from "@/components/app/delete-form";
 import { formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Volunteers" };
@@ -16,6 +17,7 @@ export const metadata = { title: "Volunteers" };
 export default async function VolunteersPage() {
   const session = await requireModule("volunteers");
   const { teams, assignments } = await getVolunteers(session.churchId);
+  const canDelete = session.canDelete && !session.isDemo;
   const confirmed = assignments.filter((a) => a.confirmed).length;
 
   return (
@@ -70,6 +72,7 @@ export default async function VolunteersPage() {
                   <Avatar name={a.person} size="sm" />
                   <div className="min-w-0 flex-1"><div className="text-sm font-medium">{a.person}</div><div className="text-xs text-ink-faint">{a.team} · {a.role} · {formatDate(a.date)}</div></div>
                   <Badge variant={a.confirmed ? "success" : "warning"}>{a.confirmed ? "Confirmed" : "Pending"}</Badge>
+                  {canDelete && <DeleteForm action={deleteAssignment.bind(null, a.id)} confirm="Remove this assignment?" successMessage="Assignment removed" />}
                 </div>
               ))
             )}

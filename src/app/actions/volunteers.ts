@@ -2,7 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, assertCanWrite } from "@/lib/auth";
+import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
+
+export async function deleteAssignment(id: string) {
+  const session = await requireSession();
+  assertCanDelete(session);
+  await db.volunteerAssignment.deleteMany({ where: { id, churchId: session.churchId } });
+  revalidatePath("/app/volunteers");
+}
 
 export async function scheduleAssignment(formData: FormData) {
   const session = await requireSession();

@@ -2,8 +2,16 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, assertCanWrite } from "@/lib/auth";
+import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import type { GiftMethod } from "@prisma/client";
+
+export async function deleteGift(id: string) {
+  const session = await requireSession();
+  assertCanDelete(session);
+  await db.gift.deleteMany({ where: { id, churchId: session.churchId } });
+  revalidatePath("/app/giving");
+  revalidatePath("/app");
+}
 
 const METHOD_FROM_LABEL: Record<string, GiftMethod> = {
   "MTN MoMo": "MTN_MoMo",

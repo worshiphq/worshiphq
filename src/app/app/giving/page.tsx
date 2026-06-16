@@ -28,7 +28,7 @@ export default async function GivingPage() {
         </div>
       )}
       <div data-tour="giving-body">
-        <GivingClient {...data} canWrite={!session.isDemo} />
+        <GivingClient {...data} canWrite={!session.isDemo} canDelete={session.canDelete && !session.isDemo} />
       </div>
     </div>
   );

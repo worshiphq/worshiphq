@@ -4,26 +4,31 @@ import { useTransition } from "react";
 import { Cake, Heart, Sparkles, Plus, Gift, Send, Zap } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { useFeedback } from "@/components/ui/feedback";
-import { toggleAutomation } from "@/app/actions/automations";
+import { ActionDialog } from "@/components/app/action-dialog";
+import { DeleteForm } from "@/components/app/delete-form";
+import { toggleAutomation, createAutomation, deleteAutomation } from "@/app/actions/automations";
 import { cn } from "@/lib/utils";
 
 type Automation = { id: string; name: string; description: string; trigger: string; channel: string; active: boolean; runs: number };
 type Upcoming = { person: string; type: string; when: string };
+
+const SELECT = "flex h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30";
 
 export function RemindersClient({
   automations,
   upcoming,
   activeCount,
   canWrite,
+  canDelete = false,
 }: {
   automations: Automation[];
   upcoming: Upcoming[];
   activeCount: number;
   canWrite: boolean;
+  canDelete?: boolean;
 }) {
   const [pending, start] = useTransition();
   const { toast } = useFeedback();
@@ -31,7 +36,34 @@ export function RemindersClient({
   return (
     <div>
       <PageHeader title="Reminders & automations" description="Care that never forgets — birthdays, anniversaries and follow-ups, on autopilot.">
-        <Button size="sm" disabled={!canWrite}><Plus /> New automation</Button>
+        <ActionDialog
+          triggerLabel="New automation"
+          triggerIcon={<Plus />}
+          title="New automation"
+          description="Pick what triggers it. WorshipHQ sends the message automatically each day."
+          submitLabel="Create automation"
+          action={createAutomation}
+          disabled={!canWrite}
+          pendingLabel="Creating…"
+          successMessage="Automation created"
+        >
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink-muted">When</label>
+            <select name="trigger" className={SELECT}>
+              <option value="birthday">Birthday — wish the member on their birthday</option>
+              <option value="anniversary">Anniversary — celebrate their anniversary</option>
+              <option value="visitor_followup">New visitor — welcome them after they register</option>
+              <option value="lapsed">Lapsed member — gently check in if inactive</option>
+            </select>
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink-muted">Channel</label>
+            <select name="channel" className={SELECT}>
+              <option value="SMS">SMS</option>
+              <option value="Email">Email</option>
+            </select>
+          </div>
+        </ActionDialog>
       </PageHeader>
 
       <Card className="relative mb-4 overflow-hidden border-gold/30 bg-gradient-to-br from-gold-soft to-surface p-6">
@@ -75,6 +107,9 @@ export function RemindersClient({
               >
                 <span className={cn("absolute top-0.5 size-4 rounded-full bg-white transition-all", a.active ? "left-[1.45rem]" : "left-0.5")} />
               </button>
+              {canDelete && (
+                <DeleteForm action={deleteAutomation.bind(null, a.id)} confirm={`Delete the "${a.name}" automation?`} successMessage="Automation deleted" />
+              )}
             </Card>
           ))}
         </div>

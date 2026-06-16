@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { requireModule } from "@/lib/auth";
 import { getEvents } from "@/lib/data/modules";
-import { createEvent } from "@/app/actions/events";
+import { createEvent, deleteEvent } from "@/app/actions/events";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
+import { DeleteForm } from "@/components/app/delete-form";
 import { formatCurrency } from "@/config/brand";
 import { formatDate } from "@/lib/utils";
 
@@ -16,6 +17,7 @@ export const metadata = { title: "Events" };
 export default async function EventsPage() {
   const session = await requireModule("events");
   const events = await getEvents(session.churchId);
+  const canDelete = session.canDelete && !session.isDemo;
   const totalRegistered = events.reduce((s, e) => s + e.registered, 0);
 
   return (
@@ -85,6 +87,9 @@ export default async function EventsPage() {
                 <div className="mt-4 flex gap-2 border-t border-line pt-4">
                   <Button size="sm" variant="secondary" className="flex-1"><Users className="size-4" /> Manage</Button>
                   <Button size="sm" variant="ghost"><QrCode className="size-4" /></Button>
+                  {canDelete && (
+                    <DeleteForm action={deleteEvent.bind(null, e.id)} confirm={`Delete "${e.title}"?`} successMessage="Event deleted" />
+                  )}
                 </div>
               </Card>
             );

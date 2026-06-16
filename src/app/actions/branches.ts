@@ -2,7 +2,14 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, assertCanWrite } from "@/lib/auth";
+import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
+
+export async function deleteBranch(id: string) {
+  const session = await requireSession();
+  assertCanDelete(session);
+  await db.branch.deleteMany({ where: { id, churchId: session.churchId } });
+  revalidatePath("/app/branches");
+}
 
 export async function createBranch(formData: FormData) {
   const session = await requireSession();

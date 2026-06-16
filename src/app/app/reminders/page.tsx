@@ -7,5 +7,5 @@ export const metadata = { title: "Reminders" };
 export default async function RemindersPage() {
   const session = await requireModule("reminders");
   const data = await getReminders(session.churchId);
-  return <RemindersClient {...data} canWrite={!session.isDemo} />;
+  return <RemindersClient {...data} canWrite={!session.isDemo} canDelete={session.canDelete && !session.isDemo} />;
 }

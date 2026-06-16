@@ -6,8 +6,9 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { requireModule } from "@/lib/auth";
 import { getBranches } from "@/lib/data/modules";
-import { createBranch } from "@/app/actions/branches";
+import { createBranch, deleteBranch } from "@/app/actions/branches";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
+import { DeleteForm } from "@/components/app/delete-form";
 import { formatCurrency } from "@/config/brand";
 
 export const metadata = { title: "Branches" };
@@ -15,6 +16,7 @@ export const metadata = { title: "Branches" };
 export default async function BranchesPage() {
   const session = await requireModule("branches");
   const branches = await getBranches(session.churchId);
+  const canDelete = session.canDelete && !session.isDemo;
   const totalMembers = branches.reduce((s, b) => s + b.members, 0);
   const totalGiving = branches.reduce((s, b) => s + b.giving, 0);
 
@@ -59,6 +61,11 @@ export default async function BranchesPage() {
               <Metric label="Members" value={b.members.toLocaleString()} />
               <Metric label="Giving" value={formatCurrency(b.giving)} />
             </div>
+            {canDelete && !b.isHQ && (
+              <div className="mt-3 flex justify-end border-t border-line-soft pt-3">
+                <DeleteForm action={deleteBranch.bind(null, b.id)} confirm={`Delete branch "${b.name}"?`} successMessage="Branch deleted" label="Delete" />
+              </div>
+            )}
           </Card>
         ))}
       </div>

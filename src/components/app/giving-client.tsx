@@ -12,7 +12,8 @@ import { OnFormComplete } from "@/components/ui/form-effects";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { Input, Label } from "@/components/ui/input";
-import { recordGift } from "@/app/actions/giving";
+import { recordGift, deleteGift } from "@/app/actions/giving";
+import { DeleteForm } from "@/components/app/delete-form";
 import type { GiftRow } from "@/lib/data/giving";
 import { formatCurrency } from "@/config/brand";
 import { formatDate, cn } from "@/lib/utils";
@@ -28,9 +29,10 @@ type Props = {
   stats: { monthTotal: number; avgGift: number; recurringCount: number; momoPct: number };
   fundBreakdown: { name: string; value: number }[];
   canWrite: boolean;
+  canDelete?: boolean;
 };
 
-export function GivingClient({ rows, funds, stats, fundBreakdown, canWrite }: Props) {
+export function GivingClient({ rows, funds, stats, fundBreakdown, canWrite, canDelete = false }: Props) {
   const [recording, setRecording] = useState(false);
 
   return (
@@ -75,6 +77,9 @@ export function GivingClient({ rows, funds, stats, fundBreakdown, canWrite }: Pr
                       <div className="text-sm font-semibold text-success">{formatCurrency(g.amount)}</div>
                       <div className="text-xs text-ink-faint">{formatDate(g.date)}</div>
                     </div>
+                    {canDelete && (
+                      <DeleteForm action={deleteGift.bind(null, g.id)} confirm={`Delete this ₵${g.amount} gift from ${g.donor}?`} successMessage="Gift deleted" />
+                    )}
                   </div>
                 );
               })}
