@@ -36,7 +36,7 @@ export function GivingClient({ rows, funds, stats, fundBreakdown, canWrite }: Pr
   return (
     <div>
       <PageHeader title="Giving & donations" description="Tithes, offerings and Mobile Money giving — all in ₵.">
-        <Button variant="secondary" size="sm"><Download /> Statements</Button>
+        <a href="/api/export/giving"><Button variant="secondary" size="sm"><Download /> Export CSV</Button></a>
         <Button size="sm" onClick={() => setRecording(true)} disabled={!canWrite}><Plus /> Record gift</Button>
       </PageHeader>
 

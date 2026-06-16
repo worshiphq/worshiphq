@@ -38,10 +38,17 @@ export function ImportModal({ onImported }: { onImported?: () => void }) {
     fd.append("file", file);
 
     startTransition(async () => {
-      const res = await importCSV(fd);
-      setResult(res);
-      if (res.imported > 0) {
-        onImported?.();
+      try {
+        const res = await importCSV(fd);
+        setResult(res);
+        if (res.imported > 0) onImported?.();
+      } catch (err) {
+        setResult({
+          imported: 0,
+          skipped: 0,
+          total: 0,
+          errors: [(err as Error)?.message ?? "Something went wrong while importing. Please try again."],
+        });
       }
     });
   }

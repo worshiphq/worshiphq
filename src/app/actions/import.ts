@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite } from "@/lib/auth";
+import { churchInitials } from "@/lib/members/helpers";
 
 /**
  * Column aliases — maps common CSV header names to our Person field names.
@@ -243,6 +244,14 @@ export async function importCSV(formData: FormData): Promise<ImportResult> {
   });
   const deptMap = new Map(departments.map((d) => [d.name.toLowerCase(), d.id]));
 
+  // Member-ID sequence (assigned in bulk, persisted once at the end).
+  const church = await db.church.findUnique({
+    where: { id: session.churchId },
+    select: { name: true, memberPrefix: true, memberSeq: true },
+  });
+  const prefix = church?.memberPrefix || churchInitials(church?.name ?? "Church");
+  let seq = church?.memberSeq ?? 0;
+
   // Parse data rows
   const errors: string[] = [];
   let imported = 0;
@@ -315,11 +324,15 @@ export async function importCSV(formData: FormData): Promise<ImportResult> {
       birthday = `${String(dateOfBirth.getMonth() + 1).padStart(2, "0")}-${String(dateOfBirth.getDate()).padStart(2, "0")}`;
     }
 
+    seq++;
+    const memberId = `${prefix}-${String(seq).padStart(4, "0")}`;
+
     try {
       await db.person.create({
         data: {
           churchId: session.churchId,
           branchId: session.branchId ?? undefined,
+          memberId,
           firstName: firstName,
           lastName: lastName || firstName,
           otherNames: fields.otherNames || null,
@@ -350,14 +363,21 @@ export async function importCSV(formData: FormData): Promise<ImportResult> {
           emergencyRelation: fields.emergencyRelation || null,
           notes: fields.notes || null,
           departmentId,
+          ...(departmentId ? { departments: { connect: { id: departmentId } } } : {}),
           status: fields.memberStatus ? normalizeStatus(fields.memberStatus) : "active",
         },
       });
       imported++;
-    } catch (err) {
+    } catch {
+      seq--; // free the unused member number
       errors.push(`Row ${i + 2}: Failed to import ${firstName} ${lastName}.`);
       skipped++;
     }
+  }
+
+  // Persist the new member sequence so future IDs continue correctly.
+  if (imported > 0) {
+    await db.church.update({ where: { id: session.churchId }, data: { memberSeq: seq, memberPrefix: prefix } });
   }
 
   if (dataRows.length > 5000) {

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   Search, Plus, Phone, Mail, MapPin, X, Users, Pencil, Trash2,
-  Briefcase, Heart, Shield, User, Grid3X3, List, ChevronRight,
+  Briefcase, Heart, Shield, User, Grid3X3, List, ChevronRight, Download,
 } from "lucide-react";
 import { ImportModal } from "@/components/app/import-modal";
 import { PageHeader } from "@/components/app/page-header";
@@ -69,6 +69,9 @@ export function PeopleClient({
     <div>
       <PageHeader title="People" description="Your whole congregation — members, families and visitors.">
         {canWrite && <ImportModal />}
+        <a href="/api/export/people">
+          <Button size="sm" variant="secondary"><Download className="size-4" /> Export CSV</Button>
+        </a>
         <Button size="sm" onClick={() => setCreating(true)} disabled={!canWrite}>
           <Plus className="size-4" /> Add member
         </Button>

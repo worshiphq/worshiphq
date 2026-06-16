@@ -22,7 +22,7 @@ export default async function AccountingPage() {
   return (
     <div>
       <PageHeader title="Accounting" description="Fund accounting, balances and audit-ready records — native in ₵.">
-        <Button variant="secondary" size="sm"><Download /> Export report</Button>
+        <a href="/api/export/transactions"><Button variant="secondary" size="sm"><Download /> Export CSV</Button></a>
         <ActionDialog
           triggerLabel="New transaction"
           triggerIcon={<Plus />}
