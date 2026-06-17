@@ -53,6 +53,32 @@ export async function setChurchSuspended(churchId: string, suspended: boolean) {
   revalidatePath("/admin");
 }
 
+export async function approveSenderId(churchId: string) {
+  await requireSuperAdmin();
+
+  await db.church.update({
+    where: { id: churchId },
+    data: {
+      smsSenderIdStatus: "approved",
+    },
+  });
+
+  revalidatePath("/admin");
+}
+
+export async function rejectSenderId(churchId: string) {
+  await requireSuperAdmin();
+
+  await db.church.update({
+    where: { id: churchId },
+    data: {
+      smsSenderIdStatus: "rejected",
+    },
+  });
+
+  revalidatePath("/admin");
+}
+
 export async function setChurchPlan(churchId: string, plan: string) {
   await requireSuperAdmin();
   await db.subscription.upsert({
