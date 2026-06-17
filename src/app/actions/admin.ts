@@ -12,6 +12,7 @@ import {
   requireSuperAdmin,
 } from "@/lib/auth";
 import { saveMarketingContent, type MarketingContent } from "@/lib/data/site-content";
+import { sendSms } from "@/lib/integrations/sms";
 import { addCredits } from "@/lib/sms/credits";
 
 // ── Auth ──
@@ -56,12 +57,43 @@ export async function setChurchSuspended(churchId: string, suspended: boolean) {
 export async function approveSenderId(churchId: string) {
   await requireSuperAdmin();
 
-  await db.church.update({
+  const church = await db.church.update({
     where: { id: churchId },
     data: {
       smsSenderIdStatus: "approved",
     },
+    select: {
+      name: true,
+      smsSenderId: true,
+    },
   });
+
+  const owner = await db.user.findFirst({
+    where: {
+      churchId,
+      phoneVerified: true,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+    select: {
+      phone: true,
+    },
+  });
+
+  console.log("OWNER PHONE:", owner?.phone);
+
+  if (owner?.phone) {
+    await sendSms(
+      owner.phone,
+      `Congratulations!
+
+Your Sender ID "${church.smsSenderId}" has been approved.
+
+You can now use it for SMS broadcasts in WorshipHQ.`,
+      { heading: null }
+    );
+  }
 
   revalidatePath("/admin");
 }

@@ -102,7 +102,6 @@ export async function requestSenderId(formData: FormData) {
   const result = await sendSms(
     "0247258161",
     `New Sender ID request
-    { heading: null }
 
 Church: ${church?.name ?? "Unknown"}
 Requested ID: ${senderId}`
