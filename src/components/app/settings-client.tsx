@@ -3,7 +3,7 @@
 import { useState } from "react";
 import {
   Building, Palette, Users2, CreditCard, Plug, Check, CircleDot,
-  Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, UserCircle, Shield,
+  Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, UserCircle, Shield, MessageSquare,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,10 @@ type Church = {
   logoUrl: string;
   slug: string;
   registrationFields: unknown;
+
+  smsSenderId?: string | null;
+  smsSenderIdStatus?: string | null;
+  smsSenderIdRequestedAt?: string | null;
 } | null;
 type TeamUser = { id: string; name: string; email: string; role: string; customRole?: { id: string; name: string } | null };
 type Dept = { id: string; name: string };
@@ -57,6 +61,7 @@ const tabs = [
   { key: "registration", label: "Join link", icon: Link2 },
   { key: "billing", label: "Billing", icon: CreditCard },
   { key: "integrations", label: "Integrations", icon: Plug },
+  { key: "sms", label: "SMS Settings", icon: MessageSquare },
 ] as const;
 
 const integrationList = [
@@ -470,6 +475,42 @@ export function SettingsClient({
                 );
               })}
             </div>
+          </Card>
+        )}
+        {tab === "sms" && (
+          <Card className="p-6">
+            <h3 className="font-display text-lg font-semibold">SMS Settings</h3>
+
+            <p className="text-sm text-ink-muted">
+              Request a custom Sender ID for your church.
+            </p>
+
+            <div className="mt-4">
+              <Label>Sender ID</Label>
+
+              <Input
+                name="senderId"
+                defaultValue={church?.smsSenderId ?? ""}
+                placeholder="GraceTemple"
+                maxLength={11}
+              />
+
+              <p className="mt-2 text-xs text-ink-faint">
+                Maximum 11 characters. Letters and numbers only.
+              </p>
+            </div>
+
+            <div className="mt-4">
+              Status:
+              {" "}
+              <Badge variant="default">
+                {church?.smsSenderIdStatus ?? "pending"}
+              </Badge>
+            </div>
+
+            <Button className="mt-5">
+              Submit Request
+            </Button>
           </Card>
         )}
       </div>
