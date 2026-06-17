@@ -74,6 +74,7 @@ export async function sendChurchSms(
     select: {
       name: true,
       smsSenderIdStatus: true,
+      smsSenderId: true,
     },
   });
 
@@ -91,7 +92,13 @@ export async function sendChurchSms(
     return { ok: false, sent: 0, cost, balance, insufficient: true };
   }
 
-  const res = await sendSms(recipients, message, { heading });
+  const res = await sendSms(recipients, message, {
+    heading,
+    senderId:
+      church?.smsSenderIdStatus === "approved"
+        ? church.smsSenderId
+        : null,
+  });
   if (!res.ok) return { ok: false, sent: 0, cost, balance };
 
   const updated = await db.church.update({

@@ -24,12 +24,16 @@ function withHeading(message: string, heading: string | null): string {
 export async function sendSms(
   to: string | string[],
   rawMessage: string,
-  opts?: { heading?: string | null },
+  opts?: {
+    heading?: string | null;
+    senderId?: string | null;
+  },
 ): Promise<SmsResult> {
   // Normalise to the digits-only format providers require (Hubtel rejects "024…").
   const recipients = (Array.isArray(to) ? to : [to]).map(normalisePhone).filter((p) => p.length >= 11);
   const provider = env.SMS_PROVIDER;
   const heading = opts?.heading === undefined ? DEFAULT_HEADING : opts.heading;
+  const senderId = opts?.senderId ?? null;
   const message = withHeading(rawMessage, heading);
 
   if (recipients.length === 0) {
@@ -48,7 +52,11 @@ export async function sendSms(
       const res = await fetch("https://sms.arkesel.com/api/v2/sms/send", {
         method: "POST",
         headers: { "api-key": env.ARKESEL_API_KEY!, "content-type": "application/json" },
-        body: JSON.stringify({ sender: env.ARKESEL_SENDER_ID, message, recipients }),
+        body: JSON.stringify({
+          sender: senderId ?? env.ARKESEL_SENDER_ID,
+          message,
+          recipients
+        }),
       });
       const data = await res.json();
       return { ok: res.ok, provider, stubbed: false, id: data?.data?.[0]?.id };
@@ -62,7 +70,10 @@ export async function sendSms(
         const url = new URL("https://sms.hubtel.com/v1/messages/send");
         url.searchParams.set("clientsecret", env.HUBTEL_CLIENT_SECRET!);
         url.searchParams.set("clientid", env.HUBTEL_CLIENT_ID!);
-        url.searchParams.set("from", env.HUBTEL_SENDER_ID);
+        url.searchParams.set(
+          "from",
+          senderId ?? env.HUBTEL_SENDER_ID
+        );
         url.searchParams.set("to", to);
         url.searchParams.set("content", message);
         const res = await fetch(url.toString());
