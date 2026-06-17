@@ -9,6 +9,8 @@ import {
   setChurchPlan,
   deleteChurch,
   grantSmsCredits,
+  approveSenderId,
+  rejectSenderId,
 } from "@/app/actions/admin";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { useFeedback } from "@/components/ui/feedback";
@@ -84,10 +86,10 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
 
                       <div
                         className={`text-xs ${c.smsSenderIdStatus === "approved"
-                            ? "text-emerald-400"
-                            : c.smsSenderIdStatus === "rejected"
-                              ? "text-red-400"
-                              : "text-amber-400"
+                          ? "text-emerald-400"
+                          : c.smsSenderIdStatus === "rejected"
+                            ? "text-red-400"
+                            : "text-amber-400"
                           }`}
                       >
                         {c.smsSenderIdStatus}
@@ -138,6 +140,35 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                 </td>
                 <td className="px-4 py-3">
                   <div className="flex items-center justify-end gap-1">
+                    {c.smsSenderId && c.smsSenderIdStatus === "pending" && (
+                      <>
+                        <button
+                          type="button"
+                          onClick={() =>
+                            run(() => approveSenderId(c.id), {
+                              pending: "Approving...",
+                              success: "Sender ID approved",
+                            })
+                          }
+                          className="rounded-md bg-emerald-500/15 px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-500/25"
+                        >
+                          Approve
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() =>
+                            run(() => rejectSenderId(c.id), {
+                              pending: "Rejecting...",
+                              success: "Sender ID rejected",
+                            })
+                          }
+                          className="rounded-md bg-red-500/15 px-2 py-1 text-xs text-red-300 hover:bg-red-500/25"
+                        >
+                          Reject
+                        </button>
+                      </>
+                    )}
                     <form action={impersonateChurch.bind(null, c.id)}>
                       <SubmitButton
                         size="sm"
