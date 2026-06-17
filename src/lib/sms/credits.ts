@@ -69,9 +69,21 @@ export async function sendChurchSms(
 
   // Brand the message with the church's name so members know who it's from
   // (the SMS sender ID is the platform's, e.g. "HostHub").
-  const church = await db.church.findUnique({ where: { id: churchId }, select: { name: true } });
-  const heading = church?.name ?? "WorshipHQ";
-  const cost = segmentsFor(`${heading}\n${message}`) * recipients.length;
+  const church = await db.church.findUnique({
+    where: { id: churchId },
+    select: {
+      name: true,
+      smsSenderIdStatus: true,
+    },
+  });
+
+  const heading =
+    church?.smsSenderIdStatus === "approved"
+      ? null
+      : church?.name ?? "WorshipHQ";
+  const smsText = heading ? `${heading}\n${message}` : message;
+
+  const cost = segmentsFor(smsText) * recipients.length;
 
   const balance = await getSmsBalance(churchId);
   if (recipients.length === 0) return { ok: true, sent: 0, cost: 0, balance };
