@@ -47,6 +47,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
           <thead>
             <tr className="border-b border-white/10 bg-white/[0.02] text-left text-xs uppercase tracking-wide text-slate-500">
               <th className="px-4 py-3 font-medium">Church</th>
+              <th className="px-4 py-3 font-medium">Sender ID</th>
               <th className="px-4 py-3 font-medium">Members</th>
               <th className="px-4 py-3 font-medium">SMS</th>
               <th className="px-4 py-3 font-medium">Giving (mo)</th>
@@ -73,6 +74,28 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                       </div>
                     </div>
                   </div>
+                </td>
+                <td className="px-4 py-3">
+                  {c.smsSenderId ? (
+                    <div>
+                      <div className="font-medium text-slate-200">
+                        {c.smsSenderId}
+                      </div>
+
+                      <div
+                        className={`text-xs ${c.smsSenderIdStatus === "approved"
+                            ? "text-emerald-400"
+                            : c.smsSenderIdStatus === "rejected"
+                              ? "text-red-400"
+                              : "text-amber-400"
+                          }`}
+                      >
+                        {c.smsSenderIdStatus}
+                      </div>
+                    </div>
+                  ) : (
+                    <span className="text-slate-500">—</span>
+                  )}
                 </td>
                 <td className="px-4 py-3 text-slate-300">{c.members}</td>
                 <td className="px-4 py-3">
@@ -158,7 +181,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
             ))}
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-500">
+                <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">
                   No churches match “{q}”.
                 </td>
               </tr>
