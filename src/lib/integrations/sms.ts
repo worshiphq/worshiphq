@@ -55,35 +55,23 @@ export async function sendSms(
     }
 
     if (provider === "hubtel") {
-  let lastId: string | undefined;
-  let allOk = true;
-
-  for (const to of recipients) {
-    const url = new URL("https://sms.hubtel.com/v1/messages/send");
-    url.searchParams.set("clientsecret", env.HUBTEL_CLIENT_SECRET!);
-    url.searchParams.set("clientid", env.HUBTEL_CLIENT_ID!);
-    url.searchParams.set("from", env.HUBTEL_SENDER_ID);
-    url.searchParams.set("to", to);
-    url.searchParams.set("content", message);
-
-    const res = await fetch(url.toString());
-
-    console.log("Hubtel HTTP Status:", res.status);
-    console.log("Hubtel HTTP OK:", res.ok);
-
-    const data = await res.json().catch((err) => {
-      console.error("Hubtel JSON Parse Error:", err);
-      return {};
-    });
-
-    console.log("Hubtel Response:", data);
-
-    allOk = allOk && res.ok;
-    lastId = data?.messageId ?? data?.MessageId ?? lastId;
-  }
-
-  return { ok: allOk, provider, stubbed: false, id: lastId };
-}
+      // Hubtel sends one message per recipient via a simple GET endpoint.
+      let lastId: string | undefined;
+      let allOk = true;
+      for (const to of recipients) {
+        const url = new URL("https://sms.hubtel.com/v1/messages/send");
+        url.searchParams.set("clientsecret", env.HUBTEL_CLIENT_SECRET!);
+        url.searchParams.set("clientid", env.HUBTEL_CLIENT_ID!);
+        url.searchParams.set("from", env.HUBTEL_SENDER_ID);
+        url.searchParams.set("to", to);
+        url.searchParams.set("content", message);
+        const res = await fetch(url.toString());
+        const data = await res.json().catch(() => ({}));
+        allOk = allOk && res.ok;
+        lastId = data?.messageId ?? data?.MessageId ?? lastId;
+      }
+      return { ok: allOk, provider, stubbed: false, id: lastId };
+    }
 
     // mnotify / twilio implementations follow the same shape.
     console.warn(`[SMS] provider "${provider}" not yet implemented — logging instead`);
