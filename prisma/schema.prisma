@@ -32,6 +32,14 @@ model Church {
   address      String?
   accentColor  String   @default("#6D5EF8")
   logoUrl      String?
+
+  // SMS Sender ID approval system
+  smsSenderId           String?
+  smsSenderIdStatus     String   @default("pending")
+  smsSenderIdRequestedAt DateTime?
+  smsSenderIdApprovedAt DateTime?
+  smsSenderIdApprovedBy String?
+
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
