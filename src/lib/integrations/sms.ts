@@ -59,7 +59,7 @@ export async function sendSms(
   let allOk = true;
 
   for (const to of recipients) {
-    const url = new URL("https://smsc.hubtel.com/v1/messages/send");
+    const url = new URL("https://sms.hubtel.com/v1/messages/send");
     url.searchParams.set("clientsecret", env.HUBTEL_CLIENT_SECRET!);
     url.searchParams.set("clientid", env.HUBTEL_CLIENT_ID!);
     url.searchParams.set("from", env.HUBTEL_SENDER_ID);
