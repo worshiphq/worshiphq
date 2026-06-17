@@ -99,13 +99,15 @@ export async function requestSenderId(formData: FormData) {
     select: { name: true },
   });
 
-  await sendSms(
+  const result = await sendSms(
     "0247258161",
     `New Sender ID request
 
 Church: ${church?.name ?? "Unknown"}
 Requested ID: ${senderId}`
   );
+
+  console.log("SENDER ID SMS RESULT:", result);
 
   revalidatePath("/app/settings");
 }
