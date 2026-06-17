@@ -101,12 +101,41 @@ You can now use it for SMS broadcasts in WorshipHQ.`,
 export async function rejectSenderId(churchId: string) {
   await requireSuperAdmin();
 
-  await db.church.update({
+  const church = await db.church.update({
     where: { id: churchId },
     data: {
       smsSenderIdStatus: "rejected",
     },
+    select: {
+      smsSenderId: true,
+    },
   });
+
+  const owner = await db.user.findFirst({
+    where: {
+      churchId,
+      phoneVerified: true,
+    },
+    orderBy: {
+      createdAt: "asc",
+    },
+    select: {
+      phone: true,
+    },
+  });
+
+  if (owner?.phone) {
+    await sendSms(
+      owner.phone,
+      `Your Sender ID "${church.smsSenderId}" was not approved.
+
+Please contact WorshipHQ for assistance.
+
+Email: worshiphqapp@gmail.com
+Phone: +233247258161`,
+      { heading: null }
+    );
+  }
 
   revalidatePath("/admin");
 }

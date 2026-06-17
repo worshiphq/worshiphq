@@ -104,7 +104,8 @@ export async function requestSenderId(formData: FormData) {
     `New Sender ID request
 
 Church: ${church?.name ?? "Unknown"}
-Requested ID: ${senderId}`
+Requested ID: ${senderId}`,
+    { heading: null }
   );
 
   console.log("SENDER ID SMS RESULT:", result);
