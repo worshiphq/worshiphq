@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, hashPassword, verifyPassword } from "@/lib/auth";
 import { getFormDefinition } from "@/lib/forms/registration";
+import { sendSms } from "@/lib/integrations/sms";
 import type { Role } from "@prisma/client";
 
 /** Update the signed-in user's own name, email and profile photo. */
@@ -93,6 +94,18 @@ export async function requestSenderId(formData: FormData) {
       smsSenderIdRequestedAt: new Date(),
     },
   });
+  const church = await db.church.findUnique({
+    where: { id: session.churchId },
+    select: { name: true },
+  });
+
+  await sendSms(
+    "0247258161",
+    `New Sender ID request
+
+Church: ${church?.name ?? "Unknown"}
+Requested ID: ${senderId}`
+  );
 
   revalidatePath("/app/settings");
 }
