@@ -15,7 +15,7 @@ import { ROLE_PERMISSIONS } from "@/lib/permissions";
 import {
   updateChurch, inviteTeammate,
   changeUserRole, removeTeamMember, updateProfile,
-  createCustomRole, deleteCustomRole,
+  createCustomRole, deleteCustomRole, requestSenderId,
 } from "@/app/actions/settings";
 import { ALL_MODULES } from "@/lib/permissions";
 import { BrandingForm } from "@/components/app/branding-form";
@@ -40,7 +40,7 @@ type Church = {
 
   smsSenderId?: string | null;
   smsSenderIdStatus?: string | null;
-  smsSenderIdRequestedAt?: string | null;
+  smsSenderIdRequestedAt?: Date | null;
 } | null;
 type TeamUser = { id: string; name: string; email: string; role: string; customRole?: { id: string; name: string } | null };
 type Dept = { id: string; name: string };
@@ -485,32 +485,33 @@ export function SettingsClient({
               Request a custom Sender ID for your church.
             </p>
 
-            <div className="mt-4">
-              <Label>Sender ID</Label>
+            <form action={requestSenderId}>
+              <div className="mt-4">
+                <Label>Sender ID</Label>
 
-              <Input
-                name="senderId"
-                defaultValue={church?.smsSenderId ?? ""}
-                placeholder="GraceTemple"
-                maxLength={11}
-              />
+                <Input
+                  name="senderId"
+                  defaultValue={church?.smsSenderId ?? ""}
+                  placeholder="GraceTemple"
+                  maxLength={11}
+                />
 
-              <p className="mt-2 text-xs text-ink-faint">
-                Maximum 11 characters. Letters and numbers only.
-              </p>
-            </div>
+                <p className="mt-2 text-xs text-ink-faint">
+                  Maximum 11 characters. Letters and numbers only.
+                </p>
+              </div>
 
-            <div className="mt-4">
-              Status:
-              {" "}
-              <Badge variant="default">
-                {church?.smsSenderIdStatus ?? "pending"}
-              </Badge>
-            </div>
+              <div className="mt-4">
+                Status{" "}
+                <Badge variant="default">
+                  {church?.smsSenderIdStatus ?? "pending"}
+                </Badge>
+              </div>
 
-            <Button className="mt-5">
-              Submit Request
-            </Button>
+              <SubmitButton className="mt-5">
+                Submit Request
+              </SubmitButton>
+            </form>
           </Card>
         )}
       </div>

@@ -30,16 +30,20 @@ export default async function SettingsPage() {
 
   const churchData = church
     ? {
-        name: church.name,
-        denomination: church.denomination ?? "",
-        city: church.city ?? "",
-        country: church.country ?? "Ghana",
-        address: church.address ?? "",
-        accentColor: church.accentColor ?? "#0d7377",
-        logoUrl: church.logoUrl ?? "",
-        slug: church.slug,
-        registrationFields: (church.registrationFields as Record<string, boolean> | null) ?? null,
-      }
+      name: church.name,
+      denomination: church.denomination ?? "",
+      city: church.city ?? "",
+      country: church.country ?? "Ghana",
+      address: church.address ?? "",
+      accentColor: church.accentColor ?? "#0d7377",
+      logoUrl: church.logoUrl ?? "",
+      slug: church.slug,
+      registrationFields: (church.registrationFields as Record<string, boolean> | null) ?? null,
+
+      smsSenderId: church.smsSenderId,
+      smsSenderIdStatus: church.smsSenderIdStatus,
+      smsSenderIdRequestedAt: church.smsSenderIdRequestedAt,
+    }
     : null;
 
   return (

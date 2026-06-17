@@ -77,7 +77,25 @@ export async function updateChurch(formData: FormData) {
   revalidatePath("/app/settings");
   revalidatePath("/app");
 }
+export async function requestSenderId(formData: FormData) {
+  const session = await requireSession();
+  assertCanWrite(session);
 
+  const senderId = String(formData.get("senderId") ?? "").trim();
+
+  if (!senderId) return;
+
+  await db.church.update({
+    where: { id: session.churchId },
+    data: {
+      smsSenderId: senderId,
+      smsSenderIdStatus: "pending",
+      smsSenderIdRequestedAt: new Date(),
+    },
+  });
+
+  revalidatePath("/app/settings");
+}
 export async function updateBranding(formData: FormData) {
   const session = await requireSession();
   assertCanWrite(session);
