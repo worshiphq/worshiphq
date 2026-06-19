@@ -191,6 +191,32 @@ export async function startPasswordReset(formData: FormData) {
 
   redirect("/sign-in?reset=verify");
 }
+export async function verifyResetCode(formData: FormData) {
+  const code = String(formData.get("code") ?? "").trim();
+
+  const store = await cookies();
+  const vid = store.get(RESET_VID)?.value;
+
+  if (!vid) {
+    redirect("/sign-in?error=expired");
+  }
+
+  const result = await verifyOtp(vid, code);
+
+  if (!result.ok || !result.userId) {
+    redirect("/sign-in?reset=verify&error=invalid-code");
+  }
+
+  store.set("whq_reset_user", result.userId, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 15,
+  });
+
+  redirect("/sign-in?reset=new-password");
+}
 export async function completePasswordReset(formData: FormData) {
   const code = String(formData.get("code") ?? "").trim();
   const password = String(formData.get("password") ?? "");
