@@ -92,7 +92,7 @@ export default async function SignInPage({
         </form>
       )}
 
-      {(!reset || reset === "success") && (
+      {(reset !== "1" && reset !== "verify") && (
         <form action={signIn} className="mt-6 space-y-4">
           <div>
             <Label htmlFor="email">Email</Label>
