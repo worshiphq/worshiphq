@@ -62,22 +62,20 @@ export default async function SignInPage({
       )}
       {reset === "verify" && (
         <form action={completePasswordReset} className="mt-6 space-y-4">
+          <div className="text-center">
+            <h3 className="font-semibold text-lg">Verify Your Identity</h3>
+            <p className="text-sm text-ink-muted">
+              Enter the 6-digit code sent to your phone.
+            </p>
+          </div>
+
           <div>
             <Label htmlFor="code">Verification Code</Label>
             <Input
               id="code"
               name="code"
               placeholder="123456"
-              required
-            />
-          </div>
-
-          <div>
-            <Label htmlFor="password">New Password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
+              maxLength={6}
               required
             />
           </div>
@@ -85,9 +83,9 @@ export default async function SignInPage({
           <SubmitButton
             size="lg"
             className="w-full"
-            pendingLabel="Resetting..."
+            pendingLabel="Verifying..."
           >
-            Reset Password
+            Verify Code
           </SubmitButton>
         </form>
       )}
