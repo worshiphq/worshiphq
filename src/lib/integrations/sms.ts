@@ -82,6 +82,7 @@ export async function sendSms(
         url.searchParams.set("to", to);
         url.searchParams.set("content", message);
         const res = await fetch(url.toString());
+        console.log("HUBTEL STATUS", res.status, res.ok);
         const data = await res.json().catch(() => ({}));
         allOk = allOk && res.ok;
         lastId = data?.messageId ?? data?.MessageId ?? lastId;
