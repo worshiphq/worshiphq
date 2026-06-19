@@ -218,34 +218,28 @@ export async function verifyResetCode(formData: FormData) {
   redirect("/sign-in?reset=new-password");
 }
 export async function completePasswordReset(formData: FormData) {
-  const code = String(formData.get("code") ?? "").trim();
   const password = String(formData.get("password") ?? "");
+  const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
-  if (password.length < 6) {
-    redirect("/sign-in?error=password-too-short");
+  if (password !== confirmPassword) {
+    redirect("/sign-in?reset=new-password&error=password-mismatch");
   }
 
   const store = await cookies();
-  const vid = store.get(RESET_VID)?.value;
+  const userId = store.get("whq_reset_user")?.value;
 
-  if (!vid) {
+  if (!userId) {
     redirect("/sign-in?error=expired");
   }
 
-  const result = await verifyOtp(vid, code);
-
-  if (!result.ok || !result.userId) {
-    redirect("/sign-in?error=invalid-code");
-  }
-
   await db.user.update({
-    where: { id: result.userId },
+    where: { id: userId },
     data: {
       passwordHash: await hashPassword(password),
     },
   });
 
-  store.delete(RESET_VID);
+  store.delete("whq_reset_user");
 
   redirect("/sign-in?reset=success");
 }
