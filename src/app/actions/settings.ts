@@ -6,6 +6,7 @@ import { requireSession, assertCanWrite, hashPassword, verifyPassword } from "@/
 import { getFormDefinition } from "@/lib/forms/registration";
 import { sendSms } from "@/lib/integrations/sms";
 import type { Role } from "@prisma/client";
+import { sendEmail } from "@/lib/integrations/email";
 
 /** Update the signed-in user's own name, email and profile photo. */
 export async function updateProfile(formData: FormData) {
@@ -188,6 +189,31 @@ export async function inviteTeammate(formData: FormData) {
       customRoleId,
       passwordHash: await hashPassword(tempPassword),
     },
+  });
+  const church = await db.church.findUnique({
+    where: { id: session.churchId },
+    select: { name: true },
+  });
+
+  await sendEmail({
+    to: email,
+    subject: `You've been invited to ${church?.name ?? "WorshipHQ"}`,
+    html: `
+    <h2>Welcome to ${church?.name ?? "WorshipHQ"}</h2>
+
+    <p>You have been added as a team member.</p>
+
+    <p><strong>Email:</strong> ${email}</p>
+    <p><strong>Temporary Password:</strong> ${tempPassword}</p>
+
+    <p>Please sign in and change your password immediately.</p>
+
+    <p>
+      <a href="https://worshiphq.app/login">
+        Login to WorshipHQ
+      </a>
+    </p>
+  `,
   });
 
   revalidatePath("/app/settings");

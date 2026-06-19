@@ -514,7 +514,7 @@ model PhoneVerification {
   id        String   @id @default(cuid())
   phone     String
   code      String
-  purpose   String   @default("signup") // signup | login
+  purpose   String   @default("signup") // signup | login | reset-password
   payload   Json? // pending signup details (church, name, email, passwordHash)
   userId    String? // for "login" purpose: the user verifying their phone
   attempts  Int      @default(0)
