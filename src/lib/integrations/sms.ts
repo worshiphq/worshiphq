@@ -29,6 +29,11 @@ export async function sendSms(
     senderId?: string | null;
   },
 ): Promise<SmsResult> {
+  console.log("SENDSMS CALLED", {
+    to,
+    provider: env.SMS_PROVIDER,
+    smsEnabled: features.sms
+  });
   // Normalise to the digits-only format providers require (Hubtel rejects "024…").
   const recipients = (Array.isArray(to) ? to : [to]).map(normalisePhone).filter((p) => p.length >= 11);
   const provider = env.SMS_PROVIDER;
