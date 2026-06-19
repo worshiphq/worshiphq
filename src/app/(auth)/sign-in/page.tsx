@@ -90,30 +90,72 @@ export default async function SignInPage({
           </SubmitButton>
         </form>
       )}
+      {reset === "new-password" && (
+        <form action={completePasswordReset} className="mt-6 space-y-4">
+          <div className="text-center">
+            <h3 className="font-semibold text-lg">Create New Password</h3>
+            <p className="text-sm text-ink-muted">
+              Choose a secure password for your account.
+            </p>
+          </div>
 
-      {(reset !== "1" && reset !== "verify") && (
-        <form action={signIn} className="mt-6 space-y-4">
           <div>
-            <Label htmlFor="email">Email</Label>
-            <Input id="email" name="email" type="email" placeholder="you@church.org" required />
+            <Label htmlFor="password">New Password</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              required
+            />
           </div>
+
           <div>
-            <div className="flex items-center justify-between">
-              <Label htmlFor="password">Password</Label>
-              <Link
-                href="/sign-in?reset=1"
-                className="mb-1.5 text-xs text-primary-bright hover:underline"
-              >
-                Forgot Password?
-              </Link>
-            </div>
-            <Input id="password" name="password" type="password" placeholder="••••••••" required />
+            <Label htmlFor="confirmPassword">Confirm Password</Label>
+            <Input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              required
+            />
           </div>
-          <SubmitButton size="lg" className="w-full" pendingLabel="Logging in…">
-            Log in
+
+          <SubmitButton
+            size="lg"
+            className="w-full"
+            pendingLabel="Updating Password..."
+          >
+            Reset Password
           </SubmitButton>
         </form>
       )}
+
+      {(
+        reset !== "1" &&
+        reset !== "verify" &&
+        reset !== "new-password"
+      ) && (
+          <form action={signIn} className="mt-6 space-y-4">
+            <div>
+              <Label htmlFor="email">Email</Label>
+              <Input id="email" name="email" type="email" placeholder="you@church.org" required />
+            </div>
+            <div>
+              <div className="flex items-center justify-between">
+                <Label htmlFor="password">Password</Label>
+                <Link
+                  href="/sign-in?reset=1"
+                  className="mb-1.5 text-xs text-primary-bright hover:underline"
+                >
+                  Forgot Password?
+                </Link>
+              </div>
+              <Input id="password" name="password" type="password" placeholder="••••••••" required />
+            </div>
+            <SubmitButton size="lg" className="w-full" pendingLabel="Logging in…">
+              Log in
+            </SubmitButton>
+          </form>
+        )}
 
       <div className="my-5 flex items-center gap-3 text-xs text-ink-faint">
         <span className="h-px flex-1 bg-line" /> or <span className="h-px flex-1 bg-line" />
