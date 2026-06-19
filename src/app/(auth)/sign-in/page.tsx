@@ -5,6 +5,7 @@ import {
   signIn,
   enterDemo,
   startPasswordReset,
+  verifyResetCode,
   completePasswordReset,
 } from "@/app/actions/auth";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -61,7 +62,7 @@ export default async function SignInPage({
         </div>
       )}
       {reset === "verify" && (
-        <form action={completePasswordReset} className="mt-6 space-y-4">
+        <form action={verifyResetCode} className="mt-6 space-y-4">
           <div className="text-center">
             <h3 className="font-semibold text-lg">Verify Your Identity</h3>
             <p className="text-sm text-ink-muted">
