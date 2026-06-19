@@ -195,7 +195,7 @@ export async function inviteTeammate(formData: FormData) {
     select: { name: true },
   });
 
-  await sendEmail({
+  const emailResult = await sendEmail({
     to: email,
     subject: `You've been invited to ${church?.name ?? "WorshipHQ"}`,
     html: `
@@ -209,12 +209,13 @@ export async function inviteTeammate(formData: FormData) {
     <p>Please sign in and change your password immediately.</p>
 
     <p>
-      <a href="https://worshiphq.app/login">
+      <a href="https://worshiphq.app/sign-in">
         Login to WorshipHQ
       </a>
     </p>
   `,
   });
+  console.log("EMAIL RESULT:", emailResult);
 
   revalidatePath("/app/settings");
 }

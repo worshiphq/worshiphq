@@ -154,6 +154,74 @@ export async function resendSignupOtp() {
   }
   redirect(result.devCode ? `/sign-up/verify?dev=${result.devCode}` : "/sign-up/verify?resent=1");
 }
+export async function startPasswordReset(formData: FormData) {
+  const phone = String(formData.get("phone") ?? "").trim();
+
+  const user = await db.user.findFirst({
+    where: {
+      phone: normalisePhone(phone),
+      phoneVerified: true,
+    },
+  });
+
+  if (!user) {
+    redirect("/sign-in?error=phone-not-found");
+  }
+
+  const result = await sendOtp({
+    phone,
+    purpose: "reset-password",
+    userId: user.id,
+  });
+
+  if (!result.ok || !result.verificationId) {
+    redirect("/sign-in?error=sms");
+  }
+
+  const store = await cookies();
+
+  store.set(RESET_VID, result.verificationId, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: 60 * 15,
+  });
+
+  redirect("/sign-in?reset=otp-sent");
+}
+export async function completePasswordReset(formData: FormData) {
+  const code = String(formData.get("code") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+
+  if (password.length < 6) {
+    redirect("/sign-in?error=password-too-short");
+  }
+
+  const store = await cookies();
+  const vid = store.get(RESET_VID)?.value;
+
+  if (!vid) {
+    redirect("/sign-in?error=expired");
+  }
+
+  const result = await verifyOtp(vid, code);
+
+  if (!result.ok || !result.userId) {
+    redirect("/sign-in?error=invalid-code");
+  }
+
+  await db.user.update({
+    where: { id: result.userId },
+    data: {
+      passwordHash: await hashPassword(password),
+    },
+  });
+
+  store.delete(RESET_VID);
+
+  redirect("/sign-in?reset=success");
+}
 
 /** Sign in an existing user. */
 export async function signIn(formData: FormData) {
@@ -180,6 +248,8 @@ export async function signOut() {
 }
 
 const LOGIN_VID = "whq_verify_vid";
+
+const RESET_VID = "whq_reset_vid";
 
 /** Invited teammate verifies their phone (gate on first login). Sends a code. */
 export async function startPhoneVerify(formData: FormData) {
