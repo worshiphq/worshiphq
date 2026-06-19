@@ -82,10 +82,15 @@ export async function sendSms(
         url.searchParams.set("to", to);
         url.searchParams.set("content", message);
         const res = await fetch(url.toString());
+
         console.log("HUBTEL STATUS", res.status, res.ok);
-        const data = await res.json().catch(() => ({}));
+
+        const hubtelData = await res.json().catch(() => ({}));
+
+        console.log("HUBTEL DATA", JSON.stringify(hubtelData));
+
         allOk = allOk && res.ok;
-        lastId = data?.messageId ?? data?.MessageId ?? lastId;
+        lastId = hubtelData?.messageId ?? hubtelData?.MessageId ?? lastId;
       }
       return { ok: allOk, provider, stubbed: false, id: lastId };
     }
