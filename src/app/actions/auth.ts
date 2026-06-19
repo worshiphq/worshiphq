@@ -189,7 +189,7 @@ export async function startPasswordReset(formData: FormData) {
     maxAge: 60 * 15,
   });
 
-  redirect("/sign-in?reset=otp-sent");
+  redirect("/sign-in?reset=verify");
 }
 export async function completePasswordReset(formData: FormData) {
   const code = String(formData.get("code") ?? "").trim();

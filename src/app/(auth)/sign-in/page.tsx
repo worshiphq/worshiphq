@@ -55,8 +55,44 @@ export default async function SignInPage({
           </SubmitButton>
         </form>
       )}
+      {reset === "success" && (
+        <div className="mt-5 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-600">
+          Password reset successful. Please log in with your new password.
+        </div>
+      )}
+      {reset === "verify" && (
+        <form action={completePasswordReset} className="mt-6 space-y-4">
+          <div>
+            <Label htmlFor="code">Verification Code</Label>
+            <Input
+              id="code"
+              name="code"
+              placeholder="123456"
+              required
+            />
+          </div>
 
-      {reset !== "1" && (
+          <div>
+            <Label htmlFor="password">New Password</Label>
+            <Input
+              id="password"
+              name="password"
+              type="password"
+              required
+            />
+          </div>
+
+          <SubmitButton
+            size="lg"
+            className="w-full"
+            pendingLabel="Resetting..."
+          >
+            Reset Password
+          </SubmitButton>
+        </form>
+      )}
+
+      {(!reset || reset === "success") && (
         <form action={signIn} className="mt-6 space-y-4">
           <div>
             <Label htmlFor="email">Email</Label>
