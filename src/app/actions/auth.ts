@@ -15,6 +15,7 @@ import {
 import { sendOtp, verifyOtp, normalisePhone } from "@/lib/auth/otp";
 
 const SIGNUP_VID = "whq_signup_vid";
+const RESET_VID = "whq_reset_vid";
 
 function slugify(name: string) {
   return (
@@ -248,8 +249,6 @@ export async function signOut() {
 }
 
 const LOGIN_VID = "whq_verify_vid";
-
-const RESET_VID = "whq_reset_vid";
 
 /** Invited teammate verifies their phone (gate on first login). Sends a code. */
 export async function startPhoneVerify(formData: FormData) {

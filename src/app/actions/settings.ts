@@ -177,7 +177,9 @@ export async function inviteTeammate(formData: FormData) {
   if (!email || !name) return;
 
   const exists = await db.user.findUnique({ where: { email } });
-  if (exists) return;
+  if (exists) {
+    throw new Error("A user with this email already exists.");
+  }
 
   const tempPassword = String(formData.get("password") ?? "").trim() || "changeme123";
   await db.user.create({
@@ -215,7 +217,6 @@ export async function inviteTeammate(formData: FormData) {
     </p>
   `,
   });
-  console.log("EMAIL RESULT:", emailResult);
 
   revalidatePath("/app/settings");
 }
