@@ -47,7 +47,7 @@ const schema = z.object({
   ARKESEL_SENDER_ID: z.string().default("WorshipHQ"),
   HUBTEL_CLIENT_ID: str,
   HUBTEL_CLIENT_SECRET: str,
-  HUBTEL_SENDER_ID: z.string().default("HostHub"),
+  HUBTEL_SENDER_ID: z.string().default("WorshipHQ"),
   MNOTIFY_API_KEY: str,
   MNOTIFY_SENDER_ID: z.string().default("WorshipHQ"),
   TWILIO_ACCOUNT_SID: str,
