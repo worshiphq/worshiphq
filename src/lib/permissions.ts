@@ -3,7 +3,7 @@ import type { Role } from "@/lib/demo/data";
 /** Every gateable module/section in the app. */
 export const ALL_MODULES = [
   "people", "attendance", "events", "volunteers",
-  "giving", "accounting", "communications", "reminders",
+  "giving", "accounting", "harvest", "communications", "reminders",
   "branches", "settings",
 ] as const;
 
@@ -34,9 +34,9 @@ export interface Session {
 
 export const ROLE_PERMISSIONS: Record<Role, string[]> = {
   Owner: ["*"],
-  Admin: ["people", "attendance", "giving", "events", "volunteers", "communications", "reminders", "branches", "settings", "accounting"],
+  Admin: ["people", "attendance", "giving", "events", "volunteers", "communications", "reminders", "branches", "settings", "accounting", "harvest"],
   Pastor: ["people", "attendance", "giving", "events", "volunteers", "communications", "reminders", "settings"],
-  Finance: ["giving", "accounting", "people", "reminders"],
+  Finance: ["giving", "accounting", "harvest", "people", "reminders"],
   Media: ["communications", "events", "people"],
   Leader: ["people", "attendance", "events", "volunteers", "communications", "reminders"],
   Volunteer: ["people", "attendance", "events"],

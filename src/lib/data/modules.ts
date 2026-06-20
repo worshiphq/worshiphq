@@ -64,29 +64,131 @@ export async function getEvents(churchId: string) {
 }
 
 // ── Accounting ────────────────────────────────────────────
-export async function getAccounting(churchId: string) {
-  const txns = await db.transaction.findMany({ where: { churchId }, orderBy: { date: "desc" }, take: 20 });
+
+export interface AccountingWeek {
+  label: string;
+  startDate: string;
+  endDate: string;
+  income: number;
+  expenses: number;
+  transactions: AccountingRow[];
+  givingIncome: AccountingRow[];
+}
+
+export interface AccountingRow {
+  id: string;
+  description: string;
+  category: string;
+  fund: string;
+  amount: number;
+  date: string;
+  source: "manual" | "giving";
+}
+
+function accountingWeeks(year: number, month: number) {
+  const weeks: { label: string; start: Date; end: Date }[] = [];
+  const firstDay = new Date(year, month, 1);
+  const lastDay = new Date(year, month + 1, 0);
+  let weekStart = new Date(firstDay);
+  let weekNum = 1;
+  while (weekStart <= lastDay) {
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + (6 - weekStart.getDay()));
+    if (weekEnd > lastDay) weekEnd.setTime(lastDay.getTime());
+    weekEnd.setHours(23, 59, 59, 999);
+    weeks.push({ label: `Week ${weekNum}`, start: new Date(weekStart), end: new Date(weekEnd) });
+    weekNum++;
+    weekStart = new Date(weekEnd);
+    weekStart.setDate(weekStart.getDate() + 1);
+    weekStart.setHours(0, 0, 0, 0);
+  }
+  return weeks;
+}
+
+export async function getAccounting(churchId: string, year?: number, month?: number) {
+  const now = new Date();
+  const y = year ?? now.getFullYear();
+  const m = month ?? now.getMonth();
+  const startOfMonth = new Date(y, m, 1);
+  const endOfMonth = new Date(y, m + 1, 0, 23, 59, 59, 999);
+
+  const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+  const [txns, gifts] = await Promise.all([
+    db.transaction.findMany({
+      where: { churchId, date: { gte: startOfMonth, lte: endOfMonth } },
+      orderBy: { date: "desc" },
+    }),
+    db.gift.findMany({
+      where: { churchId, date: { gte: startOfMonth, lte: endOfMonth } },
+      orderBy: { date: "desc" },
+      include: { fund: { select: { name: true } } },
+    }),
+  ]);
+
+  const manualRows: AccountingRow[] = txns.map((t) => ({
+    id: t.id,
+    description: t.description,
+    category: t.category,
+    fund: t.fund ?? "General",
+    amount: Number(t.amount),
+    date: t.date.toISOString(),
+    source: "manual",
+  }));
+
+  const givingRows: AccountingRow[] = gifts.map((g) => ({
+    id: g.id,
+    description: `${g.donorName ?? "Anonymous"} — ${g.fund?.name ?? "Gift"}`,
+    category: g.fund?.name ?? "Giving",
+    fund: g.fund?.name ?? "General",
+    amount: Number(g.amount),
+    date: g.date.toISOString(),
+    source: "giving",
+  }));
+
+  const allRows = [...manualRows, ...givingRows].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
   let income = 0;
   let expenses = 0;
   const byFund = new Map<string, number>();
-  for (const t of txns) {
-    const amt = Number(t.amount);
-    if (amt >= 0) income += amt;
-    else expenses += Math.abs(amt);
-    byFund.set(t.fund ?? "General", (byFund.get(t.fund ?? "General") ?? 0) + amt);
+
+  for (const r of allRows) {
+    if (r.amount >= 0) income += r.amount;
+    else expenses += Math.abs(r.amount);
+    byFund.set(r.fund, (byFund.get(r.fund) ?? 0) + r.amount);
   }
+
+  const weekDefs = accountingWeeks(y, m);
+  const weeks: AccountingWeek[] = weekDefs.map((w) => {
+    const weekTxns = manualRows.filter((r) => {
+      const d = new Date(r.date);
+      return d >= w.start && d <= w.end;
+    });
+    const weekGiving = givingRows.filter((r) => {
+      const d = new Date(r.date);
+      return d >= w.start && d <= w.end;
+    });
+    const all = [...weekTxns, ...weekGiving];
+    return {
+      label: w.label,
+      startDate: w.start.toISOString().slice(0, 10),
+      endDate: w.end.toISOString().slice(0, 10),
+      income: all.filter((r) => r.amount >= 0).reduce((s, r) => s + r.amount, 0),
+      expenses: all.filter((r) => r.amount < 0).reduce((s, r) => s + Math.abs(r.amount), 0),
+      transactions: weekTxns,
+      givingIncome: weekGiving,
+    };
+  });
+
   return {
-    transactions: txns.map((t) => ({
-      id: t.id,
-      description: t.description,
-      category: t.category,
-      fund: t.fund ?? "General",
-      amount: Number(t.amount),
-      date: t.date.toISOString(),
-    })),
+    transactions: allRows,
     income,
     expenses,
     fundBalances: [...byFund.entries()].map(([fund, balance]) => ({ fund, balance })),
+    weeks,
+    monthLabel: `${monthNames[m]} ${y}`,
+    year: y,
+    month: m,
   };
 }
 

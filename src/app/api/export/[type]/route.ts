@@ -136,12 +136,64 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
     );
   } else if (type === "transactions") {
     if (!session.sections.includes("accounting")) return new Response("Forbidden", { status: 403 });
-    const txns = await db.transaction.findMany({ where: { churchId }, orderBy: { date: "desc" } });
-    filename = "transactions.csv";
-    csv = toCsv(
-      ["Date", "Description", "Category", "Fund", "Amount"],
-      txns.map((t) => [fmtDate(t.date), t.description, t.category, t.fund, Number(t.amount).toFixed(2)]),
-    );
+    const url = new URL(_req.url);
+    const txYear = Number(url.searchParams.get("year")) || undefined;
+    const txMonth = url.searchParams.get("month") != null ? Number(url.searchParams.get("month")) : undefined;
+    const txWhere: Record<string, unknown> = { churchId };
+    if (txYear != null && txMonth != null) {
+      txWhere.date = { gte: new Date(txYear, txMonth, 1), lte: new Date(txYear, txMonth + 1, 0, 23, 59, 59, 999) };
+    }
+    const txns = await db.transaction.findMany({ where: txWhere, orderBy: { date: "desc" } });
+    const txGifts = (txYear != null && txMonth != null)
+      ? await db.gift.findMany({
+          where: { churchId, date: txWhere.date as object },
+          orderBy: { date: "desc" },
+          include: { fund: { select: { name: true } } },
+        })
+      : [];
+    const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+    filename = txYear && txMonth != null ? `accounting-${monthNames[txMonth]}-${txYear}.csv` : "transactions.csv";
+    const allRows = [
+      ...txns.map((t) => [fmtDate(t.date), t.description, t.category, t.fund ?? "General", Number(t.amount).toFixed(2), "Manual"]),
+      ...txGifts.map((g) => [fmtDate(g.date), `${g.donorName ?? "Anonymous"} — ${g.fund?.name ?? "Gift"}`, g.fund?.name ?? "Giving", g.fund?.name ?? "General", Number(g.amount).toFixed(2), "Giving"]),
+    ];
+    csv = toCsv(["Date", "Description", "Category", "Fund", "Amount", "Source"], allRows);
+  } else if (type === "harvest") {
+    if (!session.sections.includes("harvest") && !session.sections.includes("giving"))
+      return new Response("Forbidden", { status: 403 });
+    const url = new URL(_req.url);
+    const hYear = Number(url.searchParams.get("year") ?? new Date().getFullYear());
+    const harvest = await db.harvest.findUnique({
+      where: { churchId_year: { churchId, year: hYear } },
+      include: {
+        contributions: {
+          orderBy: { date: "asc" },
+          include: { person: { select: { firstName: true, lastName: true, phone: true } } },
+        },
+      },
+    });
+    filename = `harvest-${hYear}.csv`;
+    if (!harvest || harvest.contributions.length === 0) {
+      csv = toCsv(["Date", "Name", "Type", "Phone", "Amount (GHS)", "Method"], []);
+    } else {
+      const total = harvest.contributions.reduce((s, c) => s + Number(c.amount), 0);
+      csv = toCsv(
+        ["Date", "Name", "Type", "Phone", "Amount (GHS)", "Method"],
+        [
+          ...harvest.contributions.map((c) => [
+            fmtDate(c.date),
+            c.donorName,
+            c.donorType,
+            c.donorPhone ?? "",
+            Number(c.amount).toFixed(2),
+            c.method,
+          ]),
+          [],
+          ["", "", "", "TOTAL", total.toFixed(2), ""],
+          ["", "", "", `${harvest.title} ${hYear}`, "", ""],
+        ],
+      );
+    }
   } else {
     return new Response("Unknown export type", { status: 404 });
   }

@@ -9,6 +9,7 @@ import {
   MessageSquare,
   BellRing,
   Wallet,
+  Wheat,
   Building2,
   Settings,
 } from "lucide-react";
@@ -44,6 +45,7 @@ export const nav: NavSection[] = [
     items: [
       { key: "giving", label: "Giving", href: "/app/giving", icon: HandCoins },
       { key: "accounting", label: "Accounting", href: "/app/accounting", icon: Wallet },
+      { key: "harvest", label: "Harvest", href: "/app/harvest", icon: Wheat },
     ],
   },
   {

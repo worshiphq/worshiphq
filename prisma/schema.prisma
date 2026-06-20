@@ -69,6 +69,8 @@ model Church {
   reminders     Reminder[]
   transactions  Transaction[]
   smsTransactions SmsTransaction[]
+  harvests      Harvest[]
+  harvestContributions HarvestContribution[]
   subscription  Subscription?
 }
 
@@ -228,6 +230,7 @@ model Person {
   groups      Group[]    @relation("GroupMembers")
   tags        Tag[]      @relation("PersonTags")
   gifts       Gift[]
+  harvestContributions HarvestContribution[]
   attendance  AttendanceRecord[]
   user        User?
 
@@ -476,6 +479,44 @@ model Reminder {
   sendAt    DateTime
   sent      Boolean  @default(false)
 
+  @@index([churchId])
+}
+
+// ── Harvest ──────────────────────────────────────────────
+model Harvest {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  year      Int
+  title     String   @default("Annual Harvest")
+  date      DateTime?
+  goal      Decimal? @db.Decimal(12, 2)
+  raised    Decimal  @default(0) @db.Decimal(12, 2)
+  createdAt DateTime @default(now())
+
+  contributions HarvestContribution[]
+
+  @@unique([churchId, year])
+  @@index([churchId])
+}
+
+model HarvestContribution {
+  id          String      @id @default(cuid())
+  harvestId   String
+  harvest     Harvest     @relation(fields: [harvestId], references: [id], onDelete: Cascade)
+  churchId    String
+  church      Church      @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  personId    String?
+  person      Person?     @relation(fields: [personId], references: [id])
+  donorName   String
+  donorPhone  String?
+  donorType   String      @default("member") // "member" or "visitor"
+  amount      Decimal     @db.Decimal(12, 2)
+  method      GiftMethod  @default(Cash)
+  date        DateTime    @default(now())
+  receiptSent Boolean     @default(false)
+
+  @@index([harvestId])
   @@index([churchId])
 }
 
