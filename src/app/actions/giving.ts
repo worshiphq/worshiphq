@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
+import { sendChurchSms } from "@/lib/sms/credits";
 import type { GiftMethod } from "@prisma/client";
 
 export async function deleteGift(id: string) {
@@ -62,4 +63,69 @@ export async function recordGift(formData: FormData) {
 
   revalidatePath("/app/giving");
   revalidatePath("/app");
+}
+
+export interface TitheEntry {
+  personId: string;
+  amount: number;
+  method: string;
+}
+
+export async function recordTitheBatch(entries: TitheEntry[]) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  if (!entries.length) return { ok: false, error: "No entries to record." };
+
+  const titheFund =
+    (await db.fund.findFirst({ where: { churchId: session.churchId, name: { equals: "Tithes", mode: "insensitive" } } })) ??
+    (await db.fund.create({ data: { churchId: session.churchId, name: "Tithes" } }));
+
+  const people = await db.person.findMany({
+    where: { id: { in: entries.map((e) => e.personId) }, churchId: session.churchId },
+    select: { id: true, firstName: true, lastName: true, phone: true },
+  });
+  const personMap = new Map(people.map((p) => [p.id, p]));
+
+  let recorded = 0;
+  let smsSent = 0;
+  let insufficientCredits = false;
+
+  for (const entry of entries) {
+    const person = personMap.get(entry.personId);
+    if (!person) continue;
+
+    const method = METHOD_FROM_LABEL[entry.method] ?? "Cash";
+    const donorName = `${person.firstName} ${person.lastName}`;
+
+    const gift = await db.gift.create({
+      data: {
+        churchId: session.churchId,
+        branchId: session.branchId ?? undefined,
+        personId: person.id,
+        donorName,
+        fundId: titheFund.id,
+        amount: entry.amount,
+        method,
+        currency: "GHS",
+      },
+    });
+    recorded++;
+
+    if (person.phone && !insufficientCredits) {
+      const amountStr = entry.amount.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+      const msg = `Dear ${person.firstName} ${person.lastName}, your Tithe of GHS ${amountStr} has been received. God bless you so much!`;
+      const smsResult = await sendChurchSms(session.churchId, person.phone, msg, { note: "Tithe receipt" });
+      if (smsResult.ok) {
+        smsSent++;
+        await db.gift.update({ where: { id: gift.id }, data: { receiptSent: true } });
+      } else if (smsResult.insufficient) {
+        insufficientCredits = true;
+      }
+    }
+  }
+
+  revalidatePath("/app/giving");
+  revalidatePath("/app");
+
+  return { ok: true, recorded, smsSent, insufficientCredits };
 }

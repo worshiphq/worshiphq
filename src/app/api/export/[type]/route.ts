@@ -93,6 +93,47 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
         g.method, g.recurring ? "Yes" : "No", g.reference,
       ]),
     );
+  } else if (type === "tithes") {
+    if (!session.sections.includes("giving") && !session.sections.includes("accounting"))
+      return new Response("Forbidden", { status: 403 });
+    const url = new URL(_req.url);
+    const year = Number(url.searchParams.get("year") ?? new Date().getFullYear());
+    const month = Number(url.searchParams.get("month") ?? new Date().getMonth());
+    const startOfMonth = new Date(year, month, 1);
+    const endOfMonth = new Date(year, month + 1, 0, 23, 59, 59, 999);
+    const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+    const titheFund = await db.fund.findFirst({
+      where: { churchId, name: { equals: "Tithes", mode: "insensitive" } },
+    });
+    const gifts = titheFund
+      ? await db.gift.findMany({
+          where: { churchId, fundId: titheFund.id, date: { gte: startOfMonth, lte: endOfMonth } },
+          orderBy: { date: "asc" },
+          include: { person: { select: { firstName: true, lastName: true, phone: true } } },
+        })
+      : [];
+
+    filename = `tithes-${monthNames[month]}-${year}.csv`;
+
+    const total = gifts.reduce((s, g) => s + Number(g.amount), 0);
+
+    csv = toCsv(
+      ["Date", "Name", "Phone", "Amount (GHS)", "Method", "Receipt Sent"],
+      [
+        ...gifts.map((g) => [
+          fmtDate(g.date),
+          g.person ? `${g.person.firstName} ${g.person.lastName}` : g.donorName,
+          g.person?.phone ?? "",
+          Number(g.amount).toFixed(2),
+          g.method,
+          g.receiptSent ? "Yes" : "No",
+        ]),
+        [],
+        ["", "", "TOTAL", total.toFixed(2), "", ""],
+        ["", "", `Report: ${monthNames[month]} ${year}`, "", "", ""],
+      ],
+    );
   } else if (type === "transactions") {
     if (!session.sections.includes("accounting")) return new Response("Forbidden", { status: 403 });
     const txns = await db.transaction.findMany({ where: { churchId }, orderBy: { date: "desc" } });
