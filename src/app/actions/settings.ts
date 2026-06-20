@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, hashPassword, verifyPassword } from "@/lib/auth";
 import { getFormDefinition } from "@/lib/forms/registration";
 import { sendSms } from "@/lib/integrations/sms";
+import { sendOtp, verifyOtp } from "@/lib/auth/otp";
 import type { Role } from "@prisma/client";
 import { sendEmail } from "@/lib/integrations/email";
 
@@ -52,6 +53,34 @@ export async function changePassword(formData: FormData) {
   if (!user?.passwordHash || !(await verifyPassword(current, user.passwordHash))) {
     return { ok: false, error: "Your current password is incorrect." };
   }
+
+  await db.user.update({ where: { id: session.userId }, data: { passwordHash: await hashPassword(next) } });
+  return { ok: true };
+}
+
+export async function sendPasswordResetOtp() {
+  const session = await requireSession();
+  if (session.isDemo || session.impersonating) return { ok: false, error: "Not available." };
+
+  const user = await db.user.findUnique({ where: { id: session.userId }, select: { phone: true, phoneVerified: true } });
+  if (!user?.phone || !user.phoneVerified) return { ok: false, error: "No verified phone on this account." };
+
+  const result = await sendOtp({ phone: user.phone, purpose: "reset-password", userId: session.userId });
+  if (!result.ok) return { ok: false, error: "Couldn't send SMS." };
+  return { ok: true, verificationId: result.verificationId };
+}
+
+export async function resetPasswordWithOtp(formData: FormData) {
+  const session = await requireSession();
+  if (session.isDemo || session.impersonating) return { ok: false, error: "Not available." };
+
+  const vid = String(formData.get("verificationId") ?? "");
+  const code = String(formData.get("code") ?? "").trim();
+  const next = String(formData.get("next") ?? "");
+  if (next.length < 6) return { ok: false, error: "Password must be at least 6 characters." };
+
+  const result = await verifyOtp(vid, code);
+  if (!result.ok) return { ok: false, error: result.error ?? "Invalid code." };
 
   await db.user.update({ where: { id: session.userId }, data: { passwordHash: await hashPassword(next) } });
   return { ok: true };
@@ -264,6 +293,31 @@ export async function createCustomRole(formData: FormData) {
   });
 
   revalidatePath("/app/settings");
+}
+
+export async function updateRolePermissions(formData: FormData) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  if (session.role !== "Owner" && session.role !== "Admin") return;
+
+  const role = String(formData.get("role") ?? "").trim();
+  if (!role) return;
+
+  const sections = formData.getAll("sections").map(String);
+  const church = await db.church.findUnique({
+    where: { id: session.churchId },
+    select: { rolePermissions: true },
+  });
+  const current = (church?.rolePermissions as Record<string, string[]> | null) ?? {};
+  current[role] = sections;
+
+  await db.church.update({
+    where: { id: session.churchId },
+    data: { rolePermissions: current },
+  });
+
+  revalidatePath("/app/settings");
+  revalidatePath("/app", "layout");
 }
 
 export async function deleteCustomRole(id: string) {

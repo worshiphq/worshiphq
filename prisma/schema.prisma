@@ -44,8 +44,10 @@ model Church {
   updatedAt    DateTime @updatedAt
 
   // JSON config: which fields to show on the public join form
-  // e.g. { "occupation": true, "dateOfBirth": true, "nationality": false, ... }
   registrationFields Json?
+
+  // Per-church overrides for built-in role permissions (JSON map of role → sections[])
+  rolePermissions Json?
 
   branches      Branch[]
   users         User[]

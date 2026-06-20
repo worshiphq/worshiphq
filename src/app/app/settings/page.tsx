@@ -43,6 +43,7 @@ export default async function SettingsPage() {
       smsSenderId: church.smsSenderId,
       smsSenderIdStatus: church.smsSenderIdStatus,
       smsSenderIdRequestedAt: church.smsSenderIdRequestedAt,
+      rolePermissions: (church.rolePermissions as Record<string, string[]> | null) ?? null,
     }
     : null;
 

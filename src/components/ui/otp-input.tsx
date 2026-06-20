@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useCallback } from "react";
+import { useRef, useState, useCallback, useEffect } from "react";
 import { cn } from "@/lib/utils";
 
 interface OtpInputProps {
@@ -11,26 +11,27 @@ interface OtpInputProps {
 export function OtpInput({ length = 6, name = "code" }: OtpInputProps) {
   const [digits, setDigits] = useState<string[]>(Array(length).fill(""));
   const refs = useRef<(HTMLInputElement | null)[]>([]);
+  const formRef = useRef<HTMLFormElement | null>(null);
 
   const focus = useCallback((i: number) => {
     if (i >= 0 && i < length) refs.current[i]?.focus();
   }, [length]);
 
-  const update = useCallback(
-    (i: number, value: string) => {
-      setDigits((prev) => {
-        const next = [...prev];
-        next[i] = value;
-        return next;
+  function setDigitAndMaybeSubmit(next: string[]) {
+    setDigits(next);
+    if (next.every((d) => d !== "")) {
+      requestAnimationFrame(() => {
+        formRef.current?.requestSubmit();
       });
-    },
-    [],
-  );
+    }
+  }
 
   function handleInput(i: number, e: React.FormEvent<HTMLInputElement>) {
     const v = e.currentTarget.value.replace(/\D/g, "");
     if (!v) return;
-    update(i, v[0]);
+    const next = [...digits];
+    next[i] = v[0];
+    setDigitAndMaybeSubmit(next);
     if (i < length - 1) focus(i + 1);
   }
 
@@ -38,9 +39,13 @@ export function OtpInput({ length = 6, name = "code" }: OtpInputProps) {
     if (e.key === "Backspace") {
       e.preventDefault();
       if (digits[i]) {
-        update(i, "");
+        const next = [...digits];
+        next[i] = "";
+        setDigits(next);
       } else if (i > 0) {
-        update(i - 1, "");
+        const next = [...digits];
+        next[i - 1] = "";
+        setDigits(next);
         focus(i - 1);
       }
     } else if (e.key === "ArrowLeft") {
@@ -56,9 +61,14 @@ export function OtpInput({ length = 6, name = "code" }: OtpInputProps) {
     if (!text) return;
     const next = Array(length).fill("");
     for (let j = 0; j < text.length; j++) next[j] = text[j];
-    setDigits(next);
+    setDigitAndMaybeSubmit(next);
     focus(Math.min(text.length, length - 1));
   }
+
+  useEffect(() => {
+    const el = refs.current[0];
+    if (el) formRef.current = el.closest("form");
+  }, []);
 
   const code = digits.join("");
 

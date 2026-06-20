@@ -51,7 +51,7 @@ export async function selfRegister(formData: FormData) {
     await sendChurchSms(
       church.id,
       phone,
-      `Welcome, ${firstName}! 🎉 Thanks for registering. We're glad to have you in the family.`,
+      `Welcome, ${firstName}! Thanks for registering. We're glad to have you in the family.`,
       { note: "Welcome (self-registration)" },
     );
   }

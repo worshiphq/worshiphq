@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { OnFormComplete } from "@/components/ui/form-effects";
 import { Badge } from "@/components/ui/badge";
-import { MemberAvatar } from "@/components/ui/member-avatar";
+import { ClickableAvatar } from "@/components/ui/photo-lightbox";
 import { Label, Textarea } from "@/components/ui/input";
 import { createPerson, updatePerson, deletePerson } from "@/app/actions/people";
 import { sendSmsToPerson } from "@/app/actions/communications";
@@ -157,7 +157,7 @@ export function PeopleClient({
                 style={{ animationDelay: `${i * 30}ms` }}
               >
                 <div className="flex flex-col items-center text-center">
-                  <MemberAvatar name={p.fullName} photoUrl={p.photoUrl} gender={p.gender} size="lg" />
+                  <ClickableAvatar name={p.fullName} photoUrl={p.photoUrl} gender={p.gender} size="lg" />
                   <h3 className="mt-3 font-display text-sm font-semibold">{p.fullName}</h3>
                   <p className="mt-0.5 text-xs text-ink-faint">{p.memberId ?? p.email ?? p.phone ?? "---"}</p>
                   <div className="mt-3 flex flex-wrap justify-center gap-1.5">
@@ -194,7 +194,7 @@ export function PeopleClient({
                   >
                     <td className="p-4">
                       <div className="flex items-center gap-3">
-                        <MemberAvatar name={p.fullName} photoUrl={p.photoUrl} gender={p.gender} size="sm" />
+                        <ClickableAvatar name={p.fullName} photoUrl={p.photoUrl} gender={p.gender} size="sm" />
                         <div>
                           <div className="font-medium text-ink">{p.fullName}</div>
                           <div className="text-xs text-ink-faint">{p.memberId ?? p.email ?? p.phone ?? "---"}</div>
@@ -276,7 +276,7 @@ function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow
             <X className="size-5" />
           </button>
           <div className="flex items-center gap-4">
-            <MemberAvatar name={person.fullName} photoUrl={person.photoUrl} gender={person.gender} size="lg" className="ring-4 ring-surface" />
+            <ClickableAvatar name={person.fullName} photoUrl={person.photoUrl} gender={person.gender} size="lg" className="ring-4 ring-surface" />
             <div>
               <h2 className="font-display text-xl font-bold">
                 {person.title ? `${person.title} ` : ""}{person.fullName}

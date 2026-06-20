@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import {
-  Building, Palette, Users2, CreditCard, Plug, Check, CircleDot,
-  Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, UserCircle, Shield, MessageSquare,
+  Building, Palette, Users2, CreditCard, Plug, Check, Pencil, CircleDot,
+  Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, Shield, MessageSquare,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,8 +14,9 @@ import type { Session } from "@/lib/permissions";
 import { ROLE_PERMISSIONS } from "@/lib/permissions";
 import {
   updateChurch, inviteTeammate,
-  changeUserRole, removeTeamMember, updateProfile,
+  changeUserRole, removeTeamMember,
   createCustomRole, deleteCustomRole, requestSenderId,
+  updateRolePermissions,
 } from "@/app/actions/settings";
 import { ALL_MODULES } from "@/lib/permissions";
 import { BrandingForm } from "@/components/app/branding-form";
@@ -41,6 +42,7 @@ type Church = {
   smsSenderId?: string | null;
   smsSenderIdStatus?: string | null;
   smsSenderIdRequestedAt?: Date | null;
+  rolePermissions?: Record<string, string[]> | null;
 } | null;
 type TeamUser = { id: string; name: string; email: string; role: string; customRole?: { id: string; name: string } | null };
 type Dept = { id: string; name: string };
@@ -53,7 +55,6 @@ const MODULE_LABELS: Record<string, string> = {
 };
 
 const tabs = [
-  { key: "account", label: "My account", icon: UserCircle },
   { key: "church", label: "Church profile", icon: Building },
   { key: "branding", label: "Branding", icon: Palette },
   { key: "team", label: "Users & roles", icon: Users2 },
@@ -122,38 +123,6 @@ export function SettingsClient({
           <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
             You&rsquo;re viewing the read-only demo. Create a free account to edit your church.
           </div>
-        )}
-
-        {/* ── My account ── */}
-        {tab === "account" && (
-          <Card className="p-6">
-            <h3 className="font-display text-lg font-semibold">My account</h3>
-            <p className="text-sm text-ink-muted">
-              Your display name shown across the app and in your church&rsquo;s team list. Use your real name, a role
-              (e.g. &ldquo;Media Team&rdquo;), or your church name.
-            </p>
-            {session.impersonating ? (
-              <div className="mt-5 rounded-xl border border-dashed border-line p-4 text-sm text-ink-faint">
-                You&rsquo;re viewing this church as support — account editing is disabled here.
-              </div>
-            ) : (
-              <form action={updateProfile} className="mt-5 max-w-md space-y-4">
-                <div>
-                  <Label htmlFor="profileName">Display name</Label>
-                  <Input id="profileName" name="name" defaultValue={session.name} placeholder="e.g. Media Team" required disabled={ro} />
-                </div>
-                <div>
-                  <Label htmlFor="profileEmail">Login email</Label>
-                  <Input id="profileEmail" name="email" type="email" defaultValue={session.email} disabled={ro} />
-                  <p className="mt-1 text-xs text-ink-faint">Used to sign in. Leave unchanged if you&rsquo;re unsure.</p>
-                </div>
-                <div className="flex items-center gap-2 text-xs text-ink-faint">
-                  <CircleDot className="size-3.5" /> Signed in as <span className="font-medium text-ink-muted">{session.role}</span>
-                </div>
-                <SubmitButton disabled={ro} successMessage="Profile updated">Save profile</SubmitButton>
-              </form>
-            )}
-          </Card>
         )}
 
         {/* ── Church profile ── */}
@@ -325,23 +294,10 @@ export function SettingsClient({
               </Card>
             )}
 
-            <Card>
-              <div className="border-b border-line p-6">
-                <h3 className="font-display text-base font-semibold">What each built-in role can access</h3>
-              </div>
-              <div className="divide-y divide-line-soft">
-                {Object.entries(ROLE_PERMISSIONS).map(([role, perms]) => (
-                  <div key={role} className="flex items-start justify-between gap-4 p-5">
-                    <div>
-                      <div className="font-medium">{role}</div>
-                      <div className="mt-1 text-xs text-ink-faint">
-                        {perms.includes("*") ? "Full access to everything" : `Access: ${perms.join(", ")}`}
-                      </div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
+            <BuiltInRolesEditor
+              rolePermissions={church?.rolePermissions ?? null}
+              readOnly={ro}
+            />
           </div>
         )}
 
@@ -516,5 +472,93 @@ export function SettingsClient({
         )}
       </div>
     </div>
+  );
+}
+
+const EDITABLE_ROLES = ["Admin", "Pastor", "Finance", "Media", "Leader", "Volunteer"] as const;
+
+function BuiltInRolesEditor({
+  rolePermissions,
+  readOnly,
+}: {
+  rolePermissions: Record<string, string[]> | null;
+  readOnly: boolean;
+}) {
+  const [editingRole, setEditingRole] = useState<string | null>(null);
+
+  return (
+    <Card>
+      <div className="border-b border-line p-6">
+        <h3 className="font-display text-base font-semibold">Built-in role permissions</h3>
+        <p className="mt-1 text-sm text-ink-muted">
+          Click the pencil to customize what each role can access. Owner always has full access.
+        </p>
+      </div>
+      <div className="divide-y divide-line-soft">
+        <div className="flex items-start justify-between gap-4 p-5">
+          <div>
+            <div className="font-medium">Owner</div>
+            <div className="mt-1 text-xs text-ink-faint">Full access to everything</div>
+          </div>
+        </div>
+        {EDITABLE_ROLES.map((role) => {
+          const defaults = ROLE_PERMISSIONS[role] ?? [];
+          const current = rolePermissions?.[role] ?? defaults;
+          const isEditing = editingRole === role;
+
+          return (
+            <div key={role} className="p-5">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="font-medium">{role}</div>
+                  <div className="mt-1 text-xs text-ink-faint">
+                    {current.map((s) => MODULE_LABELS[s] ?? s).join(", ") || "No access"}
+                  </div>
+                </div>
+                {!readOnly && (
+                  <button
+                    type="button"
+                    onClick={() => setEditingRole(isEditing ? null : role)}
+                    className={cn(
+                      "grid size-8 place-items-center rounded-lg border border-line transition-colors",
+                      isEditing ? "bg-primary/10 text-primary-bright border-primary/30" : "text-ink-muted hover:bg-surface-2",
+                    )}
+                  >
+                    <Pencil className="size-3.5" />
+                  </button>
+                )}
+              </div>
+              {isEditing && (
+                <form action={updateRolePermissions} className="mt-4 space-y-3">
+                  <input type="hidden" name="role" value={role} />
+                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                    {ALL_MODULES.map((m) => (
+                      <label key={m} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-surface-2">
+                        <input
+                          type="checkbox"
+                          name="sections"
+                          value={m}
+                          defaultChecked={current.includes(m)}
+                          className="size-4 rounded border-line accent-primary"
+                        />
+                        {MODULE_LABELS[m] ?? m}
+                      </label>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <SubmitButton size="sm" pendingLabel="Saving…" successMessage="Permissions updated">
+                      Save
+                    </SubmitButton>
+                    <Button type="button" size="sm" variant="ghost" onClick={() => setEditingRole(null)}>
+                      Cancel
+                    </Button>
+                  </div>
+                </form>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </Card>
   );
 }

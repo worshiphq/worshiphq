@@ -169,7 +169,11 @@ export async function getSession(): Promise<Session | null> {
   if (!user) return null;
 
   // Custom role overrides the built-in role's access + delete permission.
-  const sections = user.customRole ? user.customRole.sections : modulesForRole(user.role);
+  // Church-level rolePermissions override the hardcoded defaults for built-in roles.
+  const churchOverrides = (user.church.rolePermissions as Record<string, string[]> | null) ?? {};
+  const sections = user.customRole
+    ? user.customRole.sections
+    : churchOverrides[user.role] ?? modulesForRole(user.role);
   const canDelete = user.customRole ? user.customRole.canDelete : true;
 
   return {
