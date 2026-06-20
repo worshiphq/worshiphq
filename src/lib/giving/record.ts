@@ -100,6 +100,7 @@ export async function recordOnlineGift(
     const sms = await sendSms(
       input.phone,
       `${churchName}: We received your gift of ${amountStr}${fundSuffix}. Thank you & God bless you! Ref ${reference}`,
+      { heading: null },
     );
     receiptSent = receiptSent || sms.ok;
   }

@@ -29,11 +29,6 @@ export async function sendSms(
     senderId?: string | null;
   },
 ): Promise<SmsResult> {
-  console.log("SENDSMS CALLED", {
-    to,
-    provider: env.SMS_PROVIDER,
-    smsEnabled: features.sms
-  });
   // Normalise to the digits-only format providers require (Hubtel rejects "024…").
   const recipients = (Array.isArray(to) ? to : [to]).map(normalisePhone).filter((p) => p.length >= 11);
   const provider = env.SMS_PROVIDER;
@@ -68,29 +63,22 @@ export async function sendSms(
     }
 
     if (provider === "hubtel") {
-      // Hubtel sends one message per recipient via a simple GET endpoint.
       let lastId: string | undefined;
       let allOk = true;
-      for (const to of recipients) {
-        const url = new URL("https://sms.hubtel.com/v1/messages/send");
+      for (const recipient of recipients) {
+        const url = new URL("https://smsc.hubtel.com/v1/messages/send");
         url.searchParams.set("clientsecret", env.HUBTEL_CLIENT_SECRET!);
         url.searchParams.set("clientid", env.HUBTEL_CLIENT_ID!);
-        url.searchParams.set(
-          "from",
-          senderId ?? env.HUBTEL_SENDER_ID
-        );
-        url.searchParams.set("to", to);
+        url.searchParams.set("from", senderId ?? env.HUBTEL_SENDER_ID);
+        url.searchParams.set("to", recipient);
         url.searchParams.set("content", message);
         const res = await fetch(url.toString());
-
-        console.log("HUBTEL STATUS", res.status, res.ok);
-
-        const hubtelData = await res.json().catch(() => ({}));
-
-        console.log("HUBTEL DATA", JSON.stringify(hubtelData));
-
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) {
+          console.error(`[SMS:hubtel] ${res.status} → ${recipient}:`, data);
+        }
         allOk = allOk && res.ok;
-        lastId = hubtelData?.messageId ?? hubtelData?.MessageId ?? lastId;
+        lastId = data?.messageId ?? data?.MessageId ?? lastId;
       }
       return { ok: allOk, provider, stubbed: false, id: lastId };
     }

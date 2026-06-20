@@ -55,6 +55,7 @@ export async function sendOtp(opts: {
   const sms = await sendSms(
     phone,
     `Your WorshipHQ verification code is ${code}. It expires in ${CODE_TTL_MIN} minutes.`,
+    { heading: null },
   );
 
   return {
