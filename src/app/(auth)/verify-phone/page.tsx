@@ -5,6 +5,7 @@ import { getSession } from "@/lib/auth";
 import { startPhoneVerify, confirmPhoneVerify, signOut } from "@/app/actions/auth";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label } from "@/components/ui/input";
+import { OtpInput } from "@/components/ui/otp-input";
 
 export const metadata: Metadata = { title: "Verify your phone" };
 
@@ -25,7 +26,7 @@ export default async function VerifyPhonePage({
       <div className="mb-4 grid size-12 place-items-center rounded-2xl bg-primary/10 text-primary-bright">
         <ShieldCheck className="size-6" />
       </div>
-      <h1 className="font-display text-3xl font-bold">Verify your phone</h1>
+      <h1 className="font-display text-2xl font-bold">Verify your phone</h1>
       <p className="mt-2 text-sm text-ink-muted">
         For security, {session.churchName} admins verify a phone number before continuing.
       </p>
@@ -54,20 +55,8 @@ export default async function VerifyPhonePage({
         </form>
       ) : (
         <>
-          <form action={confirmPhoneVerify} className="mt-7 space-y-4">
-            <div>
-              <Label htmlFor="code">Verification code</Label>
-              <Input
-                id="code"
-                name="code"
-                inputMode="numeric"
-                autoComplete="one-time-code"
-                placeholder="123456"
-                maxLength={6}
-                required
-                className="text-center text-lg tracking-[0.4em]"
-              />
-            </div>
+          <form action={confirmPhoneVerify} className="mt-7 space-y-6">
+            <OtpInput />
             <SubmitButton size="lg" className="w-full" pendingLabel="Verifying…">
               Verify &amp; continue
             </SubmitButton>

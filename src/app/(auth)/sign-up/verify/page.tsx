@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { AlertCircle, ShieldCheck } from "lucide-react";
 import { completeSignup, resendSignupOtp } from "@/app/actions/auth";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { Input, Label } from "@/components/ui/input";
+import { OtpInput } from "@/components/ui/otp-input";
 
 export const metadata: Metadata = { title: "Verify your phone" };
 
@@ -18,7 +18,7 @@ export default async function SignupVerifyPage({
       <div className="mb-4 grid size-12 place-items-center rounded-2xl bg-primary/10 text-primary-bright">
         <ShieldCheck className="size-6" />
       </div>
-      <h1 className="font-display text-3xl font-bold">Verify your phone</h1>
+      <h1 className="font-display text-2xl font-bold">Verify your phone</h1>
       <p className="mt-2 text-sm text-ink-muted">
         We sent a 6-digit code by SMS. Enter it below to finish creating your church.
       </p>
@@ -40,20 +40,8 @@ export default async function SignupVerifyPage({
         </div>
       )}
 
-      <form action={completeSignup} className="mt-7 space-y-4">
-        <div>
-          <Label htmlFor="code">Verification code</Label>
-          <Input
-            id="code"
-            name="code"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            placeholder="123456"
-            maxLength={6}
-            required
-            className="text-center text-lg tracking-[0.4em]"
-          />
-        </div>
+      <form action={completeSignup} className="mt-7 space-y-6">
+        <OtpInput />
         <SubmitButton size="lg" className="w-full" pendingLabel="Verifying…">
           Verify &amp; create account
         </SubmitButton>
