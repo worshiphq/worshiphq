@@ -12,6 +12,7 @@ import {
   Wheat,
   Building2,
   Settings,
+  UserRoundPlus,
 } from "lucide-react";
 
 export interface NavItem {
@@ -38,6 +39,7 @@ export const nav: NavSection[] = [
       { key: "attendance", label: "Attendance", href: "/app/attendance", icon: CalendarCheck2 },
       { key: "events", label: "Events", href: "/app/events", icon: CalendarDays },
       { key: "volunteers", label: "Volunteers", href: "/app/volunteers", icon: HandHelping },
+      { key: "people", label: "Visitors", href: "/app/visitors", icon: UserRoundPlus },
     ],
   },
   {
