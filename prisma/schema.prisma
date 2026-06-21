@@ -83,6 +83,8 @@ model Church {
   followUps     FollowUp[]
   prayerRequests PrayerRequest[]
   notices        ChurchNotice[]
+  welfareRecords WelfareRecord[]
+  auditLogs      AuditLog[]
 }
 
 model Branch {
@@ -167,6 +169,7 @@ model User {
   person       Person?  @relation(fields: [personId], references: [id])
   createdAt    DateTime @default(now())
   assignedFollowUps FollowUp[]
+  auditLogs         AuditLog[]
 
   @@index([churchId])
 }
@@ -247,6 +250,7 @@ model Person {
   attendance  AttendanceRecord[]
   followUps      FollowUp[]
   prayerRequests PrayerRequest[]
+  welfareRecords WelfareRecord[]
   user           User?
 
   @@unique([churchId, memberId])
@@ -602,6 +606,23 @@ model SiteContent {
   updatedAt DateTime @updatedAt
 }
 
+// ── Welfare / benevolence ─────────────────────────────────
+model WelfareRecord {
+  id          String   @id @default(cuid())
+  churchId    String
+  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  personId    String?
+  person      Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  recipientName String
+  type        String   @default("financial") // "financial" | "food" | "medical" | "housing" | "education" | "other"
+  amount      Decimal? @db.Decimal(12, 2)
+  description String?
+  date        DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([churchId, date])
+}
+
 // ── Church notices (internal announcements board) ─────────
 model ChurchNotice {
   id        String   @id @default(cuid())
@@ -695,4 +716,22 @@ model Visitor {
   followUps FollowUp[]
 
   @@index([churchId, visitDate])
+}
+
+// ── Audit Log ─────────────────────────────────────────────
+model AuditLog {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action    String   // e.g. "create", "update", "delete"
+  entity    String   // e.g. "person", "gift", "event"
+  entityId  String?  // ID of the affected record
+  detail    String?  // human-readable summary
+  meta      Json?    // extra context (old values, etc.)
+  createdAt DateTime @default(now())
+
+  @@index([churchId, createdAt])
+  @@index([userId])
 }

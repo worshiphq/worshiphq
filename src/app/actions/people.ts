@@ -7,6 +7,7 @@ import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { getFormDefinition } from "@/lib/forms/registration";
 import { buildPersonData } from "@/lib/forms/person-data";
 import { nextMemberId, resolveDepartmentIds } from "@/lib/members/helpers";
+import { logAudit } from "@/lib/audit";
 import type { PersonStatus } from "@prisma/client";
 
 async function formFields(churchId: string) {
@@ -29,7 +30,7 @@ export async function createPerson(formData: FormData) {
   const deptIds = await resolveDepartmentIds(session.churchId, departmentNames);
   const memberId = await nextMemberId(session.churchId);
 
-  await db.person.create({
+  const person = await db.person.create({
     data: {
       ...(data as Prisma.PersonCreateInput),
       church: { connect: { id: session.churchId } },
@@ -43,6 +44,7 @@ export async function createPerson(formData: FormData) {
     },
   });
 
+  await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "person", entityId: person.id, detail: `Added ${data.firstName} ${data.lastName}` });
   revalidatePath("/app/people");
   revalidatePath("/app");
 }
@@ -97,7 +99,9 @@ export async function updatePerson(formData: FormData) {
 export async function deletePerson(id: string) {
   const session = await requireSession();
   assertCanDelete(session);
+  const person = await db.person.findFirst({ where: { id, churchId: session.churchId }, select: { firstName: true, lastName: true } });
   await db.person.deleteMany({ where: { id, churchId: session.churchId } });
+  if (person) await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: "person", entityId: id, detail: `Deleted ${person.firstName} ${person.lastName}` });
   revalidatePath("/app/people");
   revalidatePath("/app");
 }
