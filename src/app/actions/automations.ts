@@ -3,14 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
+import { TRIGGER_CATALOG, DEFAULT_TEMPLATES, runSingleAutomation } from "@/lib/automations/run";
 import type { Channel } from "@prisma/client";
-
-const TRIGGER_DEFAULTS: Record<string, { name: string; description: string }> = {
-  birthday: { name: "Birthday blessings", description: "Wishes a member happy birthday on the day." },
-  anniversary: { name: "Anniversary wishes", description: "Celebrates a member's anniversary on the day." },
-  visitor_followup: { name: "First-time visitor follow-up", description: "Welcomes new visitors a few days after they register." },
-  lapsed: { name: "We miss you", description: "Gently checks in on members who've gone inactive." },
-};
 
 export async function toggleAutomation(id: string, active: boolean) {
   const session = await requireSession();
@@ -19,15 +13,15 @@ export async function toggleAutomation(id: string, active: boolean) {
   revalidatePath("/app/reminders");
 }
 
-/** Create an automation from a trigger type. */
 export async function createAutomation(formData: FormData) {
   const session = await requireSession();
   assertCanWrite(session);
 
   const trigger = String(formData.get("trigger") ?? "birthday");
   const channel = (String(formData.get("channel") ?? "SMS") as Channel) || "SMS";
-  const def = TRIGGER_DEFAULTS[trigger] ?? TRIGGER_DEFAULTS.birthday;
+  const def = TRIGGER_CATALOG[trigger] ?? TRIGGER_CATALOG.birthday;
   const name = String(formData.get("name") ?? "").trim() || def.name;
+  const messageTemplate = DEFAULT_TEMPLATES[trigger] ?? null;
 
   await db.automation.create({
     data: {
@@ -37,6 +31,7 @@ export async function createAutomation(formData: FormData) {
       trigger,
       channel,
       active: true,
+      messageTemplate,
     },
   });
   revalidatePath("/app/reminders");
@@ -47,4 +42,25 @@ export async function deleteAutomation(id: string) {
   assertCanDelete(session);
   await db.automation.deleteMany({ where: { id, churchId: session.churchId } });
   revalidatePath("/app/reminders");
+}
+
+export async function updateAutomationTemplate(id: string, template: string) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  const trimmed = template.trim();
+  if (!trimmed) return { ok: false, error: "Template cannot be empty." };
+  await db.automation.updateMany({
+    where: { id, churchId: session.churchId },
+    data: { messageTemplate: trimmed },
+  });
+  revalidatePath("/app/reminders");
+  return { ok: true };
+}
+
+export async function runAutomationNow(id: string) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  const result = await runSingleAutomation(id, session.churchId);
+  revalidatePath("/app/reminders");
+  return result;
 }

@@ -461,15 +461,17 @@ model Communication {
 
 // ── Reminders & automations ───────────────────────────────
 model Automation {
-  id          String  @id @default(cuid())
-  churchId    String
-  church      Church  @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  name        String
-  description String?
-  trigger     String  // e.g. "birthday", "anniversary", "visitor_followup", "lapsed"
-  channel     Channel @default(SMS)
-  active      Boolean @default(true)
-  runs        Int     @default(0)
+  id              String    @id @default(cuid())
+  churchId        String
+  church          Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name            String
+  description     String?
+  trigger         String    // birthday, anniversary, visitor_followup, lapsed, new_member, giving_thanks
+  channel         Channel   @default(SMS)
+  active          Boolean   @default(true)
+  runs            Int       @default(0)
+  messageTemplate String?
+  lastRunAt       DateTime?
 
   @@index([churchId])
 }

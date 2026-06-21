@@ -242,6 +242,8 @@ export async function getReminders(churchId: string) {
       channel: a.channel,
       active: a.active,
       runs: a.runs,
+      messageTemplate: a.messageTemplate,
+      lastRunAt: a.lastRunAt?.toISOString() ?? null,
     })),
     upcoming: upcoming.sort((a, b) => a.sort - b.sort).slice(0, 8),
     activeCount: automations.filter((a) => a.active).length,
