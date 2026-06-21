@@ -31,9 +31,15 @@ let customSeq = 0;
 export function FormBuilder({
   initial,
   readOnly,
+  saveAction,
+  title = "Registration form builder",
+  description = "Add, edit and reorder the fields members fill in. Add conditions to show a field only when another answer is chosen. First & last name are always required.",
 }: {
   initial: FormField[];
   readOnly: boolean;
+  saveAction?: (formData: FormData) => Promise<void>;
+  title?: string;
+  description?: string;
 }) {
   const [fields, setFields] = useState<FormField[]>(initial);
   const [editing, setEditing] = useState<string | null>(null);
@@ -74,15 +80,12 @@ export function FormBuilder({
     <Card className="p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="font-display text-base font-semibold">Registration form builder</h3>
-          <p className="mt-1 text-sm text-ink-muted">
-            Add, edit and reorder the fields members fill in. Add conditions to show a field only
-            when another answer is chosen. First &amp; last name are always required.
-          </p>
+          <h3 className="font-display text-base font-semibold">{title}</h3>
+          <p className="mt-1 text-sm text-ink-muted">{description}</p>
         </div>
       </div>
 
-      <form action={saveRegistrationForm} className="mt-5">
+      <form action={saveAction ?? saveRegistrationForm} className="mt-5">
         <input type="hidden" name="definition" value={JSON.stringify(fields)} />
 
         <div className="space-y-2">

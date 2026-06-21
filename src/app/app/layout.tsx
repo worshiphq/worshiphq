@@ -19,12 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/verify-phone");
   }
 
-  const [branches, announcements, church, notifications] = await Promise.all([
-    db.branch.findMany({
-      where: { churchId: session.churchId },
-      orderBy: { isHQ: "desc" },
-      select: { id: true, name: true, isHQ: true },
-    }),
+  const [announcements, church, notifications] = await Promise.all([
     getActiveAnnouncements(),
     db.church.findUnique({
       where: { id: session.churchId },
@@ -49,7 +44,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <AppShell
       session={session}
-      branches={branches}
       announcements={announcements}
       notifications={notifications}
       churchLogo={church?.logoUrl ?? null}

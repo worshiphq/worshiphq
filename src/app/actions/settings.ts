@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, hashPassword, verifyPassword } from "@/lib/auth";
-import { getFormDefinition } from "@/lib/forms/registration";
+import { getFormDefinition, getVisitorFormDefinition } from "@/lib/forms/registration";
 import { sendSms } from "@/lib/integrations/sms";
 import { sendOtp, verifyOtp } from "@/lib/auth/otp";
 import type { Role } from "@prisma/client";
@@ -263,6 +263,29 @@ export async function saveRegistrationForm(formData: FormData) {
 
   revalidatePath("/app/settings");
   revalidatePath("/join", "layout");
+}
+
+export async function saveVisitorForm(formData: FormData) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  if (session.role !== "Owner" && session.role !== "Admin") return;
+
+  const raw = String(formData.get("definition") ?? "[]");
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return;
+  }
+  const fields = getVisitorFormDefinition(parsed);
+
+  await db.church.update({
+    where: { id: session.churchId },
+    data: { visitorFormFields: fields as object },
+  });
+
+  revalidatePath("/app/settings");
+  revalidatePath("/visit", "layout");
 }
 
 const BUILT_IN_ROLES: Role[] = ["Owner", "Admin", "Pastor", "Finance", "Media", "Leader", "Volunteer"];

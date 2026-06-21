@@ -59,6 +59,7 @@ export default async function SettingsPage() {
       logoUrl: church.logoUrl ?? "",
       slug: church.slug,
       registrationFields: (church.registrationFields as Record<string, boolean> | null) ?? null,
+      visitorFormFields: church.visitorFormFields ?? null,
 
       smsSenderId: church.smsSenderId,
       smsSenderIdStatus: church.smsSenderIdStatus,

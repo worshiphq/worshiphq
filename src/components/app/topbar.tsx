@@ -1,16 +1,14 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Search, Bell, ChevronDown, Check, LogOut, Settings, Building2, Menu, UserCircle, UserPlus, UserRoundPlus, HandCoins, CalendarCheck2, Heart } from "lucide-react";
+import { Search, Bell, ChevronDown, LogOut, Settings, Menu, UserCircle, UserPlus, UserRoundPlus, HandCoins, CalendarCheck2, Heart } from "lucide-react";
 import { MemberAvatar } from "@/components/ui/member-avatar";
 import { Badge } from "@/components/ui/badge";
 import { OfflineIndicator } from "@/components/app/offline-indicator";
-import { switchBranch, signOut } from "@/app/actions/auth";
+import { signOut } from "@/app/actions/auth";
 import type { Session } from "@/lib/permissions";
 import type { AppNotification } from "@/lib/data/notifications";
 import { cn } from "@/lib/utils";
-
-type BranchLite = { id: string; name: string; isHQ: boolean };
 
 const NOTIF_ICON = {
   member: UserPlus,
@@ -22,65 +20,22 @@ const NOTIF_ICON = {
 
 export function Topbar({
   session,
-  branches,
   notifications = [],
   onMenu,
 }: {
   session: Session;
-  branches: BranchLite[];
   notifications?: AppNotification[];
   onMenu: () => void;
 }) {
-  const [branchOpen, setBranchOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [pending, start] = useTransition();
-  const [activeBranch, setActiveBranch] = useState(session.branch);
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line bg-base/80 px-4 backdrop-blur-xl">
       <button onClick={onMenu} className="grid size-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-2 lg:hidden">
         <Menu className="size-5" />
       </button>
-
-      {/* Branch switcher */}
-      <div className="relative">
-        <button
-          onClick={() => setBranchOpen((v) => !v)}
-          className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2 text-sm font-medium hover:border-line"
-        >
-          <Building2 className="size-4 text-primary-bright" />
-          <span className="max-w-[8rem] truncate">{activeBranch}</span>
-          <ChevronDown className="size-4 text-ink-muted" />
-        </button>
-        {branchOpen && (
-          <>
-            <div className="fixed inset-0 z-10" onClick={() => setBranchOpen(false)} />
-            <div className="absolute left-0 top-12 z-20 w-60 rounded-xl border border-line bg-elevated p-1.5 shadow-2xl">
-              <div className="px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">
-                Switch branch
-              </div>
-              {branches.map((b) => (
-                <button
-                  key={b.id}
-                  onClick={() => {
-                    setActiveBranch(b.name);
-                    setBranchOpen(false);
-                    start(() => switchBranch(b.name));
-                  }}
-                  className="flex w-full items-center justify-between rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2"
-                >
-                  <span className="flex items-center gap-2">
-                    {b.name}
-                    {b.isHQ && <Badge variant="primary" className="px-1.5 py-0 text-[9px]">HQ</Badge>}
-                  </span>
-                  {activeBranch === b.name && <Check className="size-4 text-primary-bright" />}
-                </button>
-              ))}
-            </div>
-          </>
-        )}
-      </div>
 
       {/* Search */}
       <div className="relative hidden flex-1 md:block">

@@ -17,11 +17,12 @@ import {
   changeUserRole, removeTeamMember,
   createCustomRole, deleteCustomRole, requestSenderId,
   updateRolePermissions, changePlan, redeemPlanBypass,
+  saveVisitorForm,
 } from "@/app/actions/settings";
 import { ALL_MODULES } from "@/lib/permissions";
 import { BrandingForm } from "@/components/app/branding-form";
 import { FormBuilder } from "@/components/app/form-builder";
-import { getFormDefinition } from "@/lib/forms/registration";
+import { getFormDefinition, getVisitorFormDefinition } from "@/lib/forms/registration";
 import { createDepartment, deleteDepartment } from "@/app/actions/departments";
 import { plans } from "@/config/pricing";
 import { formatCurrency } from "@/config/brand";
@@ -38,6 +39,7 @@ type Church = {
   logoUrl: string;
   slug: string;
   registrationFields: unknown;
+  visitorFormFields: unknown;
 
   smsSenderId?: string | null;
   smsSenderIdStatus?: string | null;
@@ -401,6 +403,16 @@ export function SettingsClient({
                 </div>
               )}
             </Card>
+
+            {isAdmin && (
+              <FormBuilder
+                initial={getVisitorFormDefinition(church?.visitorFormFields ?? null)}
+                readOnly={ro}
+                saveAction={saveVisitorForm}
+                title="Visitor form builder"
+                description="Customise the fields first-time visitors fill in. Name fields are always required."
+              />
+            )}
 
             <Card className="p-5">
               <h3 className="text-sm font-semibold">Prayer request link</h3>
