@@ -28,7 +28,7 @@ export default async function SettingsPage() {
     }),
     db.subscription.findUnique({
       where: { churchId: session.churchId },
-      select: { plan: true, status: true, interval: true, renewsAt: true },
+      select: { plan: true, status: true, interval: true, renewsAt: true, bypassPlan: true },
     }),
   ]);
 
@@ -44,7 +44,7 @@ export default async function SettingsPage() {
         interval: "monthly",
         status: isGrace ? "grace" : "active",
       },
-      select: { plan: true, status: true, interval: true, renewsAt: true },
+      select: { plan: true, status: true, interval: true, renewsAt: true, bypassPlan: true },
     });
   }
 

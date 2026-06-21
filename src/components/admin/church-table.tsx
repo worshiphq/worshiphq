@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { LogIn, Ban, CheckCircle2, Trash2, Search, Building2 } from "lucide-react";
+import { LogIn, Ban, CheckCircle2, Trash2, Search, Building2, Gift } from "lucide-react";
 import type { ChurchRow } from "@/lib/data/admin";
 import {
   impersonateChurch,
@@ -9,6 +9,7 @@ import {
   setChurchPlan,
   deleteChurch,
   grantSmsCredits,
+  grantPlanBypass,
   approveSenderId,
   rejectSenderId,
 } from "@/app/actions/admin";
@@ -169,6 +170,25 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                         </button>
                       </>
                     )}
+                    <button
+                      type="button"
+                      title="Gift free plan upgrade"
+                      onClick={() => {
+                        const plan = prompt(`Gift a free plan to ${c.name}.\nEnter plan (starter / growth / unlimited):`, "unlimited");
+                        if (!plan || !["starter", "growth", "unlimited"].includes(plan.trim().toLowerCase())) return;
+                        run(
+                          async () => {
+                            const res = await grantPlanBypass(c.id, plan.trim().toLowerCase());
+                            if (res && "error" in res) throw new Error(res.error);
+                            if (res && "code" in res) alert(`Code: ${res.code}\n${res.phone ? `SMS sent to ${res.phone}` : "No phone on file — share code manually."}`);
+                          },
+                          { pending: "Sending bypass…", success: "Bypass granted" },
+                        );
+                      }}
+                      className="grid size-8 place-items-center rounded-lg text-slate-400 transition-colors hover:bg-purple-500/10 hover:text-purple-300"
+                    >
+                      <Gift className="size-4" />
+                    </button>
                     <form action={impersonateChurch.bind(null, c.id)}>
                       <SubmitButton
                         size="sm"

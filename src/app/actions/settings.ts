@@ -463,3 +463,34 @@ export async function changePlan(plan: string, interval: "monthly" | "yearly") {
   revalidatePath("/app/settings");
   return { ok: true };
 }
+
+export async function redeemPlanBypass(code: string) {
+  const session = await requireSession();
+  assertCanWrite(session);
+
+  const sub = await db.subscription.findUnique({ where: { churchId: session.churchId } });
+  if (!sub || !sub.bypassPlan || !sub.bypassCode) {
+    return { error: "No upgrade code found for your account" };
+  }
+  if (sub.bypassCode !== code.trim()) {
+    return { error: "Invalid code. Please check and try again." };
+  }
+
+  const renewsAt = new Date();
+  renewsAt.setFullYear(renewsAt.getFullYear() + 1);
+
+  await db.subscription.update({
+    where: { churchId: session.churchId },
+    data: {
+      plan: sub.bypassPlan,
+      interval: "yearly",
+      status: "active",
+      renewsAt,
+      bypassPlan: null,
+      bypassCode: null,
+    },
+  });
+
+  revalidatePath("/app/settings");
+  return { ok: true, plan: sub.bypassPlan };
+}

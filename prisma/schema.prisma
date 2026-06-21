@@ -672,9 +672,13 @@ model Subscription {
   church     Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
   plan       String   @default("free") // free | starter | growth | unlimited
   interval   String   @default("monthly") // monthly | yearly
-  status     String   @default("active")
+  status     String   @default("active") // active | grace
   renewsAt   DateTime?
   paystackCustomerCode String?
+
+  // SuperAdmin bypass: lets a church upgrade to bypassPlan without payment
+  bypassPlan String?  // plan they can upgrade to for free
+  bypassCode String?  // 6-digit code sent via SMS
 }
 
 // ── Prayer requests ───────────────────────────────────────

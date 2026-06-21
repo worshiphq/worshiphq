@@ -150,6 +150,43 @@ export async function setChurchPlan(churchId: string, plan: string) {
   revalidatePath("/admin");
 }
 
+export async function grantPlanBypass(churchId: string, plan: string) {
+  await requireSuperAdmin();
+  const validPlans = ["starter", "growth", "unlimited"];
+  if (!validPlans.includes(plan)) return { error: "Invalid plan" };
+
+  const church = await db.church.findUnique({
+    where: { id: churchId },
+    select: { name: true, id: true },
+  });
+  if (!church) return { error: "Church not found" };
+
+  const owner = await db.user.findFirst({
+    where: { churchId, role: "Owner" },
+    select: { phone: true, name: true },
+  });
+
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+
+  await db.subscription.upsert({
+    where: { churchId },
+    create: { churchId, plan: "free", bypassPlan: plan, bypassCode: code },
+    update: { bypassPlan: plan, bypassCode: code },
+  });
+
+  if (owner?.phone) {
+    const planNames: Record<string, string> = { starter: "Starter", growth: "Growth", unlimited: "Unlimited" };
+    await sendSms(
+      owner.phone,
+      `WorshipHQ: You've been granted a free upgrade to the ${planNames[plan]} plan! Go to Settings → Billing and enter code: ${code} to activate. — WorshipHQ Team`,
+      { heading: null },
+    );
+  }
+
+  revalidatePath("/admin");
+  return { ok: true, code, phone: owner?.phone ?? null };
+}
+
 export async function grantSmsCredits(churchId: string, credits: number) {
   await requireSuperAdmin();
   if (!credits || !Number.isFinite(credits)) return;

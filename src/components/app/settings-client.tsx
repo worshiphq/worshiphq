@@ -16,7 +16,7 @@ import {
   updateChurch, inviteTeammate,
   changeUserRole, removeTeamMember,
   createCustomRole, deleteCustomRole, requestSenderId,
-  updateRolePermissions, changePlan,
+  updateRolePermissions, changePlan, redeemPlanBypass,
 } from "@/app/actions/settings";
 import { ALL_MODULES } from "@/lib/permissions";
 import { BrandingForm } from "@/components/app/branding-form";
@@ -47,7 +47,7 @@ type Church = {
 type TeamUser = { id: string; name: string; email: string; role: string; customRole?: { id: string; name: string } | null };
 type Dept = { id: string; name: string };
 type CustomRoleRow = { id: string; name: string; sections: string[]; canDelete: boolean };
-type SubscriptionData = { plan: string; status: string; interval: string; renewsAt: Date | null } | null;
+type SubscriptionData = { plan: string; status: string; interval: string; renewsAt: Date | null; bypassPlan: string | null } | null;
 
 const MODULE_LABELS: Record<string, string> = {
   people: "People", attendance: "Attendance", events: "Events", volunteers: "Volunteers",
@@ -623,8 +623,33 @@ function BillingTab({ subscription, features, ro }: { subscription: Subscription
               {showPlans ? "Hide plans" : currentPlanId === "free" ? "Upgrade plan" : "Change plan"}
             </Button>
           )}
-          <Button variant="ghost">Billing history</Button>
         </div>
+
+        {subscription?.bypassPlan && (
+          <div className="mt-4 rounded-xl border border-success/30 bg-success/10 p-4">
+            <p className="text-sm font-medium text-success">
+              You have a free upgrade available to the <strong>{plans.find((p) => p.id === subscription.bypassPlan)?.name ?? subscription.bypassPlan}</strong> plan!
+            </p>
+            <p className="mt-1 text-xs text-ink-muted">Enter the code sent to your phone to activate.</p>
+            <form
+              className="mt-3 flex gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                const code = new FormData(e.currentTarget).get("code") as string;
+                startSwitch(async () => {
+                  const res = await redeemPlanBypass(code);
+                  if ("error" in res) alert(res.error);
+                  else alert(`Upgraded to ${plans.find((p) => p.id === res.plan)?.name} plan!`);
+                });
+              }}
+            >
+              <Input name="code" placeholder="Enter 6-digit code" maxLength={6} className="w-40 font-mono tracking-widest" required />
+              <Button type="submit" size="sm" disabled={switching}>
+                {switching ? "Activating..." : "Activate"}
+              </Button>
+            </form>
+          </div>
+        )}
 
         {!features.payments && (
           <p className="mt-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning">
