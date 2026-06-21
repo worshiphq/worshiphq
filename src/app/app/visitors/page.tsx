@@ -23,6 +23,8 @@ export default async function VisitorsPage() {
     ? `/visit/${church.slug}`
     : null;
 
+  const canWrite = !session.isDemo;
+
   return (
     <VisitorsClient
       visitors={visitors.map((v) => ({
@@ -36,6 +38,7 @@ export default async function VisitorsPage() {
         visitDate: v.visitDate.toISOString(),
       }))}
       visitUrl={visitUrl}
+      canWrite={canWrite}
     />
   );
 }

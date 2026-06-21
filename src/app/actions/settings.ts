@@ -427,3 +427,39 @@ export async function removeTeamMember(formData: FormData) {
   await db.user.delete({ where: { id: userId } });
   revalidatePath("/app/settings");
 }
+
+export async function changePlan(plan: string, interval: "monthly" | "yearly") {
+  const session = await requireSession();
+  assertCanWrite(session);
+  if (session.role !== "Owner") return { error: "Only the church owner can change plans" };
+
+  const validPlans = ["free", "starter", "growth", "unlimited"];
+  if (!validPlans.includes(plan)) return { error: "Invalid plan" };
+
+  const existing = await db.subscription.findUnique({ where: { churchId: session.churchId } });
+  if (existing?.status === "grace") return { error: "Your plan cannot be changed (Gift of Grace)" };
+
+  if (plan === "free") {
+    await db.subscription.upsert({
+      where: { churchId: session.churchId },
+      create: { churchId: session.churchId, plan: "free", interval: "monthly", status: "active" },
+      update: { plan: "free", interval: "monthly", status: "active", renewsAt: null, paystackCustomerCode: null },
+    });
+    revalidatePath("/app/settings");
+    return { ok: true };
+  }
+
+  // For paid plans: in a live system this would redirect to Paystack checkout.
+  // For now, we set the plan directly (stub mode).
+  const renewsAt = new Date();
+  renewsAt.setMonth(renewsAt.getMonth() + (interval === "yearly" ? 12 : 1));
+
+  await db.subscription.upsert({
+    where: { churchId: session.churchId },
+    create: { churchId: session.churchId, plan, interval, status: "active", renewsAt },
+    update: { plan, interval, status: "active", renewsAt },
+  });
+
+  revalidatePath("/app/settings");
+  return { ok: true };
+}

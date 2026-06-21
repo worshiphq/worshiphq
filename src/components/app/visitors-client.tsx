@@ -1,11 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
+import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Search, Link2, UserRoundPlus, Mail, Phone, Calendar } from "lucide-react";
+import { SubmitButton } from "@/components/ui/submit-button";
+import { OnFormComplete } from "@/components/ui/form-effects";
+import { Search, Link2, UserRoundPlus, Mail, Phone, Calendar, Pencil, Trash2, UserPlus, X } from "lucide-react";
+import { updateVisitor, deleteVisitor, convertVisitorToMember } from "@/app/actions/visit";
 
 type VisitorRow = {
   id: string;
@@ -18,14 +21,20 @@ type VisitorRow = {
   visitDate: string;
 };
 
+const PURPOSES = ["Sunday Service", "Midweek Service", "Special Event", "Counselling", "Other"];
+
 export function VisitorsClient({
   visitors,
   visitUrl,
+  canWrite,
 }: {
   visitors: VisitorRow[];
   visitUrl: string | null;
+  canWrite: boolean;
 }) {
   const [search, setSearch] = useState("");
+  const [editing, setEditing] = useState<VisitorRow | null>(null);
+  const [pending, startTransition] = useTransition();
 
   const filtered = visitors.filter((v) => {
     if (!search) return true;
@@ -38,6 +47,21 @@ export function VisitorsClient({
       v.purpose?.toLowerCase().includes(q)
     );
   });
+
+  function handleDelete(v: VisitorRow) {
+    if (!confirm(`Delete visitor ${v.firstName} ${v.lastName}?`)) return;
+    startTransition(async () => {
+      await deleteVisitor(v.id);
+    });
+  }
+
+  function handleConvert(v: VisitorRow) {
+    if (!confirm(`Convert ${v.firstName} ${v.lastName} to a church member? They will be removed from visitors and added to the People directory.`)) return;
+    startTransition(async () => {
+      await convertVisitorToMember(v.id);
+      setEditing(null);
+    });
+  }
 
   return (
     <div className="space-y-5">
@@ -83,7 +107,11 @@ export function VisitorsClient({
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((v) => (
-            <Card key={v.id} className="p-4 space-y-2">
+            <Card
+              key={v.id}
+              className="group cursor-pointer p-4 space-y-2 transition-colors hover:border-primary/30"
+              onClick={() => setEditing(v)}
+            >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <div className="grid size-9 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-bold text-primary">
@@ -96,6 +124,14 @@ export function VisitorsClient({
                     )}
                   </div>
                 </div>
+                {canWrite && (
+                  <button
+                    onClick={(e) => { e.stopPropagation(); setEditing(v); }}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-surface-2"
+                  >
+                    <Pencil className="size-3.5" />
+                  </button>
+                )}
               </div>
 
               <div className="space-y-1 text-xs text-ink-muted">
@@ -125,6 +161,94 @@ export function VisitorsClient({
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Edit visitor drawer */}
+      {editing && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setEditing(null)} />
+          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l border-line bg-surface shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-5 py-4">
+              <h2 className="font-display text-lg font-semibold">Edit visitor</h2>
+              <button onClick={() => setEditing(null)} className="grid size-8 place-items-center rounded-lg hover:bg-surface-2">
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <form action={updateVisitor} className="space-y-4 p-5">
+              <OnFormComplete onComplete={() => setEditing(null)} />
+              <input type="hidden" name="id" value={editing.id} />
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>First name</Label>
+                  <Input name="firstName" defaultValue={editing.firstName} required />
+                </div>
+                <div>
+                  <Label>Last name</Label>
+                  <Input name="lastName" defaultValue={editing.lastName} required />
+                </div>
+              </div>
+
+              <div>
+                <Label>Phone</Label>
+                <Input name="phone" type="tel" defaultValue={editing.phone ?? ""} />
+              </div>
+
+              <div>
+                <Label>Email</Label>
+                <Input name="email" type="email" defaultValue={editing.email ?? ""} />
+              </div>
+
+              <div>
+                <Label>Purpose of visit</Label>
+                <select
+                  name="purpose"
+                  defaultValue={editing.purpose ?? ""}
+                  className="h-10 w-full rounded-xl border border-line bg-base px-3 text-sm"
+                >
+                  <option value="">— Select —</option>
+                  {PURPOSES.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <Label>Notes / prayer request</Label>
+                <textarea
+                  name="notes"
+                  defaultValue={editing.notes ?? ""}
+                  rows={3}
+                  className="w-full rounded-xl border border-line bg-base px-3 py-2 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                />
+              </div>
+
+              <div className="flex gap-2">
+                <SubmitButton className="flex-1">Save changes</SubmitButton>
+              </div>
+            </form>
+
+            {canWrite && (
+              <div className="border-t border-line p-5 space-y-3">
+                <Button
+                  variant="secondary"
+                  className="w-full gap-2"
+                  disabled={pending}
+                  onClick={() => handleConvert(editing)}
+                >
+                  <UserPlus className="size-4" /> Convert to member
+                </Button>
+                <Button
+                  variant="ghost"
+                  className="w-full gap-2 text-danger hover:bg-danger/10"
+                  disabled={pending}
+                  onClick={() => { handleDelete(editing); setEditing(null); }}
+                >
+                  <Trash2 className="size-4" /> Delete visitor
+                </Button>
+              </div>
+            )}
+          </div>
+        </>
       )}
     </div>
   );

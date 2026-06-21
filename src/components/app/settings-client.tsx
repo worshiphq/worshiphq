@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import {
   Building, Palette, Users2, CreditCard, Plug, Check, Pencil, CircleDot,
   Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, Shield, MessageSquare,
@@ -16,7 +16,7 @@ import {
   updateChurch, inviteTeammate,
   changeUserRole, removeTeamMember,
   createCustomRole, deleteCustomRole, requestSenderId,
-  updateRolePermissions,
+  updateRolePermissions, changePlan,
 } from "@/app/actions/settings";
 import { ALL_MODULES } from "@/lib/permissions";
 import { BrandingForm } from "@/components/app/branding-form";
@@ -564,6 +564,7 @@ function BillingTab({ subscription, features, ro }: { subscription: Subscription
   const [interval, setInterval] = useState<"monthly" | "yearly">(
     (subscription?.interval as "monthly" | "yearly") ?? "monthly",
   );
+  const [switching, startSwitch] = useTransition();
 
   const currentPlanId = subscription?.plan ?? "free";
   const currentPlan = plans.find((p) => p.id === currentPlanId) ?? plans[0];
@@ -698,9 +699,18 @@ function BillingTab({ subscription, features, ro }: { subscription: Subscription
                     className="mt-4 w-full"
                     variant={isCurrent ? "ghost" : plan.featured ? "primary" : "secondary"}
                     size="sm"
-                    disabled={isCurrent || ro}
+                    disabled={isCurrent || ro || switching}
+                    onClick={() => {
+                      if (isCurrent) return;
+                      if (!confirm(`Switch to the ${plan.name} plan (${formatCurrency(monthlyPrice)}/mo)?`)) return;
+                      startSwitch(async () => {
+                        const res = await changePlan(plan.id, interval);
+                        if (res && "error" in res) alert(res.error);
+                        else setShowPlans(false);
+                      });
+                    }}
                   >
-                    {isCurrent ? "Current plan" : plan.cta}
+                    {switching ? "Switching..." : isCurrent ? "Current plan" : plan.cta}
                   </Button>
                 </div>
               );
