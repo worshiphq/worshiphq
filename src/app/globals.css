@@ -283,25 +283,12 @@
   to { transform: rotate(360deg); }
 }
 
-/* Loading spinner — must keep rotating even when the user prefers reduced
-   motion (a spinner that doesn't spin reads as "frozen / broken"). The class
-   selector + !important beats the universal reduced-motion override below. */
 .whq-spin {
-  animation: spin 0.7s linear infinite !important;
+  animation: spin 0.7s linear infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
-    animation-duration: 0.001ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
-  }
-  .whq-spin,
-  .animate-spin {
-    animation: spin 0.7s linear infinite !important;
-  }
-  [style*="icon-pulse"] {
-    animation: icon-pulse 2s ease-in-out infinite !important;
   }
 }
