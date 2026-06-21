@@ -15,6 +15,7 @@ import { themeFromAccent } from "@/lib/color";
 import { exitImpersonation } from "@/app/actions/admin";
 import { SubmitButton } from "@/components/ui/submit-button";
 import type { ActiveAnnouncement } from "@/lib/data/announcements";
+import type { AppNotification } from "@/lib/data/notifications";
 import type { CSSProperties } from "react";
 
 type BranchLite = { id: string; name: string; isHQ: boolean };
@@ -23,6 +24,7 @@ export function AppShell({
   session,
   branches,
   announcements = [],
+  notifications = [],
   churchLogo = null,
   accentColor = null,
   children,
@@ -30,6 +32,7 @@ export function AppShell({
   session: Session;
   branches: BranchLite[];
   announcements?: ActiveAnnouncement[];
+  notifications?: AppNotification[];
   churchLogo?: string | null;
   accentColor?: string | null;
   children: React.ReactNode;
@@ -130,7 +133,7 @@ export function AppShell({
       </AnimatePresence>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar session={session} branches={branches} onMenu={() => setMobileOpen(true)} />
+        <Topbar session={session} branches={branches} notifications={notifications} onMenu={() => setMobileOpen(true)} />
         {session.impersonating && <ImpersonationBanner churchName={session.churchName} />}
         {session.isDemo && <DemoBanner />}
         {announcements.map((a) => (

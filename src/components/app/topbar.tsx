@@ -1,23 +1,33 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Search, Bell, ChevronDown, Check, LogOut, Settings, Building2, Menu, UserCircle } from "lucide-react";
+import { Search, Bell, ChevronDown, Check, LogOut, Settings, Building2, Menu, UserCircle, UserPlus, UserRoundPlus, HandCoins, CalendarCheck2 } from "lucide-react";
 import { MemberAvatar } from "@/components/ui/member-avatar";
 import { Badge } from "@/components/ui/badge";
 import { OfflineIndicator } from "@/components/app/offline-indicator";
 import { switchBranch, signOut } from "@/app/actions/auth";
 import type { Session } from "@/lib/permissions";
+import type { AppNotification } from "@/lib/data/notifications";
 import { cn } from "@/lib/utils";
 
 type BranchLite = { id: string; name: string; isHQ: boolean };
 
+const NOTIF_ICON = {
+  member: UserPlus,
+  visitor: UserRoundPlus,
+  gift: HandCoins,
+  attendance: CalendarCheck2,
+} as const;
+
 export function Topbar({
   session,
   branches,
+  notifications = [],
   onMenu,
 }: {
   session: Session;
   branches: BranchLite[];
+  notifications?: AppNotification[];
   onMenu: () => void;
 }) {
   const [branchOpen, setBranchOpen] = useState(false);
@@ -90,23 +100,33 @@ export function Topbar({
             className="relative grid size-10 place-items-center rounded-xl border border-line bg-surface text-ink-muted hover:text-ink"
           >
             <Bell className="size-[1.15rem]" />
-            <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-primary-bright ring-2 ring-base" />
+            {notifications.length > 0 && (
+              <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-primary-bright ring-2 ring-base" />
+            )}
           </button>
           {notifOpen && (
             <>
               <div className="fixed inset-0 z-10" onClick={() => setNotifOpen(false)} />
               <div className="absolute right-0 top-12 z-20 w-80 rounded-xl border border-line bg-elevated p-2 shadow-2xl">
                 <div className="px-2.5 py-1.5 text-sm font-semibold">Notifications</div>
-                {[
-                  ["3 birthday SMS sent this morning", "7:00 AM"],
-                  ["₵12,800 Sunday offering recorded", "Yesterday"],
-                  ["Ama Owusu registered as first-time visitor", "Yesterday"],
-                ].map(([t, s]) => (
-                  <div key={t} className="rounded-lg px-2.5 py-2 hover:bg-surface-2">
-                    <div className="text-sm text-ink">{t}</div>
-                    <div className="text-xs text-ink-faint">{s}</div>
+                {notifications.length === 0 ? (
+                  <div className="px-2.5 py-4 text-center text-sm text-ink-faint">No recent activity</div>
+                ) : (
+                  <div className="max-h-80 overflow-y-auto">
+                    {notifications.map((n) => {
+                      const Icon = NOTIF_ICON[n.type];
+                      return (
+                        <div key={n.id} className="flex items-start gap-2.5 rounded-lg px-2.5 py-2 hover:bg-surface-2">
+                          <Icon className="mt-0.5 size-4 shrink-0 text-primary-bright" />
+                          <div className="min-w-0 flex-1">
+                            <div className="text-sm text-ink">{n.text}</div>
+                            <div className="text-xs text-ink-faint">{formatTimeAgo(n.time)}</div>
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                ))}
+                )}
               </div>
             </>
           )}
@@ -153,4 +173,17 @@ export function Topbar({
       </div>
     </header>
   );
+}
+
+function formatTimeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return "Just now";
+  if (mins < 60) return `${mins}m ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs}h ago`;
+  const days = Math.floor(hrs / 24);
+  if (days === 1) return "Yesterday";
+  if (days < 7) return `${days}d ago`;
+  return new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
 }

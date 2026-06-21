@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { AppShell } from "@/components/app/app-shell";
 import { TourProvider } from "@/components/app/tour";
 import { getActiveAnnouncements } from "@/lib/data/announcements";
+import { getRecentNotifications } from "@/lib/data/notifications";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -18,7 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/verify-phone");
   }
 
-  const [branches, announcements, church] = await Promise.all([
+  const [branches, announcements, church, notifications] = await Promise.all([
     db.branch.findMany({
       where: { churchId: session.churchId },
       orderBy: { isHQ: "desc" },
@@ -29,6 +30,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       where: { id: session.churchId },
       select: { suspended: true, logoUrl: true, accentColor: true },
     }),
+    getRecentNotifications(session.churchId),
   ]);
 
   // Suspended churches are locked out — but SuperAdmin support can still enter.
@@ -49,6 +51,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       session={session}
       branches={branches}
       announcements={announcements}
+      notifications={notifications}
       churchLogo={church?.logoUrl ?? null}
       accentColor={church?.accentColor ?? null}
     >
