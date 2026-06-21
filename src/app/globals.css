@@ -135,6 +135,10 @@
   from { opacity: 0; }
   to { opacity: 1; }
 }
+@keyframes icon-pulse {
+  0%, 100% { opacity: 0.4; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1); }
+}
 
 /* ── Bubbly auth forms ── */
 .auth-bubbly input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
@@ -293,9 +297,11 @@
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
-  /* Re-exempt loading spinners — they must always animate. */
   .whq-spin,
   .animate-spin {
     animation: spin 0.7s linear infinite !important;
+  }
+  [style*="icon-pulse"] {
+    animation: icon-pulse 2s ease-in-out infinite !important;
   }
 }

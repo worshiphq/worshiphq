@@ -12,7 +12,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <Aurora />
         <GridBackdrop />
         <div className="relative">
-          <Logo href="/" size="lg" />
+          <Logo href="/" size="lg" variant="stacked" />
         </div>
         <div className="relative max-w-md">
           <Quote className="size-8 text-primary/50" />

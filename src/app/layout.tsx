@@ -37,6 +37,10 @@ export const metadata: Metadata = {
   description: brand.description,
   applicationName: brand.name,
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/icon.png",
+    apple: "/icon.png",
+  },
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: brand.name },
   keywords: [
     "church management software",

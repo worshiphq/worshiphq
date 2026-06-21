@@ -1,13 +1,22 @@
-import { CometSpinner } from "@/components/ui/comet-spinner";
-
 export default function AppLoading() {
   return (
     <div className="grid min-h-[60vh] place-items-center" style={{ animation: "fade-in 0.3s ease-out 0.15s both" }}>
-      <div className="flex flex-col items-center gap-4">
+      <div className="relative flex items-center justify-center">
+        <span
+          aria-hidden="true"
+          className="absolute size-20 rounded-full border-[3px] border-primary/20"
+        />
+        <span
+          aria-hidden="true"
+          className="whq-spin absolute size-20 rounded-full border-[3px] border-transparent border-t-primary-bright"
+        />
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo2.png" alt="" className="size-12 object-contain" />
-        <CometSpinner className="size-8 text-primary-bright" />
-        <p className="text-sm font-medium text-ink-muted">Loading…</p>
+        <img
+          src="/icon2.png"
+          alt=""
+          className="size-12 object-contain"
+          style={{ animation: "icon-pulse 2s ease-in-out infinite" }}
+        />
       </div>
     </div>
   );
