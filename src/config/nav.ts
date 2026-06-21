@@ -17,6 +17,7 @@ import {
   Heart,
   Users2,
   Target,
+  BarChart3,
 } from "lucide-react";
 
 export interface NavItem {
@@ -34,7 +35,10 @@ export interface NavSection {
 
 export const nav: NavSection[] = [
   {
-    items: [{ key: "dashboard", label: "Dashboard", href: "/app", icon: LayoutDashboard }],
+    items: [
+      { key: "dashboard", label: "Dashboard", href: "/app", icon: LayoutDashboard },
+      { key: "dashboard", label: "Reports", href: "/app/reports", icon: BarChart3 },
+    ],
   },
   {
     title: "Congregation",
