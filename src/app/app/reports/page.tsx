@@ -23,6 +23,9 @@ export default async function ReportsPage() {
     attendanceSessions,
     groupCount,
     visitorCount,
+    totalExpensesThisMonth,
+    totalExpensesLastMonth,
+    monthlyExpenses,
   ] = await Promise.all([
     db.person.count({ where: { churchId: session.churchId } }),
     db.person.count({ where: { churchId: session.churchId, joinedAt: { gte: thisMonth } } }),
@@ -47,6 +50,19 @@ export default async function ReportsPage() {
     }),
     db.group.count({ where: { churchId: session.churchId } }),
     db.visitor.count({ where: { churchId: session.churchId, createdAt: { gte: thisMonth } } }),
+    db.expense.aggregate({
+      where: { churchId: session.churchId, date: { gte: thisMonth } },
+      _sum: { amount: true },
+    }),
+    db.expense.aggregate({
+      where: { churchId: session.churchId, date: { gte: lastMonth, lt: thisMonth } },
+      _sum: { amount: true },
+    }),
+    db.expense.groupBy({
+      by: ["date"],
+      where: { churchId: session.churchId, date: { gte: sixMonthsAgo } },
+      _sum: { amount: true },
+    }),
   ]);
 
   const months: string[] = [];
@@ -61,6 +77,15 @@ export default async function ReportsPage() {
     const total = monthlyGiving
       .filter((g) => g.date >= d && g.date < nextD)
       .reduce((sum, g) => sum + Number(g._sum.amount ?? 0), 0);
+    return { label, value: total };
+  });
+
+  const expensesByMonth = months.map((label, i) => {
+    const d = new Date(now.getFullYear(), now.getMonth() - (5 - i), 1);
+    const nextD = new Date(now.getFullYear(), now.getMonth() - (4 - i), 1);
+    const total = monthlyExpenses
+      .filter((e) => e.date >= d && e.date < nextD)
+      .reduce((sum, e) => sum + Number(e._sum.amount ?? 0), 0);
     return { label, value: total };
   });
 
@@ -84,10 +109,13 @@ export default async function ReportsPage() {
           newMembersLastMonth,
           givingThisMonth: Number(totalGiftsThisMonth._sum.amount ?? 0),
           givingLastMonth: Number(totalGiftsLastMonth._sum.amount ?? 0),
+          expensesThisMonth: Number(totalExpensesThisMonth._sum.amount ?? 0),
+          expensesLastMonth: Number(totalExpensesLastMonth._sum.amount ?? 0),
           groupCount,
           visitorCount,
         }}
         givingByMonth={givingByMonth}
+        expensesByMonth={expensesByMonth}
         attendanceByMonth={attendanceByMonth}
       />
     </div>
