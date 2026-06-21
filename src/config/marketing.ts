@@ -27,7 +27,7 @@ export const featureCards: Feature[] = [
   { icon: BarChart3, title: "Reports & dashboards", blurb: "Attendance, giving and engagement trends in beautiful, real-time dashboards. Decisions, made clear." },
   { icon: CalendarCheck, title: "Volunteer scheduling", blurb: "Drag-and-drop rosters, skill matching, self-scheduling and automatic reminders for every team." },
   { icon: Wallet, title: "Fund accounting", blurb: "Fund-based accounting, budgets, expense tracking and audit-ready financial reports — native in ₵." },
-  { icon: Building2, title: "Multi-branch", blurb: "Run every campus from one place, with per-branch data scoping and roll-up reporting for leadership." },
+  { icon: Building2, title: "Organisation", blurb: "Departments, assets, audit logs, and customisable settings — everything you need to run your church." },
 ];
 
 export interface Spotlight {
@@ -76,7 +76,7 @@ export interface Step {
 }
 
 export const steps: Step[] = [
-  { n: "01", title: "Set up your church", body: "Add your branches, funds and branding in minutes. Import members from a spreadsheet — we'll handle duplicates." },
+  { n: "01", title: "Set up your church", body: "Add your departments, funds and branding in minutes. Import members from a spreadsheet — we'll handle duplicates." },
   { n: "02", title: "Invite your team", body: "Bring in pastors, finance officers and ministry leaders with role-based access. Everyone sees exactly what they should." },
   { n: "03", title: "Engage your congregation", body: "Start giving, check-in, reminders and broadcasts. Watch attendance and giving grow — beautifully, on every device." },
 ];

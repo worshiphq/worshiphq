@@ -228,7 +228,7 @@ export function PeopleClient({
               <tr>
                 <th className="p-4 font-medium">Name</th>
                 <th className="hidden p-4 font-medium md:table-cell">Department</th>
-                <th className="hidden p-4 font-medium lg:table-cell">Branch</th>
+                <th className="hidden p-4 font-medium lg:table-cell">Department</th>
                 <th className="p-4 font-medium">Status</th>
                 <th className="hidden p-4 font-medium sm:table-cell">Joined</th>
                 <th className="p-4 font-medium w-10"></th>
@@ -262,7 +262,7 @@ export function PeopleClient({
                         <span className="text-xs text-ink-faint">---</span>
                       )}
                     </td>
-                    <td className="hidden p-4 text-ink-muted lg:table-cell">{p.branch ?? "---"}</td>
+                    <td className="hidden p-4 text-ink-muted lg:table-cell">{p.departments[0] ?? "---"}</td>
                     <td className="p-4"><Badge variant={eng.variant}>{eng.label}</Badge></td>
                     <td className="hidden p-4 text-ink-muted sm:table-cell">{formatDate(p.joined)}</td>
                     <td className="p-4">

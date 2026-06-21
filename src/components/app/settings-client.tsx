@@ -584,7 +584,7 @@ function BillingTab({ subscription, features, ro }: { subscription: Subscription
               <span className="font-display text-lg font-semibold">{currentPlan.name} plan</span>
               {isGrace && <Badge variant="success">Gift of Grace</Badge>}
             </div>
-            <div className="mt-1 text-sm text-ink-muted">{currentPlan.members}. {currentPlan.branches}</div>
+            <div className="mt-1 text-sm text-ink-muted">{currentPlan.members}</div>
           </div>
           <div className="text-right">
             {isGrace ? (

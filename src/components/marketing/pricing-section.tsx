@@ -84,7 +84,7 @@ export function PricingSection({ showComparison = true }: { showComparison?: boo
                     {price !== 0 && <span className="mb-1 text-sm text-ink-faint">{period}</span>}
                   </div>
                   <div className="mt-1 text-xs text-ink-faint">
-                    {plan.members} · {plan.branches}
+                    {plan.members}
                   </div>
 
                   <Link href="/sign-up" className="mt-5">

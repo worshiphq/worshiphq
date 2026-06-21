@@ -14,13 +14,13 @@ import { Card } from "@/components/ui/card";
 
 export const metadata: Metadata = {
   title: "Solutions",
-  description: "WorshipHQ for small fellowships, growing churches and multi-branch ministries.",
+  description: "WorshipHQ for small fellowships, growing churches and large ministries.",
 };
 
 const audiences = [
   { icon: Sprout, title: "Small fellowships", body: "Just getting started? Manage your first members, take offerings and check people in — free, forever, up to 50 members." },
   { icon: Building2, title: "Growing churches", body: "Scale your operations with SMS broadcasts, automations, recurring giving and reports as your congregation grows." },
-  { icon: Network, title: "Multi-branch ministries", body: "Run every campus from one command center, with per-branch scoping and roll-up reporting for leadership." },
+  { icon: Network, title: "Large ministries", body: "Unlimited members, advanced analytics, API access and a dedicated success manager for your leadership team." },
 ];
 
 const roles = [
@@ -39,7 +39,7 @@ export default function SolutionsPage() {
             Built for <span className="text-gradient">every church</span>, every role
           </>
         }
-        subtitle="Whether you're a 30-member fellowship or a multi-branch ministry, WorshipHQ adapts to how you serve."
+        subtitle="Whether you're a 30-member fellowship or a thousand-member ministry, WorshipHQ adapts to how you serve."
       />
 
       <section className="py-16">

@@ -293,8 +293,9 @@
     transition-duration: 0.001ms !important;
     scroll-behavior: auto !important;
   }
-  /* Re-exempt the loading spinner. */
-  .whq-spin {
+  /* Re-exempt loading spinners — they must always animate. */
+  .whq-spin,
+  .animate-spin {
     animation: spin 0.7s linear infinite !important;
   }
 }

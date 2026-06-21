@@ -128,7 +128,6 @@ export async function completeSignup(formData: FormData) {
   const user = await db.user.create({
     data: {
       churchId: church.id,
-      branchId: church.branches[0]?.id,
       email: p.email,
       name: p.name,
       passwordHash: p.passwordHash,

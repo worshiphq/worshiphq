@@ -7,7 +7,6 @@ export interface Plan {
   monthly: number;
   yearly: number; // ~17% off (≈2 months free)
   members: string;
-  branches: string;
   featured?: boolean;
   cta: string;
   features: string[];
@@ -23,7 +22,6 @@ export const plans: Plan[] = [
     monthly: 0,
     yearly: 0,
     members: "Up to 50 members",
-    branches: "1 branch",
     cta: "Start free",
     features: [
       "People & households",
@@ -40,7 +38,6 @@ export const plans: Plan[] = [
     monthly: 99,
     yearly: 990,
     members: "Up to 250 members",
-    branches: "1 branch",
     cta: "Choose Starter",
     features: [
       "Everything in Free",
@@ -57,7 +54,6 @@ export const plans: Plan[] = [
     monthly: 249,
     yearly: 2490,
     members: "Up to 1,000 members",
-    branches: "Up to 3 branches",
     featured: true,
     cta: "Choose Growth",
     features: [
@@ -71,16 +67,15 @@ export const plans: Plan[] = [
   {
     id: "unlimited",
     name: "Unlimited",
-    tagline: "For multi-branch churches",
+    tagline: "For large churches",
     monthly: 499,
     yearly: 4990,
     members: "Unlimited members",
-    branches: "Unlimited branches",
     cta: "Choose Unlimited",
     features: [
       "Everything in Growth",
       "Fund accounting & budgets",
-      "Multi-branch roll-up reporting",
+      "Advanced analytics",
       "API access",
       "Dedicated success manager",
     ],
@@ -120,7 +115,6 @@ export const comparison: { group: string; rows: { label: string; values: (boolea
   {
     group: "Scale & support",
     rows: [
-      { label: "Branches", values: ["1", "1", "3", "Unlimited"] },
       { label: "API access", values: [false, false, false, true] },
       { label: "Support", values: ["Community", "Email", "Priority", "Dedicated"] },
     ],
