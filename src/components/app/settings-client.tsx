@@ -61,7 +61,6 @@ const tabs = [
   { key: "departments", label: "Departments", icon: Layers },
   { key: "registration", label: "Join link", icon: Link2 },
   { key: "billing", label: "Billing", icon: CreditCard },
-  { key: "integrations", label: "Integrations", icon: Plug },
   { key: "sms", label: "SMS Settings", icon: MessageSquare },
 ] as const;
 
@@ -406,33 +405,6 @@ export function SettingsClient({
           </Card>
         )}
 
-        {/* ── Integrations ── */}
-        {tab === "integrations" && (
-          <Card>
-            <div className="border-b border-line p-6">
-              <h3 className="font-display text-lg font-semibold">Integrations</h3>
-              <p className="text-sm text-ink-muted">Each integration runs in safe stub mode until you add its key.</p>
-            </div>
-            <div className="divide-y divide-line-soft">
-              {integrationList.map((it) => {
-                const live = features[it.key];
-                return (
-                  <div key={it.key} className="flex items-center justify-between gap-4 p-5">
-                    <div>
-                      <div className="font-medium">{it.name}</div>
-                      <div className="text-xs text-ink-faint">{it.desc}</div>
-                    </div>
-                    {live ? (
-                      <Badge variant="success"><Check className="size-3" /> Live</Badge>
-                    ) : (
-                      <Badge variant="default"><CircleDot className="size-3" /> Stub mode</Badge>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          </Card>
-        )}
         {tab === "sms" && (
           <Card className="p-6">
             <h3 className="font-display text-lg font-semibold">SMS Settings</h3>

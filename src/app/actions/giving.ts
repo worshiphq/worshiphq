@@ -65,6 +65,19 @@ export async function recordGift(formData: FormData) {
   revalidatePath("/app");
 }
 
+export async function saveTitheTemplate(formData: FormData) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  const template = String(formData.get("template") ?? "").trim();
+  if (!template) return { ok: false, error: "Template cannot be empty." };
+  await db.church.update({
+    where: { id: session.churchId },
+    data: { titheReceiptTemplate: template },
+  });
+  revalidatePath("/app/giving");
+  return { ok: true };
+}
+
 export interface TitheEntry {
   personId: string;
   amount: number;
@@ -80,11 +93,20 @@ export async function recordTitheBatch(entries: TitheEntry[]) {
     (await db.fund.findFirst({ where: { churchId: session.churchId, name: { equals: "Tithes", mode: "insensitive" } } })) ??
     (await db.fund.create({ data: { churchId: session.churchId, name: "Tithes" } }));
 
-  const people = await db.person.findMany({
-    where: { id: { in: entries.map((e) => e.personId) }, churchId: session.churchId },
-    select: { id: true, firstName: true, lastName: true, phone: true },
-  });
+  const [people, church] = await Promise.all([
+    db.person.findMany({
+      where: { id: { in: entries.map((e) => e.personId) }, churchId: session.churchId },
+      select: { id: true, firstName: true, lastName: true, phone: true },
+    }),
+    db.church.findUnique({
+      where: { id: session.churchId },
+      select: { name: true, titheReceiptTemplate: true },
+    }),
+  ]);
   const personMap = new Map(people.map((p) => [p.id, p]));
+
+  const defaultTemplate = "Dear {name}, your Tithe of GHS {amount} has been received by {church}. God Bless You for paying your Tithes to the Lord. Malachi 3:10 Shalom!";
+  const template = church?.titheReceiptTemplate || defaultTemplate;
 
   let recorded = 0;
   let smsSent = 0;
@@ -113,7 +135,10 @@ export async function recordTitheBatch(entries: TitheEntry[]) {
 
     if (person.phone && !insufficientCredits) {
       const amountStr = entry.amount.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      const msg = `Dear ${person.firstName} ${person.lastName}, your Tithe of GHS ${amountStr} has been received. God bless you so much!`;
+      const msg = template
+        .replace(/\{name\}/gi, donorName)
+        .replace(/\{amount\}/gi, amountStr)
+        .replace(/\{church\}/gi, church?.name ?? "your church");
       const smsResult = await sendChurchSms(session.churchId, person.phone, msg, { note: "Tithe receipt" });
       if (smsResult.ok) {
         smsSent++;

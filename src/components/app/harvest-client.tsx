@@ -2,9 +2,9 @@
 
 import { useState, useMemo, useTransition } from "react";
 import {
-  Search, Plus, Trash2, Send, Download, Calendar, Settings2,
+  Search, Plus, Trash2, Pencil, Send, Download, Calendar, Settings2,
   Smartphone, CreditCard, Banknote, Users, UserPlus,
-  CheckCircle2, Target, Wheat, Crown,
+  CheckCircle2, Target, Wheat, Crown, X, Check, AlertTriangle,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import { Input, Label } from "@/components/ui/input";
 import { StatCard } from "@/components/app/stat-card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { useFeedback } from "@/components/ui/feedback";
-import { setHarvestDate, recordHarvestContributions, createVisitorForHarvest, type HarvestEntry } from "@/app/actions/harvest";
+import { setHarvestDate, recordHarvestContributions, createVisitorForHarvest, deleteHarvestContribution, editHarvestContribution, deleteHarvest, type HarvestEntry } from "@/app/actions/harvest";
 import { formatCurrency } from "@/config/brand";
 import { formatDate, cn } from "@/lib/utils";
 import type { HarvestData, HarvestContributionRow } from "@/lib/data/harvest";
@@ -115,8 +115,13 @@ export function HarvestClient({
       </div>
 
       {tab === "record" && canWrite && !harvest && <HarvestSetup year={year} />}
-      {tab === "record" && canWrite && harvest && <ContributionRecorder members={members} year={year} />}
-      {tab === "contributions" && <ContributionsList contributions={contributions} />}
+      {tab === "record" && canWrite && harvest && (
+        <>
+          <HarvestEditBar harvest={harvest} year={year} />
+          <ContributionRecorder members={members} year={year} />
+        </>
+      )}
+      {tab === "contributions" && <ContributionsList contributions={contributions} canWrite={canWrite} />}
       {tab === "report" && <HarvestReport contributions={contributions} totalRaised={totalRaised} contributorCount={contributorCount} memberCount={memberCount} visitorCount={visitorCount} harvest={harvest} year={year} />}
     </div>
   );
@@ -152,6 +157,56 @@ function HarvestSetup({ year }: { year: number }) {
         </div>
         <SubmitButton successMessage="Harvest created">Create harvest</SubmitButton>
       </form>
+    </Card>
+  );
+}
+
+/* ────── Harvest Edit / Delete Bar ────── */
+
+function HarvestEditBar({ harvest, year }: { harvest: NonNullable<HarvestData["harvest"]>; year: number }) {
+  const [confirming, setConfirming] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const { toast } = useFeedback();
+
+  const handleDelete = () => {
+    startTransition(async () => {
+      const res = await deleteHarvest(year);
+      if (!res.ok) toast(res.error ?? "Failed to delete harvest", "error");
+      else toast("Harvest deleted", "success");
+      setConfirming(false);
+    });
+  };
+
+  return (
+    <Card className="flex items-center justify-between p-4">
+      <div className="flex items-center gap-3">
+        <Settings2 className="size-5 text-ink-faint" />
+        <div>
+          <h4 className="text-sm font-semibold">{harvest.title}</h4>
+          <p className="text-xs text-ink-faint">
+            {harvest.date ? formatDate(harvest.date) : "No date set"}
+            {harvest.goal ? ` · Goal: ${formatCurrency(harvest.goal)}` : ""}
+          </p>
+        </div>
+      </div>
+      {!confirming ? (
+        <Button variant="ghost" size="sm" onClick={() => setConfirming(true)} className="text-danger hover:bg-danger/10">
+          <Trash2 className="size-4" /> Delete harvest
+        </Button>
+      ) : (
+        <div className="flex items-center gap-2">
+          <span className="flex items-center gap-1 text-xs text-danger">
+            <AlertTriangle className="size-3.5" /> Delete all contributions?
+          </span>
+          <Button size="sm" variant="ghost" onClick={() => setConfirming(false)} disabled={pending}>
+            <X className="size-4" /> Cancel
+          </Button>
+          <Button size="sm" onClick={handleDelete} disabled={pending} className="bg-danger text-white hover:bg-danger/90">
+            {pending ? <div className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> : <Trash2 className="size-4" />}
+            Confirm
+          </Button>
+        </div>
+      )}
     </Card>
   );
 }
@@ -372,7 +427,43 @@ function ContributionRecorder({ members, year }: { members: HarvestData["members
 
 /* ────── Contributions List ────── */
 
-function ContributionsList({ contributions }: { contributions: HarvestContributionRow[] }) {
+function ContributionsList({ contributions, canWrite }: { contributions: HarvestContributionRow[]; canWrite: boolean }) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [editAmount, setEditAmount] = useState("");
+  const [editName, setEditName] = useState("");
+  const [pending, startTransition] = useTransition();
+  const { toast } = useFeedback();
+
+  const startEdit = (c: HarvestContributionRow) => {
+    setEditingId(c.id);
+    setEditAmount(String(c.amount));
+    setEditName(c.donorName);
+    setDeletingId(null);
+  };
+
+  const cancelEdit = () => { setEditingId(null); setEditAmount(""); setEditName(""); };
+
+  const saveEdit = (id: string) => {
+    startTransition(async () => {
+      const fd = new FormData();
+      fd.set("amount", editAmount);
+      fd.set("donorName", editName);
+      const res = await editHarvestContribution(id, fd);
+      if (!res.ok) toast(res.error ?? "Failed to update", "error");
+      else { toast("Contribution updated", "success"); cancelEdit(); }
+    });
+  };
+
+  const handleDelete = (id: string) => {
+    startTransition(async () => {
+      const res = await deleteHarvestContribution(id);
+      if (!res.ok) toast(res.error ?? "Failed to delete", "error");
+      else toast("Contribution deleted", "success");
+      setDeletingId(null);
+    });
+  };
+
   if (contributions.length === 0) {
     return (
       <Card className="p-10 text-center">
@@ -391,6 +482,46 @@ function ContributionsList({ contributions }: { contributions: HarvestContributi
       <div className="divide-y divide-line-soft">
         {contributions.map((c) => {
           const Icon = methodIcon[c.method] ?? Banknote;
+          const isEditing = editingId === c.id;
+          const isDeleting = deletingId === c.id;
+
+          if (isEditing) {
+            return (
+              <div key={c.id} className="flex items-center gap-3 bg-primary/5 px-5 py-3">
+                <Avatar name={c.donorName} src={c.photoUrl ?? undefined} size="sm" />
+                <div className="min-w-0 flex-1">
+                  <input
+                    value={editName}
+                    onChange={(e) => setEditName(e.target.value)}
+                    className="w-full rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/25"
+                    placeholder="Donor name"
+                  />
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="relative">
+                    <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-faint">GHS</span>
+                    <input
+                      type="number"
+                      min="0.01"
+                      step="0.01"
+                      value={editAmount}
+                      onChange={(e) => setEditAmount(e.target.value)}
+                      className="w-28 rounded-lg border border-line bg-surface py-1.5 pl-10 pr-3 text-right text-sm font-medium outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/25"
+                    />
+                  </div>
+                  <button onClick={() => saveEdit(c.id)} disabled={pending}
+                    className="grid size-8 place-items-center rounded-lg text-success hover:bg-success/10">
+                    {pending ? <div className="size-4 animate-spin rounded-full border-2 border-success border-t-transparent" /> : <Check className="size-4" />}
+                  </button>
+                  <button onClick={cancelEdit}
+                    className="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-surface-2">
+                    <X className="size-4" />
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
           return (
             <div key={c.id} className="flex items-center gap-3 px-5 py-3">
               <Avatar name={c.donorName} src={c.photoUrl ?? undefined} size="sm" />
@@ -405,9 +536,36 @@ function ContributionsList({ contributions }: { contributions: HarvestContributi
                   <Icon className="size-3" /> {c.method} · {formatDate(c.date)}
                 </div>
               </div>
-              <div className="text-right">
-                <div className="text-sm font-semibold text-success">{formatCurrency(c.amount, { decimals: true })}</div>
-                {c.receiptSent && <div className="flex items-center gap-1 text-xs text-success"><CheckCircle2 className="size-3" /> Sent</div>}
+              <div className="flex items-center gap-2">
+                <div className="text-right">
+                  <div className="text-sm font-semibold text-success">{formatCurrency(c.amount, { decimals: true })}</div>
+                  {c.receiptSent && <div className="flex items-center gap-1 text-xs text-success"><CheckCircle2 className="size-3" /> Sent</div>}
+                </div>
+                {canWrite && !isDeleting && (
+                  <div className="flex items-center gap-1">
+                    <button onClick={() => startEdit(c)} title="Edit contribution"
+                      className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary/10 hover:text-primary">
+                      <Pencil className="size-3.5" />
+                    </button>
+                    <button onClick={() => { setDeletingId(c.id); setEditingId(null); }} title="Delete contribution"
+                      className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
+                      <Trash2 className="size-3.5" />
+                    </button>
+                  </div>
+                )}
+                {canWrite && isDeleting && (
+                  <div className="flex items-center gap-1">
+                    <span className="text-xs text-danger">Delete?</span>
+                    <button onClick={() => handleDelete(c.id)} disabled={pending}
+                      className="grid size-7 place-items-center rounded-lg text-danger hover:bg-danger/10">
+                      {pending ? <div className="size-3.5 animate-spin rounded-full border-2 border-danger border-t-transparent" /> : <Check className="size-3.5" />}
+                    </button>
+                    <button onClick={() => setDeletingId(null)}
+                      className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-surface-2">
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                )}
               </div>
             </div>
           );

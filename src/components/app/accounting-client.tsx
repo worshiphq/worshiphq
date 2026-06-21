@@ -1,15 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import {
   ChevronDown, ChevronRight, Download, Calendar,
   TrendingUp, TrendingDown, Scale, Wallet,
-  HandCoins, Banknote,
+  HandCoins, Banknote, Trash2, Pencil, Check, X,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/app/stat-card";
+import { useFeedback } from "@/components/ui/feedback";
+import { deleteTransaction, editTransaction } from "@/app/actions/accounting";
 import { formatCurrency } from "@/config/brand";
 import { formatDate, cn } from "@/lib/utils";
 import type { AccountingWeek, AccountingRow } from "@/lib/data/modules";
@@ -86,8 +88,8 @@ export function AccountingClient({ transactions, income, expenses, fundBalances,
         ))}
       </div>
 
-      {tab === "weekly" && <WeeklyView weeks={weeks} />}
-      {tab === "all" && <AllTransactions rows={transactions} />}
+      {tab === "weekly" && <WeeklyView weeks={weeks} canWrite={canWrite} />}
+      {tab === "all" && <AllTransactions rows={transactions} canWrite={canWrite} />}
       {tab === "report" && <MonthlyReport weeks={weeks} income={income} expenses={expenses} fundBalances={fundBalances} monthLabel={monthLabel} year={year} month={month} />}
     </div>
   );
@@ -95,7 +97,7 @@ export function AccountingClient({ transactions, income, expenses, fundBalances,
 
 /* ────── Weekly View ────── */
 
-function WeeklyView({ weeks }: { weeks: AccountingWeek[] }) {
+function WeeklyView({ weeks, canWrite }: { weeks: AccountingWeek[]; canWrite: boolean }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set(weeks.filter((w) => w.transactions.length > 0 || w.givingIncome.length > 0).map((w) => w.label)));
 
   const toggle = (label: string) => {
@@ -142,7 +144,7 @@ function WeeklyView({ weeks }: { weeks: AccountingWeek[] }) {
                       <span className="ml-auto text-xs font-medium text-success">+{formatCurrency(week.givingIncome.reduce((s, r) => s + r.amount, 0))}</span>
                     </div>
                     <div className="divide-y divide-line-soft">
-                      {week.givingIncome.map((r) => <TransactionRow key={r.id} row={r} />)}
+                      {week.givingIncome.map((r) => <TransactionRow key={r.id} row={r} canWrite={false} />)}
                     </div>
                   </div>
                 )}
@@ -153,7 +155,7 @@ function WeeklyView({ weeks }: { weeks: AccountingWeek[] }) {
                       <span className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Manual entries</span>
                     </div>
                     <div className="divide-y divide-line-soft">
-                      {week.transactions.map((r) => <TransactionRow key={r.id} row={r} />)}
+                      {week.transactions.map((r) => <TransactionRow key={r.id} row={r} canWrite={canWrite} />)}
                     </div>
                   </div>
                 )}
@@ -170,7 +172,60 @@ function WeeklyView({ weeks }: { weeks: AccountingWeek[] }) {
   );
 }
 
-function TransactionRow({ row }: { row: AccountingRow }) {
+function TransactionRow({ row, canWrite }: { row: AccountingRow; canWrite: boolean }) {
+  const [mode, setMode] = useState<"view" | "edit" | "delete">("view");
+  const [editDesc, setEditDesc] = useState(row.description);
+  const [editAmount, setEditAmount] = useState(String(Math.abs(row.amount)));
+  const [editCategory, setEditCategory] = useState(row.category);
+  const [editFund, setEditFund] = useState(row.fund);
+  const [pending, startTransition] = useTransition();
+  const { toast } = useFeedback();
+
+  const handleSave = () => {
+    startTransition(async () => {
+      const fd = new FormData();
+      fd.set("description", editDesc);
+      fd.set("amount", row.amount >= 0 ? editAmount : String(-Math.abs(Number(editAmount))));
+      fd.set("category", editCategory);
+      fd.set("fund", editFund);
+      const res = await editTransaction(row.id, fd);
+      if (!res?.ok) toast(res?.error ?? "Failed to update", "error");
+      else { toast("Transaction updated", "success"); setMode("view"); }
+    });
+  };
+
+  const handleDelete = () => {
+    startTransition(async () => {
+      await deleteTransaction(row.id);
+      toast("Transaction deleted", "success");
+      setMode("view");
+    });
+  };
+
+  if (mode === "edit") {
+    return (
+      <div className="flex flex-wrap items-center gap-2 bg-primary/5 px-5 py-3">
+        <input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Description"
+          className="min-w-0 flex-1 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary/50" />
+        <input value={editCategory} onChange={(e) => setEditCategory(e.target.value)} placeholder="Category"
+          className="w-24 rounded-lg border border-line bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary/50" />
+        <div className="relative">
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-faint">GHS</span>
+          <input type="number" min="0.01" step="0.01" value={editAmount} onChange={(e) => setEditAmount(e.target.value)}
+            className="w-28 rounded-lg border border-line bg-surface py-1.5 pl-10 pr-3 text-right text-sm font-medium outline-none focus:border-primary/50" />
+        </div>
+        <button onClick={handleSave} disabled={pending}
+          className="grid size-7 place-items-center rounded-lg text-success hover:bg-success/10">
+          {pending ? <div className="size-3.5 animate-spin rounded-full border-2 border-success border-t-transparent" /> : <Check className="size-3.5" />}
+        </button>
+        <button onClick={() => setMode("view")}
+          className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-surface-2">
+          <X className="size-3.5" />
+        </button>
+      </div>
+    );
+  }
+
   return (
     <div className="flex items-center gap-3 px-5 py-3">
       <div className="min-w-0 flex-1">
@@ -182,6 +237,31 @@ function TransactionRow({ row }: { row: AccountingRow }) {
         <span className={cn("font-display text-sm font-semibold", row.amount >= 0 ? "text-success" : "text-ink")}>
           {row.amount >= 0 ? "+" : "−"}{formatCurrency(Math.abs(row.amount))}
         </span>
+        {canWrite && row.source === "manual" && mode !== "delete" && (
+          <div className="flex items-center gap-1">
+            <button onClick={() => setMode("edit")} title="Edit transaction"
+              className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary/10 hover:text-primary">
+              <Pencil className="size-3.5" />
+            </button>
+            <button onClick={() => setMode("delete")} title="Delete transaction"
+              className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
+              <Trash2 className="size-3.5" />
+            </button>
+          </div>
+        )}
+        {canWrite && mode === "delete" && (
+          <div className="flex items-center gap-1">
+            <span className="text-xs text-danger">Delete?</span>
+            <button onClick={handleDelete} disabled={pending}
+              className="grid size-7 place-items-center rounded-lg text-danger hover:bg-danger/10">
+              {pending ? <div className="size-3.5 animate-spin rounded-full border-2 border-danger border-t-transparent" /> : <Check className="size-3.5" />}
+            </button>
+            <button onClick={() => setMode("view")}
+              className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-surface-2">
+              <X className="size-3.5" />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
@@ -189,7 +269,7 @@ function TransactionRow({ row }: { row: AccountingRow }) {
 
 /* ────── All Transactions ────── */
 
-function AllTransactions({ rows }: { rows: AccountingRow[] }) {
+function AllTransactions({ rows, canWrite }: { rows: AccountingRow[]; canWrite: boolean }) {
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between border-b border-line p-5">
@@ -209,30 +289,136 @@ function AllTransactions({ rows }: { rows: AccountingRow[] }) {
                 <th className="hidden p-4 font-medium lg:table-cell">Date</th>
                 <th className="p-4 font-medium">Source</th>
                 <th className="p-4 text-right font-medium">Amount</th>
+                {canWrite && <th className="p-4 text-right font-medium">Actions</th>}
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
-                <tr key={r.id} className="border-b border-line-soft last:border-0">
-                  <td className="p-4 font-medium">{r.description}</td>
-                  <td className="hidden p-4 text-ink-muted sm:table-cell">{r.category}</td>
-                  <td className="hidden p-4 text-ink-muted md:table-cell">{r.fund}</td>
-                  <td className="hidden p-4 text-ink-muted lg:table-cell">{formatDate(r.date)}</td>
-                  <td className="p-4">
-                    {r.source === "giving"
-                      ? <Badge variant="success" className="text-[10px]">Giving</Badge>
-                      : <Badge variant="outline" className="text-[10px]">Manual</Badge>}
-                  </td>
-                  <td className={cn("p-4 text-right font-semibold", r.amount >= 0 ? "text-success" : "text-ink")}>
-                    {r.amount >= 0 ? "+" : "−"}{formatCurrency(Math.abs(r.amount))}
-                  </td>
-                </tr>
-              ))}
+              {rows.map((r) => <AllTransactionsRow key={r.id} row={r} canWrite={canWrite} />)}
             </tbody>
           </table>
         </div>
       )}
     </Card>
+  );
+}
+
+function AllTransactionsRow({ row: r, canWrite }: { row: AccountingRow; canWrite: boolean }) {
+  const [mode, setMode] = useState<"view" | "edit" | "delete">("view");
+  const [editDesc, setEditDesc] = useState(r.description);
+  const [editAmount, setEditAmount] = useState(String(Math.abs(r.amount)));
+  const [editCategory, setEditCategory] = useState(r.category);
+  const [editFund, setEditFund] = useState(r.fund);
+  const [pending, startTransition] = useTransition();
+  const { toast } = useFeedback();
+
+  const handleSave = () => {
+    startTransition(async () => {
+      const fd = new FormData();
+      fd.set("description", editDesc);
+      fd.set("amount", r.amount >= 0 ? editAmount : String(-Math.abs(Number(editAmount))));
+      fd.set("category", editCategory);
+      fd.set("fund", editFund);
+      const res = await editTransaction(r.id, fd);
+      if (!res?.ok) toast(res?.error ?? "Failed to update", "error");
+      else { toast("Transaction updated", "success"); setMode("view"); }
+    });
+  };
+
+  const handleDelete = () => {
+    startTransition(async () => {
+      await deleteTransaction(r.id);
+      toast("Transaction deleted", "success");
+      setMode("view");
+    });
+  };
+
+  if (mode === "edit") {
+    return (
+      <tr className="border-b border-line-soft bg-primary/5 last:border-0">
+        <td className="p-4">
+          <input value={editDesc} onChange={(e) => setEditDesc(e.target.value)} placeholder="Description"
+            className="w-full rounded-lg border border-line bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary/50" />
+        </td>
+        <td className="hidden p-4 sm:table-cell">
+          <input value={editCategory} onChange={(e) => setEditCategory(e.target.value)} placeholder="Category"
+            className="w-full rounded-lg border border-line bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary/50" />
+        </td>
+        <td className="hidden p-4 md:table-cell">
+          <input value={editFund} onChange={(e) => setEditFund(e.target.value)} placeholder="Fund"
+            className="w-full rounded-lg border border-line bg-surface px-3 py-1.5 text-sm outline-none focus:border-primary/50" />
+        </td>
+        <td className="hidden p-4 text-ink-muted lg:table-cell">{formatDate(r.date)}</td>
+        <td className="p-4"><Badge variant="outline" className="text-[10px]">Manual</Badge></td>
+        <td className="p-4">
+          <div className="relative">
+            <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-faint">GHS</span>
+            <input type="number" min="0.01" step="0.01" value={editAmount} onChange={(e) => setEditAmount(e.target.value)}
+              className="w-28 rounded-lg border border-line bg-surface py-1.5 pl-10 pr-3 text-right text-sm font-medium outline-none focus:border-primary/50" />
+          </div>
+        </td>
+        {canWrite && (
+          <td className="p-4 text-right">
+            <div className="flex items-center justify-end gap-1">
+              <button onClick={handleSave} disabled={pending}
+                className="grid size-7 place-items-center rounded-lg text-success hover:bg-success/10">
+                {pending ? <div className="size-3.5 animate-spin rounded-full border-2 border-success border-t-transparent" /> : <Check className="size-3.5" />}
+              </button>
+              <button onClick={() => setMode("view")}
+                className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-surface-2">
+                <X className="size-3.5" />
+              </button>
+            </div>
+          </td>
+        )}
+      </tr>
+    );
+  }
+
+  return (
+    <tr className="border-b border-line-soft last:border-0">
+      <td className="p-4 font-medium">{r.description}</td>
+      <td className="hidden p-4 text-ink-muted sm:table-cell">{r.category}</td>
+      <td className="hidden p-4 text-ink-muted md:table-cell">{r.fund}</td>
+      <td className="hidden p-4 text-ink-muted lg:table-cell">{formatDate(r.date)}</td>
+      <td className="p-4">
+        {r.source === "giving"
+          ? <Badge variant="success" className="text-[10px]">Giving</Badge>
+          : <Badge variant="outline" className="text-[10px]">Manual</Badge>}
+      </td>
+      <td className={cn("p-4 text-right font-semibold", r.amount >= 0 ? "text-success" : "text-ink")}>
+        {r.amount >= 0 ? "+" : "−"}{formatCurrency(Math.abs(r.amount))}
+      </td>
+      {canWrite && (
+        <td className="p-4 text-right">
+          {r.source === "manual" ? (
+            mode === "delete" ? (
+              <div className="flex items-center justify-end gap-1">
+                <span className="text-xs text-danger">Delete?</span>
+                <button onClick={handleDelete} disabled={pending}
+                  className="grid size-7 place-items-center rounded-lg text-danger hover:bg-danger/10">
+                  {pending ? <div className="size-3.5 animate-spin rounded-full border-2 border-danger border-t-transparent" /> : <Check className="size-3.5" />}
+                </button>
+                <button onClick={() => setMode("view")}
+                  className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-surface-2">
+                  <X className="size-3.5" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex items-center justify-end gap-1">
+                <button onClick={() => setMode("edit")} title="Edit transaction"
+                  className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary/10 hover:text-primary">
+                  <Pencil className="size-3.5" />
+                </button>
+                <button onClick={() => setMode("delete")} title="Delete transaction"
+                  className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
+                  <Trash2 className="size-3.5" />
+                </button>
+              </div>
+            )
+          ) : null}
+        </td>
+      )}
+    </tr>
   );
 }
 

@@ -49,6 +49,10 @@ model Church {
   // Per-church overrides for built-in role permissions (JSON map of role → sections[])
   rolePermissions Json?
 
+  // Customizable SMS receipt templates (use {name}, {amount}, {church} placeholders)
+  titheReceiptTemplate   String?
+  harvestReceiptTemplate String?
+
   branches      Branch[]
   users         User[]
   customRoles   CustomRole[]

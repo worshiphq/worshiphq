@@ -1,16 +1,16 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertCircle, Eye, KeyRound, ArrowLeft, ShieldCheck, CheckCircle2, Phone } from "lucide-react";
+import { AlertCircle, Eye, KeyRound, ArrowLeft, ShieldCheck, CheckCircle2, Mail } from "lucide-react";
 import {
   signIn,
   enterDemo,
   startPasswordReset,
   verifyResetCode,
-  completePasswordReset,
 } from "@/app/actions/auth";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label } from "@/components/ui/input";
 import { OtpInput } from "@/components/ui/otp-input";
+import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 
 export const metadata: Metadata = { title: "Log in" };
 
@@ -20,42 +20,43 @@ export default async function SignInPage({
   searchParams: Promise<{
     error?: string;
     reset?: string;
+    via?: string;
   }>;
 }) {
-  const { error, reset } = await searchParams;
+  const { error, reset, via } = await searchParams;
 
   if (reset === "1") {
     return (
       <div>
         <div className="mb-5 grid size-12 place-items-center rounded-2xl bg-primary/10 text-primary-bright">
-          <Phone className="size-6" />
+          <Mail className="size-6" />
         </div>
         <h1 className="font-display text-2xl font-bold">Reset your password</h1>
         <p className="mt-2 text-sm text-ink-muted">
-          Enter the phone number linked to your account. We&rsquo;ll send a verification code.
+          Enter the email or phone number linked to your account.
         </p>
 
-        {error === "phone-not-found" && (
+        {(error === "phone-not-found" || error === "not-found") && (
           <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
             <AlertCircle className="size-4 shrink-0" />
-            No account found with that phone number.
+            No account found. Check your email or phone number.
           </div>
         )}
         {error === "sms" && (
           <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
             <AlertCircle className="size-4 shrink-0" />
-            Couldn&rsquo;t send SMS. Please try again.
+            Couldn&rsquo;t send the code. Please try again.
           </div>
         )}
 
         <form action={startPasswordReset} className="mt-6 space-y-4">
           <div>
-            <Label htmlFor="phone">Phone number</Label>
+            <Label htmlFor="identifier">Email or phone number</Label>
             <Input
-              id="phone"
-              name="phone"
-              type="tel"
-              placeholder="024 123 4567"
+              id="identifier"
+              name="identifier"
+              type="text"
+              placeholder="Email or phone number"
               required
             />
           </div>
@@ -83,7 +84,10 @@ export default async function SignInPage({
         </div>
         <h1 className="font-display text-2xl font-bold">Enter verification code</h1>
         <p className="mt-2 text-sm text-ink-muted">
-          We sent a 6-digit code to your phone. Enter it below to verify your identity.
+          {via === "email"
+            ? "We sent a 6-digit code to your email."
+            : "We sent a 6-digit code to your phone."}{" "}
+          Enter it below to verify your identity.
         </p>
 
         {error === "invalid-code" && (
@@ -135,33 +139,7 @@ export default async function SignInPage({
           </div>
         )}
 
-        <form action={completePasswordReset} className="mt-6 space-y-4">
-          <div>
-            <Label htmlFor="password">New password</Label>
-            <Input
-              id="password"
-              name="password"
-              type="password"
-              placeholder="••••••••"
-              minLength={6}
-              required
-            />
-          </div>
-          <div>
-            <Label htmlFor="confirmPassword">Confirm password</Label>
-            <Input
-              id="confirmPassword"
-              name="confirmPassword"
-              type="password"
-              placeholder="••••••••"
-              minLength={6}
-              required
-            />
-          </div>
-          <SubmitButton size="lg" className="w-full" pendingLabel="Updating password...">
-            Reset password
-          </SubmitButton>
-        </form>
+        <ResetPasswordForm />
       </div>
     );
   }

@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useFormStatus } from "react-dom";
 import { cn } from "@/lib/utils";
 import { buttonVariants, type ButtonProps } from "./button";
-import { Spinner } from "./spinner";
+import { BouncingDots } from "@/components/ui/bouncing-dots";
 import { useFeedback } from "./feedback";
 
 interface SubmitButtonProps extends ButtonProps {
@@ -65,7 +65,7 @@ export function SubmitButton({
     >
       {pending ? (
         <>
-          <Spinner size="sm" />
+          <BouncingDots className="size-5" />
           {pendingLabel}
         </>
       ) : (

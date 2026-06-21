@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { X, ShieldCheck, Megaphone, AlertTriangle, CheckCircle2 } from "lucide-react";
 import { Sidebar } from "./sidebar";
@@ -37,6 +37,21 @@ export function AppShell({
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
 
+  // Swipe-right gesture to open mobile sidebar
+  const touchRef = useRef<{ startX: number; startY: number } | null>(null);
+  const handleTouchStart = (e: React.TouchEvent) => {
+    const touch = e.touches[0];
+    if (touch.clientX < 30) touchRef.current = { startX: touch.clientX, startY: touch.clientY };
+  };
+  const handleTouchEnd = (e: React.TouchEvent) => {
+    if (!touchRef.current) return;
+    const touch = e.changedTouches[0];
+    const dx = touch.clientX - touchRef.current.startX;
+    const dy = Math.abs(touch.clientY - touchRef.current.startY);
+    if (dx > 60 && dy < 100) setMobileOpen(true);
+    touchRef.current = null;
+  };
+
   // Apply the church's accent as theme CSS variables so the whole dashboard
   // follows their brand colour. Falls back to the default teal in globals.css.
   const themeStyle: CSSProperties = {};
@@ -50,7 +65,7 @@ export function AppShell({
   }
 
   return (
-    <div className="flex min-h-dvh bg-base" style={themeStyle}>
+    <div className="flex min-h-dvh bg-base lg:touch-none" style={themeStyle} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
       <Sidebar sections={session.sections} churchName={session.churchName} churchLogo={churchLogo} />
 
       {/* Mobile drawer */}

@@ -3,7 +3,7 @@
 import { createContext, useCallback, useContext, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { CheckCircle2, AlertTriangle, Info, X } from "lucide-react";
-import { Spinner } from "./spinner";
+import { CometSpinner } from "@/components/ui/comet-spinner";
 
 type ToastType = "success" | "error" | "info";
 interface Toast {
@@ -91,7 +91,7 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
               exit={{ scale: 0.95, opacity: 0 }}
               className="flex flex-col items-center gap-4 rounded-2xl bg-white px-10 py-8 shadow-2xl"
             >
-              <Spinner size="xl" className="text-[#0d9488]" />
+              <CometSpinner className="size-12 text-primary-bright" />
               <p className="text-sm font-medium text-[#1c1a16]">{busy.message}</p>
             </motion.div>
           </motion.div>

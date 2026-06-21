@@ -13,6 +13,7 @@ import {
   verifyPassword,
 } from "@/lib/auth";
 import { sendOtp, verifyOtp, normalisePhone } from "@/lib/auth/otp";
+import { sendEmail } from "@/lib/integrations/email";
 
 const SIGNUP_VID = "whq_signup_vid";
 const RESET_VID = "whq_reset_vid";
@@ -156,40 +157,72 @@ export async function resendSignupOtp() {
   redirect(result.devCode ? `/sign-up/verify?dev=${result.devCode}` : "/sign-up/verify?resent=1");
 }
 export async function startPasswordReset(formData: FormData) {
-  const phone = String(formData.get("phone") ?? "").trim();
+  const identifier = String(formData.get("identifier") ?? "").trim();
+  const isEmail = identifier.includes("@");
 
-  const user = await db.user.findFirst({
-    where: {
-      phone: normalisePhone(phone),
-      phoneVerified: true,
+  let user;
+  if (isEmail) {
+    user = await db.user.findUnique({ where: { email: identifier.toLowerCase() } });
+  } else {
+    user = await db.user.findFirst({
+      where: { phone: normalisePhone(identifier), phoneVerified: true },
+    });
+  }
+
+  if (!user) {
+    redirect("/sign-in?reset=1&error=not-found");
+  }
+
+  // If user has a verified phone, send OTP via SMS
+  if (user.phone && user.phoneVerified) {
+    const result = await sendOtp({
+      phone: user.phone,
+      purpose: "reset-password",
+      userId: user.id,
+    });
+    if (!result.ok || !result.verificationId) {
+      redirect("/sign-in?reset=1&error=sms");
+    }
+    const store = await cookies();
+    store.set(RESET_VID, result.verificationId, {
+      httpOnly: true, sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/", maxAge: 60 * 15,
+    });
+    redirect("/sign-in?reset=verify");
+  }
+
+  // If no verified phone, send OTP via email
+  const code = String(Math.floor(100000 + Math.random() * 900000));
+  const expiresAt = new Date(Date.now() + 10 * 60_000);
+
+  // Clear earlier pending codes
+  await db.phoneVerification.deleteMany({ where: { userId: user.id, purpose: "reset-password" } });
+
+  const record = await db.phoneVerification.create({
+    data: {
+      phone: user.email ?? "email",
+      code,
+      purpose: "reset-password",
+      userId: user.id,
+      expiresAt,
     },
   });
 
-  if (!user) {
-    redirect("/sign-in?error=phone-not-found");
-  }
-
-  const result = await sendOtp({
-    phone,
-    purpose: "reset-password",
-    userId: user.id,
+  // Send code via email
+  await sendEmail({
+    to: user.email!,
+    subject: "Your WorshipHQ verification code",
+    html: `<h2>Password Reset</h2><p>Your verification code is: <strong>${code}</strong></p><p>This code expires in 10 minutes.</p>`,
   });
-
-  if (!result.ok || !result.verificationId) {
-    redirect("/sign-in?error=sms");
-  }
 
   const store = await cookies();
-
-  store.set(RESET_VID, result.verificationId, {
-    httpOnly: true,
-    sameSite: "lax",
+  store.set(RESET_VID, record.id, {
+    httpOnly: true, sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 15,
+    path: "/", maxAge: 60 * 15,
   });
-
-  redirect("/sign-in?reset=verify");
+  redirect("/sign-in?reset=verify&via=email");
 }
 export async function verifyResetCode(formData: FormData) {
   const code = String(formData.get("code") ?? "").trim();

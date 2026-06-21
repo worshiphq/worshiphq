@@ -25,29 +25,28 @@ export function ClickableAvatar({
       <button
         type="button"
         onClick={(e) => {
-          if (photoUrl) {
-            e.stopPropagation();
-            setOpen(true);
-          }
+          e.stopPropagation();
+          e.preventDefault();
+          if (photoUrl) setOpen(true);
         }}
         className={cn(photoUrl && "cursor-pointer", "shrink-0")}
       >
         <MemberAvatar name={name} photoUrl={photoUrl} gender={gender} size={size} className={className} />
       </button>
       {open && photoUrl && (
-        <PhotoLightbox src={photoUrl} alt={name} onClose={() => setOpen(false)} />
+        <PhotoLightbox src={photoUrl} alt={name} onClose={(e) => { e?.stopPropagation(); setOpen(false); }} />
       )}
     </>
   );
 }
 
-export function PhotoLightbox({ src, alt, onClose }: { src: string; alt: string; onClose: () => void }) {
+export function PhotoLightbox({ src, alt, onClose }: { src: string; alt: string; onClose: (e?: React.MouseEvent) => void }) {
   return (
     <>
-      <div className="fixed inset-0 z-[90] bg-black/80 backdrop-blur-md" onClick={onClose} />
-      <div className="fixed inset-0 z-[90] flex items-center justify-center p-6" onClick={onClose}>
+      <div className="fixed inset-0 z-[90] bg-black/80 backdrop-blur-md" onClick={(e) => { e.stopPropagation(); onClose(e); }} />
+      <div className="fixed inset-0 z-[90] flex items-center justify-center p-6" onClick={(e) => { e.stopPropagation(); onClose(e); }}>
         <button
-          onClick={onClose}
+          onClick={(e) => { e.stopPropagation(); onClose(e); }}
           className="absolute right-4 top-4 grid size-10 place-items-center rounded-full bg-white/10 text-white hover:bg-white/20"
         >
           <X className="size-5" />

@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, assertCanWrite } from "@/lib/auth";
+import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { sendChurchSms } from "@/lib/sms/credits";
 import type { GiftMethod } from "@prisma/client";
 
@@ -134,4 +134,74 @@ export async function createVisitorForHarvest(formData: FormData) {
 
   revalidatePath("/app/harvest");
   return { ok: true, person };
+}
+
+export async function deleteHarvestContribution(id: string) {
+  const session = await requireSession();
+  assertCanDelete(session);
+
+  const contribution = await db.harvestContribution.findFirst({
+    where: { id, churchId: session.churchId },
+  });
+  if (!contribution) return { ok: false, error: "Not found." };
+
+  await db.harvestContribution.delete({ where: { id } });
+
+  // Update the harvest raised total
+  await db.harvest.update({
+    where: { id: contribution.harvestId },
+    data: { raised: { decrement: Number(contribution.amount) } },
+  });
+
+  revalidatePath("/app/harvest");
+  return { ok: true };
+}
+
+export async function editHarvestContribution(id: string, formData: FormData) {
+  const session = await requireSession();
+  assertCanWrite(session);
+
+  const contribution = await db.harvestContribution.findFirst({
+    where: { id, churchId: session.churchId },
+  });
+  if (!contribution) return { ok: false, error: "Not found." };
+
+  const amount = Number(formData.get("amount"));
+  const donorName = String(formData.get("donorName") ?? contribution.donorName).trim();
+  if (!amount || amount <= 0) return { ok: false, error: "Invalid amount." };
+
+  const diff = amount - Number(contribution.amount);
+
+  await db.harvestContribution.update({
+    where: { id },
+    data: { amount, donorName },
+  });
+
+  // Update harvest raised total by the difference
+  if (diff !== 0) {
+    await db.harvest.update({
+      where: { id: contribution.harvestId },
+      data: { raised: { increment: diff } },
+    });
+  }
+
+  revalidatePath("/app/harvest");
+  return { ok: true };
+}
+
+export async function deleteHarvest(year: number) {
+  const session = await requireSession();
+  assertCanDelete(session);
+
+  const harvest = await db.harvest.findUnique({
+    where: { churchId_year: { churchId: session.churchId, year } },
+  });
+  if (!harvest) return { ok: false, error: "Not found." };
+
+  // Delete all contributions first
+  await db.harvestContribution.deleteMany({ where: { harvestId: harvest.id } });
+  await db.harvest.delete({ where: { id: harvest.id } });
+
+  revalidatePath("/app/harvest");
+  return { ok: true };
 }
