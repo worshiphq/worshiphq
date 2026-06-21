@@ -46,6 +46,9 @@ export async function signUp(formData: FormData) {
   const email = String(formData.get("email") ?? "").toLowerCase().trim();
   const password = String(formData.get("password") ?? "");
   const phone = String(formData.get("phone") ?? "").trim();
+  const plan = String(formData.get("plan") ?? "free").trim();
+  const validPlans = ["free", "starter", "pro", "max"];
+  const chosenPlan = validPlans.includes(plan) ? plan : "free";
 
   if (!churchName || !name || !email || !phone || password.length < 6) {
     redirect("/sign-up?error=invalid");
@@ -58,7 +61,7 @@ export async function signUp(formData: FormData) {
   const result = await sendOtp({
     phone,
     purpose: "signup",
-    payload: { churchName, name, email, passwordHash, phone: normalisePhone(phone) },
+    payload: { churchName, name, email, passwordHash, phone: normalisePhone(phone), plan: chosenPlan },
   });
 
   if (!result.ok || !result.verificationId) {
@@ -96,6 +99,7 @@ export async function completeSignup(formData: FormData) {
     email: string;
     passwordHash: string;
     phone: string;
+    plan?: string;
   };
 
   // Guard against a race where the email was taken between steps.
@@ -116,10 +120,11 @@ export async function completeSignup(formData: FormData) {
 
   // Create subscription — Grace Baptist gets max plan as an offering
   const isGraceBaptist = p.email.toLowerCase() === "theophanyhouse@gmail.com";
+  const chosenPlan = isGraceBaptist ? "max" : (p.plan ?? "free");
   await db.subscription.create({
     data: {
       churchId: church.id,
-      plan: isGraceBaptist ? "max" : "free",
+      plan: chosenPlan,
       interval: "monthly",
       status: isGraceBaptist ? "grace" : "active",
     },

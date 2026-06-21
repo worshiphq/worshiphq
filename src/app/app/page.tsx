@@ -1,7 +1,7 @@
 import Link from "next/link";
 import {
   Users, CalendarCheck2, HandCoins, MessageSquare, Cake, ArrowRight,
-  UserPlus, Send, CalendarPlus, Heart, Clock, TrendingUp, ChevronRight,
+  UserPlus, Send, CalendarPlus, Heart, Clock, TrendingUp, ChevronRight, Crown,
 } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { TrendAreaChart, AttendanceBarChart, MembershipDonut } from "@/components/app/charts";
@@ -25,7 +25,7 @@ const quickActions = [
 
 export default async function DashboardPage() {
   const session = await requireSession();
-  const { kpis, trend, todaysBirthdays, events, careTasks, recentMembers, departmentBreakdown } = await getDashboard(session.churchId);
+  const { kpis, trend, todaysBirthdays, events, careTasks, recentMembers, departmentBreakdown, leaders } = await getDashboard(session.churchId);
   const has = (m: string) => session.sections.includes(m);
   const h = new Date().getHours();
   const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
@@ -77,6 +77,41 @@ export default async function DashboardPage() {
             </Link>
           ))}
         </div>
+
+        {/* ── Featured leaders ── */}
+        {leaders.length > 0 && (
+          <div data-animate="fade">
+            <Card className="overflow-hidden">
+              <div className="flex items-center gap-2 border-b border-line px-5 py-4">
+                <span className="grid size-8 place-items-center rounded-lg bg-gold/10">
+                  <Crown className="size-4 text-gold" />
+                </span>
+                <h3 className="font-display text-lg font-semibold">Church leadership</h3>
+              </div>
+              <div className="flex flex-wrap gap-6 p-5">
+                {leaders.map((l, i) => {
+                  const isHead = i === 0;
+                  return (
+                    <div key={l.name} className="flex flex-col items-center text-center">
+                      <MemberAvatar
+                        name={l.name}
+                        photoUrl={l.photoUrl}
+                        size={isHead ? "xl" : "lg"}
+                        className={isHead ? "ring-4 ring-gold/30" : ""}
+                      />
+                      <h4 className={`mt-3 font-display font-semibold ${isHead ? "text-base" : "text-sm"}`}>
+                        {l.name}
+                      </h4>
+                      <span className={`mt-0.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${isHead ? "bg-gold/10 text-gold" : "bg-primary/10 text-primary-bright"}`}>
+                        {l.leaderTitle}
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            </Card>
+          </div>
+        )}
 
         {/* ── Charts row ── */}
         {(has("giving") || has("attendance")) && (

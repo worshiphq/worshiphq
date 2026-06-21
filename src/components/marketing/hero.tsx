@@ -145,7 +145,7 @@ export function Hero({ subhead = DEFAULT_SUBHEAD }: { subhead?: string }) {
 
           <FloatingChip className="-left-3 top-8 sm:-left-12" delay={0.9} label="Active members" value={3085} color="primary" />
           <FloatingChip className="-right-3 top-20 sm:-right-14" delay={1.1} label="Monthly giving" value={58400} prefix="₵" color="gold" />
-          <FloatingChip className="-left-3 bottom-12 sm:-left-10" delay={1.3} label="Branches" value={4} color="success" />
+          <FloatingChip className="-left-3 bottom-12 sm:-left-10" delay={1.3} label="Departments" value={8} color="success" />
 
           <LaptopFrame>
             <DashboardMockup />

@@ -213,6 +213,7 @@ export function PeopleClient({
                 <div className="flex flex-col items-center text-center">
                   <ClickableAvatar name={p.fullName} photoUrl={p.photoUrl} gender={p.gender} size="lg" />
                   <h3 className="mt-3 font-display text-sm font-semibold">{p.fullName}</h3>
+                  {p.leaderTitle && <p className="mt-0.5 text-xs font-medium text-gold">{p.leaderTitle}</p>}
                   <p className="mt-0.5 text-xs text-ink-faint">{p.memberId ?? p.email ?? p.phone ?? "---"}</p>
                   <div className="mt-3 flex flex-wrap justify-center gap-1.5">
                     <Badge variant={eng.variant} className="text-[10px]">{eng.label}</Badge>
@@ -339,6 +340,9 @@ function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow
                 <button onClick={() => setQrOpen(true)} className="mt-0.5 inline-flex items-center gap-1 font-mono text-xs text-ink-faint hover:text-primary-bright">
                   {person.memberId} <QrIcon className="size-3" />
                 </button>
+              )}
+              {person.leaderTitle && (
+                <div className="mt-1 text-sm font-medium text-gold">{person.leaderTitle}</div>
               )}
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <Badge variant={eng.variant}>{eng.label}</Badge>
@@ -549,6 +553,38 @@ function PersonForm({
               <p className="mt-1 text-xs text-ink-faint">Must be unique. Leave as-is unless you need to renumber.</p>
             </div>
           )}
+
+          {/* Leadership label */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="leaderTitle">Leadership label</Label>
+              <select id="leaderTitle" name="leaderTitle" defaultValue={person?.leaderTitle ?? ""} className={selectBase}>
+                <option value="">None</option>
+                <option value="Head Pastor">Head Pastor</option>
+                <option value="Senior Pastor">Senior Pastor</option>
+                <option value="Associate Pastor">Associate Pastor</option>
+                <option value="Assistant Pastor">Assistant Pastor</option>
+                <option value="Youth Pastor">Youth Pastor</option>
+                <option value="Worship Pastor">Worship Pastor</option>
+                <option value="Elder">Elder</option>
+                <option value="Deacon">Deacon</option>
+                <option value="Deaconess">Deaconess</option>
+                <option value="Shepherd">Shepherd</option>
+                <option value="Minister">Minister</option>
+                <option value="Evangelist">Evangelist</option>
+                <option value="Bishop">Bishop</option>
+                <option value="Apostle">Apostle</option>
+                <option value="Prophet">Prophet</option>
+              </select>
+              <p className="mt-1 text-xs text-ink-faint">Displayed on profiles and listings.</p>
+            </div>
+            <div className="flex items-end pb-1">
+              <label className="flex items-center gap-2 text-sm">
+                <input type="checkbox" name="featured" value="true" defaultChecked={person?.featured ?? false} className="size-4 rounded border-line accent-primary" />
+                Featured on dashboard
+              </label>
+            </div>
+          </div>
 
           <div>
             <Label htmlFor="status">Membership status</Label>

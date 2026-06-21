@@ -215,6 +215,10 @@ model Person {
   notes       String?
   customFields Json?
 
+  // ── Leadership ──
+  leaderTitle    String?   // e.g. Head Pastor, Associate Pastor, Shepherd, Elder
+  featured       Boolean   @default(false) // Featured on dashboard (e.g. Head Pastor)
+
   // ── Rich profile fields (from registration / admin entry) ──
   gender         String?   // Male, Female
   title          String?   // e.g. Rev., Deaconess, Elder
@@ -224,8 +228,8 @@ model Person {
   previousChurch String?
   dateOfMembership DateTime?
   placeOfBirth   String?
-  nationality    String?  @default("Ghanaian")
-  country        String?  @default("Ghana")
+  nationality    String?
+  country        String?
   region         String?
   district       String?
   town           String?

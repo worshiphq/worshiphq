@@ -23,7 +23,7 @@ export const brand = {
   supportingLine:
     "Everything your church needs to manage, connect, and grow — in one beautiful place.",
   description:
-    "WorshipHQ is the all-in-one church management system built for churches in Ghana and across Africa. Manage people, giving, events, communications and more — beautifully.",
+    "WorshipHQ is the all-in-one church management system built for churches everywhere. Manage people, giving, events, communications and more — beautifully.",
 
   domain: "worshiphq.org",
   url: "https://worshiphq.org",
@@ -49,7 +49,7 @@ export const brand = {
     { label: "X (Twitter)", href: "https://x.com/worshiphq", icon: "twitter" },
     { label: "Instagram", href: "https://instagram.com/worshiphq", icon: "instagram" },
     { label: "Facebook", href: "https://facebook.com/worshiphq", icon: "facebook" },
-    { label: "LinkedIn", href: "https://linkedin.com/company/worshiphq", icon: "linkedin" },
+    { label: "TikTok", href: "https://tiktok.com/@worshiphq", icon: "tiktok" },
   ],
 } as const;
 

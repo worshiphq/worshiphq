@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { motion } from "motion/react";
-import { Check, Minus, Sparkles } from "lucide-react";
+import { Check, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Reveal } from "@/components/ui/reveal";
@@ -25,7 +25,7 @@ export function PricingSection({ showComparison = true }: { showComparison?: boo
             Pricing that grows with your church
           </h2>
           <p className="mt-4 text-lg text-ink-muted">
-            Start free forever. Upgrade when you&rsquo;re ready. All prices in Ghana Cedi (₵).
+            Start free forever. Upgrade when you&rsquo;re ready.
           </p>
         </Reveal>
 
@@ -70,8 +70,8 @@ export function PricingSection({ showComparison = true }: { showComparison?: boo
                 >
                   {plan.featured && (
                     <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <Badge variant="primary" className="border-primary/50 bg-primary/20">
-                        <Sparkles className="size-3" /> Most popular
+                      <Badge variant="primary" className="border-primary/40 bg-primary text-white shadow-sm">
+                        Most popular
                       </Badge>
                     </div>
                   )}
@@ -87,7 +87,7 @@ export function PricingSection({ showComparison = true }: { showComparison?: boo
                     {plan.members}
                   </div>
 
-                  <Link href="/sign-up" className="mt-5">
+                  <Link href={`/sign-up?plan=${plan.id}`} className="mt-5">
                     <Button variant={plan.featured ? "primary" : "secondary"} className="w-full">
                       {plan.cta}
                     </Button>

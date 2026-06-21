@@ -24,6 +24,10 @@ export interface PersonRow {
   anniversary: string | null;
   joined: string; // ISO
 
+  // Leadership
+  leaderTitle: string | null;
+  featured: boolean;
+
   // Rich fields (used for edit prefill)
   gender: string | null;
   title: string | null;
@@ -98,6 +102,8 @@ export async function getPeople(churchId: string): Promise<PersonRow[]> {
     anniversary: p.anniversary,
     joined: p.joinedAt.toISOString(),
 
+    leaderTitle: p.leaderTitle,
+    featured: p.featured,
     gender: p.gender,
     title: p.title,
     dateOfBirth: isoDate(p.dateOfBirth),

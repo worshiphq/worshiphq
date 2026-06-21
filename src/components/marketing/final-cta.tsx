@@ -48,7 +48,7 @@ export function FinalCTA() {
               </h2>
 
               <p className="mx-auto mt-5 max-w-lg text-base leading-relaxed text-ink-muted">
-                Join churches across {brand.region.country} running everything in one beautiful place.
+                Join churches worldwide running everything in one beautiful place.
                 Free forever for up to 50 members.
               </p>
 

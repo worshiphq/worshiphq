@@ -11,13 +11,15 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       <div className="relative hidden flex-col justify-between overflow-hidden border-r border-line p-12 lg:flex">
         <Aurora />
         <GridBackdrop />
-        <div className="relative">
-          <Logo href="/" size="lg" variant="stacked" />
+        <div className="relative flex items-center justify-center flex-1">
+          {/* Large centered logo */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="WorshipHQ" className="h-40 w-auto object-contain" />
         </div>
         <div className="relative max-w-md">
           <Quote className="size-8 text-primary/50" />
           <p className="mt-4 font-display text-2xl font-medium leading-snug">
-            We moved 1,200 members onto WorshipHQ in a weekend. Mobile Money giving alone has
+            We moved 1,200 members onto WorshipHQ in a weekend. Online giving alone has
             transformed our offerings.
           </p>
           <p className="mt-4 text-sm text-ink-muted">Rev. Daniel Mensah · Grace Temple, Accra</p>

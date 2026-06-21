@@ -2,8 +2,8 @@
 
 import { cn } from "@/lib/utils";
 
-const SIZES = { xs: "size-7", sm: "size-9", md: "size-11", lg: "size-16" } as const;
-const ICON_SIZES = { xs: "size-4", sm: "size-5", md: "size-6", lg: "size-9" } as const;
+const SIZES = { xs: "size-7", sm: "size-9", md: "size-11", lg: "size-16", xl: "size-24" } as const;
+const ICON_SIZES = { xs: "size-4", sm: "size-5", md: "size-6", lg: "size-9", xl: "size-14" } as const;
 
 /**
  * Member avatar with photo support and gendered default silhouette.

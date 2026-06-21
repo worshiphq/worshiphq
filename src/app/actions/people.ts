@@ -27,6 +27,8 @@ export async function createPerson(formData: FormData) {
   if (!data.firstName || !data.lastName) return;
 
   const status = (String(formData.get("status") ?? "active") as PersonStatus) || "active";
+  const leaderTitle = String(formData.get("leaderTitle") ?? "").trim() || null;
+  const featured = formData.get("featured") === "true";
   const deptIds = await resolveDepartmentIds(session.churchId, departmentNames);
   const memberId = await nextMemberId(session.churchId);
 
@@ -36,6 +38,8 @@ export async function createPerson(formData: FormData) {
       church: { connect: { id: session.churchId } },
       branch: session.branchId ? { connect: { id: session.branchId } } : undefined,
       status,
+      leaderTitle,
+      featured,
       memberId,
       ...(Object.keys(customFields).length ? { customFields } : {}),
       ...(deptIds.length
@@ -62,6 +66,8 @@ export async function updatePerson(formData: FormData) {
   const fields = await formFields(session.churchId);
   const { data, customFields, departmentNames } = buildPersonData(fields, formData);
   const status = (String(formData.get("status") ?? "active") as PersonStatus) || "active";
+  const leaderTitle = String(formData.get("leaderTitle") ?? "").trim() || null;
+  const featured = formData.get("featured") === "true";
   const deptIds = await resolveDepartmentIds(session.churchId, departmentNames);
 
   // Admin-editable member ID (unique per church).
@@ -73,6 +79,8 @@ export async function updatePerson(formData: FormData) {
       data: {
         ...(data as Prisma.PersonUpdateInput),
         status,
+        leaderTitle,
+        featured,
         memberId,
         ...(Object.keys(customFields).length ? { customFields } : {}),
         departments: { set: deptIds.map((d) => ({ id: d })) },
@@ -86,6 +94,8 @@ export async function updatePerson(formData: FormData) {
       data: {
         ...(data as Prisma.PersonUpdateInput),
         status,
+        leaderTitle,
+        featured,
         ...(Object.keys(customFields).length ? { customFields } : {}),
         departments: { set: deptIds.map((d) => ({ id: d })) },
         department: deptIds.length ? { connect: { id: deptIds[0] } } : { disconnect: true },

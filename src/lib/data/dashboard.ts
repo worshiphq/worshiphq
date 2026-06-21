@@ -10,7 +10,7 @@ export async function getDashboard(churchId: string) {
   const weekAgo = new Date(Date.now() - 7 * 86400000);
   const todayMMDD = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-  const [activeMembers, weekAgg, monthGiving, reachAgg, gifts, attendance, events, people, departments, recent] =
+  const [activeMembers, weekAgg, monthGiving, reachAgg, gifts, attendance, events, people, departments, recent, featuredLeaders] =
     await Promise.all([
       db.person.count({ where: { churchId, status: "active" } }),
       db.attendanceSession.aggregate({
@@ -25,6 +25,7 @@ export async function getDashboard(churchId: string) {
       db.person.findMany({ where: { churchId }, select: { firstName: true, lastName: true, birthday: true, status: true, gender: true, photoUrl: true, departmentId: true } }),
       db.department.findMany({ where: { churchId }, select: { id: true, name: true, _count: { select: { members: true } } } }),
       db.person.findMany({ where: { churchId }, orderBy: { joinedAt: "desc" }, take: 6, select: { firstName: true, lastName: true, gender: true, status: true, joinedAt: true, photoUrl: true, departments: { select: { name: true }, take: 1 } } }),
+      db.person.findMany({ where: { churchId, featured: true, leaderTitle: { not: null } }, orderBy: { joinedAt: "asc" }, take: 5, select: { firstName: true, lastName: true, title: true, leaderTitle: true, photoUrl: true, phone: true, email: true } }),
     ]);
 
   // 6-month trend buckets
@@ -72,7 +73,16 @@ export async function getDashboard(churchId: string) {
     joined: p.joinedAt.toLocaleDateString("en-GH", { month: "short", day: "numeric" }),
   }));
 
+  const leaders = featuredLeaders.map((l) => ({
+    name: `${l.title ? l.title + " " : ""}${l.firstName} ${l.lastName}`,
+    leaderTitle: l.leaderTitle!,
+    photoUrl: l.photoUrl,
+    phone: l.phone,
+    email: l.email,
+  }));
+
   return {
+    leaders,
     kpis: {
       activeMembers,
       weeklyAttendance:
