@@ -31,7 +31,7 @@ export function SiteNav() {
         className={cn(
           "flex w-full max-w-6xl items-center justify-between rounded-2xl px-4 py-2.5 transition-all duration-300 sm:px-5",
           scrolled
-            ? "glass shadow-[0_8px_40px_-12px_rgba(0,0,0,0.6)]"
+            ? "border border-line/60 bg-surface/95 shadow-lg backdrop-blur-xl"
             : "border border-transparent bg-transparent",
         )}
       >
@@ -70,7 +70,7 @@ export function SiteNav() {
       </nav>
 
       {open && (
-        <div className="fixed inset-x-4 top-20 z-50 glass rounded-2xl p-4 md:hidden">
+        <div className="fixed inset-x-4 top-20 z-50 rounded-2xl border border-line/60 bg-surface/95 p-4 shadow-lg backdrop-blur-xl md:hidden">
           <div className="flex flex-col gap-1">
             {links.map((l) => (
               <Link
