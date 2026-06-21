@@ -2,26 +2,29 @@
 """
 WorshipHQ Fingerprint Scanner Agent
 ====================================
-Run this on each check-in computer that has a USB fingerprint scanner.
-The WorshipHQ web app communicates with this agent to capture and match fingerprints.
+Run this ONCE to install as a background service. After that, it starts
+automatically when your computer boots — no manual steps needed.
 
 Supported scanners:
-  - ZKTeco (ZK4500, ZK9500, SLK20R, etc.) via pyzkfp
+  - ZKTeco (ZK4500, ZK9500, SLK20R) via pyzkfp
   - DigitalPersona U.are.U via dpfpdd
-  - Any scanner supported by libfprint (Linux) or Windows Biometric Framework
 
-Usage:
-  pip install flask flask-cors pyzkfp
+Install & run:
+  pip install pyzkfp
+  python whq-scanner-agent.py --install
+  (That's it — it auto-starts on boot from now on)
+
+Manual run (without installing):
   python whq-scanner-agent.py
-
-The agent runs on http://localhost:23847 by default.
 """
 
 import base64
 import json
+import os
 import sys
 import time
 import hashlib
+import subprocess
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
 
@@ -29,10 +32,44 @@ PORT = 23847
 scanner = None
 scanner_type = None
 
+# ─── Auto-install as Windows startup ─────────────────────
+
+def install_startup():
+    """Add this script to Windows startup so it runs automatically on boot."""
+    if sys.platform != "win32":
+        print("[INFO] Auto-start install is Windows-only. On Linux, add to systemd.")
+        return
+
+    script_path = os.path.abspath(__file__)
+    python_path = sys.executable
+    bat_content = f'@echo off\nstart /min "" "{python_path}" "{script_path}"\n'
+
+    startup_dir = os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
+    bat_path = os.path.join(startup_dir, "WorshipHQ-Scanner.bat")
+
+    with open(bat_path, "w") as f:
+        f.write(bat_content)
+
+    print(f"[OK] Installed to Windows startup: {bat_path}")
+    print("[OK] The scanner agent will now start automatically when you log in.")
+    print("[OK] Starting agent now...\n")
+
+def uninstall_startup():
+    """Remove from Windows startup."""
+    if sys.platform != "win32":
+        return
+    startup_dir = os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
+    bat_path = os.path.join(startup_dir, "WorshipHQ-Scanner.bat")
+    if os.path.exists(bat_path):
+        os.remove(bat_path)
+        print(f"[OK] Removed from startup: {bat_path}")
+    else:
+        print("[INFO] Not installed in startup.")
+
+
 # ─── Scanner backends ──────────────────────────────────────
 
 def init_zkfp():
-    """Initialize ZKTeco fingerprint scanner."""
     global scanner, scanner_type
     try:
         from pyzkfp import ZKFP2
@@ -55,7 +92,6 @@ def init_zkfp():
         return False
 
 def init_dpfp():
-    """Initialize DigitalPersona scanner."""
     global scanner, scanner_type
     try:
         import dpfpdd
@@ -71,16 +107,13 @@ def init_dpfp():
         return False
 
 def init_dummy():
-    """Dummy scanner for testing without hardware."""
     global scanner, scanner_type
     scanner = "dummy"
     scanner_type = "dummy"
     print("[INFO] Running in DEMO mode (no real scanner)")
-    print("[INFO] Captures will return simulated fingerprint data")
     return True
 
 def capture_fingerprint():
-    """Capture a fingerprint template from the connected scanner."""
     if scanner_type == "zkfp":
         try:
             while True:
@@ -111,9 +144,8 @@ def capture_fingerprint():
             return {"error": str(e)}
 
     elif scanner_type == "dummy":
-        # Simulate a unique fingerprint capture for testing
         ts = str(time.time()).encode()
-        fake = hashlib.sha256(ts).digest() * 4  # 128 bytes
+        fake = hashlib.sha256(ts).digest() * 4
         return {
             "template": base64.b64encode(fake).decode(),
             "quality": 90,
@@ -124,11 +156,6 @@ def capture_fingerprint():
     return {"error": "No scanner initialized"}
 
 def match_fingerprints(probe_b64, gallery):
-    """Match a probe fingerprint against a gallery of stored templates.
-
-    For ZKTeco: uses the SDK's built-in matching.
-    For others: basic byte comparison (upgrade with SourceAFIS for production).
-    """
     probe = base64.b64decode(probe_b64)
 
     if scanner_type == "zkfp":
@@ -143,20 +170,16 @@ def match_fingerprints(probe_b64, gallery):
                     best_match = entry
             except Exception:
                 continue
-
-        threshold = 50  # ZKTeco match threshold
-        if best_match and best_score >= threshold:
+        if best_match and best_score >= 50:
             return {
                 "matched": True,
                 "personId": best_match["personId"],
                 "personName": best_match.get("personName", ""),
                 "score": best_score,
-                "finger": best_match.get("finger", ""),
             }
         return {"matched": False, "bestScore": best_score}
 
     elif scanner_type == "dpfp":
-        # DigitalPersona SDK matching
         for entry in gallery:
             try:
                 stored = base64.b64decode(entry["templateData"])
@@ -166,14 +189,12 @@ def match_fingerprints(probe_b64, gallery):
                         "personId": entry["personId"],
                         "personName": entry.get("personName", ""),
                         "score": 100,
-                        "finger": entry.get("finger", ""),
                     }
             except Exception:
                 continue
         return {"matched": False}
 
     elif scanner_type == "dummy":
-        # Demo mode: match by exact byte equality
         for entry in gallery:
             stored = base64.b64decode(entry["templateData"])
             if probe == stored:
@@ -182,11 +203,10 @@ def match_fingerprints(probe_b64, gallery):
                     "personId": entry["personId"],
                     "personName": entry.get("personName", ""),
                     "score": 100,
-                    "finger": entry.get("finger", ""),
                 }
         return {"matched": False}
 
-    return {"matched": False, "error": "No matching engine available"}
+    return {"matched": False, "error": "No matching engine"}
 
 
 # ─── HTTP Server ──────────────────────────────────────────
@@ -215,7 +235,7 @@ class AgentHandler(BaseHTTPRequestHandler):
         path = urlparse(self.path).path
         if path == "/status":
             self._json(200, {
-                "connected": scanner is not None,
+                "connected": scanner is not None and scanner_type != "dummy",
                 "scanner": scanner_type or "none",
                 "version": "1.0.0",
                 "agent": "WorshipHQ Scanner Agent",
@@ -257,26 +277,25 @@ class AgentHandler(BaseHTTPRequestHandler):
 # ─── Main ─────────────────────────────────────────────────
 
 def main():
+    if "--install" in sys.argv:
+        install_startup()
+    elif "--uninstall" in sys.argv:
+        uninstall_startup()
+        return
+
     print("=" * 50)
     print("  WorshipHQ Fingerprint Scanner Agent v1.0")
     print("=" * 50)
     print()
 
-    # Try each scanner backend in order of preference
     if not init_zkfp():
         if not init_dpfp():
-            print("[INFO] No hardware scanner SDK found.")
-            if "--demo" in sys.argv:
-                init_dummy()
-            else:
-                print("[INFO] Run with --demo flag for testing without a scanner")
-                print("[INFO] Install pyzkfp (ZKTeco) or dpfpdd (DigitalPersona) for real scanners")
-                print()
-                init_dummy()  # Default to demo mode for convenience
+            print("[INFO] No hardware scanner found.")
+            init_dummy()
 
     print()
-    print(f"Agent listening on http://localhost:{PORT}")
-    print(f"Scanner type: {scanner_type}")
+    print(f"Agent ready on http://localhost:{PORT}")
+    print(f"Scanner: {scanner_type}")
     print("Press Ctrl+C to stop")
     print()
 
