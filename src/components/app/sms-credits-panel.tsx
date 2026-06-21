@@ -48,7 +48,7 @@ export function SmsCreditsPanel({
         <h3 className="mb-3 font-display text-lg font-semibold">Buy SMS credits</h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {SMS_BUNDLES.map((b) => (
-            <Card key={b.id} className={cn("relative flex flex-col p-5", b.popular && "border-primary/40 ring-1 ring-primary/20")}>
+            <Card key={b.id} className={cn("relative flex flex-col p-5", b.popular && "overflow-visible border-primary/40 ring-1 ring-primary/20")}>
               {b.popular && (
                 <span className="absolute -top-2 right-4 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-white">
                   Popular

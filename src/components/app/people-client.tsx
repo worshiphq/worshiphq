@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import {
   Search, Plus, Phone, Mail, MapPin, X, Users, Pencil, Trash2,
   Briefcase, Heart, Shield, User, Grid3X3, List, ChevronRight, Download, MessageSquare, QrCode as QrIcon, Fingerprint,
+  ArrowDownAZ, Filter,
 } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { ImportModal } from "@/components/app/import-modal";
@@ -36,7 +37,7 @@ const engagementStyle: Record<PersonRow["engagement"], { label: string; variant:
   new: { label: "New", variant: "info" },
 };
 
-type Stats = { total: number; active: number; visitors: number; ministries: number };
+type Stats = { total: number; active: number; visitors: number; departments: number };
 type Dept = { id: string; name: string };
 
 export function PeopleClient({
@@ -50,10 +51,15 @@ export function PeopleClient({
   const [editing, setEditing] = useState<PersonRow | null>(null);
   const [creating, setCreating] = useState(false);
   const [view, setView] = useState<"list" | "grid">("list");
+  const [deptFilter, setDeptFilter] = useState("");
+  const [engFilter, setEngFilter] = useState("");
+  const [sortBy, setSortBy] = useState<"name-az" | "name-za" | "newest" | "oldest">("name-az");
 
   const filtered = useMemo(() => {
-    return people.filter((p) => {
+    const list = people.filter((p) => {
       if (segment !== "all" && p.status !== segment) return false;
+      if (deptFilter && !p.departments.some((d) => d === deptFilter)) return false;
+      if (engFilter && p.engagement !== engFilter) return false;
       if (query) {
         const q = query.toLowerCase();
         return (
@@ -66,7 +72,17 @@ export function PeopleClient({
       }
       return true;
     });
-  }, [people, query, segment]);
+    list.sort((a, b) => {
+      switch (sortBy) {
+        case "name-az": return a.fullName.localeCompare(b.fullName);
+        case "name-za": return b.fullName.localeCompare(a.fullName);
+        case "newest": return b.joined.localeCompare(a.joined);
+        case "oldest": return a.joined.localeCompare(b.joined);
+        default: return 0;
+      }
+    });
+    return list;
+  }, [people, query, segment, deptFilter, engFilter, sortBy]);
 
   return (
     <div>
@@ -86,7 +102,7 @@ export function PeopleClient({
           { label: "Total people", value: stats.total, icon: Users, color: "bg-primary/10 text-primary-bright" },
           { label: "Active members", value: stats.active, icon: User, color: "bg-success/10 text-success" },
           { label: "Visitors", value: stats.visitors, icon: Heart, color: "bg-gold/10 text-gold" },
-          { label: "Departments", value: stats.ministries, icon: Grid3X3, color: "bg-info/10 text-info" },
+          { label: "Departments", value: stats.departments, icon: Grid3X3, color: "bg-info/10 text-info" },
         ].map((s) => (
           <div key={s.label} className="group rounded-2xl border border-line bg-surface p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-md">
             <div className="flex items-center justify-between">
@@ -116,7 +132,41 @@ export function PeopleClient({
             </button>
           ))}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <select
+            value={deptFilter}
+            onChange={(e) => setDeptFilter(e.target.value)}
+            className="h-9 rounded-lg border border-line bg-surface px-2.5 text-xs text-ink focus-visible:border-primary/50 focus-visible:outline-none"
+          >
+            <option value="">All departments</option>
+            {departments.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
+          </select>
+          <select
+            value={engFilter}
+            onChange={(e) => setEngFilter(e.target.value)}
+            className="h-9 rounded-lg border border-line bg-surface px-2.5 text-xs text-ink focus-visible:border-primary/50 focus-visible:outline-none"
+          >
+            <option value="">All engagement</option>
+            <option value="thriving">Thriving</option>
+            <option value="steady">Steady</option>
+            <option value="at-risk">At risk</option>
+            <option value="new">New</option>
+          </select>
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
+            className="h-9 rounded-lg border border-line bg-surface px-2.5 text-xs text-ink focus-visible:border-primary/50 focus-visible:outline-none"
+          >
+            <option value="name-az">A → Z</option>
+            <option value="name-za">Z → A</option>
+            <option value="newest">Newest first</option>
+            <option value="oldest">Oldest first</option>
+          </select>
+          {(deptFilter || engFilter) && (
+            <button onClick={() => { setDeptFilter(""); setEngFilter(""); }} className="text-xs text-primary-bright hover:underline">
+              Clear filters
+            </button>
+          )}
           <div className="flex rounded-lg border border-line">
             <button
               onClick={() => setView("list")}

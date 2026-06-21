@@ -131,11 +131,11 @@ export async function getPeople(churchId: string): Promise<PersonRow[]> {
 }
 
 export async function getPeopleStats(churchId: string) {
-  const [total, active, visitors, ministries] = await Promise.all([
+  const [total, active, visitors, departments] = await Promise.all([
     db.person.count({ where: { churchId } }),
     db.person.count({ where: { churchId, status: "active" } }),
     db.person.count({ where: { churchId, status: "visitor" } }),
-    db.group.count({ where: { churchId, type: "ministry" } }),
+    db.department.count({ where: { churchId } }),
   ]);
-  return { total, active, visitors, ministries };
+  return { total, active, visitors, departments };
 }

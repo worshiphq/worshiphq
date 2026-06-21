@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { MemberAvatar } from "@/components/ui/member-avatar";
@@ -33,8 +34,9 @@ export function ClickableAvatar({
       >
         <MemberAvatar name={name} photoUrl={photoUrl} gender={gender} size={size} className={className} />
       </button>
-      {open && photoUrl && (
-        <PhotoLightbox src={photoUrl} alt={name} onClose={(e) => { e?.stopPropagation(); setOpen(false); }} />
+      {open && photoUrl && createPortal(
+        <PhotoLightbox src={photoUrl} alt={name} onClose={(e) => { e?.stopPropagation(); setOpen(false); }} />,
+        document.body,
       )}
     </>
   );
