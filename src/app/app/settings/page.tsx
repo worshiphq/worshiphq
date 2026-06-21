@@ -9,7 +9,7 @@ export const metadata = { title: "Settings" };
 export default async function SettingsPage() {
   const session = await requireModule("settings");
 
-  const [church, users, departments, customRoles] = await Promise.all([
+  const [church, users, departments, customRoles, subscription] = await Promise.all([
     db.church.findUnique({ where: { id: session.churchId } }),
     db.user.findMany({
       where: { churchId: session.churchId },
@@ -25,6 +25,10 @@ export default async function SettingsPage() {
       where: { churchId: session.churchId },
       orderBy: { name: "asc" },
       select: { id: true, name: true, sections: true, canDelete: true },
+    }),
+    db.subscription.findUnique({
+      where: { churchId: session.churchId },
+      select: { plan: true, status: true, interval: true, renewsAt: true },
     }),
   ]);
 

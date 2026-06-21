@@ -114,6 +114,17 @@ export async function completeSignup(formData: FormData) {
     include: { branches: true },
   });
 
+  // Create subscription — Grace Baptist gets unlimited plan as an offering
+  const isGraceBaptist = p.email.toLowerCase() === "theophanyhouse@gmail.com";
+  await db.subscription.create({
+    data: {
+      churchId: church.id,
+      plan: isGraceBaptist ? "unlimited" : "free",
+      interval: "monthly",
+      status: isGraceBaptist ? "grace" : "active",
+    },
+  });
+
   const user = await db.user.create({
     data: {
       churchId: church.id,
