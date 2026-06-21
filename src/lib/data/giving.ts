@@ -13,6 +13,7 @@ export const METHOD_LABEL: Record<GiftMethod, string> = {
 export interface GiftRow {
   id: string;
   donor: string;
+  photoUrl: string | null;
   amount: number;
   fund: string;
   method: string;
@@ -147,7 +148,7 @@ export async function getGiving(churchId: string) {
       where: { churchId },
       orderBy: { date: "desc" },
       take: 12,
-      include: { person: { select: { firstName: true, lastName: true } }, fund: { select: { name: true } } },
+      include: { person: { select: { firstName: true, lastName: true, photoUrl: true } }, fund: { select: { name: true } } },
     }),
     db.gift.aggregate({ _sum: { amount: true }, _avg: { amount: true }, where: { churchId, date: { gte: startOfMonth } } }),
     db.gift.count({ where: { churchId, recurring: true } }),
@@ -158,6 +159,7 @@ export async function getGiving(churchId: string) {
   const rows: GiftRow[] = gifts.map((g) => ({
     id: g.id,
     donor: g.person ? `${g.person.firstName} ${g.person.lastName}` : g.donorName ?? "Anonymous",
+    photoUrl: g.person?.photoUrl ?? null,
     amount: Number(g.amount),
     fund: g.fund?.name ?? "General",
     method: METHOD_LABEL[g.method],

@@ -22,9 +22,9 @@ export async function getDashboard(churchId: string) {
       db.gift.findMany({ where: { churchId, date: { gte: sixMonthsAgo } }, select: { amount: true, date: true } }),
       db.attendanceSession.findMany({ where: { churchId, date: { gte: sixMonthsAgo } }, select: { date: true, adults: true, teens: true, children: true, visitors: true } }),
       db.event.findMany({ where: { churchId, startsAt: { gte: now } }, orderBy: { startsAt: "asc" }, take: 4 }),
-      db.person.findMany({ where: { churchId }, select: { firstName: true, lastName: true, birthday: true, status: true, gender: true, departmentId: true } }),
+      db.person.findMany({ where: { churchId }, select: { firstName: true, lastName: true, birthday: true, status: true, gender: true, photoUrl: true, departmentId: true } }),
       db.department.findMany({ where: { churchId }, select: { id: true, name: true, _count: { select: { members: true } } } }),
-      db.person.findMany({ where: { churchId }, orderBy: { joinedAt: "desc" }, take: 6, select: { firstName: true, lastName: true, gender: true, status: true, joinedAt: true, departments: { select: { name: true }, take: 1 } } }),
+      db.person.findMany({ where: { churchId }, orderBy: { joinedAt: "desc" }, take: 6, select: { firstName: true, lastName: true, gender: true, status: true, joinedAt: true, photoUrl: true, departments: { select: { name: true }, take: 1 } } }),
     ]);
 
   // 6-month trend buckets
@@ -48,7 +48,7 @@ export async function getDashboard(churchId: string) {
   const todaysBirthdays = people
     .filter((p) => p.birthday === todayMMDD)
     .slice(0, 5)
-    .map((p) => ({ name: `${p.firstName} ${p.lastName}`, gender: p.gender }));
+    .map((p) => ({ name: `${p.firstName} ${p.lastName}`, gender: p.gender, photoUrl: p.photoUrl }));
 
   const careTasks = people
     .filter((p) => p.status === "visitor" || p.status === "inactive")
@@ -66,6 +66,7 @@ export async function getDashboard(churchId: string) {
   const recentMembers = recent.map((p) => ({
     name: `${p.firstName} ${p.lastName}`,
     gender: p.gender,
+    photoUrl: p.photoUrl,
     department: p.departments[0]?.name ?? null,
     status: p.status,
     joined: p.joinedAt.toLocaleDateString("en-GH", { month: "short", day: "numeric" }),

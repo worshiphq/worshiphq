@@ -65,7 +65,7 @@ export function GivingClient({ rows, funds, stats, fundBreakdown, canWrite, canD
                 const Icon = methodIcon[g.method] ?? Banknote;
                 return (
                   <div key={g.id} className="flex items-center gap-3 px-5 py-3">
-                    <Avatar name={g.donor} size="sm" />
+                    <Avatar name={g.donor} src={g.photoUrl ?? undefined} size="sm" />
                     <div className="min-w-0 flex-1">
                       <div className="flex items-center gap-2">
                         <span className="truncate text-sm font-medium">{g.donor}</span>

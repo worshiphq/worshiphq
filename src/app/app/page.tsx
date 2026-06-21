@@ -137,7 +137,7 @@ export default async function DashboardPage() {
                 {recentMembers.map((m) => (
                   <div key={m.name} className="flex items-center justify-between rounded-xl px-3 py-2.5 transition-colors hover:bg-surface-2/60">
                     <div className="flex items-center gap-3">
-                      <MemberAvatar name={m.name} gender={m.gender} size="sm" />
+                      <MemberAvatar name={m.name} photoUrl={m.photoUrl} gender={m.gender} size="sm" />
                       <div>
                         <div className="text-sm font-medium">{m.name}</div>
                         <div className="text-xs text-ink-faint">{m.department ?? "No department"}</div>
@@ -170,7 +170,7 @@ export default async function DashboardPage() {
               {todaysBirthdays.map((p) => (
                 <div key={p.name} className="flex items-center justify-between rounded-xl px-2 py-2.5 transition-colors hover:bg-surface-2/60">
                   <div className="flex items-center gap-3">
-                    <MemberAvatar name={p.name} size="sm" />
+                    <MemberAvatar name={p.name} photoUrl={p.photoUrl} size="sm" />
                     <div>
                       <div className="text-sm font-medium">{p.name}</div>
                       <div className="text-xs text-ink-faint">Birthday today</div>
