@@ -193,3 +193,31 @@ export function getFormDefinition(raw: unknown): FormField[] {
   const rest = fields.filter((f) => f.id !== "firstName" && f.id !== "lastName");
   return [first, last, ...rest];
 }
+
+// ── Visitor form ────────────────────────────────────────────
+
+const VISIT_PURPOSE = ["Sunday Service", "Midweek Service", "Special Event", "Counselling", "Other"];
+
+export const DEFAULT_VISITOR_FORM: FormField[] = [
+  { id: "firstName", label: "First name", type: "text", required: true, system: true, locked: true },
+  { id: "lastName", label: "Last name", type: "text", required: true, system: true, locked: true },
+  { id: "phone", label: "Phone number", type: "tel", system: true },
+  { id: "email", label: "Email", type: "email", system: true },
+  { id: "purpose", label: "Purpose of visit", type: "select", options: VISIT_PURPOSE, system: true },
+  { id: "notes", label: "Prayer request or notes", type: "textarea", system: true },
+];
+
+export function getVisitorFormDefinition(raw: unknown): FormField[] {
+  if (Array.isArray(raw)) {
+    const fields = raw.map(coerceField).filter((f): f is FormField => f !== null);
+    if (fields.length > 0) {
+      const ensure = (id: string, fallback: FormField) =>
+        fields.find((f) => f.id === id) ?? fallback;
+      const first = { ...ensure("firstName", DEFAULT_VISITOR_FORM[0]), required: true, locked: true, system: true };
+      const last = { ...ensure("lastName", DEFAULT_VISITOR_FORM[1]), required: true, locked: true, system: true };
+      const rest = fields.filter((f) => f.id !== "firstName" && f.id !== "lastName");
+      return [first, last, ...rest];
+    }
+  }
+  return DEFAULT_VISITOR_FORM;
+}

@@ -49,6 +49,9 @@ model Church {
   // Per-church overrides for built-in role permissions (JSON map of role → sections[])
   rolePermissions Json?
 
+  // JSON config: visitor form fields (simpler than full registration)
+  visitorFormFields Json?
+
   // Customizable SMS receipt templates (use {name}, {amount}, {church} placeholders)
   titheReceiptTemplate   String?
   harvestReceiptTemplate String?
@@ -76,6 +79,7 @@ model Church {
   harvests      Harvest[]
   harvestContributions HarvestContribution[]
   subscription  Subscription?
+  visitors      Visitor[]
 }
 
 model Branch {
@@ -605,4 +609,22 @@ model Subscription {
   status     String   @default("active")
   renewsAt   DateTime?
   paystackCustomerCode String?
+}
+
+// ── Visitors ──────────────────────────────────────────────
+model Visitor {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  firstName String
+  lastName  String
+  phone     String?
+  email     String?
+  purpose   String?
+  notes     String?
+  customFields Json?
+  visitDate DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([churchId, visitDate])
 }

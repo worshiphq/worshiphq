@@ -99,9 +99,9 @@ export function SettingsClient({
   const ro = session.isDemo;
   const isAdmin = session.role === "Owner" || session.role === "Admin";
 
-  const joinUrl = church?.slug
-    ? `${typeof window !== "undefined" ? window.location.origin : ""}/join/${church.slug}`
-    : "";
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const joinUrl = church?.slug ? `${origin}/join/${church.slug}` : "";
+  const visitUrl = church?.slug ? `${origin}/visit/${church.slug}` : "";
 
   return (
     <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
@@ -378,6 +378,28 @@ export function SettingsClient({
             {isAdmin && (
               <FormBuilder initial={getFormDefinition(church?.registrationFields ?? null)} readOnly={ro} />
             )}
+
+            <Card className="p-6">
+              <h3 className="font-display text-lg font-semibold">Visitor form link</h3>
+              <p className="text-sm text-ink-muted">
+                A simpler form for first-time visitors. Collects name, phone, purpose of visit and prayer requests — without the full member registration.
+              </p>
+              {visitUrl && (
+                <div className="mt-4 flex items-center gap-2">
+                  <Input value={visitUrl} readOnly className="flex-1 font-mono text-xs" />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      navigator.clipboard.writeText(visitUrl);
+                      alert("Link copied!");
+                    }}
+                  >
+                    <Link2 className="size-4" /> Copy
+                  </Button>
+                </div>
+              )}
+            </Card>
           </div>
         )}
 
