@@ -846,20 +846,22 @@ model Devotional {
   @@index([churchId, date])
 }
 
-// ── Biometric Credentials (WebAuthn) ──────────────────────
+// ── Biometric Credentials (server-side fingerprint templates) ──
 model BiometricCredential {
   id              String   @id @default(cuid())
   personId        String
   person          Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
   churchId        String
-  credentialId    String   @db.Text
-  publicKey       String   @db.Text
-  counter         BigInt   @default(0)
+
+  // Fingerprint template data (base64-encoded template from scanner SDK)
+  templateData    String   @db.Text
+  finger          String   @default("right_thumb") // right_thumb, right_index, left_thumb, etc.
+  quality         Int      @default(0)             // template quality score 0-100
+  format          String   @default("raw")         // template format: raw, iso19794, ansi378
+
   deviceName      String?
-  transports      String?
   registeredAt    DateTime @default(now())
 
-  @@unique([churchId, credentialId])
   @@index([personId])
   @@index([churchId])
 }

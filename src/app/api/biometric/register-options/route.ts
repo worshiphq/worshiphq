@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { generateRegistrationOptions } from "@simplewebauthn/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { rpName, rpID } from "@/lib/biometric";
 
 export const dynamic = "force-dynamic";
 
@@ -10,36 +8,36 @@ export async function POST(req: NextRequest) {
   const session = await getSession();
   if (!session || session.isDemo) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { personId } = await req.json();
-  if (!personId) return NextResponse.json({ error: "personId required" }, { status: 400 });
+  const { personId, templateData, finger, quality, format, deviceName } = await req.json();
+  if (!personId || !templateData) {
+    return NextResponse.json({ error: "personId and templateData required" }, { status: 400 });
+  }
 
   const person = await db.person.findFirst({
     where: { id: personId, churchId: session.churchId },
-    select: { id: true, firstName: true, lastName: true, memberId: true },
+    select: { id: true, firstName: true, lastName: true },
   });
   if (!person) return NextResponse.json({ error: "Member not found" }, { status: 404 });
 
-  const existing = await db.biometricCredential.findMany({
-    where: { personId: person.id },
-    select: { credentialId: true, transports: true },
+  await db.biometricCredential.deleteMany({
+    where: { personId: person.id, finger: finger || "right_thumb" },
   });
 
-  const options = await generateRegistrationOptions({
-    rpName,
-    rpID,
-    userName: `${person.firstName} ${person.lastName}`,
-    userID: new TextEncoder().encode(person.id),
-    userDisplayName: `${person.firstName} ${person.lastName}`,
-    attestationType: "none",
-    authenticatorSelection: {
-      residentKey: "discouraged",
-      userVerification: "required",
+  await db.biometricCredential.create({
+    data: {
+      personId: person.id,
+      churchId: session.churchId,
+      templateData,
+      finger: finger || "right_thumb",
+      quality: quality || 0,
+      format: format || "raw",
+      deviceName: deviceName || null,
     },
-    excludeCredentials: existing.map((c) => ({
-      id: c.credentialId,
-      transports: (c.transports?.split(",") ?? []) as AuthenticatorTransport[],
-    })),
   });
 
-  return NextResponse.json({ options, personId: person.id });
+  return NextResponse.json({
+    ok: true,
+    name: `${person.firstName} ${person.lastName}`,
+    message: "Fingerprint registered successfully",
+  });
 }
