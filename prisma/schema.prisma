@@ -506,12 +506,15 @@ model Automation {
   church          Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
   name            String
   description     String?
-  trigger         String    // birthday, anniversary, visitor_followup, lapsed, new_member, giving_thanks
+  trigger         String    // birthday, anniversary, visitor_followup, lapsed, new_member, giving_thanks, custom
   channel         Channel   @default(SMS)
   active          Boolean   @default(true)
   runs            Int       @default(0)
   messageTemplate String?
   lastRunAt       DateTime?
+  customDate      DateTime? // for custom trigger: the date to send
+  customRecurrence String?  // "once" | "weekly" | "monthly" | "yearly"
+  audience        String?   // "all" | "active" | "department:X" — who gets the custom reminder
 
   @@index([churchId])
 }

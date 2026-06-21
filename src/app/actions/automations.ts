@@ -19,21 +19,46 @@ export async function createAutomation(formData: FormData) {
 
   const trigger = String(formData.get("trigger") ?? "birthday");
   const channel = (String(formData.get("channel") ?? "SMS") as Channel) || "SMS";
-  const def = TRIGGER_CATALOG[trigger] ?? TRIGGER_CATALOG.birthday;
-  const name = String(formData.get("name") ?? "").trim() || def.name;
-  const messageTemplate = DEFAULT_TEMPLATES[trigger] ?? null;
 
-  await db.automation.create({
-    data: {
-      churchId: session.churchId,
-      name,
-      description: def.description,
-      trigger,
-      channel,
-      active: true,
-      messageTemplate,
-    },
-  });
+  if (trigger === "custom") {
+    const customName = String(formData.get("customName") ?? "").trim() || "Custom reminder";
+    const dateStr = String(formData.get("customDate") ?? "");
+    const customDate = dateStr ? new Date(dateStr) : null;
+    const customRecurrence = String(formData.get("customRecurrence") ?? "once");
+    const audience = String(formData.get("audience") ?? "all");
+    const messageTemplate = String(formData.get("messageTemplate") ?? "").trim() || null;
+
+    await db.automation.create({
+      data: {
+        churchId: session.churchId,
+        name: customName,
+        description: `Custom reminder${customRecurrence !== "once" ? ` (${customRecurrence})` : ""}`,
+        trigger: "custom",
+        channel,
+        active: true,
+        messageTemplate,
+        customDate,
+        customRecurrence,
+        audience,
+      },
+    });
+  } else {
+    const def = TRIGGER_CATALOG[trigger] ?? TRIGGER_CATALOG.birthday;
+    const name = String(formData.get("name") ?? "").trim() || def.name;
+    const messageTemplate = DEFAULT_TEMPLATES[trigger] ?? null;
+
+    await db.automation.create({
+      data: {
+        churchId: session.churchId,
+        name,
+        description: def.description,
+        trigger,
+        channel,
+        active: true,
+        messageTemplate,
+      },
+    });
+  }
   revalidatePath("/app/reminders");
 }
 

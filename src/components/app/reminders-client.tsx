@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Cake, Heart, Sparkles, Plus, Gift, Send, Zap, Pencil, Play, MessageSquare, UserPlus, Users, X } from "lucide-react";
+import { Cake, Heart, Sparkles, Plus, Gift, Send, Zap, Pencil, Play, MessageSquare, UserPlus, Users, X, CalendarClock } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -26,6 +26,7 @@ const TRIGGER_ICONS: Record<string, typeof Cake> = {
   lapsed: Users,
   new_member: UserPlus,
   giving_thanks: Gift,
+  custom: CalendarClock,
 };
 
 export function RemindersClient({
@@ -34,15 +35,18 @@ export function RemindersClient({
   activeCount,
   canWrite,
   canDelete = false,
+  departments = [],
 }: {
   automations: Automation[];
   upcoming: Upcoming[];
   activeCount: number;
   canWrite: boolean;
   canDelete?: boolean;
+  departments?: { id: string; name: string }[];
 }) {
   const [pending, start] = useTransition();
   const { toast } = useFeedback();
+  const [trigger, setTrigger] = useState("birthday");
 
   return (
     <div>
@@ -51,7 +55,7 @@ export function RemindersClient({
           triggerLabel="New automation"
           triggerIcon={<Plus />}
           title="New automation"
-          description="Pick what triggers it. WorshipHQ sends the message automatically each day."
+          description="Pick what triggers it. WorshipHQ sends the message automatically."
           submitLabel="Create automation"
           action={createAutomation}
           disabled={!canWrite}
@@ -60,15 +64,49 @@ export function RemindersClient({
         >
           <div>
             <label className="mb-1.5 block text-sm font-medium text-ink-muted">When</label>
-            <select name="trigger" className={SELECT}>
+            <select name="trigger" className={SELECT} value={trigger} onChange={(e) => setTrigger(e.target.value)}>
               <option value="birthday">Birthday — wish the member on their birthday</option>
               <option value="anniversary">Anniversary — celebrate their anniversary</option>
               <option value="visitor_followup">New visitor — welcome them after they register</option>
               <option value="lapsed">Lapsed member — gently check in if inactive</option>
               <option value="new_member">New member — welcome newly registered members</option>
               <option value="giving_thanks">Giving thanks — thank members who gave recently</option>
+              <option value="custom">Custom reminder — set your own date &amp; schedule</option>
             </select>
           </div>
+          {trigger === "custom" && (
+            <>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink-muted">Reminder name</label>
+                <input name="customName" placeholder="e.g. Prayer meeting reminder" className={SELECT} required />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink-muted">Date &amp; time</label>
+                <input name="customDate" type="datetime-local" className={SELECT} required />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink-muted">Recurrence</label>
+                <select name="customRecurrence" className={SELECT}>
+                  <option value="once">One-time only</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink-muted">Send to</label>
+                <select name="audience" className={SELECT}>
+                  <option value="all">All members</option>
+                  <option value="active">Active members only</option>
+                  {departments.map((d) => <option key={d.id} value={`department:${d.name}`}>{d.name} department</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink-muted">Message</label>
+                <textarea name="messageTemplate" rows={3} placeholder="Hi {name}, don't forget..." className={SELECT + " h-auto py-2.5"} />
+              </div>
+            </>
+          )}
           <div>
             <label className="mb-1.5 block text-sm font-medium text-ink-muted">Channel</label>
             <select name="channel" className={SELECT}>
