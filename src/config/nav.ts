@@ -26,6 +26,7 @@ import {
   BookMarked,
   Package,
   Receipt,
+  DoorOpen,
 } from "lucide-react";
 
 export interface NavItem {
@@ -60,6 +61,7 @@ export const nav: NavSection[] = [
       { key: "people", label: "Visitors", href: "/app/visitors", icon: UserRoundPlus },
       { key: "people", label: "Birthdays", href: "/app/birthdays", icon: Cake },
       { key: "people", label: "Directory", href: "/app/directory", icon: BookUser },
+      { key: "events", label: "Bookings", href: "/app/bookings", icon: DoorOpen },
     ],
   },
   {

@@ -88,6 +88,8 @@ model Church {
   sermons        Sermon[]
   assets         Asset[]
   expenses       Expense[]
+  facilities     Facility[]
+  bookings       Booking[]
 }
 
 model Branch {
@@ -791,4 +793,37 @@ model Expense {
   createdAt   DateTime @default(now())
 
   @@index([churchId, date])
+}
+
+// ── Facilities & Bookings ─────────────────────────────────
+model Facility {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name      String
+  capacity  Int?
+  location  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  bookings  Booking[]
+
+  @@index([churchId])
+}
+
+model Booking {
+  id         String   @id @default(cuid())
+  churchId   String
+  church     Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  facilityId String
+  facility   Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  title      String
+  bookedBy   String
+  startTime  DateTime
+  endTime    DateTime
+  notes      String?
+  status     String   @default("confirmed")
+  createdAt  DateTime @default(now())
+
+  @@index([churchId, startTime])
+  @@index([facilityId, startTime])
 }
