@@ -4,7 +4,7 @@ import { useState, useMemo, useTransition } from "react";
 import {
   Search, Plus, Trash2, Pencil, Send, Download, Calendar, Settings2,
   Smartphone, CreditCard, Banknote, Users, UserPlus,
-  CheckCircle2, Target, Wheat, Crown, X, Check, AlertTriangle,
+  CheckCircle2, Target, Wheat, Crown, X, Check, AlertTriangle, MessageSquare,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import { Input, Label } from "@/components/ui/input";
 import { StatCard } from "@/components/app/stat-card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { useFeedback } from "@/components/ui/feedback";
-import { setHarvestDate, recordHarvestContributions, createVisitorForHarvest, deleteHarvestContribution, editHarvestContribution, deleteHarvest, type HarvestEntry } from "@/app/actions/harvest";
+import { setHarvestDate, recordHarvestContributions, createVisitorForHarvest, deleteHarvestContribution, editHarvestContribution, deleteHarvest, saveHarvestTemplate, type HarvestEntry } from "@/app/actions/harvest";
 import { formatCurrency } from "@/config/brand";
 import { formatDate, cn } from "@/lib/utils";
 import type { HarvestData, HarvestContributionRow } from "@/lib/data/harvest";
@@ -43,7 +43,8 @@ export function HarvestClient({
   members,
   year,
   canWrite,
-}: HarvestData & { year: number; canWrite: boolean }) {
+  harvestTemplate,
+}: HarvestData & { year: number; canWrite: boolean; harvestTemplate: string | null }) {
   const [tab, setTab] = useState<"record" | "contributions" | "report">(harvest ? "contributions" : "record");
   const [selectedYear, setSelectedYear] = useState(year);
   const currentYear = new Date().getFullYear();
@@ -118,6 +119,7 @@ export function HarvestClient({
       {tab === "record" && canWrite && harvest && (
         <>
           <HarvestEditBar harvest={harvest} year={year} />
+          <HarvestTemplateEditor template={harvestTemplate} />
           <ContributionRecorder members={members} year={year} />
         </>
       )}
@@ -208,6 +210,63 @@ function HarvestEditBar({ harvest, year }: { harvest: NonNullable<HarvestData["h
         </div>
       )}
     </Card>
+  );
+}
+
+/* ────── Harvest Template Editor ────── */
+
+const DEFAULT_HARVEST_TEMPLATE = "Dear {name}, thank you for your harvest contribution of GHS {amount} to {church}. God bless you abundantly!";
+
+function HarvestTemplateEditor({ template }: { template: string | null }) {
+  const [show, setShow] = useState(false);
+  const [text, setText] = useState(template || DEFAULT_HARVEST_TEMPLATE);
+  const [saving, startTransition] = useTransition();
+  const { toast } = useFeedback();
+
+  const handleSave = () => {
+    startTransition(async () => {
+      const fd = new FormData();
+      fd.set("template", text);
+      const res = await saveHarvestTemplate(fd);
+      if (res.ok) toast("Harvest message template saved", "success");
+      else toast(res.error ?? "Failed to save", "error");
+    });
+  };
+
+  return (
+    <div>
+      <button
+        onClick={() => setShow(!show)}
+        className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+      >
+        <MessageSquare className="size-4" />
+        {show ? "Hide" : "Edit"} harvest receipt message
+      </button>
+      {show && (
+        <Card className="mt-3 p-4 space-y-3">
+          <div>
+            <Label className="text-sm font-medium">SMS receipt template</Label>
+            <p className="text-xs text-ink-faint mt-0.5">
+              Use {"{name}"}, {"{amount}"}, and {"{church}"} as placeholders.
+            </p>
+          </div>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={3}
+            className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/25 resize-none"
+          />
+          <div className="flex items-center gap-2">
+            <Button size="sm" onClick={handleSave} disabled={saving}>
+              {saving ? "Saving…" : "Save template"}
+            </Button>
+            <Button size="sm" variant="ghost" onClick={() => setText(DEFAULT_HARVEST_TEMPLATE)}>
+              Reset to default
+            </Button>
+          </div>
+        </Card>
+      )}
+    </div>
   );
 }
 

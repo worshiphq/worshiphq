@@ -1,5 +1,6 @@
 import { PageHeader } from "@/components/app/page-header";
 import { requireModule } from "@/lib/auth";
+import { db } from "@/lib/db";
 import { getHarvestData } from "@/lib/data/harvest";
 import { HarvestClient } from "@/components/app/harvest-client";
 
@@ -14,12 +15,23 @@ export default async function HarvestPage({
   const params = await searchParams;
   const year = Number(params.year) || new Date().getFullYear();
 
-  const data = await getHarvestData(session.churchId, year);
+  const [data, church] = await Promise.all([
+    getHarvestData(session.churchId, year),
+    db.church.findUnique({
+      where: { id: session.churchId },
+      select: { harvestReceiptTemplate: true },
+    }),
+  ]);
 
   return (
     <div>
       <PageHeader title="Harvest" description="Annual harvest contributions, records and reports." />
-      <HarvestClient {...data} year={year} canWrite={!session.isDemo} />
+      <HarvestClient
+        {...data}
+        year={year}
+        canWrite={!session.isDemo}
+        harvestTemplate={church?.harvestReceiptTemplate ?? null}
+      />
     </div>
   );
 }
