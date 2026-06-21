@@ -28,7 +28,7 @@ export interface SendOtpResult {
  */
 export async function sendOtp(opts: {
   phone: string;
-  purpose: "signup" | "login" | "reset-password";
+  purpose: "signup" | "login" | "reset-password" | "verify-phone" | "verify-email";
   payload?: Record<string, unknown>;
   userId?: string;
 }): Promise<SendOtpResult> {

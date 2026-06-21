@@ -1,10 +1,10 @@
 import { PageHeader } from "@/components/app/page-header";
 import { requireSession } from "@/lib/auth";
 import { AccountForm } from "@/components/app/account-form";
+import { db } from "@/lib/db";
 
 export const metadata = { title: "My account" };
 
-// Accessible to ALL signed-in users regardless of role/section.
 export default async function AccountPage() {
   const session = await requireSession();
 
@@ -19,6 +19,11 @@ export default async function AccountPage() {
     );
   }
 
+  const user = await db.user.findUnique({
+    where: { id: session.userId },
+    select: { phone: true, phoneVerified: true },
+  });
+
   return (
     <div>
       <PageHeader title="My account" description="Update your name, photo and password." />
@@ -27,6 +32,8 @@ export default async function AccountPage() {
         email={session.email}
         role={session.customRole ?? session.role}
         photoUrl={session.avatarUrl ?? null}
+        phone={user?.phone ?? null}
+        phoneVerified={user?.phoneVerified ?? false}
       />
     </div>
   );

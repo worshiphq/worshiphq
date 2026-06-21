@@ -86,6 +86,86 @@ export async function resetPasswordWithOtp(formData: FormData) {
   return { ok: true };
 }
 
+export async function startPhoneChange(formData: FormData) {
+  const session = await requireSession();
+  if (session.isDemo || session.impersonating) return { ok: false, error: "Not available." };
+
+  const password = String(formData.get("password") ?? "");
+  const newPhone = String(formData.get("newPhone") ?? "").trim();
+  if (!newPhone) return { ok: false, error: "Phone number required." };
+
+  const user = await db.user.findUnique({ where: { id: session.userId }, select: { passwordHash: true } });
+  if (!user?.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
+    return { ok: false, error: "Incorrect password." };
+  }
+
+  const taken = await db.user.findFirst({ where: { phone: newPhone, id: { not: session.userId } } });
+  if (taken) return { ok: false, error: "This phone number is already in use." };
+
+  const result = await sendOtp({ phone: newPhone, purpose: "verify-phone", userId: session.userId });
+  if (!result.ok) return { ok: false, error: "Couldn't send verification SMS." };
+  return { ok: true, verificationId: result.verificationId };
+}
+
+export async function confirmPhoneChange(formData: FormData) {
+  const session = await requireSession();
+  if (session.isDemo || session.impersonating) return { ok: false, error: "Not available." };
+
+  const vid = String(formData.get("verificationId") ?? "");
+  const code = String(formData.get("code") ?? "").trim();
+  const newPhone = String(formData.get("newPhone") ?? "").trim();
+
+  const result = await verifyOtp(vid, code);
+  if (!result.ok) return { ok: false, error: result.error ?? "Invalid code." };
+
+  await db.user.update({
+    where: { id: session.userId },
+    data: { phone: newPhone, phoneVerified: true },
+  });
+  revalidatePath("/app/account");
+  return { ok: true };
+}
+
+export async function startEmailChange(formData: FormData) {
+  const session = await requireSession();
+  if (session.isDemo || session.impersonating) return { ok: false, error: "Not available." };
+
+  const password = String(formData.get("password") ?? "");
+  const newEmail = String(formData.get("newEmail") ?? "").toLowerCase().trim();
+  if (!newEmail || !newEmail.includes("@")) return { ok: false, error: "Valid email required." };
+
+  const user = await db.user.findUnique({ where: { id: session.userId }, select: { passwordHash: true } });
+  if (!user?.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
+    return { ok: false, error: "Incorrect password." };
+  }
+
+  const taken = await db.user.findUnique({ where: { email: newEmail } });
+  if (taken) return { ok: false, error: "This email is already in use." };
+
+  const result = await sendOtp({ phone: newEmail, purpose: "verify-email", userId: session.userId });
+  if (!result.ok) return { ok: false, error: "Couldn't send verification email." };
+  return { ok: true, verificationId: result.verificationId };
+}
+
+export async function confirmEmailChange(formData: FormData) {
+  const session = await requireSession();
+  if (session.isDemo || session.impersonating) return { ok: false, error: "Not available." };
+
+  const vid = String(formData.get("verificationId") ?? "");
+  const code = String(formData.get("code") ?? "").trim();
+  const newEmail = String(formData.get("newEmail") ?? "").toLowerCase().trim();
+
+  const result = await verifyOtp(vid, code);
+  if (!result.ok) return { ok: false, error: result.error ?? "Invalid code." };
+
+  await db.user.update({
+    where: { id: session.userId },
+    data: { email: newEmail },
+  });
+  revalidatePath("/app/account");
+  return { ok: true };
+}
+
 export async function updateChurch(formData: FormData) {
   const session = await requireSession();
   assertCanWrite(session);

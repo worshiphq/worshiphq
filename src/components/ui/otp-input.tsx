@@ -6,9 +6,10 @@ import { cn } from "@/lib/utils";
 interface OtpInputProps {
   length?: number;
   name?: string;
+  onChange?: (code: string) => void;
 }
 
-export function OtpInput({ length = 6, name = "code" }: OtpInputProps) {
+export function OtpInput({ length = 6, name = "code", onChange }: OtpInputProps) {
   const [digits, setDigits] = useState<string[]>(Array(length).fill(""));
   const refs = useRef<(HTMLInputElement | null)[]>([]);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -19,6 +20,8 @@ export function OtpInput({ length = 6, name = "code" }: OtpInputProps) {
 
   function setDigitAndMaybeSubmit(next: string[]) {
     setDigits(next);
+    const code = next.join("");
+    onChange?.(code);
     if (next.every((d) => d !== "")) {
       requestAnimationFrame(() => {
         formRef.current?.requestSubmit();
