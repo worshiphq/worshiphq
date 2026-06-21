@@ -225,11 +225,25 @@ function FieldRow({
             </div>
           </div>
 
-          {field.type === "select" && (
+          {(field.type === "select" || field.type === "radio") && (
             <OptionsEditor
+              label={field.type === "radio" ? "Radio options" : "Dropdown options"}
               options={field.options ?? []}
               onChange={(options) => onUpdate({ options })}
             />
+          )}
+
+          {/* Placeholder text */}
+          {!["checkbox", "image", "select", "radio"].includes(field.type) && (
+            <div>
+              <Label>Placeholder text</Label>
+              <Input
+                value={field.placeholder ?? ""}
+                onChange={(e) => onUpdate({ placeholder: e.target.value || undefined })}
+                placeholder="e.g. Enter your full name…"
+              />
+              <p className="mt-1 text-xs text-ink-faint">Faded hint shown inside the empty field</p>
+            </div>
           )}
 
           <label className="flex items-center gap-2 text-sm text-ink-muted">
@@ -290,11 +304,11 @@ function FieldRow({
   );
 }
 
-function OptionsEditor({ options, onChange }: { options: string[]; onChange: (o: string[]) => void }) {
+function OptionsEditor({ label = "Dropdown options", options, onChange }: { label?: string; options: string[]; onChange: (o: string[]) => void }) {
   const [draft, setDraft] = useState("");
   return (
     <div>
-      <Label>Dropdown options</Label>
+      <Label>{label}</Label>
       <div className="flex flex-wrap gap-1.5">
         {options.map((o, i) => (
           <span key={i} className="inline-flex items-center gap-1 rounded-full bg-surface-2 px-2.5 py-1 text-xs text-ink">

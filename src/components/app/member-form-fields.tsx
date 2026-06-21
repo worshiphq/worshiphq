@@ -61,6 +61,15 @@ export function MemberFormFields({
               </select>
             ) : f.type === "textarea" ? (
               <textarea name={f.id} required={f.required} placeholder={f.placeholder} value={values[f.id] ?? ""} onChange={(e) => setValue(f.id, e.target.value)} className={`${input} h-24 py-2.5`} />
+            ) : f.type === "radio" ? (
+              <div className="flex flex-wrap gap-3">
+                {(f.options ?? []).map((o) => (
+                  <label key={o} className="flex items-center gap-2 text-sm text-ink cursor-pointer">
+                    <input type="radio" name={f.id} value={o} checked={values[f.id] === o} onChange={(e) => setValue(f.id, e.target.value)} className="size-4 accent-primary" />
+                    {o}
+                  </label>
+                ))}
+              </div>
             ) : f.type === "checkbox" ? (
               <label className="flex items-center gap-2 text-sm text-ink">
                 <input type="checkbox" name={f.id} value="yes" checked={values[f.id] === "yes"} onChange={(e) => setValue(f.id, e.target.checked ? "yes" : "")} className="size-4 rounded border-line accent-primary" />
