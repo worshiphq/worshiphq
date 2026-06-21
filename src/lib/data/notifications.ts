@@ -4,14 +4,14 @@ export type AppNotification = {
   id: string;
   text: string;
   time: string;
-  type: "member" | "visitor" | "gift" | "attendance";
+  type: "member" | "visitor" | "gift" | "attendance" | "prayer";
 };
 
 export async function getRecentNotifications(churchId: string): Promise<AppNotification[]> {
   const since = new Date();
   since.setDate(since.getDate() - 7);
 
-  const [newMembers, newVisitors, recentGifts, recentSessions] = await Promise.all([
+  const [newMembers, newVisitors, recentGifts, recentSessions, newPrayers] = await Promise.all([
     db.person.findMany({
       where: { churchId, joinedAt: { gte: since } },
       select: { id: true, firstName: true, lastName: true, joinedAt: true },
@@ -35,6 +35,12 @@ export async function getRecentNotifications(churchId: string): Promise<AppNotif
       select: { id: true, serviceName: true, date: true, adults: true, teens: true, children: true, visitors: true },
       orderBy: { date: "desc" },
       take: 5,
+    }),
+    db.prayerRequest.findMany({
+      where: { churchId, createdAt: { gte: since } },
+      select: { id: true, name: true, isAnonymous: true, createdAt: true },
+      orderBy: { createdAt: "desc" },
+      take: 10,
     }),
   ]);
 
@@ -75,6 +81,15 @@ export async function getRecentNotifications(churchId: string): Promise<AppNotif
       text: `${s.serviceName}: ${total} attendee${total !== 1 ? "s" : ""} recorded`,
       time: s.date.toISOString(),
       type: "attendance",
+    });
+  }
+
+  for (const p of newPrayers) {
+    notifs.push({
+      id: `prayer-${p.id}`,
+      text: `${p.isAnonymous ? "Anonymous" : p.name} submitted a prayer request`,
+      time: p.createdAt.toISOString(),
+      type: "prayer",
     });
   }
 

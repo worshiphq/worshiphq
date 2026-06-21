@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Search, Bell, ChevronDown, Check, LogOut, Settings, Building2, Menu, UserCircle, UserPlus, UserRoundPlus, HandCoins, CalendarCheck2 } from "lucide-react";
+import { Search, Bell, ChevronDown, Check, LogOut, Settings, Building2, Menu, UserCircle, UserPlus, UserRoundPlus, HandCoins, CalendarCheck2, Heart } from "lucide-react";
 import { MemberAvatar } from "@/components/ui/member-avatar";
 import { Badge } from "@/components/ui/badge";
 import { OfflineIndicator } from "@/components/app/offline-indicator";
@@ -17,6 +17,7 @@ const NOTIF_ICON = {
   visitor: UserRoundPlus,
   gift: HandCoins,
   attendance: CalendarCheck2,
+  prayer: Heart,
 } as const;
 
 export function Topbar({

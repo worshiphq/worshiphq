@@ -81,6 +81,7 @@ model Church {
   subscription  Subscription?
   visitors      Visitor[]
   followUps     FollowUp[]
+  prayerRequests PrayerRequest[]
 }
 
 model Branch {
@@ -242,8 +243,9 @@ model Person {
   gifts       Gift[]
   harvestContributions HarvestContribution[]
   attendance  AttendanceRecord[]
-  followUps   FollowUp[]
-  user        User?
+  followUps      FollowUp[]
+  prayerRequests PrayerRequest[]
+  user           User?
 
   @@unique([churchId, memberId])
   @@index([churchId])
@@ -612,6 +614,23 @@ model Subscription {
   status     String   @default("active")
   renewsAt   DateTime?
   paystackCustomerCode String?
+}
+
+// ── Prayer requests ───────────────────────────────────────
+model PrayerRequest {
+  id          String   @id @default(cuid())
+  churchId    String
+  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  personId    String?
+  person      Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  name        String
+  request     String
+  isAnonymous Boolean  @default(false)
+  status      String   @default("active") // "active" | "answered" | "archived"
+  prayerCount Int      @default(0)
+  createdAt   DateTime @default(now())
+
+  @@index([churchId, status])
 }
 
 // ── Follow-ups ────────────────────────────────────────────

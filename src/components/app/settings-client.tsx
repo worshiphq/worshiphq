@@ -102,6 +102,7 @@ export function SettingsClient({
   const origin = typeof window !== "undefined" ? window.location.origin : "";
   const joinUrl = church?.slug ? `${origin}/join/${church.slug}` : "";
   const visitUrl = church?.slug ? `${origin}/visit/${church.slug}` : "";
+  const prayUrl = church?.slug ? `${origin}/pray/${church.slug}` : "";
 
   return (
     <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
@@ -392,6 +393,28 @@ export function SettingsClient({
                     variant="secondary"
                     onClick={() => {
                       navigator.clipboard.writeText(visitUrl);
+                      alert("Link copied!");
+                    }}
+                  >
+                    <Link2 className="size-4" /> Copy
+                  </Button>
+                </div>
+              )}
+            </Card>
+
+            <Card className="p-5">
+              <h3 className="text-sm font-semibold">Prayer request link</h3>
+              <p className="mt-1 text-xs text-ink-muted">
+                Share this link so members can submit prayer requests online.
+              </p>
+              {prayUrl && (
+                <div className="mt-4 flex items-center gap-2">
+                  <Input value={prayUrl} readOnly className="flex-1 font-mono text-xs" />
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => {
+                      navigator.clipboard.writeText(prayUrl);
                       alert("Link copied!");
                     }}
                   >

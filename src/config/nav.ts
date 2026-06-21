@@ -14,6 +14,7 @@ import {
   Settings,
   UserRoundPlus,
   ClipboardList,
+  Heart,
 } from "lucide-react";
 
 export interface NavItem {
@@ -57,6 +58,7 @@ export const nav: NavSection[] = [
       { key: "communications", label: "Communications", href: "/app/communications", icon: MessageSquare },
       { key: "reminders", label: "Reminders", href: "/app/reminders", icon: BellRing, badge: "Auto" },
       { key: "people", label: "Follow-ups", href: "/app/follow-ups", icon: ClipboardList },
+      { key: "people", label: "Prayer requests", href: "/app/prayer-requests", icon: Heart },
     ],
   },
   {
