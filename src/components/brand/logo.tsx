@@ -14,7 +14,7 @@ export function Logo({
   size?: "sm" | "md" | "lg";
   variant?: "horizontal" | "stacked";
 }) {
-  const h = { sm: "h-8", md: "h-10", lg: "h-12" }[size];
+  const h = { sm: "h-8", md: "h-10", lg: "h-14" }[size];
   const src = variant === "stacked" ? "/logo.png" : "/logo2.png";
 
   const inner = (
