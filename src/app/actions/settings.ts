@@ -456,7 +456,7 @@ export async function changePlan(plan: string, interval: "monthly" | "yearly") {
   assertCanWrite(session);
   if (session.role !== "Owner") return { error: "Only the church owner can change plans" };
 
-  const validPlans = ["free", "starter", "growth", "unlimited"];
+  const validPlans = ["free", "starter", "pro", "max"];
   if (!validPlans.includes(plan)) return { error: "Invalid plan" };
 
   const existing = await db.subscription.findUnique({ where: { churchId: session.churchId } });

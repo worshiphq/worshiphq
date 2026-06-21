@@ -152,7 +152,7 @@ export async function setChurchPlan(churchId: string, plan: string) {
 
 export async function grantPlanBypass(churchId: string, plan: string) {
   await requireSuperAdmin();
-  const validPlans = ["starter", "growth", "unlimited"];
+  const validPlans = ["starter", "pro", "max"];
   if (!validPlans.includes(plan)) return { error: "Invalid plan" };
 
   const church = await db.church.findUnique({
@@ -175,7 +175,7 @@ export async function grantPlanBypass(churchId: string, plan: string) {
   });
 
   if (owner?.phone) {
-    const planNames: Record<string, string> = { starter: "Starter", growth: "Growth", unlimited: "Unlimited" };
+    const planNames: Record<string, string> = { starter: "Starter", pro: "Pro", max: "Max" };
     await sendSms(
       owner.phone,
       `WorshipHQ: You've been granted a free upgrade to the ${planNames[plan]} plan! Go to Settings → Billing and enter code: ${code} to activate. — WorshipHQ Team`,

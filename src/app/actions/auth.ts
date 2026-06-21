@@ -119,7 +119,7 @@ export async function completeSignup(formData: FormData) {
   await db.subscription.create({
     data: {
       churchId: church.id,
-      plan: isGraceBaptist ? "unlimited" : "free",
+      plan: isGraceBaptist ? "max" : "free",
       interval: "monthly",
       status: isGraceBaptist ? "grace" : "active",
     },

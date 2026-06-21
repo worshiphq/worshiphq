@@ -577,6 +577,7 @@ function BillingTab({ subscription, features, ro }: { subscription: Subscription
     (subscription?.interval as "monthly" | "yearly") ?? "monthly",
   );
   const [switching, startSwitch] = useTransition();
+  const [upgradePlan, setUpgradePlan] = useState<typeof plans[number] | null>(null);
 
   const currentPlanId = subscription?.plan ?? "free";
   const currentPlan = plans.find((p) => p.id === currentPlanId) ?? plans[0];
@@ -739,21 +740,95 @@ function BillingTab({ subscription, features, ro }: { subscription: Subscription
                     disabled={isCurrent || ro || switching}
                     onClick={() => {
                       if (isCurrent) return;
-                      if (!confirm(`Switch to the ${plan.name} plan (${formatCurrency(monthlyPrice)}/mo)?`)) return;
-                      startSwitch(async () => {
-                        const res = await changePlan(plan.id, interval);
-                        if (res && "error" in res) alert(res.error);
-                        else setShowPlans(false);
-                      });
+                      setUpgradePlan(plan);
                     }}
                   >
-                    {switching ? "Switching..." : isCurrent ? "Current plan" : plan.cta}
+                    {isCurrent ? "Current plan" : plan.cta}
                   </Button>
                 </div>
               );
             })}
           </div>
         </Card>
+      )}
+
+      {/* Upgrade confirmation dialog */}
+      {upgradePlan && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setUpgradePlan(null)}>
+          <div
+            className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="grid size-10 place-items-center rounded-xl bg-primary/10">
+                <Sparkles className="size-5 text-primary-bright" />
+              </div>
+              <div>
+                <h3 className="font-display text-lg font-semibold">Upgrade to {upgradePlan.name}</h3>
+                <p className="text-sm text-ink-muted">{upgradePlan.tagline}</p>
+              </div>
+            </div>
+
+            <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
+              <div className="font-display text-2xl font-bold">
+                {formatCurrency(interval === "yearly" ? upgradePlan.yearly / 12 : upgradePlan.monthly)}
+                <span className="text-sm font-normal text-ink-faint">/mo</span>
+              </div>
+              <p className="text-xs text-ink-faint">
+                {interval === "yearly"
+                  ? `₵${upgradePlan.yearly.toLocaleString()} billed yearly`
+                  : "Billed monthly"}
+                {" · "}{upgradePlan.members}
+              </p>
+            </div>
+
+            {upgradePlan.upgradeTips.length > 0 && (
+              <div className="mt-4">
+                <h4 className="text-sm font-semibold text-ink">What you get with {upgradePlan.name}:</h4>
+                <ul className="mt-2 space-y-2">
+                  {upgradePlan.upgradeTips.map((tip) => (
+                    <li key={tip} className="flex items-start gap-2 text-sm text-ink-muted">
+                      <Check className="mt-0.5 size-4 shrink-0 text-success" />
+                      {tip}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {!features.payments && (
+              <p className="mt-4 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
+                Payment gateway is in stub mode — upgrade will be applied instantly without payment. Enable Paystack to collect payments.
+              </p>
+            )}
+
+            <div className="mt-5 flex gap-2">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => setUpgradePlan(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1"
+                disabled={switching}
+                onClick={() => {
+                  startSwitch(async () => {
+                    const res = await changePlan(upgradePlan.id, interval);
+                    if (res && "error" in res) alert(res.error);
+                    else {
+                      setUpgradePlan(null);
+                      setShowPlans(false);
+                    }
+                  });
+                }}
+              >
+                {switching ? "Upgrading..." : `Upgrade to ${upgradePlan.name}`}
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

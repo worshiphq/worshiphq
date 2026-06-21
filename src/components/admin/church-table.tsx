@@ -16,7 +16,7 @@ import {
 import { SubmitButton } from "@/components/ui/submit-button";
 import { useFeedback } from "@/components/ui/feedback";
 
-const PLANS = ["free", "starter", "growth", "unlimited"];
+const PLANS = ["free", "starter", "pro", "max"];
 
 export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
   const [q, setQ] = useState("");
@@ -174,8 +174,8 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                       type="button"
                       title="Gift free plan upgrade"
                       onClick={() => {
-                        const plan = prompt(`Gift a free plan to ${c.name}.\nEnter plan (starter / growth / unlimited):`, "unlimited");
-                        if (!plan || !["starter", "growth", "unlimited"].includes(plan.trim().toLowerCase())) return;
+                        const plan = prompt(`Gift a free plan to ${c.name}.\nEnter plan (starter / pro / max):`, "max");
+                        if (!plan || !["starter", "pro", "max"].includes(plan.trim().toLowerCase())) return;
                         run(
                           async () => {
                             const res = await grantPlanBypass(c.id, plan.trim().toLowerCase());

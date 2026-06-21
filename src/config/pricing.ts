@@ -5,11 +5,12 @@ export interface Plan {
   name: string;
   tagline: string;
   monthly: number;
-  yearly: number; // ~17% off (≈2 months free)
+  yearly: number;
   members: string;
   featured?: boolean;
   cta: string;
   features: string[];
+  upgradeTips: string[];
 }
 
 export const YEARLY_DISCOUNT_LABEL = "Save ~17%";
@@ -30,6 +31,7 @@ export const plans: Plan[] = [
       "QR check-in",
       "Mobile app (PWA)",
     ],
+    upgradeTips: [],
   },
   {
     id: "starter",
@@ -46,16 +48,23 @@ export const plans: Plan[] = [
       "Recurring giving",
       "Free data migration",
     ],
+    upgradeTips: [
+      "Send SMS broadcasts to your entire church in one click",
+      "Members get automatic birthday & anniversary messages",
+      "Set up recurring giving so members never miss an offering",
+      "We'll migrate your existing data for free — just ask",
+      "Up to 250 members — room to grow",
+    ],
   },
   {
-    id: "growth",
-    name: "Growth",
+    id: "pro",
+    name: "Pro",
     tagline: "For established ministries",
     monthly: 249,
     yearly: 2490,
     members: "Up to 1,000 members",
     featured: true,
-    cta: "Choose Growth",
+    cta: "Choose Pro",
     features: [
       "Everything in Starter",
       "Automations & workflows",
@@ -63,21 +72,35 @@ export const plans: Plan[] = [
       "Volunteer scheduling",
       "Priority support",
     ],
+    upgradeTips: [
+      "Automate follow-ups, new member welcomes and reminders",
+      "Advanced dashboards with giving trends and engagement scores",
+      "Schedule and manage volunteers across services",
+      "Priority support — we respond within hours, not days",
+      "Up to 1,000 members — built for established churches",
+    ],
   },
   {
-    id: "unlimited",
-    name: "Unlimited",
+    id: "max",
+    name: "Max",
     tagline: "For large churches",
     monthly: 499,
     yearly: 4990,
     members: "Unlimited members",
-    cta: "Choose Unlimited",
+    cta: "Choose Max",
     features: [
-      "Everything in Growth",
+      "Everything in Pro",
       "Fund accounting & budgets",
       "Advanced analytics",
       "API access",
       "Dedicated success manager",
+    ],
+    upgradeTips: [
+      "Full fund accounting with budgets and financial reports",
+      "Deep analytics across giving, attendance and engagement",
+      "API access to integrate with your existing church tools",
+      "A dedicated success manager to help your church thrive",
+      "Unlimited members — no caps, no limits",
     ],
   },
 ];

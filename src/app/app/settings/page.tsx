@@ -40,7 +40,7 @@ export default async function SettingsPage() {
     sub = await db.subscription.create({
       data: {
         churchId: church.id,
-        plan: isGrace ? "unlimited" : "free",
+        plan: isGrace ? "max" : "free",
         interval: "monthly",
         status: isGrace ? "grace" : "active",
       },
