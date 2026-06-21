@@ -53,6 +53,7 @@ export interface PersonRow {
   emergencyEmail: string | null;
   emergencyAddress: string | null;
   customFields: Record<string, string>;
+  biometricRegistered: boolean;
 }
 
 function engagementFor(status: PersonStatus): PersonRow["engagement"] {
@@ -72,6 +73,7 @@ export async function getPeople(churchId: string): Promise<PersonRow[]> {
       groups: { select: { name: true } },
       household: { select: { name: true } },
       departments: { select: { id: true, name: true } },
+      _count: { select: { biometrics: true } },
     },
   });
   return people.map((p) => ({
@@ -124,6 +126,7 @@ export async function getPeople(churchId: string): Promise<PersonRow[]> {
     emergencyEmail: p.emergencyEmail,
     emergencyAddress: p.emergencyAddress,
     customFields: (p.customFields as Record<string, string> | null) ?? {},
+    biometricRegistered: p._count.biometrics > 0,
   }));
 }
 

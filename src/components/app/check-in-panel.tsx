@@ -5,6 +5,7 @@ import { Search, UserPlus, X, Check, ScanLine } from "lucide-react";
 import { MemberAvatar } from "@/components/ui/member-avatar";
 import { QrCode } from "@/components/ui/qr-code";
 import { QrScanner } from "@/components/app/qr-scanner";
+import { BiometricCheckInButton } from "@/components/app/biometric-checkin";
 import { Button } from "@/components/ui/button";
 import { useFeedback } from "@/components/ui/feedback";
 import { checkInMember, checkInByMemberId, undoCheckIn } from "@/app/actions/attendance";
@@ -81,12 +82,21 @@ export function CheckInPanel({
         <div className="flex items-start justify-between gap-3">
           <div>
             <h3 className="font-display text-lg font-semibold">Check in members</h3>
-            <p className="text-sm text-ink-muted">Search a member and tap, or scan their QR code.</p>
+            <p className="text-sm text-ink-muted">Check in by name, QR code, or fingerprint scan.</p>
           </div>
           {canWrite && (
-            <Button variant="secondary" size="sm" onClick={() => setScanOpen(true)}>
-              <ScanLine className="size-4" /> Scan QR
-            </Button>
+            <div className="flex gap-2">
+              <BiometricCheckInButton
+                sessionId={sessionId}
+                onCheckedIn={(name, msg) => {
+                  toast(`${name} · ${msg}`, "success");
+                  window.location.reload();
+                }}
+              />
+              <Button variant="secondary" size="sm" onClick={() => setScanOpen(true)}>
+                <ScanLine className="size-4" /> Scan QR
+              </Button>
+            </div>
           )}
         </div>
 

@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import {
   Search, Plus, Phone, Mail, MapPin, X, Users, Pencil, Trash2,
-  Briefcase, Heart, Shield, User, Grid3X3, List, ChevronRight, Download, MessageSquare, QrCode as QrIcon,
+  Briefcase, Heart, Shield, User, Grid3X3, List, ChevronRight, Download, MessageSquare, QrCode as QrIcon, Fingerprint,
 } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { ImportModal } from "@/components/app/import-modal";
@@ -16,6 +16,7 @@ import { ClickableAvatar } from "@/components/ui/photo-lightbox";
 import { Label, Textarea } from "@/components/ui/input";
 import { createPerson, updatePerson, deletePerson } from "@/app/actions/people";
 import { sendSmsToPerson } from "@/app/actions/communications";
+import { BiometricRegisterButton } from "@/components/app/biometric-register";
 import { MemberFormFields, type MemberDefaults } from "@/components/app/member-form-fields";
 import type { PersonRow } from "@/lib/data/people";
 import type { FormField } from "@/lib/forms/registration";
@@ -289,6 +290,11 @@ function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <Badge variant={eng.variant}>{eng.label}</Badge>
                 <Badge variant="default" className="capitalize">{person.status}</Badge>
+                {person.biometricRegistered ? (
+                  <Badge variant="success" className="gap-1"><Fingerprint className="size-3" /> Biometrics</Badge>
+                ) : (
+                  <Badge variant="default" className="gap-1 bg-amber-100 text-amber-700"><Fingerprint className="size-3" /> No biometrics</Badge>
+                )}
               </div>
             </div>
           </div>
@@ -341,7 +347,17 @@ function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow
           )}
 
           {canWrite && (
-            <div className="mt-6 flex gap-2">
+            <div className="mt-4">
+              <BiometricRegisterButton
+                personId={person.id}
+                personName={person.fullName}
+                isRegistered={person.biometricRegistered}
+              />
+            </div>
+          )}
+
+          {canWrite && (
+            <div className="mt-4 flex gap-2">
               <Button className="flex-1" onClick={onEdit}><Pencil className="size-4" /> Edit profile</Button>
               {person.phone && (
                 <Button variant="secondary" onClick={() => setSmsOpen(true)}><MessageSquare className="size-4" /> SMS</Button>

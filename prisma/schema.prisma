@@ -257,6 +257,7 @@ model Person {
   followUps      FollowUp[]
   prayerRequests PrayerRequest[]
   welfareRecords WelfareRecord[]
+  biometrics     BiometricCredential[]
   user           User?
 
   @@unique([churchId, memberId])
@@ -843,4 +844,22 @@ model Devotional {
   createdAt DateTime @default(now())
 
   @@index([churchId, date])
+}
+
+// ── Biometric Credentials (WebAuthn) ──────────────────────
+model BiometricCredential {
+  id              String   @id @default(cuid())
+  personId        String
+  person          Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  churchId        String
+  credentialId    String   @db.Text
+  publicKey       String   @db.Text
+  counter         BigInt   @default(0)
+  deviceName      String?
+  transports      String?
+  registeredAt    DateTime @default(now())
+
+  @@unique([churchId, credentialId])
+  @@index([personId])
+  @@index([churchId])
 }
