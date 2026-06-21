@@ -16,6 +16,7 @@ import {
   ClipboardList,
   Heart,
   Users2,
+  Target,
 } from "lucide-react";
 
 export interface NavItem {
@@ -51,6 +52,7 @@ export const nav: NavSection[] = [
     items: [
       { key: "giving", label: "Giving", href: "/app/giving", icon: HandCoins },
       { key: "accounting", label: "Accounting", href: "/app/accounting", icon: Wallet },
+      { key: "giving", label: "Pledges", href: "/app/pledges", icon: Target },
       { key: "harvest", label: "Harvest", href: "/app/harvest", icon: Wheat },
     ],
   },
