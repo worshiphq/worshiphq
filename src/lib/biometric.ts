@@ -1,17 +1,14 @@
-export const DEFAULT_AGENT_PORT = 23847;
-export const DEFAULT_AGENT_URL = `http://localhost:${DEFAULT_AGENT_PORT}`;
+import "server-only";
+import { headers } from "next/headers";
+import { env } from "@/lib/env";
 
-export const FINGER_OPTIONS = [
-  { value: "right_thumb", label: "Right thumb" },
-  { value: "right_index", label: "Right index" },
-  { value: "right_middle", label: "Right middle" },
-  { value: "right_ring", label: "Right ring" },
-  { value: "right_pinky", label: "Right pinky" },
-  { value: "left_thumb", label: "Left thumb" },
-  { value: "left_index", label: "Left index" },
-  { value: "left_middle", label: "Left middle" },
-  { value: "left_ring", label: "Left ring" },
-  { value: "left_pinky", label: "Left pinky" },
-] as const;
+export const rpName = env.NEXT_PUBLIC_APP_NAME;
 
-export type FingerKey = (typeof FINGER_OPTIONS)[number]["value"];
+export async function getRpConfig() {
+  const h = await headers();
+  const host = h.get("host") ?? new URL(env.NEXT_PUBLIC_APP_URL).hostname;
+  const hostname = host.split(":")[0];
+  const proto = h.get("x-forwarded-proto") ?? (hostname === "localhost" ? "http" : "https");
+  const origin = `${proto}://${host}`;
+  return { rpID: hostname, origin };
+}

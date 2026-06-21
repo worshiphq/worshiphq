@@ -963,22 +963,33 @@ model VolunteerSlot {
   @@index([personId])
 }
 
-// ── Biometric Credentials (server-side fingerprint templates) ──
+// ── Biometric Credentials ────────────────────────────────
+// Supports BOTH:
+//   "webauthn" — laptop/phone fingerprint (instant, no setup)
+//   "scanner"  — USB fingerprint scanner (via local agent)
 model BiometricCredential {
   id              String   @id @default(cuid())
   personId        String
   person          Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
   churchId        String
+  type            String   @default("webauthn") // "webauthn" or "scanner"
 
-  // Fingerprint template data (base64-encoded template from scanner SDK)
-  templateData    String   @db.Text
-  finger          String   @default("right_thumb") // right_thumb, right_index, left_thumb, etc.
-  quality         Int      @default(0)             // template quality score 0-100
-  format          String   @default("raw")         // template format: raw, iso19794, ansi378
+  // WebAuthn fields (laptop/phone fingerprint)
+  credentialId    String?  @db.Text
+  publicKey       String?  @db.Text
+  counter         BigInt   @default(0)
+  transports      String?
+
+  // Scanner fields (USB fingerprint scanner)
+  templateData    String?  @db.Text
+  finger          String?
+  quality         Int?
+  format          String?
 
   deviceName      String?
   registeredAt    DateTime @default(now())
 
   @@index([personId])
   @@index([churchId])
+  @@index([churchId, type])
 }
