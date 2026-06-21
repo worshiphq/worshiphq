@@ -55,7 +55,7 @@ type SubscriptionData = { plan: string; status: string; interval: string; renews
 const MODULE_LABELS: Record<string, string> = {
   people: "People", attendance: "Attendance", events: "Events", volunteers: "Volunteers",
   giving: "Giving", accounting: "Accounting", communications: "Communications",
-  reminders: "Reminders", branches: "Branches", settings: "Settings",
+  reminders: "Reminders", settings: "Settings",
 };
 
 const tabs = [

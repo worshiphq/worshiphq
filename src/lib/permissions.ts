@@ -4,7 +4,7 @@ import type { Role } from "@/lib/demo/data";
 export const ALL_MODULES = [
   "people", "attendance", "events", "volunteers",
   "giving", "accounting", "harvest", "communications", "reminders",
-  "branches", "settings",
+  "settings",
 ] as const;
 
 /** Session shape — client-safe (no server imports). Backed by a real DB user. */
@@ -21,7 +21,9 @@ export interface Session {
   canDelete: boolean;
   churchId: string;
   churchName: string;
+  /** @deprecated Branch feature removed — kept for data compatibility. */
   branch: string;
+  /** @deprecated Branch feature removed — kept for data compatibility. */
   branchId?: string | null;
   avatarName: string;
   avatarUrl?: string | null;
@@ -34,7 +36,7 @@ export interface Session {
 
 export const ROLE_PERMISSIONS: Record<Role, string[]> = {
   Owner: ["*"],
-  Admin: ["people", "attendance", "giving", "events", "volunteers", "communications", "reminders", "branches", "settings", "accounting", "harvest"],
+  Admin: ["people", "attendance", "giving", "events", "volunteers", "communications", "reminders", "settings", "accounting", "harvest"],
   Pastor: ["people", "attendance", "giving", "events", "volunteers", "communications", "reminders", "settings"],
   Finance: ["giving", "accounting", "harvest", "people", "reminders"],
   Media: ["communications", "events", "people"],

@@ -218,8 +218,6 @@ Requested ID: ${senderId}`,
     { heading: null }
   );
 
-  console.log("SENDER ID SMS RESULT:", result);
-
   revalidatePath("/app/settings");
 }
 export async function updateBranding(formData: FormData) {
@@ -331,9 +329,7 @@ export async function inviteTeammate(formData: FormData) {
   if (!email || !name) return;
 
   const exists = await db.user.findUnique({ where: { email } });
-  if (exists) {
-    throw new Error("A user with this email already exists.");
-  }
+  if (exists) return;
 
   const tempPassword = String(formData.get("password") ?? "").trim() || "changeme123";
   await db.user.create({
@@ -365,7 +361,7 @@ export async function inviteTeammate(formData: FormData) {
     <p>Please sign in and change your password immediately.</p>
 
     <p>
-      <a href="https://worshiphq.app/sign-in">
+      <a href="${process.env.NEXT_PUBLIC_APP_URL ?? "https://worshiphq.app"}/sign-in">
         Login to WorshipHQ
       </a>
     </p>
