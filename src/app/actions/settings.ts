@@ -288,6 +288,28 @@ export async function saveVisitorForm(formData: FormData) {
   revalidatePath("/visit", "layout");
 }
 
+export async function updateSlug(newSlug: string) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  if (session.role !== "Owner" && session.role !== "Admin") return { error: "Only admins can change the link" };
+
+  const slug = newSlug
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  if (slug.length < 3) return { error: "Link must be at least 3 characters" };
+  if (slug.length > 60) return { error: "Link must be 60 characters or fewer" };
+
+  const existing = await db.church.findUnique({ where: { slug } });
+  if (existing && existing.id !== session.churchId) return { error: "This link is already taken by another church" };
+
+  await db.church.update({ where: { id: session.churchId }, data: { slug } });
+  revalidatePath("/app/settings");
+  return { ok: true, slug };
+}
+
 const BUILT_IN_ROLES: Role[] = ["Owner", "Admin", "Pastor", "Finance", "Media", "Leader", "Volunteer"];
 
 /** A role <select> value is either a built-in enum or "custom:<id>". */

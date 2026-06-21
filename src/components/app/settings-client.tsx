@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import {
   Building, Palette, Users2, CreditCard, Plug, Check, Pencil, CircleDot,
   Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, Shield, MessageSquare,
+  ExternalLink,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +18,7 @@ import {
   changeUserRole, removeTeamMember,
   createCustomRole, deleteCustomRole, requestSenderId,
   updateRolePermissions, changePlan, redeemPlanBypass,
-  saveVisitorForm,
+  saveVisitorForm, updateSlug,
 } from "@/app/actions/settings";
 import { ALL_MODULES } from "@/lib/permissions";
 import { BrandingForm } from "@/components/app/branding-form";
@@ -100,11 +101,6 @@ export function SettingsClient({
   const [tab, setTab] = useState<(typeof tabs)[number]["key"]>("church");
   const ro = session.isDemo;
   const isAdmin = session.role === "Owner" || session.role === "Admin";
-
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const joinUrl = church?.slug ? `${origin}/join/${church.slug}` : "";
-  const visitUrl = church?.slug ? `${origin}/visit/${church.slug}` : "";
-  const prayUrl = church?.slug ? `${origin}/pray/${church.slug}` : "";
 
   return (
     <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
@@ -356,53 +352,25 @@ export function SettingsClient({
         {/* ── Join link / registration form config ── */}
         {tab === "registration" && (
           <div className="space-y-4">
-            <Card className="p-6">
-              <h3 className="font-display text-lg font-semibold">Member self-registration link</h3>
-              <p className="text-sm text-ink-muted">
-                Share this link with your congregation. Members fill in their own details and appear in your People list automatically.
-              </p>
-              {joinUrl && (
-                <div className="mt-4 flex items-center gap-2">
-                  <Input value={joinUrl} readOnly className="flex-1 font-mono text-xs" />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => {
-                      navigator.clipboard.writeText(joinUrl);
-                      alert("Link copied!");
-                    }}
-                  >
-                    <Link2 className="size-4" /> Copy
-                  </Button>
-                </div>
-              )}
-            </Card>
+            <SlugEditor slug={church?.slug ?? ""} ro={ro} isAdmin={isAdmin} />
+
+            <SharedLinkCard
+              title="Member self-registration"
+              description="Share this link with your congregation. Members fill in their own details and appear in your People list automatically."
+              path={`/join/${church?.slug ?? ""}`}
+              slug={church?.slug}
+            />
 
             {isAdmin && (
               <FormBuilder initial={getFormDefinition(church?.registrationFields ?? null)} readOnly={ro} />
             )}
 
-            <Card className="p-6">
-              <h3 className="font-display text-lg font-semibold">Visitor form link</h3>
-              <p className="text-sm text-ink-muted">
-                A simpler form for first-time visitors. Collects name, phone, purpose of visit and prayer requests — without the full member registration.
-              </p>
-              {visitUrl && (
-                <div className="mt-4 flex items-center gap-2">
-                  <Input value={visitUrl} readOnly className="flex-1 font-mono text-xs" />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => {
-                      navigator.clipboard.writeText(visitUrl);
-                      alert("Link copied!");
-                    }}
-                  >
-                    <Link2 className="size-4" /> Copy
-                  </Button>
-                </div>
-              )}
-            </Card>
+            <SharedLinkCard
+              title="Visitor form"
+              description="A simpler form for first-time visitors. Collects name, phone, purpose of visit and prayer requests."
+              path={`/visit/${church?.slug ?? ""}`}
+              slug={church?.slug}
+            />
 
             {isAdmin && (
               <FormBuilder
@@ -414,27 +382,12 @@ export function SettingsClient({
               />
             )}
 
-            <Card className="p-5">
-              <h3 className="text-sm font-semibold">Prayer request link</h3>
-              <p className="mt-1 text-xs text-ink-muted">
-                Share this link so members can submit prayer requests online.
-              </p>
-              {prayUrl && (
-                <div className="mt-4 flex items-center gap-2">
-                  <Input value={prayUrl} readOnly className="flex-1 font-mono text-xs" />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    onClick={() => {
-                      navigator.clipboard.writeText(prayUrl);
-                      alert("Link copied!");
-                    }}
-                  >
-                    <Link2 className="size-4" /> Copy
-                  </Button>
-                </div>
-              )}
-            </Card>
+            <SharedLinkCard
+              title="Prayer requests"
+              description="Share this link so members can submit prayer requests online."
+              path={`/pray/${church?.slug ?? ""}`}
+              slug={church?.slug}
+            />
           </div>
         )}
 
@@ -831,5 +784,107 @@ function BillingTab({ subscription, features, ro }: { subscription: Subscription
         </div>
       )}
     </div>
+  );
+}
+
+function SlugEditor({ slug, ro, isAdmin }: { slug: string; ro: boolean; isAdmin: boolean }) {
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(slug);
+  const [saving, startSave] = useTransition();
+  const [error, setError] = useState("");
+
+  const preview = draft
+    .toLowerCase()
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+
+  return (
+    <Card className="p-6">
+      <h3 className="font-display text-lg font-semibold">Your church link</h3>
+      <p className="text-sm text-ink-muted">
+        This slug is used in all your shared links — membership, visitor form and prayer requests.
+        Changing it updates every link at once.
+      </p>
+      <div className="mt-4 flex items-center gap-2">
+        {editing ? (
+          <>
+            <div className="flex flex-1 items-center rounded-xl border border-line bg-surface px-3">
+              <span className="text-xs text-ink-faint">/join/</span>
+              <input
+                value={draft}
+                onChange={(e) => { setDraft(e.target.value); setError(""); }}
+                className="h-10 flex-1 bg-transparent text-sm font-mono text-ink outline-none"
+                autoFocus
+              />
+            </div>
+            <Button
+              size="sm"
+              disabled={saving || preview.length < 3}
+              onClick={() => {
+                startSave(async () => {
+                  const res = await updateSlug(preview);
+                  if (res && "error" in res) setError(res.error ?? "Something went wrong");
+                  else setEditing(false);
+                });
+              }}
+            >
+              {saving ? "Saving..." : "Save"}
+            </Button>
+            <Button variant="ghost" size="sm" onClick={() => { setEditing(false); setDraft(slug); setError(""); }}>
+              Cancel
+            </Button>
+          </>
+        ) : (
+          <>
+            <Input value={slug} readOnly className="flex-1 font-mono text-xs" />
+            {isAdmin && !ro && (
+              <Button variant="secondary" size="sm" onClick={() => { setDraft(slug); setEditing(true); }}>
+                <Pencil className="size-3.5" /> Edit
+              </Button>
+            )}
+          </>
+        )}
+      </div>
+      {error && <p className="mt-2 text-xs text-danger">{error}</p>}
+      {editing && preview && preview !== slug && (
+        <p className="mt-2 text-xs text-ink-faint">Preview: /join/<strong>{preview}</strong></p>
+      )}
+    </Card>
+  );
+}
+
+function SharedLinkCard({ title, description, path, slug }: { title: string; description: string; path: string; slug?: string }) {
+  const origin = typeof window !== "undefined" ? window.location.origin : "";
+  const url = slug ? `${origin}${path}` : "";
+  const [copied, setCopied] = useState(false);
+
+  return (
+    <Card className="p-5">
+      <h3 className="text-sm font-semibold">{title}</h3>
+      <p className="mt-1 text-xs text-ink-muted">{description}</p>
+      {url && (
+        <div className="mt-3 flex items-center gap-2">
+          <Input value={url} readOnly className="flex-1 font-mono text-xs" />
+          <Button
+            type="button"
+            variant="secondary"
+            size="sm"
+            onClick={() => {
+              navigator.clipboard.writeText(url);
+              setCopied(true);
+              setTimeout(() => setCopied(false), 2000);
+            }}
+          >
+            {copied ? <><Check className="size-3.5" /> Copied</> : <><Link2 className="size-3.5" /> Copy</>}
+          </Button>
+          <a href={path} target="_blank" rel="noopener noreferrer">
+            <Button type="button" variant="ghost" size="sm">
+              <ExternalLink className="size-3.5" /> Open
+            </Button>
+          </a>
+        </div>
+      )}
+    </Card>
   );
 }
