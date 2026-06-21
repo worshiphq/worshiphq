@@ -24,6 +24,7 @@ import {
   Calendar,
   ScrollText,
   BookMarked,
+  Package,
 } from "lucide-react";
 
 export interface NavItem {
@@ -85,6 +86,7 @@ export const nav: NavSection[] = [
     title: "Organisation",
     items: [
       { key: "branches", label: "Branches", href: "/app/branches", icon: Building2 },
+      { key: "settings", label: "Assets", href: "/app/assets", icon: Package },
       { key: "settings", label: "Audit log", href: "/app/audit-log", icon: ScrollText },
       { key: "settings", label: "Settings", href: "/app/settings", icon: Settings },
     ],

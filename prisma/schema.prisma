@@ -86,6 +86,7 @@ model Church {
   welfareRecords WelfareRecord[]
   auditLogs      AuditLog[]
   sermons        Sermon[]
+  assets         Asset[]
 }
 
 model Branch {
@@ -754,4 +755,22 @@ model Sermon {
   createdAt   DateTime @default(now())
 
   @@index([churchId, date])
+}
+
+// ── Assets / Equipment ────────────────────────────────────
+model Asset {
+  id          String   @id @default(cuid())
+  churchId    String
+  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name        String
+  category    String   @default("general")
+  location    String?
+  condition   String   @default("good")
+  serialNo    String?
+  purchaseDate DateTime?
+  purchasePrice Float?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([churchId, category])
 }
