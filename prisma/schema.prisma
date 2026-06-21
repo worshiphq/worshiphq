@@ -85,6 +85,7 @@ model Church {
   notices        ChurchNotice[]
   welfareRecords WelfareRecord[]
   auditLogs      AuditLog[]
+  sermons        Sermon[]
 }
 
 model Branch {
@@ -734,4 +735,23 @@ model AuditLog {
 
   @@index([churchId, createdAt])
   @@index([userId])
+}
+
+// ── Sermons & Media ───────────────────────────────────────
+model Sermon {
+  id          String   @id @default(cuid())
+  churchId    String
+  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  title       String
+  preacher    String?
+  series      String?
+  date        DateTime @default(now())
+  scripture   String?
+  notes       String?  @db.Text
+  audioUrl    String?
+  videoUrl    String?
+  published   Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  @@index([churchId, date])
 }

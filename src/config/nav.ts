@@ -23,6 +23,7 @@ import {
   BookUser,
   Calendar,
   ScrollText,
+  BookMarked,
 } from "lucide-react";
 
 export interface NavItem {
@@ -77,6 +78,7 @@ export const nav: NavSection[] = [
       { key: "people", label: "Follow-ups", href: "/app/follow-ups", icon: ClipboardList },
       { key: "people", label: "Prayer requests", href: "/app/prayer-requests", icon: Heart },
       { key: "communications", label: "Notices", href: "/app/notices", icon: Megaphone },
+      { key: "events", label: "Sermons", href: "/app/sermons", icon: BookMarked },
     ],
   },
   {
