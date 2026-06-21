@@ -32,6 +32,22 @@ export default async function SettingsPage() {
     }),
   ]);
 
+  // Auto-provision subscription for churches created before subscriptions existed
+  let sub = subscription;
+  if (!sub && church) {
+    const owner = users.find((u) => u.role === "Owner");
+    const isGrace = owner?.email?.toLowerCase() === "theophanyhouse@gmail.com";
+    sub = await db.subscription.create({
+      data: {
+        churchId: church.id,
+        plan: isGrace ? "unlimited" : "free",
+        interval: "monthly",
+        status: isGrace ? "grace" : "active",
+      },
+      select: { plan: true, status: true, interval: true, renewsAt: true },
+    });
+  }
+
   const churchData = church
     ? {
       name: church.name,
@@ -61,6 +77,7 @@ export default async function SettingsPage() {
         users={users}
         departments={departments}
         customRoles={customRoles}
+        subscription={sub}
       />
     </div>
   );

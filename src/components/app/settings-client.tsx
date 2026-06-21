@@ -47,6 +47,7 @@ type Church = {
 type TeamUser = { id: string; name: string; email: string; role: string; customRole?: { id: string; name: string } | null };
 type Dept = { id: string; name: string };
 type CustomRoleRow = { id: string; name: string; sections: string[]; canDelete: boolean };
+type SubscriptionData = { plan: string; status: string; interval: string; renewsAt: Date | null } | null;
 
 const MODULE_LABELS: Record<string, string> = {
   people: "People", attendance: "Attendance", events: "Events", volunteers: "Volunteers",
@@ -84,6 +85,7 @@ export function SettingsClient({
   users,
   departments,
   customRoles,
+  subscription,
 }: {
   session: Session;
   features: FeatureMap;
@@ -91,6 +93,7 @@ export function SettingsClient({
   users: TeamUser[];
   departments: Dept[];
   customRoles: CustomRoleRow[];
+  subscription: SubscriptionData;
 }) {
   const [tab, setTab] = useState<(typeof tabs)[number]["key"]>("church");
   const ro = session.isDemo;
@@ -379,31 +382,7 @@ export function SettingsClient({
         )}
 
         {/* ── Billing ── */}
-        {tab === "billing" && (
-          <Card className="p-6">
-            <h3 className="font-display text-lg font-semibold">Billing & subscription</h3>
-            <p className="text-sm text-ink-muted">Powered by Paystack. Billed in GHS.</p>
-            <div className="mt-5 flex items-center justify-between rounded-2xl border border-primary/30 bg-primary/10 p-5">
-              <div>
-                <div className="flex items-center gap-2"><Sparkles className="size-4 text-primary-bright" /><span className="font-display text-lg font-semibold">Free plan</span></div>
-                <div className="mt-1 text-sm text-ink-muted">Up to 50 members. 1 branch</div>
-              </div>
-              <div className="text-right">
-                <div className="font-display text-2xl font-bold">{formatCurrency(plans[0].monthly)}<span className="text-sm font-normal text-ink-faint">/mo</span></div>
-                <div className="text-xs text-ink-faint">Upgrade anytime</div>
-              </div>
-            </div>
-            <div className="mt-3 flex gap-2">
-              <Button variant="secondary" disabled={ro}>Upgrade plan</Button>
-              <Button variant="ghost">Billing history</Button>
-            </div>
-            {!features.payments && (
-              <p className="mt-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning">
-                Paystack is in stub mode --- add PAYSTACK_SECRET_KEY to enable live billing & giving.
-              </p>
-            )}
-          </Card>
-        )}
+        {tab === "billing" && <BillingTab subscription={subscription} features={features} ro={ro} />}
 
         {tab === "sms" && (
           <Card className="p-6">
@@ -532,5 +511,158 @@ function BuiltInRolesEditor({
         })}
       </div>
     </Card>
+  );
+}
+
+function BillingTab({ subscription, features, ro }: { subscription: SubscriptionData; features: FeatureMap; ro: boolean }) {
+  const [showPlans, setShowPlans] = useState(false);
+  const [interval, setInterval] = useState<"monthly" | "yearly">(
+    (subscription?.interval as "monthly" | "yearly") ?? "monthly",
+  );
+
+  const currentPlanId = subscription?.plan ?? "free";
+  const currentPlan = plans.find((p) => p.id === currentPlanId) ?? plans[0];
+  const isGrace = subscription?.status === "grace";
+  const price = interval === "yearly" ? currentPlan.yearly / 12 : currentPlan.monthly;
+
+  return (
+    <div className="space-y-5">
+      <Card className="p-6">
+        <h3 className="font-display text-lg font-semibold">Billing & subscription</h3>
+        <p className="text-sm text-ink-muted">Powered by Paystack. Billed in GHS.</p>
+
+        <div className="mt-5 flex items-center justify-between rounded-2xl border border-primary/30 bg-primary/10 p-5">
+          <div>
+            <div className="flex items-center gap-2">
+              <Sparkles className="size-4 text-primary-bright" />
+              <span className="font-display text-lg font-semibold">{currentPlan.name} plan</span>
+              {isGrace && <Badge variant="success">Gift of Grace</Badge>}
+            </div>
+            <div className="mt-1 text-sm text-ink-muted">{currentPlan.members}. {currentPlan.branches}</div>
+          </div>
+          <div className="text-right">
+            {isGrace ? (
+              <div className="font-display text-2xl font-bold text-success">Free forever</div>
+            ) : (
+              <>
+                <div className="font-display text-2xl font-bold">
+                  {formatCurrency(price)}
+                  <span className="text-sm font-normal text-ink-faint">/mo</span>
+                </div>
+                {currentPlanId !== "free" && subscription?.renewsAt && (
+                  <div className="text-xs text-ink-faint">
+                    Renews {new Date(subscription.renewsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                  </div>
+                )}
+                {currentPlanId === "free" && <div className="text-xs text-ink-faint">Upgrade anytime</div>}
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-4 space-y-2">
+          <h4 className="text-sm font-medium text-ink-muted">Your plan includes:</h4>
+          <ul className="grid gap-1 sm:grid-cols-2">
+            {currentPlan.features.map((f) => (
+              <li key={f} className="flex items-center gap-2 text-sm text-ink">
+                <Check className="size-3.5 shrink-0 text-success" /> {f}
+              </li>
+            ))}
+          </ul>
+        </div>
+
+        <div className="mt-5 flex gap-2">
+          {!isGrace && (
+            <Button variant="secondary" disabled={ro} onClick={() => setShowPlans(!showPlans)}>
+              {showPlans ? "Hide plans" : currentPlanId === "free" ? "Upgrade plan" : "Change plan"}
+            </Button>
+          )}
+          <Button variant="ghost">Billing history</Button>
+        </div>
+
+        {!features.payments && (
+          <p className="mt-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning">
+            Paystack is in stub mode — add PAYSTACK_SECRET_KEY to enable live billing & giving.
+          </p>
+        )}
+      </Card>
+
+      {showPlans && !isGrace && (
+        <Card className="p-6">
+          <div className="flex items-center justify-between">
+            <h3 className="font-display text-lg font-semibold">Choose a plan</h3>
+            <div className="flex items-center gap-1 rounded-full border border-line bg-surface-2 p-1">
+              <button
+                type="button"
+                onClick={() => setInterval("monthly")}
+                className={cn(
+                  "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                  interval === "monthly" ? "bg-surface shadow-sm text-ink" : "text-ink-muted",
+                )}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                onClick={() => setInterval("yearly")}
+                className={cn(
+                  "rounded-full px-3 py-1.5 text-xs font-medium transition-colors",
+                  interval === "yearly" ? "bg-surface shadow-sm text-ink" : "text-ink-muted",
+                )}
+              >
+                Yearly <span className="text-success">Save ~17%</span>
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            {plans.map((plan) => {
+              const isCurrent = plan.id === currentPlanId;
+              const monthlyPrice = interval === "yearly" ? plan.yearly / 12 : plan.monthly;
+              return (
+                <div
+                  key={plan.id}
+                  className={cn(
+                    "rounded-2xl border p-4 transition-all",
+                    isCurrent
+                      ? "border-primary/40 bg-primary/5 ring-1 ring-primary/20"
+                      : plan.featured
+                        ? "border-primary/30 bg-surface"
+                        : "border-line bg-surface",
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <h4 className="font-display font-semibold">{plan.name}</h4>
+                    {plan.featured && !isCurrent && <Badge variant="primary">Popular</Badge>}
+                    {isCurrent && <Badge variant="success">Current</Badge>}
+                  </div>
+                  <p className="mt-1 text-xs text-ink-muted">{plan.tagline}</p>
+                  <div className="mt-3">
+                    <span className="font-display text-2xl font-bold">{formatCurrency(monthlyPrice)}</span>
+                    <span className="text-sm text-ink-faint">/mo</span>
+                  </div>
+                  <div className="mt-1 text-xs text-ink-faint">{plan.members}</div>
+                  <ul className="mt-3 space-y-1.5">
+                    {plan.features.map((f) => (
+                      <li key={f} className="flex items-start gap-1.5 text-xs text-ink-muted">
+                        <Check className="mt-0.5 size-3 shrink-0 text-success" /> {f}
+                      </li>
+                    ))}
+                  </ul>
+                  <Button
+                    className="mt-4 w-full"
+                    variant={isCurrent ? "ghost" : plan.featured ? "primary" : "secondary"}
+                    size="sm"
+                    disabled={isCurrent || ro}
+                  >
+                    {isCurrent ? "Current plan" : plan.cta}
+                  </Button>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      )}
+    </div>
   );
 }
