@@ -16,7 +16,8 @@ export function CometSpinner({ className, ...props }: React.ComponentProps<"span
       />
       <span
         aria-hidden="true"
-        className="absolute inset-0 rounded-full border-2 border-transparent border-t-current animate-comet-spin"
+        className="absolute inset-0 rounded-full border-2 border-transparent border-t-current"
+        style={{ animation: "comet-spin 1.7s linear infinite" }}
       />
       <span className="sr-only">Loading</span>
     </span>

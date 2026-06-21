@@ -17,8 +17,11 @@ export function BouncingDots({
         <span
           key={i}
           aria-hidden="true"
-          className="inline-block aspect-square grow rounded-full bg-current animate-bounce-dot"
-          style={{ animationDelay: `${i * 0.2}s` }}
+          className="inline-block aspect-square grow rounded-full bg-current"
+          style={{
+            animation: "bounce-dot 1.4s ease-in-out infinite",
+            animationDelay: `${i * 200}ms`,
+          }}
         />
       ))}
       <span className="sr-only">Loading</span>

@@ -1,11 +1,11 @@
-import { Wave } from "@/components/ui/wave";
+import { CometSpinner } from "@/components/ui/comet-spinner";
 
 export default function RootLoading() {
   return (
-    <div className="grid min-h-screen place-items-center bg-[#faf8f4]">
+    <div className="grid min-h-screen place-items-center bg-base" style={{ animation: "fade-in 0.3s ease-out 0.15s both" }}>
       <div className="flex flex-col items-center gap-4">
-        <Wave className="size-10 text-primary-bright" />
-        <p className="text-sm font-medium text-[#6b6560]">Loading…</p>
+        <CometSpinner className="size-10 text-primary-bright" />
+        <p className="text-sm font-medium text-ink-muted">Loading…</p>
       </div>
     </div>
   );
