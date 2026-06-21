@@ -31,12 +31,12 @@ export function Logo({
   );
 }
 
-/** The WorshipHQ icon mark — shows the full logo scaled to icon size. */
+/** The WorshipHQ square shield mark — for favicons, collapsed sidebar, avatars. */
 export function LogoMark({ className }: { className?: string }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element
     <img
-      src="/logo.png"
+      src="/logo2.png"
       alt="WorshipHQ"
       className={cn("shrink-0 object-contain", className)}
     />
