@@ -89,7 +89,10 @@ export function PeopleClient({
       <PageHeader title="People" description="Your whole congregation — members, families and visitors.">
         {canWrite && <ImportModal />}
         <a href="/api/export/people">
-          <Button size="sm" variant="secondary"><Download className="size-4" /> Export CSV</Button>
+          <Button size="sm" variant="secondary"><Download className="size-4" /> CSV</Button>
+        </a>
+        <a href="/api/export/people?format=xlsx">
+          <Button size="sm" variant="secondary"><Download className="size-4" /> Excel</Button>
         </a>
         <Button size="sm" onClick={() => setCreating(true)} disabled={!canWrite}>
           <Plus className="size-4" /> Add member
