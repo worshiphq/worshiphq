@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   ChevronDown, ChevronRight, Download, Calendar,
   TrendingUp, TrendingDown, Scale, Wallet,
   HandCoins, Banknote, Trash2, Pencil, Check, X,
+  Infinity,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -34,29 +36,45 @@ export function AccountingClient({ transactions, income, expenses, fundBalances,
   const [tab, setTab] = useState<"weekly" | "all" | "report">("weekly");
   const [selectedYear, setSelectedYear] = useState(year);
   const [selectedMonth, setSelectedMonth] = useState(month);
+  const [allTime, setAllTime] = useState(year === 0);
+  const router = useRouter();
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 3 }, (_, i) => currentYear - i);
-  const needsRefresh = selectedYear !== year || selectedMonth !== month;
+
+  const navigatePeriod = (newYear: number, newMonth: number, isAllTime = false) => {
+    setSelectedYear(newYear);
+    setSelectedMonth(newMonth);
+    setAllTime(isAllTime);
+    if (isAllTime) {
+      router.push("/app/accounting?allTime=1");
+    } else if (newYear !== year || newMonth !== month || allTime) {
+      router.push(`/app/accounting?year=${newYear}&month=${newMonth}`);
+    }
+  };
 
   return (
     <div className="space-y-5">
       {/* Period selector */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2">
+        <button
+          onClick={() => navigatePeriod(selectedYear, selectedMonth, true)}
+          className={cn(
+            "flex items-center gap-1.5 rounded-xl border px-3 py-2 text-sm font-medium transition-all",
+            allTime ? "border-primary bg-primary/10 text-ink" : "border-line text-ink-muted hover:bg-surface-2",
+          )}
+        >
+          <Infinity className="size-4" /> All time
+        </button>
+        <div className={cn("flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2", allTime && "opacity-60")}>
           <Calendar className="size-4 text-ink-faint" />
-          <select value={selectedMonth} onChange={(e) => setSelectedMonth(Number(e.target.value))} className="bg-transparent text-sm font-medium outline-none">
+          <select value={selectedMonth} onChange={(e) => navigatePeriod(selectedYear, Number(e.target.value))} className="bg-transparent text-sm font-medium outline-none">
             {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
           </select>
-          <select value={selectedYear} onChange={(e) => setSelectedYear(Number(e.target.value))} className="bg-transparent text-sm font-medium outline-none">
+          <select value={selectedYear} onChange={(e) => navigatePeriod(Number(e.target.value), selectedMonth)} className="bg-transparent text-sm font-medium outline-none">
             {years.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
-        {needsRefresh && (
-          <a href={`/app/accounting?year=${selectedYear}&month=${selectedMonth}`}>
-            <Button size="sm" variant="secondary">Load {MONTHS[selectedMonth]} {selectedYear}</Button>
-          </a>
-        )}
         <span className="text-sm text-ink-muted">{monthLabel}</span>
       </div>
 

@@ -23,7 +23,7 @@ export default async function GivingPage({
 
   const [data, church, titheData] = await Promise.all([
     getGiving(session.churchId),
-    db.church.findUnique({ where: { id: session.churchId }, select: { slug: true, isDemo: true } }),
+    db.church.findUnique({ where: { id: session.churchId }, select: { slug: true, isDemo: true, titheReceiptTemplate: true } }),
     getTitheData(session.churchId, titheYear, validMonth),
   ]);
 
@@ -51,6 +51,7 @@ export default async function GivingPage({
         <TitheClient
           {...titheData}
           canWrite={!session.isDemo}
+          titheTemplate={church?.titheReceiptTemplate ?? null}
         />
       </div>
     </div>

@@ -17,11 +17,12 @@ export default async function AccountingPage({
   const session = await requireModule("accounting");
   const params = await searchParams;
   const now = new Date();
+  const isAllTime = params.allTime === "1";
   const year = Number(params.year) || now.getFullYear();
   const rawMonth = params.month != null ? Number(params.month) : NaN;
   const month = rawMonth >= 0 && rawMonth <= 11 ? rawMonth : now.getMonth();
 
-  const data = await getAccounting(session.churchId, year, month);
+  const data = await getAccounting(session.churchId, year, month, isAllTime);
 
   return (
     <div>

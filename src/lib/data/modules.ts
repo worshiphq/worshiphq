@@ -105,7 +105,7 @@ function accountingWeeks(year: number, month: number) {
   return weeks;
 }
 
-export async function getAccounting(churchId: string, year?: number, month?: number) {
+export async function getAccounting(churchId: string, year?: number, month?: number, allTime = false) {
   const now = new Date();
   const y = year ?? now.getFullYear();
   const m = month ?? now.getMonth();
@@ -114,13 +114,15 @@ export async function getAccounting(churchId: string, year?: number, month?: num
 
   const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
+  const dateFilter = allTime ? {} : { date: { gte: startOfMonth, lte: endOfMonth } };
+
   const [txns, gifts] = await Promise.all([
     db.transaction.findMany({
-      where: { churchId, date: { gte: startOfMonth, lte: endOfMonth } },
+      where: { churchId, ...dateFilter },
       orderBy: { date: "desc" },
     }),
     db.gift.findMany({
-      where: { churchId, date: { gte: startOfMonth, lte: endOfMonth } },
+      where: { churchId, ...dateFilter },
       orderBy: { date: "desc" },
       include: { fund: { select: { name: true } } },
     }),
@@ -186,9 +188,9 @@ export async function getAccounting(churchId: string, year?: number, month?: num
     expenses,
     fundBalances: [...byFund.entries()].map(([fund, balance]) => ({ fund, balance })),
     weeks,
-    monthLabel: `${monthNames[m]} ${y}`,
-    year: y,
-    month: m,
+    monthLabel: allTime ? "All time" : `${monthNames[m]} ${y}`,
+    year: allTime ? 0 : y,
+    month: allTime ? 0 : m,
   };
 }
 

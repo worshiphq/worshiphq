@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search, Plus, Trash2, Send, ChevronDown, ChevronRight,
   Download, Calendar, Smartphone, CreditCard, Banknote,
@@ -12,7 +13,9 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { StatCard } from "@/components/app/stat-card";
 import { useFeedback } from "@/components/ui/feedback";
-import { recordTitheBatch, type TitheEntry } from "@/app/actions/giving";
+import { recordTitheBatch, recordGivingBatch, saveTitheTemplate, type TitheEntry } from "@/app/actions/giving";
+import { Pencil, MessageSquare, X } from "lucide-react";
+import { Input, Label } from "@/components/ui/input";
 import { formatCurrency } from "@/config/brand";
 import { formatDate, cn } from "@/lib/utils";
 import type { TitheMember, WeekGroup } from "@/lib/data/giving";
@@ -26,6 +29,15 @@ type LocalEntry = { personId: string; name: string; amount: string; method: stri
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+const FUND_TYPES = [
+  { key: "tithes", label: "Tithes" },
+  { key: "offertory", label: "Offertory" },
+  { key: "dayborn", label: "Day Born (Kofi ne Ama)" },
+  { key: "custom", label: "Custom" },
+] as const;
+
+const DEFAULT_TITHE_TEMPLATE = "Dear {name}, your Tithe of GHS {amount} has been received by {church}. God Bless You for paying your Tithes to the Lord. Malachi 3:10 Shalom!";
+
 export function TitheClient({
   members,
   weeks,
@@ -34,6 +46,7 @@ export function TitheClient({
   year,
   month,
   canWrite,
+  titheTemplate,
 }: {
   members: TitheMember[];
   weeks: WeekGroup[];
@@ -42,16 +55,49 @@ export function TitheClient({
   year: number;
   month: number;
   canWrite: boolean;
+  titheTemplate?: string | null;
 }) {
   const [tab, setTab] = useState<"record" | "records" | "report">("records");
   const [selectedYear, setSelectedYear] = useState(year);
   const [selectedMonth, setSelectedMonth] = useState(month);
+  const [fundType, setFundType] = useState<string>("tithes");
+  const [customFund, setCustomFund] = useState("");
+  const [showTemplateEditor, setShowTemplateEditor] = useState(false);
 
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 3 }, (_, i) => currentYear - i);
 
-  const periodKey = `${selectedYear}-${selectedMonth}`;
-  const needsRefresh = selectedYear !== year || selectedMonth !== month;
+  const router = useRouter();
+  const [templateText, setTemplateText] = useState(titheTemplate || DEFAULT_TITHE_TEMPLATE);
+  const [savingTemplate, startTemplateSave] = useTransition();
+  const { toast } = useFeedback();
+
+  const activeFundName = fundType === "tithes" ? "Tithes"
+    : fundType === "offertory" ? "Offertory"
+    : fundType === "dayborn" ? "Day Born"
+    : customFund || "Custom";
+
+  const navigatePeriod = (newYear: number, newMonth: number) => {
+    setSelectedYear(newYear);
+    setSelectedMonth(newMonth);
+    if (newYear !== year || newMonth !== month) {
+      router.push(`/app/giving?titheYear=${newYear}&titheMonth=${newMonth}`);
+    }
+  };
+
+  const handleSaveTemplate = () => {
+    const fd = new FormData();
+    fd.set("template", templateText);
+    startTemplateSave(async () => {
+      const result = await saveTitheTemplate(fd);
+      if (result?.ok) {
+        toast("Tithe message template saved", "success");
+        setShowTemplateEditor(false);
+      } else {
+        toast(result?.error ?? "Failed to save", "error");
+      }
+    });
+  };
 
   return (
     <div className="space-y-5">
@@ -61,24 +107,19 @@ export function TitheClient({
           <Calendar className="size-4 text-ink-faint" />
           <select
             value={selectedMonth}
-            onChange={(e) => setSelectedMonth(Number(e.target.value))}
+            onChange={(e) => navigatePeriod(selectedYear, Number(e.target.value))}
             className="bg-transparent text-sm font-medium outline-none"
           >
             {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
           </select>
           <select
             value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
+            onChange={(e) => navigatePeriod(Number(e.target.value), selectedMonth)}
             className="bg-transparent text-sm font-medium outline-none"
           >
             {years.map((y) => <option key={y} value={y}>{y}</option>)}
           </select>
         </div>
-        {needsRefresh && (
-          <a href={`/app/giving?titheYear=${selectedYear}&titheMonth=${selectedMonth}`}>
-            <Button size="sm" variant="secondary">Load {MONTHS[selectedMonth]} {selectedYear}</Button>
-          </a>
-        )}
         <span className="text-sm text-ink-muted">{monthLabel}</span>
       </div>
 
@@ -103,7 +144,7 @@ export function TitheClient({
       {/* Tabs */}
       <div className="flex gap-1 rounded-xl bg-surface-2 p-1">
         {(canWrite ? [
-          { id: "record" as const, label: "Record tithes", icon: Plus },
+          { id: "record" as const, label: "Record giving", icon: Plus },
           { id: "records" as const, label: "Weekly records", icon: Calendar },
           { id: "report" as const, label: "Monthly report", icon: Download },
         ] : [
@@ -123,7 +164,78 @@ export function TitheClient({
         ))}
       </div>
 
-      {tab === "record" && canWrite && <BatchRecorder members={members} />}
+      {/* Fund type selector (visible in record mode) */}
+      {tab === "record" && canWrite && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap gap-2">
+            {FUND_TYPES.map((f) => (
+              <button
+                key={f.key}
+                onClick={() => setFundType(f.key)}
+                className={cn(
+                  "rounded-full border px-4 py-2 text-sm font-medium transition-all",
+                  fundType === f.key
+                    ? "border-primary bg-primary/10 text-ink shadow-sm scale-[1.02]"
+                    : "border-line text-ink-muted hover:bg-surface-2 hover:scale-[1.01]",
+                )}
+              >
+                {f.label}
+              </button>
+            ))}
+          </div>
+          {fundType === "custom" && (
+            <div className="flex items-center gap-2">
+              <Label htmlFor="customFund" className="text-sm whitespace-nowrap">Fund name:</Label>
+              <Input
+                id="customFund"
+                value={customFund}
+                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomFund(e.target.value)}
+                placeholder="e.g. Building Fund, Missions…"
+                className="max-w-xs"
+              />
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tithe message template editor */}
+      {tab === "record" && canWrite && fundType === "tithes" && (
+        <div>
+          <button
+            onClick={() => setShowTemplateEditor(!showTemplateEditor)}
+            className="flex items-center gap-2 text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+          >
+            <MessageSquare className="size-4" />
+            {showTemplateEditor ? "Hide" : "Edit"} tithe receipt message
+          </button>
+          {showTemplateEditor && (
+            <Card className="mt-3 p-4 space-y-3">
+              <div>
+                <Label className="text-sm font-medium">SMS receipt template</Label>
+                <p className="text-xs text-ink-faint mt-0.5">
+                  Use {"{name}"}, {"{amount}"}, and {"{church}"} as placeholders.
+                </p>
+              </div>
+              <textarea
+                value={templateText}
+                onChange={(e) => setTemplateText(e.target.value)}
+                rows={3}
+                className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/25 resize-none"
+              />
+              <div className="flex items-center gap-2">
+                <Button size="sm" onClick={handleSaveTemplate} disabled={savingTemplate}>
+                  {savingTemplate ? "Saving…" : "Save template"}
+                </Button>
+                <Button size="sm" variant="ghost" onClick={() => { setTemplateText(DEFAULT_TITHE_TEMPLATE); }}>
+                  Reset to default
+                </Button>
+              </div>
+            </Card>
+          )}
+        </div>
+      )}
+
+      {tab === "record" && canWrite && <BatchRecorder members={members} fundType={fundType} activeFundName={activeFundName} />}
       {tab === "records" && <WeeklyRecords weeks={weeks} />}
       {tab === "report" && <MonthlyReport weeks={weeks} monthLabel={monthLabel} monthTotal={monthTotal} year={year} month={month} />}
     </div>
@@ -132,7 +244,7 @@ export function TitheClient({
 
 /* ────── Batch Recorder ────── */
 
-function BatchRecorder({ members }: { members: TitheMember[] }) {
+function BatchRecorder({ members, fundType, activeFundName }: { members: TitheMember[]; fundType: string; activeFundName: string }) {
   const [entries, setEntries] = useState<LocalEntry[]>([]);
   const [search, setSearch] = useState("");
   const [method, setMethod] = useState<string>("Cash");
@@ -181,18 +293,23 @@ function BatchRecorder({ members }: { members: TitheMember[] }) {
 
   const handleSubmit = () => {
     if (!validEntries.length) { toast("Add at least one entry with an amount", "error"); return; }
-    showBusy("Recording tithes & sending receipts…");
+    const isTithe = fundType === "tithes";
+    showBusy(isTithe ? "Recording tithes & sending receipts…" : `Recording ${activeFundName}…`);
     startTransition(async () => {
       const batch: TitheEntry[] = validEntries.map((e) => ({
         personId: e.personId,
         amount: Number(e.amount),
         method: e.method,
       }));
-      const result = await recordTitheBatch(batch);
+      const result = isTithe
+        ? await recordTitheBatch(batch)
+        : await recordGivingBatch(activeFundName, batch);
       hideBusy();
       if (result.ok) {
-        const msg = `${result.recorded} tithe(s) recorded, ${result.smsSent} receipt(s) sent${result.insufficientCredits ? " (SMS credits ran out)" : ""}`;
-        toast(msg, result.insufficientCredits ? "error" : "success");
+        const msg = isTithe
+          ? `${result.recorded} tithe(s) recorded, ${"smsSent" in result ? result.smsSent : 0} receipt(s) sent${"insufficientCredits" in result && result.insufficientCredits ? " (SMS credits ran out)" : ""}`
+          : `${result.recorded} ${activeFundName} record(s) saved`;
+        toast(msg, ("insufficientCredits" in result && result.insufficientCredits) ? "error" : "success");
         setEntries([]);
       } else {
         toast(result.error ?? "Failed to record", "error");
@@ -204,8 +321,12 @@ function BatchRecorder({ members }: { members: TitheMember[] }) {
     <Card className="p-6">
       <div className="mb-5 flex items-center justify-between">
         <div>
-          <h3 className="font-display text-lg font-semibold">Record tithes</h3>
-          <p className="text-sm text-ink-muted">Select members, enter amounts, then send receipts via SMS.</p>
+          <h3 className="font-display text-lg font-semibold">Record {activeFundName}</h3>
+          <p className="text-sm text-ink-muted">
+            {fundType === "tithes"
+              ? "Select members, enter amounts, then send receipts via SMS."
+              : `Select members and record ${activeFundName} contributions.`}
+          </p>
         </div>
         <Badge variant="outline">{entries.length} {entries.length === 1 ? "entry" : "entries"}</Badge>
       </div>
@@ -330,7 +451,7 @@ function BatchRecorder({ members }: { members: TitheMember[] }) {
             ) : (
               <>
                 <Send className="size-4" />
-                Record & send receipts
+                {fundType === "tithes" ? "Record & send receipts" : `Record ${activeFundName}`}
               </>
             )}
           </Button>
