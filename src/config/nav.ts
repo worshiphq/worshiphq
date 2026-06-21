@@ -13,6 +13,7 @@ import {
   Building2,
   Settings,
   UserRoundPlus,
+  ClipboardList,
 } from "lucide-react";
 
 export interface NavItem {
@@ -55,6 +56,7 @@ export const nav: NavSection[] = [
     items: [
       { key: "communications", label: "Communications", href: "/app/communications", icon: MessageSquare },
       { key: "reminders", label: "Reminders", href: "/app/reminders", icon: BellRing, badge: "Auto" },
+      { key: "people", label: "Follow-ups", href: "/app/follow-ups", icon: ClipboardList },
     ],
   },
   {

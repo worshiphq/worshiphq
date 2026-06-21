@@ -80,6 +80,7 @@ model Church {
   harvestContributions HarvestContribution[]
   subscription  Subscription?
   visitors      Visitor[]
+  followUps     FollowUp[]
 }
 
 model Branch {
@@ -163,6 +164,7 @@ model User {
   personId     String?  @unique
   person       Person?  @relation(fields: [personId], references: [id])
   createdAt    DateTime @default(now())
+  assignedFollowUps FollowUp[]
 
   @@index([churchId])
 }
@@ -240,6 +242,7 @@ model Person {
   gifts       Gift[]
   harvestContributions HarvestContribution[]
   attendance  AttendanceRecord[]
+  followUps   FollowUp[]
   user        User?
 
   @@unique([churchId, memberId])
@@ -611,6 +614,28 @@ model Subscription {
   paystackCustomerCode String?
 }
 
+// ── Follow-ups ────────────────────────────────────────────
+model FollowUp {
+  id          String   @id @default(cuid())
+  churchId    String
+  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  personId    String?
+  person      Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  visitorId   String?
+  visitor     Visitor? @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  assigneeId  String?
+  assignee    User?    @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  type        String   // "new_visitor" | "new_member" | "pastoral" | "custom"
+  title       String
+  note        String?
+  status      String   @default("open") // "open" | "in_progress" | "done"
+  dueDate     DateTime?
+  completedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  @@index([churchId, status])
+}
+
 // ── Visitors ──────────────────────────────────────────────
 model Visitor {
   id        String   @id @default(cuid())
@@ -625,6 +650,7 @@ model Visitor {
   customFields Json?
   visitDate DateTime @default(now())
   createdAt DateTime @default(now())
+  followUps FollowUp[]
 
   @@index([churchId, visitDate])
 }

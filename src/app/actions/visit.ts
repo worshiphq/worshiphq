@@ -32,7 +32,7 @@ export async function submitVisitorForm(formData: FormData) {
     if (val) customFields[f.id] = val;
   }
 
-  await db.visitor.create({
+  const visitor = await db.visitor.create({
     data: {
       church: { connect: { id: church.id } },
       firstName,
@@ -42,6 +42,17 @@ export async function submitVisitorForm(formData: FormData) {
       purpose,
       notes,
       ...(Object.keys(customFields).length ? { customFields } : {}),
+    },
+  });
+
+  await db.followUp.create({
+    data: {
+      church: { connect: { id: church.id } },
+      visitor: { connect: { id: visitor.id } },
+      type: "new_visitor",
+      title: `Follow up with visitor ${firstName} ${lastName}`,
+      note: [purpose && `Purpose: ${purpose}`, notes && `Notes: ${notes}`].filter(Boolean).join(". ") || null,
+      dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
     },
   });
 
