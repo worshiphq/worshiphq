@@ -83,6 +83,7 @@ export function Field({
   required,
   options,
   step,
+  hint,
 }: {
   label: string;
   name: string;
@@ -92,6 +93,7 @@ export function Field({
   required?: boolean;
   options?: string[];
   step?: string;
+  hint?: string;
 }) {
   const base =
     "flex h-11 w-full rounded-xl border border-line bg-surface px-3.5 text-sm text-ink placeholder:text-ink-faint focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30";
@@ -117,6 +119,7 @@ export function Field({
           className={base}
         />
       )}
+      {hint && <p className="mt-1 text-[11px] text-ink-faint">{hint}</p>}
     </div>
   );
 }

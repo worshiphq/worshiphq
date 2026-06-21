@@ -26,7 +26,7 @@ export default async function AccountingPage({
 
   return (
     <div>
-      <PageHeader title="Accounting" description="Income, expenses, fund balances — weekly and monthly records in ₵.">
+      <PageHeader title="Accounting" description="Income, expenses, fund balances — weekly and monthly records in ₵. Categories classify the type (Offering, Tithe, Rent). Funds track which pot of money (General, Building, Missions).">
         <a href="/api/export/transactions"><Button variant="secondary" size="sm"><Download /> Export CSV</Button></a>
         <ActionDialog
           triggerLabel="New transaction"
@@ -43,8 +43,8 @@ export default async function AccountingPage({
             <Field label="Amount (₵)" name="amount" type="number" step="0.01" placeholder="0.00" required />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Category" name="category" placeholder="Offering / Operations" defaultValue="General" />
-            <Field label="Fund" name="fund" placeholder="General" defaultValue="General" />
+            <Field label="Category" name="category" placeholder="Offering / Operations" defaultValue="General" hint="What type of income or expense — e.g. Offering, Tithe, Utilities, Salaries" />
+            <Field label="Fund" name="fund" placeholder="General" defaultValue="General" hint="Which pot of money — e.g. General, Building, Missions, Youth" />
           </div>
         </ActionDialog>
       </PageHeader>
