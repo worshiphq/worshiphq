@@ -15,6 +15,7 @@ import {
   UserRoundPlus,
   ClipboardList,
   Heart,
+  Users2,
 } from "lucide-react";
 
 export interface NavItem {
@@ -41,6 +42,7 @@ export const nav: NavSection[] = [
       { key: "attendance", label: "Attendance", href: "/app/attendance", icon: CalendarCheck2 },
       { key: "events", label: "Events", href: "/app/events", icon: CalendarDays },
       { key: "volunteers", label: "Volunteers", href: "/app/volunteers", icon: HandHelping },
+      { key: "people", label: "Groups", href: "/app/groups", icon: Users2 },
       { key: "people", label: "Visitors", href: "/app/visitors", icon: UserRoundPlus },
     ],
   },

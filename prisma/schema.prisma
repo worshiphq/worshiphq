@@ -239,6 +239,7 @@ model Person {
   householdId String?
   household   Household? @relation(fields: [householdId], references: [id])
   groups      Group[]    @relation("GroupMembers")
+  leaderOf    Group[]    @relation("GroupLeader")
   tags        Tag[]      @relation("PersonTags")
   gifts       Gift[]
   harvestContributions HarvestContribution[]
@@ -264,14 +265,22 @@ model Household {
 }
 
 model Group {
-  id       String   @id @default(cuid())
-  churchId String
-  church   Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  name     String
-  type     String?  // ministry, small group, etc.
-  members  Person[] @relation("GroupMembers")
+  id          String   @id @default(cuid())
+  churchId    String
+  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name        String
+  type        String   @default("small_group") // "small_group" | "ministry" | "committee" | "fellowship"
+  description String?
+  leaderId    String?
+  leader      Person?  @relation("GroupLeader", fields: [leaderId], references: [id], onDelete: SetNull)
+  meetingDay  String?  // "Monday", "Tuesday", etc.
+  meetingTime String?  // "18:00"
+  location    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  members     Person[] @relation("GroupMembers")
 
-  @@index([churchId])
+  @@index([churchId, type])
 }
 
 model Tag {
