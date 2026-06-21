@@ -84,6 +84,47 @@ export interface TitheEntry {
   method: string;
 }
 
+export async function recordGivingBatch(fundName: string, entries: TitheEntry[]) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  if (!entries.length) return { ok: false, error: "No entries to record." };
+  if (!fundName.trim()) return { ok: false, error: "Fund name required." };
+
+  const fund =
+    (await db.fund.findFirst({ where: { churchId: session.churchId, name: { equals: fundName, mode: "insensitive" } } })) ??
+    (await db.fund.create({ data: { churchId: session.churchId, name: fundName } }));
+
+  const people = await db.person.findMany({
+    where: { id: { in: entries.map((e) => e.personId) }, churchId: session.churchId },
+    select: { id: true, firstName: true, lastName: true, phone: true },
+  });
+  const personMap = new Map(people.map((p) => [p.id, p]));
+
+  let recorded = 0;
+  for (const entry of entries) {
+    const person = personMap.get(entry.personId);
+    if (!person) continue;
+    const method = METHOD_FROM_LABEL[entry.method] ?? "Cash";
+    await db.gift.create({
+      data: {
+        churchId: session.churchId,
+        branchId: session.branchId ?? undefined,
+        personId: person.id,
+        donorName: `${person.firstName} ${person.lastName}`,
+        fundId: fund.id,
+        amount: entry.amount,
+        method,
+        currency: "GHS",
+      },
+    });
+    recorded++;
+  }
+
+  revalidatePath("/app/giving");
+  revalidatePath("/app");
+  return { ok: true, recorded };
+}
+
 export async function recordTitheBatch(entries: TitheEntry[]) {
   const session = await requireSession();
   assertCanWrite(session);

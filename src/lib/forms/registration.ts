@@ -14,6 +14,7 @@ export type FieldType =
   | "tel"
   | "email"
   | "select"
+  | "radio"
   | "checkbox"
   | "image";
 
@@ -56,6 +57,29 @@ const TITLES = ["Mr", "Mrs", "Ms", "Dr", "Rev", "Pastor", "Elder", "Deacon", "De
 const MARITAL = ["Single", "Married", "Divorced", "Widowed"];
 const YESNO = ["Yes", "No"];
 
+const NATIONALITIES = [
+  "Ghanaian", "Nigerian", "South African", "Kenyan", "Tanzanian", "Ugandan",
+  "Ethiopian", "Cameroonian", "Ivorian", "Senegalese", "Togolese", "Beninese",
+  "Burkinabe", "Malian", "Nigerien", "Liberian", "Sierra Leonean", "Gambian",
+  "Guinean", "Rwandan", "Congolese", "Zambian", "Zimbabwean", "Mozambican",
+  "Angolan", "Namibian", "Botswanan", "Swazi", "Lesothan", "Malawian",
+  "Malagasy", "Mauritian", "Seychellois", "Sudanese", "South Sudanese",
+  "Somali", "Eritrean", "Djiboutian", "Egyptian", "Libyan", "Tunisian",
+  "Algerian", "Moroccan", "American", "British", "Canadian", "Australian",
+  "German", "French", "Italian", "Spanish", "Dutch", "Belgian", "Swiss",
+  "Swedish", "Norwegian", "Danish", "Finnish", "Portuguese", "Greek",
+  "Polish", "Austrian", "Irish", "Brazilian", "Mexican", "Colombian",
+  "Argentine", "Peruvian", "Chilean", "Venezuelan", "Cuban", "Jamaican",
+  "Trinidadian", "Barbadian", "Guyanese", "Indian", "Chinese", "Japanese",
+  "Korean", "Filipino", "Indonesian", "Malaysian", "Thai", "Vietnamese",
+  "Pakistani", "Bangladeshi", "Sri Lankan", "Nepalese", "Lebanese",
+  "Israeli", "Turkish", "Iranian", "Iraqi", "Saudi", "Emirati", "Qatari",
+  "Kuwaiti", "Bahraini", "Omani", "Jordanian", "Palestinian", "Syrian",
+  "Yemeni", "Afghan", "Russian", "Ukrainian", "Belarusian", "Georgian",
+  "Armenian", "Azerbaijani", "Kazakh", "Uzbek", "New Zealander", "Fijian",
+  "Samoan", "Tongan", "Papua New Guinean",
+];
+
 /** Catalogue of system fields an admin can add from the builder palette. */
 export const SYSTEM_FIELD_CATALOG: FormField[] = [
   { id: "photoUrl", label: "Profile photo", type: "image", system: true },
@@ -69,7 +93,7 @@ export const SYSTEM_FIELD_CATALOG: FormField[] = [
   { id: "previousChurch", label: "Previous church", type: "text", system: true },
   { id: "dateOfMembership", label: "Date of membership", type: "date", system: true },
   { id: "placeOfBirth", label: "Place of birth", type: "text", system: true },
-  { id: "nationality", label: "Nationality", type: "text", system: true },
+  { id: "nationality", label: "Nationality", type: "select", options: NATIONALITIES, system: true },
   { id: "country", label: "Country", type: "text", system: true },
   { id: "region", label: "Region", type: "text", system: true },
   { id: "district", label: "District", type: "text", system: true },
@@ -110,7 +134,7 @@ export const DEFAULT_FORM: FormField[] = [
   { id: "emergencyPhone", label: "Emergency contact phone", type: "tel", system: true },
 ];
 
-const VALID_TYPES: FieldType[] = ["text", "textarea", "number", "date", "tel", "email", "select", "checkbox", "image"];
+const VALID_TYPES: FieldType[] = ["text", "textarea", "number", "date", "tel", "email", "select", "radio", "checkbox", "image"];
 
 /** Coerce one stored object into a valid FormField (defensive against bad JSON). */
 function coerceField(raw: unknown): FormField | null {

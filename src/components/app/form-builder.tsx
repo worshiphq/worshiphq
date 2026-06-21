@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Plus, Trash2, ChevronUp, ChevronDown, GripVertical, Settings2, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
@@ -21,6 +21,7 @@ const TYPE_LABELS: Record<FieldType, string> = {
   tel: "Phone",
   email: "Email",
   select: "Dropdown",
+  radio: "Radio buttons",
   checkbox: "Checkbox",
   image: "Photo upload",
 };
@@ -36,6 +37,8 @@ export function FormBuilder({
 }) {
   const [fields, setFields] = useState<FormField[]>(initial);
   const [editing, setEditing] = useState<string | null>(null);
+  const dragIdx = useRef<number | null>(null);
+  const [dragOver, setDragOver] = useState<number | null>(null);
 
   const usedSystemIds = new Set(fields.filter((f) => f.system).map((f) => f.id));
   const availableSystem = SYSTEM_FIELD_CATALOG.filter((f) => !usedSystemIds.has(f.id));
@@ -92,10 +95,29 @@ export function FormBuilder({
               allFields={fields}
               open={editing === f.id}
               readOnly={readOnly}
+              isDragOver={dragOver === i}
               onToggle={() => setEditing(editing === f.id ? null : f.id)}
               onUpdate={(patch) => update(f.id, patch)}
               onRemove={() => remove(f.id)}
               onMove={(dir) => move(i, dir)}
+              onDragStart={() => { dragIdx.current = i; }}
+              onDragOver={() => { if (dragIdx.current !== null && dragIdx.current !== i) setDragOver(i); }}
+              onDragEnd={() => {
+                if (dragIdx.current !== null && dragOver !== null && dragIdx.current !== dragOver) {
+                  const from = dragIdx.current;
+                  const to = dragOver;
+                  setFields((fs) => {
+                    if (fs[from].locked || fs[to].locked) return fs;
+                    if (to < 2) return fs;
+                    const copy = [...fs];
+                    const [item] = copy.splice(from, 1);
+                    copy.splice(to, 0, item);
+                    return copy;
+                  });
+                }
+                dragIdx.current = null;
+                setDragOver(null);
+              }}
             />
           ))}
         </div>
@@ -132,7 +154,8 @@ export function FormBuilder({
 }
 
 function FieldRow({
-  field, index, total, allFields, open, readOnly, onToggle, onUpdate, onRemove, onMove,
+  field, index, total, allFields, open, readOnly, isDragOver,
+  onToggle, onUpdate, onRemove, onMove, onDragStart, onDragOver, onDragEnd,
 }: {
   field: FormField;
   index: number;
@@ -140,18 +163,29 @@ function FieldRow({
   allFields: FormField[];
   open: boolean;
   readOnly: boolean;
+  isDragOver: boolean;
   onToggle: () => void;
   onUpdate: (patch: Partial<FormField>) => void;
   onRemove: () => void;
   onMove: (dir: -1 | 1) => void;
+  onDragStart: () => void;
+  onDragOver: () => void;
+  onDragEnd: () => void;
 }) {
   const conditionTargets = allFields.filter((f) => f.id !== field.id);
   const conditionTarget = allFields.find((f) => f.id === field.showIf?.fieldId);
 
   return (
-    <div className="rounded-xl border border-line bg-surface">
+    <div
+      className={cn("rounded-xl border bg-surface transition-all", isDragOver ? "border-primary border-2 scale-[1.01]" : "border-line")}
+      draggable={!field.locked && !readOnly}
+      onDragStart={(e) => { e.dataTransfer.effectAllowed = "move"; onDragStart(); }}
+      onDragOver={(e) => { e.preventDefault(); onDragOver(); }}
+      onDragEnd={onDragEnd}
+      onDrop={(e) => { e.preventDefault(); onDragEnd(); }}
+    >
       <div className="flex items-center gap-2 px-3 py-2.5">
-        <GripVertical className="size-4 shrink-0 text-ink-faint" />
+        <GripVertical className={cn("size-4 shrink-0", field.locked ? "text-ink-faint/30" : "text-ink-faint cursor-grab active:cursor-grabbing")} />
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
             <span className="truncate text-sm font-medium text-ink">{field.label || "Untitled"}</span>

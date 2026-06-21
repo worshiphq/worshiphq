@@ -81,7 +81,10 @@ export async function recordHarvestContributions(year: number, entries: HarvestE
 
     if (entry.donorPhone && !insufficientCredits) {
       const amtStr = entry.amount.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-      const msg = `Dear ${entry.donorName}, your Harvest contribution of GHS ${amtStr} has been received. God bless you abundantly!`;
+      const church = await db.church.findUnique({ where: { id: session.churchId }, select: { name: true, harvestReceiptTemplate: true } });
+      const defaultTpl = "Dear {name}, your Harvest contribution of GHS {amount} has been received by {church}. God bless you abundantly!";
+      const tpl = church?.harvestReceiptTemplate || defaultTpl;
+      const msg = tpl.replace(/\{name\}/gi, entry.donorName).replace(/\{amount\}/gi, amtStr).replace(/\{church\}/gi, church?.name ?? "your church");
       const smsResult = await sendChurchSms(session.churchId, entry.donorPhone, msg, { note: "Harvest receipt" });
       if (smsResult.ok) smsSent++;
       else if (smsResult.insufficient) insufficientCredits = true;
@@ -134,6 +137,19 @@ export async function createVisitorForHarvest(formData: FormData) {
 
   revalidatePath("/app/harvest");
   return { ok: true, person };
+}
+
+export async function saveHarvestTemplate(formData: FormData) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  const template = String(formData.get("template") ?? "").trim();
+  if (!template) return { ok: false, error: "Template cannot be empty." };
+  await db.church.update({
+    where: { id: session.churchId },
+    data: { harvestReceiptTemplate: template },
+  });
+  revalidatePath("/app/harvest");
+  return { ok: true };
 }
 
 export async function deleteHarvestContribution(id: string) {
