@@ -91,6 +91,12 @@ model Church {
   facilities     Facility[]
   bookings       Booking[]
   devotionals    Devotional[]
+  testimonies    Testimony[]
+  counselingSessions CounselingSession[]
+  budgets        Budget[]
+  budgetItems    BudgetItem[]
+  volunteerRosters VolunteerRoster[]
+  volunteerSlots  VolunteerSlot[]
 }
 
 model Branch {
@@ -176,6 +182,7 @@ model User {
   createdAt    DateTime @default(now())
   assignedFollowUps FollowUp[]
   auditLogs         AuditLog[]
+  counselingSessions CounselingSession[]
 
   @@index([churchId])
 }
@@ -258,6 +265,9 @@ model Person {
   prayerRequests PrayerRequest[]
   welfareRecords WelfareRecord[]
   biometrics     BiometricCredential[]
+  testimonies    Testimony[]
+  counselingSessions CounselingSession[]
+  volunteerSlots VolunteerSlot[]
   user           User?
 
   @@unique([churchId, memberId])
@@ -844,6 +854,113 @@ model Devotional {
   createdAt DateTime @default(now())
 
   @@index([churchId, date])
+}
+
+// ── Testimonies / Praise Reports ─────────────────────────
+model Testimony {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  personId  String?
+  person    Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  title     String
+  body      String   @db.Text
+  category  String   @default("praise") // praise, healing, provision, deliverance, salvation, other
+  status    String   @default("pending") // pending, approved, featured
+  anonymous Boolean  @default(false)
+  date      DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([churchId, date])
+  @@index([churchId, status])
+}
+
+// ── Counseling / Pastoral Care Log ───────────────────────
+model CounselingSession {
+  id           String   @id @default(cuid())
+  churchId     String
+  church       Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  personId     String?
+  person       Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  counselorId  String?
+  counselor    User?    @relation(fields: [counselorId], references: [id], onDelete: SetNull)
+  type         String   @default("general") // general, marriage, grief, spiritual, family, addiction, other
+  summary      String   @db.Text
+  notes        String?  @db.Text
+  status       String   @default("open") // open, follow-up, closed
+  confidential Boolean  @default(true)
+  date         DateTime @default(now())
+  followUpDate DateTime?
+  createdAt    DateTime @default(now())
+
+  @@index([churchId, date])
+  @@index([personId])
+}
+
+// ── Budget Management ────────────────────────────────────
+model Budget {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name      String
+  year      Int
+  quarter   Int?     // null = annual, 1-4 = quarterly
+  status    String   @default("draft") // draft, approved, active, closed
+  total     Float    @default(0)
+  notes     String?  @db.Text
+  items     BudgetItem[]
+  createdAt DateTime @default(now())
+
+  @@index([churchId, year])
+}
+
+model BudgetItem {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  budgetId  String
+  budget    Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  category  String
+  description String
+  amount    Float
+  spent     Float    @default(0)
+  createdAt DateTime @default(now())
+
+  @@index([budgetId])
+}
+
+// ── Volunteer Scheduling / Roster ────────────────────────
+model VolunteerRoster {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name      String   // e.g. "Sunday Ushering - July 2026"
+  ministry  String?  // which ministry/department
+  startDate DateTime
+  endDate   DateTime
+  notes     String?  @db.Text
+  slots     VolunteerSlot[]
+  createdAt DateTime @default(now())
+
+  @@index([churchId, startDate])
+}
+
+model VolunteerSlot {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  rosterId  String
+  roster    VolunteerRoster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+  personId  String?
+  person    Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  role      String   // e.g. "Usher", "Sound tech", "Singer"
+  date      DateTime
+  shift     String   @default("morning") // morning, afternoon, evening, full-day
+  status    String   @default("assigned") // assigned, confirmed, swapped, absent
+  createdAt DateTime @default(now())
+
+  @@index([rosterId])
+  @@index([personId])
 }
 
 // ── Biometric Credentials (server-side fingerprint templates) ──

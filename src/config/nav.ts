@@ -28,6 +28,10 @@ import {
   Receipt,
   DoorOpen,
   BookHeart,
+  Sparkles,
+  HeartHandshake,
+  PiggyBank,
+  CalendarClock,
 } from "lucide-react";
 
 export interface NavItem {
@@ -63,6 +67,7 @@ export const nav: NavSection[] = [
       { key: "people", label: "Birthdays", href: "/app/birthdays", icon: Cake },
       { key: "people", label: "Directory", href: "/app/directory", icon: BookUser },
       { key: "events", label: "Bookings", href: "/app/bookings", icon: DoorOpen },
+      { key: "volunteers", label: "Rosters", href: "/app/rosters", icon: CalendarClock },
     ],
   },
   {
@@ -73,6 +78,7 @@ export const nav: NavSection[] = [
       { key: "giving", label: "Pledges", href: "/app/pledges", icon: Target },
       { key: "harvest", label: "Harvest", href: "/app/harvest", icon: Wheat },
       { key: "accounting", label: "Expenses", href: "/app/expenses", icon: Receipt },
+      { key: "accounting", label: "Budgets", href: "/app/budgets", icon: PiggyBank },
       { key: "giving", label: "Welfare", href: "/app/welfare", icon: HandHelping },
     ],
   },
@@ -86,6 +92,8 @@ export const nav: NavSection[] = [
       { key: "communications", label: "Notices", href: "/app/notices", icon: Megaphone },
       { key: "events", label: "Sermons", href: "/app/sermons", icon: BookMarked },
       { key: "communications", label: "Devotionals", href: "/app/devotionals", icon: BookHeart },
+      { key: "communications", label: "Testimonies", href: "/app/testimonies", icon: Sparkles },
+      { key: "people", label: "Counseling", href: "/app/counseling", icon: HeartHandshake },
     ],
   },
   {
