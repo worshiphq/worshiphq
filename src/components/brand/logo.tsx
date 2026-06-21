@@ -12,14 +12,14 @@ export function Logo({
   showMark?: boolean;
   size?: "sm" | "md" | "lg";
 }) {
-  const w = { sm: "w-32", md: "w-40", lg: "w-52" }[size];
+  const h = { sm: "h-7", md: "h-8", lg: "h-10" }[size];
 
   const inner = (
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src="/logo.png"
       alt="WorshipHQ"
-      className={cn("object-contain", w)}
+      className={cn("w-auto object-contain", h)}
     />
   );
 
