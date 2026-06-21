@@ -20,6 +20,7 @@ import {
   BarChart3,
   Cake,
   Megaphone,
+  BookUser,
 } from "lucide-react";
 
 export interface NavItem {
@@ -52,6 +53,7 @@ export const nav: NavSection[] = [
       { key: "people", label: "Groups", href: "/app/groups", icon: Users2 },
       { key: "people", label: "Visitors", href: "/app/visitors", icon: UserRoundPlus },
       { key: "people", label: "Birthdays", href: "/app/birthdays", icon: Cake },
+      { key: "people", label: "Directory", href: "/app/directory", icon: BookUser },
     ],
   },
   {
