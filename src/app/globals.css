@@ -133,6 +133,31 @@
   100% { transform: rotate(360deg); }
 }
 
+/* ── Bubbly auth forms ── */
+.auth-bubbly input:not([type="checkbox"]):not([type="radio"]):not([type="hidden"]),
+.auth-bubbly select,
+.auth-bubbly textarea {
+  border-radius: 1rem !important;
+  height: 3rem;
+  padding-inline: 1.125rem;
+  font-size: 0.9375rem;
+  border-color: color-mix(in oklab, var(--color-line) 70%, transparent);
+  background: color-mix(in oklab, var(--color-surface) 95%, var(--color-primary));
+  box-shadow: 0 2px 8px color-mix(in oklab, var(--color-primary) 5%, transparent);
+}
+.auth-bubbly input:focus,
+.auth-bubbly select:focus,
+.auth-bubbly textarea:focus {
+  box-shadow: 0 0 0 3px color-mix(in oklab, var(--color-primary) 20%, transparent),
+    0 2px 12px color-mix(in oklab, var(--color-primary) 10%, transparent);
+}
+.auth-bubbly button[type="submit"],
+.auth-bubbly .submit-button {
+  border-radius: 1rem !important;
+  height: 3rem;
+  font-size: 0.9375rem;
+}
+
 /* ── Base layer ── */
 @layer base {
   * {

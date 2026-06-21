@@ -28,7 +28,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       </div>
 
       {/* Form panel */}
-      <div className="relative flex flex-col items-center justify-center px-5 py-12">
+      <div className="auth-bubbly relative flex flex-col items-center justify-center px-5 py-12">
         <div className="absolute left-5 top-5 lg:hidden">
           <Logo href="/" />
         </div>
