@@ -82,6 +82,7 @@ model Church {
   visitors      Visitor[]
   followUps     FollowUp[]
   prayerRequests PrayerRequest[]
+  notices        ChurchNotice[]
 }
 
 model Branch {
@@ -599,6 +600,19 @@ model SiteContent {
   key       String   @id // e.g. "hero", "testimonials", "pricing"
   value     Json
   updatedAt DateTime @updatedAt
+}
+
+// ── Church notices (internal announcements board) ─────────
+model ChurchNotice {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([churchId, createdAt])
 }
 
 // Platform-wide announcements the SuperAdmin broadcasts to all churches.

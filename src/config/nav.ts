@@ -19,6 +19,7 @@ import {
   Target,
   BarChart3,
   Cake,
+  Megaphone,
 } from "lucide-react";
 
 export interface NavItem {
@@ -69,6 +70,7 @@ export const nav: NavSection[] = [
       { key: "reminders", label: "Reminders", href: "/app/reminders", icon: BellRing, badge: "Auto" },
       { key: "people", label: "Follow-ups", href: "/app/follow-ups", icon: ClipboardList },
       { key: "people", label: "Prayer requests", href: "/app/prayer-requests", icon: Heart },
+      { key: "communications", label: "Notices", href: "/app/notices", icon: Megaphone },
     ],
   },
   {
