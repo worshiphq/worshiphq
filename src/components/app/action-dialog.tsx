@@ -91,7 +91,7 @@ export function Field({
   placeholder?: string;
   defaultValue?: string | number;
   required?: boolean;
-  options?: string[];
+  options?: string[] | { label: string; value: string }[];
   step?: string;
   hint?: string;
 }) {
@@ -102,11 +102,15 @@ export function Field({
       <label className="mb-1.5 block text-sm font-medium text-ink-muted">{label}</label>
       {options ? (
         <select name={name} defaultValue={defaultValue} className={base} required={required}>
-          {options.map((o) => (
-            <option key={o} value={o}>
-              {o}
-            </option>
-          ))}
+          {options.map((o) => {
+            const val = typeof o === "string" ? o : o.value;
+            const lbl = typeof o === "string" ? o : o.label;
+            return (
+              <option key={val} value={val}>
+                {lbl}
+              </option>
+            );
+          })}
         </select>
       ) : (
         <input

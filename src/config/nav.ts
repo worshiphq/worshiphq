@@ -65,6 +65,7 @@ export const nav: NavSection[] = [
       { key: "accounting", label: "Accounting", href: "/app/accounting", icon: Wallet },
       { key: "giving", label: "Pledges", href: "/app/pledges", icon: Target },
       { key: "harvest", label: "Harvest", href: "/app/harvest", icon: Wheat },
+      { key: "giving", label: "Welfare", href: "/app/welfare", icon: HandHelping },
     ],
   },
   {
