@@ -90,6 +90,7 @@ model Church {
   expenses       Expense[]
   facilities     Facility[]
   bookings       Booking[]
+  devotionals    Devotional[]
 }
 
 model Branch {
@@ -826,4 +827,20 @@ model Booking {
 
   @@index([churchId, startTime])
   @@index([facilityId, startTime])
+}
+
+// ── Devotionals ───────────────────────────────────────────
+model Devotional {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  title     String
+  scripture String?
+  body      String   @db.Text
+  author    String?
+  date      DateTime @default(now())
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([churchId, date])
 }
