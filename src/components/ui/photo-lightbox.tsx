@@ -16,7 +16,7 @@ export function ClickableAvatar({
   name: string;
   photoUrl?: string | null;
   gender?: string | null;
-  size?: "xs" | "sm" | "md" | "lg";
+  size?: "xs" | "sm" | "md" | "lg" | "xl";
   className?: string;
 }) {
   const [open, setOpen] = useState(false);

@@ -9,6 +9,7 @@ import { SyncStatus } from "@/components/app/offline-indicator";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MemberAvatar } from "@/components/ui/member-avatar";
+import { ClickableAvatar } from "@/components/ui/photo-lightbox";
 import { requireSession } from "@/lib/auth";
 import { getDashboard } from "@/lib/data/dashboard";
 import { formatDate } from "@/lib/utils";
@@ -97,20 +98,22 @@ export default async function DashboardPage() {
                 {leaders.map((l, i) => {
                   const isHead = i === 0;
                   return (
-                    <Link key={l.id} href={`/app/people?highlight=${l.id}`} className="group flex flex-col items-center text-center">
-                      <MemberAvatar
+                    <div key={l.id} className="flex flex-col items-center text-center">
+                      <ClickableAvatar
                         name={l.name}
                         photoUrl={l.photoUrl}
                         size={isHead ? "xl" : "lg"}
-                        className={`transition-transform group-hover:scale-105 ${isHead ? "ring-4 ring-gold/30" : ""}`}
+                        className={`transition-transform hover:scale-105 ${isHead ? "ring-4 ring-gold/30" : ""}`}
                       />
-                      <h4 className={`mt-3 font-display font-semibold text-ink ${isHead ? "text-base" : "text-sm"}`}>
-                        {l.name}
-                      </h4>
+                      <Link href={`/app/people?highlight=${l.id}`} className="group">
+                        <h4 className={`mt-3 font-display font-semibold text-ink group-hover:text-primary-bright transition-colors ${isHead ? "text-base" : "text-sm"}`}>
+                          {l.name}
+                        </h4>
+                      </Link>
                       <span className={`mt-0.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${isHead ? "bg-gold/10 text-gold" : "bg-primary/10 text-primary-bright"}`}>
                         {l.leaderTitle}
                       </span>
-                    </Link>
+                    </div>
                   );
                 })}
               </div>
