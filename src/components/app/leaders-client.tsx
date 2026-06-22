@@ -44,10 +44,10 @@ const BUILT_IN_POSITIONS = [
 ];
 
 export function LeadersClient({
-  churchLeaders,
-  departmentLeaders,
-  departments,
-  people,
+  churchLeaders = [],
+  departmentLeaders = [],
+  departments = [],
+  people = [],
   isAdmin,
   isDemo,
 }: {
@@ -243,8 +243,9 @@ function AddPositionForm({
   const [showDropdown, setShowDropdown] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
+  const safepeople = people ?? [];
   const filtered = search.length >= 1
-    ? people.filter((p) => p.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
+    ? safepeople.filter((p) => p.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
     : [];
 
   useEffect(() => {
