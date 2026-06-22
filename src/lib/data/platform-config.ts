@@ -12,12 +12,11 @@ const DEFAULT_PRICES: PlanPrices = Object.fromEntries(
 );
 
 export const getPlatformConfig = cache(async () => {
-  let config = await db.platformConfig.findUnique({ where: { id: "default" } });
-  if (!config) {
-    config = await db.platformConfig.create({
-      data: { id: "default", currency: "GHS", currencySymbol: "₵", planPrices: DEFAULT_PRICES },
-    });
-  }
+  const config = await db.platformConfig.upsert({
+    where: { id: "default" },
+    update: {},
+    create: { id: "default", currency: "GHS", currencySymbol: "₵", planPrices: DEFAULT_PRICES },
+  });
   const prices = (config.planPrices as PlanPrices) ?? DEFAULT_PRICES;
   return {
     currency: config.currency,

@@ -47,8 +47,7 @@ export default async function FollowUpsPage() {
           <Field
             label="Assign to"
             name="assigneeId"
-            options={users.map((u) => u.id)}
-            hint={users.map((u) => `${u.id} = ${u.name}`).join(", ")}
+            options={users.map((u) => ({ label: u.name, value: u.id }))}
           />
           <Field label="Due date" name="dueDate" type="date" />
         </ActionDialog>

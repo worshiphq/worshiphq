@@ -52,8 +52,7 @@ export default async function GroupsPage() {
           <Field
             label="Leader"
             name="leaderId"
-            options={people.map((p) => p.id)}
-            hint={people.map((p) => `${p.id} = ${p.firstName} ${p.lastName}`).join(", ")}
+            options={people.map((p) => ({ label: `${p.firstName} ${p.lastName}`, value: p.id }))}
           />
         </ActionDialog>
       </PageHeader>

@@ -57,8 +57,7 @@ export default async function PledgesPage() {
             <Field
               label="Campaign"
               name="campaignId"
-              options={campaigns.map((c) => c.id)}
-              hint={campaigns.map((c) => `${c.id} = ${c.name}`).join(", ")}
+              options={campaigns.map((c) => ({ label: c.name, value: c.id }))}
             />
             <Field label="Due date" name="dueAt" type="date" />
           </ActionDialog>
