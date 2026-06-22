@@ -386,7 +386,7 @@ function AddPositionForm({
             disabled={pending}
             onClick={handleAssign}
           >
-            {pending ? "Assigning…" : `Assign ${selectedPerson.name.split(" ")[0]} as ${finalPosition}`}
+            {pending ? "Assigning…" : `Assign ${selectedPerson.name.split(" ").filter(w => !["Mr","Mrs","Ms","Dr","Rev","Rev.","Pst","Pst.","Elder","Deacon","Deaconess","Prof","Prof.","Hon","Hon.","Sir","Lady","Sis","Bro"].includes(w))[0] || selectedPerson.name.split(" ")[0]} as ${finalPosition}`}
           </Button>
         )}
         <Button type="button" variant="ghost" size="sm" onClick={onDone} className="text-xs">
