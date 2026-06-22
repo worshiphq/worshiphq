@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { verifyPaystackSignature } from "@/lib/integrations/paystack";
 import { recordOnlineGift, methodFromPaystackChannel } from "@/lib/giving/record";
 import { addCredits } from "@/lib/sms/credits";
+import { db } from "@/lib/db";
 
 // Webhooks must never be statically cached and always run on the server.
 export const dynamic = "force-dynamic";
@@ -54,6 +55,42 @@ export async function POST(request: NextRequest) {
     }
   }
 
+  // Plan upgrade → activate the subscription.
+  if (meta.kind === "plan_upgrade" && meta.churchId && meta.plan && data.reference) {
+    try {
+      const validPlans = ["starter", "pro", "max"];
+      const plan = String(meta.plan);
+      const interval = meta.interval === "yearly" ? "yearly" : "monthly";
+      if (!validPlans.includes(plan)) return Response.json({ received: true, ignored: true });
+
+      const renewsAt = new Date();
+      renewsAt.setMonth(renewsAt.getMonth() + (interval === "yearly" ? 12 : 1));
+
+      await db.subscription.upsert({
+        where: { churchId: meta.churchId },
+        create: {
+          churchId: meta.churchId,
+          plan,
+          interval,
+          status: "active",
+          renewsAt,
+          paystackCustomerCode: data.customer?.email ?? null,
+        },
+        update: {
+          plan,
+          interval,
+          status: "active",
+          renewsAt,
+          paystackCustomerCode: data.customer?.email ?? null,
+        },
+      });
+      return Response.json({ received: true, kind: "plan_upgrade", plan });
+    } catch (e) {
+      console.error("[Paystack webhook] failed to activate plan:", e);
+      return new Response("Processing error", { status: 500 });
+    }
+  }
+
   // Only handle our online-giving charges; ignore subscription/other charges.
   if (meta.kind !== "online_gift" || !meta.churchId || !data.reference) {
     return Response.json({ received: true, ignored: true });
@@ -88,6 +125,8 @@ interface GiftMetadata {
   method?: string;
   credits?: number | string;
   bundleId?: string;
+  plan?: string;
+  interval?: string;
 }
 
 interface PaystackEvent {

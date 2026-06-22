@@ -531,6 +531,19 @@ function BillingTab({ subscription, features, ro }: { subscription: Subscription
   );
   const [switching, startSwitch] = useTransition();
   const [upgradePlan, setUpgradePlan] = useState<typeof plans[number] | null>(null);
+  const [upgradedMsg, setUpgradedMsg] = useState(() => {
+    if (typeof window === "undefined") return "";
+    const params = new URLSearchParams(window.location.search);
+    const upgraded = params.get("upgraded");
+    if (upgraded) {
+      const url = new URL(window.location.href);
+      url.searchParams.delete("upgraded");
+      window.history.replaceState({}, "", url.pathname);
+      const p = plans.find((pl) => pl.id === upgraded);
+      return p ? `Successfully upgraded to ${p.name}!` : "";
+    }
+    return "";
+  });
 
   const currentPlanId = subscription?.plan ?? "free";
   const currentPlan = plans.find((p) => p.id === currentPlanId) ?? plans[0];
@@ -539,6 +552,12 @@ function BillingTab({ subscription, features, ro }: { subscription: Subscription
 
   return (
     <div className="space-y-5">
+      {upgradedMsg && (
+        <div className="flex items-center justify-between rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm font-medium text-success">
+          <span><Check className="mr-2 inline size-4" />{upgradedMsg}</span>
+          <button type="button" onClick={() => setUpgradedMsg("")} className="text-success/70 hover:text-success">&times;</button>
+        </div>
+      )}
       <Card className="p-6">
         <h3 className="font-display text-lg font-semibold">Billing & subscription</h3>
         <p className="text-sm text-ink-muted">Powered by Paystack. Billed in GHS.</p>
@@ -768,16 +787,24 @@ function BillingTab({ subscription, features, ro }: { subscription: Subscription
                 disabled={switching}
                 onClick={() => {
                   startSwitch(async () => {
-                    const res = await changePlan(upgradePlan.id, interval);
-                    if (res && "error" in res) alert(res.error);
-                    else {
-                      setUpgradePlan(null);
-                      setShowPlans(false);
+                    try {
+                      const res = await changePlan(upgradePlan.id, interval);
+                      if (res && "error" in res) alert(res.error);
+                      else {
+                        setUpgradePlan(null);
+                        setShowPlans(false);
+                      }
+                    } catch {
+                      // redirect() throws NEXT_REDIRECT — expected for Paystack checkout
                     }
                   });
                 }}
               >
-                {switching ? "Upgrading..." : `Upgrade to ${upgradePlan.name}`}
+                {switching
+                  ? (features.payments ? "Redirecting to checkout…" : "Upgrading…")
+                  : features.payments
+                    ? `Pay & upgrade to ${upgradePlan.name}`
+                    : `Upgrade to ${upgradePlan.name}`}
               </Button>
             </div>
           </div>

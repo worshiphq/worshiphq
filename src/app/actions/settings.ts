@@ -1,11 +1,14 @@
 "use server";
 
+import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, hashPassword, verifyPassword } from "@/lib/auth";
 import { getFormDefinition, getVisitorFormDefinition } from "@/lib/forms/registration";
 import { sendSms } from "@/lib/integrations/sms";
 import { sendOtp, verifyOtp } from "@/lib/auth/otp";
+import { initializePayment, newPaymentReference } from "@/lib/integrations/paystack";
+import { env } from "@/lib/env";
 import type { Role } from "@prisma/client";
 import { sendEmail } from "@/lib/integrations/email";
 
@@ -490,19 +493,43 @@ export async function changePlan(plan: string, interval: "monthly" | "yearly") {
     return { ok: true };
   }
 
-  // For paid plans: in a live system this would redirect to Paystack checkout.
-  // For now, we set the plan directly (stub mode).
-  const renewsAt = new Date();
-  renewsAt.setMonth(renewsAt.getMonth() + (interval === "yearly" ? 12 : 1));
+  const { plans } = await import("@/config/pricing");
+  const planConfig = plans.find((p) => p.id === plan);
+  if (!planConfig) return { error: "Invalid plan" };
 
-  await db.subscription.upsert({
-    where: { churchId: session.churchId },
-    create: { churchId: session.churchId, plan, interval, status: "active", renewsAt },
-    update: { plan, interval, status: "active", renewsAt },
+  const amountGhs = interval === "yearly" ? planConfig.yearly : planConfig.monthly;
+  const reference = newPaymentReference();
+  const appUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
+  const returnUrl = `${appUrl}/app/settings?upgraded=${plan}`;
+
+  const init = await initializePayment({
+    email: session.email || `billing+${session.churchId}@worshiphq.org`,
+    amountGhs,
+    reference,
+    callbackUrl: returnUrl,
+    stubReturnUrl: returnUrl,
+    metadata: {
+      kind: "plan_upgrade",
+      churchId: session.churchId,
+      plan,
+      interval,
+    },
   });
 
-  revalidatePath("/app/settings");
-  return { ok: true };
+  if (init.stubbed) {
+    const renewsAt = new Date();
+    renewsAt.setMonth(renewsAt.getMonth() + (interval === "yearly" ? 12 : 1));
+    await db.subscription.upsert({
+      where: { churchId: session.churchId },
+      create: { churchId: session.churchId, plan, interval, status: "active", renewsAt },
+      update: { plan, interval, status: "active", renewsAt },
+    });
+    revalidatePath("/app/settings");
+    return { ok: true };
+  }
+
+  if (init.ok && init.authorizationUrl) redirect(init.authorizationUrl);
+  return { error: init.error ?? "Could not start payment. Please try again." };
 }
 
 export async function redeemPlanBypass(code: string) {
