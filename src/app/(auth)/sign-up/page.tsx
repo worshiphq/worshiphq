@@ -5,8 +5,8 @@ import { signUp } from "@/app/actions/auth";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
-import { plans } from "@/config/pricing";
-import { formatCurrency } from "@/config/brand";
+import { plans as defaultPlans } from "@/config/pricing";
+import { getPlatformConfig } from "@/lib/data/platform-config";
 
 export const metadata: Metadata = { title: "Create your church" };
 
@@ -15,7 +15,15 @@ export default async function SignUpPage({
 }: {
   searchParams: Promise<{ error?: string; plan?: string }>;
 }) {
-  const { error, plan: planParam } = await searchParams;
+  const [{ error, plan: planParam }, platformConfig] = await Promise.all([
+    searchParams,
+    getPlatformConfig(),
+  ]);
+  const plans = defaultPlans.map((p) => {
+    const dbPrice = platformConfig.prices[p.id];
+    return dbPrice ? { ...p, monthly: dbPrice.monthly, yearly: dbPrice.yearly } : p;
+  });
+  const sym = platformConfig.currencySymbol;
   const selectedPlan = planParam && plans.some((p) => p.id === planParam) ? planParam : "free";
   const message =
     error === "exists"
@@ -84,7 +92,7 @@ export default async function SignUpPage({
                 />
                 <div className="font-display text-sm font-semibold">{p.name}</div>
                 <div className="mt-0.5 text-xs text-ink-muted">
-                  {p.monthly === 0 ? "Free forever" : `${formatCurrency(p.monthly)}/mo`}
+                  {p.monthly === 0 ? "Free forever" : `${sym}${p.monthly.toLocaleString()}/mo`}
                 </div>
                 <div className="mt-1 text-[10px] text-ink-faint">{p.members}</div>
               </label>

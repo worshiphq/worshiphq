@@ -3,13 +3,14 @@ import { SettingsClient } from "@/components/app/settings-client";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { features } from "@/lib/env";
+import { getPlatformConfig } from "@/lib/data/platform-config";
 
 export const metadata = { title: "Settings" };
 
 export default async function SettingsPage() {
   const session = await requireModule("settings");
 
-  const [church, users, departments, customRoles, subscription] = await Promise.all([
+  const [church, users, departments, customRoles, subscription, platformConfig] = await Promise.all([
     db.church.findUnique({ where: { id: session.churchId } }),
     db.user.findMany({
       where: { churchId: session.churchId },
@@ -30,6 +31,7 @@ export default async function SettingsPage() {
       where: { churchId: session.churchId },
       select: { plan: true, status: true, interval: true, renewsAt: true, bypassPlan: true },
     }),
+    getPlatformConfig(),
   ]);
 
   // Auto-provision subscription for churches created before subscriptions existed
@@ -81,6 +83,7 @@ export default async function SettingsPage() {
         departments={departments}
         customRoles={customRoles}
         subscription={sub}
+        platformPricing={platformConfig}
       />
     </div>
   );

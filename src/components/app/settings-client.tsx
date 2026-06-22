@@ -25,8 +25,8 @@ import { BrandingForm } from "@/components/app/branding-form";
 import { FormBuilder } from "@/components/app/form-builder";
 import { getFormDefinition, getVisitorFormDefinition, getChildrenFormDefinition, getTeensFormDefinition } from "@/lib/forms/registration";
 import { createDepartment, deleteDepartment } from "@/app/actions/departments";
-import { plans } from "@/config/pricing";
-import { formatCurrency } from "@/config/brand";
+import { plans as defaultPlans } from "@/config/pricing";
+import type { PlanPrices } from "@/lib/data/platform-config";
 import { cn } from "@/lib/utils";
 
 type FeatureMap = Record<string, boolean>;
@@ -83,6 +83,8 @@ const integrationList = [
 
 const ALL_ROLES = ["Admin", "Pastor", "Finance", "Media", "Leader", "Volunteer"];
 
+type PlatformPricing = { currency: string; currencySymbol: string; prices: PlanPrices };
+
 export function SettingsClient({
   session,
   features,
@@ -91,6 +93,7 @@ export function SettingsClient({
   departments,
   customRoles,
   subscription,
+  platformPricing,
 }: {
   session: Session;
   features: FeatureMap;
@@ -99,6 +102,7 @@ export function SettingsClient({
   departments: Dept[];
   customRoles: CustomRoleRow[];
   subscription: SubscriptionData;
+  platformPricing?: PlatformPricing;
 }) {
   const [tab, setTab] = useState<(typeof tabs)[number]["key"]>("church");
   const ro = session.isDemo;
@@ -428,7 +432,7 @@ export function SettingsClient({
         )}
 
         {/* ── Billing ── */}
-        {tab === "billing" && <BillingTab subscription={subscription} features={features} ro={ro} />}
+        {tab === "billing" && <BillingTab subscription={subscription} features={features} ro={ro} platformPricing={platformPricing} />}
 
         {tab === "sms" && (
           <Card className="p-6">
@@ -560,7 +564,14 @@ function BuiltInRolesEditor({
   );
 }
 
-function BillingTab({ subscription, features, ro }: { subscription: SubscriptionData; features: FeatureMap; ro: boolean }) {
+function BillingTab({ subscription, features, ro, platformPricing }: { subscription: SubscriptionData; features: FeatureMap; ro: boolean; platformPricing?: PlatformPricing }) {
+  const plans = defaultPlans.map((p) => {
+    const dbPrice = platformPricing?.prices[p.id];
+    return dbPrice ? { ...p, monthly: dbPrice.monthly, yearly: dbPrice.yearly } : p;
+  });
+  const sym = platformPricing?.currencySymbol ?? "₵";
+  const fmtPrice = (amount: number) => `${sym}${amount.toLocaleString()}`;
+
   const [showPlans, setShowPlans] = useState(false);
   const [interval, setInterval] = useState<"monthly" | "yearly">(
     (subscription?.interval as "monthly" | "yearly") ?? "monthly",
@@ -596,7 +607,7 @@ function BillingTab({ subscription, features, ro }: { subscription: Subscription
       )}
       <Card className="p-6">
         <h3 className="font-display text-lg font-semibold">Billing & subscription</h3>
-        <p className="text-sm text-ink-muted">Powered by Paystack. Billed in GHS.</p>
+        <p className="text-sm text-ink-muted">Powered by Paystack. Billed in {platformPricing?.currency ?? "GHS"}.</p>
 
         <div className="mt-5 flex items-center justify-between rounded-2xl border border-primary/30 bg-primary/10 p-5">
           <div>
@@ -613,7 +624,7 @@ function BillingTab({ subscription, features, ro }: { subscription: Subscription
             ) : (
               <>
                 <div className="font-display text-2xl font-bold">
-                  {formatCurrency(price)}
+                  {fmtPrice(price)}
                   <span className="text-sm font-normal text-ink-faint">/mo</span>
                 </div>
                 {currentPlanId !== "free" && subscription?.renewsAt && (
@@ -730,7 +741,7 @@ function BillingTab({ subscription, features, ro }: { subscription: Subscription
                   </div>
                   <p className="mt-1 text-xs text-ink-muted">{plan.tagline}</p>
                   <div className="mt-3">
-                    <span className="font-display text-2xl font-bold">{formatCurrency(monthlyPrice)}</span>
+                    <span className="font-display text-2xl font-bold">{fmtPrice(monthlyPrice)}</span>
                     <span className="text-sm text-ink-faint">/mo</span>
                   </div>
                   <div className="mt-1 text-xs text-ink-faint">{plan.members}</div>
@@ -779,12 +790,12 @@ function BillingTab({ subscription, features, ro }: { subscription: Subscription
 
             <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
               <div className="font-display text-2xl font-bold">
-                {formatCurrency(interval === "yearly" ? upgradePlan.yearly / 12 : upgradePlan.monthly)}
+                {fmtPrice(interval === "yearly" ? upgradePlan.yearly / 12 : upgradePlan.monthly)}
                 <span className="text-sm font-normal text-ink-faint">/mo</span>
               </div>
               <p className="text-xs text-ink-faint">
                 {interval === "yearly"
-                  ? `₵${upgradePlan.yearly.toLocaleString()} billed yearly`
+                  ? `${sym}${upgradePlan.yearly.toLocaleString()} billed yearly`
                   : "Billed monthly"}
                 {" · "}{upgradePlan.members}
               </p>

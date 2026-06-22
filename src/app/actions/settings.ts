@@ -539,7 +539,10 @@ export async function changePlan(plan: string, interval: "monthly" | "yearly") {
   const planConfig = plans.find((p) => p.id === plan);
   if (!planConfig) return { error: "Invalid plan" };
 
-  const amountGhs = interval === "yearly" ? planConfig.yearly : planConfig.monthly;
+  const { getPlatformConfig } = await import("@/lib/data/platform-config");
+  const platformConfig = await getPlatformConfig();
+  const dbPrice = platformConfig.prices[plan];
+  const amountGhs = interval === "yearly" ? (dbPrice?.yearly ?? planConfig.yearly) : (dbPrice?.monthly ?? planConfig.monthly);
   const reference = newPaymentReference();
   const appUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
   const returnUrl = `${appUrl}/app/settings?upgraded=${plan}`;

@@ -8,9 +8,13 @@ import { PricingSection } from "@/components/marketing/pricing-section";
 import { FAQ } from "@/components/marketing/faq";
 import { FinalCTA } from "@/components/marketing/final-cta";
 import { getMarketingContent } from "@/lib/data/site-content";
+import { getPlatformConfig } from "@/lib/data/platform-config";
 
 export default async function HomePage() {
-  const content = await getMarketingContent();
+  const [content, platformConfig] = await Promise.all([
+    getMarketingContent(),
+    getPlatformConfig(),
+  ]);
   return (
     <>
       <Hero subhead={content.heroSubhead} />
@@ -19,7 +23,7 @@ export default async function HomePage() {
       <Spotlights />
       <HowItWorks />
       <Testimonials items={content.testimonials} />
-      <PricingSection />
+      <PricingSection platformPricing={platformConfig} />
       <FAQ />
       <FinalCTA />
     </>

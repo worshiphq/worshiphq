@@ -7,11 +7,18 @@ import { Check, Minus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Reveal } from "@/components/ui/reveal";
-import { plans, comparison, YEARLY_DISCOUNT_LABEL } from "@/config/pricing";
-import { formatCurrency } from "@/config/brand";
+import { plans as defaultPlans, comparison, YEARLY_DISCOUNT_LABEL } from "@/config/pricing";
+import { formatCurrency as defaultFmt } from "@/config/brand";
 import { cn } from "@/lib/utils";
+import type { PlanPrices } from "@/lib/data/platform-config";
 
-export function PricingSection({ showComparison = true }: { showComparison?: boolean }) {
+export function PricingSection({ showComparison = true, platformPricing }: { showComparison?: boolean; platformPricing?: { currency: string; currencySymbol: string; prices: PlanPrices } }) {
+  const plans = defaultPlans.map((p) => {
+    const dbPrice = platformPricing?.prices[p.id];
+    return dbPrice ? { ...p, monthly: dbPrice.monthly, yearly: dbPrice.yearly } : p;
+  });
+  const sym = platformPricing?.currencySymbol ?? "₵";
+  const formatCurrency = (amount: number) => platformPricing ? `${sym}${amount.toLocaleString()}` : defaultFmt(amount);
   const [yearly, setYearly] = useState(false);
 
   return (

@@ -3,13 +3,15 @@ import { PageHero } from "@/components/marketing/page-hero";
 import { PricingSection } from "@/components/marketing/pricing-section";
 import { FAQ } from "@/components/marketing/faq";
 import { FinalCTA } from "@/components/marketing/final-cta";
+import { getPlatformConfig } from "@/lib/data/platform-config";
 
 export const metadata: Metadata = {
   title: "Pricing",
   description: "Simple, fair pricing in Ghana Cedi. Free forever for up to 50 members.",
 };
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  const platformConfig = await getPlatformConfig();
   return (
     <>
       <PageHero
@@ -19,9 +21,9 @@ export default function PricingPage() {
             Pricing that <span className="text-gradient">grows with you</span>
           </>
         }
-        subtitle="Start free forever. Upgrade when you're ready. No hidden fees, no surprises — all in ₵."
+        subtitle={`Start free forever. Upgrade when you're ready. No hidden fees, no surprises — all in ${platformConfig.currencySymbol}.`}
       />
-      <PricingSection />
+      <PricingSection platformPricing={platformConfig} />
       <FAQ />
       <FinalCTA />
     </>
