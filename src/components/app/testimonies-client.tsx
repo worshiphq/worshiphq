@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Search, Trash2, Star, Eye, EyeOff, Sparkles, Heart, HandHeart, Shield, BookOpen, Award } from "lucide-react";
+import { Search, Trash2, Star, Eye, EyeOff, Sparkles, Heart, HandHeart, Shield, BookOpen, Award, Loader2 } from "lucide-react";
 import { deleteTestimony, toggleTestimonyStatus } from "@/app/actions/testimonies";
 import { useFeedback } from "@/components/ui/feedback";
 import { formatDate } from "@/lib/utils";
@@ -90,13 +90,13 @@ export function TestimoniesClient({ testimonies }: { testimonies: Testimony[] })
                   </div>
                   <div className="flex gap-1">
                     <form action={(fd) => start(async () => { fd.set("id", t.id); fd.set("status", t.status === "featured" ? "approved" : "featured"); await toggleTestimonyStatus(fd); toast(t.status === "featured" ? "Unfeatured" : "Featured!", "success"); })}>
-                      <button type="submit" disabled={pending} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-gold/10 hover:text-gold">
-                        {t.status === "featured" ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                      <button type="submit" disabled={pending} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-gold/10 hover:text-gold disabled:pointer-events-none">
+                        {pending ? <Loader2 className="size-4 animate-spin" /> : t.status === "featured" ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                       </button>
                     </form>
                     <form action={(fd) => start(async () => { fd.set("id", t.id); await deleteTestimony(fd); toast("Testimony deleted", "info"); })}>
-                      <button type="submit" disabled={pending} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
-                        <Trash2 className="size-4" />
+                      <button type="submit" disabled={pending} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger disabled:pointer-events-none">
+                        {pending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                       </button>
                     </form>
                   </div>

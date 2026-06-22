@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useTransition } from "react";
-import { Search, Trash2, Heart, Users, Shield, BookOpen, AlertTriangle, CircleDot, CheckCircle2, Clock } from "lucide-react";
+import { Search, Trash2, Heart, Users, Shield, BookOpen, AlertTriangle, CircleDot, CheckCircle2, Clock, Loader2 } from "lucide-react";
 import { deleteCounselingSession, updateCounselingStatus } from "@/app/actions/counseling";
 import { useFeedback } from "@/components/ui/feedback";
 import { formatDate } from "@/lib/utils";
@@ -110,14 +110,14 @@ export function CounselingClient({ sessions }: { sessions: Session[] }) {
                   <div className="flex gap-1">
                     {s.status !== "closed" && (
                       <form action={(fd) => start(async () => { fd.set("id", s.id); fd.set("status", "closed"); await updateCounselingStatus(fd); toast("Session closed", "success"); })}>
-                        <button type="submit" disabled={pending} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-success/10 hover:text-success" title="Close">
-                          <CheckCircle2 className="size-4" />
+                        <button type="submit" disabled={pending} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-success/10 hover:text-success disabled:pointer-events-none" title="Close">
+                          {pending ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
                         </button>
                       </form>
                     )}
                     <form action={(fd) => start(async () => { fd.set("id", s.id); await deleteCounselingSession(fd); toast("Session deleted", "info"); })}>
-                      <button type="submit" disabled={pending} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
-                        <Trash2 className="size-4" />
+                      <button type="submit" disabled={pending} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger disabled:pointer-events-none">
+                        {pending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                       </button>
                     </form>
                   </div>

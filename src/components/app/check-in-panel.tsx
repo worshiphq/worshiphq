@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Search, UserPlus, X, Check, ScanLine } from "lucide-react";
+import { Search, UserPlus, X, Check, ScanLine, Loader2 } from "lucide-react";
 import { MemberAvatar } from "@/components/ui/member-avatar";
 import { QrCode } from "@/components/ui/qr-code";
 import { QrScanner } from "@/components/app/qr-scanner";
@@ -153,8 +153,8 @@ export function CheckInPanel({
                     </div>
                   </div>
                   {canWrite && (
-                    <button onClick={() => undo(a)} disabled={pending} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
-                      <X className="size-4" />
+                    <button onClick={() => undo(a)} disabled={pending} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger disabled:pointer-events-none">
+                      {pending ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
                     </button>
                   )}
                 </li>

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Trash2, ChevronDown, ChevronRight, Plus, Calendar, User, Clock } from "lucide-react";
+import { Trash2, ChevronDown, ChevronRight, Plus, Calendar, User, Clock, Loader2 } from "lucide-react";
 import { deleteRoster, deleteSlot } from "@/app/actions/rosters";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { useFeedback } from "@/components/ui/feedback";
@@ -104,8 +104,8 @@ export function RostersClient({
                     </div>
                   </div>
                   <form action={(fd) => start(async () => { fd.set("id", r.id); await deleteRoster(fd); toast("Roster deleted", "info"); })} onClick={(e) => e.stopPropagation()}>
-                    <button type="submit" disabled={pending} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
-                      <Trash2 className="size-4" />
+                    <button type="submit" disabled={pending} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger disabled:pointer-events-none">
+                      {pending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                     </button>
                   </form>
                 </button>
@@ -139,8 +139,8 @@ export function RostersClient({
                                 </td>
                                 <td className="py-2">
                                   <form action={(fd) => start(async () => { fd.set("id", slot.id); await deleteSlot(fd); toast("Slot removed", "info"); })}>
-                                    <button type="submit" disabled={pending} className="grid size-6 place-items-center rounded text-ink-faint hover:text-danger">
-                                      <Trash2 className="size-3.5" />
+                                    <button type="submit" disabled={pending} className="grid size-6 place-items-center rounded text-ink-faint hover:text-danger disabled:pointer-events-none">
+                                      {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
                                     </button>
                                   </form>
                                 </td>

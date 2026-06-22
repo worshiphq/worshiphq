@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { Trash2, ChevronDown, ChevronRight, Plus, DollarSign, TrendingUp, AlertTriangle } from "lucide-react";
+import { Trash2, ChevronDown, ChevronRight, Plus, DollarSign, TrendingUp, AlertTriangle, Loader2 } from "lucide-react";
 import { deleteBudget, deleteBudgetItem } from "@/app/actions/budgets";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { useFeedback } from "@/components/ui/feedback";
@@ -98,8 +98,8 @@ export function BudgetsClient({
                     </div>
                   </div>
                   <form action={(fd) => start(async () => { fd.set("id", b.id); await deleteBudget(fd); toast("Budget deleted", "info"); })} onClick={(e) => e.stopPropagation()}>
-                    <button type="submit" disabled={pending} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
-                      <Trash2 className="size-4" />
+                    <button type="submit" disabled={pending} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger disabled:pointer-events-none">
+                      {pending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                     </button>
                   </form>
                 </button>
@@ -138,8 +138,8 @@ export function BudgetsClient({
                                   <td className={cn("py-2 text-right text-xs", itemPct > 100 ? "font-bold text-danger" : "")}>{itemPct}%</td>
                                   <td className="py-2 text-right">
                                     <form action={(fd) => start(async () => { fd.set("id", item.id); await deleteBudgetItem(fd); toast("Item removed", "info"); })}>
-                                      <button type="submit" disabled={pending} className="grid size-6 place-items-center rounded text-ink-faint hover:text-danger">
-                                        <Trash2 className="size-3.5" />
+                                      <button type="submit" disabled={pending} className="grid size-6 place-items-center rounded text-ink-faint hover:text-danger disabled:pointer-events-none">
+                                        {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
                                       </button>
                                     </form>
                                   </td>
