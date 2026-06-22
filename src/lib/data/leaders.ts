@@ -14,7 +14,7 @@ const POSITION_PRIORITY: Record<string, number> = {
 };
 
 export async function getLeaders(churchId: string) {
-  const [churchLeaders, departmentPositions, departments] = await Promise.all([
+  const [churchLeaders, departmentPositions, departments, allPeople] = await Promise.all([
     db.person.findMany({
       where: { churchId, featured: true, leaderTitle: { not: null } },
       select: {
@@ -35,6 +35,11 @@ export async function getLeaders(churchId: string) {
       where: { churchId },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
+    }),
+    db.person.findMany({
+      where: { churchId, status: "active" },
+      select: { id: true, firstName: true, lastName: true, title: true, photoUrl: true },
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     }),
   ]);
 
@@ -89,5 +94,10 @@ export async function getLeaders(churchId: string) {
     })),
     departmentLeaders,
     departments,
+    people: allPeople.map((p) => ({
+      id: p.id,
+      name: `${p.title ? p.title + " " : ""}${p.firstName} ${p.lastName}`,
+      photoUrl: p.photoUrl,
+    })),
   };
 }
