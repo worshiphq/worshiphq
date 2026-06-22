@@ -1,0 +1,47 @@
+@import "tailwindcss";
+
+@theme {
+  --color-surface: #0a0a0f;
+  --color-surface-2: #12121a;
+  --color-surface-3: #1a1a25;
+  --color-surface-4: #22222f;
+  --color-line: #2a2a3a;
+  --color-line-soft: #1e1e2e;
+  --color-ink: #e8e8f0;
+  --color-ink-muted: #9898aa;
+  --color-ink-faint: #5a5a70;
+  --color-primary: #6366f1;
+  --color-primary-bright: #818cf8;
+  --color-gold: #f59e0b;
+  --color-danger: #ef4444;
+  --color-success: #22c55e;
+}
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  overflow: hidden;
+  background: var(--color-surface);
+  color: var(--color-ink);
+  font-family: system-ui, -apple-system, sans-serif;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--color-line);
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-ink-faint);
+}
+
+[data-tauri-drag-region] {
+  cursor: grab;
+}
