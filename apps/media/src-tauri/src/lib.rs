@@ -2,7 +2,7 @@ mod bible;
 mod licensing;
 
 use serde::Serialize;
-use tauri::Manager;
+use tauri::{Emitter, Manager};
 
 #[derive(Debug, Serialize)]
 pub struct DisplayInfo {
