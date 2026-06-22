@@ -15,6 +15,16 @@ datasource db {
   directUrl = env("DIRECT_URL")
 }
 
+// ── Platform config (singleton — one row, id="default") ──
+model PlatformConfig {
+  id       String @id @default("default")
+  currency String @default("GHS")
+  currencySymbol String @default("₵")
+  // Plan prices stored as JSON: { free: { monthly: 0, yearly: 0 }, starter: { monthly: 99, yearly: 990 }, ... }
+  planPrices Json?
+  updatedAt DateTime @updatedAt
+}
+
 // ── Tenancy ───────────────────────────────────────────────
 model Church {
   id           String   @id @default(cuid())
