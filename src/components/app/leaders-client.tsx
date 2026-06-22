@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Crown, Users2, Plus, X, ChevronDown } from "lucide-react";
+import { Crown, Users2, Plus, X, Check } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +36,7 @@ type DeptLeader = {
 };
 
 type Dept = { id: string; name: string };
+type PersonOption = { id: string; name: string; photoUrl: string | null };
 
 const BUILT_IN_POSITIONS = [
   "Head", "Assistant Head", "President", "Vice President",
@@ -46,12 +47,14 @@ export function LeadersClient({
   churchLeaders,
   departmentLeaders,
   departments,
+  people,
   isAdmin,
   isDemo,
 }: {
   churchLeaders: Leader[];
   departmentLeaders: DeptLeader[];
   departments: Dept[];
+  people: PersonOption[];
   isAdmin: boolean;
   isDemo: boolean;
 }) {
@@ -123,7 +126,7 @@ export function LeadersClient({
           <h3 className="font-display text-lg font-semibold">Department Leaders</h3>
         </div>
 
-        {departmentLeaders.length === 0 && departments.length === 0 && (
+        {departments.length === 0 && (
           <Card className="p-6 text-center">
             <Users2 className="mx-auto size-8 text-ink-faint" />
             <h3 className="mt-2 font-display font-semibold">No departments yet</h3>
@@ -141,6 +144,7 @@ export function LeadersClient({
                 key={dept.id}
                 dept={dept}
                 members={deptData?.members ?? []}
+                people={people}
                 isAdmin={isAdmin}
                 isDemo={isDemo}
               />
@@ -155,11 +159,13 @@ export function LeadersClient({
 function DepartmentCard({
   dept,
   members,
+  people,
   isAdmin,
   isDemo,
 }: {
   dept: Dept;
   members: DeptMember[];
+  people: PersonOption[];
   isAdmin: boolean;
   isDemo: boolean;
 }) {
@@ -176,7 +182,7 @@ function DepartmentCard({
       </div>
 
       <div className="flex-1 divide-y divide-line-soft">
-        {members.length === 0 && (
+        {members.length === 0 && !showAdd && (
           <p className="px-4 py-6 text-center text-sm text-ink-faint">No leaders assigned</p>
         )}
         {members.map((m) => (
@@ -207,7 +213,7 @@ function DepartmentCard({
       {isAdmin && !isDemo && (
         <div className="border-t border-line p-3">
           {showAdd ? (
-            <AddPositionForm deptId={dept.id} deptName={dept.name} onDone={() => setShowAdd(false)} />
+            <AddPositionForm deptId={dept.id} people={people} onDone={() => setShowAdd(false)} />
           ) : (
             <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => setShowAdd(true)}>
               <Plus className="size-3.5" /> Assign leader
@@ -219,78 +225,173 @@ function DepartmentCard({
   );
 }
 
-function AddPositionForm({ deptId, deptName, onDone }: { deptId: string; deptName: string; onDone: () => void }) {
+function AddPositionForm({
+  deptId,
+  people,
+  onDone,
+}: {
+  deptId: string;
+  people: PersonOption[];
+  onDone: () => void;
+}) {
   const [pending, startAdd] = useTransition();
-  const [personSearch, setPersonSearch] = useState("");
-  const [customPosition, setCustomPosition] = useState(false);
+  const [search, setSearch] = useState("");
+  const [selectedPerson, setSelectedPerson] = useState<PersonOption | null>(null);
+  const [selectedPosition, setSelectedPosition] = useState("");
+  const [customMode, setCustomMode] = useState(false);
+  const [customPosition, setCustomPosition] = useState("");
+  const [showDropdown, setShowDropdown] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  const filtered = search.length >= 1
+    ? people.filter((p) => p.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
+    : [];
+
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setShowDropdown(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
+
+  const finalPosition = customMode ? customPosition.trim() : selectedPosition;
+  const canAssign = selectedPerson && finalPosition;
+
+  function handleAssign() {
+    if (!canAssign) return;
+    const fd = new FormData();
+    fd.set("personId", selectedPerson!.id);
+    fd.set("departmentId", deptId);
+    fd.set("position", finalPosition);
+    startAdd(async () => {
+      await addPosition(fd);
+      onDone();
+    });
+  }
 
   return (
-    <form
-      className="space-y-2"
-      action={(fd) => {
-        startAdd(async () => {
-          await addPosition(fd);
-          onDone();
-        });
-      }}
-    >
-      <input type="hidden" name="departmentId" value={deptId} />
+    <div className="space-y-3">
+      {/* Step 1: Search & select member */}
       <div>
-        <label className="text-xs font-medium text-ink-muted">Member ID or name</label>
-        <input
-          name="personId"
-          placeholder="Paste person ID"
-          required
-          className="mt-0.5 flex h-9 w-full rounded-lg border border-line bg-surface px-3 text-sm placeholder:text-ink-faint focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/30"
-        />
-        <p className="mt-0.5 text-[10px] text-ink-faint">Copy the person ID from their profile in People</p>
-      </div>
-      <div>
-        <label className="text-xs font-medium text-ink-muted">Position</label>
-        {!customPosition ? (
-          <div className="mt-0.5 flex flex-wrap gap-1">
-            {BUILT_IN_POSITIONS.map((p) => (
-              <button
-                key={p}
-                type="submit"
-                name="position"
-                value={p}
-                disabled={pending}
-                className="rounded-full border border-line bg-surface px-2.5 py-1 text-xs font-medium text-ink-muted transition-colors hover:border-primary/40 hover:bg-primary/10 hover:text-primary-bright"
-              >
-                {p}
-              </button>
-            ))}
+        <label className="text-xs font-medium text-ink-muted">Member</label>
+        {selectedPerson ? (
+          <div className="mt-1 flex items-center gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2">
+            <MemberAvatar name={selectedPerson.name} photoUrl={selectedPerson.photoUrl} size="xs" />
+            <span className="flex-1 text-sm font-medium text-ink">{selectedPerson.name}</span>
             <button
               type="button"
-              onClick={() => setCustomPosition(true)}
-              className="rounded-full border border-dashed border-line px-2.5 py-1 text-xs text-ink-faint hover:border-primary/40 hover:text-primary-bright"
+              onClick={() => { setSelectedPerson(null); setSearch(""); setSelectedPosition(""); }}
+              className="grid size-5 place-items-center rounded text-ink-faint hover:text-danger"
             >
-              <Plus className="mr-0.5 inline size-3" /> Custom
+              <X className="size-3" />
             </button>
           </div>
         ) : (
-          <div className="mt-0.5 flex gap-1">
+          <div ref={wrapperRef} className="relative mt-1">
             <input
-              name="position"
-              placeholder="e.g. Music Director"
-              required
-              className="flex h-8 flex-1 rounded-lg border border-line bg-surface px-2 text-sm placeholder:text-ink-faint focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/30"
+              type="text"
+              value={search}
+              onChange={(e) => { setSearch(e.target.value); setShowDropdown(true); }}
+              onFocus={() => setShowDropdown(true)}
+              placeholder="Type a name to search…"
+              autoFocus
+              className="flex h-9 w-full rounded-lg border border-line bg-surface px-3 text-sm placeholder:text-ink-faint focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
-            <Button type="submit" size="sm" disabled={pending} className="h-8">
-              {pending ? "Adding…" : "Add"}
-            </Button>
-            <Button type="button" variant="ghost" size="sm" className="h-8" onClick={() => setCustomPosition(false)}>
-              Back
-            </Button>
+            {showDropdown && filtered.length > 0 && (
+              <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-xl border border-line bg-surface shadow-lg">
+                {filtered.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    onClick={() => {
+                      setSelectedPerson(p);
+                      setSearch("");
+                      setShowDropdown(false);
+                    }}
+                    className="flex w-full items-center gap-2.5 px-3 py-2.5 text-left text-sm transition-colors hover:bg-surface-2"
+                  >
+                    <MemberAvatar name={p.name} photoUrl={p.photoUrl} size="xs" />
+                    <span className="font-medium text-ink">{p.name}</span>
+                  </button>
+                ))}
+              </div>
+            )}
+            {showDropdown && search.length >= 2 && filtered.length === 0 && (
+              <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-xl border border-line bg-surface p-3 text-center text-xs text-ink-faint shadow-lg">
+                No members found
+              </div>
+            )}
           </div>
         )}
       </div>
-      <div className="flex justify-end">
+
+      {/* Step 2: Choose position (only shows after selecting a person) */}
+      {selectedPerson && (
+        <div>
+          <label className="text-xs font-medium text-ink-muted">Position</label>
+          {!customMode ? (
+            <div className="mt-1 flex flex-wrap gap-1.5">
+              {BUILT_IN_POSITIONS.map((p) => (
+                <button
+                  key={p}
+                  type="button"
+                  onClick={() => setSelectedPosition(p)}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                    selectedPosition === p
+                      ? "border-primary bg-primary/10 text-primary-bright"
+                      : "border-line bg-surface text-ink-muted hover:border-primary/40 hover:text-primary-bright",
+                  )}
+                >
+                  {selectedPosition === p && <Check className="mr-0.5 inline size-3" />}
+                  {p}
+                </button>
+              ))}
+              <button
+                type="button"
+                onClick={() => setCustomMode(true)}
+                className="rounded-full border border-dashed border-line px-2.5 py-1 text-xs text-ink-faint hover:border-primary/40 hover:text-primary-bright"
+              >
+                <Plus className="mr-0.5 inline size-3" /> Custom
+              </button>
+            </div>
+          ) : (
+            <div className="mt-1 flex gap-1.5">
+              <input
+                value={customPosition}
+                onChange={(e) => setCustomPosition(e.target.value)}
+                placeholder="e.g. Music Director"
+                autoFocus
+                className="flex h-8 flex-1 rounded-lg border border-line bg-surface px-2 text-sm placeholder:text-ink-faint focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+              <Button type="button" variant="ghost" size="sm" className="h-8 text-xs" onClick={() => { setCustomMode(false); setCustomPosition(""); }}>
+                Back
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Step 3: Assign button */}
+      <div className="flex gap-2">
+        {canAssign && (
+          <Button
+            type="button"
+            size="sm"
+            className="flex-1"
+            disabled={pending}
+            onClick={handleAssign}
+          >
+            {pending ? "Assigning…" : `Assign ${selectedPerson.name.split(" ")[0]} as ${finalPosition}`}
+          </Button>
+        )}
         <Button type="button" variant="ghost" size="sm" onClick={onDone} className="text-xs">
           Cancel
         </Button>
       </div>
-    </form>
+    </div>
   );
 }
