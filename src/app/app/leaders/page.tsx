@@ -7,7 +7,13 @@ export const metadata = { title: "Leaders" };
 
 export default async function LeadersPage() {
   const session = await requireModule("people");
-  const data = await getLeaders(session.churchId);
+  let data;
+  try {
+    data = await getLeaders(session.churchId);
+  } catch (err) {
+    console.error("[leaders] getLeaders failed:", err);
+    throw err;
+  }
   const isAdmin = session.role === "Owner" || session.role === "Admin" || session.role === "Pastor";
 
   return (
@@ -20,6 +26,7 @@ export default async function LeadersPage() {
         churchLeaders={data.churchLeaders}
         departmentLeaders={data.departmentLeaders}
         departments={data.departments}
+        people={data.people}
         isAdmin={isAdmin}
         isDemo={session.isDemo}
       />
