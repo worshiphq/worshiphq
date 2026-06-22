@@ -1,7 +1,3 @@
-import "server-only";
-import { db } from "@/lib/db";
-import { cache } from "react";
-
 export type PlanId = "free" | "starter" | "pro" | "max";
 
 const PLAN_RANK: Record<PlanId, number> = { free: 0, starter: 1, pro: 2, max: 3 };
@@ -119,16 +115,6 @@ export function getMinimumPlan(feature: string): PlanId {
 export function planRank(plan: PlanId): number {
   return PLAN_RANK[plan] ?? 0;
 }
-
-export const getChurchPlan = cache(async (churchId: string): Promise<PlanId> => {
-  const sub = await db.subscription.findUnique({
-    where: { churchId },
-    select: { plan: true, status: true },
-  });
-  if (!sub) return "free";
-  if (sub.status === "grace") return (sub.plan as PlanId) || "max";
-  return (sub.plan as PlanId) || "free";
-});
 
 export function routeAllowedByPlan(plan: PlanId, href: string): boolean {
   const feature = getRouteFeature(href);

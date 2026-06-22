@@ -6,7 +6,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { TourProvider } from "@/components/app/tour";
 import { getActiveAnnouncements } from "@/lib/data/announcements";
 import { getRecentNotifications } from "@/lib/data/notifications";
-import { getChurchPlan } from "@/lib/plan-gate";
+import { getChurchPlan } from "@/lib/plan-gate-server";
 
 export const metadata: Metadata = {
   title: "Dashboard",
