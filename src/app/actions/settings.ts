@@ -289,6 +289,48 @@ export async function saveVisitorForm(formData: FormData) {
   revalidatePath("/visit", "layout");
 }
 
+export async function saveChildrenForm(formData: FormData) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  if (session.role !== "Owner" && session.role !== "Admin") return;
+
+  const raw = String(formData.get("definition") ?? "[]");
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw); } catch { return; }
+
+  const { getChildrenFormDefinition } = await import("@/lib/forms/registration");
+  const fields = getChildrenFormDefinition(parsed);
+
+  await db.church.update({
+    where: { id: session.churchId },
+    data: { childrenFormFields: fields as object },
+  });
+
+  revalidatePath("/app/settings");
+  revalidatePath("/children", "layout");
+}
+
+export async function saveTeensForm(formData: FormData) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  if (session.role !== "Owner" && session.role !== "Admin") return;
+
+  const raw = String(formData.get("definition") ?? "[]");
+  let parsed: unknown;
+  try { parsed = JSON.parse(raw); } catch { return; }
+
+  const { getTeensFormDefinition } = await import("@/lib/forms/registration");
+  const fields = getTeensFormDefinition(parsed);
+
+  await db.church.update({
+    where: { id: session.churchId },
+    data: { teensFormFields: fields as object },
+  });
+
+  revalidatePath("/app/settings");
+  revalidatePath("/teens", "layout");
+}
+
 export async function updateSlug(newSlug: string) {
   const session = await requireSession();
   assertCanWrite(session);

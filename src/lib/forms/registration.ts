@@ -44,6 +44,7 @@ export const SYSTEM_COLUMNS = [
   "homeTown", "workPhone", "postalAddress", "homePhone", "specialInterest",
   "maritalStatus", "baptized", "emergencyName", "emergencyPhone",
   "emergencyRelation", "emergencyEmail", "emergencyAddress",
+  "guardianName", "guardianPhone", "school", "grade",
 ] as const;
 
 export type SystemColumn = (typeof SYSTEM_COLUMNS)[number];
@@ -112,6 +113,10 @@ export const SYSTEM_FIELD_CATALOG: FormField[] = [
   { id: "emergencyEmail", label: "Emergency contact email", type: "email", system: true },
   { id: "emergencyAddress", label: "Emergency contact address", type: "text", system: true },
   { id: "department", label: "Department / ministry", type: "select", system: true },
+  { id: "guardianName", label: "Parent / guardian name", type: "text", system: true },
+  { id: "guardianPhone", label: "Parent / guardian phone", type: "tel", system: true },
+  { id: "school", label: "School", type: "text", system: true },
+  { id: "grade", label: "Class / grade", type: "text", system: true },
 ];
 
 /** Department is a system field whose options come from the church's departments. */
@@ -220,4 +225,62 @@ export function getVisitorFormDefinition(raw: unknown): FormField[] {
     }
   }
   return DEFAULT_VISITOR_FORM;
+}
+
+// ── Children form ──────────────────────────────────────────
+
+export const DEFAULT_CHILDREN_FORM: FormField[] = [
+  { id: "firstName", label: "Child's first name", type: "text", required: true, system: true, locked: true },
+  { id: "lastName", label: "Child's last name", type: "text", required: true, system: true, locked: true },
+  { id: "gender", label: "Gender", type: "select", options: GENDER, system: true },
+  { id: "dateOfBirth", label: "Date of birth", type: "date", system: true, required: true },
+  { id: "guardianName", label: "Parent / guardian name", type: "text", system: true, required: true },
+  { id: "guardianPhone", label: "Parent / guardian phone", type: "tel", system: true, required: true },
+  { id: "school", label: "School", type: "text", system: true },
+  { id: "grade", label: "Class / grade", type: "text", system: true },
+];
+
+export function getChildrenFormDefinition(raw: unknown): FormField[] {
+  if (Array.isArray(raw)) {
+    const fields = raw.map(coerceField).filter((f): f is FormField => f !== null);
+    if (fields.length > 0) {
+      const ensure = (id: string, fallback: FormField) =>
+        fields.find((f) => f.id === id) ?? fallback;
+      const first = { ...ensure("firstName", DEFAULT_CHILDREN_FORM[0]), required: true, locked: true, system: true };
+      const last = { ...ensure("lastName", DEFAULT_CHILDREN_FORM[1]), required: true, locked: true, system: true };
+      const rest = fields.filter((f) => f.id !== "firstName" && f.id !== "lastName");
+      return [first, last, ...rest];
+    }
+  }
+  return DEFAULT_CHILDREN_FORM;
+}
+
+// ── Teens form ─────────────────────────────────────────────
+
+export const DEFAULT_TEENS_FORM: FormField[] = [
+  { id: "firstName", label: "First name", type: "text", required: true, system: true, locked: true },
+  { id: "lastName", label: "Last name", type: "text", required: true, system: true, locked: true },
+  { id: "phone", label: "Phone number", type: "tel", system: true },
+  { id: "gender", label: "Gender", type: "select", options: GENDER, system: true },
+  { id: "dateOfBirth", label: "Date of birth", type: "date", system: true, required: true },
+  { id: "guardianName", label: "Parent / guardian name", type: "text", system: true, required: true },
+  { id: "guardianPhone", label: "Parent / guardian phone", type: "tel", system: true, required: true },
+  { id: "school", label: "School", type: "text", system: true },
+  { id: "grade", label: "Class / grade", type: "text", system: true },
+  { id: "department", label: "Department / ministry", type: "select", system: true },
+];
+
+export function getTeensFormDefinition(raw: unknown): FormField[] {
+  if (Array.isArray(raw)) {
+    const fields = raw.map(coerceField).filter((f): f is FormField => f !== null);
+    if (fields.length > 0) {
+      const ensure = (id: string, fallback: FormField) =>
+        fields.find((f) => f.id === id) ?? fallback;
+      const first = { ...ensure("firstName", DEFAULT_TEENS_FORM[0]), required: true, locked: true, system: true };
+      const last = { ...ensure("lastName", DEFAULT_TEENS_FORM[1]), required: true, locked: true, system: true };
+      const rest = fields.filter((f) => f.id !== "firstName" && f.id !== "lastName");
+      return [first, last, ...rest];
+    }
+  }
+  return DEFAULT_TEENS_FORM;
 }

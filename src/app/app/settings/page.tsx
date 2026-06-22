@@ -60,6 +60,8 @@ export default async function SettingsPage() {
       slug: church.slug,
       registrationFields: (church.registrationFields as Record<string, boolean> | null) ?? null,
       visitorFormFields: church.visitorFormFields ?? null,
+      childrenFormFields: church.childrenFormFields ?? null,
+      teensFormFields: church.teensFormFields ?? null,
 
       smsSenderId: church.smsSenderId,
       smsSenderIdStatus: church.smsSenderIdStatus,

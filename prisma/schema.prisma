@@ -52,6 +52,10 @@ model Church {
   // JSON config: visitor form fields (simpler than full registration)
   visitorFormFields Json?
 
+  // JSON config: children & teens registration forms
+  childrenFormFields Json?
+  teensFormFields    Json?
+
   // Customizable SMS receipt templates (use {name}, {amount}, {church} placeholders)
   titheReceiptTemplate   String?
   harvestReceiptTemplate String?
@@ -260,6 +264,13 @@ model Person {
   specialInterest String?
   maritalStatus  String?  // Single, Married, Divorced, Widowed
   baptized       Boolean? // Has been baptised?
+
+  // ── Age group & guardian (children/teens forms) ──
+  ageGroup       String?  // "adult", "teen", "child"
+  guardianName   String?
+  guardianPhone  String?
+  school         String?
+  grade          String?
 
   // ── Emergency contact ──
   emergencyName    String?

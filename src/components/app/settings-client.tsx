@@ -18,12 +18,12 @@ import {
   changeUserRole, removeTeamMember,
   createCustomRole, deleteCustomRole, requestSenderId,
   updateRolePermissions, changePlan, redeemPlanBypass,
-  saveVisitorForm, updateSlug,
+  saveVisitorForm, saveChildrenForm, saveTeensForm, updateSlug,
 } from "@/app/actions/settings";
 import { ALL_MODULES } from "@/lib/permissions";
 import { BrandingForm } from "@/components/app/branding-form";
 import { FormBuilder } from "@/components/app/form-builder";
-import { getFormDefinition, getVisitorFormDefinition } from "@/lib/forms/registration";
+import { getFormDefinition, getVisitorFormDefinition, getChildrenFormDefinition, getTeensFormDefinition } from "@/lib/forms/registration";
 import { createDepartment, deleteDepartment } from "@/app/actions/departments";
 import { plans } from "@/config/pricing";
 import { formatCurrency } from "@/config/brand";
@@ -41,6 +41,8 @@ type Church = {
   slug: string;
   registrationFields: unknown;
   visitorFormFields: unknown;
+  childrenFormFields: unknown;
+  teensFormFields: unknown;
 
   smsSenderId?: string | null;
   smsSenderIdStatus?: string | null;
@@ -379,6 +381,40 @@ export function SettingsClient({
                 saveAction={saveVisitorForm}
                 title="Visitor form builder"
                 description="Customise the fields first-time visitors fill in. Name fields are always required."
+              />
+            )}
+
+            <SharedLinkCard
+              title="Children's registration"
+              description="A simplified form for registering children. Collects guardian details, school and class info."
+              path={`/children/${church?.slug ?? ""}`}
+              slug={church?.slug}
+            />
+
+            {isAdmin && (
+              <FormBuilder
+                initial={getChildrenFormDefinition(church?.childrenFormFields ?? null)}
+                readOnly={ro}
+                saveAction={saveChildrenForm}
+                title="Children's form builder"
+                description="Customise the fields for children's registration. Guardian details are included by default."
+              />
+            )}
+
+            <SharedLinkCard
+              title="Teens registration"
+              description="Registration for teens. Includes guardian info and lets teens select which department they serve in."
+              path={`/teens/${church?.slug ?? ""}`}
+              slug={church?.slug}
+            />
+
+            {isAdmin && (
+              <FormBuilder
+                initial={getTeensFormDefinition(church?.teensFormFields ?? null)}
+                readOnly={ro}
+                saveAction={saveTeensForm}
+                title="Teens form builder"
+                description="Customise the fields for teen registration. Includes department selection so teens can join ministries."
               />
             )}
 
