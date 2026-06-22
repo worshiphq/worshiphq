@@ -14,12 +14,13 @@ import { cn } from "@/lib/utils";
 export function Sidebar({ sections, churchName, churchLogo, plan = "free" }: { sections: string[]; churchName: string; churchLogo?: string | null; plan?: PlanId }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
-  const [recentUpgrade, setRecentUpgrade] = useState(false);
+  const [prevPlan, setPrevPlan] = useState<PlanId | null>(null);
 
   useEffect(() => {
     const ts = localStorage.getItem("whq_plan_upgraded");
-    if (ts && Date.now() - Number(ts) < 7 * 24 * 60 * 60 * 1000) {
-      setRecentUpgrade(true);
+    const prev = localStorage.getItem("whq_prev_plan") as PlanId | null;
+    if (ts && Date.now() - Number(ts) < 7 * 24 * 60 * 60 * 1000 && prev) {
+      setPrevPlan(prev);
     }
   }, []);
 
@@ -27,10 +28,10 @@ export function Sidebar({ sections, churchName, churchLogo, plan = "free" }: { s
     href === "/app" ? pathname === "/app" : pathname.startsWith(href);
 
   const isNewlyUnlocked = (href: string) => {
-    if (!recentUpgrade) return false;
+    if (!prevPlan) return false;
     const feature = getRouteFeature(href);
     if (!feature) return false;
-    return planHasFeature(plan, feature) && !planHasFeature("free" as PlanId, feature);
+    return planHasFeature(plan, feature) && !planHasFeature(prevPlan, feature);
   };
 
   return (
@@ -86,7 +87,7 @@ export function Sidebar({ sections, churchName, churchLogo, plan = "free" }: { s
                         <Lock className="relative size-3 text-ink-faint/60" />
                       )}
                       {!collapsed && !locked && isNewlyUnlocked(item.href) && (
-                        <span className="relative ml-auto rounded px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-red-500 bg-red-500/10 animate-pulse">
+                        <span className="whq-new-tag relative ml-auto rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-red-500 bg-red-500/10">
                           NEW
                         </span>
                       )}

@@ -18,7 +18,7 @@ import {
   updateChurch, inviteTeammate,
   changeUserRole, removeTeamMember,
   createCustomRole, deleteCustomRole, requestSenderId,
-  updateRolePermissions, changePlan, redeemPlanBypass,
+  updateRolePermissions, changePlan, redeemPlanBypass, verifyPlanUpgrade,
   saveVisitorForm, saveChildrenForm, saveTeensForm, updateSlug,
 } from "@/app/actions/settings";
 import { ALL_MODULES } from "@/lib/permissions";
@@ -797,18 +797,34 @@ function BillingTab({ subscription, features, ro, platformPricing }: { subscript
 
   const previousPlan = (subscription?.plan ?? "free") as PlanId;
 
-  // Detect ?upgraded= param (from Paystack redirect)
+  // Detect ?upgraded= param (from Paystack redirect) — verify payment and activate
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const upgraded = params.get("upgraded");
+    const ref = params.get("ref") || params.get("trxref") || params.get("reference") || "";
+    const intv = params.get("interval") || "monthly";
     if (upgraded) {
       const url = new URL(window.location.href);
       url.searchParams.delete("upgraded");
-      window.history.replaceState({}, "", url.pathname + url.search);
+      url.searchParams.delete("ref");
+      url.searchParams.delete("trxref");
+      url.searchParams.delete("reference");
+      url.searchParams.delete("interval");
+      window.history.replaceState({}, "", url.pathname + (url.search || ""));
+
+      // Verify and activate on the server (fallback if webhook hasn't fired yet)
+      if (ref) {
+        verifyPlanUpgrade(ref, upgraded, intv).then((res) => {
+          if (res && "error" in res) {
+            console.error("[upgrade verify]", res.error);
+          }
+        }).catch(() => {});
+      }
+
       const p = plans.find((pl) => pl.id === upgraded);
       if (p) {
-        const newFeatures = getNewFeatures("free" as PlanId, upgraded as PlanId);
+        const newFeatures = getNewFeatures(previousPlan, upgraded as PlanId);
         setCelebrating({ planName: p.name, newFeatures });
       }
     }
@@ -827,8 +843,9 @@ function BillingTab({ subscription, features, ro, platformPricing }: { subscript
   const handleCelebrationDone = useCallback(() => {
     setCelebrating(null);
     localStorage.setItem("whq_plan_upgraded", Date.now().toString());
+    localStorage.setItem("whq_prev_plan", previousPlan);
     router.refresh();
-  }, [router]);
+  }, [router, previousPlan]);
 
   const currentPlanId = subscription?.plan ?? "free";
   const currentPlan = plans.find((p) => p.id === currentPlanId) ?? plans[0];

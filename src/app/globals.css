@@ -287,6 +287,15 @@
   animation: spin 0.7s linear infinite;
 }
 
+@keyframes new-tag-pulse {
+  0%, 100% { opacity: 0.3; transform: scale(0.92); }
+  50% { opacity: 1; transform: scale(1.05); }
+}
+
+.whq-new-tag {
+  animation: new-tag-pulse 2s ease-in-out infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     scroll-behavior: auto !important;

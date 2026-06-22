@@ -587,7 +587,7 @@ export async function changePlan(plan: string, interval: "monthly" | "yearly") {
   const amountGhs = interval === "yearly" ? (dbPrice?.yearly ?? planConfig.yearly) : (dbPrice?.monthly ?? planConfig.monthly);
   const reference = newPaymentReference();
   const appUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
-  const returnUrl = `${appUrl}/app/settings?upgraded=${plan}`;
+  const returnUrl = `${appUrl}/app/settings?upgraded=${plan}&ref=${reference}&interval=${interval}`;
 
   const init = await initializePayment({
     email: session.email || `billing+${session.churchId}@worshiphq.org`,
@@ -620,6 +620,55 @@ export async function changePlan(plan: string, interval: "monthly" | "yearly") {
 
   if (init.ok && init.authorizationUrl) redirect(init.authorizationUrl);
   return { error: init.error ?? "Could not start payment. Please try again." };
+}
+
+export async function verifyPlanUpgrade(reference: string, plan: string, interval: string) {
+  const session = await requireSession();
+
+  const validPlans = ["starter", "pro", "max"];
+  if (!validPlans.includes(plan)) return { error: "Invalid plan" };
+
+  const sub = await db.subscription.findUnique({ where: { churchId: session.churchId } });
+  if (sub?.plan === plan && sub?.status === "active") {
+    return { ok: true, alreadyActive: true };
+  }
+
+  if (env.PAYSTACK_SECRET_KEY) {
+    try {
+      const res = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+        headers: { authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}` },
+      });
+      const data = await res.json();
+      if (!data?.data || data.data.status !== "success") {
+        return { error: "Payment not confirmed yet. Please wait a moment and refresh." };
+      }
+    } catch {
+      return { error: "Could not verify payment. Please refresh the page." };
+    }
+  }
+
+  const billingInterval = interval === "yearly" ? "yearly" : "monthly";
+  const renewsAt = new Date();
+  renewsAt.setMonth(renewsAt.getMonth() + (billingInterval === "yearly" ? 12 : 1));
+
+  await db.subscription.upsert({
+    where: { churchId: session.churchId },
+    create: { churchId: session.churchId, plan, interval: billingInterval, status: "active", renewsAt },
+    update: { plan, interval: billingInterval, status: "active", renewsAt },
+  });
+
+  const { plans } = await import("@/config/pricing");
+  const planConfig = plans.find((p) => p.id === plan);
+  const { getPlatformConfig } = await import("@/lib/data/platform-config");
+  const platformConfig = await getPlatformConfig();
+  const sym = platformConfig.currencySymbol;
+  const dbPrice = platformConfig.prices[plan];
+  const amount = billingInterval === "yearly" ? (dbPrice?.yearly ?? planConfig?.yearly ?? 0) : (dbPrice?.monthly ?? planConfig?.monthly ?? 0);
+  await sendUpgradeReceipt(session.churchId, planConfig?.name ?? plan, `${sym}${amount.toLocaleString()}`, billingInterval, reference);
+
+  revalidatePath("/app/settings");
+  revalidatePath("/app", "layout");
+  return { ok: true };
 }
 
 export async function redeemPlanBypass(code: string) {
