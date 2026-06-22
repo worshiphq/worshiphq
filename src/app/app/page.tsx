@@ -92,20 +92,20 @@ export default async function DashboardPage() {
                 {leaders.map((l, i) => {
                   const isHead = i === 0;
                   return (
-                    <div key={l.name} className="flex flex-col items-center text-center">
+                    <Link key={l.id} href={`/app/people?highlight=${l.id}`} className="group flex flex-col items-center text-center">
                       <MemberAvatar
                         name={l.name}
                         photoUrl={l.photoUrl}
                         size={isHead ? "xl" : "lg"}
-                        className={isHead ? "ring-4 ring-gold/30" : ""}
+                        className={`transition-transform group-hover:scale-105 ${isHead ? "ring-4 ring-gold/30" : ""}`}
                       />
-                      <h4 className={`mt-3 font-display font-semibold ${isHead ? "text-base" : "text-sm"}`}>
+                      <h4 className={`mt-3 font-display font-semibold text-ink ${isHead ? "text-base" : "text-sm"}`}>
                         {l.name}
                       </h4>
                       <span className={`mt-0.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${isHead ? "bg-gold/10 text-gold" : "bg-primary/10 text-primary-bright"}`}>
                         {l.leaderTitle}
                       </span>
-                    </div>
+                    </Link>
                   );
                 })}
               </div>

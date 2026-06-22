@@ -21,6 +21,8 @@ export async function createExpense(formData: FormData) {
   const approvedBy = String(formData.get("approvedBy") ?? "").trim() || null;
   const dateStr = String(formData.get("date") ?? "").trim();
 
+  const expenseDate = dateStr ? new Date(dateStr) : new Date();
+
   const expense = await db.expense.create({
     data: {
       churchId: session.churchId,
@@ -30,12 +32,24 @@ export async function createExpense(formData: FormData) {
       vendor,
       receiptRef,
       approvedBy,
-      ...(dateStr ? { date: new Date(dateStr) } : {}),
+      date: expenseDate,
+    },
+  });
+
+  await db.transaction.create({
+    data: {
+      churchId: session.churchId,
+      description: `${description}${vendor ? ` (${vendor})` : ""}`,
+      category,
+      fund: "General",
+      amount: -amount,
+      date: expenseDate,
     },
   });
 
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "expense", entityId: expense.id, detail: `Recorded GHS ${amount} expense: ${description}` });
   revalidatePath("/app/expenses");
+  revalidatePath("/app/accounting");
 }
 
 export async function deleteExpense(formData: FormData) {
@@ -43,8 +57,17 @@ export async function deleteExpense(formData: FormData) {
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
-  const expense = await db.expense.findFirst({ where: { id, churchId: session.churchId }, select: { description: true, amount: true } });
+  const expense = await db.expense.findFirst({ where: { id, churchId: session.churchId }, select: { description: true, amount: true, vendor: true } });
+  if (!expense) return;
+
   await db.expense.deleteMany({ where: { id, churchId: session.churchId } });
-  if (expense) await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: "expense", entityId: id, detail: `Deleted GHS ${expense.amount} expense: ${expense.description}` });
+
+  const txDesc = `${expense.description}${expense.vendor ? ` (${expense.vendor})` : ""}`;
+  await db.transaction.deleteMany({
+    where: { churchId: session.churchId, description: txDesc, amount: -expense.amount },
+  });
+
+  await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: "expense", entityId: id, detail: `Deleted GHS ${expense.amount} expense: ${expense.description}` });
   revalidatePath("/app/expenses");
+  revalidatePath("/app/accounting");
 }
