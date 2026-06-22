@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import {
   Search, Plus, Phone, Mail, MapPin, X, Users, Pencil, Trash2,
   Briefcase, Heart, Shield, User, Grid3X3, List, ChevronRight, Download, MessageSquare, QrCode as QrIcon, Fingerprint,
-  ArrowDownAZ, Filter,
+  ArrowDownAZ, Filter, Crown,
 } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { ImportModal } from "@/components/app/import-modal";
@@ -214,6 +214,9 @@ export function PeopleClient({
                   <ClickableAvatar name={p.fullName} photoUrl={p.photoUrl} gender={p.gender} size="lg" />
                   <h3 className="mt-3 font-display text-sm font-semibold">{p.fullName}</h3>
                   {p.leaderTitle && <p className="mt-0.5 text-xs font-medium text-gold">{p.leaderTitle}</p>}
+                  {!p.leaderTitle && p.positions.length > 0 && (
+                    <p className="mt-0.5 text-xs font-medium text-primary-bright">{p.positions[0].position} — {p.positions[0].departmentName}</p>
+                  )}
                   <p className="mt-0.5 text-xs text-ink-faint">{p.memberId ?? p.email ?? p.phone ?? "---"}</p>
                   <div className="mt-3 flex flex-wrap justify-center gap-1.5">
                     <Badge variant={eng.variant} className="text-[10px]">{eng.label}</Badge>
@@ -374,6 +377,20 @@ function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow
             <Section title="Departments">
               <div className="flex flex-wrap gap-1.5">
                 {person.departments.map((d) => <Badge key={d} variant="primary">{d}</Badge>)}
+              </div>
+            </Section>
+          )}
+
+          {person.positions.length > 0 && (
+            <Section title="Leadership positions">
+              <div className="space-y-1.5">
+                {person.positions.map((pos) => (
+                  <div key={pos.id} className="flex items-center gap-2 rounded-lg bg-gold/5 px-3 py-2">
+                    <Crown className="size-3.5 text-gold" />
+                    <span className="text-sm font-medium text-ink">{pos.position}</span>
+                    <span className="text-xs text-ink-faint">— {pos.departmentName}</span>
+                  </div>
+                ))}
               </div>
             </Section>
           )}

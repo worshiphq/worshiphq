@@ -138,11 +138,29 @@ model Department {
   description String?
   createdAt   DateTime @default(now())
 
-  people  Person[] @relation("PrimaryDepartment") // legacy single-department link
-  members Person[] @relation("PersonDepartments") // many-to-many membership
+  people    Person[] @relation("PrimaryDepartment") // legacy single-department link
+  members   Person[] @relation("PersonDepartments") // many-to-many membership
+  positions DepartmentPosition[]
 
   @@unique([churchId, name])
   @@index([churchId])
+}
+
+// A person's named position within a department (Head, Assistant, Secretary, etc.)
+// One person can hold positions in multiple departments.
+model DepartmentPosition {
+  id           String     @id @default(cuid())
+  churchId     String
+  personId     String
+  person       Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
+  departmentId String
+  department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
+  position     String     // e.g. Head, Assistant Head, Secretary, Treasurer, Member
+  createdAt    DateTime   @default(now())
+
+  @@unique([personId, departmentId, position])
+  @@index([churchId])
+  @@index([personId])
 }
 
 // Admin-defined role with custom section access + delete permission.
@@ -256,6 +274,8 @@ model Person {
   departmentId String?
   department   Department? @relation("PrimaryDepartment", fields: [departmentId], references: [id])
   departments  Department[] @relation("PersonDepartments")
+
+  positions   DepartmentPosition[]
 
   householdId String?
   household   Household? @relation(fields: [householdId], references: [id])

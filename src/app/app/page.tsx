@@ -25,7 +25,7 @@ const quickActions = [
 
 export default async function DashboardPage() {
   const session = await requireSession();
-  const { kpis, trend, todaysBirthdays, events, careTasks, recentMembers, departmentBreakdown, leaders } = await getDashboard(session.churchId);
+  const { kpis, trend, todaysBirthdays, events, careTasks, recentMembers, departmentBreakdown, leaders, totalLeaders } = await getDashboard(session.churchId);
   const has = (m: string) => session.sections.includes(m);
   const h = new Date().getHours();
   const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
@@ -82,11 +82,16 @@ export default async function DashboardPage() {
         {leaders.length > 0 && (
           <div data-animate="fade">
             <Card className="overflow-hidden">
-              <div className="flex items-center gap-2 border-b border-line px-5 py-4">
-                <span className="grid size-8 place-items-center rounded-lg bg-gold/10">
-                  <Crown className="size-4 text-gold" />
-                </span>
-                <h3 className="font-display text-lg font-semibold">Church leadership</h3>
+              <div className="flex items-center justify-between border-b border-line px-5 py-4">
+                <div className="flex items-center gap-2">
+                  <span className="grid size-8 place-items-center rounded-lg bg-gold/10">
+                    <Crown className="size-4 text-gold" />
+                  </span>
+                  <h3 className="font-display text-lg font-semibold">Church leadership</h3>
+                </div>
+                <Link href="/app/leaders" className="flex items-center gap-1 text-xs font-medium text-primary-bright hover:underline">
+                  View all <ChevronRight className="size-3" />
+                </Link>
               </div>
               <div className="flex flex-wrap gap-6 p-5">
                 {leaders.map((l, i) => {
