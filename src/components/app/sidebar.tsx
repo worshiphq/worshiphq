@@ -3,14 +3,15 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
-import { PanelLeftClose, PanelLeft } from "lucide-react";
+import { PanelLeftClose, PanelLeft, Lock } from "lucide-react";
 import { ChurchLogo } from "@/components/app/church-logo";
 import { nav } from "@/config/nav";
 import { hasSection } from "@/lib/permissions";
+import { routeAllowedByPlan, type PlanId } from "@/lib/plan-gate";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-export function Sidebar({ sections, churchName, churchLogo }: { sections: string[]; churchName: string; churchLogo?: string | null }) {
+export function Sidebar({ sections, churchName, churchLogo, plan = "free" }: { sections: string[]; churchName: string; churchLogo?: string | null; plan?: PlanId }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
 
@@ -42,28 +43,34 @@ export function Sidebar({ sections, churchName, churchLogo }: { sections: string
               <div className="space-y-0.5">
                 {items.map((item) => {
                   const active = isActive(item.href);
+                  const locked = !routeAllowedByPlan(plan, item.href);
                   return (
                     <Link
-                      key={item.key}
-                      href={item.href}
-                      title={collapsed ? item.label : undefined}
+                      key={item.href}
+                      href={locked ? "/app/settings?tab=billing" : item.href}
+                      title={collapsed ? item.label + (locked ? " (upgrade)" : "") : undefined}
                       className={cn(
                         "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
-                        active ? "text-ink" : "text-ink-muted hover:bg-surface-2 hover:text-ink",
+                        locked
+                          ? "text-ink-faint/50 hover:bg-surface-2"
+                          : active ? "text-ink" : "text-ink-muted hover:bg-surface-2 hover:text-ink",
                         collapsed && "justify-center px-0",
                       )}
                     >
-                      {active && (
+                      {active && !locked && (
                         <span className="absolute inset-0 rounded-xl border border-primary/30 bg-primary/10" />
                       )}
-                      {active && (
+                      {active && !locked && (
                         <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-primary-bright" />
                       )}
                       <item.icon
-                        className={cn("relative size-[1.15rem] shrink-0", active && "text-primary-bright")}
+                        className={cn("relative size-[1.15rem] shrink-0", active && !locked && "text-primary-bright", locked && "opacity-40")}
                       />
-                      {!collapsed && <span className="relative flex-1">{item.label}</span>}
-                      {!collapsed && item.badge && (
+                      {!collapsed && <span className={cn("relative flex-1", locked && "opacity-40")}>{item.label}</span>}
+                      {!collapsed && locked && (
+                        <Lock className="relative size-3 text-ink-faint/60" />
+                      )}
+                      {!collapsed && !locked && item.badge && (
                         <Badge variant="gold" className="relative px-1.5 py-0 text-[10px]">
                           {item.badge}
                         </Badge>

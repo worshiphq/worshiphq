@@ -27,6 +27,7 @@ export default async function LeadersPage() {
         departmentLeaders={data.departmentLeaders}
         departments={data.departments}
         people={data.people}
+        customPositions={data.customPositions}
         isAdmin={isAdmin}
         isDemo={session.isDemo}
       />

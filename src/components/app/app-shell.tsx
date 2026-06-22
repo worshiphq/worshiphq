@@ -4,12 +4,13 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { X, ShieldCheck, Megaphone, AlertTriangle, CheckCircle2 } from "lucide-react";
+import { X, ShieldCheck, Megaphone, AlertTriangle, CheckCircle2, Lock } from "lucide-react";
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { ChurchLogo } from "@/components/app/church-logo";
 import { nav } from "@/config/nav";
 import { hasSection, type Session } from "@/lib/permissions";
+import { routeAllowedByPlan, type PlanId } from "@/lib/plan-gate";
 import { cn } from "@/lib/utils";
 import { themeFromAccent } from "@/lib/color";
 import { exitImpersonation } from "@/app/actions/admin";
@@ -24,6 +25,7 @@ export function AppShell({
   notifications = [],
   churchLogo = null,
   accentColor = null,
+  plan = "free",
   children,
 }: {
   session: Session;
@@ -31,6 +33,7 @@ export function AppShell({
   notifications?: AppNotification[];
   churchLogo?: string | null;
   accentColor?: string | null;
+  plan?: PlanId;
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -65,7 +68,7 @@ export function AppShell({
 
   return (
     <div className="flex min-h-dvh bg-base lg:touch-none" style={themeStyle} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-      <Sidebar sections={session.sections} churchName={session.churchName} churchLogo={churchLogo} />
+      <Sidebar sections={session.sections} churchName={session.churchName} churchLogo={churchLogo} plan={plan} />
 
       {/* Mobile drawer */}
       <AnimatePresence>
@@ -104,18 +107,22 @@ export function AppShell({
                       )}
                       {items.map((item) => {
                         const active = item.href === "/app" ? pathname === "/app" : pathname.startsWith(item.href);
+                        const locked = !routeAllowedByPlan(plan, item.href);
                         return (
                           <Link
-                            key={item.key}
-                            href={item.href}
+                            key={item.href}
+                            href={locked ? "/app/settings?tab=billing" : item.href}
                             onClick={() => setMobileOpen(false)}
                             className={cn(
                               "flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium",
-                              active ? "border border-primary/30 bg-primary/10 text-ink" : "text-ink-muted",
+                              locked
+                                ? "text-ink-faint/50"
+                                : active ? "border border-primary/30 bg-primary/10 text-ink" : "text-ink-muted",
                             )}
                           >
-                            <item.icon className={cn("size-5", active && "text-primary-bright")} />
-                            {item.label}
+                            <item.icon className={cn("size-5", active && !locked && "text-primary-bright", locked && "opacity-40")} />
+                            <span className={cn(locked && "opacity-40")}>{item.label}</span>
+                            {locked && <Lock className="ml-auto size-3 text-ink-faint/60" />}
                           </Link>
                         );
                       })}

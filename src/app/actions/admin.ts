@@ -202,6 +202,23 @@ export async function deleteChurch(churchId: string) {
   revalidatePath("/admin");
 }
 
+// ── Platform pricing ──
+export async function updatePlatformPricing(
+  currency: string,
+  currencySymbol: string,
+  planPrices: Record<string, { monthly: number; yearly: number }>,
+) {
+  await requireSuperAdmin();
+  await db.platformConfig.upsert({
+    where: { id: "default" },
+    update: { currency, currencySymbol, planPrices: planPrices as object },
+    create: { id: "default", currency, currencySymbol, planPrices: planPrices as object },
+  });
+  revalidatePath("/admin/pricing");
+  revalidatePath("/app/settings");
+  revalidatePath("/", "layout");
+}
+
 // ── Marketing content ──
 export async function saveMarketing(formData: FormData) {
   await requireSuperAdmin();
