@@ -1,10 +1,11 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useState, useTransition, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import {
   Building, Palette, Users2, CreditCard, Plug, Check, Pencil, CircleDot,
   Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, Shield, MessageSquare,
-  ExternalLink,
+  ExternalLink, Rocket,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,6 +28,7 @@ import { getFormDefinition, getVisitorFormDefinition, getChildrenFormDefinition,
 import { createDepartment, deleteDepartment } from "@/app/actions/departments";
 import { plans as defaultPlans } from "@/config/pricing";
 import type { PlanPrices } from "@/lib/data/platform-config";
+import { getPlanLimits, type PlanId } from "@/lib/plan-gate";
 import { cn } from "@/lib/utils";
 
 type FeatureMap = Record<string, boolean>;
@@ -564,7 +566,220 @@ function BuiltInRolesEditor({
   );
 }
 
+function getNewFeatures(oldPlan: PlanId, newPlan: PlanId): string[] {
+  const oldFeatures = new Set(getPlanLimits(oldPlan).features);
+  return getPlanLimits(newPlan).features.filter((f) => !oldFeatures.has(f));
+}
+
+const FEATURE_LABELS: Record<string, string> = {
+  sms: "SMS Broadcasts",
+  "form-builder": "Custom Form Builder",
+  "import-export": "Import & Export",
+  "member-ids": "Member ID Cards",
+  "qr-codes": "QR Code Check-in",
+  "custom-roles": "Custom Roles & Permissions",
+  harvest: "Harvest Management",
+  pledges: "Pledges & Campaigns",
+  "recurring-giving": "Recurring Giving",
+  "auto-receipts": "Automatic Receipts",
+  reminders: "Birthday & Anniversary Reminders",
+  "data-migration": "Free Data Migration",
+  "follow-ups": "Follow-up Tracking",
+  sermons: "Sermon Archive",
+  devotionals: "Daily Devotionals",
+  testimonies: "Testimony Sharing",
+  automations: "Automations & Workflows",
+  volunteers: "Volunteer Management",
+  rosters: "Service Rosters",
+  "volunteer-scheduling": "Volunteer Scheduling",
+  "engagement-scoring": "Engagement Scoring",
+  "advanced-reports": "Advanced Reports & Dashboards",
+  welfare: "Welfare & Benevolence",
+  counseling: "Counseling Sessions",
+  "auto-inactive": "Auto-detect Inactive Members",
+  bookings: "Facility Bookings",
+  accounting: "Fund Accounting",
+  budgets: "Budget Management",
+  expenses: "Expense Tracking",
+  "fund-accounting": "Fund Accounting",
+  assets: "Asset Register",
+  "api-access": "API Access",
+  "audit-log": "Audit Log",
+};
+
+function UpgradeCelebration({ planName, newFeatures, onDone }: { planName: string; newFeatures: string[]; onDone: () => void }) {
+  const [phase, setPhase] = useState<"rocket" | "reveal">("rocket");
+
+  useEffect(() => {
+    const timer = setTimeout(() => setPhase("reveal"), 2800);
+    return () => clearTimeout(timer);
+  }, []);
+
+  if (phase === "rocket") {
+    return (
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-gradient-to-b from-[#0a0e27] via-[#0d1a3a] to-[#0d7377]/80">
+        <style>{`
+          @keyframes rocketLaunch {
+            0% { transform: translateY(60vh) scale(0.8); opacity: 0; }
+            15% { transform: translateY(40vh) scale(1); opacity: 1; }
+            40% { transform: translateY(10vh) scale(1); opacity: 1; }
+            70% { transform: translateY(-20vh) scale(1.1); opacity: 1; }
+            100% { transform: translateY(-100vh) scale(1.2); opacity: 0; }
+          }
+          @keyframes exhaust {
+            0%, 100% { opacity: 0.4; transform: scaleY(0.8) scaleX(0.9); }
+            50% { opacity: 1; transform: scaleY(1.3) scaleX(1.1); }
+          }
+          @keyframes starTwinkle {
+            0%, 100% { opacity: 0.2; }
+            50% { opacity: 1; }
+          }
+          @keyframes upgradeText {
+            0% { opacity: 0; transform: scale(0.5); }
+            50% { opacity: 1; transform: scale(1.1); }
+            70% { opacity: 1; transform: scale(1); }
+            100% { opacity: 0; transform: scale(1); }
+          }
+        `}</style>
+
+        {/* Stars */}
+        {Array.from({ length: 30 }).map((_, i) => (
+          <div
+            key={i}
+            className="absolute size-1 rounded-full bg-white"
+            style={{
+              left: `${Math.random() * 100}%`,
+              top: `${Math.random() * 100}%`,
+              animation: `starTwinkle ${1 + Math.random() * 2}s ease-in-out infinite`,
+              animationDelay: `${Math.random() * 2}s`,
+            }}
+          />
+        ))}
+
+        {/* Rocket */}
+        <div
+          className="relative"
+          style={{ animation: "rocketLaunch 2.8s ease-in forwards" }}
+        >
+          <div className="relative flex flex-col items-center">
+            <Rocket className="size-20 -rotate-45 text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.5)]" />
+            {/* Exhaust flame */}
+            <div
+              className="absolute -bottom-8 left-1/2 -translate-x-1/2 rotate-45"
+              style={{ animation: "exhaust 0.15s ease-in-out infinite" }}
+            >
+              <div className="h-16 w-6 rounded-full bg-gradient-to-b from-yellow-400 via-orange-500 to-red-600 blur-sm" />
+            </div>
+            <div
+              className="absolute -bottom-12 left-1/2 -translate-x-1/2 rotate-45"
+              style={{ animation: "exhaust 0.12s ease-in-out infinite", animationDelay: "0.05s" }}
+            >
+              <div className="h-20 w-4 rounded-full bg-gradient-to-b from-orange-300 via-red-500 to-transparent blur-md opacity-70" />
+            </div>
+          </div>
+        </div>
+
+        {/* Upgrading text */}
+        <div
+          className="absolute inset-0 flex items-center justify-center"
+          style={{ animation: "upgradeText 2.8s ease-in-out forwards" }}
+        >
+          <div className="text-center">
+            <h1 className="font-display text-4xl font-black text-white sm:text-5xl">
+              Upgrading to {planName}
+            </h1>
+            <p className="mt-2 text-lg text-white/60">Unlocking your new features...</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4">
+      <style>{`
+        @keyframes celebrationSlide {
+          0% { opacity: 0; transform: translateY(40px) scale(0.95); }
+          100% { opacity: 1; transform: translateY(0) scale(1); }
+        }
+        @keyframes featurePop {
+          0% { opacity: 0; transform: translateX(-20px); }
+          100% { opacity: 1; transform: translateX(0); }
+        }
+        @keyframes confettiBurst {
+          0% { opacity: 1; transform: translateY(0) rotate(0deg); }
+          100% { opacity: 0; transform: translateY(-80px) rotate(720deg); }
+        }
+      `}</style>
+
+      {/* Confetti particles */}
+      {Array.from({ length: 20 }).map((_, i) => (
+        <div
+          key={i}
+          className="absolute rounded-sm"
+          style={{
+            width: 8 + Math.random() * 8,
+            height: 8 + Math.random() * 8,
+            left: `${30 + Math.random() * 40}%`,
+            top: `${30 + Math.random() * 30}%`,
+            background: ["#0d7377", "#f59e0b", "#10b981", "#6366f1", "#ec4899"][i % 5],
+            animation: `confettiBurst ${1 + Math.random()}s ease-out forwards`,
+            animationDelay: `${Math.random() * 0.5}s`,
+          }}
+        />
+      ))}
+
+      <div
+        className="w-full max-w-lg rounded-2xl border border-primary/30 bg-surface p-8 shadow-2xl"
+        style={{ animation: "celebrationSlide 0.5s ease-out" }}
+      >
+        <div className="text-center">
+          <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-gradient-to-br from-primary/20 to-success/20">
+            <Rocket className="size-8 -rotate-45 text-primary-bright" />
+          </div>
+          <h2 className="mt-4 font-display text-2xl font-black">
+            Welcome to {planName}! 🎉
+          </h2>
+          <p className="mt-1 text-sm text-ink-muted">
+            Your church is now on the {planName} plan. Here&apos;s what&apos;s new:
+          </p>
+        </div>
+
+        {newFeatures.length > 0 && (
+          <div className="mt-6 max-h-60 overflow-y-auto rounded-xl border border-line bg-surface-2/30 p-4">
+            <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">Newly unlocked features</h3>
+            <div className="space-y-2">
+              {newFeatures.map((f, i) => (
+                <div
+                  key={f}
+                  className="flex items-center gap-3 rounded-lg px-2 py-1.5"
+                  style={{ animation: `featurePop 0.3s ease-out forwards`, animationDelay: `${0.3 + i * 0.08}s`, opacity: 0 }}
+                >
+                  <span className="grid size-6 shrink-0 place-items-center rounded-md bg-success/10">
+                    <Check className="size-3.5 text-success" />
+                  </span>
+                  <span className="text-sm font-medium text-ink">{FEATURE_LABELS[f] ?? f}</span>
+                  <span className="ml-auto text-[10px] font-bold uppercase tracking-wide text-red-500">NEW</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <p className="mt-4 text-center text-xs text-ink-faint">
+          A receipt has been sent to your email and phone.
+        </p>
+
+        <Button className="mt-5 w-full" onClick={onDone}>
+          <Sparkles className="size-4" /> Start exploring
+        </Button>
+      </div>
+    </div>
+  );
+}
+
 function BillingTab({ subscription, features, ro, platformPricing }: { subscription: SubscriptionData; features: FeatureMap; ro: boolean; platformPricing?: PlatformPricing }) {
+  const router = useRouter();
   const plans = defaultPlans.map((p) => {
     const dbPrice = platformPricing?.prices[p.id];
     return dbPrice ? { ...p, monthly: dbPrice.monthly, yearly: dbPrice.yearly } : p;
@@ -578,19 +793,42 @@ function BillingTab({ subscription, features, ro, platformPricing }: { subscript
   );
   const [switching, startSwitch] = useTransition();
   const [upgradePlan, setUpgradePlan] = useState<typeof plans[number] | null>(null);
-  const [upgradedMsg, setUpgradedMsg] = useState(() => {
-    if (typeof window === "undefined") return "";
+  const [celebrating, setCelebrating] = useState<{ planName: string; newFeatures: string[] } | null>(null);
+
+  const previousPlan = (subscription?.plan ?? "free") as PlanId;
+
+  // Detect ?upgraded= param (from Paystack redirect)
+  useEffect(() => {
+    if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
     const upgraded = params.get("upgraded");
     if (upgraded) {
       const url = new URL(window.location.href);
       url.searchParams.delete("upgraded");
-      window.history.replaceState({}, "", url.pathname);
+      window.history.replaceState({}, "", url.pathname + url.search);
       const p = plans.find((pl) => pl.id === upgraded);
-      return p ? `Successfully upgraded to ${p.name}!` : "";
+      if (p) {
+        const newFeatures = getNewFeatures("free" as PlanId, upgraded as PlanId);
+        setCelebrating({ planName: p.name, newFeatures });
+      }
     }
-    return "";
-  });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const triggerCelebration = useCallback((newPlanId: string) => {
+    const p = plans.find((pl) => pl.id === newPlanId);
+    if (p) {
+      const newFeatures = getNewFeatures(previousPlan, newPlanId as PlanId);
+      setCelebrating({ planName: p.name, newFeatures });
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [previousPlan]);
+
+  const handleCelebrationDone = useCallback(() => {
+    setCelebrating(null);
+    localStorage.setItem("whq_plan_upgraded", Date.now().toString());
+    router.refresh();
+  }, [router]);
 
   const currentPlanId = subscription?.plan ?? "free";
   const currentPlan = plans.find((p) => p.id === currentPlanId) ?? plans[0];
@@ -599,11 +837,12 @@ function BillingTab({ subscription, features, ro, platformPricing }: { subscript
 
   return (
     <div className="space-y-5">
-      {upgradedMsg && (
-        <div className="flex items-center justify-between rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm font-medium text-success">
-          <span><Check className="mr-2 inline size-4" />{upgradedMsg}</span>
-          <button type="button" onClick={() => setUpgradedMsg("")} className="text-success/70 hover:text-success">&times;</button>
-        </div>
+      {celebrating && (
+        <UpgradeCelebration
+          planName={celebrating.planName}
+          newFeatures={celebrating.newFeatures}
+          onDone={handleCelebrationDone}
+        />
       )}
       <Card className="p-6">
         <h3 className="font-display text-lg font-semibold">Billing & subscription</h3>
@@ -671,7 +910,7 @@ function BillingTab({ subscription, features, ro, platformPricing }: { subscript
                 startSwitch(async () => {
                   const res = await redeemPlanBypass(code);
                   if ("error" in res) alert(res.error);
-                  else alert(`Upgraded to ${plans.find((p) => p.id === res.plan)?.name} plan!`);
+                  else triggerCelebration(res.plan);
                 });
               }}
             >
@@ -837,9 +1076,10 @@ function BillingTab({ subscription, features, ro, platformPricing }: { subscript
                     try {
                       const res = await changePlan(upgradePlan.id, interval);
                       if (res && "error" in res) alert(res.error);
-                      else {
+                      else if (res && "plan" in res) {
                         setUpgradePlan(null);
                         setShowPlans(false);
+                        triggerCelebration(res.plan as string);
                       }
                     } catch {
                       // redirect() throws NEXT_REDIRECT — expected for Paystack checkout

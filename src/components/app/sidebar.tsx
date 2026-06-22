@@ -2,21 +2,36 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { PanelLeftClose, PanelLeft, Lock } from "lucide-react";
 import { ChurchLogo } from "@/components/app/church-logo";
 import { nav } from "@/config/nav";
 import { hasSection } from "@/lib/permissions";
-import { routeAllowedByPlan, type PlanId } from "@/lib/plan-gate";
+import { routeAllowedByPlan, getRouteFeature, planHasFeature, type PlanId } from "@/lib/plan-gate";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
 export function Sidebar({ sections, churchName, churchLogo, plan = "free" }: { sections: string[]; churchName: string; churchLogo?: string | null; plan?: PlanId }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
+  const [recentUpgrade, setRecentUpgrade] = useState(false);
+
+  useEffect(() => {
+    const ts = localStorage.getItem("whq_plan_upgraded");
+    if (ts && Date.now() - Number(ts) < 7 * 24 * 60 * 60 * 1000) {
+      setRecentUpgrade(true);
+    }
+  }, []);
 
   const isActive = (href: string) =>
     href === "/app" ? pathname === "/app" : pathname.startsWith(href);
+
+  const isNewlyUnlocked = (href: string) => {
+    if (!recentUpgrade) return false;
+    const feature = getRouteFeature(href);
+    if (!feature) return false;
+    return planHasFeature(plan, feature) && !planHasFeature("free" as PlanId, feature);
+  };
 
   return (
     <aside
@@ -70,7 +85,12 @@ export function Sidebar({ sections, churchName, churchLogo, plan = "free" }: { s
                       {!collapsed && locked && (
                         <Lock className="relative size-3 text-ink-faint/60" />
                       )}
-                      {!collapsed && !locked && item.badge && (
+                      {!collapsed && !locked && isNewlyUnlocked(item.href) && (
+                        <span className="relative ml-auto rounded px-1 py-0.5 text-[9px] font-bold uppercase tracking-wide text-red-500 bg-red-500/10 animate-pulse">
+                          NEW
+                        </span>
+                      )}
+                      {!collapsed && !locked && !isNewlyUnlocked(item.href) && item.badge && (
                         <Badge variant="gold" className="relative px-1.5 py-0 text-[10px]">
                           {item.badge}
                         </Badge>
