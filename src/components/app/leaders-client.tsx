@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Crown, Users2, Plus, X, Check, Loader2 } from "lucide-react";
+import { Crown, Users2, Plus, X, Check, Loader2, Settings2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -119,11 +119,18 @@ export function LeadersClient({
 
       {/* Department leaders */}
       <div>
-        <div className="mb-4 flex items-center gap-2">
-          <span className="grid size-8 place-items-center rounded-lg bg-primary/10">
-            <Users2 className="size-4 text-primary-bright" />
-          </span>
-          <h3 className="font-display text-lg font-semibold">Department Leaders</h3>
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="grid size-8 place-items-center rounded-lg bg-primary/10">
+              <Users2 className="size-4 text-primary-bright" />
+            </span>
+            <h3 className="font-display text-lg font-semibold">Department Leaders</h3>
+          </div>
+          {isAdmin && !isDemo && (
+            <Link href="/app/settings" className="flex items-center gap-1.5 text-xs font-medium text-primary-bright hover:underline">
+              <Settings2 className="size-3.5" /> Manage departments
+            </Link>
+          )}
         </div>
 
         {departments.length === 0 && (
