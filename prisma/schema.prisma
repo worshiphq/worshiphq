@@ -277,6 +277,9 @@ model Person {
 
   // ── Age group & guardian (children/teens forms) ──
   ageGroup       String?  // "adult", "teen", "child"
+  parentId       String?
+  parent         Person?  @relation("ParentChild", fields: [parentId], references: [id], onDelete: SetNull)
+  children       Person[] @relation("ParentChild")
   guardianName   String?
   guardianPhone  String?
   school         String?
@@ -319,6 +322,7 @@ model Person {
   @@index([churchId])
   @@index([branchId])
   @@index([departmentId])
+  @@index([parentId])
 }
 
 model Household {

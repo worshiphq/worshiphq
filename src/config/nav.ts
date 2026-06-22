@@ -32,6 +32,7 @@ import {
   PiggyBank,
   CalendarClock,
   Crown,
+  Baby,
 } from "lucide-react";
 
 export interface NavItem {
@@ -58,6 +59,7 @@ export const nav: NavSection[] = [
     title: "Congregation",
     items: [
       { key: "people", label: "People", href: "/app/people", icon: Users },
+      { key: "people", label: "Children & Teens", href: "/app/children", icon: Baby },
       { key: "people", label: "Leaders", href: "/app/leaders", icon: Crown },
       { key: "attendance", label: "Attendance", href: "/app/attendance", icon: CalendarCheck2 },
       { key: "events", label: "Events", href: "/app/events", icon: CalendarDays },

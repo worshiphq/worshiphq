@@ -59,6 +59,13 @@ export interface PersonRow {
   customFields: Record<string, string>;
   biometricRegistered: boolean;
   positions: { id: string; departmentName: string; position: string }[];
+  ageGroup: string | null;
+  parentId: string | null;
+  parentName: string | null;
+  guardianName: string | null;
+  guardianPhone: string | null;
+  school: string | null;
+  grade: string | null;
 }
 
 function engagementFor(status: PersonStatus): PersonRow["engagement"] {
@@ -69,9 +76,15 @@ function engagementFor(status: PersonStatus): PersonRow["engagement"] {
 
 const isoDate = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
 
-export async function getPeople(churchId: string): Promise<PersonRow[]> {
+export async function getPeople(churchId: string, ageFilter?: "adults" | "children"): Promise<PersonRow[]> {
+  const ageWhere = ageFilter === "adults"
+    ? { OR: [{ ageGroup: null }, { ageGroup: "adult" }] }
+    : ageFilter === "children"
+      ? { ageGroup: { in: ["child", "teen"] } }
+      : {};
+
   const people = await db.person.findMany({
-    where: { churchId },
+    where: { churchId, ...ageWhere },
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     include: {
       branch: { select: { name: true } },
@@ -79,6 +92,7 @@ export async function getPeople(churchId: string): Promise<PersonRow[]> {
       household: { select: { name: true } },
       departments: { select: { id: true, name: true } },
       positions: { select: { id: true, position: true, department: { select: { name: true } } } },
+      parent: { select: { firstName: true, lastName: true } },
       _count: { select: { biometrics: true } },
     },
   });
@@ -136,15 +150,33 @@ export async function getPeople(churchId: string): Promise<PersonRow[]> {
     customFields: (p.customFields as Record<string, string> | null) ?? {},
     biometricRegistered: p._count.biometrics > 0,
     positions: p.positions.map((pos) => ({ id: pos.id, departmentName: pos.department.name, position: pos.position })),
+    ageGroup: p.ageGroup,
+    parentId: p.parentId,
+    parentName: p.parent ? `${p.parent.firstName} ${p.parent.lastName}` : null,
+    guardianName: p.guardianName,
+    guardianPhone: p.guardianPhone,
+    school: p.school,
+    grade: p.grade,
   }));
 }
 
+const ADULT_FILTER = { OR: [{ ageGroup: null }, { ageGroup: "adult" }] };
+
 export async function getPeopleStats(churchId: string) {
   const [total, active, visitors, departments] = await Promise.all([
-    db.person.count({ where: { churchId } }),
-    db.person.count({ where: { churchId, status: "active" } }),
-    db.person.count({ where: { churchId, status: "visitor" } }),
+    db.person.count({ where: { churchId, ...ADULT_FILTER } }),
+    db.person.count({ where: { churchId, status: "active", ...ADULT_FILTER } }),
+    db.person.count({ where: { churchId, status: "visitor", ...ADULT_FILTER } }),
     db.department.count({ where: { churchId } }),
   ]);
   return { total, active, visitors, departments };
+}
+
+export async function getChildrenStats(churchId: string) {
+  const [total, children, teens] = await Promise.all([
+    db.person.count({ where: { churchId, ageGroup: { in: ["child", "teen"] } } }),
+    db.person.count({ where: { churchId, ageGroup: "child" } }),
+    db.person.count({ where: { churchId, ageGroup: "teen" } }),
+  ]);
+  return { total, children, teens };
 }

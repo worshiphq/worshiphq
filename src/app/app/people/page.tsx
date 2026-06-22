@@ -11,7 +11,7 @@ export const metadata = { title: "People" };
 export default async function PeoplePage() {
   const session = await requireModule("people");
   const [people, stats, departments, church] = await Promise.all([
-    getPeople(session.churchId),
+    getPeople(session.churchId, "adults"),
     getPeopleStats(session.churchId),
     db.department.findMany({
       where: { churchId: session.churchId },
