@@ -2,7 +2,7 @@
 
 import { useState, useTransition, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Crown, Users2, Plus, X, Check } from "lucide-react";
+import { Crown, Users2, Plus, X, Check, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -170,7 +170,6 @@ function DepartmentCard({
   isDemo: boolean;
 }) {
   const [showAdd, setShowAdd] = useState(false);
-  const [removing, startRemove] = useTransition();
 
   return (
     <Card className="flex flex-col">
@@ -186,27 +185,7 @@ function DepartmentCard({
           <p className="px-4 py-6 text-center text-sm text-ink-faint">No leaders assigned</p>
         )}
         {members.map((m) => (
-          <div key={m.positionId} className="flex items-center gap-3 px-4 py-3">
-            <Link href={`/app/people?highlight=${m.id}`} className="shrink-0">
-              <MemberAvatar name={m.name} photoUrl={m.photoUrl} size="sm" className="transition-transform hover:scale-110" />
-            </Link>
-            <div className="min-w-0 flex-1">
-              <Link href={`/app/people?highlight=${m.id}`} className="block truncate text-sm font-medium text-ink hover:text-primary-bright">
-                {m.name}
-              </Link>
-              <span className="text-xs text-primary-bright">{m.position}</span>
-            </div>
-            {isAdmin && !isDemo && (
-              <button
-                type="button"
-                disabled={removing}
-                onClick={() => startRemove(() => removePosition(m.positionId))}
-                className="grid size-6 place-items-center rounded text-ink-faint transition-colors hover:bg-danger/10 hover:text-danger"
-              >
-                <X className="size-3" />
-              </button>
-            )}
-          </div>
+          <RemovableMember key={m.positionId} member={m} isAdmin={isAdmin} isDemo={isDemo} />
         ))}
       </div>
 
@@ -222,6 +201,34 @@ function DepartmentCard({
         </div>
       )}
     </Card>
+  );
+}
+
+function RemovableMember({ member: m, isAdmin, isDemo }: { member: DeptMember; isAdmin: boolean; isDemo: boolean }) {
+  const [removing, startRemove] = useTransition();
+
+  return (
+    <div className={cn("flex items-center gap-3 px-4 py-3 transition-opacity", removing && "opacity-40")}>
+      <Link href={`/app/people?highlight=${m.id}`} className="shrink-0">
+        <MemberAvatar name={m.name} photoUrl={m.photoUrl} size="sm" className="transition-transform hover:scale-110" />
+      </Link>
+      <div className="min-w-0 flex-1">
+        <Link href={`/app/people?highlight=${m.id}`} className="block truncate text-sm font-medium text-ink hover:text-primary-bright">
+          {m.name}
+        </Link>
+        <span className="text-xs text-primary-bright">{m.position}</span>
+      </div>
+      {isAdmin && !isDemo && (
+        <button
+          type="button"
+          disabled={removing}
+          onClick={() => startRemove(() => removePosition(m.positionId))}
+          className="grid size-6 place-items-center rounded text-ink-faint transition-colors hover:bg-danger/10 hover:text-danger disabled:pointer-events-none"
+        >
+          {removing ? <Loader2 className="size-3 animate-spin" /> : <X className="size-3" />}
+        </button>
+      )}
+    </div>
   );
 }
 
@@ -386,7 +393,11 @@ function AddPositionForm({
             disabled={pending}
             onClick={handleAssign}
           >
-            {pending ? "Assigning…" : `Assign ${selectedPerson.name.split(" ").filter(w => !["Mr","Mrs","Ms","Dr","Rev","Rev.","Pst","Pst.","Elder","Deacon","Deaconess","Prof","Prof.","Hon","Hon.","Sir","Lady","Sis","Bro"].includes(w))[0] || selectedPerson.name.split(" ")[0]} as ${finalPosition}`}
+            {pending ? (
+              <><Loader2 className="size-4 animate-spin" /> Assigning…</>
+            ) : (
+              `Assign ${selectedPerson.name.split(" ").filter(w => !["Mr","Mrs","Ms","Dr","Rev","Rev.","Pst","Pst.","Elder","Deacon","Deaconess","Prof","Prof.","Hon","Hon.","Sir","Lady","Sis","Bro"].includes(w))[0] || selectedPerson.name.split(" ")[0]} as ${finalPosition}`
+            )}
           </Button>
         )}
         <Button type="button" variant="ghost" size="sm" onClick={onDone} className="text-xs">
