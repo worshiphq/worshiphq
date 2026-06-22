@@ -3,6 +3,7 @@ import { ShieldCheck } from "lucide-react";
 import { getSuperAdmin } from "@/lib/auth";
 import { superAdminSignIn } from "@/app/actions/admin";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { PasswordInput } from "@/components/ui/password-input";
 
 export default async function AdminLoginPage({
   searchParams,
@@ -45,11 +46,10 @@ export default async function AdminLoginPage({
           </div>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-slate-400">Password</label>
-            <input
+            <PasswordInput
               name="password"
-              type="password"
               required
-              className="h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3.5 text-sm text-slate-100 focus:border-teal-400/60 focus:outline-none focus:ring-2 focus:ring-teal-400/20"
+              className="border-white/10 bg-white/5 text-slate-100 focus-visible:border-teal-400/60 focus-visible:ring-teal-400/20"
             />
           </div>
           <SubmitButton

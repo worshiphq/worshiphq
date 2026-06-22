@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { UploadCloud, X, KeyRound, Phone, Mail, Shield } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Input, Label } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Button } from "@/components/ui/button";
 import { useFeedback } from "@/components/ui/feedback";
@@ -251,15 +252,15 @@ export function AccountForm({
             <form ref={pwRef} className="mt-5 space-y-4" onSubmit={(e) => { e.preventDefault(); submitPassword(); }}>
               <div>
                 <Label htmlFor="current">Current password</Label>
-                <input id="current" name="current" type="password" required className={input} />
+                <PasswordInput id="current" name="current" required className={input} />
               </div>
               <div>
                 <Label htmlFor="next">New password</Label>
-                <input id="next" name="next" type="password" required minLength={6} className={input} value={newPw} onChange={(e) => setNewPw(e.target.value)} />
+                <PasswordInput id="next" name="next" required minLength={6} className={input} value={newPw} onChange={(e) => setNewPw(e.target.value)} />
               </div>
               <div>
                 <Label htmlFor="confirm">Confirm new password</Label>
-                <input id="confirm" name="confirm" type="password" required minLength={6} className={input} />
+                <PasswordInput id="confirm" name="confirm" required minLength={6} className={input} />
               </div>
               <PasswordStrength password={newPw} />
               <Button type="submit">Update password</Button>
@@ -302,11 +303,11 @@ export function AccountForm({
             </div>
             <div>
               <Label htmlFor="forgotNext">New password</Label>
-              <input id="forgotNext" type="password" required minLength={6} className={input} value={forgotNewPw} onChange={(e) => setForgotNewPw(e.target.value)} />
+              <PasswordInput id="forgotNext" required minLength={6} className={input} value={forgotNewPw} onChange={(e) => setForgotNewPw(e.target.value)} />
             </div>
             <div>
               <Label htmlFor="forgotConfirm">Confirm new password</Label>
-              <input id="forgotConfirm" type="password" required minLength={6} className={input} />
+              <PasswordInput id="forgotConfirm" required minLength={6} className={input} />
             </div>
             <PasswordStrength password={forgotNewPw} />
             <div className="flex gap-2">
@@ -342,7 +343,7 @@ export function AccountForm({
             </div>
             <div>
               <Label>Enter your password to confirm</Label>
-              <input name="password" type="password" required className={input} />
+              <PasswordInput name="password" required className={input} />
             </div>
             <div className="flex gap-2">
               <Button type="submit">Send verification code</Button>
@@ -386,7 +387,7 @@ export function AccountForm({
             </div>
             <div>
               <Label>Enter your password to confirm</Label>
-              <input name="password" type="password" required className={input} />
+              <PasswordInput name="password" required className={input} />
             </div>
             <div className="flex gap-2">
               <Button type="submit">Send verification code</Button>

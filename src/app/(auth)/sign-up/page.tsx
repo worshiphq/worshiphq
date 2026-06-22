@@ -4,6 +4,7 @@ import { Check, AlertCircle } from "lucide-react";
 import { signUp } from "@/app/actions/auth";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { plans } from "@/config/pricing";
 import { formatCurrency } from "@/config/brand";
 
@@ -58,7 +59,7 @@ export default async function SignUpPage({
         </div>
         <div>
           <Label htmlFor="password">Password</Label>
-          <Input id="password" name="password" type="password" placeholder="At least 6 characters" required minLength={6} />
+          <PasswordInput id="password" name="password" placeholder="At least 6 characters" required minLength={6} />
         </div>
 
         {/* Plan selection */}

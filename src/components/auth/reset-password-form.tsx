@@ -3,7 +3,8 @@
 import { useState } from "react";
 import { PasswordStrength } from "@/components/ui/password-strength";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { Input, Label } from "@/components/ui/input";
+import { Label } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { completePasswordReset } from "@/app/actions/auth";
 
 export function ResetPasswordForm() {
@@ -13,10 +14,9 @@ export function ResetPasswordForm() {
     <form action={completePasswordReset} className="mt-6 space-y-4">
       <div>
         <Label htmlFor="password">New password</Label>
-        <Input
+        <PasswordInput
           id="password"
           name="password"
-          type="password"
           placeholder="••••••••"
           minLength={6}
           required
@@ -27,10 +27,9 @@ export function ResetPasswordForm() {
       </div>
       <div>
         <Label htmlFor="confirmPassword">Confirm password</Label>
-        <Input
+        <PasswordInput
           id="confirmPassword"
           name="confirmPassword"
-          type="password"
           placeholder="••••••••"
           minLength={6}
           required

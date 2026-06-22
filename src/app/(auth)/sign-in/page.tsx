@@ -9,6 +9,7 @@ import {
 } from "@/app/actions/auth";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { OtpInput } from "@/components/ui/otp-input";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
 
@@ -162,7 +163,7 @@ export default async function SignInPage({
           </div>
           <div>
             <Label htmlFor="password">Password</Label>
-            <Input id="password" name="password" type="password" placeholder="••••••••" required />
+            <PasswordInput id="password" name="password" placeholder="••••••••" required />
           </div>
           <SubmitButton size="lg" className="w-full" pendingLabel="Logging in…">
             Log in
@@ -206,7 +207,7 @@ export default async function SignInPage({
               Forgot password?
             </Link>
           </div>
-          <Input id="password" name="password" type="password" placeholder="••••••••" required />
+          <PasswordInput id="password" name="password" placeholder="••••••••" required />
         </div>
         <SubmitButton size="lg" className="w-full" pendingLabel="Logging in…">
           Log in
