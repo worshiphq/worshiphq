@@ -48,6 +48,7 @@ export function LeadersClient({
   departmentLeaders = [],
   departments = [],
   people = [],
+  customPositions = [],
   isAdmin,
   isDemo,
 }: {
@@ -55,6 +56,7 @@ export function LeadersClient({
   departmentLeaders: DeptLeader[];
   departments: Dept[];
   people: PersonOption[];
+  customPositions: string[];
   isAdmin: boolean;
   isDemo: boolean;
 }) {
@@ -152,6 +154,7 @@ export function LeadersClient({
                 dept={dept}
                 members={deptData?.members ?? []}
                 people={people}
+                customPositions={customPositions}
                 isAdmin={isAdmin}
                 isDemo={isDemo}
               />
@@ -167,12 +170,14 @@ function DepartmentCard({
   dept,
   members,
   people,
+  customPositions,
   isAdmin,
   isDemo,
 }: {
   dept: Dept;
   members: DeptMember[];
   people: PersonOption[];
+  customPositions: string[];
   isAdmin: boolean;
   isDemo: boolean;
 }) {
@@ -199,7 +204,7 @@ function DepartmentCard({
       {isAdmin && !isDemo && (
         <div className="border-t border-line p-3">
           {showAdd ? (
-            <AddPositionForm deptId={dept.id} people={people} onDone={() => setShowAdd(false)} />
+            <AddPositionForm deptId={dept.id} people={people} customPositions={customPositions} onDone={() => setShowAdd(false)} />
           ) : (
             <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => setShowAdd(true)}>
               <Plus className="size-3.5" /> Assign leader
@@ -242,10 +247,12 @@ function RemovableMember({ member: m, isAdmin, isDemo }: { member: DeptMember; i
 function AddPositionForm({
   deptId,
   people,
+  customPositions = [],
   onDone,
 }: {
   deptId: string;
   people: PersonOption[];
+  customPositions: string[];
   onDone: () => void;
 }) {
   const [pending, startAdd] = useTransition();
@@ -363,6 +370,22 @@ function AddPositionForm({
                 >
                   {selectedPosition === p && <Check className="mr-0.5 inline size-3" />}
                   {p}
+                </button>
+              ))}
+              {customPositions.filter((cp) => !BUILT_IN_POSITIONS.includes(cp)).map((cp) => (
+                <button
+                  key={cp}
+                  type="button"
+                  onClick={() => setSelectedPosition(cp)}
+                  className={cn(
+                    "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                    selectedPosition === cp
+                      ? "border-primary bg-primary/10 text-primary-bright"
+                      : "border-line border-dashed bg-surface text-ink-muted hover:border-primary/40 hover:text-primary-bright",
+                  )}
+                >
+                  {selectedPosition === cp && <Check className="mr-0.5 inline size-3" />}
+                  {cp}
                 </button>
               ))}
               <button
