@@ -83,6 +83,12 @@ export async function getLeaders(churchId: string) {
 
   const departmentLeaders = [...deptMap.values()].filter((d) => d.members.length > 0);
 
+  const customPositions = [...new Set(
+    departmentPositions
+      .map((dp) => dp.position)
+      .filter((p) => !["Head", "Assistant Head", "President", "Vice President", "Secretary", "Treasurer", "Coordinator"].includes(p)),
+  )].sort();
+
   return {
     churchLeaders: sortedChurchLeaders.map((l) => ({
       id: l.id,
@@ -99,5 +105,6 @@ export async function getLeaders(churchId: string) {
       name: `${p.title ? p.title + " " : ""}${p.firstName} ${p.lastName}`,
       photoUrl: p.photoUrl,
     })),
+    customPositions,
   };
 }
