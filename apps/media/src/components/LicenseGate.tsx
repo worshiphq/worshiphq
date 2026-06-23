@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { Shield, Copy, Check, AlertTriangle, Loader2 } from "lucide-react";
 import { useProjectionStore } from "../stores/projection-store";
+
+function isTauri(): boolean {
+  return typeof window !== "undefined" && !!(window as any).__TAURI_INTERNALS__;
+}
 
 export function LicenseGate({ children }: { children: React.ReactNode }) {
   const { isLicensed, isTrial, trialDaysRemaining, hwid, setLicense } = useProjectionStore();
@@ -10,7 +13,14 @@ export function LicenseGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     async function checkLicense() {
+      if (!isTauri()) {
+        setLicense({ isLicensed: false, isTrial: true, trialDaysRemaining: 14, hwid: "browser-dev" });
+        setLoading(false);
+        return;
+      }
+
       try {
+        const { invoke } = await import("@tauri-apps/api/core");
         const deviceHwid = await invoke<string>("get_hwid");
         const status = await invoke<{
           is_licensed: boolean;
@@ -40,7 +50,7 @@ export function LicenseGate({ children }: { children: React.ReactNode }) {
     return (
       <div className="flex h-full items-center justify-center bg-surface">
         <div className="text-center">
-          <Loader2 className="mx-auto size-8 animate-spin text-primary-bright" />
+          <Loader2 className="mx-auto size-8 whq-spin text-primary-bright" />
           <p className="mt-3 text-sm text-ink-muted">Checking license...</p>
         </div>
       </div>
@@ -85,7 +95,7 @@ function TrialBanner({ daysRemaining, onActivate }: { daysRemaining: number; onA
       </div>
       <button
         onClick={onActivate}
-        className="rounded-md bg-gold/20 px-2.5 py-1 text-[10px] font-semibold text-gold hover:bg-gold/30"
+        className="rounded-xl bg-gold/20 px-3 py-1 text-[10px] font-semibold text-gold hover:bg-gold/30"
       >
         Activate License
       </button>
@@ -117,8 +127,8 @@ function TrialExpired({ hwid }: { hwid: string }) {
         <div className="mt-6">
           <label className="block text-left text-[11px] font-medium text-ink-muted">Your Hardware ID</label>
           <div className="mt-1 flex gap-1.5">
-            <code className="flex-1 rounded-lg border border-line bg-surface-3 px-3 py-2 text-xs text-ink-faint">{hwid}</code>
-            <button onClick={copyHwid} className="grid size-9 place-items-center rounded-lg border border-line transition-colors hover:bg-surface-3">
+            <code className="flex-1 rounded-xl border border-line bg-surface-3 px-3 py-2 text-xs text-ink-faint">{hwid}</code>
+            <button onClick={copyHwid} className="grid size-9 place-items-center rounded-xl border border-line transition-colors hover:bg-surface-3">
               {copied ? <Check className="size-4 text-success" /> : <Copy className="size-4 text-ink-faint" />}
             </button>
           </div>
@@ -131,11 +141,11 @@ function TrialExpired({ hwid }: { hwid: string }) {
             value={key}
             onChange={(e) => setKey(e.target.value)}
             placeholder="WHQ-XXXX-XXXX-XXXX-XXXX"
-            className="mt-1 w-full rounded-lg border border-line bg-surface-3 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
+            className="input mt-1"
           />
         </div>
 
-        <button className="mt-4 w-full rounded-lg bg-primary py-2.5 text-sm font-semibold text-white hover:bg-primary-bright">
+        <button className="btn-primary mt-4 w-full py-2.5 text-sm">
           Activate
         </button>
 
@@ -173,8 +183,8 @@ function ActivationDialog({ hwid, onClose }: { hwid: string; onClose: () => void
         <div className="mt-4">
           <label className="block text-[11px] font-medium text-ink-muted">Hardware ID</label>
           <div className="mt-1 flex gap-1.5">
-            <code className="flex-1 truncate rounded-lg border border-line bg-surface-3 px-3 py-2 text-xs text-ink-faint">{hwid}</code>
-            <button onClick={copyHwid} className="grid size-9 shrink-0 place-items-center rounded-lg border border-line transition-colors hover:bg-surface-3">
+            <code className="flex-1 truncate rounded-xl border border-line bg-surface-3 px-3 py-2 text-xs text-ink-faint">{hwid}</code>
+            <button onClick={copyHwid} className="grid size-9 shrink-0 place-items-center rounded-xl border border-line transition-colors hover:bg-surface-3">
               {copied ? <Check className="size-4 text-success" /> : <Copy className="size-4 text-ink-faint" />}
             </button>
           </div>
@@ -187,15 +197,15 @@ function ActivationDialog({ hwid, onClose }: { hwid: string; onClose: () => void
             value={key}
             onChange={(e) => setKey(e.target.value)}
             placeholder="WHQ-XXXX-XXXX-XXXX-XXXX"
-            className="mt-1 w-full rounded-lg border border-line bg-surface-3 px-3 py-2 text-sm text-ink placeholder:text-ink-faint focus:border-primary/50 focus:outline-none focus:ring-1 focus:ring-primary/30"
+            className="input mt-1"
           />
         </div>
 
         <div className="mt-5 flex gap-2">
-          <button onClick={onClose} className="flex-1 rounded-lg border border-line py-2 text-xs font-medium text-ink-muted hover:bg-surface-3">
+          <button onClick={onClose} className="btn-ghost flex-1 py-2 text-xs font-medium">
             Cancel
           </button>
-          <button className="flex-1 rounded-lg bg-primary py-2 text-xs font-semibold text-white hover:bg-primary-bright">
+          <button className="btn-primary flex-1 py-2 text-xs">
             Activate
           </button>
         </div>

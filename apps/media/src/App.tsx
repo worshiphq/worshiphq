@@ -23,7 +23,7 @@ export default function App() {
 
   return (
     <LicenseGate>
-      <div className="flex h-full flex-col">
+      <div className="flex h-full flex-col bg-surface">
         {/* Title bar */}
         <TitleBar />
 
@@ -33,7 +33,7 @@ export default function App() {
           <IconNav active={navSection} onChange={setNavSection} />
 
           {/* Left: Assets panel */}
-          <div className="flex w-56 shrink-0 flex-col border-r border-line bg-surface">
+          <div className="flex w-60 shrink-0 flex-col border-r border-line bg-surface-2">
             <AssetsPanel
               section={navSection}
               onAddToService={handleAddToService}
@@ -41,12 +41,12 @@ export default function App() {
             />
           </div>
 
-          {/* Center: Dashboard */}
-          <div className="flex flex-1 flex-col bg-surface">
+          {/* Center: Dashboard with dual preview monitors */}
+          <div className="flex flex-1 flex-col overflow-hidden bg-surface">
             <Dashboard />
           </div>
 
-          {/* Right: Properties + Live Output + Analytics */}
+          {/* Right: Properties + Analytics */}
           <RightPanel />
         </div>
 
