@@ -221,8 +221,12 @@ pub fn run() {
                 .path()
                 .app_data_dir()
                 .unwrap_or_else(|_| std::path::PathBuf::from("."));
-            if let Err(e) = bible::ensure_demo_pack(&data_dir) {
-                eprintln!("[bible] failed to create demo pack: {}", e);
+            let resource_dir = app
+                .path()
+                .resource_dir()
+                .unwrap_or_else(|_| std::path::PathBuf::from("."));
+            if let Err(e) = bible::install_bundled_packs(&data_dir, &resource_dir) {
+                eprintln!("[bible] failed to install bundled packs: {}", e);
             }
             Ok(())
         })

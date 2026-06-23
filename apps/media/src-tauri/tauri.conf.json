@@ -9,6 +9,11 @@
     "beforeDevCommand": "npm run dev",
     "beforeBuildCommand": "npm run build"
   },
+  "bundle": {
+    "resources": {
+      "resources/bibles/*.db": "bibles/"
+    }
+  },
   "app": {
     "withGlobalTauri": false,
     "windows": [

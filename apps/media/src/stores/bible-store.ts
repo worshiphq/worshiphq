@@ -1,6 +1,15 @@
 import { create } from "zustand";
-import { invoke } from "@tauri-apps/api/core";
 import type { BibleVerse } from "../types";
+
+function isTauri(): boolean {
+  return typeof window !== "undefined" && !!(window as any).__TAURI_INTERNALS__;
+}
+
+async function tauriInvoke<T>(cmd: string, args?: Record<string, unknown>): Promise<T | undefined> {
+  if (!isTauri()) return undefined;
+  const { invoke } = await import("@tauri-apps/api/core");
+  return invoke<T>(cmd, args);
+}
 
 export interface BiblePack {
   id: string;
@@ -11,6 +20,15 @@ export interface BiblePack {
   verse_count: number;
   file_size: number;
 }
+
+const DEMO_PACKS: BiblePack[] = [
+  { id: "kjv", name: "King James Version", abbreviation: "KJV", language: "English", description: "Demo", verse_count: 31100, file_size: 0 },
+  { id: "asv", name: "American Standard Version", abbreviation: "ASV", language: "English", description: "Demo", verse_count: 31102, file_size: 0 },
+  { id: "web", name: "World English Bible", abbreviation: "WEB", language: "English", description: "Demo", verse_count: 31102, file_size: 0 },
+  { id: "twi", name: "Twi Bible", abbreviation: "TWI", language: "Twi", description: "Demo", verse_count: 49, file_size: 0 },
+  { id: "bbe", name: "Bible in Basic English", abbreviation: "BBE", language: "English", description: "Demo", verse_count: 31104, file_size: 0 },
+  { id: "ylt", name: "Young's Literal Translation", abbreviation: "YLT", language: "English", description: "Demo", verse_count: 31102, file_size: 0 },
+];
 
 interface BibleState {
   packs: BiblePack[];
@@ -51,12 +69,12 @@ export const useBibleStore = create<BibleState>((set, get) => ({
   loadPacks: async () => {
     set({ loading: true });
     try {
-      const packs = await invoke<BiblePack[]>("bible_list_packs");
+      const packs = await tauriInvoke<BiblePack[]>("bible_list_packs") ?? DEMO_PACKS;
       const activePack = get().activePack ?? packs[0]?.id ?? null;
       set({ packs, activePack, loading: false });
     } catch (e) {
       console.error("Failed to load Bible packs:", e);
-      set({ loading: false });
+      set({ packs: DEMO_PACKS, activePack: DEMO_PACKS[0]?.id ?? null, loading: false });
     }
   },
 
@@ -73,7 +91,7 @@ export const useBibleStore = create<BibleState>((set, get) => ({
     if (!pack) return;
 
     try {
-      const count = await invoke<number>("bible_chapter_count", { packId: pack, book: bookIndex + 1 });
+      const count = await tauriInvoke<number>("bible_chapter_count", { packId: pack, book: bookIndex + 1 }) ?? 0;
       set({ selectedBook: bookIndex, selectedChapter: null, chapterCount: count, verses: [] });
     } catch {
       set({ selectedBook: bookIndex, selectedChapter: null, chapterCount: 0, verses: [] });
@@ -97,11 +115,11 @@ export const useBibleStore = create<BibleState>((set, get) => ({
 
     set({ versesLoading: true });
     try {
-      const verses = await invoke<BibleVerse[]>("bible_get_chapter", {
+      const verses = await tauriInvoke<BibleVerse[]>("bible_get_chapter", {
         packId: pack,
         book: bookIndex + 1,
         chapter,
-      });
+      }) ?? [];
       set({ verses, versesLoading: false });
     } catch (e) {
       console.error("Failed to load chapter:", e);
@@ -119,7 +137,7 @@ export const useBibleStore = create<BibleState>((set, get) => ({
     if (!pack) return;
 
     try {
-      const results = await invoke<BibleVerse[]>("bible_search", { packId: pack, query });
+      const results = await tauriInvoke<BibleVerse[]>("bible_search", { packId: pack, query }) ?? [];
       set({ searchResults: results });
     } catch (e) {
       console.error("Search failed:", e);
@@ -129,7 +147,7 @@ export const useBibleStore = create<BibleState>((set, get) => ({
 
   importPack: async (sourcePath, packId) => {
     try {
-      await invoke("bible_import_pack", { sourcePath, packId });
+      await tauriInvoke("bible_import_pack", { sourcePath, packId });
       await get().loadPacks();
     } catch (e) {
       console.error("Import failed:", e);
@@ -139,7 +157,7 @@ export const useBibleStore = create<BibleState>((set, get) => ({
 
   deletePack: async (packId) => {
     try {
-      await invoke("bible_delete_pack", { packId });
+      await tauriInvoke("bible_delete_pack", { packId });
       const { activePack } = get();
       if (activePack === packId) {
         set({ activePack: null, selectedBook: null, selectedChapter: null, verses: [] });

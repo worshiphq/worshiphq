@@ -118,8 +118,8 @@ function ScripturesTab({
 }) {
   const {
     packs, activePack, selectedBook, selectedChapter,
-    chapterCount, verses, versesLoading,
-    loadPacks, selectBook, selectChapter,
+    chapterCount, verses, versesLoading, searchResults, searchQuery,
+    loadPacks, setActivePack, selectBook, selectChapter, searchBible,
   } = useBibleStore();
 
   useEffect(() => {
@@ -131,7 +131,22 @@ function ScripturesTab({
   return (
     <div className="flex flex-1 flex-col min-h-0">
       <div className="flex items-center gap-2 border-b border-line px-2.5 py-1">
-        <span className="text-[9px] text-ink-faint">{currentPack?.abbreviation ?? "KJV"}</span>
+        <select
+          value={activePack ?? ""}
+          onChange={(e) => setActivePack(e.target.value)}
+          className="rounded border border-line bg-surface-4 px-1.5 py-0.5 text-[9px] font-medium text-ink outline-none focus:border-primary"
+        >
+          {packs.map((p) => (
+            <option key={p.id} value={p.id}>
+              {p.abbreviation} — {p.name}
+            </option>
+          ))}
+        </select>
+        {currentPack?.language && currentPack.language !== "English" && (
+          <span className="rounded bg-cyan/10 px-1.5 py-0.5 text-[8px] font-medium text-cyan">
+            {currentPack.language}
+          </span>
+        )}
       </div>
       <div className="flex-1 overflow-y-auto px-1 py-0.5">
         {selectedBook === null ? (
@@ -217,10 +232,47 @@ function ScripturesTab({
         <span className="text-[9px] text-ink-faint">Search:</span>
         <input
           type="text"
+          value={searchQuery}
+          onChange={(e) => searchBible(e.target.value)}
           className="flex-1 rounded border border-line bg-surface-4 px-2 py-0.5 text-[10px] text-ink outline-none focus:border-primary"
-          placeholder=""
+          placeholder="Search verses..."
         />
       </div>
+      {searchQuery && searchResults.length > 0 && (
+        <div className="max-h-40 overflow-y-auto border-t border-line bg-surface-2 px-1 py-0.5">
+          <div className="px-2 py-0.5 text-[8px] font-bold text-ink-faint">
+            {searchResults.length} result{searchResults.length !== 1 ? "s" : ""}
+          </div>
+          {searchResults.map((v, i) => {
+            const bookName = BIBLE_BOOKS[v.book - 1] ?? `Book ${v.book}`;
+            const vRef = `${bookName} ${v.chapter}:${v.verse}`;
+            return (
+              <div
+                key={i}
+                className="cursor-pointer rounded px-2.5 py-1 transition-colors hover:bg-surface-4"
+                onDoubleClick={() => {
+                  onAddToService({
+                    id: crypto.randomUUID(),
+                    type: "scripture",
+                    title: vRef,
+                    subtitle: currentPack?.abbreviation,
+                    order: 0,
+                    data: {
+                      book: v.book - 1,
+                      chapter: v.chapter,
+                      verseStart: v.verse,
+                      translation: currentPack?.abbreviation,
+                    },
+                  });
+                }}
+              >
+                <span className="text-[9px] font-bold text-cyan">{vRef}</span>
+                <p className="text-[9px] leading-relaxed text-ink-muted line-clamp-2">{v.text}</p>
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
