@@ -1,20 +1,25 @@
 @import "tailwindcss";
 
 @theme {
-  --color-surface: #0a0a0f;
-  --color-surface-2: #12121a;
-  --color-surface-3: #1a1a25;
-  --color-surface-4: #22222f;
-  --color-line: #2a2a3a;
-  --color-line-soft: #1e1e2e;
-  --color-ink: #e8e8f0;
-  --color-ink-muted: #9898aa;
-  --color-ink-faint: #5a5a70;
+  --color-surface: #0c0c12;
+  --color-surface-2: #111118;
+  --color-surface-3: #18181f;
+  --color-surface-4: #1f1f28;
+  --color-surface-5: #272730;
+  --color-line: #2a2a38;
+  --color-line-soft: #1e1e2c;
+  --color-ink: #e4e4ef;
+  --color-ink-muted: #9494a8;
+  --color-ink-faint: #55556a;
   --color-primary: #6366f1;
   --color-primary-bright: #818cf8;
+  --color-primary-dim: #4f46e5;
   --color-gold: #f59e0b;
+  --color-gold-dim: #d97706;
   --color-danger: #ef4444;
   --color-success: #22c55e;
+  --color-cyan: #06b6d4;
+  --color-rose: #f43f5e;
 }
 
 html, body, #root {
@@ -23,25 +28,61 @@ html, body, #root {
   overflow: hidden;
   background: var(--color-surface);
   color: var(--color-ink);
-  font-family: system-ui, -apple-system, sans-serif;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
   user-select: none;
   -webkit-user-select: none;
+  font-size: 13px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
 }
 
-::-webkit-scrollbar {
-  width: 6px;
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: var(--color-line); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--color-ink-faint); }
+
+[data-tauri-drag-region] { cursor: grab; }
+
+/* Live indicator pulse */
+@keyframes live-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
 }
-::-webkit-scrollbar-track {
-  background: transparent;
+.live-dot { animation: live-pulse 1.5s ease-in-out infinite; }
+
+/* Slide thumbnail hover glow */
+.slide-thumb {
+  transition: box-shadow 0.2s, border-color 0.2s;
 }
-::-webkit-scrollbar-thumb {
-  background: var(--color-line);
-  border-radius: 3px;
+.slide-thumb:hover {
+  box-shadow: 0 0 12px rgba(99, 102, 241, 0.3);
 }
-::-webkit-scrollbar-thumb:hover {
-  background: var(--color-ink-faint);
+.slide-thumb.active {
+  box-shadow: 0 0 16px rgba(99, 102, 241, 0.4);
 }
 
-[data-tauri-drag-region] {
-  cursor: grab;
+/* Progress bar shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.progress-shimmer {
+  background: linear-gradient(90deg, var(--color-primary-dim), var(--color-primary-bright), var(--color-primary-dim));
+  background-size: 200% 100%;
+  animation: shimmer 2s linear infinite;
+}
+
+/* Card hover lift */
+.card-lift {
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+.card-lift:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 16px rgba(0,0,0,0.3);
+}
+
+/* Audio waveform bar animation */
+@keyframes waveform {
+  0%, 100% { height: 20%; }
+  50% { height: 80%; }
 }
