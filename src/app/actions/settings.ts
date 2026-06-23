@@ -584,14 +584,15 @@ export async function changePlan(plan: string, interval: "monthly" | "yearly") {
   const { getPlatformConfig } = await import("@/lib/data/platform-config");
   const platformConfig = await getPlatformConfig();
   const dbPrice = platformConfig.prices[plan];
-  const amountGhs = interval === "yearly" ? (dbPrice?.yearly ?? planConfig.yearly) : (dbPrice?.monthly ?? planConfig.monthly);
+  const amount = interval === "yearly" ? (dbPrice?.yearly ?? planConfig.yearly) : (dbPrice?.monthly ?? planConfig.monthly);
   const reference = newPaymentReference();
   const appUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
   const returnUrl = `${appUrl}/app/settings?upgraded=${plan}&ref=${reference}&interval=${interval}`;
 
   const init = await initializePayment({
     email: session.email || `billing+${session.churchId}@worshiphq.org`,
-    amountGhs,
+    amount,
+    currency: platformConfig.currency,
     reference,
     callbackUrl: returnUrl,
     stubReturnUrl: returnUrl,
@@ -612,7 +613,7 @@ export async function changePlan(plan: string, interval: "monthly" | "yearly") {
       update: { plan, interval, status: "active", renewsAt },
     });
     const sym = platformConfig.currencySymbol;
-    await sendUpgradeReceipt(session.churchId, planConfig.name, `${sym}${amountGhs.toLocaleString()}`, interval, reference);
+    await sendUpgradeReceipt(session.churchId, planConfig.name, `${sym}${amount.toLocaleString()}`, interval, reference);
     revalidatePath("/app/settings");
     revalidatePath("/app", "layout");
     return { ok: true, plan };

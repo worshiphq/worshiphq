@@ -16,13 +16,15 @@ export function newPaymentReference(): string {
 }
 
 /**
- * Initialize a Paystack transaction (GHS). Supports Mobile Money (MTN MoMo,
- * Telecel Cash, AirtelTigo Money) and cards. In stub mode it returns a fake
- * reference + local callback URL so the giving flow is fully demoable without keys.
+ * Initialize a Paystack transaction. Supports Mobile Money (MTN MoMo,
+ * Telecel Cash, AirtelTigo Money) and cards. Currency is dynamic — set by
+ * the platform config (defaults to GHS). In stub mode it returns a fake
+ * reference + local callback URL so the flow is fully demoable without keys.
  */
 export async function initializePayment(opts: {
   email: string;
-  amountGhs: number;
+  amount: number;
+  currency?: string;
   metadata?: Record<string, unknown>;
   /** Supply your own reference (so you can correlate before redirecting). */
   reference?: string;
@@ -30,11 +32,16 @@ export async function initializePayment(opts: {
   callbackUrl?: string;
   /** Where the stub-mode flow should send the donor (no real checkout). */
   stubReturnUrl?: string;
+  /** @deprecated Use `amount` instead */
+  amountGhs?: number;
 }): Promise<InitResult> {
   const reference = opts.reference ?? newPaymentReference();
+  const amount = opts.amount ?? opts.amountGhs ?? 0;
+  const currency = opts.currency ?? "GHS";
+  const subunit = Math.round(amount * 100);
 
   if (!features.payments) {
-    console.info(`[Paystack:stub] init ₵${opts.amountGhs} for ${opts.email} (ref ${reference})`);
+    console.info(`[Paystack:stub] init ${currency} ${amount} for ${opts.email} (ref ${reference})`);
     return {
       ok: true,
       stubbed: true,
@@ -49,8 +56,8 @@ export async function initializePayment(opts: {
       headers: { authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`, "content-type": "application/json" },
       body: JSON.stringify({
         email: opts.email,
-        amount: Math.round(opts.amountGhs * 100), // pesewas
-        currency: "GHS",
+        amount: subunit,
+        currency,
         channels: ["mobile_money", "card", "bank"],
         callback_url: opts.callbackUrl ?? env.PAYSTACK_CALLBACK_URL,
         metadata: opts.metadata,

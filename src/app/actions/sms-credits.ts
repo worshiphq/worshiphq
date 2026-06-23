@@ -8,6 +8,7 @@ import { requireSession, assertCanWrite } from "@/lib/auth";
 import { initializePayment, newPaymentReference } from "@/lib/integrations/paystack";
 import { addCredits } from "@/lib/sms/credits";
 import { getBundle } from "@/config/sms";
+import { getPlatformConfig } from "@/lib/data/platform-config";
 
 /**
  * Buy an SMS credit bundle via Paystack. In stub mode (no keys) the credits are
@@ -24,9 +25,12 @@ export async function buySmsCredits(bundleId: string) {
   const appUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
   const returnUrl = `${appUrl}/app/communications/credits?topup=${reference}`;
 
+  const platformConfig = await getPlatformConfig();
+
   const init = await initializePayment({
     email: session.email || `billing+${session.churchId}@worshiphq.org`,
-    amountGhs: bundle.priceGhs,
+    amount: bundle.priceGhs,
+    currency: platformConfig.currency,
     reference,
     callbackUrl: returnUrl,
     stubReturnUrl: returnUrl,

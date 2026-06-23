@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { initializePayment, newPaymentReference } from "@/lib/integrations/paystack";
 import { recordOnlineGift, GIFT_METHOD_FROM_LABEL } from "@/lib/giving/record";
+import { getPlatformConfig } from "@/lib/data/platform-config";
 
 /**
  * Public online giving: a member/visitor gives via the church's shareable link.
@@ -42,9 +43,12 @@ export async function startOnlineGift(formData: FormData): Promise<void> {
   // Paystack requires an email; fall back to a no-reply address for anonymous MoMo gifts.
   const payerEmail = email ?? `giving+${reference}@worshiphq.org`;
 
+  const platformConfig = await getPlatformConfig();
+
   const init = await initializePayment({
     email: payerEmail,
-    amountGhs: amount,
+    amount,
+    currency: platformConfig.currency,
     reference,
     callbackUrl: thankYouUrl,
     stubReturnUrl: thankYouUrl,
