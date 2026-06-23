@@ -47,76 +47,53 @@ export default function App() {
   return (
     <LicenseGate>
       <div className="flex h-full flex-col bg-surface">
-        {/* Menu bar */}
         <TitleBar />
-
-        {/* Toolbar: New, Open, Save, Background, Go Live etc. */}
         <Toolbar />
 
-        {/* ═══ Main content: EW2009 layout ═══ */}
-        <div className="flex flex-1 overflow-hidden">
-
-          {/* ─── LEFT COLUMN: Schedule (top) + Resources (bottom) ─── */}
-          <ResizablePanel direction="horizontal" initialSize={220} minSize={160} maxSize={360}>
-            <div className="flex h-full flex-col border-r border-line bg-surface-2">
-              {/* Schedule — top half, resizable */}
-              <ResizablePanel direction="vertical" initialSize={200} minSize={100} maxSize={500}>
-                <div className="h-full border-b border-line">
-                  <SchedulePanel onSelectItem={handleSelectScheduleItem} />
-                </div>
-              </ResizablePanel>
-
-              {/* Resources — bottom half (fills remaining) */}
-              <div className="flex flex-1 flex-col min-h-0">
-                <ResourcesPanel
-                  onAddToService={handleAddToService}
-                  onGoLive={handleGoLive}
-                />
-              </div>
-            </div>
-          </ResizablePanel>
-
-          {/* ─── RIGHT AREA: Text panels (top) + Monitors (bottom) ─── */}
-          <div className="flex flex-1 flex-col min-w-0">
-
-            {/* Top: Preview text + Live text panels */}
-            <div className="flex flex-1 min-h-0">
-              {/* Preview text panel (center) */}
-              <div className="flex flex-1 flex-col border-r border-line min-w-0">
-                <PreviewTextPanel
-                  onPreviewSlide={handlePreviewSlide}
-                  previewSlideIndex={previewSlideIndex}
-                />
-              </div>
-
-              {/* Live text panel (right) — resizable width */}
-              <ResizablePanel
-                direction="horizontal"
-                initialSize={220}
-                minSize={160}
-                maxSize={400}
-                resizerPosition="start"
-              >
-                <LiveTextPanel />
-              </ResizablePanel>
-            </div>
-
-            {/* Bottom: Preview Output + Live Output monitors — equal size, resizable height */}
-            <ResizablePanel
-              direction="vertical"
-              initialSize={180}
-              minSize={120}
-              maxSize={350}
-              resizerPosition="start"
-            >
-              <div className="h-full border-t border-line bg-surface-2/50">
-                <MonitorOutputs previewSlide={previewSlide} />
+        {/* ═══ EW2009 grid: left sidebar | preview + live text (top) | monitors (bottom) ═══ */}
+        <div
+          className="flex-1 overflow-hidden"
+          style={{
+            display: "grid",
+            gridTemplateColumns: "minmax(180px, 320px) 1fr minmax(160px, 320px)",
+            gridTemplateRows: "1fr minmax(120px, 28%)",
+            minHeight: 0,
+          }}
+        >
+          {/* ─── LEFT COLUMN: Schedule + Resources (spans both rows) ─── */}
+          <div className="border-r border-line bg-surface-2 flex flex-col min-h-0" style={{ gridRow: "1 / -1" }}>
+            <ResizablePanel direction="vertical" initialSize={200} minSize={80} maxSize={500}>
+              <div className="h-full border-b border-line">
+                <SchedulePanel onSelectItem={handleSelectScheduleItem} />
               </div>
             </ResizablePanel>
+            <div className="flex flex-1 flex-col min-h-0">
+              <ResourcesPanel
+                onAddToService={handleAddToService}
+                onGoLive={handleGoLive}
+              />
+            </div>
+          </div>
+
+          {/* ─── PREVIEW TEXT (center, row 1) ─── */}
+          <div className="border-r border-line flex flex-col min-h-0 min-w-0">
+            <PreviewTextPanel
+              onPreviewSlide={handlePreviewSlide}
+              previewSlideIndex={previewSlideIndex}
+            />
+          </div>
+
+          {/* ─── LIVE TEXT (right, row 1) ─── */}
+          <div className="flex flex-col min-h-0 min-w-0">
+            <LiveTextPanel />
+          </div>
+
+          {/* ─── MONITOR OUTPUTS (bottom, spans preview + live columns) ─── */}
+          <div className="border-t border-line bg-surface-2/50 min-h-0" style={{ gridColumn: "2 / -1" }}>
+            <MonitorOutputs previewSlide={previewSlide} />
           </div>
         </div>
 
-        {/* Audio Transcription bar */}
         <AudioBar />
       </div>
     </LicenseGate>
