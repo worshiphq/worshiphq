@@ -1,26 +1,46 @@
 import { useEffect, useState } from "react";
 import type { Slide } from "../types";
+import { useProjectionStore } from "../stores/projection-store";
 
 export function ProjectionWindow() {
   const [slide, setSlide] = useState<Slide | null>(null);
   const [isBlack, setIsBlack] = useState(false);
   const [transitioning, setTransitioning] = useState(false);
   const [prevSlide, setPrevSlide] = useState<Slide | null>(null);
+  const isTrial = useProjectionStore((s) => s.isTrial);
+  const isLicensed = useProjectionStore((s) => s.isLicensed);
 
   useEffect(() => {
-    // Listen for Tauri events from the operator window
-    // In production, these come via Tauri IPC events
-    // For dev, we use a simple message channel
+    let tauriCleanup: (() => void)[] = [];
+
+    async function initListeners() {
+      try {
+        const { listen } = await import("@tauri-apps/api/event");
+        const u1 = await listen<string>("slide-update", (event) => {
+          try {
+            const parsed = JSON.parse(event.payload) as Slide;
+            setPrevSlide(slide);
+            setTransitioning(true);
+            setSlide(parsed);
+            setIsBlack(false);
+            setTimeout(() => { setTransitioning(false); setPrevSlide(null); }, 500);
+          } catch { /* invalid slide data */ }
+        });
+        const u2 = await listen("go-black", () => setIsBlack(true));
+        const u3 = await listen("go-clear", () => { setSlide(null); setIsBlack(false); });
+        tauriCleanup = [u1, u2, u3];
+      } catch {
+        // Fallback for dev/browser mode — use postMessage
+      }
+    }
+
     const handler = (event: MessageEvent) => {
       if (event.data?.type === "slide-update") {
         setPrevSlide(slide);
         setTransitioning(true);
         setSlide(event.data.slide);
         setIsBlack(false);
-        setTimeout(() => {
-          setTransitioning(false);
-          setPrevSlide(null);
-        }, 500);
+        setTimeout(() => { setTransitioning(false); setPrevSlide(null); }, 500);
       } else if (event.data?.type === "go-black") {
         setIsBlack(true);
       } else if (event.data?.type === "go-clear") {
@@ -30,38 +50,33 @@ export function ProjectionWindow() {
     };
 
     window.addEventListener("message", handler);
-    return () => window.removeEventListener("message", handler);
+    initListeners();
+
+    return () => {
+      window.removeEventListener("message", handler);
+      tauriCleanup.forEach((fn) => fn());
+    };
   }, [slide]);
 
   return (
     <div className="relative h-screen w-screen overflow-hidden bg-black">
-      {/* Previous slide (fading out) */}
       {transitioning && prevSlide && (
-        <div
-          className="absolute inset-0 transition-opacity duration-500"
-          style={{ opacity: 0 }}
-        >
+        <div className="absolute inset-0 transition-opacity duration-500" style={{ opacity: 0 }}>
           <ProjectionSlide slide={prevSlide} />
         </div>
       )}
 
-      {/* Current slide */}
       {!isBlack && slide && (
-        <div
-          className="absolute inset-0 transition-opacity duration-500"
-          style={{ opacity: transitioning ? 0 : 1 }}
-        >
+        <div className="absolute inset-0 transition-opacity duration-500" style={{ opacity: transitioning ? 0 : 1 }}>
           <ProjectionSlide slide={slide} />
         </div>
       )}
 
-      {/* Black overlay */}
       {isBlack && (
         <div className="absolute inset-0 bg-black transition-opacity duration-300" />
       )}
 
-      {/* Trial watermark */}
-      <TrialWatermark />
+      {isTrial && !isLicensed && <TrialWatermark />}
     </div>
   );
 }
@@ -72,11 +87,7 @@ function ProjectionSlide({ slide }: { slide: Slide }) {
     typeof bg === "string"
       ? { backgroundColor: bg }
       : bg.type === "image"
-        ? {
-            backgroundImage: `url(${bg.src})`,
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }
+        ? { backgroundImage: `url(${bg.src})`, backgroundSize: "cover", backgroundPosition: "center" }
         : {};
 
   const layout = slide.template.textLayout;
@@ -90,27 +101,15 @@ function ProjectionSlide({ slide }: { slide: Slide }) {
 
   return (
     <div className="flex h-full w-full flex-col" style={bgStyle}>
-      {/* Video background */}
       {typeof bg === "object" && bg.type === "video" && (
-        <video
-          autoPlay
-          loop={bg.loop}
-          muted
-          playsInline
-          className="absolute inset-0 h-full w-full object-cover"
-        >
+        <video autoPlay loop={bg.loop} muted playsInline className="absolute inset-0 h-full w-full object-cover">
           <source src={bg.src} />
         </video>
       )}
 
-      {/* Content area */}
       <div
         className={`relative z-10 flex h-full flex-col ${
-          isBottom
-            ? "justify-end pb-[10%]"
-            : isLowerThird
-              ? "justify-end pb-[6%]"
-              : "items-center justify-center"
+          isBottom ? "justify-end pb-[10%]" : isLowerThird ? "justify-end pb-[6%]" : "items-center justify-center"
         } px-[8%]`}
       >
         {slide.type === "logo" ? (
@@ -121,7 +120,6 @@ function ProjectionSlide({ slide }: { slide: Slide }) {
           </div>
         ) : (
           <div className={isLowerThird ? "max-w-[60%]" : "text-center"}>
-            {/* Primary text (lyrics/scripture) */}
             <p
               style={{
                 fontSize: `clamp(24px, ${fontSize}px, 120px)`,
@@ -136,7 +134,6 @@ function ProjectionSlide({ slide }: { slide: Slide }) {
               {slide.content.primaryText}
             </p>
 
-            {/* Secondary text (reference/translation) */}
             {slide.content.secondaryText && (
               <p
                 style={{
@@ -152,15 +149,8 @@ function ProjectionSlide({ slide }: { slide: Slide }) {
               </p>
             )}
 
-            {/* Metadata (copyright/CCLI) */}
             {slide.content.metadata && (
-              <p
-                style={{
-                  fontSize: `clamp(10px, ${fontSize * 0.2}px, 24px)`,
-                  color: "rgba(255,255,255,0.4)",
-                  marginTop: "0.3em",
-                }}
-              >
+              <p style={{ fontSize: `clamp(10px, ${fontSize * 0.2}px, 24px)`, color: "rgba(255,255,255,0.4)", marginTop: "0.3em" }}>
                 {slide.content.metadata}
               </p>
             )}
@@ -172,11 +162,6 @@ function ProjectionSlide({ slide }: { slide: Slide }) {
 }
 
 function TrialWatermark() {
-  // TODO: Check actual license status from Tauri backend
-  const isTrial = true;
-
-  if (!isTrial) return null;
-
   return (
     <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center">
       <div
