@@ -2,7 +2,7 @@ import { useState } from "react";
 import {
   Play, Square, MonitorOff, ImageIcon, X,
   ChevronLeft, ChevronRight, Plus, Trash2,
-  Monitor, Eye, Tv,
+  Monitor, Eye, Tv, ExternalLink,
 } from "lucide-react";
 import { useProjectionStore } from "../stores/projection-store";
 import type { Slide, ServiceItem } from "../types";
@@ -10,7 +10,9 @@ import type { Slide, ServiceItem } from "../types";
 export function Dashboard() {
   const {
     currentSlide, isLive, isBlack, serviceItems, activeItemIndex,
+    projectionOpen,
     goLive, goBlack, goLogo, goClear, setActiveItem, removeFromService,
+    openProjection, closeProjection,
   } = useProjectionStore();
 
   const [currentSlideIdx, setCurrentSlideIdx] = useState(0);
@@ -67,6 +69,18 @@ export function Dashboard() {
         </div>
 
         <div className="flex items-center gap-1.5">
+          <button
+            onClick={() => projectionOpen ? closeProjection() : openProjection()}
+            className={`btn-ghost flex items-center gap-1.5 px-3 py-1.5 text-[11px] ${
+              projectionOpen ? "!border-success/40 !text-success" : ""
+            }`}
+          >
+            <ExternalLink className="size-3.5" />
+            {projectionOpen ? "Output On" : "Open Output"}
+          </button>
+
+          <div className="mx-1 h-4 w-px bg-line" />
+
           {[
             { label: "Clear", icon: X, action: goClear, isActive: false },
             { label: "Black", icon: MonitorOff, action: goBlack, isActive: isBlack },

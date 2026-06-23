@@ -2,7 +2,7 @@ mod bible;
 mod licensing;
 
 use serde::Serialize;
-use tauri::{Emitter, Manager};
+use tauri::{Emitter, Manager, WebviewUrl, WebviewWindowBuilder};
 
 #[derive(Debug, Serialize)]
 pub struct DisplayInfo {
@@ -50,6 +50,54 @@ fn go_clear(app: tauri::AppHandle) -> Result<(), String> {
         projection
             .emit("go-clear", ())
             .map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn open_projection_window(app: tauri::AppHandle, monitor_index: Option<usize>) -> Result<(), String> {
+    if app.get_webview_window("projection").is_some() {
+        return Ok(());
+    }
+
+    let monitors = app.available_monitors().map_err(|e| e.to_string())?;
+    let target = monitor_index
+        .and_then(|i| monitors.get(i))
+        .or_else(|| monitors.iter().find(|m| !m.name().unwrap_or_default().is_empty()).nth(1))
+        .or(monitors.first());
+
+    let (x, y, w, h) = if let Some(mon) = target {
+        let pos = mon.position();
+        let size = mon.size();
+        (pos.x, pos.y, size.width, size.height)
+    } else {
+        (0, 0, 1920, 1080)
+    };
+
+    let url = if cfg!(debug_assertions) {
+        WebviewUrl::External("http://localhost:1420/#projection".parse().unwrap())
+    } else {
+        WebviewUrl::App("index.html#projection".into())
+    };
+
+    WebviewWindowBuilder::new(&app, "projection", url)
+        .title("WorshipHQ — Live Output")
+        .position(x as f64, y as f64)
+        .inner_size(w as f64, h as f64)
+        .decorations(false)
+        .always_on_top(true)
+        .fullscreen(true)
+        .focused(false)
+        .build()
+        .map_err(|e| e.to_string())?;
+
+    Ok(())
+}
+
+#[tauri::command]
+fn close_projection_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("projection") {
+        win.close().map_err(|e| e.to_string())?;
     }
     Ok(())
 }
@@ -183,6 +231,8 @@ pub fn run() {
             go_live,
             go_black,
             go_clear,
+            open_projection_window,
+            close_projection_window,
             get_hwid,
             check_license,
             search_bible,
