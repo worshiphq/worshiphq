@@ -40,10 +40,9 @@ const segments = [
 ] as const;
 
 const engagementStyle: Record<PersonRow["engagement"], { label: string; variant: "success" | "primary" | "warning" | "info" }> = {
-  thriving: { label: "Thriving", variant: "success" },
-  steady: { label: "Steady", variant: "primary" },
-  "at-risk": { label: "At risk", variant: "warning" },
-  new: { label: "New", variant: "info" },
+  active: { label: "Active", variant: "success" },
+  "at-risk": { label: "Inactive", variant: "warning" },
+  new: { label: "Visitor", variant: "info" },
 };
 
 type AllStats = { totalAll: number; adults: number; teens: number; children: number; active: number; visitors: number; departments: number };
@@ -205,11 +204,10 @@ export function PeopleClient({
                 onChange={(e) => setEngFilter(e.target.value)}
                 className="h-9 rounded-lg border border-line bg-surface px-2.5 text-xs text-ink focus-visible:border-primary/50 focus-visible:outline-none"
               >
-                <option value="">All engagement</option>
-                <option value="thriving">Thriving</option>
-                <option value="steady">Steady</option>
-                <option value="at-risk">At risk</option>
-                <option value="new">New</option>
+                <option value="">All status</option>
+                <option value="active">Active</option>
+                <option value="at-risk">Inactive</option>
+                <option value="new">Visitor</option>
               </select>
             </>
           )}
@@ -427,7 +425,7 @@ function PersonDrawer({ person, canWrite, adults, onClose, onEdit }: { person: P
             <ClickableAvatar name={person.fullName} photoUrl={person.photoUrl} gender={person.gender} size="lg" className="ring-4 ring-surface" />
             <div>
               <h2 className="font-display text-xl font-bold">
-                {person.title ? `${person.title} ` : ""}{person.fullName}
+                {person.fullName}
               </h2>
               {person.memberId && (
                 <button onClick={() => setQrOpen(true)} className="mt-0.5 inline-flex items-center gap-1 font-mono text-xs text-ink-faint hover:text-primary-bright">

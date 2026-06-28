@@ -13,7 +13,7 @@ export interface PersonRow {
   phone: string | null;
   photoUrl: string | null;
   status: PersonStatus;
-  engagement: "thriving" | "steady" | "at-risk" | "new";
+  engagement: "active" | "at-risk" | "new";
   branch: string | null;
   ministries: string[];
   household: string | null;
@@ -71,7 +71,7 @@ export interface PersonRow {
 function engagementFor(status: PersonStatus): PersonRow["engagement"] {
   if (status === "visitor") return "new";
   if (status === "inactive") return "at-risk";
-  return "steady";
+  return "active";
 }
 
 const isoDate = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
@@ -102,7 +102,7 @@ export async function getPeople(churchId: string, ageFilter?: "adults" | "childr
     firstName: p.firstName,
     lastName: p.lastName,
     otherNames: p.otherNames,
-    fullName: `${p.firstName} ${p.lastName}`,
+    fullName: [p.title, p.firstName, p.otherNames, p.lastName].filter(Boolean).join(" "),
     email: p.email,
     phone: p.phone,
     photoUrl: p.photoUrl,

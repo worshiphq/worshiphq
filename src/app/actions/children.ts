@@ -76,6 +76,13 @@ export async function updateChild(formData: FormData) {
   const guardianPhone = String(formData.get("guardianPhone") ?? "").trim() || null;
   const parentId = String(formData.get("parentId") ?? "").trim() || null;
   const phone = String(formData.get("phone") ?? "").trim() || null;
+  const rawPhoto = String(formData.get("photoUrl") ?? "").trim();
+  const MAX_PHOTO = 2 * 1024 * 1024;
+  const photoUrl = rawPhoto.startsWith("data:image/") && rawPhoto.length < MAX_PHOTO
+    ? rawPhoto
+    : rawPhoto.startsWith("http")
+      ? rawPhoto
+      : undefined;
 
   const birthday = dateOfBirth && !isNaN(dateOfBirth.getTime())
     ? `${String(dateOfBirth.getMonth() + 1).padStart(2, "0")}-${String(dateOfBirth.getDate()).padStart(2, "0")}`
@@ -95,12 +102,14 @@ export async function updateChild(formData: FormData) {
       guardianName,
       guardianPhone,
       phone,
+      ...(photoUrl !== undefined ? { photoUrl } : {}),
       parent: parentId ? { connect: { id: parentId } } : { disconnect: true },
     },
   });
 
   revalidatePath("/app/children");
   revalidatePath("/app/people");
+  revalidatePath("/app");
 }
 
 export async function assignParent(formData: FormData) {

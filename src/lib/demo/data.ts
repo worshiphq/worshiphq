@@ -5,7 +5,7 @@
  */
 
 export type Role = "Owner" | "Admin" | "Pastor" | "Finance" | "Media" | "Leader" | "Volunteer";
-export type Engagement = "thriving" | "steady" | "at-risk" | "new";
+export type Engagement = "active" | "at-risk" | "new";
 
 export interface Person {
   id: string;
@@ -72,7 +72,7 @@ function rng(seed: number) {
 function buildPeople(count: number): Person[] {
   const rand = rng(42);
   const people: Person[] = [];
-  const engagements: Engagement[] = ["thriving", "steady", "steady", "at-risk", "new"];
+  const engagements: Engagement[] = ["active", "active", "active", "at-risk", "new"];
   for (let i = 0; i < count; i++) {
     const first = FIRST[Math.floor(rand() * FIRST.length)];
     const last = LAST[Math.floor(rand() * LAST.length)];

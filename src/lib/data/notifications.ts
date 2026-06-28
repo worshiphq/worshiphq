@@ -1,3 +1,4 @@
+import { cache } from "react";
 import { db } from "@/lib/db";
 
 export type AppNotification = {
@@ -7,7 +8,7 @@ export type AppNotification = {
   type: "member" | "visitor" | "gift" | "attendance" | "prayer";
 };
 
-export async function getRecentNotifications(churchId: string): Promise<AppNotification[]> {
+async function _getRecentNotifications(churchId: string): Promise<AppNotification[]> {
   const since = new Date();
   since.setDate(since.getDate() - 7);
 
@@ -96,3 +97,5 @@ export async function getRecentNotifications(churchId: string): Promise<AppNotif
   notifs.sort((a, b) => new Date(b.time).getTime() - new Date(a.time).getTime());
   return notifs.slice(0, 20);
 }
+
+export const getRecentNotifications = cache(_getRecentNotifications);

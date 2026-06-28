@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { db } from "@/lib/db";
 
 export interface ActiveAnnouncement {
@@ -9,7 +10,7 @@ export interface ActiveAnnouncement {
 }
 
 /** Announcements currently live (active + within their time window). */
-export async function getActiveAnnouncements(): Promise<ActiveAnnouncement[]> {
+async function _getActiveAnnouncements(): Promise<ActiveAnnouncement[]> {
   const now = new Date();
   try {
     const rows = await db.announcement.findMany({
@@ -26,6 +27,8 @@ export async function getActiveAnnouncements(): Promise<ActiveAnnouncement[]> {
     return [];
   }
 }
+
+export const getActiveAnnouncements = cache(_getActiveAnnouncements);
 
 /** All announcements, for the admin composer. */
 export async function getAllAnnouncements() {
