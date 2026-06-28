@@ -8,5 +8,11 @@ export default async function DayBornPage() {
   const session = await requireModule("giving");
   const data = await getDayBornData(session.churchId);
 
-  return <DayBornClient {...data} canWrite={!session.isDemo} />;
+  return (
+    <DayBornClient
+      {...data}
+      canWrite={!session.isDemo}
+      canDelete={session.canDelete && !session.isDemo}
+    />
+  );
 }

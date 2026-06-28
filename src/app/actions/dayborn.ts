@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, assertCanWrite } from "@/lib/auth";
+import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 
 function getMonday(d: Date): Date {
   const date = new Date(d);
@@ -98,6 +98,20 @@ export async function deleteDayBornEntry(entryId: string) {
 
   await db.dayBornEntry.delete({ where: { id: entryId } });
   revalidatePath("/app/dayborn");
+}
+
+export async function deleteDayBornWeek(weekId: string) {
+  const session = await requireSession();
+  assertCanDelete(session);
+
+  const week = await db.dayBornWeek.findFirst({
+    where: { id: weekId, churchId: session.churchId },
+  });
+  if (!week) return;
+
+  await db.dayBornWeek.delete({ where: { id: weekId } });
+  revalidatePath("/app/dayborn");
+  revalidatePath("/app/accounting");
 }
 
 export async function postDayBornToAccounting(weekId: string) {
