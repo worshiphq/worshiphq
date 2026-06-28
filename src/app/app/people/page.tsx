@@ -1,5 +1,5 @@
 import { requireModule } from "@/lib/auth";
-import { getPeople, getPeopleStats } from "@/lib/data/people";
+import { getPeople, getAllPeopleStats } from "@/lib/data/people";
 import { db } from "@/lib/db";
 import { PeopleClient } from "@/components/app/people-client";
 import { JoinLinkCard } from "@/components/app/join-link-card";
@@ -10,15 +10,27 @@ export const metadata = { title: "People" };
 
 export default async function PeoplePage() {
   const session = await requireModule("people");
-  const [people, stats, departments, church] = await Promise.all([
-    getPeople(session.churchId, "adults"),
-    getPeopleStats(session.churchId),
+  const [allPeople, stats, departments, church, adults] = await Promise.all([
+    getPeople(session.churchId),
+    getAllPeopleStats(session.churchId),
     db.department.findMany({
       where: { churchId: session.churchId },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
-    db.church.findUnique({ where: { id: session.churchId }, select: { slug: true, isDemo: true, registrationFields: true } }),
+    db.church.findUnique({
+      where: { id: session.churchId },
+      select: { slug: true, isDemo: true, registrationFields: true },
+    }),
+    db.person.findMany({
+      where: {
+        churchId: session.churchId,
+        OR: [{ ageGroup: null }, { ageGroup: "adult" }],
+      },
+      select: { id: true, firstName: true, lastName: true },
+      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+      take: 500,
+    }),
   ]);
   const formFields = getFormDefinition(church?.registrationFields ?? null);
   return (
@@ -37,11 +49,12 @@ export default async function PeoplePage() {
       )}
       <div data-tour="people-list">
         <PeopleClient
-          people={people}
+          people={allPeople}
           stats={stats}
           canWrite={!session.isDemo}
           departments={departments}
           formFields={formFields}
+          adults={adults}
         />
       </div>
     </div>

@@ -2,12 +2,13 @@
 
 import { useState, useTransition, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Crown, Users2, Plus, X, Check, Loader2, Settings2 } from "lucide-react";
+import { Crown, Users2, Plus, X, Check, Loader2, Settings2, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MemberAvatar } from "@/components/ui/member-avatar";
 import { addPosition, removePosition } from "@/app/actions/positions";
+import { reorderLeaders } from "@/app/actions/leaders";
 import { cn } from "@/lib/utils";
 
 type Leader = {
@@ -60,56 +61,169 @@ export function LeadersClient({
   isAdmin: boolean;
   isDemo: boolean;
 }) {
+  const [leaders, setLeaders] = useState(churchLeaders);
+  const [reordering, setReordering] = useState(false);
+  const [saving, startSave] = useTransition();
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+
+  function moveLeader(from: number, to: number) {
+    const next = [...leaders];
+    const [item] = next.splice(from, 1);
+    next.splice(to, 0, item);
+    setLeaders(next);
+  }
+
+  function saveOrder() {
+    startSave(async () => {
+      await reorderLeaders(leaders.map((l) => l.id));
+      setReordering(false);
+    });
+  }
+
+  function handleDragStart(i: number) {
+    setDragIdx(i);
+  }
+
+  function handleDragOver(e: React.DragEvent, i: number) {
+    e.preventDefault();
+    if (dragIdx !== null && dragIdx !== i) {
+      moveLeader(dragIdx, i);
+      setDragIdx(i);
+    }
+  }
+
+  function handleDragEnd() {
+    setDragIdx(null);
+  }
+
   return (
     <div className="space-y-6">
       {/* Church-level leadership */}
-      {churchLeaders.length > 0 && (
+      {leaders.length > 0 && (
         <Card>
-          <div className="flex items-center gap-2 border-b border-line px-5 py-4">
-            <span className="grid size-8 place-items-center rounded-lg bg-gold/10">
-              <Crown className="size-4 text-gold" />
-            </span>
-            <h3 className="font-display text-lg font-semibold">Church Leadership</h3>
+          <div className="flex items-center justify-between border-b border-line px-5 py-4">
+            <div className="flex items-center gap-2">
+              <span className="grid size-8 place-items-center rounded-lg bg-gold/10">
+                <Crown className="size-4 text-gold" />
+              </span>
+              <h3 className="font-display text-lg font-semibold">Church Leadership</h3>
+            </div>
+            {isAdmin && !isDemo && (
+              <div className="flex items-center gap-2">
+                {reordering ? (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => { setLeaders(churchLeaders); setReordering(false); }}
+                      disabled={saving}
+                    >
+                      Cancel
+                    </Button>
+                    <Button size="sm" onClick={saveOrder} disabled={saving}>
+                      {saving ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : "Save order"}
+                    </Button>
+                  </>
+                ) : (
+                  <Button size="sm" variant="ghost" className="text-xs" onClick={() => setReordering(true)}>
+                    <GripVertical className="size-3.5" /> Reorder
+                  </Button>
+                )}
+              </div>
+            )}
           </div>
-          <div className="grid gap-4 p-5 sm:grid-cols-2 lg:grid-cols-3">
-            {churchLeaders.map((l, i) => {
-              const isHead = i === 0;
+          <div className={cn(
+            "grid gap-4 p-5",
+            reordering ? "sm:grid-cols-1" : "sm:grid-cols-2 lg:grid-cols-3",
+          )}>
+            {leaders.map((l, i) => {
+              const isHead = i === 0 && !reordering;
               return (
-                <Link
+                <div
                   key={l.id}
-                  href={`/app/people?highlight=${l.id}`}
-                  className="group flex items-center gap-4 rounded-xl p-3 transition-colors hover:bg-surface-2/60"
+                  draggable={reordering}
+                  onDragStart={() => handleDragStart(i)}
+                  onDragOver={(e) => handleDragOver(e, i)}
+                  onDragEnd={handleDragEnd}
+                  className={cn(
+                    "group flex items-center gap-4 rounded-xl p-3 transition-colors",
+                    reordering
+                      ? "cursor-grab border border-line bg-surface-2/30 active:cursor-grabbing hover:border-primary/30"
+                      : "hover:bg-surface-2/60",
+                    dragIdx === i && "opacity-50",
+                  )}
                 >
-                  <MemberAvatar
-                    name={l.name}
-                    photoUrl={l.photoUrl}
-                    size={isHead ? "lg" : "md"}
-                    className={cn(
-                      "shrink-0 transition-transform group-hover:scale-105",
-                      isHead && "ring-3 ring-gold/30",
-                    )}
-                  />
-                  <div className="min-w-0">
-                    <h4 className="truncate font-display font-semibold text-ink">{l.name}</h4>
-                    <span className={cn(
-                      "mt-0.5 inline-block rounded-full px-2 py-0.5 text-xs font-medium",
-                      isHead ? "bg-gold/10 text-gold" : "bg-primary/10 text-primary-bright",
-                    )}>
-                      {l.leaderTitle}
-                    </span>
-                    {l.phone && <div className="mt-0.5 text-xs text-ink-faint">{l.phone}</div>}
-                  </div>
-                </Link>
+                  {reordering && (
+                    <div className="flex flex-col gap-0.5">
+                      <button
+                        type="button"
+                        disabled={i === 0}
+                        onClick={() => moveLeader(i, i - 1)}
+                        className="grid size-6 place-items-center rounded text-ink-faint hover:bg-surface-2 disabled:opacity-30"
+                      >
+                        <ArrowUp className="size-3" />
+                      </button>
+                      <GripVertical className="mx-auto size-4 text-ink-faint" />
+                      <button
+                        type="button"
+                        disabled={i === leaders.length - 1}
+                        onClick={() => moveLeader(i, i + 1)}
+                        className="grid size-6 place-items-center rounded text-ink-faint hover:bg-surface-2 disabled:opacity-30"
+                      >
+                        <ArrowDown className="size-3" />
+                      </button>
+                    </div>
+                  )}
+                  {!reordering ? (
+                    <Link
+                      href={`/app/people?highlight=${l.id}`}
+                      className="flex flex-1 items-center gap-4"
+                    >
+                      <MemberAvatar
+                        name={l.name}
+                        photoUrl={l.photoUrl}
+                        size={isHead ? "lg" : "md"}
+                        className={cn(
+                          "shrink-0 transition-transform group-hover:scale-105",
+                          isHead && "ring-3 ring-gold/30",
+                        )}
+                      />
+                      <div className="min-w-0">
+                        <h4 className="truncate font-display font-semibold text-ink">{l.name}</h4>
+                        <span className={cn(
+                          "mt-0.5 inline-block rounded-full px-2 py-0.5 text-xs font-medium",
+                          isHead ? "bg-gold/10 text-gold" : "bg-primary/10 text-primary-bright",
+                        )}>
+                          {l.leaderTitle}
+                        </span>
+                        {l.phone && <div className="mt-0.5 text-xs text-ink-faint">{l.phone}</div>}
+                      </div>
+                    </Link>
+                  ) : (
+                    <>
+                      <MemberAvatar name={l.name} photoUrl={l.photoUrl} size="md" className="shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <h4 className="truncate font-display font-semibold text-ink">{l.name}</h4>
+                        <span className="mt-0.5 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary-bright">
+                          {l.leaderTitle}
+                        </span>
+                      </div>
+                      <span className="text-xs font-mono text-ink-faint">#{i + 1}</span>
+                    </>
+                  )}
+                </div>
               );
             })}
           </div>
           <p className="border-t border-line-soft px-5 py-3 text-xs text-ink-faint">
-            Church-level titles are assigned from the People section — edit a person and set their leadership label.
+            {reordering
+              ? "Drag cards or use arrows to reorder. Pastors show first by default."
+              : "Church-level titles are assigned from the People section — edit a person and set their leadership label."}
           </p>
         </Card>
       )}
 
-      {churchLeaders.length === 0 && (
+      {leaders.length === 0 && (
         <Card className="p-6 text-center">
           <Crown className="mx-auto size-8 text-ink-faint" />
           <h3 className="mt-2 font-display font-semibold">No church leaders yet</h3>
@@ -296,7 +410,6 @@ function AddPositionForm({
 
   return (
     <div className="space-y-3">
-      {/* Step 1: Search & select member */}
       <div>
         <label className="text-xs font-medium text-ink-muted">Member</label>
         {selectedPerson ? (
@@ -350,7 +463,6 @@ function AddPositionForm({
         )}
       </div>
 
-      {/* Step 2: Choose position (only shows after selecting a person) */}
       {selectedPerson && (
         <div>
           <label className="text-xs font-medium text-ink-muted">Position</label>
@@ -413,7 +525,6 @@ function AddPositionForm({
         </div>
       )}
 
-      {/* Step 3: Assign button */}
       <div className="flex gap-2">
         {canAssign && (
           <Button

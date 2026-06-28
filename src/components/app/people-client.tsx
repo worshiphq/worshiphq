@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import {
   Search, Plus, Phone, Mail, MapPin, X, Users, Pencil, Trash2,
   Briefcase, Heart, Shield, User, Grid3X3, List, ChevronRight, Download, MessageSquare, QrCode as QrIcon, Fingerprint,
-  ArrowDownAZ, Filter, Crown,
+  ArrowDownAZ, Filter, Crown, Baby, GraduationCap, School,
 } from "lucide-react";
 import { QRCodeCanvas } from "qrcode.react";
 import { ImportModal } from "@/components/app/import-modal";
@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge";
 import { ClickableAvatar } from "@/components/ui/photo-lightbox";
 import { Label, Textarea } from "@/components/ui/input";
 import { createPerson, updatePerson, deletePerson } from "@/app/actions/people";
+import { createChild, updateChild, assignParent } from "@/app/actions/children";
 import { sendSmsToPerson } from "@/app/actions/communications";
 import { BiometricRegisterButton } from "@/components/app/biometric-register";
 import { MemberFormFields, type MemberDefaults } from "@/components/app/member-form-fields";
@@ -23,8 +24,15 @@ import type { PersonRow } from "@/lib/data/people";
 import type { FormField } from "@/lib/forms/registration";
 import { formatDate, cn } from "@/lib/utils";
 
+const ageGroupTabs = [
+  { key: "adult", label: "Adults", icon: Users },
+  { key: "teen", label: "Teens", icon: GraduationCap },
+  { key: "child", label: "Children", icon: Baby },
+] as const;
+type AgeTab = (typeof ageGroupTabs)[number]["key"];
+
 const segments = [
-  { key: "all", label: "All people" },
+  { key: "all", label: "All" },
   { key: "active", label: "Active" },
   { key: "visitor", label: "Visitors" },
   { key: "inactive", label: "Inactive" },
@@ -37,14 +45,16 @@ const engagementStyle: Record<PersonRow["engagement"], { label: string; variant:
   new: { label: "New", variant: "info" },
 };
 
-type Stats = { total: number; active: number; visitors: number; departments: number };
+type AllStats = { totalAll: number; adults: number; teens: number; children: number; active: number; visitors: number; departments: number };
 type Dept = { id: string; name: string };
+type Adult = { id: string; firstName: string; lastName: string };
 
 export function PeopleClient({
-  people, stats, canWrite, departments, formFields,
+  people, stats, canWrite, departments, formFields, adults,
 }: {
-  people: PersonRow[]; stats: Stats; canWrite: boolean; departments: Dept[]; formFields: FormField[];
+  people: PersonRow[]; stats: AllStats; canWrite: boolean; departments: Dept[]; formFields: FormField[]; adults: Adult[];
 }) {
+  const [ageTab, setAgeTab] = useState<AgeTab>("adult");
   const [query, setQuery] = useState("");
   const [segment, setSegment] = useState<(typeof segments)[number]["key"]>("all");
   const [selected, setSelected] = useState<PersonRow | null>(null);
@@ -55,19 +65,27 @@ export function PeopleClient({
   const [engFilter, setEngFilter] = useState("");
   const [sortBy, setSortBy] = useState<"name-az" | "name-za" | "newest" | "oldest">("name-az");
 
+  const isAdultTab = ageTab === "adult";
+
   const filtered = useMemo(() => {
     const list = people.filter((p) => {
-      if (segment !== "all" && p.status !== segment) return false;
-      if (deptFilter && !p.departments.some((d) => d === deptFilter)) return false;
-      if (engFilter && p.engagement !== engFilter) return false;
+      const pAge = p.ageGroup ?? "adult";
+      if (pAge !== ageTab) return false;
+      if (isAdultTab && segment !== "all" && p.status !== segment) return false;
+      if (isAdultTab && deptFilter && !p.departments.some((d) => d === deptFilter)) return false;
+      if (isAdultTab && engFilter && p.engagement !== engFilter) return false;
       if (query) {
         const q = query.toLowerCase();
         return (
           p.fullName.toLowerCase().includes(q) ||
           (p.email ?? "").toLowerCase().includes(q) ||
           (p.memberId ?? "").toLowerCase().includes(q) ||
+          (p.phone ?? "").toLowerCase().includes(q) ||
           p.departments.some((d) => d.toLowerCase().includes(q)) ||
-          p.ministries.some((m) => m.toLowerCase().includes(q))
+          p.ministries.some((m) => m.toLowerCase().includes(q)) ||
+          (p.school ?? "").toLowerCase().includes(q) ||
+          (p.guardianName ?? "").toLowerCase().includes(q) ||
+          (p.parentName ?? "").toLowerCase().includes(q)
         );
       }
       return true;
@@ -82,30 +100,37 @@ export function PeopleClient({
       }
     });
     return list;
-  }, [people, query, segment, deptFilter, engFilter, sortBy]);
+  }, [people, query, segment, deptFilter, engFilter, sortBy, ageTab, isAdultTab]);
+
+  const addLabel = ageTab === "child" ? "Add child" : ageTab === "teen" ? "Add teen" : "Add member";
 
   return (
     <div>
-      <PageHeader title="People" description="Your whole congregation — members, families and visitors.">
-        {canWrite && <ImportModal />}
-        <a href="/api/export/people">
-          <Button size="sm" variant="secondary"><Download className="size-4" /> CSV</Button>
-        </a>
-        <a href="/api/export/people?format=xlsx">
-          <Button size="sm" variant="secondary"><Download className="size-4" /> Excel</Button>
-        </a>
+      <PageHeader title="People" description="Your whole congregation — members, families, teens and children.">
+        {canWrite && isAdultTab && <ImportModal />}
+        {isAdultTab && (
+          <>
+            <a href="/api/export/people">
+              <Button size="sm" variant="secondary"><Download className="size-4" /> CSV</Button>
+            </a>
+            <a href="/api/export/people?format=xlsx">
+              <Button size="sm" variant="secondary"><Download className="size-4" /> Excel</Button>
+            </a>
+          </>
+        )}
         <Button size="sm" onClick={() => setCreating(true)} disabled={!canWrite}>
-          <Plus className="size-4" /> Add member
+          <Plus className="size-4" /> {addLabel}
         </Button>
       </PageHeader>
 
-      {/* ── Stat cards ── */}
-      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-4">
+      {/* ── Stat cards with total ── */}
+      <div className="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
         {[
-          { label: "Total people", value: stats.total, icon: Users, color: "bg-primary/10 text-primary-bright" },
-          { label: "Active members", value: stats.active, icon: User, color: "bg-success/10 text-success" },
-          { label: "Visitors", value: stats.visitors, icon: Heart, color: "bg-gold/10 text-gold" },
-          { label: "Departments", value: stats.departments, icon: Grid3X3, color: "bg-info/10 text-info" },
+          { label: "Total", value: stats.totalAll, icon: Users, color: "bg-primary/10 text-primary-bright" },
+          { label: "Adults", value: stats.adults, icon: User, color: "bg-success/10 text-success" },
+          { label: "Teens", value: stats.teens, icon: GraduationCap, color: "bg-gold/10 text-gold" },
+          { label: "Children", value: stats.children, icon: Baby, color: "bg-info/10 text-info" },
+          { label: "Departments", value: stats.departments, icon: Grid3X3, color: "bg-primary/10 text-primary-bright" },
         ].map((s) => (
           <div key={s.label} className="group rounded-2xl border border-line bg-surface p-4 shadow-sm transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-md">
             <div className="flex items-center justify-between">
@@ -119,10 +144,38 @@ export function PeopleClient({
         ))}
       </div>
 
+      {/* ── ADULT | TEENS | CHILDREN tabs ── */}
+      <div className="mb-4 flex items-center gap-1 rounded-xl border border-line bg-surface-2/50 p-1">
+        {ageGroupTabs.map((tab) => {
+          const count = tab.key === "adult" ? stats.adults : tab.key === "teen" ? stats.teens : stats.children;
+          return (
+            <button
+              key={tab.key}
+              onClick={() => { setAgeTab(tab.key); setSegment("all"); setQuery(""); }}
+              className={cn(
+                "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all duration-200",
+                ageTab === tab.key
+                  ? "bg-surface text-ink shadow-sm"
+                  : "text-ink-muted hover:text-ink",
+              )}
+            >
+              <tab.icon className="size-4" />
+              {tab.label}
+              <span className={cn(
+                "rounded-full px-2 py-0.5 text-xs font-medium",
+                ageTab === tab.key ? "bg-primary/10 text-primary-bright" : "bg-surface-2 text-ink-faint",
+              )}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
       {/* ── Filters bar ── */}
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div className="flex flex-wrap gap-1.5">
-          {segments.map((s) => (
+          {isAdultTab && segments.map((s) => (
             <button
               key={s.key}
               onClick={() => setSegment(s.key)}
@@ -136,25 +189,29 @@ export function PeopleClient({
           ))}
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={deptFilter}
-            onChange={(e) => setDeptFilter(e.target.value)}
-            className="h-9 rounded-lg border border-line bg-surface px-2.5 text-xs text-ink focus-visible:border-primary/50 focus-visible:outline-none"
-          >
-            <option value="">All departments</option>
-            {departments.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
-          </select>
-          <select
-            value={engFilter}
-            onChange={(e) => setEngFilter(e.target.value)}
-            className="h-9 rounded-lg border border-line bg-surface px-2.5 text-xs text-ink focus-visible:border-primary/50 focus-visible:outline-none"
-          >
-            <option value="">All engagement</option>
-            <option value="thriving">Thriving</option>
-            <option value="steady">Steady</option>
-            <option value="at-risk">At risk</option>
-            <option value="new">New</option>
-          </select>
+          {isAdultTab && (
+            <>
+              <select
+                value={deptFilter}
+                onChange={(e) => setDeptFilter(e.target.value)}
+                className="h-9 rounded-lg border border-line bg-surface px-2.5 text-xs text-ink focus-visible:border-primary/50 focus-visible:outline-none"
+              >
+                <option value="">All departments</option>
+                {departments.map((d) => <option key={d.id} value={d.name}>{d.name}</option>)}
+              </select>
+              <select
+                value={engFilter}
+                onChange={(e) => setEngFilter(e.target.value)}
+                className="h-9 rounded-lg border border-line bg-surface px-2.5 text-xs text-ink focus-visible:border-primary/50 focus-visible:outline-none"
+              >
+                <option value="">All engagement</option>
+                <option value="thriving">Thriving</option>
+                <option value="steady">Steady</option>
+                <option value="at-risk">At risk</option>
+                <option value="new">New</option>
+              </select>
+            </>
+          )}
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
@@ -189,7 +246,7 @@ export function PeopleClient({
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder="Search people..."
+              placeholder={`Search ${ageTab === "adult" ? "people" : ageTab === "teen" ? "teens" : "children"}...`}
               className="h-10 w-full rounded-xl border border-line bg-surface pl-9 pr-3 text-sm placeholder:text-ink-faint focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 sm:w-64"
             />
           </div>
@@ -197,9 +254,8 @@ export function PeopleClient({
       </div>
 
       {filtered.length === 0 ? (
-        <EmptyState query={query} hasAny={people.length > 0} canWrite={canWrite} onAdd={() => setCreating(true)} />
+        <EmptyState query={query} hasAny={people.some((p) => (p.ageGroup ?? "adult") === ageTab)} canWrite={canWrite} onAdd={() => setCreating(true)} ageTab={ageTab} />
       ) : view === "grid" ? (
-        /* ── Grid view ── */
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
           {filtered.map((p, i) => {
             const eng = engagementStyle[p.engagement];
@@ -213,31 +269,46 @@ export function PeopleClient({
                 <div className="flex flex-col items-center text-center">
                   <ClickableAvatar name={p.fullName} photoUrl={p.photoUrl} gender={p.gender} size="lg" />
                   <h3 className="mt-3 font-display text-sm font-semibold">{p.fullName}</h3>
-                  {p.leaderTitle && <p className="mt-0.5 text-xs font-medium text-gold">{p.leaderTitle}</p>}
-                  {!p.leaderTitle && p.positions.length > 0 && (
+                  {isAdultTab && p.leaderTitle && <p className="mt-0.5 text-xs font-medium text-gold">{p.leaderTitle}</p>}
+                  {isAdultTab && !p.leaderTitle && p.positions.length > 0 && (
                     <p className="mt-0.5 text-xs font-medium text-primary-bright">{p.positions[0].position} — {p.positions[0].departmentName}</p>
                   )}
                   <p className="mt-0.5 text-xs text-ink-faint">{p.memberId ?? p.email ?? p.phone ?? "---"}</p>
                   <div className="mt-3 flex flex-wrap justify-center gap-1.5">
-                    <Badge variant={eng.variant} className="text-[10px]">{eng.label}</Badge>
+                    {isAdultTab && <Badge variant={eng.variant} className="text-[10px]">{eng.label}</Badge>}
+                    {!isAdultTab && (
+                      <Badge variant={p.ageGroup === "teen" ? "gold" : "info"} className="text-[10px] capitalize">
+                        {p.ageGroup}
+                      </Badge>
+                    )}
                     {p.departments[0] && <Badge variant="default" className="text-[10px]">{p.departments[0]}</Badge>}
                   </div>
+                  {!isAdultTab && p.parentName && (
+                    <p className="mt-2 text-xs text-ink-faint">Parent: {p.parentName}</p>
+                  )}
                 </div>
               </div>
             );
           })}
         </div>
       ) : (
-        /* ── List/table view ── */
         <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
           <table className="w-full text-sm">
             <thead className="border-b border-line bg-surface-2/50 text-left text-xs uppercase tracking-wide text-ink-faint">
               <tr>
                 <th className="p-4 font-medium">Name</th>
-                <th className="hidden p-4 font-medium md:table-cell">Department</th>
-                <th className="hidden p-4 font-medium lg:table-cell">Department</th>
-                <th className="p-4 font-medium">Status</th>
-                <th className="hidden p-4 font-medium sm:table-cell">Joined</th>
+                {isAdultTab ? (
+                  <>
+                    <th className="hidden p-4 font-medium md:table-cell">Department</th>
+                    <th className="p-4 font-medium">Status</th>
+                    <th className="hidden p-4 font-medium sm:table-cell">Joined</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="hidden p-4 font-medium md:table-cell">Parent / Guardian</th>
+                    <th className="hidden p-4 font-medium lg:table-cell">School</th>
+                  </>
+                )}
                 <th className="p-4 font-medium w-10"></th>
               </tr>
             </thead>
@@ -259,19 +330,31 @@ export function PeopleClient({
                         </div>
                       </div>
                     </td>
-                    <td className="hidden p-4 md:table-cell">
-                      {p.departments.length ? (
-                        <div className="flex flex-wrap gap-1">
-                          {p.departments.slice(0, 2).map((d) => <Badge key={d} variant="default" className="text-[10px]">{d}</Badge>)}
-                          {p.departments.length > 2 && <span className="text-xs text-ink-faint">+{p.departments.length - 2}</span>}
-                        </div>
-                      ) : (
-                        <span className="text-xs text-ink-faint">---</span>
-                      )}
-                    </td>
-                    <td className="hidden p-4 text-ink-muted lg:table-cell">{p.departments[0] ?? "---"}</td>
-                    <td className="p-4"><Badge variant={eng.variant}>{eng.label}</Badge></td>
-                    <td className="hidden p-4 text-ink-muted sm:table-cell">{formatDate(p.joined)}</td>
+                    {isAdultTab ? (
+                      <>
+                        <td className="hidden p-4 md:table-cell">
+                          {p.departments.length ? (
+                            <div className="flex flex-wrap gap-1">
+                              {p.departments.slice(0, 2).map((d) => <Badge key={d} variant="default" className="text-[10px]">{d}</Badge>)}
+                              {p.departments.length > 2 && <span className="text-xs text-ink-faint">+{p.departments.length - 2}</span>}
+                            </div>
+                          ) : (
+                            <span className="text-xs text-ink-faint">---</span>
+                          )}
+                        </td>
+                        <td className="p-4"><Badge variant={eng.variant}>{eng.label}</Badge></td>
+                        <td className="hidden p-4 text-ink-muted sm:table-cell">{formatDate(p.joined)}</td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="hidden p-4 text-ink-muted md:table-cell">
+                          {p.parentName ?? p.guardianName ?? "---"}
+                        </td>
+                        <td className="hidden p-4 text-ink-muted lg:table-cell">
+                          {p.school ? `${p.school}${p.grade ? ` · ${p.grade}` : ""}` : "---"}
+                        </td>
+                      </>
+                    )}
                     <td className="p-4">
                       <ChevronRight className="size-4 text-ink-faint opacity-0 transition-opacity group-hover:opacity-100" />
                     </td>
@@ -287,6 +370,7 @@ export function PeopleClient({
         <PersonDrawer
           person={selected}
           canWrite={canWrite}
+          adults={adults}
           onClose={() => setSelected(null)}
           onEdit={() => { setEditing(selected); setSelected(null); }}
         />
@@ -296,6 +380,8 @@ export function PeopleClient({
           person={editing}
           departments={departments}
           formFields={formFields}
+          adults={adults}
+          ageTab={ageTab}
           onClose={() => { setCreating(false); setEditing(null); }}
         />
       )}
@@ -303,32 +389,35 @@ export function PeopleClient({
   );
 }
 
-function EmptyState({ query, hasAny, canWrite, onAdd }: { query: string; hasAny: boolean; canWrite: boolean; onAdd: () => void }) {
+function EmptyState({ query, hasAny, canWrite, onAdd, ageTab }: { query: string; hasAny: boolean; canWrite: boolean; onAdd: () => void; ageTab: AgeTab }) {
+  const Icon = ageTab === "child" ? Baby : ageTab === "teen" ? GraduationCap : Users;
+  const label = ageTab === "child" ? "children" : ageTab === "teen" ? "teens" : "members";
   return (
     <div className="grid place-items-center rounded-2xl border border-dashed border-line py-20 text-center">
       <div className="mb-4 grid size-14 place-items-center rounded-2xl border border-line bg-surface text-ink-muted">
-        <Users className="size-6" />
+        <Icon className="size-6" />
       </div>
-      <h3 className="font-display text-lg font-semibold">{hasAny ? "No people found" : "Add your first member"}</h3>
+      <h3 className="font-display text-lg font-semibold">{hasAny ? "No results" : `No ${label} yet`}</h3>
       <p className="mt-1 max-w-xs text-sm text-ink-muted">
-        {query ? `No one matches "${query}".` : "Build your directory by adding members or importing from a spreadsheet."}
+        {query ? `No one matches "${query}".` : `Add ${label} to your directory.`}
       </p>
       {!hasAny && canWrite && (
-        <Button className="mt-5" onClick={onAdd}><Plus className="size-4" /> Add member</Button>
+        <Button className="mt-5" onClick={onAdd}><Plus className="size-4" /> Add {ageTab === "child" ? "child" : ageTab === "teen" ? "teen" : "member"}</Button>
       )}
     </div>
   );
 }
 
-function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow; canWrite: boolean; onClose: () => void; onEdit: () => void }) {
+function PersonDrawer({ person, canWrite, adults, onClose, onEdit }: { person: PersonRow; canWrite: boolean; adults: Adult[]; onClose: () => void; onEdit: () => void }) {
   const eng = engagementStyle[person.engagement];
   const [smsOpen, setSmsOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
+  const isYouth = person.ageGroup === "teen" || person.ageGroup === "child";
+
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l border-line bg-surface shadow-2xl animate-fade-up">
-        {/* Header with gradient accent */}
         <div className="relative bg-gradient-to-br from-primary/8 via-surface to-surface px-6 pb-4 pt-6">
           <button onClick={onClose} className="absolute right-4 top-4 grid size-9 place-items-center rounded-lg text-ink-muted transition-colors hover:bg-surface-2">
             <X className="size-5" />
@@ -348,8 +437,14 @@ function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow
                 <div className="mt-1 text-sm font-medium text-gold">{person.leaderTitle}</div>
               )}
               <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                <Badge variant={eng.variant}>{eng.label}</Badge>
-                <Badge variant="default" className="capitalize">{person.status}</Badge>
+                {isYouth ? (
+                  <Badge variant={person.ageGroup === "teen" ? "gold" : "info"} className="capitalize">{person.ageGroup}</Badge>
+                ) : (
+                  <>
+                    <Badge variant={eng.variant}>{eng.label}</Badge>
+                    <Badge variant="default" className="capitalize">{person.status}</Badge>
+                  </>
+                )}
                 {person.biometricRegistered ? (
                   <Badge variant="success" className="gap-1"><Fingerprint className="size-3" /> Biometrics</Badge>
                 ) : (
@@ -369,7 +464,61 @@ function PersonDrawer({ person, canWrite, onClose, onEdit }: { person: PersonRow
             {person.gender && <DetailRow icon={User} value={person.gender} />}
             {person.maritalStatus && <DetailRow icon={Heart} value={person.maritalStatus} />}
             {person.nationality && <DetailRow icon={Shield} value={person.nationality} />}
+            {person.dateOfBirth && <DetailRow icon={Baby} value={formatDate(person.dateOfBirth)} />}
           </div>
+
+          {/* Parent / Guardian section for teens and children */}
+          {isYouth && (
+            <Section title="Parent / Guardian">
+              {person.parentName ? (
+                <div className="rounded-xl border border-line bg-surface-2/40 p-3">
+                  <div className="flex items-center gap-2">
+                    <Heart className="size-4 text-primary-bright" />
+                    <span className="text-sm font-medium">{person.parentName}</span>
+                    <Badge variant="primary" className="text-[10px]">Linked member</Badge>
+                  </div>
+                </div>
+              ) : person.guardianName ? (
+                <div className="rounded-xl border border-line bg-surface-2/40 p-3 text-sm">
+                  <div className="font-medium">{person.guardianName}</div>
+                  {person.guardianPhone && <div className="mt-1 text-ink-muted">{person.guardianPhone}</div>}
+                </div>
+              ) : (
+                <p className="text-sm text-ink-faint">No parent assigned</p>
+              )}
+
+              {canWrite && (
+                <form action={assignParent} className="mt-3 flex items-end gap-2">
+                  <input type="hidden" name="childId" value={person.id} />
+                  <div className="flex-1">
+                    <Label htmlFor="parentId" className="text-xs">Assign parent (member)</Label>
+                    <select
+                      id="parentId"
+                      name="parentId"
+                      defaultValue={person.parentId ?? ""}
+                      className="flex h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none"
+                    >
+                      <option value="">No parent</option>
+                      {adults.map((a) => (
+                        <option key={a.id} value={a.id}>{a.firstName} {a.lastName}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <SubmitButton size="sm" pendingLabel="Saving…" successMessage="Parent assigned">Save</SubmitButton>
+                </form>
+              )}
+            </Section>
+          )}
+
+          {/* School info for teens/children */}
+          {isYouth && (person.school || person.grade) && (
+            <Section title="School">
+              <div className="space-y-1">
+                {person.school && <DetailRow icon={School} value={person.school} />}
+                {person.grade && <DetailRow icon={GraduationCap} value={person.grade} />}
+              </div>
+            </Section>
+          )}
 
           <Section title="Household"><p className="text-sm text-ink-muted">{person.household ?? "---"}</p></Section>
 
@@ -527,14 +676,26 @@ function buildDefaults(fields: FormField[], person: PersonRow): MemberDefaults {
 }
 
 function PersonForm({
-  person, departments, formFields, onClose,
+  person, departments, formFields, adults, ageTab, onClose,
 }: {
-  person: PersonRow | null; departments: Dept[]; formFields: FormField[]; onClose: () => void;
+  person: PersonRow | null; departments: Dept[]; formFields: FormField[]; adults: Adult[]; ageTab: AgeTab; onClose: () => void;
 }) {
   const isEdit = !!person;
+  const personAge = person ? (person.ageGroup ?? "adult") : ageTab;
+  const isYouth = personAge === "teen" || personAge === "child";
   const defaults = person ? buildDefaults(formFields, person) : undefined;
   const selectBase =
     "flex h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30";
+  const inputBase =
+    "flex h-11 w-full rounded-xl border border-line bg-surface px-3.5 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25";
+
+  const formAction = isYouth
+    ? (isEdit ? updateChild : createChild)
+    : (isEdit ? updatePerson : createPerson);
+
+  const title = isYouth
+    ? (isEdit ? `Edit ${personAge}` : `Add ${personAge === "child" ? "child" : "teen"}`)
+    : (isEdit ? "Edit member" : "Add member");
 
   return (
     <>
@@ -542,7 +703,7 @@ function PersonForm({
       <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-2xl max-h-[90vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-line bg-surface p-6 shadow-2xl animate-fade-up">
         <div className="mb-5 flex items-center justify-between">
           <div>
-            <h2 className="font-display text-xl font-bold">{isEdit ? "Edit member" : "Add member"}</h2>
+            <h2 className="font-display text-xl font-bold">{title}</h2>
             {isEdit && person?.memberId && (
               <p className="mt-0.5 text-xs text-ink-faint">
                 <span className="font-mono">{person.memberId}</span> · Joined {formatDate(person.joined)}
@@ -551,11 +712,57 @@ function PersonForm({
           </div>
           <button onClick={onClose} className="grid size-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-2"><X className="size-5" /></button>
         </div>
-        <form action={isEdit ? updatePerson : createPerson} className="space-y-5">
+        <form action={formAction} className="space-y-5">
           {isEdit && <input type="hidden" name="id" value={person!.id} />}
+          {isYouth && !isEdit && <input type="hidden" name="ageGroup" value={personAge} />}
 
-          {/* Same fields as the public join form, configured in Settings → Join link */}
+          {/* Full form fields — same as adults: photo, biometric fields, all profile fields */}
           <MemberFormFields fields={formFields} departments={departments} defaults={defaults} />
+
+          {/* Youth-specific: age group selector + school + parent */}
+          {isYouth && (
+            <div className="border-t border-line pt-4 space-y-4">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Youth details</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="ageGroup">Age group *</Label>
+                  <select id="ageGroup" name="ageGroup" defaultValue={person?.ageGroup ?? personAge} className={selectBase}>
+                    <option value="child">Child (under 13)</option>
+                    <option value="teen">Teen (13–17)</option>
+                  </select>
+                </div>
+                <div>
+                  <Label htmlFor="school">School</Label>
+                  <input id="school" name="school" defaultValue={person?.school ?? ""} placeholder="e.g. Accra Academy" className={inputBase} />
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="grade">Grade / Class</Label>
+                  <input id="grade" name="grade" defaultValue={person?.grade ?? ""} placeholder="e.g. JHS 2" className={inputBase} />
+                </div>
+                <div>
+                  <Label htmlFor="parentId">Assign parent (church member)</Label>
+                  <select id="parentId" name="parentId" defaultValue={person?.parentId ?? ""} className={selectBase}>
+                    <option value="">— Select a member —</option>
+                    {adults.map((a) => (
+                      <option key={a.id} value={a.id}>{a.firstName} {a.lastName}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="guardianName">Or guardian name</Label>
+                  <input id="guardianName" name="guardianName" defaultValue={person?.guardianName ?? ""} placeholder="Full name" className={inputBase} />
+                </div>
+                <div>
+                  <Label htmlFor="guardianPhone">Guardian phone</Label>
+                  <input id="guardianPhone" name="guardianPhone" defaultValue={person?.guardianPhone ?? ""} placeholder="e.g. 0244123456" className={inputBase} />
+                </div>
+              </div>
+            </div>
+          )}
 
           {isEdit && (
             <div>
@@ -571,51 +778,55 @@ function PersonForm({
             </div>
           )}
 
-          {/* Leadership label */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <Label htmlFor="leaderTitle">Leadership label</Label>
-              <select id="leaderTitle" name="leaderTitle" defaultValue={person?.leaderTitle ?? ""} className={selectBase}>
-                <option value="">None</option>
-                <option value="Head Pastor">Head Pastor</option>
-                <option value="Senior Pastor">Senior Pastor</option>
-                <option value="Associate Pastor">Associate Pastor</option>
-                <option value="Assistant Pastor">Assistant Pastor</option>
-                <option value="Youth Pastor">Youth Pastor</option>
-                <option value="Worship Pastor">Worship Pastor</option>
-                <option value="Elder">Elder</option>
-                <option value="Deacon">Deacon</option>
-                <option value="Deaconess">Deaconess</option>
-                <option value="Shepherd">Shepherd</option>
-                <option value="Minister">Minister</option>
-                <option value="Evangelist">Evangelist</option>
-                <option value="Bishop">Bishop</option>
-                <option value="Apostle">Apostle</option>
-                <option value="Prophet">Prophet</option>
-              </select>
-              <p className="mt-1 text-xs text-ink-faint">Displayed on profiles and listings.</p>
-            </div>
-            <div className="flex items-end pb-1">
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" name="featured" value="true" defaultChecked={person?.featured ?? false} className="size-4 rounded border-line accent-primary" />
-                Featured on dashboard
-              </label>
-            </div>
-          </div>
+          {/* Leadership label — adults only */}
+          {!isYouth && (
+            <>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="leaderTitle">Leadership label</Label>
+                  <select id="leaderTitle" name="leaderTitle" defaultValue={person?.leaderTitle ?? ""} className={selectBase}>
+                    <option value="">None</option>
+                    <option value="Head Pastor">Head Pastor</option>
+                    <option value="Senior Pastor">Senior Pastor</option>
+                    <option value="Associate Pastor">Associate Pastor</option>
+                    <option value="Assistant Pastor">Assistant Pastor</option>
+                    <option value="Youth Pastor">Youth Pastor</option>
+                    <option value="Worship Pastor">Worship Pastor</option>
+                    <option value="Elder">Elder</option>
+                    <option value="Deacon">Deacon</option>
+                    <option value="Deaconess">Deaconess</option>
+                    <option value="Shepherd">Shepherd</option>
+                    <option value="Minister">Minister</option>
+                    <option value="Evangelist">Evangelist</option>
+                    <option value="Bishop">Bishop</option>
+                    <option value="Apostle">Apostle</option>
+                    <option value="Prophet">Prophet</option>
+                  </select>
+                  <p className="mt-1 text-xs text-ink-faint">Displayed on profiles and listings.</p>
+                </div>
+                <div className="flex items-end pb-1">
+                  <label className="flex items-center gap-2 text-sm">
+                    <input type="checkbox" name="featured" value="true" defaultChecked={person?.featured ?? false} className="size-4 rounded border-line accent-primary" />
+                    Featured on dashboard
+                  </label>
+                </div>
+              </div>
 
-          <div>
-            <Label htmlFor="status">Membership status</Label>
-            <select id="status" name="status" defaultValue={person?.status ?? "active"} className={selectBase}>
-              <option value="active">Active member</option>
-              <option value="visitor">Visitor</option>
-              <option value="inactive">Inactive</option>
-            </select>
-          </div>
+              <div>
+                <Label htmlFor="status">Membership status</Label>
+                <select id="status" name="status" defaultValue={person?.status ?? "active"} className={selectBase}>
+                  <option value="active">Active member</option>
+                  <option value="visitor">Visitor</option>
+                  <option value="inactive">Inactive</option>
+                </select>
+              </div>
+            </>
+          )}
 
           <div className="flex gap-2 border-t border-line pt-4">
             <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
-            <SubmitButton className="flex-1" successMessage={isEdit ? "Changes saved" : "Member added"}>
-              {isEdit ? "Save changes" : "Add member"}
+            <SubmitButton className="flex-1" successMessage={isEdit ? "Changes saved" : `${isYouth ? (personAge === "child" ? "Child" : "Teen") : "Member"} added`}>
+              {isEdit ? "Save changes" : title}
             </SubmitButton>
           </div>
           <OnFormComplete onComplete={onClose} />

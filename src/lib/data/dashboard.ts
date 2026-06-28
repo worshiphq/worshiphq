@@ -10,7 +10,7 @@ export async function getDashboard(churchId: string) {
   const weekAgo = new Date(Date.now() - 7 * 86400000);
   const todayMMDD = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-  const [activeMembers, weekAgg, monthGiving, reachAgg, gifts, attendance, events, people, departments, recent, featuredLeaders] =
+  const [activeMembers, weekAgg, monthGiving, reachAgg, gifts, attendance, events, people, departments, recent, featuredLeaders, church] =
     await Promise.all([
       db.person.count({ where: { churchId, status: "active" } }),
       db.attendanceSession.aggregate({
@@ -25,7 +25,8 @@ export async function getDashboard(churchId: string) {
       db.person.findMany({ where: { churchId }, select: { firstName: true, lastName: true, birthday: true, status: true, gender: true, photoUrl: true, departmentId: true } }),
       db.department.findMany({ where: { churchId }, select: { id: true, name: true, _count: { select: { members: true } } } }),
       db.person.findMany({ where: { churchId }, orderBy: { joinedAt: "desc" }, take: 6, select: { firstName: true, lastName: true, gender: true, status: true, joinedAt: true, photoUrl: true, departments: { select: { name: true }, take: 1 } } }),
-      db.person.findMany({ where: { churchId, featured: true, leaderTitle: { not: null } }, select: { id: true, firstName: true, lastName: true, title: true, leaderTitle: true, photoUrl: true, phone: true, email: true } }),
+      db.person.findMany({ where: { churchId, featured: true, leaderTitle: { not: null } }, select: { id: true, firstName: true, lastName: true, title: true, leaderTitle: true, photoUrl: true, phone: true, email: true, leaderSortOrder: true } }),
+      db.church.findUnique({ where: { id: churchId }, select: { featuredLeaderCount: true } }),
     ]);
 
   // 6-month trend buckets
@@ -77,14 +78,16 @@ export async function getDashboard(churchId: string) {
     "Head Pastor": 0, "Senior Pastor": 1, "Lead Pastor": 2, "Associate Pastor": 3,
     "Pastor": 4, "Elder": 5, "Shepherd": 6, "Deacon": 7, "Deaconess": 8,
   };
+  const maxLeaders = church?.featuredLeaderCount ?? 6;
   const sortedLeaders = [...featuredLeaders].sort((a, b) => {
+    if (a.leaderSortOrder !== b.leaderSortOrder) return a.leaderSortOrder - b.leaderSortOrder;
     const pa = TITLE_PRIORITY[a.leaderTitle ?? ""] ?? 99;
     const pb = TITLE_PRIORITY[b.leaderTitle ?? ""] ?? 99;
     return pa - pb;
-  }).slice(0, 6);
+  });
 
   const totalLeaders = sortedLeaders.length;
-  const leaders = sortedLeaders.slice(0, 6).map((l) => ({
+  const leaders = sortedLeaders.slice(0, maxLeaders).map((l) => ({
     id: l.id,
     name: `${l.title ? l.title + " " : ""}${l.firstName} ${l.lastName}`,
     leaderTitle: l.leaderTitle!,
@@ -96,6 +99,7 @@ export async function getDashboard(churchId: string) {
   return {
     leaders,
     totalLeaders,
+    featuredLeaderCount: maxLeaders,
     kpis: {
       activeMembers,
       weeklyAttendance:

@@ -180,3 +180,16 @@ export async function getChildrenStats(churchId: string) {
   ]);
   return { total, children, teens };
 }
+
+export async function getAllPeopleStats(churchId: string) {
+  const [totalAll, adults, teens, children, active, visitors, departments] = await Promise.all([
+    db.person.count({ where: { churchId } }),
+    db.person.count({ where: { churchId, ...ADULT_FILTER } }),
+    db.person.count({ where: { churchId, ageGroup: "teen" } }),
+    db.person.count({ where: { churchId, ageGroup: "child" } }),
+    db.person.count({ where: { churchId, status: "active", ...ADULT_FILTER } }),
+    db.person.count({ where: { churchId, status: "visitor", ...ADULT_FILTER } }),
+    db.department.count({ where: { churchId } }),
+  ]);
+  return { totalAll, adults, teens, children, active, visitors, departments };
+}

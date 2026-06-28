@@ -16,6 +16,7 @@ import { formatDate } from "@/lib/utils";
 import { DashboardAnimations } from "@/components/app/dashboard-animations";
 import { QuickAddMenu } from "@/components/app/quick-add-menu";
 import { PageTips } from "@/components/app/page-tips";
+import { FeaturedLeaderCountSetting } from "@/components/app/featured-leader-count";
 
 const quickActions = [
   { icon: UserPlus, label: "Add member", href: "/app/people", section: "people", color: "bg-primary/10 text-primary-bright" },
@@ -26,7 +27,7 @@ const quickActions = [
 
 export default async function DashboardPage() {
   const session = await requireSession();
-  const { kpis, trend, todaysBirthdays, events, careTasks, recentMembers, departmentBreakdown, leaders, totalLeaders } = await getDashboard(session.churchId);
+  const { kpis, trend, todaysBirthdays, events, careTasks, recentMembers, departmentBreakdown, leaders, totalLeaders, featuredLeaderCount } = await getDashboard(session.churchId);
   const has = (m: string) => session.sections.includes(m);
   const h = new Date().getHours();
   const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
@@ -90,9 +91,12 @@ export default async function DashboardPage() {
                   </span>
                   <h3 className="font-display text-lg font-semibold">Church leadership</h3>
                 </div>
-                <Link href="/app/leaders" className="flex items-center gap-1 text-xs font-medium text-primary-bright hover:underline">
-                  View all <ChevronRight className="size-3" />
-                </Link>
+                <div className="flex items-center gap-3">
+                  <FeaturedLeaderCountSetting current={featuredLeaderCount} />
+                  <Link href="/app/leaders" className="flex items-center gap-1 text-xs font-medium text-primary-bright hover:underline">
+                    View all <ChevronRight className="size-3" />
+                  </Link>
+                </div>
               </div>
               <div className="flex flex-wrap gap-6 p-5">
                 {leaders.map((l, i) => {

@@ -20,6 +20,7 @@ export async function getLeaders(churchId: string) {
       select: {
         id: true, firstName: true, lastName: true, title: true,
         leaderTitle: true, photoUrl: true, phone: true, email: true,
+        leaderSortOrder: true,
       },
     }),
     db.departmentPosition.findMany({
@@ -44,6 +45,7 @@ export async function getLeaders(churchId: string) {
   ]);
 
   const sortedChurchLeaders = [...churchLeaders].sort((a, b) => {
+    if (a.leaderSortOrder !== b.leaderSortOrder) return a.leaderSortOrder - b.leaderSortOrder;
     const pa = CHURCH_TITLE_PRIORITY[a.leaderTitle ?? ""] ?? 99;
     const pb = CHURCH_TITLE_PRIORITY[b.leaderTitle ?? ""] ?? 99;
     return pa - pb;
