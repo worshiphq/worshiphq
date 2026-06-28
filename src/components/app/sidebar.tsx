@@ -64,6 +64,7 @@ export function Sidebar({ sections, churchName, churchLogo, plan = "free" }: { s
                     <Link
                       key={item.href}
                       href={locked ? "/app/settings?tab=billing" : item.href}
+                      prefetch={true}
                       title={collapsed ? item.label + (locked ? " (upgrade)" : "") : undefined}
                       className={cn(
                         "group relative flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
