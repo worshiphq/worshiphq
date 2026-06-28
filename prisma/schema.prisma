@@ -113,6 +113,7 @@ model Church {
   budgetItems    BudgetItem[]
   volunteerRosters VolunteerRoster[]
   volunteerSlots  VolunteerSlot[]
+  dayBornWeeks    DayBornWeek[]
 }
 
 model Branch {
@@ -130,6 +131,7 @@ model Branch {
   attendanceSessions AttendanceSession[]
   gifts       Gift[]
   users       User[]
+  dayBornWeeks DayBornWeek[]
 
   @@index([churchId])
 }
@@ -323,6 +325,10 @@ model Person {
 
   @@unique([churchId, memberId])
   @@index([churchId])
+  @@index([churchId, status])
+  @@index([churchId, joinedAt])
+  @@index([churchId, ageGroup])
+  @@index([churchId, firstName])
   @@index([branchId])
   @@index([departmentId])
   @@index([parentId])
@@ -449,6 +455,8 @@ model Gift {
   date          DateTime   @default(now())
 
   @@index([churchId])
+  @@index([churchId, date])
+  @@index([churchId, branchId])
   @@index([date])
 }
 
@@ -619,6 +627,45 @@ model HarvestContribution {
 
   @@index([harvestId])
   @@index([churchId])
+}
+
+// ── Day Born collections ─────────────────────────────────
+model DayBornWeek {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  branchId  String?
+  branch    Branch?  @relation(fields: [branchId], references: [id])
+  weekOf    DateTime // Monday of this collection week
+  monday    Decimal  @default(0) @db.Decimal(12, 2)
+  tuesday   Decimal  @default(0) @db.Decimal(12, 2)
+  wednesday Decimal  @default(0) @db.Decimal(12, 2)
+  thursday  Decimal  @default(0) @db.Decimal(12, 2)
+  friday    Decimal  @default(0) @db.Decimal(12, 2)
+  saturday  Decimal  @default(0) @db.Decimal(12, 2)
+  sunday    Decimal  @default(0) @db.Decimal(12, 2)
+  posted    Boolean  @default(false)
+  postedAt  DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  entries   DayBornEntry[]
+
+  @@unique([churchId, weekOf])
+  @@index([churchId])
+}
+
+model DayBornEntry {
+  id        String   @id @default(cuid())
+  weekId    String
+  week      DayBornWeek @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  day       String   // monday, tuesday, wednesday, thursday, friday, saturday, sunday
+  personName String?
+  method    String   // MTN_MoMo, Telecel_Cash, AirtelTigo, bank_transfer
+  amount    Decimal  @db.Decimal(12, 2)
+  reference String?
+  createdAt DateTime @default(now())
+
+  @@index([weekId])
 }
 
 // ── Accounting ────────────────────────────────────────────

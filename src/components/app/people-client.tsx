@@ -92,8 +92,8 @@ export function PeopleClient({
     });
     list.sort((a, b) => {
       switch (sortBy) {
-        case "name-az": return a.fullName.localeCompare(b.fullName);
-        case "name-za": return b.fullName.localeCompare(a.fullName);
+        case "name-az": return a.firstName.localeCompare(b.firstName) || a.lastName.localeCompare(b.lastName);
+        case "name-za": return b.firstName.localeCompare(a.firstName) || b.lastName.localeCompare(a.lastName);
         case "newest": return b.joined.localeCompare(a.joined);
         case "oldest": return a.joined.localeCompare(b.joined);
         default: return 0;
