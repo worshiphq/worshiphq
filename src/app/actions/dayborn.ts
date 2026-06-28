@@ -29,6 +29,8 @@ export async function saveDayBornAmounts(formData: FormData) {
   const saturday = Math.max(0, Number(formData.get("saturday") ?? 0));
   const sunday = Math.max(0, Number(formData.get("sunday") ?? 0));
 
+  if (monday + tuesday + wednesday + thursday + friday + saturday + sunday === 0) return;
+
   await db.dayBornWeek.upsert({
     where: { churchId_weekOf: { churchId: session.churchId, weekOf } },
     create: {

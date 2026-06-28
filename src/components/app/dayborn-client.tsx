@@ -263,6 +263,7 @@ export function DayBornClient({
             </div>
             <form
               action={async (fd: FormData) => {
+                if (liveCashTotal === 0) { toast("Enter at least one amount"); return; }
                 fd.set("weekOf", selectedMonday);
                 await saveDayBornAmounts(fd);
                 router.refresh();
@@ -292,7 +293,10 @@ export function DayBornClient({
               </div>
               {canWrite && (
                 <div className="mt-4 flex items-center gap-3">
-                  <SubmitButton>Save Amounts</SubmitButton>
+                  <SubmitButton disabled={liveCashTotal === 0}>Save Amounts</SubmitButton>
+                  {liveCashTotal === 0 && (
+                    <span className="text-xs text-muted-fg">Enter at least one amount</span>
+                  )}
                 </div>
               )}
             </form>
