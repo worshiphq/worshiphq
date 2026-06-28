@@ -63,7 +63,7 @@ fn open_projection_window(app: tauri::AppHandle, monitor_index: Option<usize>) -
     let monitors = app.available_monitors().map_err(|e| e.to_string())?;
     let target = monitor_index
         .and_then(|i| monitors.get(i))
-        .or_else(|| monitors.iter().find(|m| !m.name().unwrap_or_default().is_empty()).nth(1))
+        .or_else(|| monitors.iter().filter(|m| !m.name().map(|n| !n.is_empty()).unwrap_or(false)).nth(1))
         .or(monitors.first());
 
     let (x, y, w, h) = if let Some(mon) = target {
@@ -108,8 +108,26 @@ fn get_hwid() -> Result<String, String> {
 }
 
 #[tauri::command]
-fn check_license(hwid: String) -> Result<licensing::LicenseStatus, String> {
-    licensing::check_license(&hwid)
+fn check_license(app: tauri::AppHandle, hwid: String) -> Result<licensing::LicenseStatus, String> {
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| std::path::PathBuf::from("."));
+    licensing::check_license(&hwid, &data_dir)
+}
+
+#[tauri::command]
+fn activate_license(app: tauri::AppHandle, hwid: String, key: String) -> Result<licensing::LicenseStatus, String> {
+    let data_dir = app
+        .path()
+        .app_data_dir()
+        .unwrap_or_else(|_| std::path::PathBuf::from("."));
+    licensing::activate_license(&hwid, &key, &data_dir)
+}
+
+#[tauri::command]
+fn generate_license_key(hwid: String) -> String {
+    licensing::generate_key_for_hwid(&hwid)
 }
 
 // ── Bible commands ──────────────────────────────────────────────
@@ -239,6 +257,8 @@ pub fn run() {
             close_projection_window,
             get_hwid,
             check_license,
+            activate_license,
+            generate_license_key,
             search_bible,
             search_bible_text,
             bible_list_packs,

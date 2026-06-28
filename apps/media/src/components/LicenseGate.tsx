@@ -46,6 +46,11 @@ export function LicenseGate({ children }: { children: React.ReactNode }) {
     checkLicense();
   }, [setLicense]);
 
+  const handleActivated = (status: { isLicensed: boolean; isTrial: boolean; trialDaysRemaining: number; hwid: string }) => {
+    setLicense(status);
+    setShowActivation(false);
+  };
+
   if (loading) {
     return (
       <div className="flex h-full items-center justify-center bg-surface">
@@ -58,7 +63,7 @@ export function LicenseGate({ children }: { children: React.ReactNode }) {
   }
 
   if (!isLicensed && isTrial && trialDaysRemaining <= 0) {
-    return <TrialExpired hwid={hwid} />;
+    return <TrialExpired hwid={hwid} onActivated={handleActivated} />;
   }
 
   return (
@@ -74,6 +79,7 @@ export function LicenseGate({ children }: { children: React.ReactNode }) {
         <ActivationDialog
           hwid={hwid}
           onClose={() => setShowActivation(false)}
+          onActivated={handleActivated}
         />
       )}
 
@@ -103,14 +109,41 @@ function TrialBanner({ daysRemaining, onActivate }: { daysRemaining: number; onA
   );
 }
 
-function TrialExpired({ hwid }: { hwid: string }) {
+function TrialExpired({ hwid, onActivated }: { hwid: string; onActivated: (s: any) => void }) {
   const [copied, setCopied] = useState(false);
   const [key, setKey] = useState("");
+  const [error, setError] = useState("");
+  const [activating, setActivating] = useState(false);
 
   function copyHwid() {
     navigator.clipboard.writeText(hwid);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function handleActivate() {
+    if (!key.trim()) { setError("Enter a license key"); return; }
+    setError("");
+    setActivating(true);
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const status = await invoke<{
+        is_licensed: boolean;
+        is_trial: boolean;
+        trial_days_remaining: number;
+        hwid: string;
+      }>("activate_license", { hwid, key: key.trim() });
+      onActivated({
+        isLicensed: status.is_licensed,
+        isTrial: status.is_trial,
+        trialDaysRemaining: status.trial_days_remaining,
+        hwid: status.hwid,
+      });
+    } catch (e: any) {
+      setError(typeof e === "string" ? e : e?.message ?? "Activation failed");
+    } finally {
+      setActivating(false);
+    }
   }
 
   return (
@@ -139,14 +172,24 @@ function TrialExpired({ hwid }: { hwid: string }) {
           <input
             type="text"
             value={key}
-            onChange={(e) => setKey(e.target.value)}
+            onChange={(e) => setKey(e.target.value.toUpperCase())}
+            onKeyDown={(e) => e.key === "Enter" && handleActivate()}
             placeholder="WHQ-XXXX-XXXX-XXXX-XXXX"
             className="input mt-1"
           />
         </div>
 
-        <button className="btn-primary mt-4 w-full py-2.5 text-sm">
-          Activate
+        {error && (
+          <p className="mt-2 text-xs font-medium text-danger">{error}</p>
+        )}
+
+        <button
+          onClick={handleActivate}
+          disabled={activating}
+          className="btn-primary mt-4 w-full py-2.5 text-sm"
+        >
+          {activating && <Loader2 className="mr-2 inline size-4 whq-spin" />}
+          {activating ? "Activating..." : "Activate"}
         </button>
 
         <p className="mt-4 text-[11px] text-ink-faint">
@@ -157,14 +200,41 @@ function TrialExpired({ hwid }: { hwid: string }) {
   );
 }
 
-function ActivationDialog({ hwid, onClose }: { hwid: string; onClose: () => void }) {
+function ActivationDialog({ hwid, onClose, onActivated }: { hwid: string; onClose: () => void; onActivated: (s: any) => void }) {
   const [copied, setCopied] = useState(false);
   const [key, setKey] = useState("");
+  const [error, setError] = useState("");
+  const [activating, setActivating] = useState(false);
 
   function copyHwid() {
     navigator.clipboard.writeText(hwid);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
+  }
+
+  async function handleActivate() {
+    if (!key.trim()) { setError("Enter a license key"); return; }
+    setError("");
+    setActivating(true);
+    try {
+      const { invoke } = await import("@tauri-apps/api/core");
+      const status = await invoke<{
+        is_licensed: boolean;
+        is_trial: boolean;
+        trial_days_remaining: number;
+        hwid: string;
+      }>("activate_license", { hwid, key: key.trim() });
+      onActivated({
+        isLicensed: status.is_licensed,
+        isTrial: status.is_trial,
+        trialDaysRemaining: status.trial_days_remaining,
+        hwid: status.hwid,
+      });
+    } catch (e: any) {
+      setError(typeof e === "string" ? e : e?.message ?? "Invalid license key");
+    } finally {
+      setActivating(false);
+    }
   }
 
   return (
@@ -195,18 +265,28 @@ function ActivationDialog({ hwid, onClose }: { hwid: string; onClose: () => void
           <input
             type="text"
             value={key}
-            onChange={(e) => setKey(e.target.value)}
+            onChange={(e) => setKey(e.target.value.toUpperCase())}
+            onKeyDown={(e) => e.key === "Enter" && handleActivate()}
             placeholder="WHQ-XXXX-XXXX-XXXX-XXXX"
             className="input mt-1"
           />
         </div>
 
+        {error && (
+          <p className="mt-2 text-xs font-medium text-danger">{error}</p>
+        )}
+
         <div className="mt-5 flex gap-2">
           <button onClick={onClose} className="btn-ghost flex-1 py-2 text-xs font-medium">
             Cancel
           </button>
-          <button className="btn-primary flex-1 py-2 text-xs">
-            Activate
+          <button
+            onClick={handleActivate}
+            disabled={activating}
+            className="btn-primary flex-1 py-2 text-xs"
+          >
+            {activating && <Loader2 className="mr-1.5 inline size-3.5 whq-spin" />}
+            {activating ? "Activating..." : "Activate"}
           </button>
         </div>
       </div>

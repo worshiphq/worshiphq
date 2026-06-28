@@ -71,3 +71,16 @@ export async function checkLicense(hwid: string): Promise<{
   }
   return invoke("check_license", { hwid });
 }
+
+export async function activateLicense(hwid: string, key: string): Promise<{
+  is_licensed: boolean;
+  is_trial: boolean;
+  trial_days_remaining: number;
+  hwid: string;
+}> {
+  return invoke("activate_license", { hwid, key });
+}
+
+export async function generateLicenseKey(hwid: string): Promise<string> {
+  return invoke<string>("generate_license_key", { hwid });
+}
