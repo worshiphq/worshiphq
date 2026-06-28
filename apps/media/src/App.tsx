@@ -9,11 +9,13 @@ import { MonitorOutputs } from "./components/MonitorOutputs";
 import { AudioBar } from "./components/AudioBar";
 import { ResizablePanel } from "./components/ResizablePanel";
 import { LicenseGate } from "./components/LicenseGate";
+import { Launcher } from "./components/Launcher";
 import { useProjectionStore } from "./stores/projection-store";
 import type { ServiceItem, Slide } from "./types";
 
 export default function App() {
   const { addToService, goLive } = useProjectionStore();
+  const [launched, setLaunched] = useState(false);
   const [previewSlide, setPreviewSlide] = useState<Slide | null>(null);
   const [previewSlideIndex, setPreviewSlideIndex] = useState(0);
 
@@ -43,6 +45,10 @@ export default function App() {
     setPreviewSlide(slide);
     setPreviewSlideIndex(index);
   }, []);
+
+  if (!launched) {
+    return <Launcher onEnter={() => setLaunched(true)} />;
+  }
 
   return (
     <LicenseGate>
