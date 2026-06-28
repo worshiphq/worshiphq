@@ -143,18 +143,15 @@ export function AppShell({
           <AnnouncementBanner key={a.id} announcement={a} />
         ))}
         <main className="flex-1">
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={pathname}
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0 }}
-              transition={{ duration: 0.25, ease: [0.22, 1, 0.36, 1] }}
-              className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8"
-            >
-              {children}
-            </motion.div>
-          </AnimatePresence>
+          <motion.div
+            key={pathname}
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.12, ease: "easeOut" }}
+            className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8"
+          >
+            {children}
+          </motion.div>
         </main>
       </div>
     </div>
