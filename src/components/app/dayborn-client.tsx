@@ -106,13 +106,26 @@ export function DayBornClient({
   const [showMomoForm, setShowMomoForm] = useState(false);
   const [pending, startTransition] = useTransition();
 
+  // Optimistic deletion — items vanish instantly
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+  const [deletedEntryIds, setDeletedEntryIds] = useState<Set<string>>(new Set());
+  const visibleWeeks = weeks.filter((w) => !deletedIds.has(w.id));
+
   // Live local amounts for instant calculation
   const [localAmounts, setLocalAmounts] = useState<Record<string, string>>({});
 
   const selectedMonday = getMondayFromSunday(selectedSunday);
-  const currentWeek = weeks.find(
+  const rawCurrentWeek = visibleWeeks.find(
     (w) => new Date(w.weekOf).toISOString().slice(0, 10) === selectedMonday
   );
+  const currentWeek = rawCurrentWeek ? {
+    ...rawCurrentWeek,
+    entries: rawCurrentWeek.entries.filter((e) => !deletedEntryIds.has(e.id)),
+    momoTotal: rawCurrentWeek.entries.filter((e) => !deletedEntryIds.has(e.id)).reduce((s, e) => s + e.amount, 0),
+  } : undefined;
+  if (currentWeek) {
+    currentWeek.grandTotal = currentWeek.cashTotal + currentWeek.momoTotal;
+  }
 
   // Date warnings
   const dateNotSunday = !isSunday(selectedSunday);
@@ -132,10 +145,10 @@ export function DayBornClient({
   const liveGrandTotal = liveCashTotal + momoTotal;
 
   // Totals for stats
-  const totalAll = weeks.reduce((s, w) => s + w.grandTotal, 0);
-  const totalCash = weeks.reduce((s, w) => s + w.cashTotal, 0);
-  const totalMomo = weeks.reduce((s, w) => s + w.momoTotal, 0);
-  const postedCount = weeks.filter((w) => w.posted).length;
+  const totalAll = visibleWeeks.reduce((s, w) => s + w.grandTotal, 0);
+  const totalCash = visibleWeeks.reduce((s, w) => s + w.cashTotal, 0);
+  const totalMomo = visibleWeeks.reduce((s, w) => s + w.momoTotal, 0);
+  const postedCount = visibleWeeks.filter((w) => w.posted).length;
 
   const handleDateChange = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -191,7 +204,7 @@ export function DayBornClient({
         </Card>
         <Card className="p-4">
           <div className="flex items-center gap-2 text-muted-fg text-xs mb-1"><CheckCircle2 className="h-4 w-4" /> Posted to Accounts</div>
-          <p className="text-xl font-bold">{postedCount} / {weeks.length}</p>
+          <p className="text-xl font-bold">{postedCount} / {visibleWeeks.length}</p>
         </Card>
       </div>
 
@@ -313,7 +326,7 @@ export function DayBornClient({
             {currentWeek && currentWeek.entries.length > 0 ? (
               <div className="divide-y divide-separator">
                 {currentWeek.entries.map((entry) => (
-                  <EntryRow key={entry.id} entry={entry} canWrite={canWrite} />
+                  <EntryRow key={entry.id} entry={entry} canWrite={canWrite} onDelete={(id) => setDeletedEntryIds((prev) => new Set(prev).add(id))} />
                 ))}
                 <div className="pt-3 text-sm font-medium">
                   MoMo/Bank total:{" "}
@@ -381,7 +394,7 @@ export function DayBornClient({
       )}
 
       {tab === "history" && (
-        <HistoryTab weeks={weeks} canWrite={canWrite} canDelete={canDelete} />
+        <HistoryTab weeks={visibleWeeks} canWrite={canWrite} canDelete={canDelete} onDeleteWeek={(id) => setDeletedIds((prev) => new Set(prev).add(id))} />
       )}
     </div>
   );
@@ -473,15 +486,14 @@ function MomoForm({
 }
 
 /* ── Entry row ───────────────────────────────────────────── */
-function EntryRow({ entry, canWrite }: { entry: DayBornEntryRow; canWrite: boolean }) {
+function EntryRow({ entry, canWrite, onDelete }: { entry: DayBornEntryRow; canWrite: boolean; onDelete: (id: string) => void }) {
   const router = useRouter();
   const { toast } = useFeedback();
-  const [delPending, startDel] = useTransition();
   const method = METHODS.find((m) => m.value === entry.method);
   const Icon = method?.icon ?? Smartphone;
 
   return (
-    <div className="flex items-center gap-3 py-2">
+    <div className="flex items-center gap-3 py-2 transition-opacity duration-200">
       <div className="h-8 w-8 rounded-full bg-accent/10 flex items-center justify-center">
         <Icon className="h-4 w-4 text-accent" />
       </div>
@@ -498,21 +510,14 @@ function EntryRow({ entry, canWrite }: { entry: DayBornEntryRow; canWrite: boole
       <span className="text-sm font-semibold">{formatCurrency(entry.amount)}</span>
       {canWrite && (
         <button
-          onClick={() =>
-            startDel(async () => {
-              await deleteDayBornEntry(entry.id);
-              router.refresh();
-              toast("Entry removed");
-            })
-          }
-          disabled={delPending}
+          onClick={() => {
+            onDelete(entry.id);
+            toast("Entry removed");
+            deleteDayBornEntry(entry.id).then(() => router.refresh());
+          }}
           className="text-red-500 hover:text-red-700 p-1"
         >
-          {delPending ? (
-            <span className="whq-spin inline-block h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
-          ) : (
-            <Trash2 className="h-4 w-4" />
-          )}
+          <Trash2 className="h-4 w-4" />
         </button>
       )}
     </div>
@@ -524,10 +529,12 @@ function HistoryTab({
   weeks,
   canWrite,
   canDelete,
+  onDeleteWeek,
 }: {
   weeks: DayBornWeekRow[];
   canWrite: boolean;
   canDelete: boolean;
+  onDeleteWeek: (id: string) => void;
 }) {
   const router = useRouter();
   const { toast } = useFeedback();
@@ -625,13 +632,9 @@ function HistoryTab({
                   disabled={actionPending && actionId === `del-${week.id}`}
                   onClick={() => {
                     if (!confirm(`Delete Day Born record for ${formatWeekRange(sundayIso)}?\n\nThis cannot be undone.`)) return;
-                    setActionId(`del-${week.id}`);
-                    startAction(async () => {
-                      await deleteDayBornWeek(week.id);
-                      router.refresh();
-                      toast("Record deleted");
-                      setActionId(null);
-                    });
+                    onDeleteWeek(week.id);
+                    toast("Record deleted");
+                    deleteDayBornWeek(week.id).then(() => router.refresh());
                   }}
                 >
                   {actionPending && actionId === `del-${week.id}` ? (

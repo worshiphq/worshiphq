@@ -39,6 +39,18 @@ export function AccountingClient({ transactions, income, expenses, fundBalances,
   const [allTime, setAllTime] = useState(year === 0);
   const router = useRouter();
 
+  // Optimistic deletion
+  const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
+  const onDeleteOptimistic = (id: string) => setDeletedIds((prev) => new Set(prev).add(id));
+  const visibleTransactions = transactions.filter((t) => !deletedIds.has(t.id));
+  const visibleWeeks = weeks.map((w) => ({
+    ...w,
+    transactions: w.transactions.filter((t) => !deletedIds.has(t.id)),
+    givingIncome: w.givingIncome.filter((t) => !deletedIds.has(t.id)),
+  }));
+  const visibleIncome = visibleTransactions.filter((t) => t.amount >= 0).reduce((s, t) => s + t.amount, 0);
+  const visibleExpenses = visibleTransactions.filter((t) => t.amount < 0).reduce((s, t) => s + Math.abs(t.amount), 0);
+
   const currentYear = new Date().getFullYear();
   const years = Array.from({ length: 3 }, (_, i) => currentYear - i);
 
@@ -80,9 +92,9 @@ export function AccountingClient({ transactions, income, expenses, fundBalances,
 
       {/* Stats */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Total income" value={income} prefix="₵" icon={TrendingUp} />
-        <StatCard label="Total expenses" value={expenses} prefix="₵" icon={TrendingDown} />
-        <StatCard label="Net balance" value={income - expenses} prefix="₵" icon={Scale} />
+        <StatCard label="Total income" value={visibleIncome} prefix="₵" icon={TrendingUp} />
+        <StatCard label="Total expenses" value={visibleExpenses} prefix="₵" icon={TrendingDown} />
+        <StatCard label="Net balance" value={visibleIncome - visibleExpenses} prefix="₵" icon={Scale} />
         <StatCard label="Funds" value={fundBalances.length} icon={Wallet} />
       </div>
 
@@ -106,16 +118,16 @@ export function AccountingClient({ transactions, income, expenses, fundBalances,
         ))}
       </div>
 
-      {tab === "weekly" && <WeeklyView weeks={weeks} canWrite={canWrite} />}
-      {tab === "all" && <AllTransactions rows={transactions} canWrite={canWrite} />}
-      {tab === "report" && <MonthlyReport weeks={weeks} income={income} expenses={expenses} fundBalances={fundBalances} monthLabel={monthLabel} year={year} month={month} />}
+      {tab === "weekly" && <WeeklyView weeks={visibleWeeks} canWrite={canWrite} onDelete={onDeleteOptimistic} />}
+      {tab === "all" && <AllTransactions rows={visibleTransactions} canWrite={canWrite} onDelete={onDeleteOptimistic} />}
+      {tab === "report" && <MonthlyReport weeks={visibleWeeks} income={visibleIncome} expenses={visibleExpenses} fundBalances={fundBalances} monthLabel={monthLabel} year={year} month={month} />}
     </div>
   );
 }
 
 /* ────── Weekly View ────── */
 
-function WeeklyView({ weeks, canWrite }: { weeks: AccountingWeek[]; canWrite: boolean }) {
+function WeeklyView({ weeks, canWrite, onDelete }: { weeks: AccountingWeek[]; canWrite: boolean; onDelete: (id: string) => void }) {
   const [expanded, setExpanded] = useState<Set<string>>(new Set(weeks.filter((w) => w.transactions.length > 0 || w.givingIncome.length > 0).map((w) => w.label)));
 
   const toggle = (label: string) => {
@@ -162,7 +174,7 @@ function WeeklyView({ weeks, canWrite }: { weeks: AccountingWeek[]; canWrite: bo
                       <span className="ml-auto text-xs font-medium text-success">+{formatCurrency(week.givingIncome.reduce((s, r) => s + r.amount, 0))}</span>
                     </div>
                     <div className="divide-y divide-line-soft">
-                      {week.givingIncome.map((r) => <TransactionRow key={r.id} row={r} canWrite={false} />)}
+                      {week.givingIncome.map((r) => <TransactionRow key={r.id} row={r} canWrite={false} onDelete={onDelete} />)}
                     </div>
                   </div>
                 )}
@@ -173,7 +185,7 @@ function WeeklyView({ weeks, canWrite }: { weeks: AccountingWeek[]; canWrite: bo
                       <span className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Manual entries</span>
                     </div>
                     <div className="divide-y divide-line-soft">
-                      {week.transactions.map((r) => <TransactionRow key={r.id} row={r} canWrite={canWrite} />)}
+                      {week.transactions.map((r) => <TransactionRow key={r.id} row={r} canWrite={canWrite} onDelete={onDelete} />)}
                     </div>
                   </div>
                 )}
@@ -190,7 +202,7 @@ function WeeklyView({ weeks, canWrite }: { weeks: AccountingWeek[]; canWrite: bo
   );
 }
 
-function TransactionRow({ row, canWrite }: { row: AccountingRow; canWrite: boolean }) {
+function TransactionRow({ row, canWrite, onDelete }: { row: AccountingRow; canWrite: boolean; onDelete: (id: string) => void }) {
   const [mode, setMode] = useState<"view" | "edit" | "delete">("view");
   const [editDesc, setEditDesc] = useState(row.description);
   const [editAmount, setEditAmount] = useState(String(Math.abs(row.amount)));
@@ -214,12 +226,9 @@ function TransactionRow({ row, canWrite }: { row: AccountingRow; canWrite: boole
   };
 
   const handleDelete = () => {
-    startTransition(async () => {
-      await deleteTransaction(row.id);
-      toast("Transaction deleted", "success");
-      setMode("view");
-      router.refresh();
-    });
+    onDelete(row.id);
+    toast("Transaction deleted", "success");
+    deleteTransaction(row.id).then(() => router.refresh());
   };
 
   if (mode === "edit") {
@@ -289,7 +298,7 @@ function TransactionRow({ row, canWrite }: { row: AccountingRow; canWrite: boole
 
 /* ────── All Transactions ────── */
 
-function AllTransactions({ rows, canWrite }: { rows: AccountingRow[]; canWrite: boolean }) {
+function AllTransactions({ rows, canWrite, onDelete }: { rows: AccountingRow[]; canWrite: boolean; onDelete: (id: string) => void }) {
   return (
     <Card className="overflow-hidden">
       <div className="flex items-center justify-between border-b border-line p-5">
@@ -313,7 +322,7 @@ function AllTransactions({ rows, canWrite }: { rows: AccountingRow[]; canWrite: 
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => <AllTransactionsRow key={r.id} row={r} canWrite={canWrite} />)}
+              {rows.map((r) => <AllTransactionsRow key={r.id} row={r} canWrite={canWrite} onDelete={onDelete} />)}
             </tbody>
           </table>
         </div>
@@ -322,7 +331,7 @@ function AllTransactions({ rows, canWrite }: { rows: AccountingRow[]; canWrite: 
   );
 }
 
-function AllTransactionsRow({ row: r, canWrite }: { row: AccountingRow; canWrite: boolean }) {
+function AllTransactionsRow({ row: r, canWrite, onDelete }: { row: AccountingRow; canWrite: boolean; onDelete: (id: string) => void }) {
   const [mode, setMode] = useState<"view" | "edit" | "delete">("view");
   const [editDesc, setEditDesc] = useState(r.description);
   const [editAmount, setEditAmount] = useState(String(Math.abs(r.amount)));
@@ -346,12 +355,9 @@ function AllTransactionsRow({ row: r, canWrite }: { row: AccountingRow; canWrite
   };
 
   const handleDelete = () => {
-    startTransition(async () => {
-      await deleteTransaction(r.id);
-      toast("Transaction deleted", "success");
-      setMode("view");
-      router.refresh();
-    });
+    onDelete(r.id);
+    toast("Transaction deleted", "success");
+    deleteTransaction(r.id).then(() => router.refresh());
   };
 
   if (mode === "edit") {
