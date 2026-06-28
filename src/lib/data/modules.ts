@@ -30,16 +30,18 @@ export async function getChurchSettings(churchId: string) {
 
 // ── Branches ──────────────────────────────────────────────
 export async function getBranches(churchId: string) {
-  const branches = await db.branch.findMany({ where: { churchId }, orderBy: { isHQ: "desc" } });
-  return Promise.all(
-    branches.map(async (b) => {
-      const [members, giving] = await Promise.all([
-        db.person.count({ where: { churchId, branchId: b.id } }),
-        db.gift.aggregate({ _sum: { amount: true }, where: { churchId, branchId: b.id } }),
-      ]);
-      return { id: b.id, name: b.name, city: b.city, isHQ: b.isHQ, members, giving: Number(giving._sum.amount ?? 0) };
-    }),
-  );
+  const [branches, memberCounts, givingTotals] = await Promise.all([
+    db.branch.findMany({ where: { churchId }, orderBy: { isHQ: "desc" } }),
+    db.person.groupBy({ by: ["branchId"], _count: true, where: { churchId, branchId: { not: null } } }),
+    db.gift.groupBy({ by: ["branchId"], _sum: { amount: true }, where: { churchId, branchId: { not: null } } }),
+  ]);
+  const memberMap = new Map(memberCounts.map((m) => [m.branchId, m._count]));
+  const givingMap = new Map(givingTotals.map((g) => [g.branchId, Number(g._sum.amount ?? 0)]));
+  return branches.map((b) => ({
+    id: b.id, name: b.name, city: b.city, isHQ: b.isHQ,
+    members: memberMap.get(b.id) ?? 0,
+    giving: givingMap.get(b.id) ?? 0,
+  }));
 }
 
 // ── Events ────────────────────────────────────────────────
@@ -273,13 +275,17 @@ export async function getAttendance(churchId: string) {
     if (i !== undefined) buckets[i].attendance += 1;
   }
 
-  const byBranch = await Promise.all(
-    branches.map(async (b) => ({
-      name: b.name,
-      isHQ: b.isHQ,
-      present: await db.attendanceRecord.count({ where: { churchId, branchId: b.id, date: { gte: weekAgo } } }),
-    })),
-  );
+  const branchCounts = await db.attendanceRecord.groupBy({
+    by: ["branchId"],
+    _count: true,
+    where: { churchId, branchId: { not: null }, date: { gte: weekAgo } },
+  });
+  const branchCountMap = new Map(branchCounts.map((c) => [c.branchId, c._count]));
+  const byBranch = branches.map((b) => ({
+    name: b.name,
+    isHQ: b.isHQ,
+    present: branchCountMap.get(b.id) ?? 0,
+  }));
 
   return { weekly, total: records.length, trend: buckets.map((b) => ({ month: b.month, attendance: b.attendance, amount: 0 })), byBranch };
 }

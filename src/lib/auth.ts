@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import crypto from "node:crypto";
@@ -114,7 +115,7 @@ export async function requireSuperAdmin(): Promise<{ email: string; ghost?: stri
 }
 
 /** Current session (null when signed out). Reads a signed cookie and loads the DB user. */
-export async function getSession(): Promise<Session | null> {
+async function _getSession(): Promise<Session | null> {
   const store = await cookies();
   const token = store.get(COOKIE)?.value;
   if (!token) return null;
@@ -194,6 +195,7 @@ export async function getSession(): Promise<Session | null> {
     phoneVerified: user.phoneVerified,
   };
 }
+export const getSession = cache(_getSession);
 
 /** Use in app pages/actions: returns the session or redirects to sign-in. */
 export async function requireSession(): Promise<Session> {

@@ -6,7 +6,8 @@ import {
   Briefcase, Heart, Shield, User, Grid3X3, List, ChevronRight, Download, MessageSquare, QrCode as QrIcon, Fingerprint,
   ArrowDownAZ, Filter, Crown, Baby, GraduationCap, School,
 } from "lucide-react";
-import { QRCodeCanvas } from "qrcode.react";
+import dynamic from "next/dynamic";
+const QRCodeCanvas = dynamic(() => import("qrcode.react").then((m) => m.QRCodeCanvas), { ssr: false });
 import { ImportModal } from "@/components/app/import-modal";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";

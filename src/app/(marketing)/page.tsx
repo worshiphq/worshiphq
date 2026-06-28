@@ -10,6 +10,8 @@ import { FinalCTA } from "@/components/marketing/final-cta";
 import { getMarketingContent } from "@/lib/data/site-content";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 
+export const revalidate = 3600;
+
 export default async function HomePage() {
   const [content, platformConfig] = await Promise.all([
     getMarketingContent(),

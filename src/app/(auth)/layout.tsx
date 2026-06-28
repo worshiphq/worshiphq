@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { Quote } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { Aurora, GridBackdrop } from "@/components/marketing/aurora";
@@ -13,8 +14,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <GridBackdrop />
         <div className="relative flex items-center justify-center flex-1">
           {/* Large centered logo */}
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src="/logo.png" alt="WorshipHQ" className="h-40 w-auto object-contain" />
+          <Image src="/logo.png" alt="WorshipHQ" width={160} height={160} className="h-40 w-auto object-contain" priority />
         </div>
         <div className="relative max-w-md">
           <Quote className="size-8 text-primary/50" />
