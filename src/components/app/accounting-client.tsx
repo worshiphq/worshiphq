@@ -199,6 +199,7 @@ function TransactionRow({ row, canWrite }: { row: AccountingRow; canWrite: boole
   const [pending, startTransition] = useTransition();
   const { toast } = useFeedback();
 
+  const router = useRouter();
   const handleSave = () => {
     startTransition(async () => {
       const fd = new FormData();
@@ -208,7 +209,7 @@ function TransactionRow({ row, canWrite }: { row: AccountingRow; canWrite: boole
       fd.set("fund", editFund);
       const res = await editTransaction(row.id, fd);
       if (!res?.ok) toast(res?.error ?? "Failed to update", "error");
-      else { toast("Transaction updated", "success"); setMode("view"); }
+      else { toast("Transaction updated", "success"); setMode("view"); router.refresh(); }
     });
   };
 
@@ -217,6 +218,7 @@ function TransactionRow({ row, canWrite }: { row: AccountingRow; canWrite: boole
       await deleteTransaction(row.id);
       toast("Transaction deleted", "success");
       setMode("view");
+      router.refresh();
     });
   };
 
@@ -329,6 +331,7 @@ function AllTransactionsRow({ row: r, canWrite }: { row: AccountingRow; canWrite
   const [pending, startTransition] = useTransition();
   const { toast } = useFeedback();
 
+  const router = useRouter();
   const handleSave = () => {
     startTransition(async () => {
       const fd = new FormData();
@@ -338,7 +341,7 @@ function AllTransactionsRow({ row: r, canWrite }: { row: AccountingRow; canWrite
       fd.set("fund", editFund);
       const res = await editTransaction(r.id, fd);
       if (!res?.ok) toast(res?.error ?? "Failed to update", "error");
-      else { toast("Transaction updated", "success"); setMode("view"); }
+      else { toast("Transaction updated", "success"); setMode("view"); router.refresh(); }
     });
   };
 
@@ -347,6 +350,7 @@ function AllTransactionsRow({ row: r, canWrite }: { row: AccountingRow; canWrite
       await deleteTransaction(r.id);
       toast("Transaction deleted", "success");
       setMode("view");
+      router.refresh();
     });
   };
 

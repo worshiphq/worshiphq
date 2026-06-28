@@ -2,6 +2,7 @@
 
 import { useState, useTransition, useRef, useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { Crown, Users2, Plus, X, Check, Loader2, Settings2, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -61,6 +62,7 @@ export function LeadersClient({
   isAdmin: boolean;
   isDemo: boolean;
 }) {
+  const router = useRouter();
   const [leaders, setLeaders] = useState(churchLeaders);
   const [reordering, setReordering] = useState(false);
   const [saving, startSave] = useTransition();
@@ -77,6 +79,7 @@ export function LeadersClient({
     startSave(async () => {
       await reorderLeaders(leaders.map((l) => l.id));
       setReordering(false);
+      router.refresh();
     });
   }
 

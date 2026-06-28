@@ -104,6 +104,7 @@ export async function updatePerson(formData: FormData) {
   }
 
   revalidatePath("/app/people");
+  revalidatePath("/app");
 }
 
 export async function deletePerson(id: string) {

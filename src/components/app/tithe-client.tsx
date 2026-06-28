@@ -245,6 +245,7 @@ export function TitheClient({
 /* ────── Batch Recorder ────── */
 
 function BatchRecorder({ members, fundType, activeFundName }: { members: TitheMember[]; fundType: string; activeFundName: string }) {
+  const router = useRouter();
   const [entries, setEntries] = useState<LocalEntry[]>([]);
   const [search, setSearch] = useState("");
   const [method, setMethod] = useState<string>("Cash");
@@ -311,6 +312,7 @@ function BatchRecorder({ members, fundType, activeFundName }: { members: TitheMe
           : `${result.recorded} ${activeFundName} record(s) saved`;
         toast(msg, ("insufficientCredits" in result && result.insufficientCredits) ? "error" : "success");
         setEntries([]);
+        router.refresh();
       } else {
         toast(result.error ?? "Failed to record", "error");
       }

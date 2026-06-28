@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Settings2, Loader2 } from "lucide-react";
 import { updateFeaturedLeaderCount } from "@/app/actions/leaders";
 
 export function FeaturedLeaderCountSetting({ current }: { current: number }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [count, setCount] = useState(current);
   const [saving, startSave] = useTransition();
@@ -13,6 +15,7 @@ export function FeaturedLeaderCountSetting({ current }: { current: number }) {
     startSave(async () => {
       await updateFeaturedLeaderCount(count);
       setOpen(false);
+      router.refresh();
     });
   }
 

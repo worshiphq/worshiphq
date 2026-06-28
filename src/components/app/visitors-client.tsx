@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input, Label } from "@/components/ui/input";
@@ -32,6 +33,7 @@ export function VisitorsClient({
   visitUrl: string | null;
   canWrite: boolean;
 }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<VisitorRow | null>(null);
   const [pending, startTransition] = useTransition();
@@ -52,6 +54,7 @@ export function VisitorsClient({
     if (!confirm(`Delete visitor ${v.firstName} ${v.lastName}?`)) return;
     startTransition(async () => {
       await deleteVisitor(v.id);
+      router.refresh();
     });
   }
 
@@ -60,6 +63,7 @@ export function VisitorsClient({
     startTransition(async () => {
       await convertVisitorToMember(v.id);
       setEditing(null);
+      router.refresh();
     });
   }
 

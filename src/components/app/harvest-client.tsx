@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import {
   Search, Plus, Trash2, Pencil, Send, Download, Calendar, Settings2,
   Smartphone, CreditCard, Banknote, Users, UserPlus,
@@ -166,6 +167,7 @@ function HarvestSetup({ year }: { year: number }) {
 /* ────── Harvest Edit / Delete Bar ────── */
 
 function HarvestEditBar({ harvest, year }: { harvest: NonNullable<HarvestData["harvest"]>; year: number }) {
+  const router = useRouter();
   const [confirming, setConfirming] = useState(false);
   const [pending, startTransition] = useTransition();
   const { toast } = useFeedback();
@@ -176,6 +178,7 @@ function HarvestEditBar({ harvest, year }: { harvest: NonNullable<HarvestData["h
       if (!res.ok) toast(res.error ?? "Failed to delete harvest", "error");
       else toast("Harvest deleted", "success");
       setConfirming(false);
+      router.refresh();
     });
   };
 
@@ -273,6 +276,7 @@ function HarvestTemplateEditor({ template }: { template: string | null }) {
 /* ────── Contribution Recorder ────── */
 
 function ContributionRecorder({ members, year }: { members: HarvestData["members"]; year: number }) {
+  const router = useRouter();
   const [entries, setEntries] = useState<LocalEntry[]>([]);
   const [search, setSearch] = useState("");
   const [showList, setShowList] = useState(false);
@@ -342,6 +346,7 @@ function ContributionRecorder({ members, year }: { members: HarvestData["members
       if (result.ok) {
         toast(`${result.recorded} recorded, ${result.smsSent} receipts sent${result.insufficientCredits ? " (credits ran out)" : ""}`, result.insufficientCredits ? "error" : "success");
         setEntries([]);
+        router.refresh();
       } else {
         toast(result.error ?? "Failed", "error");
       }
@@ -487,6 +492,7 @@ function ContributionRecorder({ members, year }: { members: HarvestData["members
 /* ────── Contributions List ────── */
 
 function ContributionsList({ contributions, canWrite }: { contributions: HarvestContributionRow[]; canWrite: boolean }) {
+  const router = useRouter();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState("");
@@ -510,7 +516,7 @@ function ContributionsList({ contributions, canWrite }: { contributions: Harvest
       fd.set("donorName", editName);
       const res = await editHarvestContribution(id, fd);
       if (!res.ok) toast(res.error ?? "Failed to update", "error");
-      else { toast("Contribution updated", "success"); cancelEdit(); }
+      else { toast("Contribution updated", "success"); cancelEdit(); router.refresh(); }
     });
   };
 
@@ -520,6 +526,7 @@ function ContributionsList({ contributions, canWrite }: { contributions: Harvest
       if (!res.ok) toast(res.error ?? "Failed to delete", "error");
       else toast("Contribution deleted", "success");
       setDeletingId(null);
+      router.refresh();
     });
   };
 
