@@ -57,10 +57,6 @@
   "plugins": {
     "shell": {
       "open": true
-    },
-    "dialog": {
-      "open": true,
-      "save": false
     }
   }
 }
