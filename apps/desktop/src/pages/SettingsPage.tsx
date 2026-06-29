@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { Save, Loader2, Database, RefreshCw, Trash2, User, Church, HardDrive, ExternalLink } from "lucide-react";
 import { PageShell } from "../components/PageShell";
+import { PageHeader } from "../components/ui/PageHeader";
+import { Avatar } from "../components/ui/Avatar";
 import { useAppStore } from "../stores/app-store";
 import { db, sync, auth, appInfo } from "../lib/api";
 
@@ -100,10 +102,6 @@ export function SettingsPage() {
 function ProfileTab() {
   const { session } = useAppStore();
 
-  const initials = session?.userName
-    ? session.userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
-    : "?";
-
   return (
     <div className="space-y-6">
       <div>
@@ -113,13 +111,7 @@ function ProfileTab() {
 
       <div className="card space-y-5">
         <div className="flex items-center gap-4">
-          {session?.userPhotoUrl ? (
-            <img src={session.userPhotoUrl} alt="" className="size-16 rounded-2xl object-cover" />
-          ) : (
-            <div className="grid size-16 place-items-center rounded-2xl bg-primary-soft text-xl font-bold text-primary-bright">
-              {initials}
-            </div>
-          )}
+          <Avatar name={session?.userName || "User"} src={session?.userPhotoUrl} size="lg" />
           <div>
             <p className="text-lg font-bold text-ink">{session?.userName}</p>
             <p className="text-sm text-ink-muted">{session?.userEmail}</p>

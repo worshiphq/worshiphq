@@ -5,6 +5,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useAppStore } from "../stores/app-store";
+import { Avatar } from "./ui/Avatar";
 import { sync, auth } from "../lib/api";
 import { timeAgo } from "../lib/utils";
 
@@ -30,10 +31,6 @@ export function Topbar({ title }: { title: string }) {
     setSession(null);
   }
 
-  const initials = session?.userName
-    ? session.userName.split(" ").map((n) => n[0]).join("").slice(0, 2).toUpperCase()
-    : "?";
-
   return (
     <header className="flex h-12 items-center justify-between border-b border-line bg-surface px-5">
       <h1 className="text-sm font-bold text-ink">{title}</h1>
@@ -42,7 +39,7 @@ export function Topbar({ title }: { title: string }) {
         {/* Sync status */}
         <div className="flex items-center gap-1.5">
           {syncStatus.pendingChanges > 0 && (
-            <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[10px] font-semibold text-gold">
+            <span className="badge badge-gold">
               {syncStatus.pendingChanges} pending
             </span>
           )}
@@ -81,17 +78,7 @@ export function Topbar({ title }: { title: string }) {
             onClick={() => setMenuOpen((v) => !v)}
             className="flex items-center gap-2 rounded-lg px-1.5 py-1 transition-colors hover:bg-surface-3"
           >
-            {session?.userPhotoUrl ? (
-              <img
-                src={session.userPhotoUrl}
-                alt=""
-                className="size-7 rounded-full object-cover"
-              />
-            ) : (
-              <div className="grid size-7 place-items-center rounded-full bg-primary-soft text-[10px] font-bold text-primary-bright">
-                {initials}
-              </div>
-            )}
+            <Avatar name={session?.userName || "User"} src={session?.userPhotoUrl} size="xs" />
             <div className="text-left">
               <p className="text-[11px] font-medium text-ink leading-tight">{session?.userName}</p>
               <p className="text-[9px] text-ink-faint capitalize">{session?.userRole}</p>
