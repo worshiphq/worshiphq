@@ -88,45 +88,51 @@ export default function App() {
             <Route path="/dayborn" element={
               <DataListPage title="Day Born" table="day_born_week" webPath="dayborn"
                 columns={[
-                  { key: "week_start", label: "Week Start", format: "date" },
-                  { key: "week_end", label: "Week End", format: "date" },
-                  { key: "total_amount", label: "Total", format: "currency" },
-                  { key: "created_at", label: "Created", format: "date" },
+                  { key: "week_of", label: "Week Of", format: "date" },
+                  { key: "monday", label: "Mon", format: "currency" },
+                  { key: "tuesday", label: "Tue", format: "currency" },
+                  { key: "wednesday", label: "Wed", format: "currency" },
+                  { key: "thursday", label: "Thu", format: "currency" },
+                  { key: "friday", label: "Fri", format: "currency" },
+                  { key: "saturday", label: "Sat", format: "currency" },
+                  { key: "sunday", label: "Sun", format: "currency" },
                 ]}
                 searchFields={[]}
+                orderBy="week_of DESC"
               />
             } />
             <Route path="/events" element={
               <DataListPage title="Events" table="event" webPath="events"
                 columns={[
                   { key: "title", label: "Event" },
-                  { key: "date", label: "Date", format: "date" },
-                  { key: "location", label: "Location" },
-                  { key: "status", label: "Status", format: "status" },
+                  { key: "type", label: "Type" },
+                  { key: "starts_at", label: "Date", format: "date" },
+                  { key: "capacity", label: "Capacity" },
                 ]}
-                searchFields={["title", "location"]}
-                orderBy="date DESC"
+                searchFields={["title", "type"]}
+                orderBy="starts_at DESC"
               />
             } />
             <Route path="/calendar" element={
               <DataListPage title="Calendar" table="event" webPath="calendar"
                 columns={[
                   { key: "title", label: "Event" },
-                  { key: "date", label: "Date", format: "date" },
-                  { key: "location", label: "Location" },
+                  { key: "type", label: "Type" },
+                  { key: "starts_at", label: "Date", format: "date" },
                 ]}
                 searchFields={["title"]}
-                orderBy="date ASC"
+                orderBy="starts_at ASC"
               />
             } />
             <Route path="/volunteers" element={
               <DataListPage title="Volunteers" table="volunteer_roster" webPath="volunteers"
                 columns={[
                   { key: "name", label: "Roster" },
-                  { key: "department_name", label: "Department" },
-                  { key: "created_at", label: "Created", format: "date" },
+                  { key: "ministry", label: "Ministry" },
+                  { key: "start_date", label: "Start", format: "date" },
+                  { key: "end_date", label: "End", format: "date" },
                 ]}
-                searchFields={["name", "department_name"]}
+                searchFields={["name", "ministry"]}
               />
             } />
             <Route path="/groups" element={
@@ -143,14 +149,14 @@ export default function App() {
             <Route path="/visitors" element={
               <DataListPage title="Visitors" table="visitor" webPath="visitors"
                 columns={[
-                  { key: "name", label: "Name" },
+                  { key: "first_name", label: "First Name" },
+                  { key: "last_name", label: "Last Name" },
                   { key: "phone", label: "Phone" },
                   { key: "email", label: "Email" },
-                  { key: "first_visit", label: "First Visit", format: "date" },
-                  { key: "status", label: "Status", format: "status" },
+                  { key: "visit_date", label: "Visit Date", format: "date" },
                 ]}
-                searchFields={["name", "phone", "email"]}
-                orderBy="first_visit DESC"
+                searchFields={["first_name", "last_name", "phone", "email"]}
+                orderBy="visit_date DESC"
               />
             } />
             <Route path="/birthdays" element={
@@ -182,33 +188,35 @@ export default function App() {
               <DataListPage title="Bookings" table="booking" webPath="bookings"
                 columns={[
                   { key: "title", label: "Booking" },
-                  { key: "facility_name", label: "Facility" },
-                  { key: "date", label: "Date", format: "date" },
+                  { key: "booked_by", label: "Booked By" },
+                  { key: "start_time", label: "Start", format: "date" },
+                  { key: "end_time", label: "End", format: "date" },
                   { key: "status", label: "Status", format: "status" },
                 ]}
-                searchFields={["title"]}
-                orderBy="date DESC"
+                searchFields={["title", "booked_by"]}
+                orderBy="start_time DESC"
               />
             } />
             <Route path="/rosters" element={
               <DataListPage title="Rosters" table="volunteer_roster" webPath="rosters"
                 columns={[
                   { key: "name", label: "Roster" },
-                  { key: "department_name", label: "Department" },
-                  { key: "created_at", label: "Created", format: "date" },
+                  { key: "ministry", label: "Ministry" },
+                  { key: "start_date", label: "Start", format: "date" },
+                  { key: "end_date", label: "End", format: "date" },
                 ]}
-                searchFields={["name"]}
+                searchFields={["name", "ministry"]}
               />
             } />
             <Route path="/reports" element={
               <DataListPage title="Reports" table="audit_log" webPath="reports"
                 columns={[
                   { key: "action", label: "Action" },
-                  { key: "entity_type", label: "Type" },
-                  { key: "user_name", label: "By" },
+                  { key: "entity", label: "Type" },
+                  { key: "detail", label: "Detail" },
                   { key: "created_at", label: "Date", format: "date" },
                 ]}
-                searchFields={["action", "entity_type", "user_name"]}
+                searchFields={["action", "entity", "detail"]}
                 emptyMessage="Activity logs will appear here after sync."
               />
             } />
@@ -216,38 +224,37 @@ export default function App() {
               <DataListPage title="Accounting" table="transaction" webPath="accounting"
                 columns={[
                   { key: "description", label: "Description" },
-                  { key: "type", label: "Type" },
+                  { key: "category", label: "Category" },
                   { key: "amount", label: "Amount", format: "currency" },
                   { key: "date", label: "Date", format: "date" },
                 ]}
-                searchFields={["description", "type"]}
+                searchFields={["description", "category"]}
                 orderBy="date DESC"
               />
             } />
             <Route path="/pledges" element={
               <DataListPage title="Pledges" table="pledge" webPath="pledges"
                 columns={[
-                  { key: "member_name", label: "Member" },
+                  { key: "donor_name", label: "Donor" },
                   { key: "amount", label: "Amount", format: "currency" },
-                  { key: "paid", label: "Paid", format: "currency" },
-                  { key: "due_date", label: "Due", format: "date" },
-                  { key: "status", label: "Status", format: "status" },
+                  { key: "fulfilled", label: "Fulfilled", format: "currency" },
+                  { key: "due_at", label: "Due", format: "date" },
                 ]}
-                searchFields={["member_name"]}
-                orderBy="due_date DESC"
+                searchFields={["donor_name"]}
+                orderBy="due_at DESC"
               />
             } />
             <Route path="/harvest" element={
               <DataListPage title="Harvest" table="harvest" webPath="harvest"
                 columns={[
                   { key: "title", label: "Harvest" },
-                  { key: "target_amount", label: "Target", format: "currency" },
-                  { key: "total_raised", label: "Raised", format: "currency" },
-                  { key: "start_date", label: "Start", format: "date" },
-                  { key: "status", label: "Status", format: "status" },
+                  { key: "year", label: "Year" },
+                  { key: "goal", label: "Goal", format: "currency" },
+                  { key: "raised", label: "Raised", format: "currency" },
+                  { key: "date", label: "Date", format: "date" },
                 ]}
                 searchFields={["title"]}
-                orderBy="start_date DESC"
+                orderBy="year DESC"
               />
             } />
             <Route path="/expenses" element={
@@ -256,10 +263,10 @@ export default function App() {
                   { key: "description", label: "Description" },
                   { key: "category", label: "Category" },
                   { key: "amount", label: "Amount", format: "currency" },
+                  { key: "vendor", label: "Vendor" },
                   { key: "date", label: "Date", format: "date" },
-                  { key: "status", label: "Status", format: "status" },
                 ]}
-                searchFields={["description", "category"]}
+                searchFields={["description", "category", "vendor"]}
                 orderBy="date DESC"
               />
             } />
@@ -267,72 +274,74 @@ export default function App() {
               <DataListPage title="Budgets" table="budget" webPath="budgets"
                 columns={[
                   { key: "name", label: "Budget" },
-                  { key: "total_amount", label: "Total", format: "currency" },
-                  { key: "period", label: "Period" },
+                  { key: "year", label: "Year" },
+                  { key: "total", label: "Total", format: "currency" },
                   { key: "status", label: "Status", format: "status" },
                 ]}
                 searchFields={["name"]}
+                orderBy="year DESC"
               />
             } />
             <Route path="/welfare" element={
               <DataListPage title="Welfare" table="welfare_record" webPath="welfare"
                 columns={[
-                  { key: "member_name", label: "Member" },
+                  { key: "recipient_name", label: "Recipient" },
                   { key: "type", label: "Type" },
                   { key: "amount", label: "Amount", format: "currency" },
+                  { key: "description", label: "Description" },
                   { key: "date", label: "Date", format: "date" },
-                  { key: "status", label: "Status", format: "status" },
                 ]}
-                searchFields={["member_name", "type"]}
+                searchFields={["recipient_name", "type", "description"]}
                 orderBy="date DESC"
               />
             } />
             <Route path="/communications" element={
               <DataListPage title="Communications" table="communication" webPath="communications"
                 columns={[
-                  { key: "subject", label: "Subject" },
-                  { key: "type", label: "Type" },
-                  { key: "recipients", label: "Recipients" },
-                  { key: "sent_at", label: "Sent", format: "date" },
+                  { key: "name", label: "Name" },
+                  { key: "channel", label: "Channel" },
                   { key: "status", label: "Status", format: "status" },
+                  { key: "sent", label: "Sent" },
+                  { key: "created_at", label: "Date", format: "date" },
                 ]}
-                searchFields={["subject"]}
-                orderBy="sent_at DESC"
+                searchFields={["name", "channel"]}
+                orderBy="created_at DESC"
               />
             } />
             <Route path="/reminders" element={
               <DataListPage title="Reminders" table="automation" webPath="reminders"
                 columns={[
                   { key: "name", label: "Reminder" },
-                  { key: "type", label: "Type" },
-                  { key: "next_run", label: "Next Run", format: "date" },
-                  { key: "status", label: "Status", format: "status" },
+                  { key: "trigger_type", label: "Trigger" },
+                  { key: "channel", label: "Channel" },
+                  { key: "runs", label: "Runs" },
+                  { key: "last_run_at", label: "Last Run", format: "date" },
                 ]}
-                searchFields={["name"]}
+                searchFields={["name", "trigger_type"]}
               />
             } />
             <Route path="/follow-ups" element={
               <DataListPage title="Follow-ups" table="follow_up" webPath="follow-ups"
                 columns={[
-                  { key: "member_name", label: "Member" },
+                  { key: "title", label: "Title" },
                   { key: "type", label: "Type" },
-                  { key: "priority", label: "Priority" },
-                  { key: "due_date", label: "Due", format: "date" },
                   { key: "status", label: "Status", format: "status" },
+                  { key: "due_date", label: "Due", format: "date" },
+                  { key: "created_at", label: "Created", format: "date" },
                 ]}
-                searchFields={["member_name", "type"]}
+                searchFields={["title", "type"]}
                 orderBy="due_date ASC"
               />
             } />
             <Route path="/prayer-requests" element={
               <DataListPage title="Prayer Requests" table="prayer_request" webPath="prayer-requests"
                 columns={[
-                  { key: "member_name", label: "From" },
+                  { key: "name", label: "From" },
                   { key: "request", label: "Request" },
-                  { key: "created_at", label: "Date", format: "date" },
                   { key: "status", label: "Status", format: "status" },
+                  { key: "created_at", label: "Date", format: "date" },
                 ]}
-                searchFields={["member_name", "request"]}
+                searchFields={["name", "request"]}
                 orderBy="created_at DESC"
               />
             } />
@@ -340,10 +349,11 @@ export default function App() {
               <DataListPage title="Notices" table="church_notice" webPath="notices"
                 columns={[
                   { key: "title", label: "Title" },
-                  { key: "content", label: "Content" },
+                  { key: "body", label: "Content" },
+                  { key: "pinned", label: "Pinned" },
                   { key: "created_at", label: "Date", format: "date" },
                 ]}
-                searchFields={["title", "content"]}
+                searchFields={["title", "body"]}
                 orderBy="created_at DESC"
               />
             } />
@@ -351,11 +361,11 @@ export default function App() {
               <DataListPage title="Sermons" table="sermon" webPath="sermons"
                 columns={[
                   { key: "title", label: "Title" },
-                  { key: "speaker", label: "Speaker" },
+                  { key: "preacher", label: "Preacher" },
                   { key: "date", label: "Date", format: "date" },
                   { key: "series", label: "Series" },
                 ]}
-                searchFields={["title", "speaker", "series"]}
+                searchFields={["title", "preacher", "series"]}
                 orderBy="date DESC"
               />
             } />
@@ -373,24 +383,24 @@ export default function App() {
             <Route path="/testimonies" element={
               <DataListPage title="Testimonies" table="testimony" webPath="testimonies"
                 columns={[
-                  { key: "member_name", label: "By" },
                   { key: "title", label: "Title" },
-                  { key: "created_at", label: "Date", format: "date" },
+                  { key: "category", label: "Category" },
                   { key: "status", label: "Status", format: "status" },
+                  { key: "date", label: "Date", format: "date" },
                 ]}
-                searchFields={["member_name", "title"]}
-                orderBy="created_at DESC"
+                searchFields={["title", "category"]}
+                orderBy="date DESC"
               />
             } />
             <Route path="/counseling" element={
               <DataListPage title="Counseling" table="counseling_session" webPath="counseling"
                 columns={[
-                  { key: "member_name", label: "Member" },
-                  { key: "counselor_name", label: "Counselor" },
-                  { key: "date", label: "Date", format: "date" },
+                  { key: "type", label: "Type" },
+                  { key: "summary", label: "Summary" },
                   { key: "status", label: "Status", format: "status" },
+                  { key: "date", label: "Date", format: "date" },
                 ]}
-                searchFields={["member_name", "counselor_name"]}
+                searchFields={["type", "summary"]}
                 orderBy="date DESC"
               />
             } />
@@ -399,7 +409,7 @@ export default function App() {
                 columns={[
                   { key: "name", label: "Asset" },
                   { key: "category", label: "Category" },
-                  { key: "value", label: "Value", format: "currency" },
+                  { key: "purchase_price", label: "Value", format: "currency" },
                   { key: "condition", label: "Condition" },
                   { key: "location", label: "Location" },
                 ]}
@@ -410,11 +420,11 @@ export default function App() {
               <DataListPage title="Audit Log" table="audit_log" webPath="audit-log"
                 columns={[
                   { key: "action", label: "Action" },
-                  { key: "entity_type", label: "Entity" },
-                  { key: "user_name", label: "User" },
+                  { key: "entity", label: "Entity" },
+                  { key: "detail", label: "Detail" },
                   { key: "created_at", label: "Date", format: "date" },
                 ]}
-                searchFields={["action", "entity_type", "user_name"]}
+                searchFields={["action", "entity", "detail"]}
                 orderBy="created_at DESC"
               />
             } />
