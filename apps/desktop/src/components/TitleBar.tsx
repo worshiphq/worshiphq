@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Minus, Square, X, Maximize2, Church } from "lucide-react";
+import { Minus, X, Maximize2 } from "lucide-react";
 
 export function TitleBar() {
   const [maximized, setMaximized] = useState(false);
@@ -17,7 +17,7 @@ export function TitleBar() {
     >
       {/* Left: app icon + name */}
       <div className="flex items-center gap-2 pl-3">
-        <Church className="size-3.5 text-primary-bright" />
+        <img src="/icon.png" alt="" className="size-4 object-contain" />
         <span className="text-[11px] font-semibold text-ink-muted">WorshipHQ</span>
       </div>
 

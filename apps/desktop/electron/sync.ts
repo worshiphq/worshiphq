@@ -152,8 +152,16 @@ export function registerSyncHandlers() {
       });
 
       if (!res.ok) {
-        const body = await res.json().catch(() => ({}));
-        throw new Error(body.error || `Login failed (${res.status})`);
+        const text = await res.text();
+        let errorMsg = `Login failed (${res.status})`;
+        try {
+          const body = JSON.parse(text);
+          errorMsg = body.error || errorMsg;
+        } catch {
+          if (res.status === 404) errorMsg = "Desktop login API not found. Make sure your WorshipHQ site is up to date.";
+          else if (res.status >= 500) errorMsg = "Server error. Try again later.";
+        }
+        throw new Error(errorMsg);
       }
 
       const data = await res.json();

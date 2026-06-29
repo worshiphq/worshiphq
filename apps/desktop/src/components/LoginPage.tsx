@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Loader2, Wifi, WifiOff, Church } from "lucide-react";
+import { Loader2, Wifi, WifiOff, Eye, EyeOff, AlertCircle, ArrowLeft, Mail } from "lucide-react";
 import { auth, sync } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
 
@@ -8,9 +8,13 @@ export function LoginPage() {
   const [serverUrl, setServerUrl] = useState("https://worshiphq.com");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [online, setOnline] = useState(navigator.onLine);
+  const [view, setView] = useState<"login" | "forgot">("login");
+  const [resetEmail, setResetEmail] = useState("");
+  const [resetSent, setResetSent] = useState(false);
 
   window.addEventListener("online", () => setOnline(true));
   window.addEventListener("offline", () => setOnline(false));
@@ -22,104 +26,199 @@ export function LoginPage() {
     setLoading(true);
     setError("");
 
-    const result = await auth.login(serverUrl, email, password);
+    try {
+      const result = await auth.login(serverUrl, email, password);
 
-    if (result.success && result.user) {
-      const session = await auth.getSession();
-      setSession(session);
-      showToast(`Welcome, ${result.user.name}!`);
+      if (result.success && result.user) {
+        const session = await auth.getSession();
+        setSession(session);
+        showToast(`Welcome, ${result.user.name}!`);
 
-      // Trigger initial sync
-      const status = await sync.now();
-      setSyncStatus(status);
-    } else {
-      setError(result.error || "Login failed");
+        const status = await sync.now();
+        setSyncStatus(status);
+      } else {
+        setError(result.error || "Login failed. Check your email and password.");
+      }
+    } catch (err: any) {
+      setError(err?.message || "Connection failed. Is your server URL correct?");
     }
 
     setLoading(false);
   }
 
-  return (
-    <div className="flex h-full items-center justify-center bg-base">
-      <div className="w-full max-w-md px-6">
-        {/* Logo */}
-        <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 grid size-16 place-items-center rounded-2xl bg-primary-soft">
-            <Church className="size-8 text-primary-bright" />
+  if (view === "forgot") {
+    return (
+      <div className="flex flex-1 items-center justify-center bg-base">
+        <div className="w-full max-w-sm px-6">
+          <div className="mb-5 grid size-12 place-items-center rounded-2xl bg-primary-soft">
+            <Mail className="size-6 text-primary-bright" />
           </div>
-          <h1 className="text-2xl font-bold text-ink">WorshipHQ</h1>
-          <p className="mt-1 text-sm text-ink-muted">Church Management Desktop</p>
-        </div>
+          <h1 className="text-2xl font-bold text-ink">Reset your password</h1>
+          <p className="mt-2 text-sm text-ink-muted">
+            Visit your WorshipHQ site to reset your password. Desktop login uses the same credentials as your web account.
+          </p>
 
-        {/* Connection status */}
-        <div className="mb-6 flex items-center justify-center gap-2">
-          {online ? (
-            <>
-              <Wifi className="size-3.5 text-success" />
-              <span className="text-xs text-success font-medium">Online</span>
-            </>
+          {resetSent ? (
+            <div className="mt-6 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
+              Check your email for reset instructions on your WorshipHQ site.
+            </div>
           ) : (
-            <>
-              <WifiOff className="size-3.5 text-danger" />
-              <span className="text-xs text-danger font-medium">Offline</span>
-            </>
+            <div className="mt-6 space-y-4">
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink">Server URL</label>
+                <input
+                  type="url"
+                  value={serverUrl}
+                  onChange={(e) => setServerUrl(e.target.value)}
+                  className="input"
+                  placeholder="https://worshiphq.com"
+                />
+              </div>
+              <p className="text-xs text-ink-faint">
+                Open your WorshipHQ site in a browser and use the "Forgot password?" link on the login page.
+              </p>
+            </div>
           )}
+
+          <button
+            onClick={() => { setView("login"); setResetSent(false); }}
+            className="mt-5 flex items-center justify-center gap-1.5 text-sm text-ink-muted hover:text-ink w-full"
+          >
+            <ArrowLeft className="size-3.5" />
+            Back to login
+          </button>
         </div>
+      </div>
+    );
+  }
 
-        <form onSubmit={handleLogin} className="card space-y-4">
-          <div>
-            <label className="block text-xs font-medium text-ink-muted mb-1">Server URL</label>
-            <input
-              type="url"
-              value={serverUrl}
-              onChange={(e) => setServerUrl(e.target.value)}
-              className="input"
-              placeholder="https://worshiphq.com"
-            />
+  return (
+    <div className="flex flex-1 bg-base">
+      {/* Left brand panel */}
+      <div className="hidden lg:flex lg:w-[45%] flex-col justify-between border-r border-line bg-surface p-10 relative overflow-hidden">
+        <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/10" />
+        <div className="relative flex items-center justify-center flex-1">
+          <img src="/logo.png" alt="WorshipHQ" className="h-40 w-auto object-contain" />
+        </div>
+        <div className="relative max-w-md">
+          <p className="text-lg font-medium leading-snug text-ink">
+            &ldquo;We moved 1,200 members onto WorshipHQ in a weekend. Online giving alone has transformed our offerings.&rdquo;
+          </p>
+          <p className="mt-3 text-sm text-ink-muted">Rev. Daniel Mensah · Grace Temple, Accra</p>
+        </div>
+        <div className="relative text-xs text-ink-faint mt-6">
+          © {new Date().getFullYear()} WorshipHQ
+        </div>
+      </div>
+
+      {/* Right form panel */}
+      <div className="flex flex-1 flex-col items-center justify-center px-6 py-10">
+        <div className="w-full max-w-sm">
+          {/* Logo for mobile / narrow view */}
+          <div className="mb-8 lg:hidden text-center">
+            <img src="/icon.png" alt="WorshipHQ" className="mx-auto h-16 w-auto object-contain" />
           </div>
 
-          <div>
-            <label className="block text-xs font-medium text-ink-muted mb-1">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="input"
-              placeholder="you@church.org"
-              autoFocus
-            />
-          </div>
+          <h1 className="text-3xl font-bold text-ink">Welcome back</h1>
+          <p className="mt-2 text-sm text-ink-muted">Log in to your church&rsquo;s command center.</p>
 
-          <div>
-            <label className="block text-xs font-medium text-ink-muted mb-1">Password</label>
-            <input
-              type="password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="input"
-              placeholder="••••••••"
-            />
+          {/* Connection status */}
+          <div className="mt-4 flex items-center gap-2">
+            {online ? (
+              <>
+                <Wifi className="size-3.5 text-success" />
+                <span className="text-xs text-success font-medium">Online</span>
+              </>
+            ) : (
+              <>
+                <WifiOff className="size-3.5 text-danger" />
+                <span className="text-xs text-danger font-medium">Offline — login requires internet</span>
+              </>
+            )}
           </div>
 
           {error && (
-            <p className="text-xs font-medium text-danger">{error}</p>
+            <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+              <AlertCircle className="size-4 shrink-0" />
+              {error}
+            </div>
           )}
 
-          <button type="submit" disabled={loading || !online} className="btn-primary w-full py-2.5">
-            {loading && <Loader2 className="size-4 whq-spin" />}
-            {loading ? "Connecting..." : "Connect & Sync"}
-          </button>
+          <form onSubmit={handleLogin} className="mt-6 space-y-4">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-ink">Server URL</label>
+              <input
+                type="url"
+                value={serverUrl}
+                onChange={(e) => setServerUrl(e.target.value)}
+                className="input"
+                placeholder="https://worshiphq.com"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-ink">Email</label>
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                className="input"
+                placeholder="you@church.org"
+                autoFocus
+              />
+            </div>
+
+            <div>
+              <div className="flex items-center justify-between mb-1.5">
+                <label className="text-sm font-medium text-ink">Password</label>
+                <button
+                  type="button"
+                  onClick={() => setView("forgot")}
+                  className="text-xs text-primary-bright hover:underline"
+                >
+                  Forgot password?
+                </button>
+              </div>
+              <div className="relative">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input pr-10"
+                  placeholder="••••••••"
+                />
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-0 top-0 grid h-full w-10 place-items-center text-ink-faint transition-colors hover:text-ink"
+                  aria-label={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading || !online}
+              className="btn-primary w-full py-2.5 text-sm font-semibold"
+            >
+              {loading && <Loader2 className="size-4 whq-spin" />}
+              {loading ? "Connecting..." : "Log in"}
+            </button>
+          </form>
 
           {!online && (
-            <p className="text-center text-xs text-ink-faint">
+            <p className="mt-4 text-center text-xs text-ink-faint">
               You need internet to log in for the first time. After that, the app works fully offline.
             </p>
           )}
-        </form>
 
-        <p className="mt-6 text-center text-[11px] text-ink-faint">
-          v0.1.0 · Data stored locally · Syncs with your WorshipHQ account
-        </p>
+          <p className="mt-8 text-center text-[11px] text-ink-faint">
+            Data stored locally · Syncs with your WorshipHQ account
+          </p>
+        </div>
       </div>
     </div>
   );

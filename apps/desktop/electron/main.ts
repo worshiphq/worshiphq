@@ -16,7 +16,7 @@ function createWindow() {
     minWidth: 1024,
     minHeight: 700,
     title: "WorshipHQ",
-    icon: path.join(__dirname, "../build/icon.ico"),
+    icon: path.join(__dirname, "../build/icon.png"),
     frame: false,
     titleBarStyle: "hidden",
     webPreferences: {

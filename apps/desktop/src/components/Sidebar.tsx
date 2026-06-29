@@ -6,7 +6,7 @@ import {
   Megaphone, BookUser, Calendar, BookMarked, Package, Receipt,
   DoorOpen, BookHeart, Sparkles, HeartHandshake, PiggyBank,
   CalendarClock, Crown, Sun, MessageSquare, BellRing, ScrollText,
-  PanelLeftClose, PanelLeft, Church,
+  PanelLeftClose, PanelLeft,
 } from "lucide-react";
 import { useAppStore } from "../stores/app-store";
 import { cn } from "../lib/utils";
@@ -97,7 +97,7 @@ export function Sidebar() {
       {/* Header */}
       <div className="flex items-center gap-2.5 border-b border-line px-3 py-3">
         <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary-soft">
-          <Church className="size-4 text-primary-bright" />
+          <img src="/icon.png" alt="" className="size-5 object-contain" />
         </div>
         {!collapsed && (
           <div className="min-w-0 flex-1">
