@@ -75,6 +75,8 @@ export async function GET(req: Request) {
     const batches = await Promise.all([
       pullTable(db.person, "person", churchId, sinceDate, "joinedAt"),
       pullTable(db.department, "department", churchId, sinceDate),
+      pullTable(db.departmentPosition, "department_position", churchId, sinceDate),
+      pullTable(db.customRole, "custom_role", churchId, sinceDate),
       pullTable(db.fund, "fund", churchId, sinceDate),
       pullTable(db.gift, "gift", churchId, sinceDate, "date"),
       pullTable(db.attendanceSession, "attendance_session", churchId, sinceDate),
@@ -87,6 +89,7 @@ export async function GET(req: Request) {
       pullTable(db.group, "group", churchId, sinceDate),
       pullTable(db.harvest, "harvest", churchId, sinceDate),
       pullTable(db.harvestContribution, "harvest_contribution", churchId, sinceDate),
+      pullTable(db.dayBornWeek, "day_born_week", churchId, sinceDate),
       pullTable(db.followUp, "follow_up", churchId, sinceDate),
       pullTable(db.prayerRequest, "prayer_request", churchId, sinceDate),
       pullTable(db.churchNotice, "church_notice", churchId, sinceDate),
@@ -94,12 +97,14 @@ export async function GET(req: Request) {
       pullTable(db.asset, "asset", churchId, sinceDate),
       pullTable(db.budget, "budget", churchId, sinceDate),
       pullTable(db.volunteerRoster, "volunteer_roster", churchId, sinceDate),
+      pullTable(db.facility, "facility", churchId, sinceDate),
       pullTable(db.booking, "booking", churchId, sinceDate),
       pullTable(db.welfareRecord, "welfare_record", churchId, sinceDate),
       pullTable(db.devotional, "devotional", churchId, sinceDate),
       pullTable(db.testimony, "testimony", churchId, sinceDate),
       pullTable(db.counselingSession, "counseling_session", churchId, sinceDate),
       pullTable(db.pledge, "pledge", churchId, sinceDate),
+      pullTable(db.campaign, "campaign", churchId, sinceDate),
       pullTable(db.communication, "communication", churchId, sinceDate),
       pullTable(db.automation, "automation", churchId, sinceDate),
       pullTable(db.auditLog, "audit_log", churchId, sinceDate),
@@ -109,13 +114,73 @@ export async function GET(req: Request) {
       changes.push(...batch);
     }
 
-    // Also pull users for this church (needed for audit display, etc.)
+    // Pull users (no password hash)
     const users = await db.user.findMany({
       where: { churchId },
-      select: { id: true, churchId: true, email: true, name: true, role: true, phone: true, photoUrl: true },
+      select: { id: true, churchId: true, email: true, name: true, role: true, phone: true, photoUrl: true, customRoleId: true, branchId: true, personId: true },
     });
     for (const u of users) {
       changes.push({ table: "user", recordId: u.id, action: "upsert", data: toSnakeCase(u as any) });
+    }
+
+    // Pull junction tables (no churchId filter — filter via parent)
+    const personIds = changes.filter(c => c.table === "person").map(c => c.recordId);
+    if (personIds.length > 0) {
+      const personDepts = await db.person.findMany({
+        where: { churchId },
+        select: { id: true, departments: { select: { id: true } } },
+      });
+      for (const p of personDepts) {
+        for (const d of p.departments) {
+          changes.push({
+            table: "person_department",
+            recordId: `${p.id}_${d.id}`,
+            action: "upsert",
+            data: { person_id: p.id, department_id: d.id },
+          });
+        }
+      }
+    }
+
+    // Pull group members
+    const groups = await db.group.findMany({
+      where: { churchId },
+      select: { id: true, members: { select: { id: true } } },
+    });
+    for (const g of groups) {
+      for (const m of g.members) {
+        changes.push({
+          table: "group_member",
+          recordId: `${g.id}_${m.id}`,
+          action: "upsert",
+          data: { group_id: g.id, person_id: m.id },
+        });
+      }
+    }
+
+    // Pull child tables that use parent FK, not churchId
+    const budgetIds = changes.filter(c => c.table === "budget").map(c => c.recordId);
+    if (budgetIds.length > 0) {
+      const items = await db.budgetItem.findMany({ where: { churchId } });
+      for (const i of items) {
+        changes.push({ table: "budget_item", recordId: i.id, action: "upsert", data: toSnakeCase(i as any) });
+      }
+    }
+
+    const rosterIds = changes.filter(c => c.table === "volunteer_roster").map(c => c.recordId);
+    if (rosterIds.length > 0) {
+      const slots = await db.volunteerSlot.findMany({ where: { churchId } });
+      for (const s of slots) {
+        changes.push({ table: "volunteer_slot", recordId: s.id, action: "upsert", data: toSnakeCase(s as any) });
+      }
+    }
+
+    const weekIds = changes.filter(c => c.table === "day_born_week").map(c => c.recordId);
+    if (weekIds.length > 0) {
+      const entries = await db.dayBornEntry.findMany({ where: { weekId: { in: weekIds } } });
+      for (const e of entries) {
+        changes.push({ table: "day_born_entry", recordId: e.id, action: "upsert", data: toSnakeCase(e as any) });
+      }
     }
 
     return NextResponse.json({ changes, count: changes.length });

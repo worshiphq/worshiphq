@@ -304,23 +304,55 @@ async function pullChanges(serverUrl: string, token: string) {
   const { changes } = await res.json();
   const db = getDatabase();
 
+  const tableColumnsCache: Record<string, Set<string>> = {};
+
+  function getTableColumns(table: string): Set<string> {
+    if (tableColumnsCache[table]) return tableColumnsCache[table];
+    try {
+      const info = db.prepare(`PRAGMA table_info("${table}")`).all() as any[];
+      tableColumnsCache[table] = new Set(info.map((r: any) => r.name));
+    } catch {
+      tableColumnsCache[table] = new Set();
+    }
+    return tableColumnsCache[table];
+  }
+
+  let applied = 0;
+  let skipped = 0;
+
   const applyChanges = db.transaction(() => {
     for (const change of changes) {
       const { table, recordId, action, data } = change;
 
-      if (action === "delete") {
-        db.prepare(`DELETE FROM "${table}" WHERE id = ?`).run(recordId);
-      } else if (action === "insert" || action === "upsert") {
-        const cols = Object.keys(data);
-        const placeholders = cols.map(() => "?").join(", ");
-        const values = cols.map((c: string) => data[c]);
-        db.prepare(
-          `INSERT OR REPLACE INTO "${table}" (${cols.map((c) => `"${c}"`).join(", ")}) VALUES (${placeholders})`
-        ).run(...values);
+      try {
+        if (action === "delete") {
+          db.prepare(`DELETE FROM "${table}" WHERE id = ?`).run(recordId);
+          applied++;
+        } else if (action === "insert" || action === "upsert") {
+          const validCols = getTableColumns(table);
+          if (validCols.size === 0) { skipped++; continue; }
+
+          const cols = Object.keys(data).filter((c) => validCols.has(c));
+          if (cols.length === 0) { skipped++; continue; }
+
+          const placeholders = cols.map(() => "?").join(", ");
+          const values = cols.map((c: string) => {
+            const v = data[c];
+            if (typeof v === "boolean") return v ? 1 : 0;
+            if (typeof v === "object" && v !== null) return JSON.stringify(v);
+            return v;
+          });
+          db.prepare(
+            `INSERT OR REPLACE INTO "${table}" (${cols.map((c) => `"${c}"`).join(", ")}) VALUES (${placeholders})`
+          ).run(...values);
+          applied++;
+        }
+      } catch (err) {
+        skipped++;
       }
     }
   });
 
   applyChanges();
-  broadcast("sync:progress", { phase: "pulling", progress: 90, count: changes.length });
+  broadcast("sync:progress", { phase: "pulling", progress: 90, count: applied, skipped });
 }
