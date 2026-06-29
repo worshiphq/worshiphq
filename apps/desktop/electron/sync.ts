@@ -174,6 +174,8 @@ export function registerSyncHandlers() {
       setSyncMeta("user_email", data.user.email);
       setSyncMeta("user_role", data.user.role);
       setSyncMeta("church_name", data.church.name);
+      setSyncMeta("user_photo_url", data.user.photoUrl || "");
+      setSyncMeta("church_logo_url", data.church.logoUrl || "");
 
       // Upsert church + user locally
       const db = getDatabase();
@@ -207,7 +209,9 @@ export function registerSyncHandlers() {
       userName: getSyncMeta("user_name"),
       userEmail: getSyncMeta("user_email"),
       userRole: getSyncMeta("user_role"),
+      userPhotoUrl: getSyncMeta("user_photo_url") || null,
       churchName: getSyncMeta("church_name"),
+      churchLogoUrl: getSyncMeta("church_logo_url") || null,
       serverUrl: getSyncMeta("server_url"),
       lastSyncAt: getSyncMeta("last_sync_at"),
     };

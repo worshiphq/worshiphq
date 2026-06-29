@@ -31,7 +31,9 @@ export interface Session {
   userName: string;
   userEmail: string;
   userRole: string;
+  userPhotoUrl: string | null;
   churchName: string;
+  churchLogoUrl: string | null;
   serverUrl: string;
   lastSyncAt: string | null;
 }
