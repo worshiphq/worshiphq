@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Loader2, Wifi, WifiOff, Eye, EyeOff, AlertCircle, ExternalLink } from "lucide-react";
 import { auth } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
@@ -14,8 +14,16 @@ export function LoginPage() {
   const [error, setError] = useState("");
   const [online, setOnline] = useState(navigator.onLine);
 
-  window.addEventListener("online", () => setOnline(true));
-  window.addEventListener("offline", () => setOnline(false));
+  useEffect(() => {
+    const onOnline = () => setOnline(true);
+    const onOffline = () => setOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+    };
+  }, []);
 
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault();
