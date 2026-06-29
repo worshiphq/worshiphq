@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   RefreshCw, Cloud, CloudOff, LogOut,
   Loader2, Settings, User,
@@ -12,12 +12,34 @@ import { timeAgo } from "../lib/utils";
 export function Topbar({ title }: { title: string }) {
   const { session, syncStatus, setSyncStatus, setSession } = useAppStore();
   const [syncing, setSyncing] = useState(false);
+  const [syncPhase, setSyncPhase] = useState<string | null>(null);
   const [online, setOnline] = useState(navigator.onLine);
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
 
-  window.addEventListener("online", () => setOnline(true));
-  window.addEventListener("offline", () => setOnline(false));
+  useEffect(() => {
+    const onOnline = () => setOnline(true);
+    const onOffline = () => setOnline(false);
+    window.addEventListener("online", onOnline);
+    window.addEventListener("offline", onOffline);
+
+    const unsub = sync.onProgress((p) => {
+      setSyncPhase(p.phase);
+      if (p.phase === "done" || p.phase === "error") {
+        setSyncing(false);
+        setSyncPhase(null);
+        sync.status().then(setSyncStatus);
+      } else {
+        setSyncing(true);
+      }
+    });
+
+    return () => {
+      window.removeEventListener("online", onOnline);
+      window.removeEventListener("offline", onOffline);
+      unsub();
+    };
+  }, []);
 
   async function handleSync() {
     setSyncing(true);
@@ -38,13 +60,20 @@ export function Topbar({ title }: { title: string }) {
       <div className="flex items-center gap-3">
         {/* Sync status */}
         <div className="flex items-center gap-1.5">
-          {syncStatus.pendingChanges > 0 && (
+          {syncing && syncPhase && (
+            <span className="flex items-center gap-1.5 badge badge-primary">
+              <Loader2 className="size-3 whq-spin" />
+              {syncPhase === "pushing" ? "Pushing..." : syncPhase === "pulling" ? "Syncing..." : "Starting..."}
+            </span>
+          )}
+
+          {!syncing && syncStatus.pendingChanges > 0 && (
             <span className="badge badge-gold">
               {syncStatus.pendingChanges} pending
             </span>
           )}
 
-          {syncStatus.lastSyncAt && (
+          {!syncing && syncStatus.lastSyncAt && (
             <span className="text-[10px] text-ink-faint">
               Synced {timeAgo(syncStatus.lastSyncAt)}
             </span>
@@ -88,7 +117,7 @@ export function Topbar({ title }: { title: string }) {
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-xl border border-line bg-surface p-1 shadow-lg">
+              <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-xl border border-line bg-surface p-1 shadow-lg animate-scale-in">
                 <div className="px-3 py-2 border-b border-line mb-1">
                   <p className="text-xs font-medium text-ink">{session?.userName}</p>
                   <p className="text-[10px] text-ink-faint">{session?.userEmail}</p>
