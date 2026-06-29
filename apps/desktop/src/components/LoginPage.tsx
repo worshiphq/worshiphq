@@ -1,12 +1,12 @@
 import { useState } from "react";
 import { Loader2, Wifi, WifiOff, Eye, EyeOff, AlertCircle, ExternalLink } from "lucide-react";
-import { auth, sync } from "../lib/api";
+import { auth } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
 
 const SERVER_URL = "https://worshiphq.app";
 
 export function LoginPage() {
-  const { setSession, setSyncStatus, showToast } = useAppStore();
+  const { setSession, showToast } = useAppStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -30,10 +30,7 @@ export function LoginPage() {
       if (result.success && result.user) {
         const session = await auth.getSession();
         setSession(session);
-        showToast(`Welcome, ${result.user.name}!`);
-
-        const status = await sync.now();
-        setSyncStatus(status);
+        showToast(`Welcome, ${result.user.name}! Syncing your data...`);
       } else {
         setError(result.error || "Login failed. Check your email and password.");
       }

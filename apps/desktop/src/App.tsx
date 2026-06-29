@@ -31,7 +31,7 @@ export default function App() {
     init();
 
     const unsub = sync.onProgress((p) => {
-      if (p.phase === "done") {
+      if (p.phase === "done" || p.phase === "error") {
         sync.status().then(setSyncStatus);
       }
     });
