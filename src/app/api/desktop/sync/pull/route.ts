@@ -23,7 +23,6 @@ function verifyToken(authHeader: string | null): { uid: string; cid: string } | 
   }
 }
 
-// Prisma camelCase → SQLite snake_case for the desktop client
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
   const result: Record<string, any> = {};
   for (const [key, value] of Object.entries(obj)) {
@@ -41,6 +40,24 @@ function toSnakeCase(obj: Record<string, any>): Record<string, any> {
   return result;
 }
 
+async function pullTable(
+  model: any,
+  table: string,
+  churchId: string,
+  sinceDate: Date,
+  dateField: string = "createdAt"
+) {
+  const where: any = { churchId };
+  where[dateField] = { gte: sinceDate };
+  const rows = await model.findMany({ where });
+  return rows.map((r: any) => ({
+    table,
+    recordId: r.id,
+    action: "upsert" as const,
+    data: toSnakeCase(r as any),
+  }));
+}
+
 export async function GET(req: Request) {
   const auth = verifyToken(req.headers.get("authorization"));
   if (!auth) {
@@ -55,83 +72,50 @@ export async function GET(req: Request) {
   try {
     const changes: Array<{ table: string; recordId: string; action: string; data: any }> = [];
 
-    // Pull all records updated after `since` for the church.
-    // For tables without `updatedAt`, we use `createdAt`.
-    // On first sync (since = epoch), this pulls everything.
+    const batches = await Promise.all([
+      pullTable(db.person, "person", churchId, sinceDate, "joinedAt"),
+      pullTable(db.department, "department", churchId, sinceDate),
+      pullTable(db.fund, "fund", churchId, sinceDate),
+      pullTable(db.gift, "gift", churchId, sinceDate, "date"),
+      pullTable(db.attendanceSession, "attendance_session", churchId, sinceDate),
+      pullTable(db.attendanceRecord, "attendance_record", churchId, sinceDate, "date"),
+      pullTable(db.event, "event", churchId, sinceDate, "startsAt"),
+      pullTable(db.visitor, "visitor", churchId, sinceDate),
+      pullTable(db.expense, "expense", churchId, sinceDate),
+      pullTable(db.transaction, "transaction", churchId, sinceDate, "date"),
+      pullTable(db.branch, "branch", churchId, sinceDate),
+      pullTable(db.group, "group", churchId, sinceDate),
+      pullTable(db.harvest, "harvest", churchId, sinceDate),
+      pullTable(db.harvestContribution, "harvest_contribution", churchId, sinceDate),
+      pullTable(db.followUp, "follow_up", churchId, sinceDate),
+      pullTable(db.prayerRequest, "prayer_request", churchId, sinceDate),
+      pullTable(db.churchNotice, "church_notice", churchId, sinceDate),
+      pullTable(db.sermon, "sermon", churchId, sinceDate),
+      pullTable(db.asset, "asset", churchId, sinceDate),
+      pullTable(db.budget, "budget", churchId, sinceDate),
+      pullTable(db.volunteerRoster, "volunteer_roster", churchId, sinceDate),
+      pullTable(db.booking, "booking", churchId, sinceDate),
+      pullTable(db.welfareRecord, "welfare_record", churchId, sinceDate),
+      pullTable(db.devotional, "devotional", churchId, sinceDate),
+      pullTable(db.testimony, "testimony", churchId, sinceDate),
+      pullTable(db.counselingSession, "counseling_session", churchId, sinceDate),
+      pullTable(db.pledge, "pledge", churchId, sinceDate),
+      pullTable(db.communication, "communication", churchId, sinceDate),
+      pullTable(db.automation, "automation", churchId, sinceDate),
+      pullTable(db.auditLog, "audit_log", churchId, sinceDate),
+    ]);
 
-    const people = await db.person.findMany({
-      where: { churchId, joinedAt: { gte: sinceDate } },
-    });
-    for (const p of people) {
-      changes.push({ table: "person", recordId: p.id, action: "upsert", data: toSnakeCase(p as any) });
+    for (const batch of batches) {
+      changes.push(...batch);
     }
 
-    const departments = await db.department.findMany({
-      where: { churchId, createdAt: { gte: sinceDate } },
+    // Also pull users for this church (needed for audit display, etc.)
+    const users = await db.user.findMany({
+      where: { churchId },
+      select: { id: true, churchId: true, email: true, name: true, role: true, phone: true, photoUrl: true },
     });
-    for (const d of departments) {
-      changes.push({ table: "department", recordId: d.id, action: "upsert", data: toSnakeCase(d as any) });
-    }
-
-    const funds = await db.fund.findMany({ where: { churchId } });
-    for (const f of funds) {
-      changes.push({ table: "fund", recordId: f.id, action: "upsert", data: toSnakeCase(f as any) });
-    }
-
-    const gifts = await db.gift.findMany({
-      where: { churchId, date: { gte: sinceDate } },
-    });
-    for (const g of gifts) {
-      changes.push({ table: "gift", recordId: g.id, action: "upsert", data: toSnakeCase(g as any) });
-    }
-
-    const sessions = await db.attendanceSession.findMany({
-      where: { churchId, createdAt: { gte: sinceDate } },
-    });
-    for (const s of sessions) {
-      changes.push({ table: "attendance_session", recordId: s.id, action: "upsert", data: toSnakeCase(s as any) });
-    }
-
-    const records = await db.attendanceRecord.findMany({
-      where: { churchId, date: { gte: sinceDate } },
-    });
-    for (const r of records) {
-      changes.push({ table: "attendance_record", recordId: r.id, action: "upsert", data: toSnakeCase(r as any) });
-    }
-
-    const events = await db.event.findMany({
-      where: { churchId, startsAt: { gte: sinceDate } },
-    });
-    for (const e of events) {
-      changes.push({ table: "event", recordId: e.id, action: "upsert", data: toSnakeCase(e as any) });
-    }
-
-    const visitors = await db.visitor.findMany({
-      where: { churchId, createdAt: { gte: sinceDate } },
-    });
-    for (const v of visitors) {
-      changes.push({ table: "visitor", recordId: v.id, action: "upsert", data: toSnakeCase(v as any) });
-    }
-
-    const expenses = await db.expense.findMany({
-      where: { churchId, createdAt: { gte: sinceDate } },
-    });
-    for (const e of expenses) {
-      changes.push({ table: "expense", recordId: e.id, action: "upsert", data: toSnakeCase(e as any) });
-    }
-
-    const transactions = await db.transaction.findMany({
-      where: { churchId, date: { gte: sinceDate } },
-    });
-    for (const t of transactions) {
-      changes.push({ table: "transaction", recordId: t.id, action: "upsert", data: toSnakeCase(t as any) });
-    }
-
-    const branches = await db.branch.findMany({
-      where: { churchId, createdAt: { gte: sinceDate } },
-    });
-    for (const b of branches) {
-      changes.push({ table: "branch", recordId: b.id, action: "upsert", data: toSnakeCase(b as any) });
+    for (const u of users) {
+      changes.push({ table: "user", recordId: u.id, action: "upsert", data: toSnakeCase(u as any) });
     }
 
     return NextResponse.json({ changes, count: changes.length });

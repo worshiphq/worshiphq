@@ -193,6 +193,25 @@ export function registerSyncHandlers() {
         data.user.name, data.user.role, data.user.phone, data.user.photoUrl
       );
 
+      // Auto-trigger full sync after first login
+      setTimeout(async () => {
+        if (!syncing) {
+          syncing = true;
+          broadcast("sync:progress", { phase: "starting", progress: 0 });
+          try {
+            broadcast("sync:progress", { phase: "pulling", progress: 20 });
+            await pullChanges(serverUrl, data.token);
+            const now = new Date().toISOString();
+            setSyncMeta("last_sync_at", now);
+            broadcast("sync:progress", { phase: "done", progress: 100 });
+          } catch (err: any) {
+            broadcast("sync:progress", { phase: "error", progress: 0, error: err?.message || "Initial sync failed" });
+          } finally {
+            syncing = false;
+          }
+        }
+      }, 500);
+
       return { success: true, user: data.user, church: data.church };
     } catch (err: any) {
       return { success: false, error: err?.message || "Connection failed" };
