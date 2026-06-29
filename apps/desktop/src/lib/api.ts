@@ -13,6 +13,11 @@ declare global {
       syncNow: () => Promise<SyncStatus>;
       getSyncStatus: () => Promise<SyncStatus>;
       onSyncProgress: (cb: (progress: SyncProgress) => void) => () => void;
+      winMinimize: () => void;
+      winMaximize: () => void;
+      winClose: () => void;
+      winIsMaximized: () => Promise<boolean>;
+      onMaximizedChange: (cb: (maximized: boolean) => void) => () => void;
       getVersion: () => Promise<string>;
       getDataPath: () => Promise<string>;
     };

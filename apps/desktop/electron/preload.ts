@@ -30,6 +30,17 @@ contextBridge.exposeInMainWorld("api", {
     return () => ipcRenderer.removeListener("sync:progress", handler);
   },
 
+  // ── Window controls ──
+  winMinimize: () => ipcRenderer.send("win:minimize"),
+  winMaximize: () => ipcRenderer.send("win:maximize"),
+  winClose: () => ipcRenderer.send("win:close"),
+  winIsMaximized: () => ipcRenderer.invoke("win:isMaximized"),
+  onMaximizedChange: (cb: (maximized: boolean) => void) => {
+    const handler = (_e: any, maximized: boolean) => cb(maximized);
+    ipcRenderer.on("win:maximized", handler);
+    return () => ipcRenderer.removeListener("win:maximized", handler);
+  },
+
   // ── App info ──
   getVersion: () => ipcRenderer.invoke("app:version"),
   getDataPath: () => ipcRenderer.invoke("app:dataPath"),

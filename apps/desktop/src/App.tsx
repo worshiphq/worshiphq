@@ -5,6 +5,7 @@ import { auth, sync } from "./lib/api";
 import { useAppStore } from "./stores/app-store";
 import { LoginPage } from "./components/LoginPage";
 import { Sidebar } from "./components/Sidebar";
+import { TitleBar } from "./components/TitleBar";
 import { Toast } from "./components/Toast";
 import { DashboardPage } from "./pages/DashboardPage";
 import { PeoplePage } from "./pages/PeoplePage";
@@ -40,25 +41,31 @@ export default function App() {
 
   if (checking) {
     return (
-      <div className="flex h-full items-center justify-center bg-base">
-        <Loader2 className="size-8 text-primary-bright whq-spin" />
+      <div className="flex h-screen flex-col bg-base">
+        <TitleBar />
+        <div className="flex flex-1 items-center justify-center">
+          <Loader2 className="size-8 text-primary-bright whq-spin" />
+        </div>
       </div>
     );
   }
 
   if (!session) {
     return (
-      <>
+      <div className="flex h-screen flex-col">
+        <TitleBar />
         <LoginPage />
         <Toast />
-      </>
+      </div>
     );
   }
 
   return (
-    <div className="flex h-full">
-      <Sidebar />
-      <div className="flex flex-1 flex-col min-w-0">
+    <div className="flex h-screen flex-col">
+      <TitleBar />
+      <div className="flex flex-1 min-h-0">
+        <Sidebar />
+        <div className="flex flex-1 flex-col min-w-0">
         <Routes>
           <Route path="/" element={<DashboardPage />} />
           <Route path="/people" element={<PeoplePage />} />
@@ -95,8 +102,9 @@ export default function App() {
           <Route path="/audit-log" element={<PlaceholderPage title="Audit Log" />} />
           <Route path="/settings" element={<PlaceholderPage title="Settings" />} />
         </Routes>
+        </div>
+        <Toast />
       </div>
-      <Toast />
     </div>
   );
 }

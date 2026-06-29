@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, shell } from "electron";
+import { app, BrowserWindow, ipcMain, shell, Menu } from "electron";
 import path from "path";
 import { initDatabase, getDatabase } from "./database";
 import { registerSyncHandlers } from "./sync";
@@ -17,14 +17,18 @@ function createWindow() {
     minHeight: 700,
     title: "WorshipHQ",
     icon: path.join(__dirname, "../build/icon.ico"),
+    frame: false,
+    titleBarStyle: "hidden",
     webPreferences: {
       preload: PRELOAD,
       contextIsolation: true,
       nodeIntegration: false,
     },
     show: false,
-    backgroundColor: "#0c0c10",
+    backgroundColor: "#f4f4f7",
   });
+
+  Menu.setApplicationMenu(null);
 
   mainWindow.once("ready-to-show", () => {
     mainWindow?.show();
@@ -50,7 +54,19 @@ app.whenReady().then(() => {
   registerDataHandlers();
   registerSyncHandlers();
 
+  // Window control IPC
+  ipcMain.on("win:minimize", () => mainWindow?.minimize());
+  ipcMain.on("win:maximize", () => {
+    if (mainWindow?.isMaximized()) mainWindow.unmaximize();
+    else mainWindow?.maximize();
+  });
+  ipcMain.on("win:close", () => mainWindow?.close());
+  ipcMain.handle("win:isMaximized", () => mainWindow?.isMaximized() ?? false);
+
   createWindow();
+
+  mainWindow?.on("maximize", () => mainWindow?.webContents.send("win:maximized", true));
+  mainWindow?.on("unmaximize", () => mainWindow?.webContents.send("win:maximized", false));
 
   app.on("activate", () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
