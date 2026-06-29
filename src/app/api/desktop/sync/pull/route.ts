@@ -23,10 +23,15 @@ function verifyToken(authHeader: string | null): { uid: string; cid: string } | 
   }
 }
 
+const COLUMN_RENAMES: Record<string, string> = {
+  trigger: "trigger_type",
+};
+
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
   const result: Record<string, any> = {};
   for (const [key, value] of Object.entries(obj)) {
-    const snakeKey = key.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
+    let snakeKey = key.replace(/[A-Z]/g, (m) => `_${m.toLowerCase()}`);
+    if (COLUMN_RENAMES[snakeKey]) snakeKey = COLUMN_RENAMES[snakeKey];
     if (value instanceof Date) {
       result[snakeKey] = value.toISOString();
     } else if (typeof value === "bigint") {
@@ -45,10 +50,12 @@ async function pullTable(
   table: string,
   churchId: string,
   sinceDate: Date,
-  dateField: string = "createdAt"
+  dateField: string | null = "createdAt"
 ) {
   const where: any = { churchId };
-  where[dateField] = { gte: sinceDate };
+  if (dateField) {
+    where[dateField] = { gte: sinceDate };
+  }
   const rows = await model.findMany({ where });
   return rows.map((r: any) => ({
     table,
@@ -77,7 +84,7 @@ export async function GET(req: Request) {
       pullTable(db.department, "department", churchId, sinceDate),
       pullTable(db.departmentPosition, "department_position", churchId, sinceDate),
       pullTable(db.customRole, "custom_role", churchId, sinceDate),
-      pullTable(db.fund, "fund", churchId, sinceDate),
+      pullTable(db.fund, "fund", churchId, sinceDate, null),
       pullTable(db.gift, "gift", churchId, sinceDate, "date"),
       pullTable(db.attendanceSession, "attendance_session", churchId, sinceDate),
       pullTable(db.attendanceRecord, "attendance_record", churchId, sinceDate, "date"),
@@ -88,7 +95,7 @@ export async function GET(req: Request) {
       pullTable(db.branch, "branch", churchId, sinceDate),
       pullTable(db.group, "group", churchId, sinceDate),
       pullTable(db.harvest, "harvest", churchId, sinceDate),
-      pullTable(db.harvestContribution, "harvest_contribution", churchId, sinceDate),
+      pullTable(db.harvestContribution, "harvest_contribution", churchId, sinceDate, "date"),
       pullTable(db.dayBornWeek, "day_born_week", churchId, sinceDate),
       pullTable(db.followUp, "follow_up", churchId, sinceDate),
       pullTable(db.prayerRequest, "prayer_request", churchId, sinceDate),
@@ -103,10 +110,10 @@ export async function GET(req: Request) {
       pullTable(db.devotional, "devotional", churchId, sinceDate),
       pullTable(db.testimony, "testimony", churchId, sinceDate),
       pullTable(db.counselingSession, "counseling_session", churchId, sinceDate),
-      pullTable(db.pledge, "pledge", churchId, sinceDate),
-      pullTable(db.campaign, "campaign", churchId, sinceDate),
+      pullTable(db.pledge, "pledge", churchId, sinceDate, null),
+      pullTable(db.campaign, "campaign", churchId, sinceDate, null),
       pullTable(db.communication, "communication", churchId, sinceDate),
-      pullTable(db.automation, "automation", churchId, sinceDate),
+      pullTable(db.automation, "automation", churchId, sinceDate, null),
       pullTable(db.auditLog, "audit_log", churchId, sinceDate),
     ]);
 
