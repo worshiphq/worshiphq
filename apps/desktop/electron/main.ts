@@ -64,8 +64,6 @@ app.whenReady().then(() => {
   ipcMain.handle("win:isMaximized", () => mainWindow?.isMaximized() ?? false);
 
   ipcMain.handle("shell:openExternal", (_e, url: string) => shell.openExternal(url));
-  ipcMain.handle("app:version", () => app.getVersion());
-  ipcMain.handle("app:dataPath", () => path.join(app.getPath("userData"), "worshiphq.db"));
 
   createWindow();
 

@@ -2,10 +2,15 @@ import { ipcMain, app } from "electron";
 import { getDatabase } from "./database";
 import { v4 as uuid } from "uuid";
 
+function cleanTable(table: string): string {
+  return table.startsWith("[") ? table.slice(1, -1) : table;
+}
+
 export function registerDataHandlers() {
   const db = getDatabase();
 
-  ipcMain.handle("db:query", (_e, table: string, filters?: Record<string, any>) => {
+  ipcMain.handle("db:query", (_e, rawTable: string, filters?: Record<string, any>) => {
+    const table = cleanTable(rawTable);
     let sql = `SELECT * FROM "${table}"`;
     const params: any[] = [];
 
@@ -21,11 +26,13 @@ export function registerDataHandlers() {
     return db.prepare(sql).all(...params);
   });
 
-  ipcMain.handle("db:getById", (_e, table: string, id: string) => {
+  ipcMain.handle("db:getById", (_e, rawTable: string, id: string) => {
+    const table = cleanTable(rawTable);
     return db.prepare(`SELECT * FROM "${table}" WHERE id = ?`).get(id) || null;
   });
 
-  ipcMain.handle("db:insert", (_e, table: string, data: Record<string, any>) => {
+  ipcMain.handle("db:insert", (_e, rawTable: string, data: Record<string, any>) => {
+    const table = cleanTable(rawTable);
     const id = data.id || uuid();
     const record = { ...data, id };
 
@@ -45,7 +52,8 @@ export function registerDataHandlers() {
     return record;
   });
 
-  ipcMain.handle("db:update", (_e, table: string, id: string, data: Record<string, any>) => {
+  ipcMain.handle("db:update", (_e, rawTable: string, id: string, data: Record<string, any>) => {
+    const table = cleanTable(rawTable);
     const cols = Object.keys(data);
     const setClauses = cols.map((c) => `"${c}" = ?`).join(", ");
     const values = cols.map((c) => data[c]);
@@ -63,7 +71,8 @@ export function registerDataHandlers() {
     return updated;
   });
 
-  ipcMain.handle("db:delete", (_e, table: string, id: string) => {
+  ipcMain.handle("db:delete", (_e, rawTable: string, id: string) => {
+    const table = cleanTable(rawTable);
     db.prepare(`DELETE FROM "${table}" WHERE id = ?`).run(id);
 
     db.prepare(`INSERT INTO _change_log (table_name, record_id, action, data) VALUES (?, ?, 'delete', NULL)`).run(
