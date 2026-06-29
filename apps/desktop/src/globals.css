@@ -91,7 +91,7 @@ html, body, #root {
 
 .card-hover {
   @apply rounded-2xl border border-line bg-surface p-5 shadow-sm
-    transition-all duration-200 hover:-translate-y-0.5 hover:border-primary/20 hover:shadow-md;
+    transition-all duration-200 hover:-translate-y-0.5 hover:border-primary-bright hover:shadow-md;
 }
 
 .badge { @apply inline-flex items-center rounded-full px-2.5 py-0.5 text-[10px] font-semibold; }
