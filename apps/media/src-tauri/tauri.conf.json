@@ -24,13 +24,13 @@
     "windows": {
       "certificateThumbprint": null,
       "digestAlgorithm": "sha256",
-      "timestampUrl": ""
-    },
-    "nsis": {
-      "displayLanguageSelector": false,
-      "installerIcon": "icons/icon.ico",
-      "languages": ["English"],
-      "installMode": "currentUser"
+      "timestampUrl": "",
+      "nsis": {
+        "displayLanguageSelector": false,
+        "installerIcon": "icons/icon.ico",
+        "languages": ["English"],
+        "installMode": "currentUser"
+      }
     },
     "shortDescription": "Church Presentation Software",
     "longDescription": "WorshipHQ Media — Professional church presentation software for worship services. Project scripture, songs, and media to screens.",
