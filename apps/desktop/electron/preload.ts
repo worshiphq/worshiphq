@@ -41,6 +41,9 @@ contextBridge.exposeInMainWorld("api", {
     return () => ipcRenderer.removeListener("win:maximized", handler);
   },
 
+  // ── Shell ──
+  openExternal: (url: string) => ipcRenderer.invoke("shell:openExternal", url),
+
   // ── App info ──
   getVersion: () => ipcRenderer.invoke("app:version"),
   getDataPath: () => ipcRenderer.invoke("app:dataPath"),

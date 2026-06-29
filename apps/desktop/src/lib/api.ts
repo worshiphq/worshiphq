@@ -18,6 +18,7 @@ declare global {
       winClose: () => void;
       winIsMaximized: () => Promise<boolean>;
       onMaximizedChange: (cb: (maximized: boolean) => void) => () => void;
+      openExternal: (url: string) => Promise<void>;
       getVersion: () => Promise<string>;
       getDataPath: () => Promise<string>;
     };

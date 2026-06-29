@@ -63,6 +63,8 @@ app.whenReady().then(() => {
   ipcMain.on("win:close", () => mainWindow?.close());
   ipcMain.handle("win:isMaximized", () => mainWindow?.isMaximized() ?? false);
 
+  ipcMain.handle("shell:openExternal", (_e, url: string) => shell.openExternal(url));
+
   createWindow();
 
   mainWindow?.on("maximize", () => mainWindow?.webContents.send("win:maximized", true));

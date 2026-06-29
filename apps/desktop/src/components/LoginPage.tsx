@@ -1,20 +1,18 @@
 import { useState } from "react";
-import { Loader2, Wifi, WifiOff, Eye, EyeOff, AlertCircle, ArrowLeft, Mail } from "lucide-react";
+import { Loader2, Wifi, WifiOff, Eye, EyeOff, AlertCircle, ExternalLink } from "lucide-react";
 import { auth, sync } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
 
+const SERVER_URL = "https://worshiphq.com";
+
 export function LoginPage() {
   const { setSession, setSyncStatus, showToast } = useAppStore();
-  const [serverUrl, setServerUrl] = useState("https://worshiphq.com");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [online, setOnline] = useState(navigator.onLine);
-  const [view, setView] = useState<"login" | "forgot">("login");
-  const [resetEmail, setResetEmail] = useState("");
-  const [resetSent, setResetSent] = useState(false);
 
   window.addEventListener("online", () => setOnline(true));
   window.addEventListener("offline", () => setOnline(false));
@@ -27,7 +25,7 @@ export function LoginPage() {
     setError("");
 
     try {
-      const result = await auth.login(serverUrl, email, password);
+      const result = await auth.login(SERVER_URL, email, password);
 
       if (result.success && result.user) {
         const session = await auth.getSession();
@@ -40,56 +38,14 @@ export function LoginPage() {
         setError(result.error || "Login failed. Check your email and password.");
       }
     } catch (err: any) {
-      setError(err?.message || "Connection failed. Is your server URL correct?");
+      setError(err?.message || "Connection failed. Please check your internet connection.");
     }
 
     setLoading(false);
   }
 
-  if (view === "forgot") {
-    return (
-      <div className="flex flex-1 items-center justify-center bg-base">
-        <div className="w-full max-w-sm px-6">
-          <div className="mb-5 grid size-12 place-items-center rounded-2xl bg-primary-soft">
-            <Mail className="size-6 text-primary-bright" />
-          </div>
-          <h1 className="text-2xl font-bold text-ink">Reset your password</h1>
-          <p className="mt-2 text-sm text-ink-muted">
-            Visit your WorshipHQ site to reset your password. Desktop login uses the same credentials as your web account.
-          </p>
-
-          {resetSent ? (
-            <div className="mt-6 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
-              Check your email for reset instructions on your WorshipHQ site.
-            </div>
-          ) : (
-            <div className="mt-6 space-y-4">
-              <div>
-                <label className="mb-1.5 block text-sm font-medium text-ink">Server URL</label>
-                <input
-                  type="url"
-                  value={serverUrl}
-                  onChange={(e) => setServerUrl(e.target.value)}
-                  className="input"
-                  placeholder="https://worshiphq.com"
-                />
-              </div>
-              <p className="text-xs text-ink-faint">
-                Open your WorshipHQ site in a browser and use the "Forgot password?" link on the login page.
-              </p>
-            </div>
-          )}
-
-          <button
-            onClick={() => { setView("login"); setResetSent(false); }}
-            className="mt-5 flex items-center justify-center gap-1.5 text-sm text-ink-muted hover:text-ink w-full"
-          >
-            <ArrowLeft className="size-3.5" />
-            Back to login
-          </button>
-        </div>
-      </div>
-    );
+  function handleForgotPassword() {
+    window.api?.openExternal(`${SERVER_URL}/sign-in?reset=1`);
   }
 
   return (
@@ -104,17 +60,17 @@ export function LoginPage() {
           <p className="text-lg font-medium leading-snug text-ink">
             &ldquo;We moved 1,200 members onto WorshipHQ in a weekend. Online giving alone has transformed our offerings.&rdquo;
           </p>
-          <p className="mt-3 text-sm text-ink-muted">Rev. Daniel Mensah · Grace Temple, Accra</p>
+          <p className="mt-3 text-sm text-ink-muted">Rev. Daniel Mensah &middot; Grace Temple, Accra</p>
         </div>
         <div className="relative text-xs text-ink-faint mt-6">
-          © {new Date().getFullYear()} WorshipHQ
+          &copy; {new Date().getFullYear()} WorshipHQ
         </div>
       </div>
 
       {/* Right form panel */}
       <div className="flex flex-1 flex-col items-center justify-center px-6 py-10">
         <div className="w-full max-w-sm">
-          {/* Logo for mobile / narrow view */}
+          {/* Logo for narrow view */}
           <div className="mb-8 lg:hidden text-center">
             <img src="/icon.png" alt="WorshipHQ" className="mx-auto h-16 w-auto object-contain" />
           </div>
@@ -132,7 +88,7 @@ export function LoginPage() {
             ) : (
               <>
                 <WifiOff className="size-3.5 text-danger" />
-                <span className="text-xs text-danger font-medium">Offline — login requires internet</span>
+                <span className="text-xs text-danger font-medium">Offline &mdash; login requires internet</span>
               </>
             )}
           </div>
@@ -145,17 +101,6 @@ export function LoginPage() {
           )}
 
           <form onSubmit={handleLogin} className="mt-6 space-y-4">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-ink">Server URL</label>
-              <input
-                type="url"
-                value={serverUrl}
-                onChange={(e) => setServerUrl(e.target.value)}
-                className="input"
-                placeholder="https://worshiphq.com"
-              />
-            </div>
-
             <div>
               <label className="mb-1.5 block text-sm font-medium text-ink">Email</label>
               <input
@@ -173,10 +118,11 @@ export function LoginPage() {
                 <label className="text-sm font-medium text-ink">Password</label>
                 <button
                   type="button"
-                  onClick={() => setView("forgot")}
-                  className="text-xs text-primary-bright hover:underline"
+                  onClick={handleForgotPassword}
+                  className="flex items-center gap-1 text-xs text-primary-bright hover:underline"
                 >
                   Forgot password?
+                  <ExternalLink className="size-3" />
                 </button>
               </div>
               <div className="relative">
@@ -216,7 +162,7 @@ export function LoginPage() {
           )}
 
           <p className="mt-8 text-center text-[11px] text-ink-faint">
-            Data stored locally · Syncs with your WorshipHQ account
+            Data stored locally &middot; Syncs with your WorshipHQ account
           </p>
         </div>
       </div>
