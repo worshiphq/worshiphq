@@ -3,7 +3,7 @@ import { Loader2, Wifi, WifiOff, Eye, EyeOff, AlertCircle, ExternalLink } from "
 import { auth, sync } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
 
-const SERVER_URL = "https://worshiphq.com";
+const SERVER_URL = "https://worshiphq.app";
 
 export function LoginPage() {
   const { setSession, setSyncStatus, showToast } = useAppStore();
