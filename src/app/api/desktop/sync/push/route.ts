@@ -95,12 +95,21 @@ const TABLE_TO_MODEL: Record<string, string> = {
   automation: "automation",
 };
 
+const REVERSE_RENAMES: Record<string, string> = {
+  trigger_type: "trigger",
+};
+
+function toCamelCase(s: string): string {
+  return s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
+}
+
 function mapColumns(table: string, data: Record<string, any>): Record<string, any> {
   const mapping = COLUMN_MAP[table] || {};
   const result: Record<string, any> = {};
   for (const [key, value] of Object.entries(data)) {
     if (key === "created_at" || key === "updated_at") continue;
-    const mapped = mapping[key] || key;
+    const renamed = REVERSE_RENAMES[key] || key;
+    const mapped = mapping[renamed] || toCamelCase(renamed);
     result[mapped] = value;
   }
   return result;
