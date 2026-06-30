@@ -7,6 +7,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { StatCard } from "../components/ui/StatCard";
 import { Modal } from "../components/ui/Modal";
 import { db } from "../lib/api";
+import { requireOnline } from "../lib/net";
 import { useAppStore } from "../stores/app-store";
 import { formatDate, cn } from "../lib/utils";
 import { v4 as uuid } from "uuid";
@@ -47,6 +48,13 @@ export function CommunicationsPage() {
     setComms((prev) => prev.filter((c) => c.id !== id));
     showToast("Deleted");
     await db.delete("communication", id);
+  }
+
+  async function handleSend(id: string) {
+    const ok = await requireOnline("send this message");
+    if (!ok) return;
+    showToast("Sending requires syncing to the web app. Sync now and send from the web.", "info");
+    window.api?.openExternal("https://worshiphq.app/app/communications");
   }
 
   const statusIcon = (s: string) => {
@@ -111,7 +119,14 @@ export function CommunicationsPage() {
                   <td className="px-4 py-3 text-right font-bold text-ink">{c.sent || 0}</td>
                   <td className="px-4 py-3 text-xs text-ink-faint">{formatDate(c.created_at)}</td>
                   <td className="px-4 py-3">
-                    <button onClick={() => handleDelete(c.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                    <div className="flex items-center gap-1">
+                      {c.status === "draft" && (
+                        <button onClick={() => handleSend(c.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Send">
+                          <Send className="size-3.5" />
+                        </button>
+                      )}
+                      <button onClick={() => handleDelete(c.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                    </div>
                   </td>
                 </tr>
               ))}
