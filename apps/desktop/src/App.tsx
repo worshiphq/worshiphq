@@ -13,6 +13,10 @@ import { PeoplePage } from "./pages/PeoplePage";
 import { GivingPage } from "./pages/GivingPage";
 import { AttendancePage } from "./pages/AttendancePage";
 import { SettingsPage } from "./pages/SettingsPage";
+import { EventsPage } from "./pages/EventsPage";
+import { GroupsPage } from "./pages/GroupsPage";
+import { VolunteersPage } from "./pages/VolunteersPage";
+import { ReportsPage } from "./pages/ReportsPage";
 import { DataListPage } from "./pages/DataListPage";
 
 export default function App() {
@@ -96,18 +100,7 @@ export default function App() {
                 orderBy="week_of DESC"
               />
             } />
-            <Route path="/events" element={
-              <DataListPage title="Events" table="event" webPath="events"
-                columns={[
-                  { key: "title", label: "Event" },
-                  { key: "type", label: "Type" },
-                  { key: "starts_at", label: "Date", format: "date" },
-                  { key: "capacity", label: "Capacity" },
-                ]}
-                searchFields={["title", "type"]}
-                orderBy="starts_at DESC"
-              />
-            } />
+            <Route path="/events" element={<EventsPage />} />
             <Route path="/calendar" element={
               <DataListPage title="Calendar" table="event" webPath="calendar"
                 columns={[
@@ -119,28 +112,8 @@ export default function App() {
                 orderBy="starts_at ASC"
               />
             } />
-            <Route path="/volunteers" element={
-              <DataListPage title="Volunteers" table="volunteer_roster" webPath="volunteers"
-                columns={[
-                  { key: "name", label: "Roster" },
-                  { key: "ministry", label: "Ministry" },
-                  { key: "start_date", label: "Start", format: "date" },
-                  { key: "end_date", label: "End", format: "date" },
-                ]}
-                searchFields={["name", "ministry"]}
-              />
-            } />
-            <Route path="/groups" element={
-              <DataListPage title="Groups" table="[group]" webPath="groups"
-                columns={[
-                  { key: "name", label: "Group Name" },
-                  { key: "description", label: "Description" },
-                  { key: "type", label: "Type" },
-                  { key: "created_at", label: "Created", format: "date" },
-                ]}
-                searchFields={["name", "description"]}
-              />
-            } />
+            <Route path="/volunteers" element={<VolunteersPage />} />
+            <Route path="/groups" element={<GroupsPage />} />
             <Route path="/visitors" element={
               <DataListPage title="Visitors" table="visitor" webPath="visitors"
                 columns={[
@@ -203,18 +176,7 @@ export default function App() {
                 searchFields={["name", "ministry"]}
               />
             } />
-            <Route path="/reports" element={
-              <DataListPage title="Reports" table="audit_log" webPath="reports"
-                columns={[
-                  { key: "action", label: "Action" },
-                  { key: "entity", label: "Type" },
-                  { key: "detail", label: "Detail" },
-                  { key: "created_at", label: "Date", format: "date" },
-                ]}
-                searchFields={["action", "entity", "detail"]}
-                emptyMessage="Activity logs will appear here after sync."
-              />
-            } />
+            <Route path="/reports" element={<ReportsPage />} />
             <Route path="/accounting" element={
               <DataListPage title="Accounting" table="transaction" webPath="accounting"
                 columns={[
