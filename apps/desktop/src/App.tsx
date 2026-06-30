@@ -17,6 +17,8 @@ import { EventsPage } from "./pages/EventsPage";
 import { GroupsPage } from "./pages/GroupsPage";
 import { VolunteersPage } from "./pages/VolunteersPage";
 import { ReportsPage } from "./pages/ReportsPage";
+import { PledgesPage } from "./pages/PledgesPage";
+import { ExpensesPage } from "./pages/ExpensesPage";
 import { DataListPage } from "./pages/DataListPage";
 
 export default function App() {
@@ -189,18 +191,7 @@ export default function App() {
                 orderBy="date DESC"
               />
             } />
-            <Route path="/pledges" element={
-              <DataListPage title="Pledges" table="pledge" webPath="pledges"
-                columns={[
-                  { key: "donor_name", label: "Donor" },
-                  { key: "amount", label: "Amount", format: "currency" },
-                  { key: "fulfilled", label: "Fulfilled", format: "currency" },
-                  { key: "due_at", label: "Due", format: "date" },
-                ]}
-                searchFields={["donor_name"]}
-                orderBy="due_at DESC"
-              />
-            } />
+            <Route path="/pledges" element={<PledgesPage />} />
             <Route path="/harvest" element={
               <DataListPage title="Harvest" table="harvest" webPath="harvest"
                 columns={[
@@ -214,19 +205,7 @@ export default function App() {
                 orderBy="year DESC"
               />
             } />
-            <Route path="/expenses" element={
-              <DataListPage title="Expenses" table="expense" webPath="expenses"
-                columns={[
-                  { key: "description", label: "Description" },
-                  { key: "category", label: "Category" },
-                  { key: "amount", label: "Amount", format: "currency" },
-                  { key: "vendor", label: "Vendor" },
-                  { key: "date", label: "Date", format: "date" },
-                ]}
-                searchFields={["description", "category", "vendor"]}
-                orderBy="date DESC"
-              />
-            } />
+            <Route path="/expenses" element={<ExpensesPage />} />
             <Route path="/budgets" element={
               <DataListPage title="Budgets" table="budget" webPath="budgets"
                 columns={[
