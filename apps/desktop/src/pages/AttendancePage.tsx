@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import {
   Plus, Loader2, CalendarCheck2, Users, X, Trash2, TrendingUp,
-  Baby, GraduationCap, UserPlus,
+  Baby, GraduationCap, UserPlus, Pencil,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -17,6 +17,7 @@ export function AttendancePage() {
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
 
   useEffect(() => {
     if (session?.churchId) loadSessions();
@@ -120,10 +121,16 @@ export function AttendancePage() {
                       </span>
                     </td>
                     <td className="px-4 py-3">
-                      <button onClick={() => handleDelete(s.id)}
-                        className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
-                        <Trash2 className="size-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => { setEditing(s); setShowForm(true); }}
+                          className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit">
+                          <Pencil className="size-3.5" />
+                        </button>
+                        <button onClick={() => handleDelete(s.id)}
+                          className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -133,36 +140,50 @@ export function AttendancePage() {
         )}
       </div>
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="Record Attendance">
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Attendance" : "Record Attendance"}>
         <SessionForm
           churchId={session!.churchId}
-          onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); loadSessions(); }}
+          existing={editing}
+          onClose={() => { setShowForm(false); setEditing(null); }}
+          onSaved={() => { setShowForm(false); setEditing(null); loadSessions(); }}
         />
       </Modal>
     </PageShell>
   );
 }
 
-function SessionForm({ churchId, onClose, onSaved }: { churchId: string; onClose: () => void; onSaved: () => void }) {
+function SessionForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    service_name: "Sunday Service",
-    date: new Date().toISOString().slice(0, 10),
-    adults: "0", teens: "0", children: "0", visitors: "0", note: "",
+  const [form, setForm] = useState(() => {
+    if (existing) {
+      return {
+        service_name: existing.service_name || "Sunday Service",
+        date: existing.date ? existing.date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+        adults: String(existing.adults ?? 0), teens: String(existing.teens ?? 0),
+        children: String(existing.children ?? 0), visitors: String(existing.visitors ?? 0),
+        note: existing.note || "",
+      };
+    }
+    return { service_name: "Sunday Service", date: new Date().toISOString().slice(0, 10), adults: "0", teens: "0", children: "0", visitors: "0", note: "" };
   });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await db.insert("attendance_session", {
-      id: uuid(), church_id: churchId, service_name: form.service_name, date: form.date,
+    const data = {
+      service_name: form.service_name, date: form.date,
       adults: Number(form.adults), teens: Number(form.teens),
       children: Number(form.children), visitors: Number(form.visitors),
       note: form.note || null,
-    });
-    showToast("Attendance recorded");
+    };
+    if (existing) {
+      await db.update("attendance_session", existing.id, data);
+      showToast("Attendance updated");
+    } else {
+      await db.insert("attendance_session", { id: uuid(), church_id: churchId, ...data });
+      showToast("Attendance recorded");
+    }
     setSaving(false);
     onSaved();
   }
@@ -197,7 +218,7 @@ function SessionForm({ churchId, onClose, onSaved }: { churchId: string; onClose
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
         <button type="submit" disabled={saving} className="btn-primary flex-1">
           {saving && <Loader2 className="size-4 whq-spin" />}
-          {saving ? "Saving..." : "Save"}
+          {saving ? "Saving..." : (existing ? "Save Changes" : "Save")}
         </button>
       </div>
     </form>

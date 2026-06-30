@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import {
   Plus, Search, Loader2, Trash2, HandCoins, X, Wallet,
-  Banknote, CreditCard, Smartphone, PiggyBank,
+  Banknote, CreditCard, Smartphone, PiggyBank, Pencil,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -31,6 +31,7 @@ export function GivingPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
   const [methodFilter, setMethodFilter] = useState("");
 
   useEffect(() => {
@@ -166,10 +167,16 @@ export function GivingPage() {
                     </td>
                     <td className="px-4 py-3 text-xs text-ink-faint">{formatDate(g.date)}</td>
                     <td className="px-4 py-3">
-                      <button onClick={() => handleDelete(g.id)}
-                        className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
-                        <Trash2 className="size-3.5" />
-                      </button>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => { setEditing(g); setShowForm(true); }}
+                          className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit">
+                          <Pencil className="size-3.5" />
+                        </button>
+                        <button onClick={() => handleDelete(g.id)}
+                          className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
+                          <Trash2 className="size-3.5" />
+                        </button>
+                      </div>
                     </td>
                   </tr>
                 );
@@ -179,39 +186,51 @@ export function GivingPage() {
         )}
       </div>
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="Record Gift">
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Gift" : "Record Gift"}>
         <GiftForm
           churchId={session!.churchId}
           people={people}
           funds={funds}
-          onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); loadData(); }}
+          existing={editing}
+          onClose={() => { setShowForm(false); setEditing(null); }}
+          onSaved={() => { setShowForm(false); setEditing(null); loadData(); }}
         />
       </Modal>
     </PageShell>
   );
 }
 
-function GiftForm({ churchId, people, funds, onClose, onSaved }: {
-  churchId: string; people: any[]; funds: any[]; onClose: () => void; onSaved: () => void;
+function GiftForm({ churchId, people, funds, existing, onClose, onSaved }: {
+  churchId: string; people: any[]; funds: any[]; existing?: any; onClose: () => void; onSaved: () => void;
 }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    person_id: "", donor_name: "", fund_id: "", amount: "", method: "Cash",
-    date: new Date().toISOString().slice(0, 10),
+  const [form, setForm] = useState(() => {
+    if (existing) {
+      return {
+        person_id: existing.person_id || "", donor_name: existing.donor_name || "",
+        fund_id: existing.fund_id || "", amount: String(existing.amount || ""),
+        method: existing.method || "Cash", date: existing.date ? existing.date.slice(0, 10) : new Date().toISOString().slice(0, 10),
+      };
+    }
+    return { person_id: "", donor_name: "", fund_id: "", amount: "", method: "Cash", date: new Date().toISOString().slice(0, 10) };
   });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.amount || Number(form.amount) <= 0) return;
     setSaving(true);
-    await db.insert("gift", {
-      id: uuid(), church_id: churchId, person_id: form.person_id || null,
-      donor_name: form.donor_name || null, fund_id: form.fund_id || null,
-      amount: Number(form.amount), method: form.method, date: form.date,
-    });
-    showToast("Gift recorded");
+    const data = {
+      person_id: form.person_id || null, donor_name: form.donor_name || null,
+      fund_id: form.fund_id || null, amount: Number(form.amount), method: form.method, date: form.date,
+    };
+    if (existing) {
+      await db.update("gift", existing.id, data);
+      showToast("Gift updated");
+    } else {
+      await db.insert("gift", { id: uuid(), church_id: churchId, ...data });
+      showToast("Gift recorded");
+    }
     setSaving(false);
     onSaved();
   }
@@ -262,7 +281,7 @@ function GiftForm({ churchId, people, funds, onClose, onSaved }: {
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
         <button type="submit" disabled={saving} className="btn-primary flex-1">
           {saving && <Loader2 className="size-4 whq-spin" />}
-          {saving ? "Saving..." : "Record Gift"}
+          {saving ? "Saving..." : (existing ? "Save Changes" : "Record Gift")}
         </button>
       </div>
     </form>

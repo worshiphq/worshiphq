@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import {
   Plus, Loader2, CalendarDays, Users, Ticket, MapPin, Trash2,
-  X, Clock, Tag,
+  X, Clock, Tag, Pencil,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -28,6 +28,7 @@ export function EventsPage() {
   const [events, setEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
 
   useEffect(() => {
     if (session?.churchId) loadEvents();
@@ -149,7 +150,14 @@ export function EventsPage() {
                   </div>
                 )}
 
-                <div className="mt-auto pt-4 flex justify-end">
+                <div className="mt-auto pt-4 flex justify-end gap-1">
+                  <button
+                    onClick={() => { setEditing(e); setShowForm(true); }}
+                    className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright"
+                    title="Edit"
+                  >
+                    <Pencil className="size-3.5" />
+                  </button>
                   <button
                     onClick={() => handleDelete(e.id, e.title)}
                     className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"
@@ -163,24 +171,33 @@ export function EventsPage() {
         </div>
       )}
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="Create Event">
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Event" : "Create Event"}>
         <EventForm
           churchId={session!.churchId}
-          onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); loadEvents(); }}
+          existing={editing}
+          onClose={() => { setShowForm(false); setEditing(null); }}
+          onSaved={() => { setShowForm(false); setEditing(null); loadEvents(); }}
         />
       </Modal>
     </PageShell>
   );
 }
 
-function EventForm({ churchId, onClose, onSaved }: { churchId: string; onClose: () => void; onSaved: () => void }) {
+function EventForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({
-    title: "", type: "Service",
-    date: new Date().toISOString().slice(0, 10), time: "09:00",
-    capacity: "", price: "0", paid: false,
+  const [form, setForm] = useState(() => {
+    if (existing) {
+      const d = existing.starts_at ? existing.starts_at.slice(0, 10) : new Date().toISOString().slice(0, 10);
+      const t = existing.time || (existing.starts_at ? existing.starts_at.slice(11, 16) : "09:00");
+      return {
+        title: existing.title || "", type: existing.type || "Service",
+        date: d, time: t,
+        capacity: String(existing.capacity || ""), price: String(existing.price || "0"),
+        paid: !!existing.paid,
+      };
+    }
+    return { title: "", type: "Service", date: new Date().toISOString().slice(0, 10), time: "09:00", capacity: "", price: "0", paid: false };
   });
 
   async function handleSubmit(e: React.FormEvent) {
@@ -188,12 +205,18 @@ function EventForm({ churchId, onClose, onSaved }: { churchId: string; onClose: 
     if (!form.title.trim()) return;
     setSaving(true);
     const startsAt = `${form.date}T${form.time}:00`;
-    await db.insert("event", {
-      id: uuid(), church_id: churchId, title: form.title.trim(), type: form.type,
+    const data = {
+      title: form.title.trim(), type: form.type,
       starts_at: startsAt, time: form.time, capacity: Number(form.capacity) || 0,
-      price: Number(form.price) || 0, paid: form.paid ? 1 : 0, registered: 0,
-    });
-    showToast("Event created");
+      price: Number(form.price) || 0, paid: form.paid ? 1 : 0,
+    };
+    if (existing) {
+      await db.update("event", existing.id, data);
+      showToast("Event updated");
+    } else {
+      await db.insert("event", { id: uuid(), church_id: churchId, ...data, registered: 0 });
+      showToast("Event created");
+    }
     setSaving(false);
     onSaved();
   }
@@ -245,7 +268,7 @@ function EventForm({ churchId, onClose, onSaved }: { churchId: string; onClose: 
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
         <button type="submit" disabled={saving} className="btn-primary flex-1">
           {saving && <Loader2 className="size-4 whq-spin" />}
-          {saving ? "Creating..." : "Create Event"}
+          {saving ? (existing ? "Saving..." : "Creating...") : (existing ? "Save Changes" : "Create Event")}
         </button>
       </div>
     </form>
