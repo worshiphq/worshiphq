@@ -657,6 +657,29 @@ function createTables() {
       audience          TEXT
     );
 
+    -- ── Volunteer Assignment ──
+    CREATE TABLE IF NOT EXISTS volunteer_assignment (
+      id           TEXT PRIMARY KEY,
+      church_id    TEXT NOT NULL REFERENCES church(id) ON DELETE CASCADE,
+      team         TEXT NOT NULL,
+      role         TEXT NOT NULL,
+      person_name  TEXT,
+      service_date TEXT,
+      confirmed    INTEGER DEFAULT 0,
+      created_at   TEXT DEFAULT (datetime('now'))
+    );
+
+    -- ── Reminder ──
+    CREATE TABLE IF NOT EXISTS reminder (
+      id          TEXT PRIMARY KEY,
+      church_id   TEXT NOT NULL REFERENCES church(id) ON DELETE CASCADE,
+      type        TEXT NOT NULL,
+      target_name TEXT,
+      send_at     TEXT,
+      sent        INTEGER DEFAULT 0,
+      created_at  TEXT DEFAULT (datetime('now'))
+    );
+
     -- ── Audit log (local) ──
     CREATE TABLE IF NOT EXISTS audit_log (
       id         TEXT PRIMARY KEY,

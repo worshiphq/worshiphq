@@ -115,6 +115,9 @@ export async function GET(req: Request) {
       pullTable(db.communication, "communication", churchId, sinceDate),
       pullTable(db.automation, "automation", churchId, sinceDate, null),
       pullTable(db.auditLog, "audit_log", churchId, sinceDate),
+      pullTable(db.household, "household", churchId, sinceDate, null),
+      pullTable(db.volunteerAssignment, "volunteer_assignment", churchId, sinceDate),
+      pullTable(db.reminder, "reminder", churchId, sinceDate),
     ]);
 
     for (const batch of batches) {

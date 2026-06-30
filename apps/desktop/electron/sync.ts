@@ -44,6 +44,8 @@ const SYNC_TABLES = [
   "campaign",
   "communication",
   "automation",
+  "volunteer_assignment",
+  "reminder",
   "audit_log",
 ];
 

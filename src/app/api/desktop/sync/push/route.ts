@@ -67,6 +67,7 @@ const TABLE_TO_MODEL: Record<string, string> = {
   transaction: "transaction",
   fund: "fund",
   department: "department",
+  department_position: "departmentPosition",
   event: "event",
   visitor: "visitor",
   expense: "expense",
@@ -83,8 +84,10 @@ const TABLE_TO_MODEL: Record<string, string> = {
   budget_item: "budgetItem",
   volunteer_roster: "volunteerRoster",
   volunteer_slot: "volunteerSlot",
+  volunteer_assignment: "volunteerAssignment",
   facility: "facility",
   booking: "booking",
+  custom_role: "customRole",
   welfare_record: "welfareRecord",
   devotional: "devotional",
   testimony: "testimony",
@@ -93,6 +96,10 @@ const TABLE_TO_MODEL: Record<string, string> = {
   campaign: "campaign",
   communication: "communication",
   automation: "automation",
+  household: "household",
+  group: "group",
+  branch: "branch",
+  reminder: "reminder",
 };
 
 const REVERSE_RENAMES: Record<string, string> = {
