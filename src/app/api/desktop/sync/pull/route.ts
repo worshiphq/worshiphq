@@ -122,8 +122,8 @@ export async function GET(req: Request) {
       pullTable(db.automation, "automation", churchId, sinceDate, null),
       pullTable(db.auditLog, "audit_log", churchId, sinceDate),
       pullTable(db.household, "household", churchId, sinceDate, null),
-      pullTable(db.volunteerAssignment, "volunteer_assignment", churchId, sinceDate),
-      pullTable(db.reminder, "reminder", churchId, sinceDate),
+      pullTable(db.volunteerAssignment, "volunteer_assignment", churchId, sinceDate, null),
+      pullTable(db.reminder, "reminder", churchId, sinceDate, null),
     ]);
 
     for (const batch of batches) {
@@ -201,7 +201,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ changes, count: changes.length });
   } catch (err: any) {
-    console.error("[sync:pull]", err);
-    return NextResponse.json({ error: "Pull failed" }, { status: 500 });
+    console.error("[sync:pull]", err?.message || err, err?.stack);
+    return NextResponse.json({ error: "Pull failed", detail: err?.message || String(err) }, { status: 500 });
   }
 }
