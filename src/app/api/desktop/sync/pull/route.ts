@@ -120,7 +120,12 @@ export async function GET(req: Request) {
       pullTable(db.campaign, "campaign", churchId, sinceDate, null),
       pullTable(db.communication, "communication", churchId, sinceDate),
       pullTable(db.automation, "automation", churchId, sinceDate, null),
-      pullTable(db.auditLog, "audit_log", churchId, sinceDate),
+      pullTable(db.auditLog, "audit_log", churchId, sinceDate).then(async (rows) => {
+        const userMap = new Map<string, string>();
+        const users = await db.user.findMany({ where: { churchId }, select: { id: true, name: true } });
+        for (const u of users) userMap.set(u.id, u.name);
+        return rows.map((r: any) => ({ ...r, data: { ...r.data, user_name: userMap.get(r.data.user_id) || null } }));
+      }),
       pullTable(db.household, "household", churchId, sinceDate, null),
       pullTable(db.volunteerAssignment, "volunteer_assignment", churchId, sinceDate, null),
       pullTable(db.reminder, "reminder", churchId, sinceDate, null),

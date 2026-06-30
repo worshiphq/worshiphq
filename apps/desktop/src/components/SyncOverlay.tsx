@@ -75,7 +75,6 @@ export function SyncOverlay() {
         });
         sync.status().then(setSyncStatus);
         bumpSyncVersion();
-        setTimeout(() => updateSyncOverlay({ visible: false }), 3000);
       } else if (p.phase === "error") {
         updateSyncOverlay({
           phase: "error",
@@ -85,7 +84,6 @@ export function SyncOverlay() {
           detail: p.error || "",
         });
         sync.status().then(setSyncStatus);
-        setTimeout(() => updateSyncOverlay({ visible: false }), 5000);
       }
     });
 

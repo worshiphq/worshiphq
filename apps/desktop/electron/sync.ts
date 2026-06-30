@@ -340,6 +340,8 @@ async function pullChanges(serverUrl: string, token: string): Promise<{ applied:
 
   broadcast("sync:progress", { phase: "applying", progress: 60, detail: "Writing to local database..." });
 
+  db.pragma("defer_foreign_keys = ON");
+
   const applyChanges = db.transaction(() => {
     for (let i = 0; i < changes.length; i++) {
       const { table, recordId, action, data } = changes[i];
@@ -356,10 +358,18 @@ async function pullChanges(serverUrl: string, token: string): Promise<{ applied:
           applied++;
         } else if (action === "insert" || action === "upsert") {
           const validCols = getTableColumns(table);
-          if (validCols.size === 0) { skipped++; continue; }
+          if (validCols.size === 0) {
+            console.error(`[sync] SKIP: table "${table}" not found in local DB`);
+            skipped++;
+            continue;
+          }
 
           const cols = Object.keys(data).filter((c) => validCols.has(c));
-          if (cols.length === 0) { skipped++; continue; }
+          if (cols.length === 0) {
+            console.error(`[sync] SKIP: no matching columns for table "${table}". Data keys: ${Object.keys(data).join(", ")}`);
+            skipped++;
+            continue;
+          }
 
           const placeholders = cols.map(() => "?").join(", ");
           const values = cols.map((c: string) => {
@@ -373,7 +383,8 @@ async function pullChanges(serverUrl: string, token: string): Promise<{ applied:
           ).run(...values);
           applied++;
         }
-      } catch (err) {
+      } catch (err: any) {
+        console.error(`[sync] SKIP: table="${table}" id="${recordId}" error="${err?.message}"`);
         skipped++;
       }
     }

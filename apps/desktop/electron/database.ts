@@ -17,6 +17,7 @@ export function initDatabase(dbPath: string) {
   db.pragma("busy_timeout = 5000");
 
   createTables();
+  migrateSchema();
   return db;
 }
 
@@ -163,6 +164,9 @@ function createTables() {
 
       -- Department
       department_id TEXT REFERENCES department(id),
+
+      -- Household
+      household_id TEXT REFERENCES household(id) ON DELETE SET NULL,
 
       UNIQUE(church_id, member_id)
     );
@@ -525,11 +529,11 @@ function createTables() {
     CREATE TABLE IF NOT EXISTS booking (
       id          TEXT PRIMARY KEY,
       church_id   TEXT NOT NULL REFERENCES church(id) ON DELETE CASCADE,
-      facility_id TEXT NOT NULL REFERENCES facility(id) ON DELETE CASCADE,
+      facility_id TEXT REFERENCES facility(id) ON DELETE CASCADE,
       title       TEXT NOT NULL,
-      booked_by   TEXT NOT NULL,
-      start_time  TEXT NOT NULL,
-      end_time    TEXT NOT NULL,
+      booked_by   TEXT,
+      start_time  TEXT,
+      end_time    TEXT,
       notes       TEXT,
       status      TEXT DEFAULT 'confirmed',
       created_at  TEXT DEFAULT (datetime('now'))
@@ -685,6 +689,7 @@ function createTables() {
       id         TEXT PRIMARY KEY,
       church_id  TEXT NOT NULL,
       user_id    TEXT NOT NULL,
+      user_name  TEXT,
       action     TEXT NOT NULL,
       entity     TEXT NOT NULL,
       entity_id  TEXT,
@@ -693,4 +698,28 @@ function createTables() {
       created_at TEXT DEFAULT (datetime('now'))
     );
   `);
+}
+
+function migrateSchema() {
+  const migrations: Array<{ check: string; sql: string }> = [
+    {
+      check: "SELECT 1 FROM pragma_table_info('person') WHERE name='household_id'",
+      sql: "ALTER TABLE person ADD COLUMN household_id TEXT REFERENCES household(id) ON DELETE SET NULL",
+    },
+    {
+      check: "SELECT 1 FROM pragma_table_info('audit_log') WHERE name='user_name'",
+      sql: "ALTER TABLE audit_log ADD COLUMN user_name TEXT",
+    },
+  ];
+
+  for (const m of migrations) {
+    try {
+      const exists = db.prepare(m.check).get();
+      if (!exists) {
+        db.exec(m.sql);
+      }
+    } catch {
+      // column may already exist or table may not exist yet
+    }
+  }
 }
