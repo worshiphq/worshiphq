@@ -43,6 +43,8 @@ contextBridge.exposeInMainWorld("api", {
 
   // ── Shell ──
   openExternal: (url: string) => ipcRenderer.invoke("shell:openExternal", url),
+  pickImage: () => ipcRenderer.invoke("dialog:pickImage"),
+  setMeta: (key: string, value: string) => ipcRenderer.invoke("meta:set", key, value),
 
   // ── App info ──
   getVersion: () => ipcRenderer.invoke("app:version"),

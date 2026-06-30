@@ -1,5 +1,6 @@
-import { app, BrowserWindow, ipcMain, shell, Menu } from "electron";
+import { app, BrowserWindow, ipcMain, shell, Menu, dialog } from "electron";
 import path from "path";
+import fs from "fs";
 import { initDatabase, getDatabase } from "./database";
 import { registerSyncHandlers } from "./sync";
 import { registerDataHandlers } from "./data-handlers";
@@ -64,6 +65,21 @@ app.whenReady().then(() => {
   ipcMain.handle("win:isMaximized", () => mainWindow?.isMaximized() ?? false);
 
   ipcMain.handle("shell:openExternal", (_e, url: string) => shell.openExternal(url));
+
+  ipcMain.handle("dialog:pickImage", async () => {
+    const result = await dialog.showOpenDialog(mainWindow!, {
+      title: "Choose a profile photo",
+      filters: [{ name: "Images", extensions: ["jpg", "jpeg", "png", "gif", "webp"] }],
+      properties: ["openFile"],
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    const filePath = result.filePaths[0];
+    const ext = path.extname(filePath).slice(1).toLowerCase();
+    const mime = ext === "jpg" ? "jpeg" : ext;
+    const buf = fs.readFileSync(filePath);
+    if (buf.length > 1_200_000) return { error: "Image too large. Please use an image under 1 MB." };
+    return `data:image/${mime};base64,${buf.toString("base64")}`;
+  });
 
   createWindow();
 

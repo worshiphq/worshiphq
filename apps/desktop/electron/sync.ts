@@ -236,6 +236,12 @@ export function registerSyncHandlers() {
     };
   });
 
+  ipcMain.handle("meta:set", (_e, key: string, value: string) => {
+    const allowed = ["user_photo_url", "user_name"];
+    if (!allowed.includes(key)) return;
+    setSyncMeta(key, value);
+  });
+
   ipcMain.handle("auth:logout", () => {
     const db = getDatabase();
     db.prepare("DELETE FROM _sync_meta WHERE key IN ('auth_token', 'user_id', 'church_id', 'user_name', 'user_email', 'user_role', 'church_name')").run();

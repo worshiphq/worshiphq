@@ -107,10 +107,12 @@ export function SettingsPage() {
 }
 
 function ProfileTab() {
-  const { session, showToast } = useAppStore();
+  const { session, showToast, setSession } = useAppStore();
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(session?.userName || "");
   const [saving, setSaving] = useState(false);
+  const [pickingPhoto, setPickingPhoto] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(session?.userPhotoUrl || null);
 
   async function handleSave() {
     if (!name.trim()) return;
@@ -119,6 +121,8 @@ function ProfileTab() {
       const userId = session?.userId;
       if (userId) {
         await db.update("user", userId, { name: name.trim() });
+        await window.api?.setMeta("user_name", name.trim());
+        if (session) setSession({ ...session, userName: name.trim() });
         showToast("Profile updated! Changes will sync.");
       }
     } catch {
@@ -126,6 +130,47 @@ function ProfileTab() {
     }
     setSaving(false);
     setEditing(false);
+  }
+
+  async function handlePickPhoto() {
+    setPickingPhoto(true);
+    try {
+      const result = await window.api?.pickImage();
+      if (!result) { setPickingPhoto(false); return; }
+      if (typeof result === "object" && "error" in result) {
+        showToast(result.error, "error");
+        setPickingPhoto(false);
+        return;
+      }
+      const dataUrl = result as string;
+      const userId = session?.userId;
+      if (userId) {
+        await db.update("user", userId, { photo_url: dataUrl });
+        await window.api?.setMeta("user_photo_url", dataUrl);
+        setPhotoPreview(dataUrl);
+        if (session) setSession({ ...session, userPhotoUrl: dataUrl });
+        showToast("Photo updated! Changes will sync.");
+      }
+    } catch {
+      showToast("Failed to update photo", "error");
+    }
+    setPickingPhoto(false);
+  }
+
+  async function handleRemovePhoto() {
+    const userId = session?.userId;
+    if (!userId) return;
+    setSaving(true);
+    try {
+      await db.update("user", userId, { photo_url: null });
+      await window.api?.setMeta("user_photo_url", "");
+      setPhotoPreview(null);
+      if (session) setSession({ ...session, userPhotoUrl: null });
+      showToast("Photo removed. Changes will sync.");
+    } catch {
+      showToast("Failed to remove photo", "error");
+    }
+    setSaving(false);
   }
 
   return (
@@ -138,13 +183,18 @@ function ProfileTab() {
       <div className="card space-y-5">
         <div className="flex items-center gap-4">
           <div className="relative group">
-            <Avatar name={session?.userName || "User"} src={session?.userPhotoUrl} size="xl" />
+            <Avatar name={session?.userName || "User"} src={photoPreview} size="xl" />
             <button
-              onClick={() => window.api?.openExternal("https://worshiphq.app/app/settings")}
+              onClick={handlePickPhoto}
+              disabled={pickingPhoto}
               className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity"
-              title="Change photo on web"
+              title="Change photo"
             >
-              <Pencil className="size-4 text-white" />
+              {pickingPhoto ? (
+                <Loader2 className="size-4 text-white whq-spin" />
+              ) : (
+                <Pencil className="size-4 text-white" />
+              )}
             </button>
           </div>
           <div className="flex-1">
@@ -181,6 +231,19 @@ function ProfileTab() {
           </div>
         </div>
 
+        <div className="flex items-center gap-2">
+          <button onClick={handlePickPhoto} disabled={pickingPhoto} className="btn-secondary btn-sm">
+            {pickingPhoto ? <Loader2 className="size-3.5 whq-spin" /> : <Pencil className="size-3.5" />}
+            {pickingPhoto ? "Choosing..." : "Change Photo"}
+          </button>
+          {photoPreview && (
+            <button onClick={handleRemovePhoto} disabled={saving} className="btn-ghost btn-sm text-danger">
+              <Trash2 className="size-3.5" />
+              Remove
+            </button>
+          )}
+        </div>
+
         <div className="grid grid-cols-2 gap-4 border-t border-line pt-4">
           <div>
             <p className="text-xs text-ink-faint">Church</p>
@@ -194,8 +257,8 @@ function ProfileTab() {
 
         <p className="text-xs text-ink-faint flex items-center gap-1.5">
           <ExternalLink className="size-3" />
-          To update your photo or password,{" "}
-          <button onClick={() => window.api?.openExternal("https://worshiphq.app/app/settings")} className="text-primary-bright hover:underline">
+          To change your password,{" "}
+          <button onClick={() => window.api?.openExternal("https://worshiphq.app/app/account")} className="text-primary-bright hover:underline">
             use the web app
           </button>.
         </p>

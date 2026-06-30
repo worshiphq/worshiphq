@@ -19,6 +19,8 @@ declare global {
       winIsMaximized: () => Promise<boolean>;
       onMaximizedChange: (cb: (maximized: boolean) => void) => () => void;
       openExternal: (url: string) => Promise<void>;
+      pickImage: () => Promise<string | { error: string } | null>;
+      setMeta: (key: string, value: string) => Promise<void>;
       getVersion: () => Promise<string>;
       getDataPath: () => Promise<string>;
     };
