@@ -6,6 +6,7 @@ import {
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
 import { StatCard } from "../components/ui/StatCard";
+import { Avatar } from "../components/ui/Avatar";
 import { Modal } from "../components/ui/Modal";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
@@ -30,7 +31,7 @@ export function VolunteersPage() {
     const [r, s, a] = await Promise.all([
       db.rawQuery("SELECT * FROM volunteer_roster WHERE church_id = ? ORDER BY start_date DESC", [cid]),
       db.rawQuery("SELECT * FROM volunteer_slot WHERE church_id = ? ORDER BY date ASC", [cid]),
-      db.rawQuery("SELECT va.*, p.first_name, p.last_name FROM volunteer_assignment va LEFT JOIN person p ON va.person_id = p.id WHERE va.church_id = ?", [cid]),
+      db.rawQuery("SELECT va.*, p.first_name, p.last_name, p.photo_url FROM volunteer_assignment va LEFT JOIN person p ON va.person_id = p.id WHERE va.church_id = ?", [cid]),
     ]);
     setRosters(r);
     setSlots(s);
@@ -140,8 +141,11 @@ export function VolunteersPage() {
                   <tbody className="divide-y divide-line-soft">
                     {assignments.slice(0, 20).map((a) => (
                       <tr key={a.id} className="hover:bg-surface-2/50">
-                        <td className="px-3 py-2 font-medium text-ink">
-                          {a.first_name ? `${a.first_name} ${a.last_name}` : "Unknown"}
+                        <td className="px-3 py-2">
+                          <div className="flex items-center gap-2">
+                            <Avatar name={a.first_name ? `${a.first_name} ${a.last_name}` : "?"} src={a.photo_url} size="xs" />
+                            <span className="font-medium text-ink">{a.first_name ? `${a.first_name} ${a.last_name}` : "Unknown"}</span>
+                          </div>
                         </td>
                         <td className="px-3 py-2 text-ink-muted">{a.role || "—"}</td>
                         <td className="px-3 py-2 text-center">

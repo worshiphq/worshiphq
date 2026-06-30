@@ -3,6 +3,7 @@ import { Loader2, Cake, Search, Phone, Gift } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
 import { StatCard } from "../components/ui/StatCard";
+import { Avatar } from "../components/ui/Avatar";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
 import { cn } from "../lib/utils";
@@ -119,11 +120,7 @@ export function BirthdaysPage() {
         <div className="grid gap-2 grid-cols-3">
           {filtered.map((p) => (
             <div key={p.id} className={cn("card p-3 flex items-center gap-3", isBirthdayToday(p.date_of_birth) && "border-gold/40 bg-gold/5")}>
-              <div className={cn("grid size-10 place-items-center rounded-full font-bold text-sm shrink-0",
-                isBirthdayToday(p.date_of_birth) ? "bg-gold/20 text-gold" : "bg-primary-soft text-primary-bright"
-              )}>
-                {isBirthdayToday(p.date_of_birth) ? <Cake className="size-5" /> : `${(p.first_name?.[0] || "").toUpperCase()}${(p.last_name?.[0] || "").toUpperCase()}`}
-              </div>
+              <Avatar name={`${p.first_name} ${p.last_name}`} src={p.photo_url} size="sm" />
               <div className="flex-1 min-w-0">
                 <h3 className="font-bold text-sm text-ink">{p.first_name} {p.last_name}</h3>
                 <div className="flex items-center gap-2 mt-0.5">

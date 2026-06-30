@@ -3,6 +3,7 @@ import { Loader2, Crown, Search, GripVertical } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
 import { StatCard } from "../components/ui/StatCard";
+import { Avatar } from "../components/ui/Avatar";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
 import { cn } from "../lib/utils";
@@ -63,9 +64,7 @@ export function LeadersPage() {
           {filtered.map((l) => (
             <div key={l.id} className="card p-4">
               <div className="flex items-center gap-3">
-                <div className="grid size-11 place-items-center rounded-full bg-gold/10 text-gold font-bold text-sm">
-                  {(l.first_name?.[0] || "").toUpperCase()}{(l.last_name?.[0] || "").toUpperCase()}
-                </div>
+                <Avatar name={`${l.first_name} ${l.last_name}`} src={l.photo_url} size="md" />
                 <div className="flex-1 min-w-0">
                   <h3 className="font-bold text-ink">{l.first_name} {l.last_name}</h3>
                   <p className="text-xs text-gold font-medium">{l.leader_title}</p>

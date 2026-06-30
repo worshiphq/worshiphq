@@ -5,6 +5,7 @@ import {
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
 import { StatCard } from "../components/ui/StatCard";
+import { Avatar } from "../components/ui/Avatar";
 import { Modal } from "../components/ui/Modal";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
@@ -82,9 +83,7 @@ export function VisitorsPage() {
             <div key={v.id} className="card p-4">
               <div className="flex items-start justify-between">
                 <div className="flex items-center gap-3">
-                  <div className="grid size-10 place-items-center rounded-full bg-primary-soft text-primary-bright font-bold text-sm">
-                    {(v.first_name?.[0] || "").toUpperCase()}{(v.last_name?.[0] || "").toUpperCase()}
-                  </div>
+                  <Avatar name={`${v.first_name} ${v.last_name}`} src={v.photo_url} size="sm" />
                   <div>
                     <h3 className="font-bold text-ink">{v.first_name} {v.last_name}</h3>
                     {v.phone && <p className="text-xs text-ink-muted flex items-center gap-1"><Phone className="size-3" />{v.phone}</p>}
