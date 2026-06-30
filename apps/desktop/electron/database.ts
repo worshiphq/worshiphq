@@ -694,6 +694,7 @@ function createTables() {
       church_id    TEXT NOT NULL REFERENCES church(id) ON DELETE CASCADE,
       team         TEXT NOT NULL,
       role         TEXT NOT NULL,
+      person_id    TEXT REFERENCES person(id) ON DELETE SET NULL,
       person_name  TEXT,
       service_date TEXT,
       confirmed    INTEGER DEFAULT 0,
@@ -736,6 +737,10 @@ function migrateSchema() {
     {
       check: "SELECT 1 FROM pragma_table_info('audit_log') WHERE name='user_name'",
       sql: "ALTER TABLE audit_log ADD COLUMN user_name TEXT",
+    },
+    {
+      check: "SELECT 1 FROM pragma_table_info('volunteer_assignment') WHERE name='person_id'",
+      sql: "ALTER TABLE volunteer_assignment ADD COLUMN person_id TEXT REFERENCES person(id) ON DELETE SET NULL",
     },
   ];
 
