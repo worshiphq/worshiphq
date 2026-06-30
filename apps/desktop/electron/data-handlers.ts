@@ -34,7 +34,7 @@ export function registerDataHandlers() {
   ipcMain.handle("db:insert", (_e, rawTable: string, data: Record<string, any>) => {
     const table = cleanTable(rawTable);
     const id = data.id || uuid();
-    const record = { ...data, id };
+    const record: Record<string, any> = { ...data, id };
 
     const cols = Object.keys(record);
     const placeholders = cols.map(() => "?").join(", ");
