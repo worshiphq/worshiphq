@@ -6,9 +6,11 @@ import {
   Megaphone, BookUser, Calendar, BookMarked, Package, Receipt,
   DoorOpen, BookHeart, Sparkles, HeartHandshake, PiggyBank,
   CalendarClock, Crown, Sun, MessageSquare, BellRing, ScrollText,
-  PanelLeftClose, PanelLeft,
+  PanelLeftClose, PanelLeft, RefreshCw, Loader2,
 } from "lucide-react";
+import { useState } from "react";
 import { useAppStore } from "../stores/app-store";
+import { sync } from "../lib/api";
 import { cn } from "../lib/utils";
 
 interface NavItem {
@@ -84,8 +86,17 @@ const sections: NavSection[] = [
 ];
 
 export function Sidebar() {
-  const { session, sidebarCollapsed, toggleSidebar } = useAppStore();
+  const { session, sidebarCollapsed, toggleSidebar, syncOverlay, syncStatus, setSyncStatus } = useAppStore();
   const collapsed = sidebarCollapsed;
+  const [syncing, setSyncing] = useState(false);
+
+  async function handleSync() {
+    if (syncing || syncOverlay.visible) return;
+    setSyncing(true);
+    const result = await sync.now();
+    setSyncStatus(result);
+    setSyncing(false);
+  }
 
   return (
     <aside
@@ -149,6 +160,42 @@ export function Sidebar() {
           </div>
         ))}
       </nav>
+
+      {/* Sync button */}
+      <div className="border-t border-line px-2 py-2">
+        <button
+          onClick={handleSync}
+          disabled={syncing || syncOverlay.visible}
+          className={cn(
+            "flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-[13px] font-medium transition-colors",
+            syncing || syncOverlay.visible
+              ? "bg-primary-soft text-primary-bright"
+              : "text-ink-muted hover:bg-primary-soft hover:text-primary-bright"
+          )}
+          title={collapsed ? "Sync Now" : undefined}
+        >
+          {syncing || syncOverlay.visible ? (
+            <Loader2 className="size-4 shrink-0 whq-spin" />
+          ) : (
+            <RefreshCw className="size-4 shrink-0" />
+          )}
+          {!collapsed && (
+            <div className="min-w-0 flex-1 text-left">
+              <span>{syncing || syncOverlay.visible ? "Syncing..." : "Sync Now"}</span>
+              {syncStatus.lastSyncAt && !syncing && (
+                <p className="text-[10px] text-ink-faint truncate">
+                  Last: {new Date(syncStatus.lastSyncAt).toLocaleString(undefined, { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                </p>
+              )}
+            </div>
+          )}
+          {!collapsed && syncStatus.pendingChanges > 0 && (
+            <span className="ml-auto rounded-full bg-gold/15 px-1.5 py-0.5 text-[10px] font-bold text-gold">
+              {syncStatus.pendingChanges}
+            </span>
+          )}
+        </button>
+      </div>
     </aside>
   );
 }

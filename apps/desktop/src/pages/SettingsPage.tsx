@@ -37,7 +37,6 @@ export function SettingsPage() {
     const result = await sync.now();
     setSyncStatus(result);
     setSyncing(false);
-    showToast("Sync complete!");
   }
 
   async function handleClearData() {

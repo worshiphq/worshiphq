@@ -113,17 +113,19 @@ export function registerSyncHandlers() {
       }
 
       // ── Phase 1: Push local changes ──
-      broadcast("sync:progress", { phase: "pushing", progress: 10 });
-      await pushChanges(serverUrl, token);
+      const pendingCount = getPendingCount();
+      broadcast("sync:progress", { phase: "pushing", progress: 10, count: pendingCount, detail: `${pendingCount} local change${pendingCount !== 1 ? "s" : ""} to upload` });
+      const pushedCount = await pushChanges(serverUrl, token);
+      broadcast("sync:progress", { phase: "pushing", progress: 30, count: pushedCount, detail: pushedCount > 0 ? `Uploaded ${pushedCount} change${pushedCount !== 1 ? "s" : ""}` : "No local changes" });
 
       // ── Phase 2: Pull remote changes ──
-      broadcast("sync:progress", { phase: "pulling", progress: 50 });
-      await pullChanges(serverUrl, token);
+      broadcast("sync:progress", { phase: "pulling", progress: 35, detail: "Requesting data from server..." });
+      const { applied: pulledCount, skipped: skippedCount } = await pullChanges(serverUrl, token);
 
       const now = new Date().toISOString();
       setSyncMeta("last_sync_at", now);
 
-      broadcast("sync:progress", { phase: "done", progress: 100 });
+      broadcast("sync:progress", { phase: "done", progress: 100, pushed: pushedCount, pulled: pulledCount, skipped: skippedCount });
 
       return {
         lastSyncAt: now,
@@ -195,17 +197,16 @@ export function registerSyncHandlers() {
         data.user.name, data.user.role, data.user.phone, data.user.photoUrl
       );
 
-      // Auto-trigger full sync after first login
       setTimeout(async () => {
         if (!syncing) {
           syncing = true;
           broadcast("sync:progress", { phase: "starting", progress: 0 });
           try {
-            broadcast("sync:progress", { phase: "pulling", progress: 20 });
-            await pullChanges(serverUrl, data.token);
+            broadcast("sync:progress", { phase: "pulling", progress: 20, detail: "Initial sync — downloading all data..." });
+            const { applied, skipped } = await pullChanges(serverUrl, data.token);
             const now = new Date().toISOString();
             setSyncMeta("last_sync_at", now);
-            broadcast("sync:progress", { phase: "done", progress: 100 });
+            broadcast("sync:progress", { phase: "done", progress: 100, pushed: 0, pulled: applied, skipped });
           } catch (err: any) {
             broadcast("sync:progress", { phase: "error", progress: 0, error: err?.message || "Initial sync failed" });
           } finally {
@@ -264,11 +265,11 @@ export function registerSyncHandlers() {
   }, 5 * 60 * 1000);
 }
 
-async function pushChanges(serverUrl: string, token: string) {
+async function pushChanges(serverUrl: string, token: string): Promise<number> {
   const db = getDatabase();
   const changes = db.prepare("SELECT * FROM _change_log WHERE synced = 0 ORDER BY id ASC LIMIT 500").all() as any[];
 
-  if (changes.length === 0) return;
+  if (changes.length === 0) return 0;
 
   const payload = changes.map((c) => ({
     table: c.table_name,
@@ -292,13 +293,15 @@ async function pushChanges(serverUrl: string, token: string) {
     throw new Error(body.error || `Push failed (${res.status})`);
   }
 
-  // Mark as synced
   const ids = changes.map((c) => c.id);
   db.prepare(`UPDATE _change_log SET synced = 1 WHERE id IN (${ids.map(() => "?").join(",")})`).run(...ids);
+  return changes.length;
 }
 
-async function pullChanges(serverUrl: string, token: string) {
+async function pullChanges(serverUrl: string, token: string): Promise<{ applied: number; skipped: number }> {
   const lastSync = getSyncMeta("last_sync_at") || "1970-01-01T00:00:00Z";
+
+  broadcast("sync:progress", { phase: "pulling", progress: 40, detail: "Fetching data from server..." });
 
   const res = await fetch(`${serverUrl}/api/desktop/sync/pull?since=${encodeURIComponent(lastSync)}`, {
     headers: { Authorization: `Bearer ${token}` },
@@ -311,6 +314,12 @@ async function pullChanges(serverUrl: string, token: string) {
 
   const { changes } = await res.json();
   const db = getDatabase();
+
+  broadcast("sync:progress", { phase: "pulling", progress: 55, detail: `Received ${changes.length} record${changes.length !== 1 ? "s" : ""} from server`, count: changes.length });
+
+  if (changes.length === 0) {
+    return { applied: 0, skipped: 0 };
+  }
 
   const tableColumnsCache: Record<string, Set<string>> = {};
 
@@ -327,10 +336,19 @@ async function pullChanges(serverUrl: string, token: string) {
 
   let applied = 0;
   let skipped = 0;
+  const tablesProcessed = new Set<string>();
+
+  broadcast("sync:progress", { phase: "applying", progress: 60, detail: "Writing to local database..." });
 
   const applyChanges = db.transaction(() => {
-    for (const change of changes) {
-      const { table, recordId, action, data } = change;
+    for (let i = 0; i < changes.length; i++) {
+      const { table, recordId, action, data } = changes[i];
+      tablesProcessed.add(table);
+
+      if (i % 50 === 0 && i > 0) {
+        const pct = 60 + Math.round((i / changes.length) * 30);
+        broadcast("sync:progress", { phase: "applying", progress: pct, detail: `${table} (${i}/${changes.length})`, currentTable: table, count: applied });
+      }
 
       try {
         if (action === "delete") {
@@ -362,5 +380,8 @@ async function pullChanges(serverUrl: string, token: string) {
   });
 
   applyChanges();
-  broadcast("sync:progress", { phase: "pulling", progress: 90, count: applied, skipped });
+
+  broadcast("sync:progress", { phase: "applying", progress: 92, detail: `Applied ${applied} records across ${tablesProcessed.size} tables`, count: applied, skipped });
+
+  return { applied, skipped };
 }

@@ -48,10 +48,15 @@ export interface SyncStatus {
 }
 
 export interface SyncProgress {
-  phase: "starting" | "pushing" | "pulling" | "done" | "error";
+  phase: "starting" | "pushing" | "pulling" | "applying" | "done" | "error";
   progress: number;
   error?: string;
   count?: number;
+  detail?: string;
+  currentTable?: string;
+  pushed?: number;
+  pulled?: number;
+  skipped?: number;
 }
 
 const api = typeof window !== "undefined" && window.api ? window.api : null;

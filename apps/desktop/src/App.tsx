@@ -7,6 +7,7 @@ import { LoginPage } from "./components/LoginPage";
 import { Sidebar } from "./components/Sidebar";
 import { TitleBar } from "./components/TitleBar";
 import { Toast } from "./components/Toast";
+import { SyncOverlay } from "./components/SyncOverlay";
 import { DashboardPage } from "./pages/DashboardPage";
 import { PeoplePage } from "./pages/PeoplePage";
 import { GivingPage } from "./pages/GivingPage";
@@ -30,13 +31,7 @@ export default function App() {
     }
     init();
 
-    const unsub = sync.onProgress((p) => {
-      if (p.phase === "done" || p.phase === "error") {
-        sync.status().then(setSyncStatus);
-      }
-    });
-
-    return unsub;
+    return () => {};
   }, []);
 
   if (checking) {
@@ -432,6 +427,7 @@ export default function App() {
           </Routes>
         </div>
         <Toast />
+        <SyncOverlay />
       </div>
     </div>
   );
