@@ -2,6 +2,8 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 
+const SCHEMA_VERSION = 2;
+
 let db: Database.Database;
 
 export function getDatabase(): Database.Database {
@@ -10,6 +12,27 @@ export function getDatabase(): Database.Database {
 
 export function initDatabase(dbPath: string) {
   fs.mkdirSync(path.dirname(dbPath), { recursive: true });
+
+  // Check schema version — if outdated, delete and recreate
+  if (fs.existsSync(dbPath)) {
+    const tmp = new Database(dbPath);
+    let ver = 0;
+    try {
+      const row = tmp.prepare("SELECT value FROM _sync_meta WHERE key = 'schema_version'").get() as any;
+      ver = row ? parseInt(row.value, 10) : 0;
+    } catch {
+      // _sync_meta may not exist yet
+    }
+    tmp.close();
+
+    if (ver < SCHEMA_VERSION) {
+      // Delete old DB files to get a clean schema
+      for (const ext of ["", "-wal", "-shm"]) {
+        try { fs.unlinkSync(dbPath + ext); } catch {}
+      }
+    }
+  }
+
   db = new Database(dbPath);
 
   db.pragma("journal_mode = WAL");
@@ -18,6 +41,10 @@ export function initDatabase(dbPath: string) {
 
   createTables();
   migrateSchema();
+
+  // Stamp schema version
+  db.prepare("INSERT OR REPLACE INTO _sync_meta (key, value) VALUES ('schema_version', ?)").run(String(SCHEMA_VERSION));
+
   return db;
 }
 
