@@ -32,6 +32,12 @@ import { TestimoniesPage } from "./pages/TestimoniesPage";
 import { CounselingPage } from "./pages/CounselingPage";
 import { AssetsPage } from "./pages/AssetsPage";
 import { CalendarPage } from "./pages/CalendarPage";
+import { LeadersPage } from "./pages/LeadersPage";
+import { DirectoryPage } from "./pages/DirectoryPage";
+import { BirthdaysPage } from "./pages/BirthdaysPage";
+import { BookingsPage } from "./pages/BookingsPage";
+import { HarvestPage } from "./pages/HarvestPage";
+import { AuditLogPage } from "./pages/AuditLogPage";
 import { DataListPage } from "./pages/DataListPage";
 
 export default function App() {
@@ -83,20 +89,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<DashboardPage />} />
             <Route path="/people" element={<PeoplePage />} />
-            <Route path="/leaders" element={
-              <DataListPage title="Leaders" table="person" webPath="leaders"
-                columns={[
-                  { key: "first_name", label: "First Name" },
-                  { key: "last_name", label: "Last Name" },
-                  { key: "leader_title", label: "Title" },
-                  { key: "phone", label: "Phone" },
-                  { key: "email", label: "Email" },
-                  { key: "status", label: "Status", format: "status" },
-                ]}
-                searchFields={["first_name", "last_name", "leader_title", "phone", "email"]}
-                orderBy="leader_sort_order ASC, first_name ASC"
-              />
-            } />
+            <Route path="/leaders" element={<LeadersPage />} />
             <Route path="/attendance" element={<AttendancePage />} />
             <Route path="/giving" element={<GivingPage />} />
             <Route path="/dayborn" element={
@@ -120,44 +113,9 @@ export default function App() {
             <Route path="/volunteers" element={<VolunteersPage />} />
             <Route path="/groups" element={<GroupsPage />} />
             <Route path="/visitors" element={<VisitorsPage />} />
-            <Route path="/birthdays" element={
-              <DataListPage title="Birthdays" table="person" webPath="birthdays"
-                columns={[
-                  { key: "first_name", label: "First Name" },
-                  { key: "last_name", label: "Last Name" },
-                  { key: "date_of_birth", label: "Birthday", format: "date" },
-                  { key: "phone", label: "Phone" },
-                ]}
-                searchFields={["first_name", "last_name"]}
-                orderBy="date_of_birth ASC"
-              />
-            } />
-            <Route path="/directory" element={
-              <DataListPage title="Directory" table="person" webPath="directory"
-                columns={[
-                  { key: "first_name", label: "First Name" },
-                  { key: "last_name", label: "Last Name" },
-                  { key: "phone", label: "Phone" },
-                  { key: "email", label: "Email" },
-                  { key: "status", label: "Status", format: "status" },
-                ]}
-                searchFields={["first_name", "last_name", "phone", "email"]}
-                orderBy="first_name ASC"
-              />
-            } />
-            <Route path="/bookings" element={
-              <DataListPage title="Bookings" table="booking" webPath="bookings"
-                columns={[
-                  { key: "title", label: "Booking" },
-                  { key: "booked_by", label: "Booked By" },
-                  { key: "start_time", label: "Start", format: "date" },
-                  { key: "end_time", label: "End", format: "date" },
-                  { key: "status", label: "Status", format: "status" },
-                ]}
-                searchFields={["title", "booked_by"]}
-                orderBy="start_time DESC"
-              />
-            } />
+            <Route path="/birthdays" element={<BirthdaysPage />} />
+            <Route path="/directory" element={<DirectoryPage />} />
+            <Route path="/bookings" element={<BookingsPage />} />
             <Route path="/rosters" element={
               <DataListPage title="Rosters" table="volunteer_roster" webPath="rosters"
                 columns={[
@@ -183,19 +141,7 @@ export default function App() {
               />
             } />
             <Route path="/pledges" element={<PledgesPage />} />
-            <Route path="/harvest" element={
-              <DataListPage title="Harvest" table="harvest" webPath="harvest"
-                columns={[
-                  { key: "title", label: "Harvest" },
-                  { key: "year", label: "Year" },
-                  { key: "goal", label: "Goal", format: "currency" },
-                  { key: "raised", label: "Raised", format: "currency" },
-                  { key: "date", label: "Date", format: "date" },
-                ]}
-                searchFields={["title"]}
-                orderBy="year DESC"
-              />
-            } />
+            <Route path="/harvest" element={<HarvestPage />} />
             <Route path="/expenses" element={<ExpensesPage />} />
             <Route path="/budgets" element={<BudgetsPage />} />
             <Route path="/welfare" element={<WelfarePage />} />
@@ -220,18 +166,7 @@ export default function App() {
             <Route path="/testimonies" element={<TestimoniesPage />} />
             <Route path="/counseling" element={<CounselingPage />} />
             <Route path="/assets" element={<AssetsPage />} />
-            <Route path="/audit-log" element={
-              <DataListPage title="Audit Log" table="audit_log" webPath="audit-log"
-                columns={[
-                  { key: "action", label: "Action" },
-                  { key: "entity", label: "Entity" },
-                  { key: "detail", label: "Detail" },
-                  { key: "created_at", label: "Date", format: "date" },
-                ]}
-                searchFields={["action", "entity", "detail"]}
-                orderBy="created_at DESC"
-              />
-            } />
+            <Route path="/audit-log" element={<AuditLogPage />} />
             <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </div>
