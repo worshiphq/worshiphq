@@ -31,6 +31,7 @@ import { DevotionalsPage } from "./pages/DevotionalsPage";
 import { TestimoniesPage } from "./pages/TestimoniesPage";
 import { CounselingPage } from "./pages/CounselingPage";
 import { AssetsPage } from "./pages/AssetsPage";
+import { CalendarPage } from "./pages/CalendarPage";
 import { DataListPage } from "./pages/DataListPage";
 
 export default function App() {
@@ -115,17 +116,7 @@ export default function App() {
               />
             } />
             <Route path="/events" element={<EventsPage />} />
-            <Route path="/calendar" element={
-              <DataListPage title="Calendar" table="event" webPath="calendar"
-                columns={[
-                  { key: "title", label: "Event" },
-                  { key: "type", label: "Type" },
-                  { key: "starts_at", label: "Date", format: "date" },
-                ]}
-                searchFields={["title"]}
-                orderBy="starts_at ASC"
-              />
-            } />
+            <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/volunteers" element={<VolunteersPage />} />
             <Route path="/groups" element={<GroupsPage />} />
             <Route path="/visitors" element={<VisitorsPage />} />
