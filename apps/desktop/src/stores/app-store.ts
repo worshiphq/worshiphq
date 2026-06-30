@@ -19,12 +19,14 @@ interface AppState {
   session: Session | null;
   syncStatus: SyncStatus;
   syncOverlay: SyncOverlayState;
+  syncVersion: number;
   sidebarCollapsed: boolean;
   toast: { message: string; type: "success" | "error" | "info" } | null;
 
   setSession: (session: Session | null) => void;
   setSyncStatus: (status: SyncStatus) => void;
   updateSyncOverlay: (update: Partial<SyncOverlayState>) => void;
+  bumpSyncVersion: () => void;
   toggleSidebar: () => void;
   showToast: (message: string, type?: "success" | "error" | "info") => void;
   clearToast: () => void;
@@ -48,12 +50,14 @@ export const useAppStore = create<AppState>((set) => ({
   session: null,
   syncStatus: { lastSyncAt: null, pendingChanges: 0, syncing: false, error: null },
   syncOverlay: { ...defaultOverlay },
+  syncVersion: 0,
   sidebarCollapsed: false,
   toast: null,
 
   setSession: (session) => set({ session }),
   setSyncStatus: (syncStatus) => set({ syncStatus }),
   updateSyncOverlay: (update) => set((s) => ({ syncOverlay: { ...s.syncOverlay, ...update } })),
+  bumpSyncVersion: () => set((s) => ({ syncVersion: s.syncVersion + 1 })),
   toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
   showToast: (message, type = "success") => {
     set({ toast: { message, type } });

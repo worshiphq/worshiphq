@@ -41,7 +41,7 @@ export function DataListPage({
   canAdd = true,
   canDelete = true,
 }: DataListPageProps) {
-  const { session, showToast } = useAppStore();
+  const { session, showToast, syncVersion } = useAppStore();
   const [rows, setRows] = useState<any[]>([]);
   const [search, setSearch] = useState("");
   const [loading, setLoading] = useState(true);
@@ -50,7 +50,7 @@ export function DataListPage({
 
   useEffect(() => {
     loadData();
-  }, [session?.churchId]);
+  }, [session?.churchId, syncVersion]);
 
   async function loadData() {
     if (!session?.churchId) return;

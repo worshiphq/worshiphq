@@ -13,7 +13,7 @@ import { useAppStore } from "../stores/app-store";
 import { formatCurrency, formatDate, timeAgo } from "../lib/utils";
 
 export function DashboardPage() {
-  const { session } = useAppStore();
+  const { session, syncVersion } = useAppStore();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({ total: 0, active: 0, giving: 0, attendance: 0, visitors: 0, departments: 0 });
@@ -23,7 +23,7 @@ export function DashboardPage() {
 
   useEffect(() => {
     if (session?.churchId) loadAll();
-  }, [session?.churchId]);
+  }, [session?.churchId, syncVersion]);
 
   async function loadAll() {
     setLoading(true);

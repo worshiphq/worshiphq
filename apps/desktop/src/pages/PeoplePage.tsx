@@ -33,7 +33,7 @@ const segments: { key: Segment; label: string }[] = [
 ];
 
 export function PeoplePage() {
-  const { session, showToast } = useAppStore();
+  const { session, showToast, syncVersion } = useAppStore();
   const [people, setPeople] = useState<any[]>([]);
   const [departments, setDepartments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +52,7 @@ export function PeoplePage() {
       loadPeople();
       loadDepartments();
     }
-  }, [session?.churchId]);
+  }, [session?.churchId, syncVersion]);
 
   async function loadPeople() {
     setLoading(true);

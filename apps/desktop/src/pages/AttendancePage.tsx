@@ -13,14 +13,14 @@ import { formatDate, cn } from "../lib/utils";
 import { v4 as uuid } from "uuid";
 
 export function AttendancePage() {
-  const { session, showToast } = useAppStore();
+  const { session, showToast, syncVersion } = useAppStore();
   const [sessions, setSessions] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
 
   useEffect(() => {
     if (session?.churchId) loadSessions();
-  }, [session?.churchId]);
+  }, [session?.churchId, syncVersion]);
 
   async function loadSessions() {
     setLoading(true);

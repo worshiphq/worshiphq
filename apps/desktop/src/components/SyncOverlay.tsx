@@ -16,7 +16,7 @@ const PHASE_CONFIG: Record<string, { icon: any; label: string; color: string }> 
 };
 
 export function SyncOverlay() {
-  const { syncOverlay, updateSyncOverlay, setSyncStatus } = useAppStore();
+  const { syncOverlay, updateSyncOverlay, setSyncStatus, bumpSyncVersion } = useAppStore();
 
   useEffect(() => {
     const unsub = sync.onProgress((p) => {
@@ -74,6 +74,7 @@ export function SyncOverlay() {
           detail: buildSummary(p.pushed || 0, p.pulled || 0, p.skipped || 0),
         });
         sync.status().then(setSyncStatus);
+        bumpSyncVersion();
         setTimeout(() => updateSyncOverlay({ visible: false }), 3000);
       } else if (p.phase === "error") {
         updateSyncOverlay({

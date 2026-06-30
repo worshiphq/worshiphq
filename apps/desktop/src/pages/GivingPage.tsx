@@ -24,7 +24,7 @@ const methodIcons: Record<string, any> = {
 };
 
 export function GivingPage() {
-  const { session, showToast } = useAppStore();
+  const { session, showToast, syncVersion } = useAppStore();
   const [gifts, setGifts] = useState<any[]>([]);
   const [people, setPeople] = useState<any[]>([]);
   const [funds, setFunds] = useState<any[]>([]);
@@ -35,7 +35,7 @@ export function GivingPage() {
 
   useEffect(() => {
     if (session?.churchId) loadData();
-  }, [session?.churchId]);
+  }, [session?.churchId, syncVersion]);
 
   async function loadData() {
     setLoading(true);
