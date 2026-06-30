@@ -3,19 +3,23 @@ import {
   Search, Plus, Loader2, Trash2, Edit3, X, Users, User,
   Grid3X3, List, Phone, Mail, MapPin, Briefcase, Heart,
   ChevronRight, ArrowDownAZ, GraduationCap, Baby, MessageSquare,
+  Camera, ChevronDown, ChevronUp, Shield, Calendar, Home, Globe,
+  BookOpen, Star, AlertCircle, Fingerprint,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
 import { StatCard } from "../components/ui/StatCard";
 import { Avatar } from "../components/ui/Avatar";
 import { Modal, Drawer } from "../components/ui/Modal";
+import { Lightbox } from "../components/ui/Lightbox";
 import { db } from "../lib/api";
+import { requireOnline } from "../lib/net";
 import { useAppStore } from "../stores/app-store";
 import { cn, formatDate } from "../lib/utils";
 import { v4 as uuid } from "uuid";
 
 type AgeTab = "adult" | "teen" | "child";
-type Segment = "all" | "active" | "visitor" | "inactive";
+type Segment = "all" | "active" | "inactive";
 type ViewMode = "list" | "grid";
 type SortBy = "name-az" | "name-za" | "newest" | "oldest";
 
@@ -28,7 +32,6 @@ const ageGroupTabs = [
 const segments: { key: Segment; label: string }[] = [
   { key: "all", label: "All" },
   { key: "active", label: "Active" },
-  { key: "visitor", label: "Visitors" },
   { key: "inactive", label: "Inactive" },
 ];
 
@@ -46,6 +49,7 @@ export function PeoplePage() {
   const [selected, setSelected] = useState<any | null>(null);
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
 
   useEffect(() => {
     if (session?.churchId) {
@@ -81,13 +85,16 @@ export function PeoplePage() {
   }), [people, departments]);
 
   const filtered = useMemo(() => {
-    let list = people.filter((p) => {
-      const pAge = p.age_group || "adult";
-      if (pAge !== ageTab) return false;
-      if (ageTab === "adult" && segment !== "all" && p.status !== segment) return false;
-      return true;
-    });
-
+    let list = people;
+    if (ageTab !== "adult") {
+      list = list.filter((p) => p.age_group === ageTab);
+    } else {
+      list = list.filter((p) => !p.age_group || p.age_group === "adult");
+    }
+    if (segment !== "all") list = list.filter((p) => p.status === segment);
+    if (deptFilter) {
+      list = list.filter((p) => p.department_id === deptFilter);
+    }
     if (search) {
       const q = search.toLowerCase();
       list = list.filter((p) =>
@@ -97,204 +104,215 @@ export function PeoplePage() {
         (p.member_id || "").toLowerCase().includes(q)
       );
     }
-
-    list.sort((a: any, b: any) => {
+    list = [...list].sort((a, b) => {
       switch (sortBy) {
-        case "name-az": return a.first_name.localeCompare(b.first_name);
-        case "name-za": return b.first_name.localeCompare(a.first_name);
+        case "name-az": return `${a.first_name} ${a.last_name}`.localeCompare(`${b.first_name} ${b.last_name}`);
+        case "name-za": return `${b.first_name} ${b.last_name}`.localeCompare(`${a.first_name} ${a.last_name}`);
         case "newest": return (b.joined_at || "").localeCompare(a.joined_at || "");
         case "oldest": return (a.joined_at || "").localeCompare(b.joined_at || "");
         default: return 0;
       }
     });
-
     return list;
-  }, [people, ageTab, segment, search, sortBy]);
+  }, [people, ageTab, segment, search, sortBy, deptFilter]);
+
+  function openEdit(id: string) {
+    setEditingId(id);
+    setShowForm(true);
+    setSelected(null);
+  }
 
   async function handleDelete(id: string) {
-    if (!confirm("Delete this member? This action cannot be undone.")) return;
-    await db.delete("person", id);
+    if (!confirm("Delete this member? This cannot be undone.")) return;
     setPeople((prev) => prev.filter((p) => p.id !== id));
     setSelected(null);
     showToast("Member deleted");
+    await db.delete("person", id);
   }
 
-  const addLabel = ageTab === "child" ? "Add child" : ageTab === "teen" ? "Add teen" : "Add member";
+  async function handleSendSms(personId: string, phone: string) {
+    const ok = await requireOnline("send SMS");
+    if (!ok) return;
+    showToast("Opening SMS on web...");
+    window.api?.openExternal(`https://worshiphq.app/app/communications?to=${phone}`);
+  }
+
+  function handleAvatarClick(p: any, e: React.MouseEvent) {
+    e.stopPropagation();
+    if (p.photo_url) setLightboxSrc(p.photo_url);
+  }
 
   return (
     <PageShell title="People">
-      <PageHeader title="People" description="Your whole congregation — members, families, teens and children.">
+      <PageHeader title="People" description="Manage your church members, visitors and contacts.">
         <button onClick={() => { setEditingId(null); setShowForm(true); }} className="btn-primary btn-sm">
-          <Plus className="size-3.5" /> {addLabel}
+          <Plus className="size-3.5" /> Add Member
         </button>
       </PageHeader>
 
       {/* Stat cards */}
       <div className="mb-5 grid grid-cols-5 gap-3">
         <StatCard label="Total" value={stats.total} icon={Users} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Adults" value={stats.adults} icon={User} color="bg-success/10 text-success" />
-        <StatCard label="Teens" value={stats.teens} icon={GraduationCap} color="bg-gold/10 text-gold" />
-        <StatCard label="Children" value={stats.children} icon={Baby} color="bg-info/10 text-info" />
-        <StatCard label="Departments" value={stats.departments} icon={Grid3X3} color="bg-primary-soft text-primary-bright" />
+        <StatCard label="Adults" value={stats.adults} icon={Users} color="bg-success/10 text-success" />
+        <StatCard label="Teens" value={stats.teens} icon={GraduationCap} color="bg-info/10 text-info" />
+        <StatCard label="Children" value={stats.children} icon={Baby} color="bg-gold/10 text-gold" />
+        <StatCard label="Departments" value={stats.departments} icon={Shield} color="bg-sky/10 text-sky" />
       </div>
 
       {/* Age group tabs */}
-      <div className="mb-4 flex items-center gap-1 rounded-xl border border-line bg-surface-2/50 p-1">
-        {ageGroupTabs.map((tab) => {
-          const count = tab.key === "adult" ? stats.adults : tab.key === "teen" ? stats.teens : stats.children;
-          return (
-            <button
-              key={tab.key}
-              onClick={() => { setAgeTab(tab.key); setSegment("all"); setSearch(""); }}
-              className={cn(
-                "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold transition-all",
-                ageTab === tab.key ? "bg-surface text-ink shadow-sm" : "text-ink-muted hover:text-ink"
-              )}
-            >
-              <tab.icon className="size-4" />
-              {tab.label}
-              <span className={cn(
-                "rounded-full px-2 py-0.5 text-xs font-medium",
-                ageTab === tab.key ? "badge-primary" : "bg-surface-3 text-ink-faint"
-              )}>{count}</span>
+      <div className="mb-4 flex items-center gap-4">
+        <div className="flex gap-1.5">
+          {ageGroupTabs.map((t) => (
+            <button key={t.key} onClick={() => setAgeTab(t.key)}
+              className={cn("flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
+                ageTab === t.key ? "bg-primary/10 text-primary-bright shadow-sm" : "text-ink-muted hover:bg-surface-2"
+              )}>
+              <t.icon className="size-3.5" /> {t.label}
             </button>
-          );
-        })}
+          ))}
+        </div>
+        <div className="h-5 w-px bg-line" />
+        <div className="flex gap-1">
+          {segments.map((s) => (
+            <button key={s.key} onClick={() => setSegment(s.key)}
+              className={cn("rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
+                segment === s.key ? "bg-surface-3 text-ink" : "text-ink-faint hover:bg-surface-2"
+              )}>
+              {s.label}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Filters bar */}
       <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex flex-wrap gap-1.5">
-          {ageTab === "adult" && segments.map((s) => (
-            <button
-              key={s.key}
-              onClick={() => setSegment(s.key)}
-              className={cn(
-                "rounded-lg px-3 py-1.5 text-sm font-medium transition-all",
-                segment === s.key ? "bg-primary/10 text-primary-bright shadow-sm" : "text-ink-muted hover:bg-surface-2"
-              )}
-            >{s.label}</button>
-          ))}
-        </div>
         <div className="flex items-center gap-2">
-          {ageTab === "adult" && departments.length > 0 && (
-            <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)}
-              className="h-9 rounded-lg border border-line bg-surface px-2.5 text-xs text-ink">
-              <option value="">All departments</option>
-              {departments.map((d: any) => <option key={d.id} value={d.name}>{d.name}</option>)}
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
+            <input value={search} onChange={(e) => setSearch(e.target.value)}
+              className="input h-9 pl-9 w-56" placeholder="Search members..." />
+          </div>
+          {departments.length > 0 && (
+            <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="input h-9 w-40 text-sm">
+              <option value="">All Departments</option>
+              {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           )}
-          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortBy)}
-            className="h-9 rounded-lg border border-line bg-surface px-2.5 text-xs text-ink">
-            <option value="name-az">A → Z</option>
-            <option value="name-za">Z → A</option>
+        </div>
+        <div className="flex items-center gap-2">
+          <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortBy)} className="input h-9 w-36 text-sm">
+            <option value="name-az">Name A-Z</option>
+            <option value="name-za">Name Z-A</option>
             <option value="newest">Newest</option>
             <option value="oldest">Oldest</option>
           </select>
           <div className="flex rounded-lg border border-line overflow-hidden">
-            <button onClick={() => setView("list")} className={cn("grid size-9 place-items-center", view === "list" ? "bg-primary-soft text-primary-bright" : "text-ink-faint hover:bg-surface-3")}>
+            <button onClick={() => setView("list")}
+              className={cn("grid size-9 place-items-center", view === "list" ? "bg-primary-soft text-primary-bright" : "text-ink-faint hover:bg-surface-2")}>
               <List className="size-4" />
             </button>
-            <button onClick={() => setView("grid")} className={cn("grid size-9 place-items-center", view === "grid" ? "bg-primary-soft text-primary-bright" : "text-ink-faint hover:bg-surface-3")}>
+            <button onClick={() => setView("grid")}
+              className={cn("grid size-9 place-items-center", view === "grid" ? "bg-primary-soft text-primary-bright" : "text-ink-faint hover:bg-surface-2")}>
               <Grid3X3 className="size-4" />
             </button>
-          </div>
-          <div className="relative">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-            <input type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-              className="input h-9 pl-9 w-56" placeholder="Search members..." />
           </div>
         </div>
       </div>
 
-      {/* Content */}
+      {/* People list / grid */}
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="size-8 text-primary-bright whq-spin" />
+        <div className="flex items-center justify-center py-16">
+          <Loader2 className="size-6 text-primary-bright whq-spin" />
         </div>
       ) : filtered.length === 0 ? (
-        <div className="py-20 text-center">
-          <Users className="mx-auto size-12 text-ink-faint/30" />
-          <p className="mt-3 text-sm font-medium text-ink">{search ? "No members match your search" : "No members yet"}</p>
-          <p className="mt-1 text-xs text-ink-muted">Sync to pull data from the cloud, or add members manually.</p>
-          {!search && (
-            <button onClick={() => { setEditingId(null); setShowForm(true); }} className="btn-primary btn-sm mt-4">
-              <Plus className="size-3.5" /> {addLabel}
-            </button>
-          )}
+        <div className="py-16 text-center">
+          <Users className="mx-auto size-10 text-ink-faint/30" />
+          <p className="mt-3 text-sm font-medium text-ink">{search || deptFilter ? "No members match your filter" : "No members yet"}</p>
+          <p className="mt-1 text-xs text-ink-muted">Add a member or sync with the cloud to pull data.</p>
+          <button onClick={() => { setEditingId(null); setShowForm(true); }} className="btn-primary btn-sm mt-4">
+            <Plus className="size-3.5" /> Add Member
+          </button>
         </div>
-      ) : view === "grid" ? (
-        <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((p) => (
-            <div key={p.id} onClick={() => setSelected(p)}
-              className="card-hover cursor-pointer group">
-              <div className="flex items-center gap-3">
-                <Avatar name={`${p.first_name} ${p.last_name}`} src={p.photo_url} size="md" />
-                <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-ink">{p.first_name} {p.last_name}</p>
-                  {p.leader_title && <p className="truncate text-[10px] font-medium text-gold">{p.leader_title}</p>}
-                  <p className="truncate text-[11px] text-ink-faint">{p.member_id || p.phone || p.email || "No contact"}</p>
-                </div>
-              </div>
-              <div className="mt-3 flex items-center gap-1.5">
-                <span className={cn("badge", p.status === "active" ? "badge-success" : p.status === "visitor" ? "badge-info" : "badge-muted")}>
-                  {p.status}
-                </span>
-              </div>
-            </div>
-          ))}
-        </div>
-      ) : (
+      ) : view === "list" ? (
         <div className="card p-0 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-line bg-surface-2/50">
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Name</th>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Member</th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Contact</th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Status</th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Joined</th>
+                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">ID</th>
                 <th className="w-10"></th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line-soft">
-              {filtered.map((p) => (
-                <tr key={p.id} onClick={() => setSelected(p)}
-                  className="cursor-pointer transition-colors hover:bg-surface-2/50 group">
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-3">
-                      <Avatar name={`${p.first_name} ${p.last_name}`} src={p.photo_url} size="sm" />
-                      <div>
-                        <p className="font-medium text-ink">{p.first_name} {p.last_name}</p>
-                        {p.member_id && <p className="text-[10px] text-ink-faint font-mono">{p.member_id}</p>}
+              {filtered.map((p) => {
+                const name = `${p.first_name} ${p.last_name}`;
+                return (
+                  <tr key={p.id} onClick={() => setSelected(p)}
+                    className="cursor-pointer transition-colors hover:bg-surface-2/50">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <div onClick={(e) => handleAvatarClick(p, e)} className={p.photo_url ? "cursor-zoom-in" : ""}>
+                          <Avatar name={name} src={p.photo_url} size="sm" />
+                        </div>
+                        <div>
+                          <p className="font-medium text-ink">{name}</p>
+                          {p.leader_title && <p className="text-[10px] text-gold font-medium">{p.leader_title}</p>}
+                        </div>
                       </div>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <p className="text-sm text-ink-muted">{p.phone || "—"}</p>
-                    {p.email && <p className="text-[11px] text-ink-faint">{p.email}</p>}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={cn("badge", p.status === "active" ? "badge-success" : p.status === "visitor" ? "badge-info" : "badge-muted")}>
-                      {p.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-xs text-ink-faint">{p.joined_at ? formatDate(p.joined_at) : "—"}</td>
-                  <td className="px-4 py-3">
-                    <ChevronRight className="size-4 text-ink-faint opacity-0 group-hover:opacity-100 transition-opacity" />
-                  </td>
-                </tr>
-              ))}
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="text-xs text-ink-muted">{p.phone || p.email || "—"}</p>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={cn("badge", p.status === "active" ? "badge-success" : "badge-muted")}>
+                        {p.status || "active"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-ink-faint font-mono">{p.member_id || "—"}</td>
+                    <td className="px-4 py-3">
+                      <ChevronRight className="size-4 text-ink-faint" />
+                    </td>
+                  </tr>
+                );
+              })}
             </tbody>
           </table>
         </div>
+      ) : (
+        <div className="grid grid-cols-3 gap-3">
+          {filtered.map((p) => {
+            const name = `${p.first_name} ${p.last_name}`;
+            return (
+              <div key={p.id} onClick={() => setSelected(p)}
+                className="card cursor-pointer hover:shadow-lg transition-shadow flex flex-col items-center p-5 text-center">
+                <div onClick={(e) => handleAvatarClick(p, e)} className={p.photo_url ? "cursor-zoom-in" : ""}>
+                  <Avatar name={name} src={p.photo_url} size="lg" />
+                </div>
+                <p className="mt-3 font-semibold text-ink text-sm">{name}</p>
+                {p.leader_title && <p className="text-[10px] text-gold font-medium">{p.leader_title}</p>}
+                <p className="text-xs text-ink-muted mt-0.5">{p.phone || p.email || "No contact"}</p>
+                <span className={cn("badge mt-2", p.status === "active" ? "badge-success" : "badge-muted")}>
+                  {p.status || "active"}
+                </span>
+              </div>
+            );
+          })}
+        </div>
       )}
 
-      {/* Detail drawer */}
+      <p className="mt-3 text-xs text-ink-faint text-center">{filtered.length} member{filtered.length !== 1 ? "s" : ""}</p>
+
+      {/* Detail Drawer */}
       <PersonDrawer
         person={selected}
+        departments={departments}
         onClose={() => setSelected(null)}
-        onEdit={(id) => { setEditingId(id); setShowForm(true); setSelected(null); }}
+        onEdit={openEdit}
         onDelete={handleDelete}
+        onSendSms={handleSendSms}
+        onPhotoClick={(src) => setLightboxSrc(src)}
       />
 
       {/* Add/Edit modal */}
@@ -309,67 +327,120 @@ export function PeoplePage() {
           onSaved={() => { setShowForm(false); setEditingId(null); loadPeople(); }}
         />
       </Modal>
+
+      {/* Lightbox */}
+      {lightboxSrc && (
+        <Lightbox src={lightboxSrc} alt="Member photo" onClose={() => setLightboxSrc(null)} />
+      )}
     </PageShell>
   );
 }
 
+/* ─── Person Drawer ─── */
 function PersonDrawer({
-  person: p,
-  onClose,
-  onEdit,
-  onDelete,
+  person: p, departments, onClose, onEdit, onDelete, onSendSms, onPhotoClick,
 }: {
-  person: any | null;
-  onClose: () => void;
-  onEdit: (id: string) => void;
-  onDelete: (id: string) => void;
+  person: any | null; departments: any[]; onClose: () => void;
+  onEdit: (id: string) => void; onDelete: (id: string) => void;
+  onSendSms: (id: string, phone: string) => void;
+  onPhotoClick: (src: string) => void;
 }) {
+  const [personDepts, setPersonDepts] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (p?.id) {
+      db.rawQuery("SELECT d.name FROM person_department pd JOIN department d ON pd.department_id = d.id WHERE pd.person_id = ?", [p.id])
+        .then((rows: any[]) => setPersonDepts(rows.map((r) => r.name)))
+        .catch(() => setPersonDepts([]));
+    }
+  }, [p?.id]);
+
   if (!p) return null;
 
   const fullName = `${p.first_name} ${p.last_name}`;
+  const deptName = departments.find((d) => d.id === p.department_id)?.name;
 
   return (
     <>
       <div className="drawer-overlay" onClick={onClose} />
       <div className="drawer">
-        {/* Header */}
         <div className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 pb-8">
           <button onClick={onClose} className="absolute right-4 top-4 grid size-8 place-items-center rounded-lg bg-surface/80 hover:bg-surface">
             <X className="size-4 text-ink-faint" />
           </button>
           <div className="flex items-center gap-4">
-            <Avatar name={fullName} src={p.photo_url} size="xl" />
+            <div onClick={() => p.photo_url && onPhotoClick(p.photo_url)}
+              className={p.photo_url ? "cursor-zoom-in" : ""}>
+              <Avatar name={fullName} src={p.photo_url} size="xl" />
+            </div>
             <div>
               <h2 className="text-xl font-bold text-ink">{fullName}</h2>
+              {p.title && <p className="text-sm text-ink-muted">{p.title}</p>}
               {p.leader_title && <p className="text-sm font-medium text-gold">{p.leader_title}</p>}
               {p.member_id && <p className="mt-0.5 text-xs text-ink-faint font-mono">{p.member_id}</p>}
               <div className="mt-2 flex gap-1.5">
-                <span className={cn("badge", p.status === "active" ? "badge-success" : p.status === "visitor" ? "badge-info" : "badge-muted")}>
-                  {p.status}
+                <span className={cn("badge", p.status === "active" ? "badge-success" : "badge-muted")}>
+                  {p.status || "active"}
                 </span>
+                {p.featured && <span className="badge badge-primary">Featured</span>}
+                {p.baptized && <span className="badge badge-info">Baptized</span>}
               </div>
             </div>
           </div>
         </div>
 
-        {/* Details */}
-        <div className="p-6 space-y-4">
+        <div className="p-6 space-y-4 overflow-y-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
           <DetailSection title="Contact">
             <DetailRow icon={Phone} label="Phone" value={p.phone} />
+            <DetailRow icon={Phone} label="Work Phone" value={p.work_phone} />
+            <DetailRow icon={Phone} label="Home Phone" value={p.home_phone} />
             <DetailRow icon={Mail} label="Email" value={p.email} />
-            <DetailRow icon={MapPin} label="Location" value={p.location || p.town} />
+            <DetailRow icon={MapPin} label="Address" value={p.house_address} />
+            <DetailRow icon={MapPin} label="Postal Address" value={p.postal_address} />
+            <DetailRow icon={MapPin} label="Town" value={p.town || p.location} />
           </DetailSection>
 
           <DetailSection title="Personal">
             <DetailRow icon={User} label="Gender" value={p.gender} />
+            <DetailRow icon={Calendar} label="Date of Birth" value={p.date_of_birth ? formatDate(p.date_of_birth) : null} />
             <DetailRow icon={Heart} label="Marital Status" value={p.marital_status} />
             <DetailRow icon={Briefcase} label="Occupation" value={p.occupation} />
-            {p.date_of_birth && <DetailRow icon={User} label="Birthday" value={formatDate(p.date_of_birth)} />}
+            <DetailRow icon={Briefcase} label="Employer" value={p.employer} />
+            <DetailRow icon={Globe} label="Nationality" value={p.nationality} />
+            <DetailRow icon={Globe} label="Country" value={p.country} />
+            <DetailRow icon={MapPin} label="Region" value={p.region} />
+            <DetailRow icon={MapPin} label="District" value={p.district} />
+            <DetailRow icon={Home} label="Home Town" value={p.home_town} />
+            <DetailRow icon={MapPin} label="Place of Birth" value={p.place_of_birth} />
+          </DetailSection>
+
+          <DetailSection title="Church">
+            <DetailRow icon={Shield} label="Department" value={deptName || (personDepts.length ? personDepts.join(", ") : null)} />
+            <DetailRow icon={Calendar} label="Date of Membership" value={p.date_of_membership ? formatDate(p.date_of_membership) : null} />
+            <DetailRow icon={BookOpen} label="Previous Church" value={p.previous_church} />
+            <DetailRow icon={Star} label="Special Interest" value={p.special_interest} />
+          </DetailSection>
+
+          {(p.age_group === "teen" || p.age_group === "child") && (
+            <DetailSection title="Youth / Guardian">
+              <DetailRow icon={GraduationCap} label="School" value={p.school} />
+              <DetailRow icon={BookOpen} label="Grade" value={p.grade} />
+              <DetailRow icon={User} label="Guardian" value={p.guardian_name} />
+              <DetailRow icon={Phone} label="Guardian Phone" value={p.guardian_phone} />
+            </DetailSection>
+          )}
+
+          <DetailSection title="Emergency Contact">
+            <DetailRow icon={AlertCircle} label="Name" value={p.emergency_name} />
+            <DetailRow icon={Phone} label="Phone" value={p.emergency_phone} />
+            <DetailRow icon={User} label="Relation" value={p.emergency_relation} />
+            <DetailRow icon={Mail} label="Email" value={p.emergency_email} />
+            <DetailRow icon={MapPin} label="Address" value={p.emergency_address} />
           </DetailSection>
 
           {p.notes && (
             <DetailSection title="Notes">
-              <p className="text-sm text-ink-muted">{p.notes}</p>
+              <p className="text-sm text-ink-muted whitespace-pre-wrap">{p.notes}</p>
             </DetailSection>
           )}
 
@@ -379,20 +450,40 @@ function PersonDrawer({
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <p className="text-[10px] text-ink-faint">Birthday</p>
-                <p className="text-sm font-medium text-ink">{p.birthday || p.date_of_birth ? formatDate(p.date_of_birth || p.birthday) : "—"}</p>
+                <p className="text-sm font-medium text-ink">{p.date_of_birth ? formatDate(p.date_of_birth) : "—"}</p>
               </div>
               <div>
                 <p className="text-[10px] text-ink-faint">Joined</p>
                 <p className="text-sm font-medium text-ink">{p.joined_at ? formatDate(p.joined_at) : "—"}</p>
               </div>
+              <div>
+                <p className="text-[10px] text-ink-faint">Membership</p>
+                <p className="text-sm font-medium text-ink">{p.date_of_membership ? formatDate(p.date_of_membership) : "—"}</p>
+              </div>
             </div>
           </div>
+
+          {/* Biometrics */}
+          {(p.fingerprint_data || p.biometric_data) && (
+            <div className="rounded-xl border border-line bg-surface-2/50 p-4">
+              <div className="flex items-center gap-2 mb-1">
+                <Fingerprint className="size-4 text-primary-bright" />
+                <p className="text-xs font-semibold text-ink-faint uppercase tracking-wider">Biometrics</p>
+              </div>
+              <p className="text-sm text-ink-muted">Biometric data on file</p>
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex gap-2 pt-2">
             <button onClick={() => onEdit(p.id)} className="btn-primary flex-1 btn-sm">
-              <Edit3 className="size-3.5" /> Edit Profile
+              <Edit3 className="size-3.5" /> Edit
             </button>
+            {p.phone && (
+              <button onClick={() => onSendSms(p.id, p.phone)} className="btn-secondary btn-sm px-3">
+                <MessageSquare className="size-3.5" /> SMS
+              </button>
+            )}
             <button onClick={() => onDelete(p.id)} className="btn-danger btn-sm px-3">
               <Trash2 className="size-3.5" />
             </button>
@@ -425,66 +516,136 @@ function DetailRow({ icon: Icon, label, value }: { icon: any; label: string; val
   );
 }
 
+/* ─── Collapsible Section for Form ─── */
+function FormSection({ title, defaultOpen, children }: { title: string; defaultOpen?: boolean; children: React.ReactNode }) {
+  const [open, setOpen] = useState(defaultOpen ?? false);
+  return (
+    <div className="border border-line rounded-xl overflow-hidden">
+      <button type="button" onClick={() => setOpen(!open)}
+        className="flex w-full items-center justify-between px-4 py-3 bg-surface-2/50 text-sm font-semibold text-ink hover:bg-surface-2 transition-colors">
+        {title}
+        {open ? <ChevronUp className="size-4 text-ink-faint" /> : <ChevronDown className="size-4 text-ink-faint" />}
+      </button>
+      {open && <div className="p-4 space-y-3">{children}</div>}
+    </div>
+  );
+}
+
+/* ─── Full Person Form ─── */
 function PersonForm({
-  churchId,
-  editId,
-  ageGroup,
-  departments,
-  onClose,
-  onSaved,
+  churchId, editId, ageGroup, departments, onClose, onSaved,
 }: {
-  churchId: string;
-  editId: string | null;
-  ageGroup: AgeTab;
-  departments: any[];
-  onClose: () => void;
-  onSaved: () => void;
+  churchId: string; editId: string | null; ageGroup: AgeTab;
+  departments: any[]; onClose: () => void; onSaved: () => void;
 }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
+  const [pickingPhoto, setPickingPhoto] = useState(false);
+  const [photoPreview, setPhotoPreview] = useState<string | null>(null);
   const [form, setForm] = useState({
-    first_name: "", last_name: "", email: "", phone: "",
-    gender: "", status: "active", location: "", occupation: "",
-    marital_status: "", date_of_birth: "", notes: "", age_group: ageGroup,
-    school: "", grade: "", guardian_name: "", guardian_phone: "",
-    nationality: "", emergency_name: "", emergency_phone: "", emergency_relation: "",
+    first_name: "", last_name: "", other_names: "", email: "", phone: "",
+    work_phone: "", home_phone: "",
+    gender: "", title: "", status: "active", age_group: ageGroup as string,
+    date_of_birth: "", marital_status: "", occupation: "", employer: "",
+    nationality: "", country: "", region: "", district: "", town: "",
+    home_town: "", place_of_birth: "", house_address: "", postal_address: "",
+    department_id: "", date_of_membership: "", previous_church: "",
+    baptized: "", special_interest: "", leader_title: "", featured: false,
+    school: "", grade: "", guardian_name: "", guardian_phone: "", parent_id: "",
+    emergency_name: "", emergency_phone: "", emergency_relation: "",
+    emergency_email: "", emergency_address: "",
+    notes: "", photo_url: "",
+    location: "",
   });
 
   useEffect(() => {
     if (editId) {
       db.getById("person", editId).then((p) => {
-        if (p) setForm({
-          first_name: p.first_name || "", last_name: p.last_name || "",
-          email: p.email || "", phone: p.phone || "", gender: p.gender || "",
-          status: p.status || "active", location: p.location || p.town || "",
-          occupation: p.occupation || "", marital_status: p.marital_status || "",
-          date_of_birth: p.date_of_birth || "", notes: p.notes || "",
-          age_group: p.age_group || "adult",
-          school: p.school || "", grade: p.grade || "",
-          guardian_name: p.guardian_name || "", guardian_phone: p.guardian_phone || "",
-          nationality: p.nationality || "",
-          emergency_name: p.emergency_name || "", emergency_phone: p.emergency_phone || "",
-          emergency_relation: p.emergency_relation || "",
-        });
+        if (p) {
+          setForm({
+            first_name: p.first_name || "", last_name: p.last_name || "",
+            other_names: p.other_names || "", email: p.email || "",
+            phone: p.phone || "", work_phone: p.work_phone || "",
+            home_phone: p.home_phone || "", gender: p.gender || "",
+            title: p.title || "", status: p.status || "active",
+            age_group: p.age_group || "adult",
+            date_of_birth: p.date_of_birth || "", marital_status: p.marital_status || "",
+            occupation: p.occupation || "", employer: p.employer || "",
+            nationality: p.nationality || "", country: p.country || "",
+            region: p.region || "", district: p.district || "",
+            town: p.town || "", home_town: p.home_town || "",
+            place_of_birth: p.place_of_birth || "",
+            house_address: p.house_address || "", postal_address: p.postal_address || "",
+            department_id: p.department_id || "",
+            date_of_membership: p.date_of_membership || "",
+            previous_church: p.previous_church || "",
+            baptized: p.baptized ? "yes" : "",
+            special_interest: p.special_interest || "",
+            leader_title: p.leader_title || "",
+            featured: !!p.featured,
+            school: p.school || "", grade: p.grade || "",
+            guardian_name: p.guardian_name || "", guardian_phone: p.guardian_phone || "",
+            parent_id: p.parent_id || "",
+            emergency_name: p.emergency_name || "", emergency_phone: p.emergency_phone || "",
+            emergency_relation: p.emergency_relation || "",
+            emergency_email: p.emergency_email || "",
+            emergency_address: p.emergency_address || "",
+            notes: p.notes || "", photo_url: p.photo_url || "",
+            location: p.location || "",
+          });
+          setPhotoPreview(p.photo_url || null);
+        }
       });
     }
   }, [editId]);
+
+  async function handlePickPhoto() {
+    setPickingPhoto(true);
+    try {
+      const result = await window.api?.pickImage();
+      if (!result) { setPickingPhoto(false); return; }
+      if (typeof result === "object" && "error" in result) {
+        showToast(result.error, "error");
+        setPickingPhoto(false);
+        return;
+      }
+      const dataUrl = result as string;
+      setPhotoPreview(dataUrl);
+      setForm((f) => ({ ...f, photo_url: dataUrl }));
+    } catch {
+      showToast("Failed to pick photo", "error");
+    }
+    setPickingPhoto(false);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.first_name || !form.last_name) return;
     setSaving(true);
 
-    if (editId) {
-      await db.update("person", editId, form);
-      showToast("Member updated");
-    } else {
-      await db.insert("person", { id: uuid(), church_id: churchId, ...form, joined_at: new Date().toISOString() });
-      showToast("Member added");
-    }
+    const data: any = { ...form };
+    data.baptized = data.baptized === "yes" ? 1 : 0;
+    data.featured = data.featured ? 1 : 0;
+    if (!data.department_id) data.department_id = null;
+    if (!data.parent_id) data.parent_id = null;
+    if (!data.photo_url) data.photo_url = null;
 
+    try {
+      if (editId) {
+        await db.update("person", editId, data);
+        showToast("Member updated");
+      } else {
+        await db.insert("person", {
+          id: uuid(), church_id: churchId, ...data,
+          joined_at: new Date().toISOString(),
+        });
+        showToast("Member added");
+      }
+      onSaved();
+    } catch (err) {
+      showToast("Failed to save", "error");
+    }
     setSaving(false);
-    onSaved();
   }
 
   const set = (key: string) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>) =>
@@ -493,129 +654,272 @@ function PersonForm({
   const isYouth = form.age_group === "teen" || form.age_group === "child";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1">First Name *</label>
-          <input value={form.first_name} onChange={set("first_name")} className="input" required />
+    <form onSubmit={handleSubmit} className="space-y-4 max-h-[70vh] overflow-y-auto pr-1">
+      {/* Photo */}
+      <div className="flex items-center gap-4">
+        <div className="relative group">
+          {photoPreview ? (
+            <img src={photoPreview} alt="" className="size-16 rounded-full object-cover border border-line" />
+          ) : (
+            <div className="grid size-16 place-items-center rounded-full bg-surface-3 border border-line">
+              <Camera className="size-6 text-ink-faint" />
+            </div>
+          )}
         </div>
         <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1">Last Name *</label>
-          <input value={form.last_name} onChange={set("last_name")} className="input" required />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1">Email</label>
-          <input type="email" value={form.email} onChange={set("email")} className="input" />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1">Phone</label>
-          <input value={form.phone} onChange={set("phone")} className="input" />
-        </div>
-      </div>
-
-      <div className="grid grid-cols-3 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1">Gender</label>
-          <select value={form.gender} onChange={set("gender")} className="input">
-            <option value="">—</option>
-            <option value="Male">Male</option>
-            <option value="Female">Female</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1">Status</label>
-          <select value={form.status} onChange={set("status")} className="input">
-            <option value="active">Active</option>
-            <option value="visitor">Visitor</option>
-            <option value="inactive">Inactive</option>
-          </select>
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1">Age Group</label>
-          <select value={form.age_group} onChange={set("age_group")} className="input">
-            <option value="adult">Adult</option>
-            <option value="teen">Teen</option>
-            <option value="child">Child</option>
-          </select>
+          <button type="button" onClick={handlePickPhoto} disabled={pickingPhoto} className="btn-secondary btn-sm">
+            {pickingPhoto ? <Loader2 className="size-3.5 whq-spin" /> : <Camera className="size-3.5" />}
+            {pickingPhoto ? "Choosing..." : photoPreview ? "Change Photo" : "Add Photo"}
+          </button>
+          {photoPreview && (
+            <button type="button" onClick={() => { setPhotoPreview(null); setForm((f) => ({ ...f, photo_url: "" })); }}
+              className="btn-ghost btn-sm text-danger ml-2">
+              <Trash2 className="size-3.5" /> Remove
+            </button>
+          )}
         </div>
       </div>
 
-      {!isYouth && (
-        <div className="grid grid-cols-2 gap-3">
+      {/* Basic Info — always open */}
+      <FormSection title="Basic Information" defaultOpen>
+        <div className="grid grid-cols-3 gap-3">
           <div>
-            <label className="block text-xs font-medium text-ink-muted mb-1">Marital Status</label>
-            <select value={form.marital_status} onChange={set("marital_status")} className="input">
+            <label className="block text-xs font-medium text-ink-muted mb-1">First Name *</label>
+            <input value={form.first_name} onChange={set("first_name")} className="input" required />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Last Name *</label>
+            <input value={form.last_name} onChange={set("last_name")} className="input" required />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Other Names</label>
+            <input value={form.other_names} onChange={set("other_names")} className="input" />
+          </div>
+        </div>
+        <div className="grid grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Title</label>
+            <input value={form.title} onChange={set("title")} className="input" placeholder="Mr, Mrs, Dr..." />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Gender</label>
+            <select value={form.gender} onChange={set("gender")} className="input">
               <option value="">—</option>
-              <option value="Single">Single</option>
-              <option value="Married">Married</option>
-              <option value="Divorced">Divorced</option>
-              <option value="Widowed">Widowed</option>
+              <option value="Male">Male</option>
+              <option value="Female">Female</option>
             </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink-muted mb-1">Occupation</label>
-            <input value={form.occupation} onChange={set("occupation")} className="input" />
+            <label className="block text-xs font-medium text-ink-muted mb-1">Age Group</label>
+            <select value={form.age_group} onChange={set("age_group")} className="input">
+              <option value="adult">Adult</option>
+              <option value="teen">Teen</option>
+              <option value="child">Child</option>
+            </select>
           </div>
         </div>
-      )}
-
-      {isYouth && (
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-ink-muted mb-1">School</label>
-            <input value={form.school} onChange={set("school")} className="input" />
+            <label className="block text-xs font-medium text-ink-muted mb-1">Status</label>
+            <select value={form.status} onChange={set("status")} className="input">
+              <option value="active">Active</option>
+              <option value="inactive">Inactive</option>
+            </select>
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink-muted mb-1">Grade/Class</label>
-            <input value={form.grade} onChange={set("grade")} className="input" />
+            <label className="block text-xs font-medium text-ink-muted mb-1">Date of Birth</label>
+            <input type="date" value={form.date_of_birth} onChange={set("date_of_birth")} className="input" />
           </div>
         </div>
-      )}
+      </FormSection>
 
-      {isYouth && (
+      {/* Contact */}
+      <FormSection title="Contact" defaultOpen>
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-medium text-ink-muted mb-1">Guardian Name</label>
-            <input value={form.guardian_name} onChange={set("guardian_name")} className="input" />
+            <label className="block text-xs font-medium text-ink-muted mb-1">Phone</label>
+            <input value={form.phone} onChange={set("phone")} className="input" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-ink-muted mb-1">Guardian Phone</label>
-            <input value={form.guardian_phone} onChange={set("guardian_phone")} className="input" />
+            <label className="block text-xs font-medium text-ink-muted mb-1">Email</label>
+            <input type="email" value={form.email} onChange={set("email")} className="input" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Work Phone</label>
+            <input value={form.work_phone} onChange={set("work_phone")} className="input" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Home Phone</label>
+            <input value={form.home_phone} onChange={set("home_phone")} className="input" />
           </div>
         </div>
+      </FormSection>
+
+      {/* Personal */}
+      <FormSection title="Personal Details">
+        <div className="grid grid-cols-2 gap-3">
+          {!isYouth && (
+            <>
+              <div>
+                <label className="block text-xs font-medium text-ink-muted mb-1">Marital Status</label>
+                <select value={form.marital_status} onChange={set("marital_status")} className="input">
+                  <option value="">—</option>
+                  <option value="Single">Single</option>
+                  <option value="Married">Married</option>
+                  <option value="Divorced">Divorced</option>
+                  <option value="Widowed">Widowed</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-ink-muted mb-1">Occupation</label>
+                <input value={form.occupation} onChange={set("occupation")} className="input" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-ink-muted mb-1">Employer</label>
+                <input value={form.employer} onChange={set("employer")} className="input" />
+              </div>
+            </>
+          )}
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Nationality</label>
+            <input value={form.nationality} onChange={set("nationality")} className="input" placeholder="e.g. Ghanaian" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Country</label>
+            <input value={form.country} onChange={set("country")} className="input" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Region</label>
+            <input value={form.region} onChange={set("region")} className="input" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">District</label>
+            <input value={form.district} onChange={set("district")} className="input" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Town</label>
+            <input value={form.town} onChange={set("town")} className="input" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Home Town</label>
+            <input value={form.home_town} onChange={set("home_town")} className="input" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Place of Birth</label>
+            <input value={form.place_of_birth} onChange={set("place_of_birth")} className="input" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">House Address</label>
+            <input value={form.house_address} onChange={set("house_address")} className="input" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Postal Address</label>
+            <input value={form.postal_address} onChange={set("postal_address")} className="input" />
+          </div>
+        </div>
+      </FormSection>
+
+      {/* Church */}
+      <FormSection title="Church Details">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Department</label>
+            <select value={form.department_id} onChange={set("department_id")} className="input">
+              <option value="">— None —</option>
+              {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Date of Membership</label>
+            <input type="date" value={form.date_of_membership} onChange={set("date_of_membership")} className="input" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Previous Church</label>
+            <input value={form.previous_church} onChange={set("previous_church")} className="input" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Baptized</label>
+            <select value={form.baptized} onChange={set("baptized")} className="input">
+              <option value="">— Unknown —</option>
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Leader Title</label>
+            <input value={form.leader_title} onChange={set("leader_title")} className="input" placeholder="e.g. Deacon, Elder" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Special Interest</label>
+            <input value={form.special_interest} onChange={set("special_interest")} className="input" />
+          </div>
+        </div>
+        <label className="flex items-center gap-2 text-sm text-ink-muted cursor-pointer">
+          <input type="checkbox" checked={form.featured}
+            onChange={(e) => setForm((f) => ({ ...f, featured: e.target.checked }))}
+            className="rounded border-line accent-primary" />
+          Featured member (shown on public page)
+        </label>
+      </FormSection>
+
+      {/* Youth / Guardian */}
+      {isYouth && (
+        <FormSection title="Youth / Guardian" defaultOpen>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1">School</label>
+              <input value={form.school} onChange={set("school")} className="input" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1">Grade / Class</label>
+              <input value={form.grade} onChange={set("grade")} className="input" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1">Guardian Name</label>
+              <input value={form.guardian_name} onChange={set("guardian_name")} className="input" />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1">Guardian Phone</label>
+              <input value={form.guardian_phone} onChange={set("guardian_phone")} className="input" />
+            </div>
+          </div>
+        </FormSection>
       )}
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1">Location</label>
-          <input value={form.location} onChange={set("location")} className="input" />
+      {/* Emergency */}
+      <FormSection title="Emergency Contact">
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Name</label>
+            <input value={form.emergency_name} onChange={set("emergency_name")} className="input" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Phone</label>
+            <input value={form.emergency_phone} onChange={set("emergency_phone")} className="input" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Relation</label>
+            <input value={form.emergency_relation} onChange={set("emergency_relation")} className="input" />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Email</label>
+            <input type="email" value={form.emergency_email} onChange={set("emergency_email")} className="input" />
+          </div>
+          <div className="col-span-2">
+            <label className="block text-xs font-medium text-ink-muted mb-1">Address</label>
+            <input value={form.emergency_address} onChange={set("emergency_address")} className="input" />
+          </div>
         </div>
-        <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1">Date of Birth</label>
-          <input type="date" value={form.date_of_birth} onChange={set("date_of_birth")} className="input" />
-        </div>
-      </div>
+      </FormSection>
 
-      <div className="grid grid-cols-2 gap-3">
-        <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1">Nationality</label>
-          <input value={form.nationality} onChange={set("nationality")} className="input" placeholder="e.g. Ghanaian" />
-        </div>
-        <div>
-          <label className="block text-xs font-medium text-ink-muted mb-1">Emergency Contact</label>
-          <input value={form.emergency_name} onChange={set("emergency_name")} className="input" placeholder="Name" />
-        </div>
-      </div>
-
+      {/* Notes */}
       <div>
         <label className="block text-xs font-medium text-ink-muted mb-1">Notes</label>
         <textarea value={form.notes} onChange={set("notes")} className="input min-h-[60px] resize-none" />
       </div>
 
-      <div className="flex gap-2 pt-2">
+      {/* Submit */}
+      <div className="flex gap-2 pt-2 sticky bottom-0 bg-surface pb-1">
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
         <button type="submit" disabled={saving} className="btn-primary flex-1">
           {saving && <Loader2 className="size-4 whq-spin" />}
