@@ -998,30 +998,47 @@ function JoinLinkTab() {
 
 /* ─── Billing Tab ─── */
 function BillingTab() {
-  const { session, showToast } = useAppStore();
-  const [sub, setSub] = useState<any>(null);
+  const { showToast } = useAppStore();
+  const [planInfo, setPlanInfo] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   useEffect(() => {
-    if (session?.churchId) {
-      db.rawQuery("SELECT * FROM subscription WHERE church_id = ?", [session.churchId])
-        .then((rows: any[]) => { if (rows.length) setSub(rows[0]); setLoading(false); })
-        .catch(() => setLoading(false));
+    window.api?.getPlan?.().then((info: any) => { setPlanInfo(info); setLoading(false); }).catch(() => setLoading(false));
+  }, []);
+
+  async function handleRefresh() {
+    setRefreshing(true);
+    const result = await window.api?.refreshPlan?.();
+    if (result && !result.error) {
+      setPlanInfo(result);
+      showToast("Plan info updated");
+    } else {
+      showToast(result?.error || "Could not reach server", "error");
     }
-  }, [session?.churchId]);
+    setRefreshing(false);
+  }
 
   if (loading) {
     return <div className="flex items-center justify-center py-20"><Loader2 className="size-6 text-primary-bright whq-spin" /></div>;
   }
 
-  const planName = sub?.plan ? sub.plan.charAt(0).toUpperCase() + sub.plan.slice(1) : "Free";
-  const isActive = sub?.status === "active" || sub?.status === "grace";
+  const planName = planInfo?.plan ? planInfo.plan.charAt(0).toUpperCase() + planInfo.plan.slice(1) : "Free";
+  const isActive = planInfo?.status === "active" || planInfo?.status === "grace";
+  const renewsAt = planInfo?.renewsAt;
+  const daysLeft = renewsAt ? Math.ceil((new Date(renewsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)) : null;
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-bold text-ink">Billing & Plan</h2>
-        <p className="text-sm text-ink-muted">View your subscription status.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-ink">Billing & Plan</h2>
+          <p className="text-sm text-ink-muted">View your subscription status.</p>
+        </div>
+        <button onClick={handleRefresh} disabled={refreshing} className="btn-ghost btn-sm">
+          {refreshing ? <Loader2 className="size-3.5 whq-spin" /> : <RefreshCw className="size-3.5" />}
+          {refreshing ? "Checking..." : "Refresh"}
+        </button>
       </div>
 
       <div className="card space-y-4">
@@ -1032,17 +1049,24 @@ function BillingTab() {
           <div>
             <p className="text-lg font-bold text-ink">{planName} Plan</p>
             <div className="flex items-center gap-2">
-              <span className={cn("badge", isActive ? "badge-success" : "badge-muted")}>{sub?.status || "free"}</span>
-              {sub?.interval && <span className="text-xs text-ink-faint capitalize">{sub.interval}</span>}
+              <span className={cn("badge", isActive ? "badge-success" : "badge-muted")}>{planInfo?.status || "free"}</span>
             </div>
           </div>
         </div>
 
-        {sub?.renews_at && (
+        {renewsAt && (
           <div className="rounded-xl border border-line bg-surface-2/50 p-3">
             <p className="text-xs text-ink-faint">Next renewal</p>
-            <p className="text-sm font-medium text-ink">{new Date(sub.renews_at).toLocaleDateString()}</p>
+            <p className="text-sm font-medium text-ink">
+              {new Date(renewsAt).toLocaleDateString()}
+              {daysLeft !== null && daysLeft > 0 && <span className="ml-2 text-xs text-ink-faint">({daysLeft} day{daysLeft !== 1 ? "s" : ""} left)</span>}
+              {daysLeft !== null && daysLeft <= 0 && <span className="ml-2 text-xs text-danger font-bold">Expired</span>}
+            </p>
           </div>
+        )}
+
+        {planInfo?.checkedAt && (
+          <p className="text-[11px] text-ink-faint">Last verified: {new Date(planInfo.checkedAt).toLocaleString()}</p>
         )}
 
         <div className="border-t border-line pt-4">
@@ -1057,18 +1081,6 @@ function BillingTab() {
           </button>
         </div>
       </div>
-
-      {!sub && (
-        <div className="card border-warning/20 bg-warning/5">
-          <div className="flex items-center gap-3">
-            <AlertTriangle className="size-5 text-warning shrink-0" />
-            <div>
-              <p className="text-sm font-medium text-ink">No subscription found</p>
-              <p className="text-xs text-ink-muted">Sync with the cloud to pull your subscription info, or set up billing online.</p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
