@@ -79,14 +79,20 @@ export async function GET(req: Request) {
   try {
     const changes: Array<{ table: string; recordId: string; action: string; data: any }> = [];
 
+    // Always pull the church record (no date filter — settings can change anytime)
+    const church = await db.church.findUnique({ where: { id: churchId } });
+    if (church) {
+      changes.push({ table: "church", recordId: church.id, action: "upsert", data: toSnakeCase(church as any) });
+    }
+
     const batches = await Promise.all([
-      pullTable(db.person, "person", churchId, sinceDate, "joinedAt"),
+      pullTable(db.person, "person", churchId, sinceDate, null),
       pullTable(db.department, "department", churchId, sinceDate),
       pullTable(db.departmentPosition, "department_position", churchId, sinceDate),
       pullTable(db.customRole, "custom_role", churchId, sinceDate),
       pullTable(db.fund, "fund", churchId, sinceDate, null),
       pullTable(db.gift, "gift", churchId, sinceDate, "date"),
-      pullTable(db.attendanceSession, "attendance_session", churchId, sinceDate),
+      pullTable(db.attendanceSession, "attendance_session", churchId, sinceDate, null),
       pullTable(db.attendanceRecord, "attendance_record", churchId, sinceDate, "date"),
       pullTable(db.event, "event", churchId, sinceDate, "startsAt"),
       pullTable(db.visitor, "visitor", churchId, sinceDate),
