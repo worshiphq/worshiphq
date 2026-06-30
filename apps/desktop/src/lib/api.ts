@@ -21,6 +21,8 @@ declare global {
       openExternal: (url: string) => Promise<void>;
       pickImage: () => Promise<string | { error: string } | null>;
       setMeta: (key: string, value: string) => Promise<void>;
+      getPlan: () => Promise<PlanInfo>;
+      refreshPlan: () => Promise<PlanInfo & { error?: string }>;
       getVersion: () => Promise<string>;
       getDataPath: () => Promise<string>;
     };
@@ -45,6 +47,14 @@ export interface SyncStatus {
   pendingChanges: number;
   syncing: boolean;
   error: string | null;
+}
+
+export interface PlanInfo {
+  plan: string;
+  status: string;
+  renewsAt: string | null;
+  signedExpiry: string | null;
+  checkedAt?: string | null;
 }
 
 export interface SyncProgress {
@@ -92,6 +102,11 @@ export const sync = {
   now: () => api?.syncNow() ?? mock({ lastSyncAt: null, pendingChanges: 0, syncing: false, error: null }),
   status: () => api?.getSyncStatus() ?? mock({ lastSyncAt: null, pendingChanges: 0, syncing: false, error: null }),
   onProgress: (cb: (p: SyncProgress) => void) => api?.onSyncProgress(cb) ?? (() => {}),
+};
+
+export const plan = {
+  get: () => api?.getPlan() ?? mock({ plan: "free", status: "active", renewsAt: null, signedExpiry: null } as PlanInfo),
+  refresh: () => api?.refreshPlan() ?? mock({ plan: "free", status: "active", renewsAt: null, signedExpiry: null } as PlanInfo & { error?: string }),
 };
 
 export const appInfo = {

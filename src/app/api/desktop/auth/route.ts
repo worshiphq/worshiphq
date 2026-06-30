@@ -36,6 +36,18 @@ export async function POST(req: Request) {
 
     const token = signDesktopToken(user.id, user.churchId);
 
+    // Fetch subscription for plan enforcement
+    const sub = await db.subscription.findUnique({ where: { churchId: user.churchId } });
+    const plan = sub?.plan ?? "free";
+    const renewsAt = sub?.renewsAt?.toISOString() ?? null;
+    const subStatus = sub?.status ?? "active";
+
+    // Server-signed expiry payload to prevent client-side tampering
+    const expiryPayload = JSON.stringify({ cid: user.churchId, plan, renewsAt, status: subStatus, ts: Date.now() });
+    const expiryBody = Buffer.from(expiryPayload).toString("base64url");
+    const expirySig = crypto.createHmac("sha256", SECRET).update(expiryBody).digest("base64url");
+    const signedExpiry = `${expiryBody}.${expirySig}`;
+
     return NextResponse.json({
       token,
       user: {
@@ -59,6 +71,12 @@ export async function POST(req: Request) {
         logoUrl: user.church.logoUrl,
         memberPrefix: user.church.memberPrefix,
         memberSeq: user.church.memberSeq,
+      },
+      subscription: {
+        plan,
+        status: subStatus,
+        renewsAt,
+        signedExpiry,
       },
     });
   } catch (err: any) {

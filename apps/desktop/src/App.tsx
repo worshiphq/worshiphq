@@ -8,6 +8,7 @@ import { Sidebar } from "./components/Sidebar";
 import { TitleBar } from "./components/TitleBar";
 import { Toast } from "./components/Toast";
 import { SyncOverlay } from "./components/SyncOverlay";
+import { PlanGate } from "./components/PlanGate";
 import { DashboardPage } from "./pages/DashboardPage";
 import { PeoplePage } from "./pages/PeoplePage";
 import { GivingPage } from "./pages/GivingPage";
@@ -83,6 +84,7 @@ export default function App() {
   return (
     <div className="flex h-screen flex-col">
       <TitleBar />
+      <PlanGate>
       <div className="flex flex-1 min-h-0">
         <Sidebar />
         <div className="flex flex-1 flex-col min-w-0">
@@ -173,6 +175,7 @@ export default function App() {
         <Toast />
         <SyncOverlay />
       </div>
+      </PlanGate>
     </div>
   );
 }

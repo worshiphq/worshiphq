@@ -118,6 +118,21 @@ export function registerSyncHandlers() {
       const pushedCount = await pushChanges(serverUrl, token);
       broadcast("sync:progress", { phase: "pushing", progress: 30, count: pushedCount, detail: pushedCount > 0 ? `Uploaded ${pushedCount} change${pushedCount !== 1 ? "s" : ""}` : "No local changes" });
 
+      // ── Refresh plan status during sync ──
+      try {
+        const planRes = await fetch(`${serverUrl}/api/desktop/plan-check`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (planRes.ok) {
+          const planData = await planRes.json();
+          setSyncMeta("plan", planData.plan);
+          setSyncMeta("plan_status", planData.status);
+          setSyncMeta("plan_renews_at", planData.renewsAt || "");
+          setSyncMeta("plan_signed_expiry", planData.signedExpiry || "");
+          setSyncMeta("plan_checked_at", new Date().toISOString());
+        }
+      } catch {}
+
       // ── Phase 2: Pull remote changes ──
       broadcast("sync:progress", { phase: "pulling", progress: 35, detail: "Requesting data from server..." });
       const { applied: pulledCount, skipped: skippedCount } = await pullChanges(serverUrl, token);
@@ -181,6 +196,15 @@ export function registerSyncHandlers() {
       setSyncMeta("user_photo_url", data.user.photoUrl || "");
       setSyncMeta("church_logo_url", data.church.logoUrl || "");
 
+      // Store subscription/plan info (server-signed to prevent tampering)
+      if (data.subscription) {
+        setSyncMeta("plan", data.subscription.plan);
+        setSyncMeta("plan_status", data.subscription.status);
+        setSyncMeta("plan_renews_at", data.subscription.renewsAt || "");
+        setSyncMeta("plan_signed_expiry", data.subscription.signedExpiry || "");
+        setSyncMeta("plan_checked_at", new Date().toISOString());
+      }
+
       // Upsert church + user locally
       const db = getDatabase();
       db.prepare(`INSERT OR REPLACE INTO church (id, slug, name, denomination, city, country, address, accent_color, logo_url, member_prefix, member_seq)
@@ -243,6 +267,43 @@ export function registerSyncHandlers() {
     const allowed = ["user_photo_url", "user_name"];
     if (!allowed.includes(key)) return;
     setSyncMeta(key, value);
+  });
+
+  // ── Plan check: returns locally stored plan info ──
+  ipcMain.handle("plan:get", () => {
+    return {
+      plan: getSyncMeta("plan") || "free",
+      status: getSyncMeta("plan_status") || "active",
+      renewsAt: getSyncMeta("plan_renews_at") || null,
+      signedExpiry: getSyncMeta("plan_signed_expiry") || null,
+      checkedAt: getSyncMeta("plan_checked_at") || null,
+    };
+  });
+
+  // ── Plan refresh: contacts server for fresh plan data ──
+  ipcMain.handle("plan:refresh", async () => {
+    const serverUrl = getSyncMeta("server_url");
+    const token = getSyncMeta("auth_token");
+    if (!serverUrl || !token) return { error: "Not logged in" };
+
+    try {
+      const res = await fetch(`${serverUrl}/api/desktop/plan-check`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        return { error: body.error || `Plan check failed (${res.status})` };
+      }
+      const data = await res.json();
+      setSyncMeta("plan", data.plan);
+      setSyncMeta("plan_status", data.status);
+      setSyncMeta("plan_renews_at", data.renewsAt || "");
+      setSyncMeta("plan_signed_expiry", data.signedExpiry || "");
+      setSyncMeta("plan_checked_at", new Date().toISOString());
+      return { plan: data.plan, status: data.status, renewsAt: data.renewsAt, signedExpiry: data.signedExpiry };
+    } catch (err: any) {
+      return { error: err?.message || "Connection failed" };
+    }
   });
 
   ipcMain.handle("auth:logout", () => {
