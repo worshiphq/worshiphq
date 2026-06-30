@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  Plus, Loader2, CalendarCheck, Trash2, Search, Clock, CheckCircle2,
+  Plus, Loader2, CalendarCheck, Trash2, Search, Clock, CheckCircle2, Pencil,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -17,6 +17,7 @@ export function BookingsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -102,7 +103,10 @@ export function BookingsPage() {
                     )}>{b.status || "pending"}</span>
                   </td>
                   <td className="px-4 py-3">
-                    <button onClick={() => handleDelete(b.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => { setEditing(b); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
+                      <button onClick={() => handleDelete(b.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -111,29 +115,37 @@ export function BookingsPage() {
         )}
       </div>
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="New Booking">
-        <BookingForm churchId={session!.churchId} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); loadData(); }} />
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Booking" : "New Booking"}>
+        <BookingForm churchId={session!.churchId} existing={editing} onClose={() => { setShowForm(false); setEditing(null); }} onSaved={() => { setShowForm(false); setEditing(null); loadData(); }} />
       </Modal>
     </PageShell>
   );
 }
 
-function BookingForm({ churchId, onClose, onSaved }: { churchId: string; onClose: () => void; onSaved: () => void }) {
+function BookingForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title: "", booked_by: "", start_time: "", end_time: "" });
+  const [form, setForm] = useState({
+    title: existing?.title || "", booked_by: existing?.booked_by || "",
+    start_time: existing?.start_time || "", end_time: existing?.end_time || "",
+  });
   const set = (k: string) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await db.insert("booking", {
-      id: uuid(), church_id: churchId, title: form.title.trim(),
-      booked_by: form.booked_by || null,
+    const data = {
+      title: form.title.trim(), booked_by: form.booked_by || null,
       start_time: form.start_time || null, end_time: form.end_time || null,
-      status: "pending",
-    });
-    showToast("Booking created"); setSaving(false); onSaved();
+    };
+    if (existing) {
+      await db.update("booking", existing.id, data);
+      showToast("Booking updated");
+    } else {
+      await db.insert("booking", { id: uuid(), church_id: churchId, ...data, status: "pending" });
+      showToast("Booking created");
+    }
+    setSaving(false); onSaved();
   }
 
   return (
@@ -146,7 +158,7 @@ function BookingForm({ churchId, onClose, onSaved }: { churchId: string; onClose
       </div>
       <div className="flex gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
-        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Creating..." : "Create"}</button>
+        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Saving..." : existing ? "Update" : "Create"}</button>
       </div>
     </form>
   );

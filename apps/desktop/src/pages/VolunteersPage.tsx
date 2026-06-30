@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import {
   Plus, Loader2, HandHelping, Users, Calendar, Trash2,
-  Search, CheckCircle2, Clock, User,
+  Search, CheckCircle2, Clock, User, Pencil,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -20,6 +20,7 @@ export function VolunteersPage() {
   const [assignments, setAssignments] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -97,12 +98,16 @@ export function VolunteersPage() {
                           <h4 className="font-bold text-ink">{r.name}</h4>
                           <p className="text-xs text-ink-muted">{r.ministry || "General"}</p>
                         </div>
-                        <button
-                          onClick={() => handleDeleteRoster(r.id)}
-                          className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
+                        <div className="flex gap-1">
+                          <button onClick={() => { setEditing(r); setShowForm(true); }}
+                            className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit">
+                            <Pencil className="size-3.5" />
+                          </button>
+                          <button onClick={() => handleDeleteRoster(r.id)}
+                            className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </div>
                       </div>
                       <div className="mt-2 flex items-center gap-3 text-xs text-ink-faint">
                         <span className="flex items-center gap-1">
@@ -169,35 +174,42 @@ export function VolunteersPage() {
         </div>
       )}
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="Create Roster">
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Roster" : "Create Roster"}>
         <RosterForm
           churchId={session!.churchId}
-          onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); loadData(); }}
+          existing={editing}
+          onClose={() => { setShowForm(false); setEditing(null); }}
+          onSaved={() => { setShowForm(false); setEditing(null); loadData(); }}
         />
       </Modal>
     </PageShell>
   );
 }
 
-function RosterForm({ churchId, onClose, onSaved }: { churchId: string; onClose: () => void; onSaved: () => void }) {
+function RosterForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
   const today = new Date().toISOString().slice(0, 10);
   const [form, setForm] = useState({
-    name: "", ministry: "", start_date: today, end_date: "",
+    name: existing?.name || "", ministry: existing?.ministry || "",
+    start_date: existing?.start_date || today, end_date: existing?.end_date || "",
   });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!form.name.trim()) return;
     setSaving(true);
-    await db.insert("volunteer_roster", {
-      id: uuid(), church_id: churchId, name: form.name.trim(),
-      ministry: form.ministry || null, start_date: form.start_date,
-      end_date: form.end_date || null,
-    });
-    showToast("Roster created");
+    const data = {
+      name: form.name.trim(), ministry: form.ministry || null,
+      start_date: form.start_date, end_date: form.end_date || null,
+    };
+    if (existing) {
+      await db.update("volunteer_roster", existing.id, data);
+      showToast("Roster updated");
+    } else {
+      await db.insert("volunteer_roster", { id: uuid(), church_id: churchId, ...data });
+      showToast("Roster created");
+    }
     setSaving(false);
     onSaved();
   }
@@ -228,7 +240,7 @@ function RosterForm({ churchId, onClose, onSaved }: { churchId: string; onClose:
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
         <button type="submit" disabled={saving} className="btn-primary flex-1">
           {saving && <Loader2 className="size-4 whq-spin" />}
-          {saving ? "Creating..." : "Create Roster"}
+          {saving ? "Saving..." : existing ? "Update Roster" : "Create Roster"}
         </button>
       </div>
     </form>

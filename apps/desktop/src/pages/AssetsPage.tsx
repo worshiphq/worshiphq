@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  Plus, Loader2, Package, Trash2, Search,
+  Plus, Loader2, Package, Trash2, Search, Pencil,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -19,6 +19,7 @@ export function AssetsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -106,7 +107,10 @@ export function AssetsPage() {
                   </td>
                   <td className="px-4 py-3 text-ink-muted">{a.location || "—"}</td>
                   <td className="px-4 py-3">
-                    <button onClick={() => handleDelete(a.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => { setEditing(a); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
+                      <button onClick={() => handleDelete(a.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -115,29 +119,39 @@ export function AssetsPage() {
         )}
       </div>
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="Add Asset">
-        <AssetForm churchId={session!.churchId} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); loadData(); }} />
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Asset" : "Add Asset"}>
+        <AssetForm churchId={session!.churchId} existing={editing} onClose={() => { setShowForm(false); setEditing(null); }} onSaved={() => { setShowForm(false); setEditing(null); loadData(); }} />
       </Modal>
     </PageShell>
   );
 }
 
-function AssetForm({ churchId, onClose, onSaved }: { churchId: string; onClose: () => void; onSaved: () => void }) {
+function AssetForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: "", category: "", purchase_price: "", condition: "New", location: "" });
+  const [form, setForm] = useState({
+    name: existing?.name || "", category: existing?.category || "",
+    purchase_price: existing?.purchase_price != null ? String(existing.purchase_price) : "",
+    condition: existing?.condition || "New", location: existing?.location || "",
+  });
   const set = (k: string) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await db.insert("asset", {
-      id: uuid(), church_id: churchId, name: form.name.trim(),
-      category: form.category || null,
+    const data = {
+      name: form.name.trim(), category: form.category || null,
       purchase_price: Number(form.purchase_price) || 0,
       condition: form.condition, location: form.location || null,
-    });
-    showToast("Asset added"); setSaving(false); onSaved();
+    };
+    if (existing) {
+      await db.update("asset", existing.id, data);
+      showToast("Asset updated");
+    } else {
+      await db.insert("asset", { id: uuid(), church_id: churchId, ...data });
+      showToast("Asset added");
+    }
+    setSaving(false); onSaved();
   }
 
   return (
@@ -155,7 +169,7 @@ function AssetForm({ churchId, onClose, onSaved }: { churchId: string; onClose: 
       </div>
       <div className="flex gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
-        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Adding..." : "Add Asset"}</button>
+        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Saving..." : existing ? "Update" : "Add Asset"}</button>
       </div>
     </form>
   );

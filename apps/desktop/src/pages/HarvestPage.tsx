@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  Plus, Loader2, Wheat, Trash2, Search,
+  Plus, Loader2, Wheat, Trash2, Search, Pencil,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -16,6 +16,7 @@ export function HarvestPage() {
   const [harvests, setHarvests] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -73,9 +74,10 @@ export function HarvestPage() {
                     <h3 className="font-bold text-ink">{h.title}</h3>
                     <p className="text-xs text-ink-faint">{h.year}{h.date ? ` · ${formatDate(h.date)}` : ""}</p>
                   </div>
-                  <button onClick={() => handleDelete(h.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
-                    <Trash2 className="size-3.5" />
-                  </button>
+                  <div className="flex gap-1">
+                    <button onClick={() => { setEditing(h); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
+                    <button onClick={() => handleDelete(h.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                  </div>
                 </div>
                 <div className="mt-3 flex items-center justify-between text-xs">
                   <span className="text-success font-bold">{formatCurrency(h.raised || 0)}</span>
@@ -92,28 +94,37 @@ export function HarvestPage() {
         </div>
       )}
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="New Harvest">
-        <HarvestForm churchId={session!.churchId} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); loadData(); }} />
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Harvest" : "New Harvest"}>
+        <HarvestForm churchId={session!.churchId} existing={editing} onClose={() => { setShowForm(false); setEditing(null); }} onSaved={() => { setShowForm(false); setEditing(null); loadData(); }} />
       </Modal>
     </PageShell>
   );
 }
 
-function HarvestForm({ churchId, onClose, onSaved }: { churchId: string; onClose: () => void; onSaved: () => void }) {
+function HarvestForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title: "", year: String(new Date().getFullYear()), goal: "", date: "" });
+  const [form, setForm] = useState({
+    title: existing?.title || "", year: existing?.year != null ? String(existing.year) : String(new Date().getFullYear()),
+    goal: existing?.goal != null ? String(existing.goal) : "", date: existing?.date || "",
+  });
   const set = (k: string) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await db.insert("harvest", {
-      id: uuid(), church_id: churchId, title: form.title.trim(),
-      year: Number(form.year), goal: Number(form.goal) || 0, raised: 0,
-      date: form.date || null,
-    });
-    showToast("Harvest created"); setSaving(false); onSaved();
+    const data = {
+      title: form.title.trim(), year: Number(form.year),
+      goal: Number(form.goal) || 0, date: form.date || null,
+    };
+    if (existing) {
+      await db.update("harvest", existing.id, data);
+      showToast("Harvest updated");
+    } else {
+      await db.insert("harvest", { id: uuid(), church_id: churchId, ...data, raised: 0 });
+      showToast("Harvest created");
+    }
+    setSaving(false); onSaved();
   }
 
   return (
@@ -126,7 +137,7 @@ function HarvestForm({ churchId, onClose, onSaved }: { churchId: string; onClose
       <div><label className="block text-xs font-medium text-ink-muted mb-1">Date</label><input type="date" value={form.date} onChange={set("date")} className="input" /></div>
       <div className="flex gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
-        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Creating..." : "Create"}</button>
+        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Saving..." : existing ? "Update" : "Create"}</button>
       </div>
     </form>
   );

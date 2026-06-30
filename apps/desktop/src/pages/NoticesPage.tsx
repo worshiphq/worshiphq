@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  Plus, Loader2, Bell, Trash2, Search, Pin,
+  Plus, Loader2, Bell, Trash2, Search, Pin, Pencil,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -17,6 +17,7 @@ export function NoticesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -96,9 +97,8 @@ export function NoticesPage() {
                   <button onClick={() => togglePin(n)} className={cn("grid size-7 place-items-center rounded-lg transition-colors",
                     n.pinned ? "text-gold hover:bg-gold/10" : "text-ink-faint hover:bg-surface-3"
                   )}><Pin className="size-3.5" /></button>
-                  <button onClick={() => handleDelete(n.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
-                    <Trash2 className="size-3.5" />
-                  </button>
+                  <button onClick={() => { setEditing(n); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
+                  <button onClick={() => handleDelete(n.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
                 </div>
               </div>
             </div>
@@ -106,26 +106,33 @@ export function NoticesPage() {
         </div>
       )}
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="New Notice">
-        <NoticeForm churchId={session!.churchId} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); loadData(); }} />
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Notice" : "New Notice"}>
+        <NoticeForm churchId={session!.churchId} existing={editing} onClose={() => { setShowForm(false); setEditing(null); }} onSaved={() => { setShowForm(false); setEditing(null); loadData(); }} />
       </Modal>
     </PageShell>
   );
 }
 
-function NoticeForm({ churchId, onClose, onSaved }: { churchId: string; onClose: () => void; onSaved: () => void }) {
+function NoticeForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title: "", body: "", pinned: false });
+  const [form, setForm] = useState({
+    title: existing?.title || "", body: existing?.body || "",
+    pinned: existing?.pinned ? true : false,
+  });
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await db.insert("church_notice", {
-      id: uuid(), church_id: churchId, title: form.title.trim(),
-      body: form.body || null, pinned: form.pinned ? 1 : 0,
-    });
-    showToast("Notice created"); setSaving(false); onSaved();
+    const data = { title: form.title.trim(), body: form.body || null, pinned: form.pinned ? 1 : 0 };
+    if (existing) {
+      await db.update("church_notice", existing.id, data);
+      showToast("Notice updated");
+    } else {
+      await db.insert("church_notice", { id: uuid(), church_id: churchId, ...data });
+      showToast("Notice created");
+    }
+    setSaving(false); onSaved();
   }
 
   return (
@@ -135,7 +142,7 @@ function NoticeForm({ churchId, onClose, onSaved }: { churchId: string; onClose:
       <label className="flex items-center gap-2 text-sm text-ink-muted"><input type="checkbox" checked={form.pinned} onChange={(e) => setForm((f) => ({ ...f, pinned: e.target.checked }))} /> Pin this notice</label>
       <div className="flex gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
-        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Creating..." : "Create"}</button>
+        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Saving..." : existing ? "Update" : "Create"}</button>
       </div>
     </form>
   );

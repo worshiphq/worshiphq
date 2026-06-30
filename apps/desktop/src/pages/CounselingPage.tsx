@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  Plus, Loader2, Heart, Trash2, Search, CheckCircle2, Clock, AlertCircle,
+  Plus, Loader2, Heart, Trash2, Search, CheckCircle2, Clock, AlertCircle, Pencil,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -19,6 +19,7 @@ export function CounselingPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -104,7 +105,10 @@ export function CounselingPage() {
                   </td>
                   <td className="px-4 py-3 text-xs text-ink-faint">{formatDate(s.date)}</td>
                   <td className="px-4 py-3">
-                    <button onClick={() => handleDelete(s.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => { setEditing(s); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
+                      <button onClick={() => handleDelete(s.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -113,28 +117,38 @@ export function CounselingPage() {
         )}
       </div>
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="New Counseling Session">
-        <CounselingForm churchId={session!.churchId} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); loadData(); }} />
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Session" : "New Counseling Session"}>
+        <CounselingForm churchId={session!.churchId} existing={editing} onClose={() => { setShowForm(false); setEditing(null); }} onSaved={() => { setShowForm(false); setEditing(null); loadData(); }} />
       </Modal>
     </PageShell>
   );
 }
 
-function CounselingForm({ churchId, onClose, onSaved }: { churchId: string; onClose: () => void; onSaved: () => void }) {
+function CounselingForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ counselee: "", type: "Spiritual", summary: "", date: new Date().toISOString().slice(0, 10), notes: "" });
+  const [form, setForm] = useState({
+    counselee: existing?.counselee || "", type: existing?.type || "Spiritual",
+    summary: existing?.summary || "", date: existing?.date || new Date().toISOString().slice(0, 10),
+    notes: existing?.notes || "",
+  });
   const set = (k: string) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await db.insert("counseling_session", {
-      id: uuid(), church_id: churchId, counselee: form.counselee || null,
-      type: form.type, summary: form.summary || null,
-      date: form.date, notes: form.notes || null, status: "active",
-    });
-    showToast("Session recorded"); setSaving(false); onSaved();
+    const data = {
+      counselee: form.counselee || null, type: form.type,
+      summary: form.summary || null, date: form.date, notes: form.notes || null,
+    };
+    if (existing) {
+      await db.update("counseling_session", existing.id, data);
+      showToast("Session updated");
+    } else {
+      await db.insert("counseling_session", { id: uuid(), church_id: churchId, ...data, status: "active" });
+      showToast("Session recorded");
+    }
+    setSaving(false); onSaved();
   }
 
   return (
@@ -150,7 +164,7 @@ function CounselingForm({ churchId, onClose, onSaved }: { churchId: string; onCl
       <div><label className="block text-xs font-medium text-ink-muted mb-1">Notes</label><textarea value={form.notes} onChange={set("notes")} className="input" rows={2} placeholder="Private notes" /></div>
       <div className="flex gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
-        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Saving..." : "Save"}</button>
+        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Saving..." : existing ? "Update" : "Save"}</button>
       </div>
     </form>
   );

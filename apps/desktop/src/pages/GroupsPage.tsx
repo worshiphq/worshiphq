@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  Plus, Loader2, Users2, Trash2, Search, MapPin, Calendar, User,
+  Plus, Loader2, Users2, Trash2, Search, MapPin, Calendar, User, Pencil,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -21,6 +21,7 @@ export function GroupsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -110,12 +111,10 @@ export function GroupsPage() {
                       )}
                     </div>
                   </div>
-                  <button
-                    onClick={() => handleDelete(g.id, g.name)}
-                    className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"
-                  >
-                    <Trash2 className="size-3.5" />
-                  </button>
+                  <div className="flex gap-1">
+                    <button onClick={() => { setEditing(g); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
+                    <button onClick={() => handleDelete(g.id, g.name)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                  </div>
                 </div>
 
                 {g.description && (
@@ -143,24 +142,27 @@ export function GroupsPage() {
         </div>
       )}
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="Create Group">
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Group" : "Create Group"}>
         <GroupForm
           churchId={session!.churchId}
-          onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); loadData(); }}
+          existing={editing}
+          onClose={() => { setShowForm(false); setEditing(null); }}
+          onSaved={() => { setShowForm(false); setEditing(null); loadData(); }}
         />
       </Modal>
     </PageShell>
   );
 }
 
-function GroupForm({ churchId, onClose, onSaved }: { churchId: string; onClose: () => void; onSaved: () => void }) {
+function GroupForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
   const [people, setPeople] = useState<any[]>([]);
   const [form, setForm] = useState({
-    name: "", type: "Fellowship", description: "",
-    meeting_day: "", meeting_time: "", location: "", leader_id: "",
+    name: existing?.name || "", type: existing?.type || "Fellowship",
+    description: existing?.description || "",
+    meeting_day: existing?.meeting_day || "", meeting_time: existing?.meeting_time || "",
+    location: existing?.location || "", leader_id: existing?.leader_id || "",
   });
 
   useEffect(() => {
@@ -171,13 +173,18 @@ function GroupForm({ churchId, onClose, onSaved }: { churchId: string; onClose: 
     e.preventDefault();
     if (!form.name.trim()) return;
     setSaving(true);
-    await db.insert("group", {
-      id: uuid(), church_id: churchId, name: form.name.trim(),
-      type: form.type, description: form.description || null,
+    const data = {
+      name: form.name.trim(), type: form.type, description: form.description || null,
       meeting_day: form.meeting_day || null, meeting_time: form.meeting_time || null,
       location: form.location || null, leader_id: form.leader_id || null,
-    });
-    showToast("Group created");
+    };
+    if (existing) {
+      await db.update("group", existing.id, data);
+      showToast("Group updated");
+    } else {
+      await db.insert("group", { id: uuid(), church_id: churchId, ...data });
+      showToast("Group created");
+    }
     setSaving(false);
     onSaved();
   }
@@ -230,7 +237,7 @@ function GroupForm({ churchId, onClose, onSaved }: { churchId: string; onClose: 
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
         <button type="submit" disabled={saving} className="btn-primary flex-1">
           {saving && <Loader2 className="size-4 whq-spin" />}
-          {saving ? "Creating..." : "Create Group"}
+          {saving ? "Saving..." : existing ? "Update Group" : "Create Group"}
         </button>
       </div>
     </form>

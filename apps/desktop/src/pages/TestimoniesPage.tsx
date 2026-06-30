@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  Plus, Loader2, Star, Trash2, Search, CheckCircle2, Clock,
+  Plus, Loader2, Star, Trash2, Search, CheckCircle2, Clock, Pencil,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -17,6 +17,7 @@ export function TestimoniesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -102,37 +103,47 @@ export function TestimoniesPage() {
                   {t.body && <p className="mt-1.5 text-sm text-ink-muted line-clamp-3">{t.body}</p>}
                   <p className="mt-1 text-[11px] text-ink-faint">{formatDate(t.date)}</p>
                 </div>
-                <button onClick={() => handleDelete(t.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
-                  <Trash2 className="size-3.5" />
-                </button>
+                <div className="flex gap-1">
+                  <button onClick={() => { setEditing(t); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
+                  <button onClick={() => handleDelete(t.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="Add Testimony">
-        <TestimonyForm churchId={session!.churchId} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); loadData(); }} />
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Testimony" : "Add Testimony"}>
+        <TestimonyForm churchId={session!.churchId} existing={editing} onClose={() => { setShowForm(false); setEditing(null); }} onSaved={() => { setShowForm(false); setEditing(null); loadData(); }} />
       </Modal>
     </PageShell>
   );
 }
 
-function TestimonyForm({ churchId, onClose, onSaved }: { churchId: string; onClose: () => void; onSaved: () => void }) {
+function TestimonyForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title: "", category: "", body: "", date: new Date().toISOString().slice(0, 10) });
+  const [form, setForm] = useState({
+    title: existing?.title || "", category: existing?.category || "",
+    body: existing?.body || "", date: existing?.date || new Date().toISOString().slice(0, 10),
+  });
   const set = (k: string) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await db.insert("testimony", {
-      id: uuid(), church_id: churchId, title: form.title.trim(),
-      category: form.category || null, body: form.body || null,
-      date: form.date, status: "pending",
-    });
-    showToast("Testimony added"); setSaving(false); onSaved();
+    const data = {
+      title: form.title.trim(), category: form.category || null,
+      body: form.body || null, date: form.date,
+    };
+    if (existing) {
+      await db.update("testimony", existing.id, data);
+      showToast("Testimony updated");
+    } else {
+      await db.insert("testimony", { id: uuid(), church_id: churchId, ...data, status: "pending" });
+      showToast("Testimony added");
+    }
+    setSaving(false); onSaved();
   }
 
   return (
@@ -149,7 +160,7 @@ function TestimonyForm({ churchId, onClose, onSaved }: { churchId: string; onClo
       <div><label className="block text-xs font-medium text-ink-muted mb-1">Testimony</label><textarea value={form.body} onChange={set("body")} className="input" rows={4} placeholder="Share the testimony..." /></div>
       <div className="flex gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
-        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Adding..." : "Add"}</button>
+        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Saving..." : existing ? "Update" : "Add"}</button>
       </div>
     </form>
   );

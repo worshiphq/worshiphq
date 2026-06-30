@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  Plus, Loader2, Target, Trash2, HandCoins, TrendingUp,
+  Plus, Loader2, Target, Trash2, HandCoins, TrendingUp, Pencil,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -18,6 +18,8 @@ export function PledgesPage() {
   const [loading, setLoading] = useState(true);
   const [showCampaignForm, setShowCampaignForm] = useState(false);
   const [showPledgeForm, setShowPledgeForm] = useState(false);
+  const [editingCampaign, setEditingCampaign] = useState<any>(null);
+  const [editingPledge, setEditingPledge] = useState<any>(null);
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -84,9 +86,10 @@ export function PledgesPage() {
                     <div key={c.id} className="card p-4">
                       <div className="flex items-start justify-between">
                         <h4 className="font-bold text-ink">{c.name}</h4>
-                        <button onClick={() => handleDeleteCampaign(c.id)} className="grid size-6 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
-                          <Trash2 className="size-3" />
-                        </button>
+                        <div className="flex gap-1">
+                          <button onClick={() => { setEditingCampaign(c); setShowCampaignForm(true); }} className="grid size-6 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3" /></button>
+                          <button onClick={() => handleDeleteCampaign(c.id)} className="grid size-6 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3" /></button>
+                        </div>
                       </div>
                       <div className="mt-2 flex items-center justify-between text-xs">
                         <span className="text-success font-bold">{formatCurrency(c.raised || 0)}</span>
@@ -148,31 +151,37 @@ export function PledgesPage() {
         </>
       )}
 
-      <Modal open={showCampaignForm} onClose={() => setShowCampaignForm(false)} title="Create Campaign">
-        <CampaignForm churchId={session!.churchId} onClose={() => setShowCampaignForm(false)} onSaved={() => { setShowCampaignForm(false); loadData(); }} />
+      <Modal open={showCampaignForm} onClose={() => { setShowCampaignForm(false); setEditingCampaign(null); }} title={editingCampaign ? "Edit Campaign" : "Create Campaign"}>
+        <CampaignForm churchId={session!.churchId} existing={editingCampaign} onClose={() => { setShowCampaignForm(false); setEditingCampaign(null); }} onSaved={() => { setShowCampaignForm(false); setEditingCampaign(null); loadData(); }} />
       </Modal>
-      <Modal open={showPledgeForm} onClose={() => setShowPledgeForm(false)} title="Record Pledge">
-        <PledgeForm churchId={session!.churchId} campaigns={campaigns} onClose={() => setShowPledgeForm(false)} onSaved={() => { setShowPledgeForm(false); loadData(); }} />
+      <Modal open={showPledgeForm} onClose={() => { setShowPledgeForm(false); setEditingPledge(null); }} title={editingPledge ? "Edit Pledge" : "Record Pledge"}>
+        <PledgeForm churchId={session!.churchId} campaigns={campaigns} existing={editingPledge} onClose={() => { setShowPledgeForm(false); setEditingPledge(null); }} onSaved={() => { setShowPledgeForm(false); setEditingPledge(null); loadData(); }} />
       </Modal>
     </PageShell>
   );
 }
 
-function CampaignForm({ churchId, onClose, onSaved }: { churchId: string; onClose: () => void; onSaved: () => void }) {
+function CampaignForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: "", goal: "", ends_at: "" });
+  const [form, setForm] = useState({
+    name: existing?.name || "", goal: existing?.goal != null ? String(existing.goal) : "",
+    ends_at: existing?.ends_at || "",
+  });
   const set = (k: string) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await db.insert("campaign", {
-      id: uuid(), church_id: churchId, name: form.name.trim(),
-      goal: Number(form.goal) || 0, raised: 0,
-      ends_at: form.ends_at || null,
-    });
-    showToast("Campaign created"); setSaving(false); onSaved();
+    const data = { name: form.name.trim(), goal: Number(form.goal) || 0, ends_at: form.ends_at || null };
+    if (existing) {
+      await db.update("campaign", existing.id, data);
+      showToast("Campaign updated");
+    } else {
+      await db.insert("campaign", { id: uuid(), church_id: churchId, ...data, raised: 0 });
+      showToast("Campaign created");
+    }
+    setSaving(false); onSaved();
   }
 
   return (
@@ -184,27 +193,36 @@ function CampaignForm({ churchId, onClose, onSaved }: { churchId: string; onClos
       </div>
       <div className="flex gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
-        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Creating..." : "Create"}</button>
+        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Saving..." : existing ? "Update" : "Create"}</button>
       </div>
     </form>
   );
 }
 
-function PledgeForm({ churchId, campaigns, onClose, onSaved }: { churchId: string; campaigns: any[]; onClose: () => void; onSaved: () => void }) {
+function PledgeForm({ churchId, campaigns, existing, onClose, onSaved }: { churchId: string; campaigns: any[]; existing?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ donor_name: "", amount: "", campaign_id: "", due_at: "" });
+  const [form, setForm] = useState({
+    donor_name: existing?.donor_name || "", amount: existing?.amount != null ? String(existing.amount) : "",
+    campaign_id: existing?.campaign_id || "", due_at: existing?.due_at || "",
+  });
   const set = (k: string) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await db.insert("pledge", {
-      id: uuid(), church_id: churchId, donor_name: form.donor_name.trim(),
-      amount: Number(form.amount) || 0, fulfilled: 0,
+    const data = {
+      donor_name: form.donor_name.trim(), amount: Number(form.amount) || 0,
       campaign_id: form.campaign_id || null, due_at: form.due_at || null,
-    });
-    showToast("Pledge recorded"); setSaving(false); onSaved();
+    };
+    if (existing) {
+      await db.update("pledge", existing.id, data);
+      showToast("Pledge updated");
+    } else {
+      await db.insert("pledge", { id: uuid(), church_id: churchId, ...data, fulfilled: 0 });
+      showToast("Pledge recorded");
+    }
+    setSaving(false); onSaved();
   }
 
   return (
@@ -222,7 +240,7 @@ function PledgeForm({ churchId, campaigns, onClose, onSaved }: { churchId: strin
       <div><label className="block text-xs font-medium text-ink-muted mb-1">Due Date</label><input type="date" value={form.due_at} onChange={set("due_at")} className="input" /></div>
       <div className="flex gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
-        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Recording..." : "Record Pledge"}</button>
+        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Saving..." : existing ? "Update" : "Record Pledge"}</button>
       </div>
     </form>
   );

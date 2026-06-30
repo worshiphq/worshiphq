@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  Plus, Loader2, ClipboardCheck, Trash2, Search, CheckCircle2, Clock, AlertCircle,
+  Plus, Loader2, ClipboardCheck, Trash2, Search, CheckCircle2, Clock, AlertCircle, Pencil,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -18,6 +18,7 @@ export function FollowUpsPage() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<string>("all");
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -126,9 +127,10 @@ export function FollowUpsPage() {
                       <span>Created: {formatDate(f.created_at)}</span>
                     </div>
                   </div>
-                  <button onClick={() => handleDelete(f.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
-                    <Trash2 className="size-3.5" />
-                  </button>
+                  <div className="flex gap-1">
+                    <button onClick={() => { setEditing(f); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
+                    <button onClick={() => handleDelete(f.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                  </div>
                 </div>
               </div>
             );
@@ -136,28 +138,37 @@ export function FollowUpsPage() {
         </div>
       )}
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="New Follow-up">
-        <FollowUpForm churchId={session!.churchId} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); loadData(); }} />
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Follow-up" : "New Follow-up"}>
+        <FollowUpForm churchId={session!.churchId} existing={editing} onClose={() => { setShowForm(false); setEditing(null); }} onSaved={() => { setShowForm(false); setEditing(null); loadData(); }} />
       </Modal>
     </PageShell>
   );
 }
 
-function FollowUpForm({ churchId, onClose, onSaved }: { churchId: string; onClose: () => void; onSaved: () => void }) {
+function FollowUpForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title: "", type: "", due_date: "", notes: "" });
+  const [form, setForm] = useState({
+    title: existing?.title || "", type: existing?.type || "",
+    due_date: existing?.due_date || "", notes: existing?.notes || "",
+  });
   const set = (k: string) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await db.insert("follow_up", {
-      id: uuid(), church_id: churchId, title: form.title.trim(),
-      type: form.type || null, due_date: form.due_date || null,
-      notes: form.notes || null, status: "pending",
-    });
-    showToast("Follow-up created"); setSaving(false); onSaved();
+    const data = {
+      title: form.title.trim(), type: form.type || null,
+      due_date: form.due_date || null, notes: form.notes || null,
+    };
+    if (existing) {
+      await db.update("follow_up", existing.id, data);
+      showToast("Follow-up updated");
+    } else {
+      await db.insert("follow_up", { id: uuid(), church_id: churchId, ...data, status: "pending" });
+      showToast("Follow-up created");
+    }
+    setSaving(false); onSaved();
   }
 
   return (
@@ -174,7 +185,7 @@ function FollowUpForm({ churchId, onClose, onSaved }: { churchId: string; onClos
       <div><label className="block text-xs font-medium text-ink-muted mb-1">Notes</label><textarea value={form.notes} onChange={set("notes")} className="input" rows={2} /></div>
       <div className="flex gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
-        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Creating..." : "Create"}</button>
+        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Saving..." : existing ? "Update" : "Create"}</button>
       </div>
     </form>
   );

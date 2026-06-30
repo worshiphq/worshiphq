@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  Plus, Loader2, MessageSquare, Trash2, Search, Send, Clock, CheckCircle2,
+  Plus, Loader2, MessageSquare, Trash2, Search, Send, Clock, CheckCircle2, Pencil,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -18,6 +18,7 @@ export function CommunicationsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -121,9 +122,14 @@ export function CommunicationsPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       {c.status === "draft" && (
-                        <button onClick={() => handleSend(c.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Send">
-                          <Send className="size-3.5" />
-                        </button>
+                        <>
+                          <button onClick={() => handleSend(c.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Send">
+                            <Send className="size-3.5" />
+                          </button>
+                          <button onClick={() => { setEditing(c); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit">
+                            <Pencil className="size-3.5" />
+                          </button>
+                        </>
                       )}
                       <button onClick={() => handleDelete(c.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
                     </div>
@@ -135,28 +141,34 @@ export function CommunicationsPage() {
         )}
       </div>
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="New Message">
-        <CommForm churchId={session!.churchId} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); loadData(); }} />
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Message" : "New Message"}>
+        <CommForm churchId={session!.churchId} existing={editing} onClose={() => { setShowForm(false); setEditing(null); }} onSaved={() => { setShowForm(false); setEditing(null); loadData(); }} />
       </Modal>
     </PageShell>
   );
 }
 
-function CommForm({ churchId, onClose, onSaved }: { churchId: string; onClose: () => void; onSaved: () => void }) {
+function CommForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ name: "", channel: "SMS", body: "" });
+  const [form, setForm] = useState({
+    name: existing?.name || "", channel: existing?.channel || "SMS",
+    body: existing?.body || "",
+  });
   const set = (k: string) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await db.insert("communication", {
-      id: uuid(), church_id: churchId, name: form.name.trim(),
-      channel: form.channel, body: form.body || null,
-      status: "draft", sent: 0,
-    });
-    showToast("Message created as draft"); setSaving(false); onSaved();
+    const data = { name: form.name.trim(), channel: form.channel, body: form.body || null };
+    if (existing) {
+      await db.update("communication", existing.id, data);
+      showToast("Message updated");
+    } else {
+      await db.insert("communication", { id: uuid(), church_id: churchId, ...data, status: "draft", sent: 0 });
+      showToast("Message created as draft");
+    }
+    setSaving(false); onSaved();
   }
 
   return (
@@ -170,7 +182,7 @@ function CommForm({ churchId, onClose, onSaved }: { churchId: string; onClose: (
       <div><label className="block text-xs font-medium text-ink-muted mb-1">Message Body</label><textarea value={form.body} onChange={set("body")} className="input" rows={4} placeholder="Type your message..." /></div>
       <div className="flex gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
-        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Creating..." : "Create Draft"}</button>
+        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Saving..." : existing ? "Update" : "Create Draft"}</button>
       </div>
     </form>
   );

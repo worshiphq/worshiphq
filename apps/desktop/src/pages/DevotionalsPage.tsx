@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  Plus, Loader2, BookHeart, Trash2, Search,
+  Plus, Loader2, BookHeart, Trash2, Search, Pencil,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -17,6 +17,7 @@ export function DevotionalsPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -77,37 +78,48 @@ export function DevotionalsPage() {
                   {d.scripture && <p className="mt-1 text-xs text-primary-bright italic">{d.scripture}</p>}
                   {d.body && <p className="mt-2 text-sm text-ink-muted line-clamp-3">{d.body}</p>}
                 </div>
-                <button onClick={() => handleDelete(d.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger ml-2">
-                  <Trash2 className="size-3.5" />
-                </button>
+                <div className="flex gap-1 ml-2">
+                  <button onClick={() => { setEditing(d); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
+                  <button onClick={() => handleDelete(d.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="Add Devotional">
-        <DevotionalForm churchId={session!.churchId} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); loadData(); }} />
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Devotional" : "Add Devotional"}>
+        <DevotionalForm churchId={session!.churchId} existing={editing} onClose={() => { setShowForm(false); setEditing(null); }} onSaved={() => { setShowForm(false); setEditing(null); loadData(); }} />
       </Modal>
     </PageShell>
   );
 }
 
-function DevotionalForm({ churchId, onClose, onSaved }: { churchId: string; onClose: () => void; onSaved: () => void }) {
+function DevotionalForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ title: "", author: "", scripture: "", body: "", date: new Date().toISOString().slice(0, 10) });
+  const [form, setForm] = useState({
+    title: existing?.title || "", author: existing?.author || "",
+    scripture: existing?.scripture || "", body: existing?.body || "",
+    date: existing?.date || new Date().toISOString().slice(0, 10),
+  });
   const set = (k: string) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await db.insert("devotional", {
-      id: uuid(), church_id: churchId, title: form.title.trim(),
-      author: form.author || null, scripture: form.scripture || null,
-      body: form.body || null, date: form.date,
-    });
-    showToast("Devotional added"); setSaving(false); onSaved();
+    const data = {
+      title: form.title.trim(), author: form.author || null,
+      scripture: form.scripture || null, body: form.body || null, date: form.date,
+    };
+    if (existing) {
+      await db.update("devotional", existing.id, data);
+      showToast("Devotional updated");
+    } else {
+      await db.insert("devotional", { id: uuid(), church_id: churchId, ...data });
+      showToast("Devotional added");
+    }
+    setSaving(false); onSaved();
   }
 
   return (
@@ -121,7 +133,7 @@ function DevotionalForm({ churchId, onClose, onSaved }: { churchId: string; onCl
       <div><label className="block text-xs font-medium text-ink-muted mb-1">Content</label><textarea value={form.body} onChange={set("body")} className="input" rows={4} /></div>
       <div className="flex gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
-        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Adding..." : "Add"}</button>
+        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Saving..." : existing ? "Update" : "Add"}</button>
       </div>
     </form>
   );

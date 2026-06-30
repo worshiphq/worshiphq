@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  Plus, Loader2, Receipt, Trash2, Search, Wallet, TrendingUp, Calendar,
+  Plus, Loader2, Receipt, Trash2, Search, Wallet, TrendingUp, Calendar, Pencil,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -19,6 +19,7 @@ export function ExpensesPage() {
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState<any>(null);
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -100,7 +101,10 @@ export function ExpensesPage() {
                   <td className="px-4 py-3 text-right font-bold text-danger">{formatCurrency(e.amount)}</td>
                   <td className="px-4 py-3 text-xs text-ink-faint">{formatDate(e.date)}</td>
                   <td className="px-4 py-3">
-                    <button onClick={() => handleDelete(e.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                    <div className="flex items-center gap-1">
+                      <button onClick={() => { setEditing(e); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
+                      <button onClick={() => handleDelete(e.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -109,28 +113,38 @@ export function ExpensesPage() {
         )}
       </div>
 
-      <Modal open={showForm} onClose={() => setShowForm(false)} title="Record Expense">
-        <ExpenseForm churchId={session!.churchId} onClose={() => setShowForm(false)} onSaved={() => { setShowForm(false); loadData(); }} />
+      <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Expense" : "Record Expense"}>
+        <ExpenseForm churchId={session!.churchId} existing={editing} onClose={() => { setShowForm(false); setEditing(null); }} onSaved={() => { setShowForm(false); setEditing(null); loadData(); }} />
       </Modal>
     </PageShell>
   );
 }
 
-function ExpenseForm({ churchId, onClose, onSaved }: { churchId: string; onClose: () => void; onSaved: () => void }) {
+function ExpenseForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ description: "", category: "Other", vendor: "", amount: "", date: new Date().toISOString().slice(0, 10) });
+  const [form, setForm] = useState({
+    description: existing?.description || "", category: existing?.category || "Other",
+    vendor: existing?.vendor || "", amount: existing?.amount != null ? String(existing.amount) : "",
+    date: existing?.date || new Date().toISOString().slice(0, 10),
+  });
   const set = (k: string) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    await db.insert("expense", {
-      id: uuid(), church_id: churchId, description: form.description.trim(),
-      category: form.category, vendor: form.vendor || null,
-      amount: Number(form.amount) || 0, date: form.date,
-    });
-    showToast("Expense recorded"); setSaving(false); onSaved();
+    const data = {
+      description: form.description.trim(), category: form.category,
+      vendor: form.vendor || null, amount: Number(form.amount) || 0, date: form.date,
+    };
+    if (existing) {
+      await db.update("expense", existing.id, data);
+      showToast("Expense updated");
+    } else {
+      await db.insert("expense", { id: uuid(), church_id: churchId, ...data });
+      showToast("Expense recorded");
+    }
+    setSaving(false); onSaved();
   }
 
   return (
@@ -148,7 +162,7 @@ function ExpenseForm({ churchId, onClose, onSaved }: { churchId: string; onClose
       </div>
       <div className="flex gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
-        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Saving..." : "Record"}</button>
+        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Saving..." : existing ? "Update" : "Record"}</button>
       </div>
     </form>
   );
