@@ -10,6 +10,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "package": "npm run build && electron-builder",
+    "pack-dir": "electron-builder --dir",
+    "pack-nsis": "electron-builder --prepackaged release/win-unpacked",
     "postinstall": "electron-builder install-app-deps"
   },
   "dependencies": {
@@ -50,9 +52,7 @@
       "dist/**/*",
       "dist-electron/**/*"
     ],
-    "asarUnpack": [
-      "**/node_modules/better-sqlite3/**"
-    ],
+    "asar": false,
     "compression": "store",
     "nsis": {
       "oneClick": false,
