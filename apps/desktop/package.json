@@ -7,7 +7,7 @@
   "private": true,
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build && tsc -p tsconfig.electron.json",
+    "build": "vite build",
     "preview": "vite preview",
     "package": "npm run build && electron-builder",
     "postinstall": "electron-builder install-app-deps"
@@ -53,6 +53,7 @@
     "asarUnpack": [
       "**/node_modules/better-sqlite3/**"
     ],
+    "compression": "store",
     "nsis": {
       "oneClick": false,
       "perMachine": false,
