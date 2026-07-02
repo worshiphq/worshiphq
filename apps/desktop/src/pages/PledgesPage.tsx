@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  Plus, Loader2, Target, Trash2, HandCoins, TrendingUp, Pencil,
+  Plus, Loader2, Target, Trash2, HandCoins, TrendingUp, Pencil, Coins,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -20,6 +20,7 @@ export function PledgesPage() {
   const [showPledgeForm, setShowPledgeForm] = useState(false);
   const [editingCampaign, setEditingCampaign] = useState<any>(null);
   const [editingPledge, setEditingPledge] = useState<any>(null);
+  const [payingPledge, setPayingPledge] = useState<any>(null);
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -49,6 +50,13 @@ export function PledgesPage() {
     setCampaigns((prev) => prev.filter((c) => c.id !== id));
     showToast("Campaign deleted");
     await db.delete("campaign", id);
+  }
+
+  async function handleDeletePledge(id: string) {
+    if (!confirm("Delete this pledge?")) return;
+    setPledges((prev) => prev.filter((p) => p.id !== id));
+    showToast("Pledge deleted");
+    await db.delete("pledge", id);
   }
 
   return (
@@ -124,11 +132,13 @@ export function PledgesPage() {
                     <th className="px-4 py-3 text-right text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Fulfilled</th>
                     <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Due</th>
                     <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Progress</th>
+                    <th className="w-24"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line-soft">
                   {pledges.map((p) => {
                     const pct = p.amount > 0 ? Math.round(((p.fulfilled || 0) / p.amount) * 100) : 0;
+                    const fulfilled = pct >= 100;
                     return (
                       <tr key={p.id} className="hover:bg-surface-2/50">
                         <td className="px-4 py-3 font-medium text-ink">{p.donor_name}</td>
@@ -137,8 +147,20 @@ export function PledgesPage() {
                         <td className="px-4 py-3 text-right font-bold text-success">{formatCurrency(p.fulfilled || 0)}</td>
                         <td className="px-4 py-3 text-xs text-ink-faint">{p.due_at ? formatDate(p.due_at) : "—"}</td>
                         <td className="px-4 py-3">
-                          <div className="mx-auto w-16 h-1.5 overflow-hidden rounded-full bg-surface-3">
-                            <div className={cn("h-full rounded-full", pct >= 100 ? "bg-success" : "bg-primary-bright")} style={{ width: `${Math.min(pct, 100)}%` }} />
+                          <div className="flex items-center gap-2">
+                            <div className="w-16 h-1.5 overflow-hidden rounded-full bg-surface-3">
+                              <div className={cn("h-full rounded-full", fulfilled ? "bg-success" : "bg-primary-bright")} style={{ width: `${Math.min(pct, 100)}%` }} />
+                            </div>
+                            <span className="text-[11px] font-bold text-ink-faint">{pct}%</span>
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-end gap-1">
+                            {!fulfilled && (
+                              <button onClick={() => setPayingPledge(p)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-success/10 hover:text-success" title="Record payment"><Coins className="size-3.5" /></button>
+                            )}
+                            <button onClick={() => { setEditingPledge(p); setShowPledgeForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
+                            <button onClick={() => handleDeletePledge(p.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger" title="Delete"><Trash2 className="size-3.5" /></button>
                           </div>
                         </td>
                       </tr>
@@ -156,6 +178,9 @@ export function PledgesPage() {
       </Modal>
       <Modal open={showPledgeForm} onClose={() => { setShowPledgeForm(false); setEditingPledge(null); }} title={editingPledge ? "Edit Pledge" : "Record Pledge"}>
         <PledgeForm churchId={session!.churchId} campaigns={campaigns} existing={editingPledge} onClose={() => { setShowPledgeForm(false); setEditingPledge(null); }} onSaved={() => { setShowPledgeForm(false); setEditingPledge(null); loadData(); }} />
+      </Modal>
+      <Modal open={!!payingPledge} onClose={() => setPayingPledge(null)} title="Record Payment">
+        {payingPledge && <PaymentForm pledge={payingPledge} onClose={() => setPayingPledge(null)} onSaved={() => { setPayingPledge(null); loadData(); }} />}
       </Modal>
     </PageShell>
   );
@@ -241,6 +266,45 @@ function PledgeForm({ churchId, campaigns, existing, onClose, onSaved }: { churc
       <div className="flex gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
         <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Saving..." : existing ? "Update" : "Record Pledge"}</button>
+      </div>
+    </form>
+  );
+}
+
+function PaymentForm({ pledge, onClose, onSaved }: { pledge: any; onClose: () => void; onSaved: () => void }) {
+  const { showToast } = useAppStore();
+  const [saving, setSaving] = useState(false);
+  const [payment, setPayment] = useState("");
+  const remaining = Math.max(0, (pledge.amount || 0) - (pledge.fulfilled || 0));
+
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const amt = Number(payment);
+    if (!amt || amt <= 0) return;
+    setSaving(true);
+    const newFulfilled = Math.min(pledge.amount || 0, (pledge.fulfilled || 0) + amt);
+    await db.update("pledge", pledge.id, { fulfilled: newFulfilled });
+    // Mirror web: increment the linked campaign's raised total.
+    if (pledge.campaign_id) {
+      const camp = await db.getById("campaign", pledge.campaign_id);
+      if (camp) await db.update("campaign", pledge.campaign_id, { raised: (camp.raised || 0) + amt });
+    }
+    setSaving(false);
+    showToast("Payment recorded");
+    onSaved();
+  }
+
+  return (
+    <form onSubmit={handleSubmit} className="space-y-3">
+      <div className="rounded-xl border border-line bg-surface-2/50 p-3 text-sm">
+        <div className="flex justify-between"><span className="text-ink-muted">Pledged</span><span className="font-bold text-ink">{formatCurrency(pledge.amount)}</span></div>
+        <div className="flex justify-between"><span className="text-ink-muted">Fulfilled</span><span className="font-bold text-success">{formatCurrency(pledge.fulfilled || 0)}</span></div>
+        <div className="flex justify-between"><span className="text-ink-muted">Remaining</span><span className="font-bold text-ink">{formatCurrency(remaining)}</span></div>
+      </div>
+      <div><label className="block text-xs font-medium text-ink-muted mb-1">Payment Amount (GHS) *</label><input type="number" step="0.01" min="0.01" value={payment} onChange={(e) => setPayment(e.target.value)} className="input" required autoFocus placeholder={String(remaining)} /></div>
+      <div className="flex gap-2 pt-2">
+        <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
+        <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Saving..." : "Record Payment"}</button>
       </div>
     </form>
   );

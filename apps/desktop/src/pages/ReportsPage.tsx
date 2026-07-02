@@ -1,7 +1,7 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState } from "react";
 import {
-  BarChart3, Users, HandCoins, CalendarCheck2, TrendingUp, TrendingDown,
-  Loader2, UserPlus, Wallet, Receipt,
+  Users, HandCoins, CalendarCheck2, TrendingUp, TrendingDown, Minus,
+  Loader2, UserPlus, Receipt, PiggyBank, Users2,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -9,6 +9,8 @@ import { StatCard } from "../components/ui/StatCard";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
 import { formatCurrency, cn } from "../lib/utils";
+
+const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
 export function ReportsPage() {
   const { session, syncVersion } = useAppStore();
@@ -24,44 +26,60 @@ export function ReportsPage() {
     const cid = session!.churchId;
     const now = new Date();
     const thisMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
-    const lastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-    const lastMonthStr = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, "0")}`;
+    const lastMonthD = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const lastMonth = `${lastMonthD.getFullYear()}-${String(lastMonthD.getMonth() + 1).padStart(2, "0")}`;
 
     const [
-      totalMembers, activeMembers, visitors, groups,
-      thisMonthGiving, lastMonthGiving,
-      thisMonthExpenses, lastMonthExpenses,
-      thisMonthAtt, lastMonthAtt,
-      monthlyGiving, monthlyAttendance,
+      totalMembers, newThisMonth, newLastMonth, visitors, groups,
+      giveThis, giveLast, expThis, expLast, attThis, attLast,
+      monthlyGiving, monthlyExpenses, monthlyAttendance,
     ] = await Promise.all([
       db.rawQuery("SELECT COUNT(*) as c FROM person WHERE church_id = ?", [cid]),
-      db.rawQuery("SELECT COUNT(*) as c FROM person WHERE church_id = ? AND status = 'active'", [cid]),
-      db.rawQuery("SELECT COUNT(*) as c FROM visitor WHERE church_id = ?", [cid]),
+      db.rawQuery("SELECT COUNT(*) as c FROM person WHERE church_id = ? AND substr(joined_at, 1, 7) = ?", [cid, thisMonth]),
+      db.rawQuery("SELECT COUNT(*) as c FROM person WHERE church_id = ? AND substr(joined_at, 1, 7) = ?", [cid, lastMonth]),
+      db.rawQuery("SELECT COUNT(*) as c FROM visitor WHERE church_id = ? AND substr(created_at, 1, 7) = ?", [cid, thisMonth]),
       db.rawQuery('SELECT COUNT(*) as c FROM "group" WHERE church_id = ?', [cid]),
-      db.rawQuery(`SELECT COALESCE(SUM(amount), 0) as t FROM gift WHERE church_id = ? AND substr(date, 1, 7) = ?`, [cid, thisMonth]),
-      db.rawQuery(`SELECT COALESCE(SUM(amount), 0) as t FROM gift WHERE church_id = ? AND substr(date, 1, 7) = ?`, [cid, lastMonthStr]),
-      db.rawQuery(`SELECT COALESCE(SUM(amount), 0) as t FROM expense WHERE church_id = ? AND substr(date, 1, 7) = ?`, [cid, thisMonth]),
-      db.rawQuery(`SELECT COALESCE(SUM(amount), 0) as t FROM expense WHERE church_id = ? AND substr(date, 1, 7) = ?`, [cid, lastMonthStr]),
-      db.rawQuery(`SELECT COALESCE(SUM(adults + teens + children + visitors), 0) as t, COUNT(*) as sessions FROM attendance_session WHERE church_id = ? AND substr(date, 1, 7) = ?`, [cid, thisMonth]),
-      db.rawQuery(`SELECT COALESCE(SUM(adults + teens + children + visitors), 0) as t, COUNT(*) as sessions FROM attendance_session WHERE church_id = ? AND substr(date, 1, 7) = ?`, [cid, lastMonthStr]),
-      db.rawQuery(`SELECT substr(date, 1, 7) as month, SUM(amount) as total FROM gift WHERE church_id = ? GROUP BY substr(date, 1, 7) ORDER BY month DESC LIMIT 6`, [cid]),
-      db.rawQuery(`SELECT substr(date, 1, 7) as month, SUM(adults + teens + children + visitors) as total, COUNT(*) as sessions FROM attendance_session WHERE church_id = ? GROUP BY substr(date, 1, 7) ORDER BY month DESC LIMIT 6`, [cid]),
+      db.rawQuery("SELECT COALESCE(SUM(amount),0) as t FROM gift WHERE church_id = ? AND substr(date,1,7) = ?", [cid, thisMonth]),
+      db.rawQuery("SELECT COALESCE(SUM(amount),0) as t FROM gift WHERE church_id = ? AND substr(date,1,7) = ?", [cid, lastMonth]),
+      db.rawQuery("SELECT COALESCE(SUM(amount),0) as t FROM expense WHERE church_id = ? AND substr(date,1,7) = ?", [cid, thisMonth]),
+      db.rawQuery("SELECT COALESCE(SUM(amount),0) as t FROM expense WHERE church_id = ? AND substr(date,1,7) = ?", [cid, lastMonth]),
+      db.rawQuery("SELECT COALESCE(SUM(adults+teens+children+visitors),0) as t, COUNT(*) as sessions FROM attendance_session WHERE church_id = ? AND substr(date,1,7) = ?", [cid, thisMonth]),
+      db.rawQuery("SELECT COALESCE(SUM(adults+teens+children+visitors),0) as t FROM attendance_session WHERE church_id = ? AND substr(date,1,7) = ?", [cid, lastMonth]),
+      db.rawQuery("SELECT substr(date,1,7) as month, SUM(amount) as total FROM gift WHERE church_id = ? GROUP BY substr(date,1,7)", [cid]),
+      db.rawQuery("SELECT substr(date,1,7) as month, SUM(amount) as total FROM expense WHERE church_id = ? GROUP BY substr(date,1,7)", [cid]),
+      db.rawQuery("SELECT substr(date,1,7) as month, SUM(adults+teens+children+visitors) as total, COUNT(*) as sessions FROM attendance_session WHERE church_id = ? GROUP BY substr(date,1,7)", [cid]),
     ]);
+
+    // build 6-month buckets
+    const months: { key: string; label: string }[] = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, label: MONTH_ABBR[d.getMonth()] });
+    }
+    const sumByMonth = (rows: any[]) => {
+      const m = new Map(rows.map((r) => [r.month, Number(r.total || 0)]));
+      return months.map((mo) => ({ label: mo.label, value: m.get(mo.key) || 0 }));
+    };
+    const avgAttByMonth = () => {
+      const m = new Map<string, { total: number; sessions: number }>(monthlyAttendance.map((r: any) => [r.month, { total: Number(r.total || 0), sessions: Number(r.sessions || 0) }]));
+      return months.map((mo) => {
+        const v = m.get(mo.key);
+        return { label: mo.label, value: v && v.sessions > 0 ? Math.round(v.total / v.sessions) : 0 };
+      });
+    };
 
     setData({
       totalMembers: totalMembers[0]?.c || 0,
-      activeMembers: activeMembers[0]?.c || 0,
+      newThisMonth: newThisMonth[0]?.c || 0,
+      newLastMonth: newLastMonth[0]?.c || 0,
       visitors: visitors[0]?.c || 0,
       groups: groups[0]?.c || 0,
-      thisMonthGiving: thisMonthGiving[0]?.t || 0,
-      lastMonthGiving: lastMonthGiving[0]?.t || 0,
-      thisMonthExpenses: thisMonthExpenses[0]?.t || 0,
-      lastMonthExpenses: lastMonthExpenses[0]?.t || 0,
-      thisMonthAtt: thisMonthAtt[0]?.t || 0,
-      thisMonthAttSessions: thisMonthAtt[0]?.sessions || 0,
-      lastMonthAtt: lastMonthAtt[0]?.t || 0,
-      monthlyGiving: monthlyGiving.reverse(),
-      monthlyAttendance: monthlyAttendance.reverse(),
+      giveThis: giveThis[0]?.t || 0, giveLast: giveLast[0]?.t || 0,
+      expThis: expThis[0]?.t || 0, expLast: expLast[0]?.t || 0,
+      attThis: attThis[0]?.t || 0, attThisSessions: attThis[0]?.sessions || 0, attLast: attLast[0]?.t || 0,
+      givingByMonth: sumByMonth(monthlyGiving),
+      expensesByMonth: sumByMonth(monthlyExpenses),
+      attendanceByMonth: avgAttByMonth(),
     });
     setLoading(false);
   }
@@ -69,142 +87,135 @@ export function ReportsPage() {
   if (loading) {
     return (
       <PageShell title="Reports">
-        <div className="flex items-center justify-center py-24">
-          <Loader2 className="size-8 text-primary-bright whq-spin" />
-        </div>
+        <div className="flex items-center justify-center py-24"><Loader2 className="size-8 text-primary-bright whq-spin" /></div>
       </PageShell>
     );
   }
-
   if (!data) return null;
 
-  const givingChange = data.lastMonthGiving > 0
-    ? Math.round(((data.thisMonthGiving - data.lastMonthGiving) / data.lastMonthGiving) * 100)
-    : 0;
-  const attChange = data.lastMonthAtt > 0
-    ? Math.round(((data.thisMonthAtt - data.lastMonthAtt) / data.lastMonthAtt) * 100)
-    : 0;
-  const maxGiving = Math.max(...data.monthlyGiving.map((m: any) => m.total || 0), 1);
-  const maxAtt = Math.max(...data.monthlyAttendance.map((m: any) => m.total || 0), 1);
+  const netThisMonth = data.giveThis - data.expThis;
+  const maxDual = Math.max(...data.givingByMonth.map((d: any) => d.value), ...data.expensesByMonth.map((d: any) => d.value), 1);
+  const maxAtt = Math.max(...data.attendanceByMonth.map((d: any) => d.value), 1);
+  const maxGiving = Math.max(...data.givingByMonth.map((d: any) => d.value), 1);
 
   return (
     <PageShell title="Reports">
-      <PageHeader title="Reports & Analytics" description="Key metrics and trends at a glance." />
+      <PageHeader title="Reports & Analytics" description="Church growth, giving trends, and attendance analytics." />
 
       {/* KPI row */}
-      <div className="mb-6 grid grid-cols-4 gap-3">
-        <StatCard label="Total Members" value={data.totalMembers} icon={Users} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Active Members" value={data.activeMembers} icon={Users} color="bg-success/10 text-success" />
-        <StatCard label="Visitors" value={data.visitors} icon={UserPlus} color="bg-info/10 text-info" />
-        <StatCard label="Groups" value={data.groups} icon={Users} color="bg-gold/10 text-gold" />
+      <div className="mb-5 grid grid-cols-5 gap-3">
+        <StatCard label="Total members" value={data.totalMembers} icon={Users} color="bg-primary-soft text-primary-bright" />
+        <CompareStat label="Income this month" value={formatCurrency(data.giveThis)} current={data.giveThis} previous={data.giveLast} icon={HandCoins} accent="text-success" iconBg="bg-success/10 text-success" />
+        <CompareStat label="Expenses this month" value={formatCurrency(data.expThis)} current={data.expThis} previous={data.expLast} icon={Receipt} accent="text-danger" iconBg="bg-danger/10 text-danger" />
+        <div className="card-hover">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-medium text-ink-muted">{netThisMonth >= 0 ? "Net surplus" : "Net deficit"}</span>
+            <span className={cn("grid size-9 place-items-center rounded-xl", netThisMonth >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger")}>
+              <PiggyBank className="size-4" />
+            </span>
+          </div>
+          <div className={cn("mt-2 text-2xl font-bold", netThisMonth >= 0 ? "text-success" : "text-danger")}>{formatCurrency(Math.abs(netThisMonth))}</div>
+        </div>
+        <CompareStat label="New members" value={String(data.newThisMonth)} current={data.newThisMonth} previous={data.newLastMonth} icon={UserPlus} accent="text-info" iconBg="bg-info/10 text-info" />
       </div>
 
-      {/* Comparative cards */}
-      <div className="mb-6 grid grid-cols-3 gap-4">
-        <CompareCard
-          label="Giving This Month"
-          value={formatCurrency(data.thisMonthGiving)}
-          change={givingChange}
-          icon={HandCoins}
-          color="text-success"
-        />
-        <CompareCard
-          label="Expenses This Month"
-          value={formatCurrency(data.thisMonthExpenses)}
-          change={data.lastMonthExpenses > 0 ? Math.round(((data.thisMonthExpenses - data.lastMonthExpenses) / data.lastMonthExpenses) * 100) : 0}
-          icon={Receipt}
-          color="text-danger"
-          invertColor
-        />
-        <CompareCard
-          label="Attendance This Month"
-          value={String(data.thisMonthAtt)}
-          change={attChange}
-          icon={CalendarCheck2}
-          color="text-info"
-          subtitle={`${data.thisMonthAttSessions} service${data.thisMonthAttSessions !== 1 ? "s" : ""}`}
-        />
-      </div>
-
-      {/* Trend charts (bar-style) */}
+      {/* Charts */}
       <div className="grid grid-cols-2 gap-4">
-        {/* Giving trend */}
+        {/* Income vs expenses dual chart */}
         <div className="card p-5">
-          <h3 className="mb-4 text-sm font-bold text-ink">Giving Trend (6 months)</h3>
-          {data.monthlyGiving.length === 0 ? (
-            <p className="py-8 text-center text-sm text-ink-muted">No giving data yet</p>
-          ) : (
-            <div className="flex items-end gap-2 h-32">
-              {data.monthlyGiving.map((m: any) => {
-                const h = Math.max(((m.total || 0) / maxGiving) * 100, 4);
-                return (
-                  <div key={m.month} className="flex-1 flex flex-col items-center gap-1">
-                    <span className="text-[10px] font-bold text-success">{formatCurrency(m.total || 0)}</span>
-                    <div className="w-full rounded-t-lg bg-gradient-to-t from-success/30 to-success/60 transition-all" style={{ height: `${h}%` }} />
-                    <span className="text-[10px] text-ink-faint">{formatMonthLabel(m.month)}</span>
+          <h3 className="mb-4 text-sm font-bold text-ink">Income vs expenses (6 months)</h3>
+          <div className="flex h-40 items-end gap-2">
+            {data.givingByMonth.map((inc: any, i: number) => {
+              const exp = data.expensesByMonth[i] ?? { value: 0 };
+              const incH = Math.max((inc.value / maxDual) * 100, 2);
+              const expH = Math.max((exp.value / maxDual) * 100, 2);
+              return (
+                <div key={inc.label} className="flex flex-1 flex-col items-center gap-1">
+                  <div className="flex w-full items-end justify-center gap-0.5" style={{ height: "100%" }}>
+                    <div className="w-[45%] rounded-t-sm bg-success" style={{ height: `${incH}%` }} />
+                    <div className="w-[45%] rounded-t-sm bg-danger/70" style={{ height: `${expH}%` }} />
                   </div>
-                );
-              })}
-            </div>
-          )}
+                  <span className="text-[10px] text-ink-faint">{inc.label}</span>
+                </div>
+              );
+            })}
+          </div>
+          <div className="mt-3 flex items-center justify-center gap-4 text-xs">
+            <span className="flex items-center gap-1"><span className="inline-block size-2.5 rounded-sm bg-success" /> Income</span>
+            <span className="flex items-center gap-1"><span className="inline-block size-2.5 rounded-sm bg-danger/70" /> Expenses</span>
+          </div>
         </div>
 
-        {/* Attendance trend */}
+        {/* Avg attendance per service */}
         <div className="card p-5">
-          <h3 className="mb-4 text-sm font-bold text-ink">Attendance Trend (6 months)</h3>
-          {data.monthlyAttendance.length === 0 ? (
-            <p className="py-8 text-center text-sm text-ink-muted">No attendance data yet</p>
-          ) : (
-            <div className="flex items-end gap-2 h-32">
-              {data.monthlyAttendance.map((m: any) => {
-                const h = Math.max(((m.total || 0) / maxAtt) * 100, 4);
-                return (
-                  <div key={m.month} className="flex-1 flex flex-col items-center gap-1">
-                    <span className="text-[10px] font-bold text-info">{m.total || 0}</span>
-                    <div className="w-full rounded-t-lg bg-gradient-to-t from-info/30 to-info/60 transition-all" style={{ height: `${h}%` }} />
-                    <span className="text-[10px] text-ink-faint">{formatMonthLabel(m.month)}</span>
-                  </div>
-                );
-              })}
-            </div>
-          )}
+          <h3 className="mb-4 text-sm font-bold text-ink">Avg. attendance per service (6 months)</h3>
+          <div className="flex h-40 items-end gap-2">
+            {data.attendanceByMonth.map((m: any) => {
+              const h = Math.max((m.value / maxAtt) * 100, 4);
+              return (
+                <div key={m.label} className="flex flex-1 flex-col items-center gap-1">
+                  <span className="text-[10px] font-bold text-info">{m.value || ""}</span>
+                  <div className="w-full rounded-t-lg bg-gradient-to-t from-info/30 to-info/60 transition-all" style={{ height: `${h}%` }} />
+                  <span className="text-[10px] text-ink-faint">{m.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* Giving trend */}
+      <div className="card mt-4 p-5">
+        <h3 className="mb-4 text-sm font-bold text-ink">Giving trend (6 months)</h3>
+        <div className="flex h-32 items-end gap-2">
+          {data.givingByMonth.map((m: any) => {
+            const h = Math.max((m.value / maxGiving) * 100, 4);
+            return (
+              <div key={m.label} className="flex flex-1 flex-col items-center gap-1">
+                <span className="text-[10px] font-bold text-success">{formatCurrency(m.value)}</span>
+                <div className="w-full rounded-t-lg bg-gradient-to-t from-success/30 to-success/60 transition-all" style={{ height: `${h}%` }} />
+                <span className="text-[10px] text-ink-faint">{m.label}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Footer stats */}
+      <div className="mt-4 grid grid-cols-2 gap-3">
+        <div className="card flex items-center gap-3 p-4">
+          <Users2 className="size-5 text-primary-bright" />
+          <div><p className="text-lg font-bold text-ink">{data.groups}</p><p className="text-xs text-ink-muted">Active groups</p></div>
+        </div>
+        <div className="card flex items-center gap-3 p-4">
+          <UserPlus className="size-5 text-primary-bright" />
+          <div><p className="text-lg font-bold text-ink">{data.visitors}</p><p className="text-xs text-ink-muted">Visitors this month</p></div>
         </div>
       </div>
     </PageShell>
   );
 }
 
-function CompareCard({ label, value, change, icon: Icon, color, subtitle, invertColor }: {
-  label: string; value: string; change: number; icon: any; color: string; subtitle?: string; invertColor?: boolean;
+function CompareStat({ label, value, current, previous, icon: Icon, accent, iconBg }: {
+  label: string; value: string; current: number; previous: number; icon: any; accent: string; iconBg: string;
 }) {
-  const isPositive = invertColor ? change <= 0 : change >= 0;
+  let indicator: React.ReactNode;
+  if (previous === 0 && current === 0) indicator = <span className="flex items-center gap-0.5 text-[11px] text-ink-faint"><Minus className="size-3" /> No change</span>;
+  else if (previous === 0) indicator = <span className="flex items-center gap-0.5 text-[11px] text-success"><TrendingUp className="size-3" /> New</span>;
+  else {
+    const pct = Math.round(((current - previous) / previous) * 100);
+    if (pct > 0) indicator = <span className="flex items-center gap-0.5 text-[11px] text-success"><TrendingUp className="size-3" /> +{pct}%</span>;
+    else if (pct < 0) indicator = <span className="flex items-center gap-0.5 text-[11px] text-danger"><TrendingDown className="size-3" /> {pct}%</span>;
+    else indicator = <span className="flex items-center gap-0.5 text-[11px] text-ink-faint"><Minus className="size-3" /> No change</span>;
+  }
   return (
-    <div className="card p-5">
-      <div className="flex items-center gap-2 mb-2">
-        <Icon className={cn("size-4", color)} />
-        <span className="text-xs font-semibold text-ink-muted uppercase tracking-wider">{label}</span>
+    <div className="card-hover">
+      <div className="flex items-center justify-between">
+        <span className="text-xs font-medium text-ink-muted">{label}</span>
+        <span className={cn("grid size-9 place-items-center rounded-xl", iconBg)}><Icon className="size-4" /></span>
       </div>
-      <p className={cn("text-2xl font-bold", color)}>{value}</p>
-      {subtitle && <p className="text-xs text-ink-faint mt-0.5">{subtitle}</p>}
-      <div className="mt-2 flex items-center gap-1">
-        {change !== 0 ? (
-          <>
-            {isPositive ? <TrendingUp className="size-3.5 text-success" /> : <TrendingDown className="size-3.5 text-danger" />}
-            <span className={cn("text-xs font-bold", isPositive ? "text-success" : "text-danger")}>
-              {change > 0 ? "+" : ""}{change}%
-            </span>
-            <span className="text-xs text-ink-faint">vs last month</span>
-          </>
-        ) : (
-          <span className="text-xs text-ink-faint">—</span>
-        )}
-      </div>
+      <div className={cn("mt-2 text-2xl font-bold", accent)}>{value}</div>
+      <div className="mt-1">{indicator}</div>
     </div>
   );
-}
-
-function formatMonthLabel(month: string): string {
-  const [y, m] = month.split("-");
-  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-  return months[parseInt(m, 10) - 1] || m;
 }

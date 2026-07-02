@@ -2,7 +2,7 @@ import Database from "better-sqlite3";
 import path from "path";
 import fs from "fs";
 
-const SCHEMA_VERSION = 2;
+const SCHEMA_VERSION = 3;
 
 let db: Database.Database;
 
@@ -82,6 +82,30 @@ function createTables() {
       sms_credits     INTEGER DEFAULT 50,
       member_prefix   TEXT,
       member_seq      INTEGER DEFAULT 0,
+      is_demo         INTEGER DEFAULT 0,
+      suspended       INTEGER DEFAULT 0,
+      sms_welcome_member INTEGER DEFAULT 1,
+
+      -- SMS Sender ID approval
+      sms_sender_id             TEXT,
+      sms_sender_id_status      TEXT DEFAULT 'pending',
+      sms_sender_id_requested_at TEXT,
+      sms_sender_id_approved_at TEXT,
+      sms_sender_id_approved_by TEXT,
+
+      -- JSON form-builder configs
+      registration_fields  TEXT,
+      role_permissions     TEXT,
+      visitor_form_fields  TEXT,
+      children_form_fields TEXT,
+      teens_form_fields    TEXT,
+
+      -- Customizable SMS receipt templates
+      tithe_receipt_template   TEXT,
+      harvest_receipt_template TEXT,
+
+      featured_leader_count INTEGER DEFAULT 6,
+
       created_at      TEXT DEFAULT (datetime('now')),
       updated_at      TEXT DEFAULT (datetime('now'))
     );
@@ -742,6 +766,25 @@ function migrateSchema() {
       check: "SELECT 1 FROM pragma_table_info('volunteer_assignment') WHERE name='person_id'",
       sql: "ALTER TABLE volunteer_assignment ADD COLUMN person_id TEXT REFERENCES person(id) ON DELETE SET NULL",
     },
+    // v3: Church settings columns (form builders, role perms, receipt templates,
+    // SMS sender-ID approval, welcome-SMS flag, featured-leader count). Without
+    // these, the server's church record can't sync down and Settings saves throw.
+    { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='is_demo'", sql: "ALTER TABLE church ADD COLUMN is_demo INTEGER DEFAULT 0" },
+    { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='suspended'", sql: "ALTER TABLE church ADD COLUMN suspended INTEGER DEFAULT 0" },
+    { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='sms_welcome_member'", sql: "ALTER TABLE church ADD COLUMN sms_welcome_member INTEGER DEFAULT 1" },
+    { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='sms_sender_id'", sql: "ALTER TABLE church ADD COLUMN sms_sender_id TEXT" },
+    { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='sms_sender_id_status'", sql: "ALTER TABLE church ADD COLUMN sms_sender_id_status TEXT DEFAULT 'pending'" },
+    { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='sms_sender_id_requested_at'", sql: "ALTER TABLE church ADD COLUMN sms_sender_id_requested_at TEXT" },
+    { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='sms_sender_id_approved_at'", sql: "ALTER TABLE church ADD COLUMN sms_sender_id_approved_at TEXT" },
+    { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='sms_sender_id_approved_by'", sql: "ALTER TABLE church ADD COLUMN sms_sender_id_approved_by TEXT" },
+    { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='registration_fields'", sql: "ALTER TABLE church ADD COLUMN registration_fields TEXT" },
+    { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='role_permissions'", sql: "ALTER TABLE church ADD COLUMN role_permissions TEXT" },
+    { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='visitor_form_fields'", sql: "ALTER TABLE church ADD COLUMN visitor_form_fields TEXT" },
+    { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='children_form_fields'", sql: "ALTER TABLE church ADD COLUMN children_form_fields TEXT" },
+    { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='teens_form_fields'", sql: "ALTER TABLE church ADD COLUMN teens_form_fields TEXT" },
+    { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='tithe_receipt_template'", sql: "ALTER TABLE church ADD COLUMN tithe_receipt_template TEXT" },
+    { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='harvest_receipt_template'", sql: "ALTER TABLE church ADD COLUMN harvest_receipt_template TEXT" },
+    { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='featured_leader_count'", sql: "ALTER TABLE church ADD COLUMN featured_leader_count INTEGER DEFAULT 6" },
   ];
 
   for (const m of migrations) {

@@ -1,5 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
-import { Loader2, Cake, Search, Phone, Gift } from "lucide-react";
+import { Loader2, Cake, Search, Heart, PartyPopper } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
 import { StatCard } from "../components/ui/StatCard";
@@ -8,14 +8,47 @@ import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
 import { cn } from "../lib/utils";
 
-const MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+function getMonthDay(date: Date): string {
+  return `${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+}
+
+function parseMMDD(mmdd: string): { month: number; day: number } {
+  const [m, d] = mmdd.split("-").map(Number);
+  return { month: m, day: d };
+}
+
+function daysUntil(mmdd: string, today: string): number {
+  const { month: tm, day: td } = parseMMDD(today);
+  const { month: m, day: d } = parseMMDD(mmdd);
+  const year = new Date().getFullYear();
+  let target = new Date(year, m - 1, d);
+  const todayDate = new Date(year, tm - 1, td);
+  if (target < todayDate) target = new Date(year + 1, m - 1, d);
+  return Math.round((target.getTime() - todayDate.getTime()) / (1000 * 60 * 60 * 24));
+}
+
+function formatMMDD(mmdd: string): string {
+  const { month, day } = parseMMDD(mmdd);
+  return new Date(2000, month - 1, day).toLocaleDateString("en-GB", { day: "numeric", month: "long" });
+}
+
+// Normalize a stored value (either MM-DD or a full ISO/YYYY-MM-DD date) to MM-DD
+function toMMDD(val: string | null): string | null {
+  if (!val) return null;
+  if (/^\d{2}-\d{2}$/.test(val)) return val;
+  const d = new Date(val);
+  if (isNaN(d.getTime())) return null;
+  return getMonthDay(d);
+}
 
 export function BirthdaysPage() {
   const { session, syncVersion } = useAppStore();
   const [people, setPeople] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [monthFilter, setMonthFilter] = useState<number>(new Date().getMonth());
+  const [view, setView] = useState<"today" | "upcoming" | "all">("upcoming");
+
+  const today = getMonthDay(new Date());
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -24,89 +57,78 @@ export function BirthdaysPage() {
   async function loadData() {
     setLoading(true);
     const rows = await db.rawQuery(
-      "SELECT * FROM person WHERE church_id = ? AND date_of_birth IS NOT NULL AND date_of_birth != '' ORDER BY date_of_birth ASC",
+      `SELECT id, first_name, last_name, phone, photo_url, birthday, date_of_birth, anniversary
+       FROM person WHERE church_id = ?
+       AND ((birthday IS NOT NULL AND birthday != '')
+            OR (date_of_birth IS NOT NULL AND date_of_birth != '')
+            OR (anniversary IS NOT NULL AND anniversary != ''))
+       ORDER BY first_name ASC, last_name ASC`,
       [session!.churchId]
     );
     setPeople(rows);
     setLoading(false);
   }
 
+  const enriched = useMemo(() => {
+    return people
+      .map((p) => {
+        const bday = toMMDD(p.birthday) ?? toMMDD(p.date_of_birth);
+        const anniv = toMMDD(p.anniversary);
+        const bdayDays = bday ? daysUntil(bday, today) : null;
+        const annivDays = anniv ? daysUntil(anniv, today) : null;
+        const nearestDays = Math.min(bdayDays ?? 999, annivDays ?? 999);
+        return {
+          ...p,
+          name: `${p.first_name} ${p.last_name}`,
+          birthday: bday, anniversary: anniv, bdayDays, annivDays, nearestDays,
+        };
+      })
+      .sort((a, b) => a.nearestDays - b.nearestDays);
+  }, [people, today]);
+
+  const todayCount = enriched.filter((i) => i.nearestDays === 0).length;
+  const monthCount = enriched.filter((i) => i.nearestDays <= 30).length;
+
   const filtered = useMemo(() => {
-    let list = people;
-    if (monthFilter >= 0) {
-      list = list.filter((p) => {
-        const dob = p.date_of_birth;
-        if (!dob) return false;
-        const month = parseInt(dob.slice(5, 7), 10) - 1;
-        return month === monthFilter;
-      });
-    }
-    if (search) {
-      const q = search.toLowerCase();
-      list = list.filter((p) => p.first_name?.toLowerCase().includes(q) || p.last_name?.toLowerCase().includes(q));
-    }
-    list.sort((a, b) => {
-      const dayA = parseInt(a.date_of_birth?.slice(8, 10) || "0", 10);
-      const dayB = parseInt(b.date_of_birth?.slice(8, 10) || "0", 10);
-      return dayA - dayB;
+    return enriched.filter((item) => {
+      if (view === "today" && item.nearestDays !== 0) return false;
+      if (view === "upcoming" && item.nearestDays > 30) return false;
+      if (search && !item.name.toLowerCase().includes(search.toLowerCase())) return false;
+      return true;
     });
-    return list;
-  }, [people, search, monthFilter]);
-
-  const stats = useMemo(() => {
-    const now = new Date();
-    const thisMonth = people.filter((p) => {
-      const m = parseInt(p.date_of_birth?.slice(5, 7) || "0", 10) - 1;
-      return m === now.getMonth();
-    });
-    const today = people.filter((p) => {
-      const dob = p.date_of_birth;
-      if (!dob) return false;
-      return parseInt(dob.slice(5, 7), 10) - 1 === now.getMonth() && parseInt(dob.slice(8, 10), 10) === now.getDate();
-    });
-    return { total: people.length, thisMonth: thisMonth.length, today: today.length };
-  }, [people]);
-
-  function formatBirthday(dob: string) {
-    if (!dob) return "—";
-    const [y, m, d] = dob.split("-");
-    return `${MONTH_NAMES[parseInt(m, 10) - 1]} ${parseInt(d, 10)}`;
-  }
-
-  const today = new Date();
-  function isBirthdayToday(dob: string) {
-    if (!dob) return false;
-    return parseInt(dob.slice(5, 7), 10) - 1 === today.getMonth() && parseInt(dob.slice(8, 10), 10) === today.getDate();
-  }
+  }, [enriched, view, search]);
 
   return (
     <PageShell title="Birthdays">
-      <PageHeader title="Birthdays" description="Track member birthdays by month." />
+      <PageHeader title="Birthdays & anniversaries" description="Celebrate your members. See who has a birthday or anniversary coming up." />
 
       <div className="mb-5 grid grid-cols-3 gap-3">
-        <StatCard label="Members with DOB" value={stats.total} icon={Cake} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="This Month" value={stats.thisMonth} icon={Gift} color="bg-gold/10 text-gold" />
-        <StatCard label="Today" value={stats.today} icon={Cake} color="bg-success/10 text-success" />
+        <StatCard label="With Celebrations" value={enriched.length} icon={Cake} color="bg-primary-soft text-primary-bright" />
+        <StatCard label="Next 30 Days" value={monthCount} icon={PartyPopper} color="bg-gold/10 text-gold" />
+        <StatCard label="Today" value={todayCount} icon={Cake} color="bg-success/10 text-success" />
       </div>
 
-      <div className="mb-4 flex items-center gap-3">
+      {todayCount > 0 && (
+        <div className="card mb-4 flex items-center gap-3 bg-primary/5 p-4">
+          <PartyPopper className="size-5 text-primary-bright" />
+          <span className="text-sm font-medium text-ink">{todayCount} member{todayCount !== 1 ? "s" : ""} celebrating today!</span>
+        </div>
+      )}
+
+      <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative max-w-xs flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-9 pl-9" placeholder="Search by name..." />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-9 pl-9" placeholder="Search members..." />
         </div>
-      </div>
-
-      <div className="mb-4 flex flex-wrap gap-1">
-        <button onClick={() => setMonthFilter(-1)}
-          className={cn("rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-            monthFilter === -1 ? "bg-primary-bright text-white" : "bg-surface-2 text-ink-muted hover:bg-surface-3"
-          )}>All</button>
-        {MONTH_NAMES.map((m, i) => (
-          <button key={m} onClick={() => setMonthFilter(i)}
-            className={cn("rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
-              monthFilter === i ? "bg-primary-bright text-white" : "bg-surface-2 text-ink-muted hover:bg-surface-3"
-            )}>{m}</button>
-        ))}
+        <div className="flex gap-1">
+          {(["today", "upcoming", "all"] as const).map((v) => (
+            <button key={v} onClick={() => setView(v)}
+              className={cn("rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+                view === v ? "bg-primary-bright text-white" : "bg-surface-2 text-ink-muted hover:bg-surface-3")}>
+              {v === "today" ? `Today (${todayCount})` : v === "upcoming" ? "Next 30 days" : "All"}
+            </button>
+          ))}
+        </div>
       </div>
 
       {loading ? (
@@ -114,21 +136,36 @@ export function BirthdaysPage() {
       ) : filtered.length === 0 ? (
         <div className="py-16 text-center">
           <Cake className="mx-auto size-10 text-ink-faint/30" />
-          <p className="mt-3 text-sm font-medium text-ink">{search ? "No matches" : "No birthdays this month"}</p>
+          <p className="mt-3 text-sm font-medium text-ink">
+            {view === "today" ? "No birthdays or anniversaries today." : search ? "No members match your search." : "No upcoming celebrations."}
+          </p>
+          <p className="mt-1 text-xs text-ink-muted">Add birthday/anniversary info to member profiles.</p>
         </div>
       ) : (
-        <div className="grid gap-2 grid-cols-3">
-          {filtered.map((p) => (
-            <div key={p.id} className={cn("card p-3 flex items-center gap-3", isBirthdayToday(p.date_of_birth) && "border-gold/40 bg-gold/5")}>
-              <Avatar name={`${p.first_name} ${p.last_name}`} src={p.photo_url} size="sm" />
-              <div className="flex-1 min-w-0">
-                <h3 className="font-bold text-sm text-ink">{p.first_name} {p.last_name}</h3>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className="text-xs text-ink-muted font-medium">{formatBirthday(p.date_of_birth)}</span>
-                  {p.phone && <span className="flex items-center gap-1 text-[11px] text-ink-faint"><Phone className="size-3" />{p.phone}</span>}
+        <div className="space-y-1">
+          {filtered.map((item) => (
+            <div key={item.id} className={cn("flex items-center gap-3 rounded-xl px-3 py-2.5", item.nearestDays === 0 ? "bg-primary/5" : "hover:bg-surface-2")}>
+              <Avatar name={item.name} src={item.photo_url} size="sm" />
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-ink">{item.name}</p>
+                <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-ink-muted">
+                  {item.birthday && (
+                    <span className="flex items-center gap-1">
+                      <Cake className="size-3" /> {formatMMDD(item.birthday)}
+                      {item.bdayDays === 0 && <span className="ml-1 badge badge-primary text-[10px]">Today!</span>}
+                      {item.bdayDays !== null && item.bdayDays > 0 && item.bdayDays <= 7 && <span className="text-primary-bright font-medium">in {item.bdayDays}d</span>}
+                    </span>
+                  )}
+                  {item.anniversary && (
+                    <span className="flex items-center gap-1">
+                      <Heart className="size-3" /> {formatMMDD(item.anniversary)}
+                      {item.annivDays === 0 && <span className="ml-1 rounded-full bg-success/10 px-1.5 py-0.5 text-[10px] font-bold text-success">Today!</span>}
+                      {item.annivDays !== null && item.annivDays > 0 && item.annivDays <= 7 && <span className="text-success font-medium">in {item.annivDays}d</span>}
+                    </span>
+                  )}
                 </div>
               </div>
-              {isBirthdayToday(p.date_of_birth) && <span className="rounded-full bg-gold/10 px-2 py-0.5 text-[10px] font-bold text-gold">Today!</span>}
+              {item.phone && <span className="hidden text-xs text-ink-faint sm:block">{item.phone}</span>}
             </div>
           ))}
         </div>

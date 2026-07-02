@@ -39,6 +39,9 @@ import { BirthdaysPage } from "./pages/BirthdaysPage";
 import { BookingsPage } from "./pages/BookingsPage";
 import { HarvestPage } from "./pages/HarvestPage";
 import { AuditLogPage } from "./pages/AuditLogPage";
+import { DaybornPage } from "./pages/DaybornPage";
+import { ChildrenPage } from "./pages/ChildrenPage";
+import { AccountingPage } from "./pages/AccountingPage";
 import { DataListPage } from "./pages/DataListPage";
 
 export default function App() {
@@ -94,22 +97,8 @@ export default function App() {
             <Route path="/leaders" element={<LeadersPage />} />
             <Route path="/attendance" element={<AttendancePage />} />
             <Route path="/giving" element={<GivingPage />} />
-            <Route path="/dayborn" element={
-              <DataListPage title="Day Born" table="day_born_week" webPath="dayborn"
-                columns={[
-                  { key: "week_of", label: "Week Of", format: "date" },
-                  { key: "monday", label: "Mon", format: "currency" },
-                  { key: "tuesday", label: "Tue", format: "currency" },
-                  { key: "wednesday", label: "Wed", format: "currency" },
-                  { key: "thursday", label: "Thu", format: "currency" },
-                  { key: "friday", label: "Fri", format: "currency" },
-                  { key: "saturday", label: "Sat", format: "currency" },
-                  { key: "sunday", label: "Sun", format: "currency" },
-                ]}
-                searchFields={[]}
-                orderBy="week_of DESC"
-              />
-            } />
+            <Route path="/dayborn" element={<DaybornPage />} />
+            <Route path="/children" element={<ChildrenPage />} />
             <Route path="/events" element={<EventsPage />} />
             <Route path="/calendar" element={<CalendarPage />} />
             <Route path="/volunteers" element={<VolunteersPage />} />
@@ -130,18 +119,7 @@ export default function App() {
               />
             } />
             <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/accounting" element={
-              <DataListPage title="Accounting" table="transaction" webPath="accounting"
-                columns={[
-                  { key: "description", label: "Description" },
-                  { key: "category", label: "Category" },
-                  { key: "amount", label: "Amount", format: "currency" },
-                  { key: "date", label: "Date", format: "date" },
-                ]}
-                searchFields={["description", "category"]}
-                orderBy="date DESC"
-              />
-            } />
+            <Route path="/accounting" element={<AccountingPage />} />
             <Route path="/pledges" element={<PledgesPage />} />
             <Route path="/harvest" element={<HarvestPage />} />
             <Route path="/expenses" element={<ExpensesPage />} />

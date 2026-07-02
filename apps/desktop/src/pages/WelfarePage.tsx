@@ -16,6 +16,7 @@ const TYPES = ["Financial", "Medical", "Food", "Housing", "Education", "Counseli
 export function WelfarePage() {
   const { session, showToast, syncVersion } = useAppStore();
   const [records, setRecords] = useState<any[]>([]);
+  const [people, setPeople] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
@@ -27,8 +28,12 @@ export function WelfarePage() {
 
   async function loadData() {
     setLoading(true);
-    const rows = await db.rawQuery("SELECT * FROM welfare_record WHERE church_id = ? ORDER BY date DESC LIMIT 500", [session!.churchId]);
+    const [rows, p] = await Promise.all([
+      db.rawQuery("SELECT * FROM welfare_record WHERE church_id = ? ORDER BY date DESC LIMIT 500", [session!.churchId]),
+      db.rawQuery("SELECT id, first_name, last_name FROM person WHERE church_id = ? ORDER BY first_name", [session!.churchId]),
+    ]);
     setRecords(rows);
+    setPeople(p);
     setLoading(false);
   }
 
@@ -118,27 +123,33 @@ export function WelfarePage() {
       </div>
 
       <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Record" : "Record Assistance"}>
-        <WelfareForm churchId={session!.churchId} existing={editing} onClose={() => { setShowForm(false); setEditing(null); }} onSaved={() => { setShowForm(false); setEditing(null); loadData(); }} />
+        <WelfareForm churchId={session!.churchId} people={people} existing={editing} onClose={() => { setShowForm(false); setEditing(null); }} onSaved={() => { setShowForm(false); setEditing(null); loadData(); }} />
       </Modal>
     </PageShell>
   );
 }
 
-function WelfareForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
+function WelfareForm({ churchId, people, existing, onClose, onSaved }: { churchId: string; people: any[]; existing?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    recipient_name: existing?.recipient_name || "", type: existing?.type || "Financial",
+    person_id: existing?.person_id || "", recipient_name: existing?.recipient_name || "", type: existing?.type || "Financial",
     description: existing?.description || "", amount: existing?.amount != null ? String(existing.amount) : "",
     date: existing?.date || new Date().toISOString().slice(0, 10),
   });
   const set = (k: string) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
+  function onSelectMember(e: any) {
+    const id = e.target.value;
+    const p = people.find((x) => x.id === id);
+    setForm((f) => ({ ...f, person_id: id, recipient_name: p ? `${p.first_name} ${p.last_name}` : f.recipient_name }));
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
     const data = {
-      recipient_name: form.recipient_name.trim(), type: form.type,
+      person_id: form.person_id || null, recipient_name: form.recipient_name.trim(), type: form.type,
       description: form.description || null, amount: Number(form.amount) || 0, date: form.date,
     };
     if (existing) {
@@ -153,6 +164,9 @@ function WelfareForm({ churchId, existing, onClose, onSaved }: { churchId: strin
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
+      <div><label className="block text-xs font-medium text-ink-muted mb-1">Member (optional)</label>
+        <select value={form.person_id} onChange={onSelectMember} className="input"><option value="">— Not a member / enter name below —</option>{people.map((p) => <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>)}</select>
+      </div>
       <div><label className="block text-xs font-medium text-ink-muted mb-1">Recipient Name *</label><input value={form.recipient_name} onChange={set("recipient_name")} className="input" required placeholder="Full name" /></div>
       <div className="grid grid-cols-2 gap-3">
         <div><label className="block text-xs font-medium text-ink-muted mb-1">Type</label>

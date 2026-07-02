@@ -6,7 +6,7 @@ import {
   Megaphone, BookUser, Calendar, BookMarked, Package, Receipt,
   DoorOpen, BookHeart, Sparkles, HeartHandshake, PiggyBank,
   CalendarClock, Crown, Sun, MessageSquare, BellRing, ScrollText,
-  PanelLeftClose, PanelLeft, RefreshCw, Loader2,
+  PanelLeftClose, PanelLeft, RefreshCw, Loader2, Baby,
 } from "lucide-react";
 import { useState } from "react";
 import { useAppStore } from "../stores/app-store";
@@ -42,6 +42,7 @@ const sections: NavSection[] = [
       { label: "Volunteers", href: "/volunteers", icon: HandHelping },
       { label: "Groups", href: "/groups", icon: Users2 },
       { label: "Visitors", href: "/visitors", icon: UserRoundPlus },
+      { label: "Children & Teens", href: "/children", icon: Baby },
       { label: "Birthdays", href: "/birthdays", icon: Cake },
       { label: "Directory", href: "/directory", icon: BookUser },
       { label: "Bookings", href: "/bookings", icon: DoorOpen },

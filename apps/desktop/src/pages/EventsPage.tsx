@@ -119,7 +119,7 @@ export function EventsPage() {
                 <div className="mt-2 space-y-1 text-sm text-ink-muted">
                   <div className="flex items-center gap-2">
                     <CalendarDays className="size-3.5 text-ink-faint" />
-                    {formatDate(e.starts_at)} {e.time && `· ${e.time}`}
+                    {formatDate(e.starts_at)}{(e.starts_at || "").includes("T") ? ` · ${e.starts_at.slice(11, 16)}` : ""}
                   </div>
                   <div className="flex items-center gap-2">
                     <Tag className="size-3.5 text-ink-faint" />
@@ -205,16 +205,18 @@ function EventForm({ churchId, existing, onClose, onSaved }: { churchId: string;
     if (!form.title.trim()) return;
     setSaving(true);
     const startsAt = `${form.date}T${form.time}:00`;
+    // NOTE: `time` and `registered` are NOT columns on the `event` table — time is derived
+    // from starts_at, and registration counts come from the (online-only) event_registration relation.
     const data = {
       title: form.title.trim(), type: form.type,
-      starts_at: startsAt, time: form.time, capacity: Number(form.capacity) || 0,
+      starts_at: startsAt, capacity: Number(form.capacity) || 0,
       price: Number(form.price) || 0, paid: form.paid ? 1 : 0,
     };
     if (existing) {
       await db.update("event", existing.id, data);
       showToast("Event updated");
     } else {
-      await db.insert("event", { id: uuid(), church_id: churchId, ...data, registered: 0 });
+      await db.insert("event", { id: uuid(), church_id: churchId, ...data });
       showToast("Event created");
     }
     setSaving(false);

@@ -6,6 +6,19 @@ function cleanTable(table: string): string {
   return table.startsWith("[") ? table.slice(1, -1) : table;
 }
 
+// Cache of column-name sets per table so we don't PRAGMA on every query.
+const _colCache: Record<string, Set<string>> = {};
+function tableColumns(db: any, table: string): Set<string> {
+  if (_colCache[table]) return _colCache[table];
+  try {
+    const info = db.prepare(`PRAGMA table_info("${table}")`).all() as any[];
+    _colCache[table] = new Set(info.map((r: any) => r.name));
+  } catch {
+    _colCache[table] = new Set();
+  }
+  return _colCache[table];
+}
+
 export function registerDataHandlers() {
   const db = getDatabase();
 
@@ -22,7 +35,12 @@ export function registerDataHandlers() {
       sql += ` WHERE ${clauses.join(" AND ")}`;
     }
 
-    sql += ` ORDER BY created_at DESC`;
+    // Only order by created_at when the table actually has that column —
+    // join tables (person_department, group_member, person_tag) and a few
+    // others don't, and an unconditional ORDER BY would throw.
+    if (tableColumns(db, table).has("created_at")) {
+      sql += ` ORDER BY created_at DESC`;
+    }
     return db.prepare(sql).all(...params);
   });
 

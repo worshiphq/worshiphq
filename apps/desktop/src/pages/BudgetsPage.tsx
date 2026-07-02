@@ -56,6 +56,17 @@ export function BudgetsPage() {
     await db.delete("budget", id);
   }
 
+  async function handleDeleteItem(item: any) {
+    if (!confirm("Delete this line item?")) return;
+    setItems((prev) => prev.filter((i) => i.id !== item.id));
+    showToast("Item deleted");
+    await db.delete("budget_item", item.id);
+    // Mirror web: recompute the parent budget total.
+    const rows = await db.rawQuery("SELECT COALESCE(SUM(amount),0) AS total FROM budget_item WHERE budget_id = ?", [item.budget_id]);
+    await db.update("budget", item.budget_id, { total: rows[0]?.total || 0 });
+    loadData();
+  }
+
   return (
     <PageShell title="Budgets">
       <PageHeader title="Budget Management" description="Plan and track church budgets by year or quarter.">
@@ -145,7 +156,10 @@ export function BudgetsPage() {
                                     <span className={cn("text-xs font-bold", pct > 100 ? "text-danger" : pct > 80 ? "text-gold" : "text-success")}>{pct}%</span>
                                   </td>
                                   <td className="px-4 py-2">
-                                    <button onClick={() => { setEditingItem(i); setShowItemForm(b.id); }} className="grid size-6 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3" /></button>
+                                    <div className="flex items-center gap-1">
+                                      <button onClick={() => { setEditingItem(i); setShowItemForm(b.id); }} className="grid size-6 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3" /></button>
+                                      <button onClick={() => handleDeleteItem(i)} className="grid size-6 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger" title="Delete"><Trash2 className="size-3" /></button>
+                                    </div>
                                   </td>
                                 </tr>
                               );
@@ -247,6 +261,9 @@ function ItemForm({ churchId, budgetId, existing, onClose, onSaved }: { churchId
       await db.insert("budget_item", { id: uuid(), church_id: churchId, budget_id: budgetId, ...data, spent: 0 });
       showToast("Item added");
     }
+    // Mirror web: recompute budget.total from its line items.
+    const items = await db.rawQuery("SELECT COALESCE(SUM(amount),0) AS total FROM budget_item WHERE budget_id = ?", [budgetId]);
+    await db.update("budget", budgetId, { total: items[0]?.total || 0 });
     setSaving(false); onSaved();
   }
 

@@ -133,6 +133,8 @@ function AssetForm({ churchId, existing, onClose, onSaved }: { churchId: string;
     name: existing?.name || "", category: existing?.category || "",
     purchase_price: existing?.purchase_price != null ? String(existing.purchase_price) : "",
     condition: existing?.condition || "New", location: existing?.location || "",
+    serial_no: existing?.serial_no || "", purchase_date: existing?.purchase_date ? existing.purchase_date.slice(0, 10) : "",
+    notes: existing?.notes || "",
   });
   const set = (k: string) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -143,6 +145,8 @@ function AssetForm({ churchId, existing, onClose, onSaved }: { churchId: string;
       name: form.name.trim(), category: form.category || null,
       purchase_price: Number(form.purchase_price) || 0,
       condition: form.condition, location: form.location || null,
+      serial_no: form.serial_no || null, purchase_date: form.purchase_date || null,
+      notes: form.notes || null,
     };
     if (existing) {
       await db.update("asset", existing.id, data);
@@ -167,6 +171,11 @@ function AssetForm({ churchId, existing, onClose, onSaved }: { churchId: string;
         </div>
         <div><label className="block text-xs font-medium text-ink-muted mb-1">Location</label><input value={form.location} onChange={set("location")} className="input" placeholder="e.g. Main Hall" /></div>
       </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className="block text-xs font-medium text-ink-muted mb-1">Serial No.</label><input value={form.serial_no} onChange={set("serial_no")} className="input" placeholder="Serial number" /></div>
+        <div><label className="block text-xs font-medium text-ink-muted mb-1">Purchase Date</label><input type="date" value={form.purchase_date} onChange={set("purchase_date")} className="input" /></div>
+      </div>
+      <div><label className="block text-xs font-medium text-ink-muted mb-1">Notes</label><textarea value={form.notes} onChange={set("notes")} className="input" rows={2} placeholder="Additional details" /></div>
       <div className="flex gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
         <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Saving..." : existing ? "Update" : "Add Asset"}</button>

@@ -401,7 +401,15 @@ async function pullChanges(serverUrl: string, token: string): Promise<{ applied:
 
   broadcast("sync:progress", { phase: "applying", progress: 60, detail: "Writing to local database..." });
 
-  db.pragma("defer_foreign_keys = ON");
+  // Disable FK enforcement during the bulk apply. The server is the source of
+  // truth and may send a child row before its parent, or reference a row that
+  // isn't part of this batch yet. With foreign_keys ON, those inserts throw
+  // "FOREIGN KEY constraint failed" and the row is skipped, leaving the local
+  // DB incomplete (which then causes further FK failures on local edits).
+  // `foreign_keys` cannot be toggled inside a transaction, so we toggle it
+  // around the transaction and always restore it in `finally`.
+  const fkWasOn = db.pragma("foreign_keys", { simple: true });
+  db.pragma("foreign_keys = OFF");
 
   const applyChanges = db.transaction(() => {
     for (let i = 0; i < changes.length; i++) {
@@ -451,7 +459,11 @@ async function pullChanges(serverUrl: string, token: string): Promise<{ applied:
     }
   });
 
-  applyChanges();
+  try {
+    applyChanges();
+  } finally {
+    if (fkWasOn) db.pragma("foreign_keys = ON");
+  }
 
   broadcast("sync:progress", { phase: "applying", progress: 92, detail: `Applied ${applied} records across ${tablesProcessed.size} tables`, count: applied, skipped });
 

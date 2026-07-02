@@ -3,7 +3,7 @@ import {
   Save, Loader2, Database, RefreshCw, Trash2, User, Church, HardDrive,
   ExternalLink, Users2, Layers, Shield, Plus, X, Check, Pencil,
   Palette, Link2, CreditCard, MessageSquare, Copy, Eye, EyeOff,
-  UserPlus, ChevronDown, ChevronUp, AlertTriangle,
+  UserPlus, ChevronDown, ChevronUp, AlertTriangle, Building2, Bell, Award,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -14,16 +14,46 @@ import { db, sync, auth, appInfo } from "../lib/api";
 import { requireOnline } from "../lib/net";
 import { cn } from "../lib/utils";
 import { v4 as uuid } from "uuid";
+import {
+  FormBuilder, resolveFormDefinition,
+  DEFAULT_FORM, DEFAULT_VISITOR_FORM, DEFAULT_CHILDREN_FORM, DEFAULT_TEENS_FORM,
+} from "../components/FormBuilder";
 
-type Tab = "profile" | "church" | "branding" | "team" | "departments" | "joinlink" | "billing" | "sms" | "sync" | "about";
+type Tab =
+  | "profile" | "church" | "branding" | "team" | "departments" | "positions"
+  | "branches" | "joinlink" | "automations" | "billing" | "sms" | "sync" | "about";
 
 const ALL_ROLES = ["Admin", "Pastor", "Finance", "Media", "Leader", "Volunteer"];
-const ALL_MODULES = ["people", "attendance", "events", "volunteers", "giving", "accounting", "communications", "reminders", "settings"];
+// Mirrors web src/lib/permissions.ts ALL_MODULES (includes harvest).
+const ALL_MODULES = ["people", "attendance", "events", "volunteers", "giving", "accounting", "harvest", "communications", "reminders", "settings"];
 const MODULE_LABELS: Record<string, string> = {
   people: "People", attendance: "Attendance", events: "Events", volunteers: "Volunteers",
-  giving: "Giving", accounting: "Accounting", communications: "Communications",
+  giving: "Giving", accounting: "Accounting", harvest: "Harvest", communications: "Communications",
   reminders: "Reminders", settings: "Settings",
 };
+
+// Built-in role defaults (mirror ROLE_PERMISSIONS in web).
+const ROLE_DEFAULTS: Record<string, string[]> = {
+  Admin: ["people", "attendance", "giving", "events", "volunteers", "communications", "reminders", "settings", "accounting", "harvest"],
+  Pastor: ["people", "attendance", "giving", "events", "volunteers", "communications", "reminders", "settings"],
+  Finance: ["giving", "accounting", "harvest", "people", "reminders"],
+  Media: ["communications", "events", "people"],
+  Leader: ["people", "attendance", "events", "volunteers", "communications", "reminders"],
+  Volunteer: ["people", "attendance", "events"],
+};
+
+const VALID_POSITIONS = ["Head", "Assistant Head", "Secretary", "Treasurer", "Coordinator", "Vice President", "President"];
+
+// Automation triggers (mirror web TRIGGER_CATALOG keys).
+const TRIGGERS = [
+  { key: "birthday", name: "Birthday wishes", desc: "Send a message on members' birthdays." },
+  { key: "anniversary", name: "Anniversary wishes", desc: "Celebrate wedding anniversaries." },
+  { key: "visitor_followup", name: "Visitor follow-up", desc: "Reach out to first-time visitors." },
+  { key: "lapsed", name: "Lapsed member re-engagement", desc: "Check in with members who've gone quiet." },
+  { key: "new_member", name: "New member welcome", desc: "Welcome newly registered members." },
+  { key: "giving_thanks", name: "Giving thank-you", desc: "Thank members after they give." },
+  { key: "custom", name: "Custom reminder", desc: "A one-off or recurring reminder you define." },
+];
 
 export function SettingsPage() {
   const { session, syncStatus, setSyncStatus, setSession, showToast } = useAppStore();
@@ -43,7 +73,10 @@ export function SettingsPage() {
     { key: "branding", label: "Branding", icon: Palette },
     { key: "team", label: "Users & Roles", icon: Users2 },
     { key: "departments", label: "Departments", icon: Layers },
-    { key: "joinlink", label: "Join Link", icon: Link2 },
+    { key: "positions", label: "Positions", icon: Award },
+    { key: "branches", label: "Branches", icon: Building2 },
+    { key: "joinlink", label: "Join Link & Forms", icon: Link2 },
+    { key: "automations", label: "Automations", icon: Bell },
     { key: "billing", label: "Billing", icon: CreditCard },
     { key: "sms", label: "SMS Settings", icon: MessageSquare },
     { key: "sync", label: "Sync & Data", icon: RefreshCw },
@@ -106,7 +139,10 @@ export function SettingsPage() {
           {tab === "branding" && <BrandingTab />}
           {tab === "team" && <TeamTab />}
           {tab === "departments" && <DepartmentsTab />}
+          {tab === "positions" && <PositionsTab />}
+          {tab === "branches" && <BranchesTab />}
           {tab === "joinlink" && <JoinLinkTab />}
+          {tab === "automations" && <AutomationsTab />}
           {tab === "billing" && <BillingTab />}
           {tab === "sms" && <SmsTab />}
           {tab === "sync" && (
@@ -788,6 +824,548 @@ function TeamTab() {
           )}
         </div>
       )}
+
+      {isAdmin && <BuiltInRolesEditor />}
+    </div>
+  );
+}
+
+/* ─── Built-in role permissions editor ─── */
+function BuiltInRolesEditor() {
+  const { session, showToast } = useAppStore();
+  const [perms, setPerms] = useState<Record<string, string[]>>({});
+  const [editing, setEditing] = useState<string | null>(null);
+  const [draft, setDraft] = useState<string[]>([]);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (session?.churchId) {
+      db.getById("church", session.churchId).then((c) => {
+        let stored: Record<string, string[]> = {};
+        try { stored = c?.role_permissions ? JSON.parse(c.role_permissions) : {}; } catch {}
+        setPerms(stored);
+      });
+    }
+  }, [session?.churchId]);
+
+  function startEdit(role: string) {
+    setEditing(role);
+    setDraft(perms[role] ?? ROLE_DEFAULTS[role] ?? []);
+  }
+
+  function toggle(mod: string) {
+    setDraft((d) => (d.includes(mod) ? d.filter((m) => m !== mod) : [...d, mod]));
+  }
+
+  async function save(role: string) {
+    setSaving(true);
+    try {
+      const next = { ...perms, [role]: draft };
+      await db.update("church", session!.churchId, { role_permissions: JSON.stringify(next) });
+      setPerms(next);
+      setEditing(null);
+      showToast("Permissions updated! Changes will sync.");
+    } catch {
+      showToast("Failed to save permissions", "error");
+    }
+    setSaving(false);
+  }
+
+  return (
+    <div className="card space-y-3">
+      <div>
+        <h3 className="text-sm font-bold text-ink flex items-center gap-2">
+          <Shield className="size-4" /> Built-in Role Permissions
+        </h3>
+        <p className="text-xs text-ink-muted mt-0.5">Customize what each built-in role can access. Owner always has full access.</p>
+      </div>
+
+      <div className="divide-y divide-line-soft">
+        <div className="flex items-center justify-between py-3">
+          <div>
+            <p className="text-sm font-medium text-ink">Owner</p>
+            <p className="text-xs text-ink-faint">Full access to everything</p>
+          </div>
+        </div>
+        {ALL_ROLES.map((role) => {
+          const current = perms[role] ?? ROLE_DEFAULTS[role] ?? [];
+          const isEditing = editing === role;
+          return (
+            <div key={role} className="py-3">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-ink">{role}</p>
+                  <p className="text-xs text-ink-faint">
+                    {current.map((s) => MODULE_LABELS[s] ?? s).join(", ") || "No access"}
+                  </p>
+                </div>
+                <button onClick={() => (isEditing ? setEditing(null) : startEdit(role))}
+                  className={cn("grid size-7 place-items-center rounded-lg border border-line transition-colors",
+                    isEditing ? "bg-primary-soft text-primary-bright" : "text-ink-muted hover:bg-surface-2")}>
+                  <Pencil className="size-3.5" />
+                </button>
+              </div>
+              {isEditing && (
+                <div className="mt-3 space-y-3">
+                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
+                    {ALL_MODULES.map((m) => (
+                      <label key={m} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-surface-2 cursor-pointer">
+                        <input type="checkbox" checked={draft.includes(m)} onChange={() => toggle(m)}
+                          className="rounded border-line accent-primary" />
+                        {MODULE_LABELS[m] ?? m}
+                      </label>
+                    ))}
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={() => save(role)} disabled={saving} className="btn-primary btn-sm">
+                      {saving && <Loader2 className="size-3.5 whq-spin" />}
+                      {saving ? "Saving..." : "Save"}
+                    </button>
+                    <button onClick={() => setEditing(null)} className="btn-ghost btn-sm">Cancel</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Positions Tab ─── */
+function PositionsTab() {
+  const { session, showToast } = useAppStore();
+  const [positions, setPositions] = useState<any[]>([]);
+  const [people, setPeople] = useState<any[]>([]);
+  const [departments, setDepartments] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ personId: "", departmentId: "", position: "Head" });
+
+  useEffect(() => { load(); }, []);
+
+  async function load() {
+    const [pos, ppl, depts] = await Promise.all([
+      db.rawQuery(
+        `SELECT dp.*, p.first_name, p.last_name, d.name as dept_name
+         FROM department_position dp
+         LEFT JOIN person p ON dp.person_id = p.id
+         LEFT JOIN department d ON dp.department_id = d.id
+         ORDER BY d.name, dp.position`
+      ),
+      db.query("person"),
+      db.query("department"),
+    ]);
+    setPositions(pos);
+    setPeople(ppl);
+    setDepartments(depts);
+    setLoading(false);
+  }
+
+  async function handleAdd() {
+    if (!form.personId || !form.departmentId || !form.position) return;
+    setSaving(true);
+    try {
+      await db.insert("department_position", {
+        id: uuid(), church_id: session!.churchId,
+        person_id: form.personId, department_id: form.departmentId, position: form.position,
+      });
+      showToast("Position assigned! Changes will sync.");
+      setForm({ personId: "", departmentId: "", position: "Head" });
+      setAdding(false);
+      load();
+    } catch {
+      showToast("Failed to assign position (may already exist)", "error");
+    }
+    setSaving(false);
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Remove this position?")) return;
+    try {
+      await db.delete("department_position", id);
+      showToast("Position removed");
+      load();
+    } catch {
+      showToast("Failed to remove", "error");
+    }
+  }
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-20"><Loader2 className="size-6 text-primary-bright whq-spin" /></div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-ink">Positions</h2>
+          <p className="text-sm text-ink-muted">Assign named positions (Head, Secretary…) within departments.</p>
+        </div>
+        <button onClick={() => setAdding(true)} className="btn-primary btn-sm" disabled={departments.length === 0}>
+          <Plus className="size-3.5" /> Assign Position
+        </button>
+      </div>
+
+      {adding && (
+        <div className="card space-y-3">
+          <div className="grid grid-cols-3 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1">Member</label>
+              <select value={form.personId} onChange={(e) => setForm((f) => ({ ...f, personId: e.target.value }))} className="input">
+                <option value="">Select member…</option>
+                {people.map((p) => <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1">Department</label>
+              <select value={form.departmentId} onChange={(e) => setForm((f) => ({ ...f, departmentId: e.target.value }))} className="input">
+                <option value="">Select…</option>
+                {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1">Position</label>
+              <select value={form.position} onChange={(e) => setForm((f) => ({ ...f, position: e.target.value }))} className="input">
+                {VALID_POSITIONS.map((p) => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleAdd} disabled={saving} className="btn-primary btn-sm">
+              {saving ? <Loader2 className="size-3.5 whq-spin" /> : <Check className="size-3.5" />}
+              {saving ? "Saving..." : "Assign"}
+            </button>
+            <button onClick={() => setAdding(false)} className="btn-ghost btn-sm">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {positions.map((p) => (
+          <div key={p.id} className="card flex items-center justify-between !p-4">
+            <div className="flex items-center gap-3">
+              <div className="grid size-9 place-items-center rounded-lg bg-primary-soft">
+                <Award className="size-4 text-primary-bright" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-ink">{p.first_name} {p.last_name}</p>
+                <p className="text-xs text-ink-faint">{p.position} · {p.dept_name || "Unknown dept"}</p>
+              </div>
+            </div>
+            <button onClick={() => handleDelete(p.id)}
+              className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
+              <Trash2 className="size-3.5" />
+            </button>
+          </div>
+        ))}
+        {positions.length === 0 && (
+          <div className="card text-center py-10">
+            <Award className="size-8 text-ink-faint mx-auto mb-2" />
+            <p className="text-sm text-ink-muted">No positions assigned yet</p>
+            {departments.length === 0 && <p className="text-xs text-ink-faint mt-1">Create a department first.</p>}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Branches Tab ─── */
+function BranchesTab() {
+  const { session, showToast } = useAppStore();
+  const [branches, setBranches] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [adding, setAdding] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ name: "", city: "" });
+
+  useEffect(() => { load(); }, []);
+
+  async function load() {
+    const rows = await db.query("branch");
+    setBranches(rows);
+    setLoading(false);
+  }
+
+  async function handleAdd() {
+    if (!form.name.trim()) return;
+    setSaving(true);
+    try {
+      await db.insert("branch", {
+        id: uuid(), church_id: session!.churchId,
+        name: form.name.trim(), city: form.city.trim() || null,
+        is_hq: branches.length === 0 ? 1 : 0,
+      });
+      showToast("Branch added! Changes will sync.");
+      setForm({ name: "", city: "" });
+      setAdding(false);
+      load();
+    } catch {
+      showToast("Failed to add branch", "error");
+    }
+    setSaving(false);
+  }
+
+  async function handleDelete(id: string, name: string) {
+    if (!confirm(`Delete "${name}"?`)) return;
+    try {
+      await db.delete("branch", id);
+      showToast("Branch deleted");
+      load();
+    } catch {
+      showToast("Failed to delete", "error");
+    }
+  }
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-20"><Loader2 className="size-6 text-primary-bright whq-spin" /></div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-ink">Branches</h2>
+          <p className="text-sm text-ink-muted">{branches.length} branch{branches.length !== 1 ? "es" : ""}. The first branch is your HQ.</p>
+        </div>
+        <button onClick={() => setAdding(true)} className="btn-primary btn-sm">
+          <Plus className="size-3.5" /> Add Branch
+        </button>
+      </div>
+
+      {adding && (
+        <div className="card space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1">Branch Name *</label>
+              <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="input" placeholder="e.g. East Campus" autoFocus />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1">City</label>
+              <input value={form.city} onChange={(e) => setForm((f) => ({ ...f, city: e.target.value }))} className="input" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleAdd} disabled={saving} className="btn-primary btn-sm">
+              {saving ? <Loader2 className="size-3.5 whq-spin" /> : <Check className="size-3.5" />}
+              {saving ? "Saving..." : "Add"}
+            </button>
+            <button onClick={() => setAdding(false)} className="btn-ghost btn-sm">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {branches.map((b) => (
+          <div key={b.id} className="card flex items-center justify-between !p-4">
+            <div className="flex items-center gap-3">
+              <div className="grid size-9 place-items-center rounded-lg bg-primary-soft">
+                <Building2 className="size-4 text-primary-bright" />
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-semibold text-ink">{b.name}</p>
+                  {b.is_hq ? <span className="badge badge-primary">HQ</span> : null}
+                </div>
+                <p className="text-xs text-ink-faint">{b.city || "No city"}</p>
+              </div>
+            </div>
+            <button onClick={() => handleDelete(b.id, b.name)}
+              className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
+              <Trash2 className="size-3.5" />
+            </button>
+          </div>
+        ))}
+        {branches.length === 0 && (
+          <div className="card text-center py-10">
+            <Building2 className="size-8 text-ink-faint mx-auto mb-2" />
+            <p className="text-sm text-ink-muted">No branches yet</p>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* ─── Automations Tab ─── */
+function AutomationsTab() {
+  const { session, showToast } = useAppStore();
+  const [automations, setAutomations] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ trigger: "birthday", name: "", channel: "SMS", customDate: "", customRecurrence: "once", audience: "all", messageTemplate: "" });
+
+  useEffect(() => { load(); }, []);
+
+  async function load() {
+    const rows = await db.query("automation");
+    setAutomations(rows);
+    setLoading(false);
+  }
+
+  async function handleCreate() {
+    setSaving(true);
+    try {
+      const def = TRIGGERS.find((t) => t.key === form.trigger);
+      const isCustom = form.trigger === "custom";
+      await db.insert("automation", {
+        id: uuid(), church_id: session!.churchId,
+        name: (isCustom ? form.name.trim() || "Custom reminder" : form.name.trim() || def?.name || "Reminder"),
+        description: def?.desc || null,
+        trigger_type: form.trigger,
+        channel: form.channel,
+        active: 1,
+        runs: 0,
+        message_template: form.messageTemplate.trim() || null,
+        custom_date: isCustom && form.customDate ? new Date(form.customDate).toISOString() : null,
+        custom_recurrence: isCustom ? form.customRecurrence : null,
+        audience: isCustom ? form.audience : null,
+      });
+      showToast("Automation created! Changes will sync.");
+      setForm({ trigger: "birthday", name: "", channel: "SMS", customDate: "", customRecurrence: "once", audience: "all", messageTemplate: "" });
+      setShowForm(false);
+      load();
+    } catch {
+      showToast("Failed to create automation", "error");
+    }
+    setSaving(false);
+  }
+
+  async function toggleActive(a: any) {
+    try {
+      await db.update("automation", a.id, { active: a.active ? 0 : 1 });
+      load();
+    } catch {
+      showToast("Failed to update", "error");
+    }
+  }
+
+  async function handleDelete(id: string) {
+    if (!confirm("Delete this automation?")) return;
+    try {
+      await db.delete("automation", id);
+      showToast("Automation deleted");
+      load();
+    } catch {
+      showToast("Failed to delete", "error");
+    }
+  }
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-20"><Loader2 className="size-6 text-primary-bright whq-spin" /></div>;
+  }
+
+  const isCustom = form.trigger === "custom";
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-lg font-bold text-ink">Automations & Reminders</h2>
+          <p className="text-sm text-ink-muted">Automatic messages triggered by events like birthdays and new members.</p>
+        </div>
+        <button onClick={() => setShowForm(!showForm)} className="btn-primary btn-sm">
+          <Plus className="size-3.5" /> New Automation
+        </button>
+      </div>
+
+      {showForm && (
+        <div className="card space-y-3">
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1">Trigger</label>
+              <select value={form.trigger} onChange={(e) => setForm((f) => ({ ...f, trigger: e.target.value }))} className="input">
+                {TRIGGERS.map((t) => <option key={t.key} value={t.key}>{t.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1">Channel</label>
+              <select value={form.channel} onChange={(e) => setForm((f) => ({ ...f, channel: e.target.value }))} className="input">
+                <option value="SMS">SMS</option>
+                <option value="Email">Email</option>
+                <option value="Push">Push</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Name {isCustom ? "*" : "(optional)"}</label>
+            <input value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} className="input"
+              placeholder={TRIGGERS.find((t) => t.key === form.trigger)?.name} />
+          </div>
+          {isCustom && (
+            <div className="grid grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs font-medium text-ink-muted mb-1">Date</label>
+                <input type="date" value={form.customDate} onChange={(e) => setForm((f) => ({ ...f, customDate: e.target.value }))} className="input" />
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-ink-muted mb-1">Recurrence</label>
+                <select value={form.customRecurrence} onChange={(e) => setForm((f) => ({ ...f, customRecurrence: e.target.value }))} className="input">
+                  <option value="once">Once</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="monthly">Monthly</option>
+                  <option value="yearly">Yearly</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-ink-muted mb-1">Audience</label>
+                <select value={form.audience} onChange={(e) => setForm((f) => ({ ...f, audience: e.target.value }))} className="input">
+                  <option value="all">All members</option>
+                  <option value="active">Active only</option>
+                </select>
+              </div>
+            </div>
+          )}
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Message Template</label>
+            <textarea value={form.messageTemplate} onChange={(e) => setForm((f) => ({ ...f, messageTemplate: e.target.value }))}
+              className="input min-h-[70px]" placeholder="Use {name}, {church} placeholders…" />
+          </div>
+          <div className="flex gap-2">
+            <button onClick={handleCreate} disabled={saving} className="btn-primary btn-sm">
+              {saving ? <Loader2 className="size-3.5 whq-spin" /> : <Check className="size-3.5" />}
+              {saving ? "Saving..." : "Create"}
+            </button>
+            <button onClick={() => setShowForm(false)} className="btn-ghost btn-sm">Cancel</button>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-2">
+        {automations.map((a) => (
+          <div key={a.id} className="card flex items-center justify-between !p-4">
+            <div className="flex items-center gap-3">
+              <div className={cn("grid size-9 place-items-center rounded-lg", a.active ? "bg-success/10" : "bg-surface-3")}>
+                <Bell className={cn("size-4", a.active ? "text-success" : "text-ink-faint")} />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-ink">{a.name}</p>
+                <p className="text-xs text-ink-faint">{a.trigger_type} · {a.channel} · {a.runs || 0} run{(a.runs || 0) !== 1 ? "s" : ""}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => toggleActive(a)} className={cn("badge", a.active ? "badge-success" : "badge-muted")}>
+                {a.active ? "Active" : "Paused"}
+              </button>
+              <button onClick={() => handleDelete(a.id)}
+                className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
+                <Trash2 className="size-3.5" />
+              </button>
+            </div>
+          </div>
+        ))}
+        {automations.length === 0 && (
+          <div className="card text-center py-10">
+            <Bell className="size-8 text-ink-faint mx-auto mb-2" />
+            <p className="text-sm text-ink-muted">No automations yet</p>
+            <p className="text-xs text-ink-faint mt-1">Create reminders for birthdays, new members, and more.</p>
+          </div>
+        )}
+      </div>
     </div>
   );
 }
@@ -904,38 +1482,48 @@ function DepartmentsTab() {
   );
 }
 
-/* ─── Join Link Tab ─── */
+/* ─── Join Link Tab (with form builders) ─── */
+function SharedLinkCard({ title, description, path, slug }: { title: string; description: string; path: string; slug: string }) {
+  const { showToast } = useAppStore();
+  const url = slug ? `https://worshiphq.app${path}` : "";
+  if (!url) return null;
+  return (
+    <div className="card space-y-2 !p-4">
+      <p className="text-sm font-semibold text-ink">{title}</p>
+      <p className="text-xs text-ink-muted">{description}</p>
+      <div className="flex items-center gap-2">
+        <p className="text-xs font-mono text-primary-bright flex-1 break-all">{url}</p>
+        <button onClick={async () => { try { await navigator.clipboard.writeText(url); showToast("Link copied!"); } catch { showToast("Failed to copy", "error"); } }}
+          className="btn-secondary btn-sm shrink-0"><Copy className="size-3.5" /> Copy</button>
+        <button onClick={() => window.api?.openExternal(url)} className="btn-ghost btn-sm shrink-0"><ExternalLink className="size-3.5" /> Open</button>
+      </div>
+    </div>
+  );
+}
+
 function JoinLinkTab() {
   const { session, showToast } = useAppStore();
   const [church, setChurch] = useState<any>(null);
+  const [departments, setDepartments] = useState<{ id: string; name: string }[]>([]);
   const [slug, setSlug] = useState("");
   const [saving, setSaving] = useState(false);
+
+  const isAdmin = session?.userRole === "Owner" || session?.userRole === "Admin";
 
   useEffect(() => {
     if (session?.churchId) {
       db.getById("church", session.churchId).then((c) => {
         if (c) { setChurch(c); setSlug(c.slug || ""); }
       });
+      db.query("department").then((d) => setDepartments(d.map((x: any) => ({ id: x.id, name: x.name }))));
     }
   }, [session?.churchId]);
 
-  const joinUrl = slug ? `https://worshiphq.app/join/${slug}` : "";
-
-  async function handleCopy() {
-    if (!joinUrl) return;
-    try {
-      await navigator.clipboard.writeText(joinUrl);
-      showToast("Link copied!");
-    } catch {
-      showToast("Failed to copy", "error");
-    }
-  }
-
-  async function handleSave() {
+  async function handleSaveSlug() {
     if (!slug.trim()) return;
     setSaving(true);
     try {
-      await db.update("church", session!.churchId, { slug: slug.trim().toLowerCase() });
+      await db.update("church", session!.churchId, { slug: slug.trim().toLowerCase().replace(/[^a-z0-9-]/g, "-") });
       showToast("Join link updated! Changes will sync.");
     } catch {
       showToast("Failed to save", "error");
@@ -950,8 +1538,8 @@ function JoinLinkTab() {
   return (
     <div className="space-y-6">
       <div>
-        <h2 className="text-lg font-bold text-ink">Join Link</h2>
-        <p className="text-sm text-ink-muted">Share this link so new members can register themselves.</p>
+        <h2 className="text-lg font-bold text-ink">Join Link & Forms</h2>
+        <p className="text-sm text-ink-muted">Share registration links and customize the fields members fill in.</p>
       </div>
 
       <div className="card space-y-4">
@@ -959,39 +1547,61 @@ function JoinLinkTab() {
           <label className="block text-xs font-medium text-ink-muted mb-1">Church Slug</label>
           <div className="flex items-center gap-2">
             <span className="text-sm text-ink-faint">worshiphq.app/join/</span>
-            <input value={slug} onChange={(e) => setSlug(e.target.value)} className="input flex-1"
-              placeholder="your-church" />
-          </div>
-        </div>
-
-        {joinUrl && (
-          <div className="rounded-xl border border-line bg-surface-2/50 p-4">
-            <p className="text-xs text-ink-faint mb-1">Your join link</p>
-            <div className="flex items-center gap-2">
-              <p className="text-sm font-mono text-primary-bright flex-1 break-all">{joinUrl}</p>
-              <button onClick={handleCopy} className="btn-secondary btn-sm shrink-0">
-                <Copy className="size-3.5" /> Copy
-              </button>
-            </div>
-          </div>
-        )}
-
-        <div className="flex gap-2">
-          <button onClick={handleSave} disabled={saving} className="btn-primary">
-            {saving && <Loader2 className="size-4 whq-spin" />}
-            {saving ? "Saving..." : "Save"}
-          </button>
-          {joinUrl && (
-            <button onClick={() => window.api?.openExternal(joinUrl)} className="btn-ghost">
-              <ExternalLink className="size-3.5" /> Open in browser
+            <input value={slug} onChange={(e) => setSlug(e.target.value)} className="input flex-1" placeholder="your-church" />
+            <button onClick={handleSaveSlug} disabled={saving} className="btn-primary btn-sm shrink-0">
+              {saving && <Loader2 className="size-3.5 whq-spin" />}
+              {saving ? "Saving..." : "Save"}
             </button>
-          )}
+          </div>
+          <p className="mt-1 text-xs text-ink-faint">Changing the slug updates every shared link at once.</p>
         </div>
-
-        <p className="text-xs text-ink-faint">
-          To customize the registration form fields, use the web app settings.
-        </p>
       </div>
+
+      <SharedLinkCard title="Member self-registration"
+        description="Members fill in their own details and appear in your People list automatically."
+        path={`/join/${slug}`} slug={slug} />
+      {isAdmin && (
+        <FormBuilder churchId={session!.churchId} column="registration_fields"
+          initial={resolveFormDefinition(church.registration_fields, DEFAULT_FORM)}
+          departments={departments} />
+      )}
+
+      <SharedLinkCard title="Visitor form"
+        description="A simpler form for first-time visitors — name, phone, purpose and prayer requests."
+        path={`/visit/${slug}`} slug={slug} />
+      {isAdmin && (
+        <FormBuilder churchId={session!.churchId} column="visitor_form_fields"
+          title="Visitor form builder"
+          description="Customise the fields first-time visitors fill in. Name fields are always required."
+          initial={resolveFormDefinition(church.visitor_form_fields, DEFAULT_VISITOR_FORM)}
+          departments={departments} />
+      )}
+
+      <SharedLinkCard title="Children's registration"
+        description="A simplified form for registering children with guardian, school and class info."
+        path={`/children/${slug}`} slug={slug} />
+      {isAdmin && (
+        <FormBuilder churchId={session!.churchId} column="children_form_fields"
+          title="Children's form builder"
+          description="Customise the fields for children's registration. Guardian details are included by default."
+          initial={resolveFormDefinition(church.children_form_fields, DEFAULT_CHILDREN_FORM)}
+          departments={departments} />
+      )}
+
+      <SharedLinkCard title="Teens registration"
+        description="Registration for teens, including guardian info and department selection."
+        path={`/teens/${slug}`} slug={slug} />
+      {isAdmin && (
+        <FormBuilder churchId={session!.churchId} column="teens_form_fields"
+          title="Teens form builder"
+          description="Customise the fields for teen registration. Includes department selection."
+          initial={resolveFormDefinition(church.teens_form_fields, DEFAULT_TEENS_FORM)}
+          departments={departments} />
+      )}
+
+      <SharedLinkCard title="Prayer requests"
+        description="Share this link so members can submit prayer requests online."
+        path={`/pray/${slug}`} slug={slug} />
     </div>
   );
 }

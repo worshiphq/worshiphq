@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  Plus, Loader2, BookHeart, Trash2, Search, Pencil,
+  Plus, Loader2, BookHeart, Trash2, Search, Pencil, Eye, EyeOff,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -8,7 +8,7 @@ import { StatCard } from "../components/ui/StatCard";
 import { Modal } from "../components/ui/Modal";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
-import { formatDate } from "../lib/utils";
+import { formatDate, cn } from "../lib/utils";
 import { v4 as uuid } from "uuid";
 
 export function DevotionalsPage() {
@@ -36,11 +36,23 @@ export function DevotionalsPage() {
     return devotionals.filter((d) => d.title?.toLowerCase().includes(q) || d.author?.toLowerCase().includes(q));
   }, [devotionals, search]);
 
+  const stats = useMemo(() => {
+    const published = devotionals.filter((d) => d.published).length;
+    return { total: devotionals.length, published, drafts: devotionals.length - published };
+  }, [devotionals]);
+
   async function handleDelete(id: string) {
     if (!confirm("Delete this devotional?")) return;
     setDevotionals((prev) => prev.filter((d) => d.id !== id));
     showToast("Deleted");
     await db.delete("devotional", id);
+  }
+
+  async function togglePublished(d: any) {
+    const next = d.published ? 0 : 1;
+    setDevotionals((prev) => prev.map((p) => p.id === d.id ? { ...p, published: next } : p));
+    await db.update("devotional", d.id, { published: next });
+    showToast(next ? "Published" : "Unpublished");
   }
 
   return (
@@ -51,8 +63,10 @@ export function DevotionalsPage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5">
-        <StatCard label="Total Devotionals" value={devotionals.length} icon={BookHeart} color="bg-primary-soft text-primary-bright" />
+      <div className="mb-5 grid grid-cols-3 gap-3">
+        <StatCard label="Total Devotionals" value={stats.total} icon={BookHeart} color="bg-primary-soft text-primary-bright" />
+        <StatCard label="Published" value={stats.published} icon={Eye} color="bg-success/10 text-success" />
+        <StatCard label="Drafts" value={stats.drafts} icon={EyeOff} color="bg-gold/10 text-gold" />
       </div>
 
       <div className="mb-4 relative max-w-xs">
@@ -73,12 +87,18 @@ export function DevotionalsPage() {
             <div key={d.id} className="card p-4">
               <div className="flex items-start justify-between">
                 <div className="flex-1 min-w-0">
-                  <h3 className="font-bold text-ink">{d.title}</h3>
+                  <div className="flex items-center gap-2">
+                    <h3 className="font-bold text-ink">{d.title}</h3>
+                    {!d.published && <span className="rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] font-bold text-ink-faint">Draft</span>}
+                  </div>
                   <p className="mt-0.5 text-xs text-ink-muted">{d.author || "Unknown"} · {formatDate(d.date)}</p>
                   {d.scripture && <p className="mt-1 text-xs text-primary-bright italic">{d.scripture}</p>}
                   {d.body && <p className="mt-2 text-sm text-ink-muted line-clamp-3">{d.body}</p>}
                 </div>
                 <div className="flex gap-1 ml-2">
+                  <button onClick={() => togglePublished(d)} className={cn("grid size-7 place-items-center rounded-lg", d.published ? "text-success hover:bg-success/10" : "text-ink-faint hover:bg-surface-3")} title={d.published ? "Unpublish" : "Publish"}>
+                    {d.published ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+                  </button>
                   <button onClick={() => { setEditing(d); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
                   <button onClick={() => handleDelete(d.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
                 </div>
@@ -116,7 +136,7 @@ function DevotionalForm({ churchId, existing, onClose, onSaved }: { churchId: st
       await db.update("devotional", existing.id, data);
       showToast("Devotional updated");
     } else {
-      await db.insert("devotional", { id: uuid(), church_id: churchId, ...data });
+      await db.insert("devotional", { id: uuid(), church_id: churchId, ...data, published: 1 });
       showToast("Devotional added");
     }
     setSaving(false); onSaved();

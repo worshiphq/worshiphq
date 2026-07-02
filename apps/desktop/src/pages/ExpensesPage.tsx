@@ -48,9 +48,16 @@ export function ExpensesPage() {
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this expense?")) return;
+    const exp = expenses.find((e) => e.id === id);
     setExpenses((prev) => prev.filter((e) => e.id !== id));
     showToast("Expense deleted");
     await db.delete("expense", id);
+    // Mirror web: remove the paired ledger transaction (amount is negative).
+    if (exp) {
+      const txDesc = `${exp.description}${exp.vendor ? ` (${exp.vendor})` : ""}`;
+      const rows = await db.rawQuery('SELECT id FROM "transaction" WHERE church_id = ? AND description = ? AND amount = ?', [exp.church_id, txDesc, -(exp.amount || 0)]);
+      for (const r of rows) await db.delete("transaction", r.id);
+    }
   }
 
   return (
@@ -126,6 +133,7 @@ function ExpenseForm({ churchId, existing, onClose, onSaved }: { churchId: strin
   const [form, setForm] = useState({
     description: existing?.description || "", category: existing?.category || "Other",
     vendor: existing?.vendor || "", amount: existing?.amount != null ? String(existing.amount) : "",
+    receipt_ref: existing?.receipt_ref || "", approved_by: existing?.approved_by || "",
     date: existing?.date || new Date().toISOString().slice(0, 10),
   });
   const set = (k: string) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
@@ -133,15 +141,24 @@ function ExpenseForm({ churchId, existing, onClose, onSaved }: { churchId: strin
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
+    const amount = Number(form.amount) || 0;
+    const vendor = form.vendor || null;
     const data = {
       description: form.description.trim(), category: form.category,
-      vendor: form.vendor || null, amount: Number(form.amount) || 0, date: form.date,
+      vendor, amount,
+      receipt_ref: form.receipt_ref || null, approved_by: form.approved_by || null, date: form.date,
     };
     if (existing) {
       await db.update("expense", existing.id, data);
       showToast("Expense updated");
     } else {
       await db.insert("expense", { id: uuid(), church_id: churchId, ...data });
+      // Mirror web: write a paired ledger transaction (negative amount) into the accounting ledger.
+      await db.insert("transaction", {
+        id: uuid(), church_id: churchId,
+        description: `${data.description}${vendor ? ` (${vendor})` : ""}`,
+        category: data.category, fund: "General", amount: -amount, date: form.date,
+      });
       showToast("Expense recorded");
     }
     setSaving(false); onSaved();
@@ -159,6 +176,10 @@ function ExpenseForm({ churchId, existing, onClose, onSaved }: { churchId: strin
       <div className="grid grid-cols-2 gap-3">
         <div><label className="block text-xs font-medium text-ink-muted mb-1">Amount (GHS) *</label><input type="number" step="0.01" value={form.amount} onChange={set("amount")} className="input" required /></div>
         <div><label className="block text-xs font-medium text-ink-muted mb-1">Date</label><input type="date" value={form.date} onChange={set("date")} className="input" /></div>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div><label className="block text-xs font-medium text-ink-muted mb-1">Receipt Ref</label><input value={form.receipt_ref} onChange={set("receipt_ref")} className="input" placeholder="Receipt / invoice no." /></div>
+        <div><label className="block text-xs font-medium text-ink-muted mb-1">Approved By</label><input value={form.approved_by} onChange={set("approved_by")} className="input" placeholder="Approver name" /></div>
       </div>
       <div className="flex gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>

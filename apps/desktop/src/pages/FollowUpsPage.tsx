@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  Plus, Loader2, ClipboardCheck, Trash2, Search, CheckCircle2, Clock, AlertCircle, Pencil,
+  Plus, Loader2, CheckCircle2, Circle, Clock, Trash2, Search,
+  UserRoundPlus, UserPlus, Heart, ListTodo, Calendar, User, Pencil, AlertCircle,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -11,12 +12,26 @@ import { useAppStore } from "../stores/app-store";
 import { formatDate, cn } from "../lib/utils";
 import { v4 as uuid } from "uuid";
 
+const TYPE_META: Record<string, { icon: any; label: string }> = {
+  new_visitor: { icon: UserRoundPlus, label: "Visitor" },
+  new_member: { icon: UserPlus, label: "New member" },
+  pastoral: { icon: Heart, label: "Pastoral" },
+  custom: { icon: ListTodo, label: "Task" },
+};
+
+const STATUS_META: Record<string, { icon: any; label: string; color: string }> = {
+  open: { icon: Circle, label: "Open", color: "text-gold" },
+  in_progress: { icon: Clock, label: "In progress", color: "text-info" },
+  done: { icon: CheckCircle2, label: "Done", color: "text-success" },
+};
+
 export function FollowUpsPage() {
   const { session, showToast, syncVersion } = useAppStore();
   const [followUps, setFollowUps] = useState<any[]>([]);
+  const [users, setUsers] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<string>("all");
+  const [filter, setFilter] = useState<"all" | "open" | "done">("all");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
 
@@ -26,30 +41,49 @@ export function FollowUpsPage() {
 
   async function loadData() {
     setLoading(true);
-    const rows = await db.rawQuery("SELECT * FROM follow_up WHERE church_id = ? ORDER BY due_date ASC LIMIT 500", [session!.churchId]);
+    const cid = session!.churchId;
+    const [rows, u] = await Promise.all([
+      db.rawQuery(
+        `SELECT f.*,
+                p.first_name AS person_first, p.last_name AS person_last,
+                v.first_name AS visitor_first, v.last_name AS visitor_last,
+                u.name AS assignee_name
+         FROM follow_up f
+         LEFT JOIN person p ON f.person_id = p.id
+         LEFT JOIN visitor v ON f.visitor_id = v.id
+         LEFT JOIN user u ON f.assignee_id = u.id
+         WHERE f.church_id = ?
+         ORDER BY f.status ASC, f.due_date ASC, f.created_at DESC LIMIT 500`,
+        [cid]
+      ),
+      db.rawQuery("SELECT id, name FROM user WHERE church_id = ? ORDER BY name ASC", [cid]),
+    ]);
     setFollowUps(rows);
+    setUsers(u);
     setLoading(false);
   }
 
   const filtered = useMemo(() => {
     let list = followUps;
-    if (filter !== "all") list = list.filter((f) => f.status === filter);
+    if (filter === "open") list = list.filter((f) => f.status !== "done");
+    if (filter === "done") list = list.filter((f) => f.status === "done");
     if (search) {
       const q = search.toLowerCase();
-      list = list.filter((f) => f.title?.toLowerCase().includes(q) || f.type?.toLowerCase().includes(q));
+      list = list.filter((f) =>
+        f.title?.toLowerCase().includes(q) ||
+        `${f.person_first || ""} ${f.person_last || ""}`.toLowerCase().includes(q) ||
+        `${f.visitor_first || ""} ${f.visitor_last || ""}`.toLowerCase().includes(q) ||
+        f.assignee_name?.toLowerCase().includes(q)
+      );
     }
     return list;
   }, [followUps, search, filter]);
 
   const stats = useMemo(() => {
-    const pending = followUps.filter((f) => f.status === "pending" || !f.status).length;
-    const completed = followUps.filter((f) => f.status === "completed").length;
-    const overdue = followUps.filter((f) => {
-      if (f.status === "completed") return false;
-      if (!f.due_date) return false;
-      return new Date(f.due_date) < new Date();
-    }).length;
-    return { total: followUps.length, pending, completed, overdue };
+    const open = followUps.filter((f) => f.status !== "done").length;
+    const done = followUps.filter((f) => f.status === "done").length;
+    const overdue = followUps.filter((f) => f.status !== "done" && f.due_date && new Date(f.due_date) < new Date()).length;
+    return { total: followUps.length, open, done, overdue };
   }, [followUps]);
 
   async function handleDelete(id: string) {
@@ -59,25 +93,25 @@ export function FollowUpsPage() {
     await db.delete("follow_up", id);
   }
 
-  async function toggleStatus(f: any) {
-    const newStatus = f.status === "completed" ? "pending" : "completed";
-    setFollowUps((prev) => prev.map((p) => p.id === f.id ? { ...p, status: newStatus } : p));
-    await db.update("follow_up", f.id, { status: newStatus });
-    showToast(newStatus === "completed" ? "Marked complete" : "Reopened");
+  async function cycleStatus(f: any) {
+    const next = f.status === "done" ? "open" : f.status === "open" ? "in_progress" : "done";
+    setFollowUps((prev) => prev.map((p) => p.id === f.id ? { ...p, status: next } : p));
+    await db.update("follow_up", f.id, { status: next, completed_at: next === "done" ? new Date().toISOString() : null });
+    showToast(next === "done" ? "Marked done" : next === "in_progress" ? "In progress" : "Reopened");
   }
 
   return (
     <PageShell title="Follow-ups">
-      <PageHeader title="Follow-ups" description="Track pastoral follow-ups and care tasks.">
-        <button onClick={() => setShowForm(true)} className="btn-primary btn-sm">
+      <PageHeader title="Follow-ups" description="Track pastoral care, visitor follow-ups, and tasks for your team.">
+        <button onClick={() => { setEditing(null); setShowForm(true); }} className="btn-primary btn-sm">
           <Plus className="size-3.5" /> New Follow-up
         </button>
       </PageHeader>
 
       <div className="mb-5 grid grid-cols-4 gap-3">
-        <StatCard label="Total" value={stats.total} icon={ClipboardCheck} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Pending" value={stats.pending} icon={Clock} color="bg-gold/10 text-gold" />
-        <StatCard label="Completed" value={stats.completed} icon={CheckCircle2} color="bg-success/10 text-success" />
+        <StatCard label="Total" value={stats.total} icon={ListTodo} color="bg-primary-soft text-primary-bright" />
+        <StatCard label="Active" value={stats.open} icon={Clock} color="bg-gold/10 text-gold" />
+        <StatCard label="Done" value={stats.done} icon={CheckCircle2} color="bg-success/10 text-success" />
         <StatCard label="Overdue" value={stats.overdue} icon={AlertCircle} color="bg-danger/10 text-danger" />
       </div>
 
@@ -87,11 +121,12 @@ export function FollowUpsPage() {
           <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-9 pl-9" placeholder="Search follow-ups..." />
         </div>
         <div className="flex gap-1">
-          {["all", "pending", "completed"].map((f) => (
+          {(["all", "open", "done"] as const).map((f) => (
             <button key={f} onClick={() => setFilter(f)}
               className={cn("rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
-                filter === f ? "bg-primary-bright text-white" : "bg-surface-2 text-ink-muted hover:bg-surface-3"
-              )}>{f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}</button>
+                filter === f ? "bg-primary-bright text-white" : "bg-surface-2 text-ink-muted hover:bg-surface-3")}>
+              {f === "all" ? "All" : f === "open" ? "Active" : "Done"}
+            </button>
           ))}
         </div>
       </div>
@@ -100,37 +135,42 @@ export function FollowUpsPage() {
         <div className="flex items-center justify-center py-16"><Loader2 className="size-6 text-primary-bright whq-spin" /></div>
       ) : filtered.length === 0 ? (
         <div className="py-16 text-center">
-          <ClipboardCheck className="mx-auto size-10 text-ink-faint/30" />
+          <CheckCircle2 className="mx-auto size-10 text-ink-faint/30" />
           <p className="mt-3 text-sm font-medium text-ink">{search || filter !== "all" ? "No matching follow-ups" : "No follow-ups yet"}</p>
+          <p className="mt-1 text-xs text-ink-muted">They're auto-created when visitors are added.</p>
         </div>
       ) : (
         <div className="space-y-2">
           {filtered.map((f) => {
-            const isOverdue = f.status !== "completed" && f.due_date && new Date(f.due_date) < new Date();
+            const typeMeta = TYPE_META[f.type] ?? TYPE_META.custom;
+            const statusMeta = STATUS_META[f.status] ?? STATUS_META.open;
+            const TypeIcon = typeMeta.icon;
+            const StatusIcon = statusMeta.icon;
+            const isOverdue = f.status !== "done" && f.due_date && new Date(f.due_date) < new Date();
+            const linkedName = (f.visitor_first && `${f.visitor_first} ${f.visitor_last}`) || (f.person_first && `${f.person_first} ${f.person_last}`);
             return (
-              <div key={f.id} className={cn("card p-4", isOverdue && "border-danger/30")}>
-                <div className="flex items-start gap-3">
-                  <button onClick={() => toggleStatus(f)} className={cn("mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border-2 transition-colors",
-                    f.status === "completed" ? "border-success bg-success/10" : "border-line hover:border-primary-bright"
-                  )}>
-                    {f.status === "completed" && <CheckCircle2 className="size-4 text-success" />}
-                  </button>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className={cn("font-bold", f.status === "completed" ? "text-ink-muted line-through" : "text-ink")}>{f.title}</span>
-                      {f.type && <span className="rounded-md bg-surface-3 px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">{f.type}</span>}
-                      {isOverdue && <span className="rounded-full bg-danger/10 px-2 py-0.5 text-[10px] font-bold text-danger">Overdue</span>}
-                    </div>
-                    {f.notes && <p className="mt-1 text-sm text-ink-muted">{f.notes}</p>}
-                    <div className="mt-1 flex items-center gap-3 text-[11px] text-ink-faint">
-                      {f.due_date && <span>Due: {formatDate(f.due_date)}</span>}
-                      <span>Created: {formatDate(f.created_at)}</span>
-                    </div>
+              <div key={f.id} className={cn("card p-4 flex items-start gap-3", isOverdue && "border-danger/30")}>
+                <button onClick={() => cycleStatus(f)} className="mt-0.5 shrink-0" title={`Mark as ${f.status === "done" ? "open" : f.status === "open" ? "in progress" : "done"}`}>
+                  <StatusIcon className={cn("size-5", statusMeta.color)} />
+                </button>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={cn("text-sm font-medium", f.status === "done" ? "text-ink-muted line-through" : "text-ink")}>{f.title}</span>
+                    <span className="inline-flex items-center gap-1 rounded-md bg-surface-3 px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">
+                      <TypeIcon className="size-3" /> {typeMeta.label}
+                    </span>
+                    {isOverdue && <span className="rounded-full bg-danger/10 px-2 py-0.5 text-[10px] font-bold text-danger">Overdue</span>}
                   </div>
-                  <div className="flex gap-1">
-                    <button onClick={() => { setEditing(f); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
-                    <button onClick={() => handleDelete(f.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                  <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-ink-muted">
+                    {linkedName && <span className="flex items-center gap-1"><User className="size-3" /> {linkedName}</span>}
+                    {f.assignee_name && <span>Assigned to {f.assignee_name}</span>}
+                    {f.due_date && <span className={cn("flex items-center gap-1", isOverdue && "text-danger font-medium")}><Calendar className="size-3" /> Due {formatDate(f.due_date)}</span>}
                   </div>
+                  {f.note && <p className="mt-1 text-xs text-ink-faint italic">{f.note}</p>}
+                </div>
+                <div className="flex gap-1">
+                  <button onClick={() => { setEditing(f); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
+                  <button onClick={() => handleDelete(f.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
                 </div>
               </div>
             );
@@ -139,33 +179,40 @@ export function FollowUpsPage() {
       )}
 
       <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Follow-up" : "New Follow-up"}>
-        <FollowUpForm churchId={session!.churchId} existing={editing} onClose={() => { setShowForm(false); setEditing(null); }} onSaved={() => { setShowForm(false); setEditing(null); loadData(); }} />
+        <FollowUpForm churchId={session!.churchId} users={users} existing={editing}
+          onClose={() => { setShowForm(false); setEditing(null); }}
+          onSaved={() => { setShowForm(false); setEditing(null); loadData(); }} />
       </Modal>
     </PageShell>
   );
 }
 
-function FollowUpForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
+function FollowUpForm({ churchId, users, existing, onClose, onSaved }: {
+  churchId: string; users: any[]; existing?: any; onClose: () => void; onSaved: () => void;
+}) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    title: existing?.title || "", type: existing?.type || "",
-    due_date: existing?.due_date || "", notes: existing?.notes || "",
+    title: existing?.title || "", type: existing?.type || "custom",
+    note: existing?.note || "", assignee_id: existing?.assignee_id || "",
+    due_date: existing?.due_date ? existing.due_date.slice(0, 10) : "",
   });
   const set = (k: string) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (!form.title.trim()) return;
     setSaving(true);
     const data = {
-      title: form.title.trim(), type: form.type || null,
-      due_date: form.due_date || null, notes: form.notes || null,
+      title: form.title.trim(), type: form.type,
+      note: form.note || null, assignee_id: form.assignee_id || null,
+      due_date: form.due_date ? new Date(form.due_date).toISOString() : null,
     };
     if (existing) {
       await db.update("follow_up", existing.id, data);
       showToast("Follow-up updated");
     } else {
-      await db.insert("follow_up", { id: uuid(), church_id: churchId, ...data, status: "pending" });
+      await db.insert("follow_up", { id: uuid(), church_id: churchId, ...data, status: "open" });
       showToast("Follow-up created");
     }
     setSaving(false); onSaved();
@@ -173,16 +220,25 @@ function FollowUpForm({ churchId, existing, onClose, onSaved }: { churchId: stri
 
   return (
     <form onSubmit={handleSubmit} className="space-y-3">
-      <div><label className="block text-xs font-medium text-ink-muted mb-1">Title *</label><input value={form.title} onChange={set("title")} className="input" required placeholder="e.g. Visit Bro. Kwame" /></div>
+      <div><label className="block text-xs font-medium text-ink-muted mb-1">Title *</label><input value={form.title} onChange={set("title")} className="input" required placeholder="Call visitor John" /></div>
       <div className="grid grid-cols-2 gap-3">
         <div><label className="block text-xs font-medium text-ink-muted mb-1">Type</label>
           <select value={form.type} onChange={set("type")} className="input">
-            <option value="">General</option><option>Visit</option><option>Call</option><option>Counseling</option><option>Prayer</option><option>New Convert</option>
+            <option value="new_visitor">Visitor</option>
+            <option value="new_member">New member</option>
+            <option value="pastoral">Pastoral</option>
+            <option value="custom">Task</option>
           </select>
         </div>
         <div><label className="block text-xs font-medium text-ink-muted mb-1">Due Date</label><input type="date" value={form.due_date} onChange={set("due_date")} className="input" /></div>
       </div>
-      <div><label className="block text-xs font-medium text-ink-muted mb-1">Notes</label><textarea value={form.notes} onChange={set("notes")} className="input" rows={2} /></div>
+      <div><label className="block text-xs font-medium text-ink-muted mb-1">Assign to</label>
+        <select value={form.assignee_id} onChange={set("assignee_id")} className="input">
+          <option value="">— Unassigned —</option>
+          {users.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+        </select>
+      </div>
+      <div><label className="block text-xs font-medium text-ink-muted mb-1">Note</label><textarea value={form.note} onChange={set("note")} className="input" rows={2} placeholder="Additional details..." /></div>
       <div className="flex gap-2 pt-2">
         <button type="button" onClick={onClose} className="btn-ghost flex-1">Cancel</button>
         <button type="submit" disabled={saving} className="btn-primary flex-1">{saving && <Loader2 className="size-4 whq-spin" />}{saving ? "Saving..." : existing ? "Update" : "Create"}</button>
