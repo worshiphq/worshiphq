@@ -82,25 +82,28 @@ export function DevotionalsPage() {
           <p className="mt-3 text-sm font-medium text-ink">{search ? "No devotionals match" : "No devotionals yet"}</p>
         </div>
       ) : (
-        <div className="grid gap-3 grid-cols-2">
+        <div className="space-y-3">
           {filtered.map((d) => (
-            <div key={d.id} className="card p-4">
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-ink">{d.title}</h3>
-                    {!d.published && <span className="rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] font-bold text-ink-faint">Draft</span>}
+            <div key={d.id} className="card p-5">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h3 className="text-sm font-semibold text-ink">{d.title}</h3>
+                    {!d.published && <span className="badge badge-muted bg-gold/10 text-[10px] text-gold">Draft</span>}
                   </div>
-                  <p className="mt-0.5 text-xs text-ink-muted">{d.author || "Unknown"} · {formatDate(d.date)}</p>
-                  {d.scripture && <p className="mt-1 text-xs text-primary-bright italic">{d.scripture}</p>}
-                  {d.body && <p className="mt-2 text-sm text-ink-muted line-clamp-3">{d.body}</p>}
+                  <div className="mt-1.5 flex flex-wrap gap-x-4 text-xs text-ink-faint">
+                    <span>{formatDate(d.date)}</span>
+                    {d.scripture && <span className="flex items-center gap-1"><BookHeart className="size-3" /> {d.scripture}</span>}
+                    {d.author && <span>{d.author}</span>}
+                  </div>
+                  {d.body && <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-ink-muted">{d.body}</p>}
                 </div>
-                <div className="flex gap-1 ml-2">
-                  <button onClick={() => togglePublished(d)} className={cn("grid size-7 place-items-center rounded-lg", d.published ? "text-success hover:bg-success/10" : "text-ink-faint hover:bg-surface-3")} title={d.published ? "Unpublish" : "Publish"}>
-                    {d.published ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+                <div className="flex shrink-0 gap-1">
+                  <button onClick={() => togglePublished(d)} className="rounded-lg p-1.5 text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title={d.published ? "Unpublish" : "Publish"}>
+                    {d.published ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
                   </button>
-                  <button onClick={() => { setEditing(d); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
-                  <button onClick={() => handleDelete(d.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                  <button onClick={() => { setEditing(d); setShowForm(true); }} className="rounded-lg p-1.5 text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-4" /></button>
+                  <button onClick={() => handleDelete(d.id)} className="rounded-lg p-1.5 text-ink-faint hover:bg-danger/10 hover:text-danger" title="Delete"><Trash2 className="size-4" /></button>
                 </div>
               </div>
             </div>

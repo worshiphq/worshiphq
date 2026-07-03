@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  Plus, Loader2, CalendarCheck2, Users, X, Trash2, TrendingUp,
-  Baby, GraduationCap, UserPlus, Pencil, UserCheck, Search, Copy, Check, QrCode, ChevronRight,
+  Plus, Loader2, CalendarCheck2, Users, X, TrendingUp,
+  UserPlus, UserCheck, Search, Copy, Check, QrCode, ChevronRight,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -92,13 +92,6 @@ export function AttendancePage() {
   const maxTrend = Math.max(...trend.map((t) => t.total), 1);
   const mostRecent = sessions[0] ?? null;
 
-  async function handleDelete(id: string) {
-    if (!confirm("Delete this attendance session?")) return;
-    setSessions((prev) => prev.filter((s) => s.id !== id));
-    showToast("Session deleted");
-    await db.delete("attendance_session", id);
-  }
-
   return (
     <PageShell title="Attendance">
       <PageHeader title="Attendance" description="Record and track who's gathering, service by service.">
@@ -115,39 +108,45 @@ export function AttendancePage() {
         <StatCard label="Services logged" value={stats.totalSessions} icon={Users} color="text-info" />
       </div>
 
-      {/* Most recent + trend */}
-      {!loading && sessions.length > 0 && (
-        <div className="mb-5 grid grid-cols-3 gap-4">
-          {mostRecent && (
-            <button
-              onClick={() => setDetailId(mostRecent.id)}
-              className="card-hover flex items-center justify-between text-left"
-            >
-              <div className="flex items-center gap-3">
-                <div className="grid size-12 place-items-center rounded-2xl bg-primary-soft text-primary-bright">
-                  <CalendarCheck2 className="size-6" />
-                </div>
-                <div>
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-ink">{mostRecent.service_name}</h3>
-                    <span className="rounded-full bg-primary-soft px-2 py-0 text-[10px] font-bold text-primary-bright">Most recent</span>
-                  </div>
-                  <p className="text-xs text-ink-muted">{formatDate(mostRecent.date)}</p>
-                </div>
+      {/* Most recent service */}
+      {!loading && sessions.length > 0 && mostRecent && (
+        <button
+          onClick={() => setDetailId(mostRecent.id)}
+          className="mt-4 block w-full text-left"
+        >
+          <div className="card group flex flex-wrap items-center justify-between gap-4 p-5 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+            <div className="flex items-center gap-4">
+              <div className="grid size-12 place-items-center rounded-2xl bg-primary/10 text-primary-bright">
+                <CalendarCheck2 className="size-6" />
               </div>
-              <div className="flex items-center gap-3">
-                <div className="text-right">
-                  <div className="text-2xl font-bold text-ink">{(mostRecent.adults || 0) + (mostRecent.teens || 0) + (mostRecent.children || 0) + (mostRecent.visitors || 0)}</div>
-                  <div className="text-[10px] text-ink-faint">present</div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <h3 className="font-display text-lg font-semibold">{mostRecent.service_name}</h3>
+                  <span className="badge badge-primary px-2 py-0 text-[10px]">Most recent</span>
                 </div>
-                <ChevronRight className="size-5 text-ink-faint" />
+                <p className="text-sm text-ink-muted">{formatDate(mostRecent.date)}</p>
               </div>
-            </button>
-          )}
+            </div>
+            <div className="flex items-center gap-6">
+              <div className="text-right">
+                <div className="font-display text-2xl font-bold">{(mostRecent.adults || 0) + (mostRecent.teens || 0) + (mostRecent.children || 0) + (mostRecent.visitors || 0)}</div>
+                <div className="text-xs text-ink-faint">present</div>
+              </div>
+              <ChevronRight className="size-5 text-ink-faint transition-transform group-hover:translate-x-1" />
+            </div>
+          </div>
+        </button>
+      )}
 
-          <div className="card col-span-2 p-5">
-            <h3 className="mb-3 text-sm font-bold text-ink">Attendance trend (6 months)</h3>
-            <div className="flex h-28 items-end gap-2">
+      {/* Trend + history */}
+      {!loading && sessions.length > 0 && (
+        <div className="mt-4 grid gap-4 lg:grid-cols-3">
+          <div className="card lg:col-span-2">
+            <div className="border-b border-line p-5">
+              <h3 className="font-display text-lg font-semibold">Attendance trend</h3>
+              <p className="text-sm text-ink-muted">Total present by month</p>
+            </div>
+            <div className="flex h-28 items-end gap-2 p-3">
               {trend.map((t) => {
                 const h = Math.max((t.total / maxTrend) * 100, 4);
                 return (
@@ -160,81 +159,38 @@ export function AttendancePage() {
               })}
             </div>
           </div>
+
+          <div className="card">
+            <div className="border-b border-line p-5"><h3 className="font-display text-lg font-semibold">Service history</h3></div>
+            <div className="max-h-80 divide-y divide-line-soft overflow-y-auto">
+              {sessions.slice(1).length === 0 && <div className="p-6 text-sm text-ink-faint">No earlier services yet.</div>}
+              {sessions.slice(1).map((s) => {
+                const total = (s.adults || 0) + (s.teens || 0) + (s.children || 0) + (s.visitors || 0);
+                return (
+                  <button key={s.id} onClick={() => setDetailId(s.id)} className="flex w-full items-center justify-between px-5 py-3.5 text-left transition-colors hover:bg-surface-2">
+                    <div className="min-w-0">
+                      <div className="truncate text-sm font-medium">{s.service_name}</div>
+                      <div className="text-xs text-ink-faint">{formatDate(s.date)}</div>
+                    </div>
+                    <span className="flex items-center gap-2 text-sm text-ink-muted">{total} <ChevronRight className="size-4 text-ink-faint" /></span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
         </div>
       )}
 
-      {/* Sessions table */}
-      <div className="card p-0 overflow-hidden">
-        {loading ? (
-          <div className="flex items-center justify-center py-16">
-            <Loader2 className="size-6 text-primary-bright whq-spin" />
-          </div>
-        ) : sessions.length === 0 ? (
-          <div className="py-16 text-center">
-            <CalendarCheck2 className="mx-auto size-10 text-ink-faint/30" />
-            <p className="mt-3 text-sm font-medium text-ink">No attendance sessions yet</p>
-            <p className="mt-1 text-xs text-ink-muted">Record your first service or sync with the cloud.</p>
-            <button onClick={() => { setEditing(null); setShowForm(true); }} className="btn-primary btn-sm mt-4">
-              <Plus className="size-3.5" /> Record service
-            </button>
-          </div>
-        ) : (
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line bg-surface-2/50">
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Service</th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Date</th>
-                <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
-                  <div className="flex items-center justify-center gap-1"><Users className="size-3" /> Adults</div>
-                </th>
-                <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
-                  <div className="flex items-center justify-center gap-1"><GraduationCap className="size-3" /> Teens</div>
-                </th>
-                <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
-                  <div className="flex items-center justify-center gap-1"><Baby className="size-3" /> Children</div>
-                </th>
-                <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-ink-faint">
-                  <div className="flex items-center justify-center gap-1"><UserPlus className="size-3" /> Visitors</div>
-                </th>
-                <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Total</th>
-                <th className="w-10"></th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-line-soft">
-              {sessions.map((s) => {
-                const total = (s.adults || 0) + (s.teens || 0) + (s.children || 0) + (s.visitors || 0);
-                return (
-                  <tr key={s.id} className="cursor-pointer transition-colors hover:bg-surface-2/50" onClick={() => setDetailId(s.id)}>
-                    <td className="px-4 py-3 font-medium text-ink">{s.service_name}</td>
-                    <td className="px-4 py-3 text-xs text-ink-faint">{formatDate(s.date)}</td>
-                    <td className="px-4 py-3 text-center text-ink-muted">{s.adults}</td>
-                    <td className="px-4 py-3 text-center text-ink-muted">{s.teens}</td>
-                    <td className="px-4 py-3 text-center text-ink-muted">{s.children}</td>
-                    <td className="px-4 py-3 text-center text-ink-muted">{s.visitors}</td>
-                    <td className="px-4 py-3 text-center">
-                      <span className="inline-flex items-center rounded-full bg-primary-soft px-2 py-0.5 text-xs font-bold text-primary-bright">
-                        {total}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center gap-1">
-                        <button onClick={() => { setEditing(s); setShowForm(true); }}
-                          className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit">
-                          <Pencil className="size-3.5" />
-                        </button>
-                        <button onClick={() => handleDelete(s.id)}
-                          className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger" title="Delete">
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        )}
-      </div>
+      {/* Empty state */}
+      {!loading && sessions.length === 0 && (
+        <div className="mt-4 rounded-2xl border border-dashed border-line p-8 text-center">
+          <h3 className="font-display text-lg font-semibold">Start tracking attendance</h3>
+          <p className="mx-auto mt-1 max-w-md text-sm text-ink-muted">Use <strong>Record service</strong> for a quick headcount. Each service gets its own dashboard.</p>
+          <button onClick={() => { setEditing(null); setShowForm(true); }} className="btn-primary btn-sm mt-4">
+            <Plus className="size-3.5" /> Record service
+          </button>
+        </div>
+      )}
 
       <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Attendance" : "Record Attendance"}>
         <SessionForm

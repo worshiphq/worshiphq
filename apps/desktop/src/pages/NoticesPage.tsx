@@ -63,7 +63,7 @@ export function NoticesPage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-2 gap-3">
+      <div className="mb-5 grid grid-cols-2 gap-4">
         <StatCard label="Total Notices" value={stats.total} icon={Bell} color="text-primary-bright" />
         <StatCard label="Pinned" value={stats.pinned} icon={Pin} color="text-gold" />
       </div>
@@ -83,22 +83,22 @@ export function NoticesPage() {
       ) : (
         <div className="space-y-3">
           {filtered.map((n) => (
-            <div key={n.id} className={cn("card p-4", n.pinned && "border-gold/30")}>
+            <div key={n.id} className={cn("card p-4", n.pinned && "border-primary-bright/30 bg-primary-soft/30")}>
               <div className="flex items-start gap-3">
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    {n.pinned ? <Pin className="size-3.5 text-gold" /> : null}
-                    <h3 className="font-bold text-ink">{n.title}</h3>
+                    <h3 className="text-sm font-semibold text-ink">{n.title}</h3>
+                    {n.pinned && <span className="badge badge-primary text-[10px]"><Pin className="mr-0.5 size-2.5" /> Pinned</span>}
                   </div>
-                  {n.body && <p className="mt-1.5 text-sm text-ink-muted whitespace-pre-line">{n.body}</p>}
-                  <p className="mt-2 text-[11px] text-ink-faint">{formatDate(n.created_at)}</p>
+                  {n.body && <p className="mt-1 whitespace-pre-line text-sm text-ink-muted">{n.body}</p>}
+                  <p className="mt-2 text-[10px] text-ink-faint">{formatDate(n.created_at)}</p>
                 </div>
-                <div className="flex gap-1">
-                  <button onClick={() => togglePin(n)} className={cn("grid size-7 place-items-center rounded-lg transition-colors",
-                    n.pinned ? "text-gold hover:bg-gold/10" : "text-ink-faint hover:bg-surface-3"
-                  )}><Pin className="size-3.5" /></button>
-                  <button onClick={() => { setEditing(n); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
-                  <button onClick={() => handleDelete(n.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                <div className="flex shrink-0 gap-1">
+                  <button onClick={() => togglePin(n)} className={cn("rounded-lg p-1.5",
+                    n.pinned ? "text-primary-bright hover:bg-primary-soft" : "text-ink-faint hover:bg-surface-2"
+                  )} title={n.pinned ? "Unpin" : "Pin to top"}><Pin className="size-4" /></button>
+                  <button onClick={() => { setEditing(n); setShowForm(true); }} className="rounded-lg p-1.5 text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-4" /></button>
+                  <button onClick={() => handleDelete(n.id)} className="rounded-lg p-1.5 text-ink-faint hover:bg-danger/10 hover:text-danger" title="Delete"><Trash2 className="size-4" /></button>
                 </div>
               </div>
             </div>

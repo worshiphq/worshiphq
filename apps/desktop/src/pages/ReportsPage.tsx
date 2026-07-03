@@ -103,24 +103,24 @@ export function ReportsPage() {
       <PageHeader title="Reports & Analytics" description="Church growth, giving trends, and attendance analytics." />
 
       {/* KPI row */}
-      <div className="mb-5 grid grid-cols-2 lg:grid-cols-5 gap-4">
+      <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
         <StatCard label="Total members" value={data.totalMembers} icon={Users} color="text-primary-bright" />
         <CompareStat label="Income this month" value={formatCurrency(data.giveThis)} current={data.giveThis} previous={data.giveLast} icon={HandCoins} accent="text-success" iconBg="bg-success/10 text-success" />
         <CompareStat label="Expenses this month" value={formatCurrency(data.expThis)} current={data.expThis} previous={data.expLast} icon={Receipt} accent="text-danger" iconBg="bg-danger/10 text-danger" />
-        <div className="card-hover">
+        <div className="card group relative p-5 transition-colors hover:border-primary/30">
           <div className="flex items-center justify-between">
-            <span className="text-xs font-medium text-ink-muted">{netThisMonth >= 0 ? "Net surplus" : "Net deficit"}</span>
-            <span className={cn("grid size-9 place-items-center rounded-xl", netThisMonth >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger")}>
+            <span className="text-sm text-ink-muted">{netThisMonth >= 0 ? "Net surplus" : "Net deficit"}</span>
+            <span className={cn("grid size-9 place-items-center rounded-lg border border-line bg-surface-2", netThisMonth >= 0 ? "text-success" : "text-danger")}>
               <PiggyBank className="size-4" />
             </span>
           </div>
-          <div className={cn("mt-2 text-2xl font-bold", netThisMonth >= 0 ? "text-success" : "text-danger")}>{formatCurrency(Math.abs(netThisMonth))}</div>
+          <div className={cn("mt-3 text-3xl font-bold tracking-tight", netThisMonth >= 0 ? "text-success" : "text-danger")}>{formatCurrency(Math.abs(netThisMonth))}</div>
         </div>
         <CompareStat label="New members" value={String(data.newThisMonth)} current={data.newThisMonth} previous={data.newLastMonth} icon={UserPlus} accent="text-info" iconBg="bg-info/10 text-info" />
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid gap-4 lg:grid-cols-2">
         {/* Income vs expenses dual chart */}
         <div className="card p-5">
           <h3 className="mb-4 text-sm font-bold text-ink">Income vs expenses (6 months)</h3>
@@ -182,7 +182,7 @@ export function ReportsPage() {
       </div>
 
       {/* Footer stats */}
-      <div className="mt-4 grid grid-cols-2 gap-3">
+      <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <div className="card flex items-center gap-3 p-4">
           <Users2 className="size-5 text-primary-bright" />
           <div><p className="text-lg font-bold text-ink">{data.groups}</p><p className="text-xs text-ink-muted">Active groups</p></div>
@@ -209,13 +209,13 @@ function CompareStat({ label, value, current, previous, icon: Icon, accent, icon
     else indicator = <span className="flex items-center gap-0.5 text-[11px] text-ink-faint"><Minus className="size-3" /> No change</span>;
   }
   return (
-    <div className="card-hover">
+    <div className="card group relative p-5 transition-colors hover:border-primary/30">
       <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-ink-muted">{label}</span>
-        <span className={cn("grid size-9 place-items-center rounded-xl", iconBg)}><Icon className="size-4" /></span>
+        <span className="text-sm text-ink-muted">{label}</span>
+        <span className={cn("grid size-9 place-items-center rounded-lg border border-line bg-surface-2", iconBg)}><Icon className="size-4" /></span>
       </div>
-      <div className={cn("mt-2 text-2xl font-bold", accent)}>{value}</div>
-      <div className="mt-1">{indicator}</div>
+      <div className={cn("mt-3 text-3xl font-bold tracking-tight", accent)}>{value}</div>
+      <div className="mt-2">{indicator}</div>
     </div>
   );
 }

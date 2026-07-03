@@ -2,7 +2,6 @@ import { useEffect, useState, useMemo } from "react";
 import { Loader2, Cake, Search, Heart, PartyPopper } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
-import { StatCard } from "../components/ui/StatCard";
 import { Avatar } from "../components/ui/Avatar";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
@@ -101,12 +100,6 @@ export function BirthdaysPage() {
   return (
     <PageShell title="Birthdays">
       <PageHeader title="Birthdays & anniversaries" description="Celebrate your members. See who has a birthday or anniversary coming up." />
-
-      <div className="mb-5 grid grid-cols-2 lg:grid-cols-3 gap-4">
-        <StatCard label="With Celebrations" value={enriched.length} icon={Cake} color="text-primary-bright" />
-        <StatCard label="Next 30 Days" value={monthCount} icon={PartyPopper} color="text-gold" />
-        <StatCard label="Today" value={todayCount} icon={Cake} color="text-success" />
-      </div>
 
       {todayCount > 0 && (
         <div className="card mb-4 flex items-center gap-3 bg-primary/5 p-4">

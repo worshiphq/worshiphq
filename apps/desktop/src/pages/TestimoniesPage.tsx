@@ -104,19 +104,14 @@ export function TestimoniesPage() {
           <p className="mt-3 text-sm font-medium text-ink">{search || filter !== "all" ? "No testimonies match" : "No testimonies yet"}</p>
         </div>
       ) : (
-        <div className="space-y-3">
+        <div className="grid gap-3 sm:grid-cols-2">
           {filtered.map((t) => (
-            <div key={t.id} className={cn("card p-4", t.status === "featured" && "border-gold/30")}>
-              <div className="flex items-start gap-3">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    {t.status === "featured" && <Star className="size-3.5 fill-gold text-gold" />}
-                    <h3 className="font-bold text-ink">{t.title}</h3>
-                    {t.category && <span className="rounded-md bg-gold/10 px-1.5 py-0.5 text-[10px] font-medium capitalize text-gold">{t.category}</span>}
-                    {t.anonymous ? <span className="rounded-full bg-surface-3 px-2 py-0.5 text-[10px] font-bold text-ink-faint">Anonymous</span> : null}
-                  </div>
-                  {t.body && <p className="mt-1.5 text-sm text-ink-muted line-clamp-3">{t.body}</p>}
-                  <p className="mt-1 text-[11px] text-ink-faint">{formatDate(t.date)}</p>
+            <div key={t.id} className="card p-4">
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Star className={cn("size-4", t.category === "praise" ? "text-gold" : t.category === "healing" ? "text-success" : "text-primary-bright")} />
+                  <span className="text-xs font-medium text-ink-muted">{t.category ? t.category.charAt(0).toUpperCase() + t.category.slice(1) : "Other"}</span>
+                  {t.status === "featured" && <Star className="size-3.5 fill-gold text-gold" />}
                 </div>
                 <div className="flex gap-1">
                   <button onClick={() => toggleFeatured(t)} className={cn("grid size-7 place-items-center rounded-lg", t.status === "featured" ? "text-gold hover:bg-gold/10" : "text-ink-faint hover:bg-surface-3")} title={t.status === "featured" ? "Unfeature" : "Feature"}>
@@ -125,6 +120,12 @@ export function TestimoniesPage() {
                   <button onClick={() => { setEditing(t); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
                   <button onClick={() => handleDelete(t.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
                 </div>
+              </div>
+              <h3 className="mt-2 font-semibold text-ink">{t.title}</h3>
+              {t.body && <p className="mt-1 line-clamp-3 text-sm text-ink-muted">{t.body}</p>}
+              <div className="mt-3 flex items-center justify-between text-xs text-ink-faint">
+                <span>{t.anonymous ? "Anonymous" : "—"}</span>
+                <span>{formatDate(t.date)}</span>
               </div>
             </div>
           ))}

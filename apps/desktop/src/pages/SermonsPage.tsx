@@ -91,44 +91,46 @@ export function SermonsPage() {
           <p className="mt-3 text-sm font-medium text-ink">{search ? "No sermons match" : "No sermons yet"}</p>
         </div>
       ) : (
-        <div className="grid gap-3 grid-cols-2">
+        <div className="space-y-2">
           {filtered.map((s) => (
             <div key={s.id} className="card p-4">
-              <div className="flex items-start justify-between">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2">
-                    <h3 className="font-bold text-ink truncate">{s.title}</h3>
-                    {!s.published && <span className="rounded-full bg-surface-3 px-1.5 py-0.5 text-[10px] font-bold text-ink-faint">Draft</span>}
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-primary-soft">
+                  <BookOpen className="size-4 text-primary-bright" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="text-sm font-medium text-ink">{s.title}</span>
+                    {s.series && <span className="badge badge-muted text-[10px]">{s.series}</span>}
+                    {!s.published && <span className="badge badge-muted bg-gold/10 text-[10px] text-gold">Draft</span>}
                   </div>
-                  <div className="mt-1 flex items-center gap-2 text-xs text-ink-muted">
-                    <Mic className="size-3" />
-                    <span>{s.preacher || "Unknown"}</span>
-                    {s.series && <span className="rounded-md bg-primary-soft px-1.5 py-0.5 text-[10px] font-medium text-primary-bright">{s.series}</span>}
+                  <div className="mt-1.5 flex flex-wrap gap-x-4 text-xs text-ink-faint">
+                    <span className="flex items-center gap-1">{formatDate(s.date)}</span>
+                    {s.preacher && <span className="flex items-center gap-1"><Mic className="size-3" /> {s.preacher}</span>}
+                    {s.scripture && <span className="flex items-center gap-1"><BookOpen className="size-3" /> {s.scripture}</span>}
                   </div>
-                  <p className="mt-1 text-[11px] text-ink-faint">{formatDate(s.date)}</p>
-                  {s.scripture && <p className="mt-1 text-xs text-ink-muted italic">{s.scripture}</p>}
-                  {s.notes && <p className="mt-1.5 text-xs text-ink-muted line-clamp-2">{s.notes}</p>}
+                  {s.notes && <p className="mt-1.5 line-clamp-2 text-xs text-ink-muted">{s.notes}</p>}
                   {(s.audio_url || s.video_url) && (
-                    <div className="mt-2 flex items-center gap-2">
+                    <div className="mt-2 flex gap-2">
                       {s.audio_url && (
-                        <button onClick={() => openMedia(s.audio_url)} className="inline-flex items-center gap-1 rounded-md bg-surface-3 px-2 py-0.5 text-[10px] font-medium text-ink-muted hover:text-primary-bright">
+                        <button onClick={() => openMedia(s.audio_url)} className="flex items-center gap-1 rounded-lg bg-surface-2 px-2.5 py-1 text-xs text-primary-bright hover:bg-primary-soft">
                           <Headphones className="size-3" /> Audio
                         </button>
                       )}
                       {s.video_url && (
-                        <button onClick={() => openMedia(s.video_url)} className="inline-flex items-center gap-1 rounded-md bg-surface-3 px-2 py-0.5 text-[10px] font-medium text-ink-muted hover:text-primary-bright">
+                        <button onClick={() => openMedia(s.video_url)} className="flex items-center gap-1 rounded-lg bg-surface-2 px-2.5 py-1 text-xs text-primary-bright hover:bg-primary-soft">
                           <Video className="size-3" /> Video
                         </button>
                       )}
                     </div>
                   )}
                 </div>
-                <div className="flex gap-1 ml-2">
-                  <button onClick={() => togglePublished(s)} className={cn("grid size-7 place-items-center rounded-lg", s.published ? "text-success hover:bg-success/10" : "text-ink-faint hover:bg-surface-3")} title={s.published ? "Unpublish" : "Publish"}>
-                    {s.published ? <Eye className="size-3.5" /> : <EyeOff className="size-3.5" />}
+                <div className="flex shrink-0 gap-1">
+                  <button onClick={() => togglePublished(s)} className="rounded-lg p-1.5 text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title={s.published ? "Unpublish" : "Publish"}>
+                    {s.published ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
                   </button>
-                  <button onClick={() => { setEditing(s); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
-                  <button onClick={() => handleDelete(s.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                  <button onClick={() => { setEditing(s); setShowForm(true); }} className="rounded-lg p-1.5 text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-4" /></button>
+                  <button onClick={() => handleDelete(s.id)} className="rounded-lg p-1.5 text-ink-faint hover:bg-danger/10 hover:text-danger" title="Delete"><Trash2 className="size-4" /></button>
                 </div>
               </div>
             </div>

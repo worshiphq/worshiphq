@@ -96,7 +96,7 @@ export function VolunteersPage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard label="Rosters" value={stats.rosters} icon={Calendar} color="text-primary-bright" />
         <StatCard label="Slots" value={stats.slots} icon={HandHelping} color="text-info" />
         <StatCard label="Scheduled" value={stats.scheduled} icon={Users} color="text-success" />
@@ -111,47 +111,44 @@ export function VolunteersPage() {
           <div>
             <h3 className="mb-3 text-sm font-bold text-ink uppercase tracking-wider">Rosters</h3>
             {rosters.length === 0 ? (
-              <div className="card py-10 text-center">
-                <HandHelping className="mx-auto size-8 text-ink-faint/30" />
-                <p className="mt-2 text-sm text-ink-muted">No rosters yet</p>
+              <div className="rounded-2xl border border-dashed border-line p-10 text-center text-sm text-ink-faint">
+                No rosters created yet. Use the button above to schedule volunteers.
               </div>
             ) : (
-              <div className="space-y-2">
+              <div className="grid gap-3">
                 {rosters.map((r) => {
                   const rosterSlots = slots.filter((s) => s.roster_id === r.id);
                   const open = expanded[r.id] ?? false;
                   const isPast = new Date(r.end_date) < new Date();
                   return (
-                    <div key={r.id} className={cn("card p-0 overflow-hidden", isPast && "opacity-70")}>
-                      <div className="flex items-start justify-between p-4">
-                        <button onClick={() => toggle(r.id)} className="flex flex-1 items-start gap-2 text-left">
-                          {open ? <ChevronDown className="mt-1 size-4 text-ink-faint" /> : <ChevronRight className="mt-1 size-4 text-ink-faint" />}
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <h4 className="font-bold text-ink">{r.name}</h4>
+                    <div key={r.id} className={cn("rounded-2xl border border-line bg-surface", isPast && "opacity-60")}>
+                      <button onClick={() => toggle(r.id)} className="flex w-full items-center gap-3 p-4 text-left">
+                        {open ? <ChevronDown className="size-4 text-ink-faint" /> : <ChevronRight className="size-4 text-ink-faint" />}
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2">
+                            <span className="font-semibold">{r.name}</span>
                               {r.ministry && <span className="rounded-full bg-primary-soft px-2 py-0.5 text-[11px] font-medium text-primary-bright">{r.ministry}</span>}
                               {isPast && <span className="text-[11px] text-ink-faint">(past)</span>}
                             </div>
-                            <div className="mt-1 flex items-center gap-3 text-xs text-ink-faint">
-                              <span className="flex items-center gap-1"><Calendar className="size-3" /> {formatDate(r.start_date)} — {formatDate(r.end_date)}</span>
-                              <span className="flex items-center gap-1"><Clock className="size-3" /> {rosterSlots.length} slots</span>
+                            <div className="mt-1 flex items-center gap-3 text-xs text-ink-muted">
+                              <span>{formatDate(r.start_date)} – {formatDate(r.end_date)}</span>
+                              <span>{rosterSlots.length} slots</span>
                             </div>
                           </div>
-                        </button>
-                        <div className="flex gap-1">
+                        <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                           <button onClick={() => { setEditingRoster(r); setShowRosterForm(true); }}
                             className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
                           <button onClick={() => handleDeleteRoster(r.id)}
                             className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger" title="Delete"><Trash2 className="size-3.5" /></button>
                         </div>
-                      </div>
+                      </button>
 
                       {open && (
                         <div className="border-t border-line p-4">
                           {rosterSlots.length === 0 ? (
                             <p className="mb-3 text-sm text-ink-faint">No volunteers scheduled yet.</p>
                           ) : (
-                            <div className="mb-3 overflow-x-auto">
+                            <div className="mb-4 overflow-x-auto">
                               <table className="w-full text-sm">
                                 <thead>
                                   <tr className="border-b border-line text-left text-[11px] text-ink-faint">
@@ -162,7 +159,7 @@ export function VolunteersPage() {
                                 </thead>
                                 <tbody>
                                   {rosterSlots.map((slot) => (
-                                    <tr key={slot.id} className="border-b border-line-soft">
+                                    <tr key={slot.id} className="border-b border-line/50">
                                       <td className="py-2 pr-3">{formatDate(slot.date)}</td>
                                       <td className="py-2 pr-3 text-ink-muted">{SHIFT_LABEL[slot.shift] ?? slot.shift}</td>
                                       <td className="py-2 pr-3 font-medium text-ink">{slot.role}</td>

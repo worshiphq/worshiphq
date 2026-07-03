@@ -103,8 +103,8 @@ export function CommunicationsPage() {
       </div>
 
       <div className="card p-0 overflow-hidden">
-        <div className="flex items-center justify-between border-b border-line p-4">
-          <h3 className="font-bold text-ink">Campaign history</h3>
+        <div className="flex items-center justify-between border-b border-line p-5">
+          <h3 className="font-display text-lg font-semibold text-ink">Campaign history</h3>
         </div>
         {loading ? (
           <div className="flex items-center justify-center py-16"><Loader2 className="size-6 text-primary-bright whq-spin" /></div>
@@ -115,33 +115,28 @@ export function CommunicationsPage() {
           </div>
         ) : (
           <table className="w-full text-sm">
-            <thead>
-              <tr className="border-b border-line bg-surface-2/50">
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Campaign</th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Channel</th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Segment</th>
-                <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Delivered</th>
-                <th className="px-4 py-3 text-center text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Status</th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Date</th>
+            <thead className="border-b border-line text-left text-xs uppercase tracking-wide text-ink-faint">
+              <tr>
+                <th className="p-4 font-medium">Campaign</th>
+                <th className="p-4 font-medium">Channel</th>
+                <th className="p-4 font-medium">Segment</th>
+                <th className="p-4 font-medium text-center">Delivered</th>
+                <th className="p-4 font-medium text-center">Status</th>
+                <th className="p-4 font-medium">Date</th>
                 <th className="w-10"></th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-line-soft">
+            <tbody>
               {filtered.map((c) => (
-                <tr key={c.id} className="hover:bg-surface-2/50">
+                <tr key={c.id} className="border-b border-line-soft last:border-0 hover:bg-surface-2">
                   <td className="px-4 py-3 font-medium text-ink">{c.name}</td>
-                  <td className="px-4 py-3"><span className="rounded-md bg-surface-3 px-2 py-0.5 text-[11px] font-medium text-ink-muted">{c.channel || "SMS"}</span></td>
-                  <td className="px-4 py-3 text-xs text-ink-muted">{c.segment || "—"}</td>
-                  <td className="px-4 py-3 text-center text-ink">{c.sent > 0 ? `${c.delivered || 0}/${c.sent}` : "—"}</td>
-                  <td className="px-4 py-3 text-center">
-                    <span className="inline-flex items-center gap-1">
-                      {statusIcon(c.status)}
-                      <span className={cn("text-xs font-medium",
-                        c.status === "sent" ? "text-success" : c.status === "scheduled" ? "text-gold" : "text-ink-faint"
-                      )}>{c.status || "draft"}</span>
-                    </span>
+                  <td className="p-4"><span className={cn("badge", c.channel === "Email" ? "badge-info" : "badge-primary")}>{c.channel || "SMS"}</span></td>
+                  <td className="p-4 text-ink-muted">{c.segment || "—"}</td>
+                  <td className="p-4 text-center text-ink-muted">{c.sent > 0 ? `${c.delivered || 0}/${c.sent}` : "—"}</td>
+                  <td className="p-4 text-center">
+                    <span className={cn("badge", c.status === "sent" ? "badge-success" : "badge-warning")}>{c.status || "draft"}</span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-ink-faint">{formatDate(c.created_at)}</td>
+                  <td className="p-4 text-ink-muted">{formatDate(c.created_at)}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1">
                       {c.status === "draft" && (

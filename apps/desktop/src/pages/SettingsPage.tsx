@@ -103,16 +103,16 @@ export function SettingsPage() {
 
   return (
     <PageShell title="Settings">
-      <div className="flex gap-6">
-        <div className="w-48 shrink-0">
+      <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
+        <div className="shrink-0">
           <div className="space-y-0.5">
             {tabs.map((t) => (
               <button
                 key={t.key}
                 onClick={() => setTab(t.key)}
-                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+                className={`flex w-full items-center gap-2.5 rounded-xl px-3 py-2 text-sm font-medium transition-colors ${
                   tab === t.key
-                    ? "bg-primary-soft text-primary-bright"
+                    ? "bg-primary/15 text-primary-bright"
                     : "text-ink-muted hover:bg-surface-3 hover:text-ink"
                 }`}
               >

@@ -156,10 +156,10 @@ export function FollowUpsPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className={cn("text-sm font-medium", f.status === "done" ? "text-ink-muted line-through" : "text-ink")}>{f.title}</span>
-                    <span className="inline-flex items-center gap-1 rounded-md bg-surface-3 px-1.5 py-0.5 text-[10px] font-medium text-ink-muted">
+                    <span className="badge badge-muted text-[10px] gap-1">
                       <TypeIcon className="size-3" /> {typeMeta.label}
                     </span>
-                    {isOverdue && <span className="rounded-full bg-danger/10 px-2 py-0.5 text-[10px] font-bold text-danger">Overdue</span>}
+                    {isOverdue && <span className="badge badge-danger text-[10px]">Overdue</span>}
                   </div>
                   <div className="mt-1 flex flex-wrap gap-x-4 gap-y-0.5 text-xs text-ink-muted">
                     {linkedName && <span className="flex items-center gap-1"><User className="size-3" /> {linkedName}</span>}

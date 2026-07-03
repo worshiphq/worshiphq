@@ -113,7 +113,7 @@ export function DashboardPage() {
       {/* Quick actions */}
       <div className="mb-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
         {quickActions.map((a) => (
-          <button key={a.label} onClick={() => navigate(a.to)} className="card-hover flex items-center gap-3 text-left">
+          <button key={a.label} onClick={() => navigate(a.to)} className="rounded-2xl border border-line bg-surface p-4 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/25 hover:shadow-md flex items-center gap-3 text-left">
             <span className={`grid size-10 place-items-center rounded-xl ${a.color}`}><a.icon className="size-4" /></span>
             <span className="text-sm font-semibold text-ink">{a.label}</span>
           </button>
@@ -123,8 +123,8 @@ export function DashboardPage() {
       {/* Featured leaders */}
       {leaders.length > 0 && (
         <div className="card mb-6">
-          <div className="mb-4 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-sm font-bold text-ink">
+          <div className="mb-4 flex items-center justify-between border-b border-line pb-3">
+            <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-ink">
               <Crown className="size-4 text-gold" /> Church Leadership
             </h2>
             <button onClick={() => navigate("/leaders")} className="flex items-center gap-1 text-[11px] font-medium text-primary-bright hover:underline">
@@ -149,11 +149,11 @@ export function DashboardPage() {
       )}
 
       {/* Charts row */}
-      <div className="mb-6 grid grid-cols-3 gap-4">
+      <div className="mb-6 grid gap-4 lg:grid-cols-3">
         <div className="card col-span-2">
           <div className="mb-2 flex items-center justify-between">
             <div>
-              <h2 className="text-sm font-bold text-ink">Giving Trend</h2>
+              <h2 className="font-display text-lg font-semibold text-ink">Giving Trend</h2>
               <p className="text-[11px] text-ink-muted">Monthly giving over the last 6 months</p>
             </div>
             <TrendingUp className="size-4 text-success" />
@@ -161,17 +161,17 @@ export function DashboardPage() {
           <LineChart data={givingTrend} color="#27ae60" prefix="₵" />
         </div>
         <div className="card">
-          <h2 className="text-sm font-bold text-ink">Attendance</h2>
+          <h2 className="font-display text-lg font-semibold text-ink">Attendance</h2>
           <p className="text-[11px] text-ink-muted mb-2">By month</p>
           <BarChart data={attTrend} color="#6D5EF8" />
         </div>
       </div>
 
       {/* Membership donut + recent members */}
-      <div className="mb-6 grid grid-cols-3 gap-4">
+      <div className="mb-6 grid gap-4 lg:grid-cols-3">
         <div className="card">
           <div className="flex items-center justify-between">
-            <h2 className="text-sm font-bold text-ink">Membership</h2>
+            <h2 className="font-display text-lg font-semibold text-ink">Membership</h2>
             <span className="text-xl font-bold text-primary-bright">{stats.active}</span>
           </div>
           <p className="text-[11px] text-ink-muted">By department</p>
@@ -179,7 +179,7 @@ export function DashboardPage() {
         </div>
         <div className="card col-span-2">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-bold text-ink">Recent Members</h2>
+            <h2 className="font-display text-lg font-semibold text-ink">Recent Members</h2>
             <button onClick={() => navigate("/people")} className="text-[11px] font-medium text-primary-bright hover:underline">View all</button>
           </div>
           {recentPeople.length === 0 ? (
@@ -204,9 +204,9 @@ export function DashboardPage() {
       </div>
 
       {/* Bottom row: birthdays, events, follow-ups */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid gap-4 lg:grid-cols-3">
         <div className="card">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-ink">
+          <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold text-ink">
             <Cake className="size-4 text-gold" /> Celebrations
           </h2>
           {birthdays.length === 0 ? (
@@ -228,7 +228,7 @@ export function DashboardPage() {
 
         <div className="card">
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="flex items-center gap-2 text-sm font-bold text-ink"><Clock className="size-4 text-primary-bright" /> Upcoming</h2>
+            <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-ink"><Clock className="size-4 text-primary-bright" /> Upcoming</h2>
             <button onClick={() => navigate("/events")} className="text-[11px] font-medium text-primary-bright hover:underline">View all</button>
           </div>
           {events.length === 0 ? (
@@ -237,7 +237,7 @@ export function DashboardPage() {
             <div className="space-y-1">
               {events.map((e) => (
                 <div key={e.id} className="flex items-center gap-3 rounded-lg px-2 py-2 hover:bg-surface-2/50">
-                  <div className="grid size-10 shrink-0 place-items-center rounded-xl border border-line bg-surface-2 text-center">
+                  <div className="grid size-11 shrink-0 place-items-center rounded-xl border border-line bg-gradient-to-br from-primary/10 to-primary/5 text-center">
                     <span className="block text-sm font-bold leading-none">{new Date(e.starts_at).getDate()}</span>
                     <span className="text-[9px] uppercase text-ink-faint">{new Date(e.starts_at).toLocaleDateString("en-GB", { month: "short" })}</span>
                   </div>
@@ -252,7 +252,7 @@ export function DashboardPage() {
         </div>
 
         <div className="card">
-          <h2 className="mb-3 flex items-center gap-2 text-sm font-bold text-ink"><Heart className="size-4 text-danger" /> Follow-up</h2>
+          <h2 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold text-ink"><Heart className="size-4 text-danger" /> Follow-up</h2>
           {careTasks.length === 0 ? (
             <p className="py-6 text-center text-sm text-ink-faint">No follow-ups right now</p>
           ) : (

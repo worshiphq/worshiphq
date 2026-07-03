@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from "react";
 import {
-  Plus, Loader2, HandHeart, Trash2, Search, CheckCircle2, Clock, Archive, Pencil, Heart, Link2, Copy,
+  Plus, Loader2, HandHeart, Trash2, Search, CheckCircle2, Clock, Archive, Pencil, Heart, Link2, Copy, Circle, User,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -133,31 +133,25 @@ export function PrayerRequestsPage() {
               <div key={r.id} className="card p-4">
                 <div className="flex items-start gap-3">
                   <button onClick={() => cycleStatus(r)}
-                    className={cn("mt-0.5 grid size-6 shrink-0 place-items-center rounded-full border-2 transition-colors",
-                      status === "answered" ? "border-success bg-success/10" : status === "archived" ? "border-line bg-surface-3" : "border-line hover:border-primary-bright"
-                    )}
+                    className="mt-0.5 shrink-0"
                     title={`Mark as ${status === "active" ? "answered" : status === "answered" ? "archived" : "active"}`}>
-                    {status === "answered" && <CheckCircle2 className="size-4 text-success" />}
-                    {status === "archived" && <Archive className="size-3 text-ink-faint" />}
+                    {status === "answered" ? <CheckCircle2 className="size-5 text-success" /> : status === "archived" ? <Archive className="size-5 text-ink-muted" /> : <Circle className="size-5 text-info" />}
                   </button>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="font-bold text-ink">{r.is_anonymous ? "Anonymous" : (r.name || "Anonymous")}</span>
-                      <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold",
-                        status === "answered" ? "bg-success/10 text-success" : status === "archived" ? "bg-surface-3 text-ink-faint" : "bg-gold/10 text-gold"
-                      )}>{status}</span>
-                    </div>
-                    <p className={cn("mt-1 text-sm text-ink-muted", status === "archived" && "line-through")}>{r.request}</p>
-                    <div className="mt-1 flex items-center gap-3 text-[11px] text-ink-faint">
+                  <div className="min-w-0 flex-1">
+                    <p className={cn("text-sm", status === "archived" ? "text-ink-muted line-through" : "")}>{r.request}</p>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
+                      <span className="flex items-center gap-1"><User className="size-3" /> {r.is_anonymous ? "Anonymous" : (r.name || "Anonymous")}</span>
                       <span>{formatDate(r.created_at)}</span>
-                      <button onClick={() => pray(r)} className="inline-flex items-center gap-1 text-ink-muted hover:text-primary-bright" title="I prayed">
-                        <Heart className="size-3" /> {r.prayer_count || 0} prayed
-                      </button>
+                      <span className="badge badge-muted text-[10px]">{status.charAt(0).toUpperCase() + status.slice(1)}</span>
+                      {(r.prayer_count || 0) > 0 && (
+                        <span className="flex items-center gap-1 text-primary-bright"><Heart className="size-3 fill-primary-bright" /> {r.prayer_count} prayed</span>
+                      )}
                     </div>
                   </div>
-                  <div className="flex gap-1">
-                    <button onClick={() => { setEditing(r); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
-                    <button onClick={() => handleDelete(r.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                  <div className="flex shrink-0 gap-1">
+                    <button onClick={() => pray(r)} className="rounded-lg p-1.5 text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="I prayed for this"><Heart className="size-4" /></button>
+                    <button onClick={() => { setEditing(r); setShowForm(true); }} className="rounded-lg p-1.5 text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-4" /></button>
+                    <button onClick={() => handleDelete(r.id)} className="rounded-lg p-1.5 text-ink-faint hover:bg-danger/10 hover:text-danger" title="Delete"><Trash2 className="size-4" /></button>
                   </div>
                 </div>
               </div>

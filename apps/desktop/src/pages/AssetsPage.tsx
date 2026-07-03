@@ -66,7 +66,7 @@ export function AssetsPage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="Total Assets" value={stats.total} icon={Package} color="text-primary-bright" />
         <StatCard label="Total Value" value={formatCurrency(stats.totalValue)} icon={Package} color="text-success" />
         <StatCard label="Categories" value={stats.categories} icon={Package} color="text-gold" />

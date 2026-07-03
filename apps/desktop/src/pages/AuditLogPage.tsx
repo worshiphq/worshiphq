@@ -2,7 +2,6 @@ import { useEffect, useState, useMemo } from "react";
 import { Loader2, Shield, Search, Plus, Pencil, Trash2, Eye, LogIn, Download } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
-import { StatCard } from "../components/ui/StatCard";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
 import { formatDateTime } from "../lib/utils";
@@ -56,10 +55,6 @@ export function AuditLogPage() {
   return (
     <PageShell title="Audit Log">
       <PageHeader title="Audit Log" description="A record of all actions performed in your church account." />
-
-      <div className="mb-5">
-        <StatCard label="Total Entries" value={logs.length} icon={Shield} color="text-primary-bright" />
-      </div>
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">
         <div className="relative flex-1 max-w-md">
