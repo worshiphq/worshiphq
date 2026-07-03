@@ -151,7 +151,7 @@ export function PeoplePage() {
       </PageHeader>
 
       {/* Stat cards */}
-      <div className="mb-5 grid grid-cols-5 gap-3">
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-5 gap-3">
         <StatCard label="Total" value={stats.total} icon={Users} color="bg-primary-soft text-primary-bright" />
         <StatCard label="Adults" value={stats.adults} icon={Users} color="bg-success/10 text-success" />
         <StatCard label="Teens" value={stats.teens} icon={GraduationCap} color="bg-info/10 text-info" />
@@ -281,21 +281,26 @@ export function PeoplePage() {
           </table>
         </div>
       ) : (
-        <div className="grid grid-cols-3 gap-3">
-          {filtered.map((p) => {
+        <div className="grid gap-3 grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+          {filtered.map((p, i) => {
             const name = `${p.first_name} ${p.last_name}`;
             return (
               <div key={p.id} onClick={() => setSelected(p)}
-                className="card cursor-pointer hover:shadow-lg transition-shadow flex flex-col items-center p-5 text-center">
-                <div onClick={(e) => handleAvatarClick(p, e)} className={p.photo_url ? "cursor-zoom-in" : ""}>
-                  <Avatar name={name} src={p.photo_url} size="lg" />
+                className="group cursor-pointer rounded-2xl border border-line bg-surface p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/20 hover:shadow-md"
+                style={{ animationDelay: `${i * 30}ms` }}>
+                <div className="flex flex-col items-center text-center">
+                  <div onClick={(e) => handleAvatarClick(p, e)} className={p.photo_url ? "cursor-zoom-in" : ""}>
+                    <Avatar name={name} src={p.photo_url} size="lg" />
+                  </div>
+                  <h3 className="mt-3 text-sm font-semibold text-ink">{name}</h3>
+                  {p.leader_title && <p className="mt-0.5 text-xs font-medium text-gold">{p.leader_title}</p>}
+                  <p className="mt-0.5 text-xs text-ink-faint">{p.member_id || p.phone || p.email || "---"}</p>
+                  <div className="mt-3 flex flex-wrap justify-center gap-1.5">
+                    <span className={cn("badge text-[10px]", p.status === "active" ? "badge-success" : "badge-muted")}>
+                      {p.status || "active"}
+                    </span>
+                  </div>
                 </div>
-                <p className="mt-3 font-semibold text-ink text-sm">{name}</p>
-                {p.leader_title && <p className="text-[10px] text-gold font-medium">{p.leader_title}</p>}
-                <p className="text-xs text-ink-muted mt-0.5">{p.phone || p.email || "No contact"}</p>
-                <span className={cn("badge mt-2", p.status === "active" ? "badge-success" : "badge-muted")}>
-                  {p.status || "active"}
-                </span>
               </div>
             );
           })}
@@ -390,94 +395,83 @@ function PersonDrawer({
         </div>
 
         <div className="px-6 pb-6 overflow-y-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
-          <DetailSection title="Contact">
+          {/* Contact details */}
+          <div className="mt-4 space-y-1">
             <DetailRow icon={Phone} label="Phone" value={p.phone} />
-            <DetailRow icon={Phone} label="Work Phone" value={p.work_phone} />
-            <DetailRow icon={Phone} label="Home Phone" value={p.home_phone} />
             <DetailRow icon={Mail} label="Email" value={p.email} />
-            <DetailRow icon={MapPin} label="Address" value={p.house_address} />
-            <DetailRow icon={MapPin} label="Postal Address" value={p.postal_address} />
-            <DetailRow icon={MapPin} label="Town" value={p.town || p.location} />
-          </DetailSection>
+            <DetailRow icon={MapPin} label="Location" value={p.town || p.location || p.house_address} />
+            {p.occupation && <DetailRow icon={Briefcase} label="Occupation" value={p.occupation} />}
+            {p.gender && <DetailRow icon={User} label="Gender" value={p.gender} />}
+            {p.marital_status && <DetailRow icon={Heart} label="Marital Status" value={p.marital_status} />}
+            {p.nationality && <DetailRow icon={Shield} label="Nationality" value={p.nationality} />}
+            {p.date_of_birth && <DetailRow icon={Calendar} label="Date of Birth" value={formatDate(p.date_of_birth)} />}
+          </div>
 
-          <DetailSection title="Personal">
-            <DetailRow icon={User} label="Gender" value={p.gender} />
-            <DetailRow icon={Calendar} label="Date of Birth" value={p.date_of_birth ? formatDate(p.date_of_birth) : null} />
-            <DetailRow icon={Heart} label="Marital Status" value={p.marital_status} />
-            <DetailRow icon={Briefcase} label="Occupation" value={p.occupation} />
-            <DetailRow icon={Briefcase} label="Employer" value={p.employer} />
-            <DetailRow icon={Globe} label="Nationality" value={p.nationality} />
-            <DetailRow icon={Globe} label="Country" value={p.country} />
-            <DetailRow icon={MapPin} label="Region" value={p.region} />
-            <DetailRow icon={MapPin} label="District" value={p.district} />
-            <DetailRow icon={Home} label="Home Town" value={p.home_town} />
-            <DetailRow icon={MapPin} label="Place of Birth" value={p.place_of_birth} />
-          </DetailSection>
-
-          <DetailSection title="Church">
-            <DetailRow icon={Shield} label="Department" value={deptName || (personDepts.length ? personDepts.join(", ") : null)} />
-            <DetailRow icon={Calendar} label="Date of Membership" value={p.date_of_membership ? formatDate(p.date_of_membership) : null} />
-            <DetailRow icon={BookOpen} label="Previous Church" value={p.previous_church} />
-            <DetailRow icon={Star} label="Special Interest" value={p.special_interest} />
-          </DetailSection>
-
-          {(p.age_group === "teen" || p.age_group === "child") && (
-            <DetailSection title="Youth / Guardian">
-              <DetailRow icon={GraduationCap} label="School" value={p.school} />
-              <DetailRow icon={BookOpen} label="Grade" value={p.grade} />
-              <DetailRow icon={User} label="Guardian" value={p.guardian_name} />
-              <DetailRow icon={Phone} label="Guardian Phone" value={p.guardian_phone} />
-            </DetailSection>
+          {/* Youth / Guardian */}
+          {(p.age_group === "teen" || p.age_group === "child") && (p.guardian_name || p.school) && (
+            <Section title="Parent / Guardian">
+              {p.guardian_name && (
+                <div className="rounded-xl border border-line bg-surface-2/40 p-3 text-sm">
+                  <div className="font-medium">{p.guardian_name}</div>
+                  {p.guardian_phone && <div className="mt-1 text-ink-muted">{p.guardian_phone}</div>}
+                </div>
+              )}
+              {p.school && (
+                <div className="mt-2 space-y-1">
+                  <DetailRow icon={GraduationCap} label="School" value={p.school} />
+                  {p.grade && <DetailRow icon={BookOpen} label="Grade" value={p.grade} />}
+                </div>
+              )}
+            </Section>
           )}
 
-          <DetailSection title="Emergency Contact">
-            <DetailRow icon={AlertCircle} label="Name" value={p.emergency_name} />
-            <DetailRow icon={Phone} label="Phone" value={p.emergency_phone} />
-            <DetailRow icon={User} label="Relation" value={p.emergency_relation} />
-            <DetailRow icon={Mail} label="Email" value={p.emergency_email} />
-            <DetailRow icon={MapPin} label="Address" value={p.emergency_address} />
-          </DetailSection>
-
-          {p.notes && (
-            <DetailSection title="Notes">
-              <p className="text-sm text-ink-muted whitespace-pre-wrap">{p.notes}</p>
-            </DetailSection>
+          {/* Departments */}
+          {(deptName || personDepts.length > 0) && (
+            <Section title="Departments">
+              <div className="flex flex-wrap gap-1.5">
+                {(personDepts.length ? personDepts : [deptName]).filter(Boolean).map((d) => (
+                  <span key={d} className="badge badge-primary">{d}</span>
+                ))}
+              </div>
+            </Section>
           )}
 
           {/* Key dates */}
-          <div className="rounded-xl border border-line bg-surface-2/50 p-4">
-            <p className="text-xs font-semibold text-ink-faint uppercase tracking-wider mb-2">Key Dates</p>
+          <Section title="Key dates">
             <div className="grid grid-cols-2 gap-3">
-              <div>
-                <p className="text-[10px] text-ink-faint">Birthday</p>
-                <p className="text-sm font-medium text-ink">{p.date_of_birth ? formatDate(p.date_of_birth) : "—"}</p>
+              <div className="rounded-xl border border-line bg-surface-2/40 p-3">
+                <div className="text-xs text-ink-faint">Birthday</div>
+                <div className="text-sm font-medium">{p.date_of_birth ? formatDate(p.date_of_birth) : "---"}</div>
               </div>
-              <div>
-                <p className="text-[10px] text-ink-faint">Joined</p>
-                <p className="text-sm font-medium text-ink">{p.joined_at ? formatDate(p.joined_at) : "—"}</p>
-              </div>
-              <div>
-                <p className="text-[10px] text-ink-faint">Membership</p>
-                <p className="text-sm font-medium text-ink">{p.date_of_membership ? formatDate(p.date_of_membership) : "—"}</p>
+              <div className="rounded-xl border border-line bg-surface-2/40 p-3">
+                <div className="text-xs text-ink-faint">Joined</div>
+                <div className="text-sm font-medium">{p.joined_at ? formatDate(p.joined_at) : "---"}</div>
               </div>
             </div>
-          </div>
+          </Section>
 
-          {/* Biometrics */}
-          {(p.fingerprint_data || p.biometric_data) && (
-            <div className="rounded-xl border border-line bg-surface-2/50 p-4">
-              <div className="flex items-center gap-2 mb-1">
-                <Fingerprint className="size-4 text-primary-bright" />
-                <p className="text-xs font-semibold text-ink-faint uppercase tracking-wider">Biometrics</p>
+          {/* Emergency contact */}
+          {(p.emergency_name || p.emergency_phone) && (
+            <Section title="Emergency contact">
+              <div className="rounded-xl border border-line bg-surface-2/40 p-3 text-sm">
+                {p.emergency_name && <div className="font-medium">{p.emergency_name}</div>}
+                {p.emergency_relation && <div className="text-xs text-ink-faint">{p.emergency_relation}</div>}
+                {p.emergency_phone && <div className="mt-1 text-ink-muted">{p.emergency_phone}</div>}
+                {p.emergency_email && <div className="text-ink-muted">{p.emergency_email}</div>}
               </div>
-              <p className="text-sm text-ink-muted">Biometric data on file</p>
-            </div>
+            </Section>
+          )}
+
+          {p.notes && (
+            <Section title="Notes">
+              <p className="text-sm text-ink-muted whitespace-pre-wrap">{p.notes}</p>
+            </Section>
           )}
 
           {/* Actions */}
-          <div className="flex gap-2 pt-2">
+          <div className="mt-4 flex gap-2">
             <button onClick={() => onEdit(p.id)} className="btn-primary flex-1 btn-sm">
-              <Edit3 className="size-3.5" /> Edit
+              <Edit3 className="size-3.5" /> Edit profile
             </button>
             {p.phone && (
               <button onClick={() => onSendSms(p.id, p.phone)} className="btn-secondary btn-sm px-3">
@@ -494,11 +488,11 @@ function PersonDrawer({
   );
 }
 
-function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="mt-4">
-      <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-faint mb-1">{title}</h3>
-      <div className="space-y-0.5">{children}</div>
+    <div className="mt-6 border-t border-line pt-5">
+      <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">{title}</h3>
+      {children}
     </div>
   );
 }
@@ -510,10 +504,7 @@ function DetailRow({ icon: Icon, label, value }: { icon: any; label: string; val
       <span className="grid size-8 place-items-center rounded-lg bg-surface-2/60">
         <Icon className="size-3.5 text-ink-faint" />
       </span>
-      <div>
-        <p className="text-[10px] text-ink-faint">{label}</p>
-        <p className="text-ink">{value}</p>
-      </div>
+      <span className="text-ink-muted">{value}</span>
     </div>
   );
 }
