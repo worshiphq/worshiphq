@@ -4,7 +4,7 @@ export function StatCard({
   label,
   value,
   icon: Icon,
-  color = "bg-primary-soft text-primary-bright",
+  color = "text-primary-bright",
   prefix,
   suffix,
   trend,
@@ -18,21 +18,23 @@ export function StatCard({
   trend?: number;
 }) {
   return (
-    <div className="card-hover animate-fade-up">
-      <div className="flex items-center justify-between">
-        <span className="text-xs font-medium text-ink-muted">{label}</span>
-        <span className={cn("grid size-9 place-items-center rounded-xl transition-transform duration-300 group-hover:scale-110", color)}>
+    <div className="card group relative p-5 transition-colors hover:border-primary/30 animate-fade-up">
+      <div className="flex items-start justify-between">
+        <span className="text-sm text-ink-muted">{label}</span>
+        <span className={cn("grid size-9 place-items-center rounded-lg border border-line bg-surface-2", color)}>
           <Icon className="size-4" />
         </span>
       </div>
-      <div className="mt-2 flex items-baseline gap-1">
+      <div className="mt-3 flex items-baseline gap-1">
         {prefix && <span className="text-sm text-ink-muted">{prefix}</span>}
-        <span className="text-2xl font-bold text-ink stat-value">{value}</span>
+        <span className="text-3xl font-bold tracking-tight text-ink stat-value" style={{ fontFamily: "'Plus Jakarta Sans', var(--font-display, sans-serif)" }}>{value}</span>
         {suffix && <span className="text-sm text-ink-muted">{suffix}</span>}
       </div>
       {trend !== undefined && (
-        <div className={cn("mt-1 text-xs font-medium", trend >= 0 ? "text-success" : "text-danger")}>
-          {trend >= 0 ? "↑" : "↓"} {Math.abs(trend)}%
+        <div className="mt-2 flex items-center gap-1.5 text-xs">
+          <span className={cn("inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-medium", trend >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger")}>
+            {trend >= 0 ? "↑" : "↓"} {Math.abs(trend)}%
+          </span>
         </div>
       )}
     </div>

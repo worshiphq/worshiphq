@@ -102,8 +102,8 @@ export function Sidebar() {
   return (
     <aside
       className={cn(
-        "flex h-full flex-col border-r border-line bg-surface transition-all duration-200",
-        collapsed ? "w-16" : "w-56"
+        "flex h-full flex-col border-r border-line bg-surface/40 transition-all duration-300",
+        collapsed ? "w-[4.5rem]" : "w-64"
       )}
     >
       {/* Header */}
@@ -146,16 +146,26 @@ export function Sidebar() {
                 end={item.href === "/"}
                 className={({ isActive }) =>
                   cn(
-                    "group mb-0.5 flex items-center gap-2.5 rounded-lg px-2.5 py-1.5 text-[13px] font-medium transition-colors",
+                    "group relative mb-0.5 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300",
                     isActive
-                      ? "bg-primary-soft text-primary-bright"
-                      : "text-ink-muted hover:bg-surface-3 hover:text-ink"
+                      ? "text-ink"
+                      : "text-ink-muted hover:bg-surface-2 hover:text-ink"
                   )
                 }
                 title={collapsed ? item.label : undefined}
               >
-                <item.icon className="size-4 shrink-0" />
-                {!collapsed && <span className="truncate">{item.label}</span>}
+                {({ isActive }: { isActive: boolean }) => (
+                  <>
+                    {isActive && (
+                      <>
+                        <span className="absolute inset-0 rounded-xl border border-primary/30 bg-primary/10" />
+                        <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-primary-bright" />
+                      </>
+                    )}
+                    <item.icon className="relative size-[1.15rem] shrink-0" />
+                    {!collapsed && <span className="relative truncate">{item.label}</span>}
+                  </>
+                )}
               </NavLink>
             ))}
           </div>

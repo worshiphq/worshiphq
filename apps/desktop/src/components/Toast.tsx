@@ -9,9 +9,9 @@ const icons = {
 };
 
 const colors = {
-  success: "bg-success/10 text-success border-success/20",
-  error: "bg-danger/10 text-danger border-danger/20",
-  info: "bg-primary-soft text-primary-bright border-primary/20",
+  success: "border-emerald-200 bg-white text-emerald-800",
+  error: "border-red-200 bg-white text-red-800",
+  info: "border-slate-200 bg-white text-slate-800",
 };
 
 export function Toast() {
@@ -21,11 +21,11 @@ export function Toast() {
   const Icon = icons[toast.type];
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 animate-slide-up">
-      <div className={cn("flex items-center gap-2.5 rounded-xl border px-4 py-2.5 shadow-lg backdrop-blur-sm", colors[toast.type])}>
+    <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[110] flex flex-col items-center gap-2 px-4">
+      <div className={cn("pointer-events-auto flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-medium shadow-lg animate-slide-up", colors[toast.type])}>
         <Icon className="size-4 shrink-0" />
-        <span className="text-sm font-medium">{toast.message}</span>
-        <button onClick={clearToast} className="ml-2 opacity-60 hover:opacity-100">
+        <span>{toast.message}</span>
+        <button onClick={clearToast} className="ml-1 opacity-50 transition-opacity hover:opacity-100">
           <X className="size-3.5" />
         </button>
       </div>

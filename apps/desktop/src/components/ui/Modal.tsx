@@ -29,10 +29,10 @@ export function Modal({
         className={`modal ${wide ? "max-w-2xl" : "max-w-lg"}`}
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-5 flex items-center justify-between">
-          <h2 className="text-lg font-bold text-ink">{title}</h2>
-          <button onClick={onClose} className="grid size-8 place-items-center rounded-lg hover:bg-surface-3">
-            <X className="size-4 text-ink-faint" />
+        <div className="mb-5 flex items-start justify-between">
+          <h2 className="text-xl font-bold text-ink" style={{ fontFamily: "'Plus Jakarta Sans', var(--font-display, sans-serif)" }}>{title}</h2>
+          <button onClick={onClose} className="grid size-9 place-items-center rounded-xl hover:bg-surface-3 transition-colors">
+            <X className="size-5 text-ink-muted" />
           </button>
         </div>
         {children}

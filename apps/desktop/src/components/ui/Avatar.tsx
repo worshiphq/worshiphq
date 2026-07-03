@@ -1,8 +1,8 @@
 import { cn } from "../../lib/utils";
 
 const sizes = {
-  xs: "size-6 text-[8px]",
-  sm: "size-8 text-[10px]",
+  xs: "size-7 text-[9px]",
+  sm: "size-9 text-[10px]",
   md: "size-10 text-xs",
   lg: "size-14 text-lg",
   xl: "size-20 text-2xl",
@@ -45,7 +45,7 @@ export function Avatar({
       <img
         src={src}
         alt={name}
-        className={cn("rounded-full object-cover shrink-0", sizes[size], className)}
+        className={cn("rounded-full object-cover shrink-0 ring-1 ring-white/10", sizes[size], className)}
       />
     );
   }
@@ -53,7 +53,7 @@ export function Avatar({
   return (
     <div
       className={cn(
-        "shrink-0 grid place-items-center rounded-full bg-gradient-to-br font-bold text-white",
+        "shrink-0 grid place-items-center rounded-full bg-gradient-to-br font-semibold text-white ring-1 ring-white/10",
         sizes[size],
         nameToGradient(name),
         className

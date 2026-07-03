@@ -69,7 +69,7 @@ export function Topbar({ title }: { title: string }) {
   }
 
   return (
-    <header className="flex h-12 items-center justify-between border-b border-line bg-surface px-5">
+    <header className="flex h-16 items-center justify-between border-b border-line bg-base/80 backdrop-blur-xl px-5">
       <h1 className="text-sm font-bold text-ink">{title}</h1>
 
       <div className="flex items-center gap-3">
@@ -132,7 +132,7 @@ export function Topbar({ title }: { title: string }) {
           {menuOpen && (
             <>
               <div className="fixed inset-0 z-40" onClick={() => setMenuOpen(false)} />
-              <div className="absolute right-0 top-full z-50 mt-1 w-48 rounded-xl border border-line bg-surface p-1 shadow-lg animate-scale-in">
+              <div className="absolute right-0 top-full z-50 mt-1 w-56 rounded-xl border border-line bg-surface p-1 shadow-lg animate-fade-up">
                 <div className="px-3 py-2 border-b border-line mb-1">
                   <p className="text-xs font-medium text-ink">{session?.userName}</p>
                   <p className="text-[10px] text-ink-faint">{session?.userEmail}</p>
