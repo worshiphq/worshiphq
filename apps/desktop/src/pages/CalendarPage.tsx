@@ -106,28 +106,27 @@ export function CalendarPage() {
     <PageShell title="Calendar">
       <PageHeader title="Church Calendar" description="View events, services, and birthdays at a glance." />
 
-      <div className="flex items-center justify-between mb-4">
+      <div className="mt-5 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <button onClick={prev} className="grid size-8 place-items-center rounded-lg bg-surface-2 hover:bg-surface-3 transition-colors">
-            <ChevronLeft className="size-4 text-ink" />
+          <button onClick={prev} className="btn-secondary btn-sm">
+            <ChevronLeft className="size-4" />
           </button>
-          <h2 className="text-lg font-bold text-ink min-w-[180px] text-center">{MONTHS[month]} {year}</h2>
-          <button onClick={next} className="grid size-8 place-items-center rounded-lg bg-surface-2 hover:bg-surface-3 transition-colors">
-            <ChevronRight className="size-4 text-ink" />
+          <h2 className="min-w-[160px] text-center text-sm font-semibold">{MONTHS[month]} {year}</h2>
+          <button onClick={next} className="btn-secondary btn-sm">
+            <ChevronRight className="size-4" />
           </button>
-          <button onClick={goToday} className="btn-ghost btn-sm text-xs ml-2">Today</button>
         </div>
-        <p className="text-xs text-ink-muted">{monthCount} item{monthCount !== 1 ? "s" : ""} this month</p>
+        <button onClick={goToday} className="btn-secondary btn-sm">Today</button>
       </div>
 
       {loading ? (
         <div className="flex items-center justify-center py-24"><Loader2 className="size-8 text-primary-bright whq-spin" /></div>
       ) : (
         <>
-          <div className="card overflow-hidden">
+          <div className="card overflow-hidden p-0">
             <div className="grid grid-cols-7 border-b border-line">
               {DAYS.map((d) => (
-                <div key={d} className="px-2 py-2 text-center text-[11px] font-semibold uppercase tracking-wider text-ink-faint bg-surface-2/50">{d}</div>
+                <div key={d} className="px-1 py-2 text-center text-[11px] font-medium text-ink-faint">{d}</div>
               ))}
             </div>
             <div className="grid grid-cols-7">

@@ -71,11 +71,11 @@ export function SermonsPage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-4 gap-3">
-        <StatCard label="Total Sermons" value={stats.total} icon={BookOpen} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Preachers" value={stats.preachers} icon={Mic} color="bg-success/10 text-success" />
-        <StatCard label="Series" value={stats.series} icon={BookOpen} color="bg-gold/10 text-gold" />
-        <StatCard label="Published" value={stats.published} icon={Eye} color="bg-info/10 text-info" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Total Sermons" value={stats.total} icon={BookOpen} color="text-primary-bright" />
+        <StatCard label="Preachers" value={stats.preachers} icon={Mic} color="text-success" />
+        <StatCard label="Series" value={stats.series} icon={BookOpen} color="text-gold" />
+        <StatCard label="Published" value={stats.published} icon={Eye} color="text-info" />
       </div>
 
       <div className="mb-4 relative max-w-xs">

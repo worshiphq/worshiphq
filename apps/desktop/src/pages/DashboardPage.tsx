@@ -103,15 +103,15 @@ export function DashboardPage() {
       </PageHeader>
 
       {/* KPI cards */}
-      <div className="mb-6 grid grid-cols-4 gap-3">
-        <StatCard label="Active Members" value={stats.active} icon={Users} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Weekly Attendance" value={stats.weeklyAtt} icon={CalendarCheck2} color="bg-success/10 text-success" />
-        <StatCard label="Monthly Giving" value={formatCurrency(stats.monthlyGiving)} icon={HandCoins} color="bg-gold/10 text-gold" />
-        <StatCard label="Message Reach" value={stats.messageReach} icon={MessageSquare} color="bg-info/10 text-info" />
+      <div className="mb-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Active Members" value={stats.active} icon={Users} color="text-primary-bright" />
+        <StatCard label="Weekly Attendance" value={stats.weeklyAtt} icon={CalendarCheck2} color="text-success" />
+        <StatCard label="Monthly Giving" value={formatCurrency(stats.monthlyGiving)} icon={HandCoins} color="text-gold" />
+        <StatCard label="Message Reach" value={stats.messageReach} icon={MessageSquare} color="text-info" />
       </div>
 
       {/* Quick actions */}
-      <div className="mb-6 grid grid-cols-4 gap-3">
+      <div className="mb-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
         {quickActions.map((a) => (
           <button key={a.label} onClick={() => navigate(a.to)} className="card-hover flex items-center gap-3 text-left">
             <span className={`grid size-10 place-items-center rounded-xl ${a.color}`}><a.icon className="size-4" /></span>

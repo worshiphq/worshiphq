@@ -90,11 +90,11 @@ export function CommunicationsPage() {
         </div>
       )}
 
-      <div className="mb-5 grid grid-cols-4 gap-3">
-        <StatCard label="SMS Credits" value={stats.credits} icon={Wallet} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Messages Sent" value={stats.sent} icon={MessageSquare} color="bg-success/10 text-success" />
-        <StatCard label="People Reached" value={stats.reach} icon={Users} color="bg-info/10 text-info" />
-        <StatCard label="Audience" value={stats.audience} icon={Mail} color="bg-gold/10 text-gold" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="SMS Credits" value={stats.credits} icon={Wallet} color="text-primary-bright" />
+        <StatCard label="Messages Sent" value={stats.sent} icon={MessageSquare} color="text-success" />
+        <StatCard label="People Reached" value={stats.reach} icon={Users} color="text-info" />
+        <StatCard label="Audience" value={stats.audience} icon={Mail} color="text-gold" />
       </div>
 
       <div className="mb-4 relative max-w-xs">

@@ -1011,7 +1011,7 @@ function PositionsTab() {
 
       {adding && (
         <div className="card space-y-3">
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             <div>
               <label className="block text-xs font-medium text-ink-muted mb-1">Member</label>
               <select value={form.personId} onChange={(e) => setForm((f) => ({ ...f, personId: e.target.value }))} className="input">
@@ -1297,7 +1297,7 @@ function AutomationsTab() {
               placeholder={TRIGGERS.find((t) => t.key === form.trigger)?.name} />
           </div>
           {isCustom && (
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
               <div>
                 <label className="block text-xs font-medium text-ink-muted mb-1">Date</label>
                 <input type="date" value={form.customDate} onChange={(e) => setForm((f) => ({ ...f, customDate: e.target.value }))} className="input" />
@@ -1858,7 +1858,7 @@ function SyncTab({
       {Object.keys(counts).length > 0 && (
         <div className="card space-y-3">
           <h3 className="text-sm font-bold text-ink">Local Data</h3>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             {[
               { key: "person", label: "Members" }, { key: "gift", label: "Gifts" },
               { key: "attendance_session", label: "Services" }, { key: "event", label: "Events" },

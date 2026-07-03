@@ -72,11 +72,11 @@ export function PledgesPage() {
         </div>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-4 gap-3">
-        <StatCard label="Campaigns" value={stats.campaigns} icon={Target} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Pledges" value={stats.pledges} icon={HandCoins} color="bg-success/10 text-success" />
-        <StatCard label="Total Pledged" value={formatCurrency(stats.totalPledged)} icon={TrendingUp} color="bg-gold/10 text-gold" />
-        <StatCard label="Fulfilled" value={`${stats.pct}%`} icon={TrendingUp} color="bg-info/10 text-info" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Campaigns" value={stats.campaigns} icon={Target} color="text-primary-bright" />
+        <StatCard label="Pledges" value={stats.pledges} icon={HandCoins} color="text-success" />
+        <StatCard label="Total Pledged" value={formatCurrency(stats.totalPledged)} icon={TrendingUp} color="text-gold" />
+        <StatCard label="Fulfilled" value={`${stats.pct}%`} icon={TrendingUp} color="text-info" />
       </div>
 
       {loading ? (
@@ -87,7 +87,7 @@ export function PledgesPage() {
           {campaigns.length > 0 && (
             <div className="mb-6">
               <h3 className="mb-3 text-sm font-bold text-ink uppercase tracking-wider">Campaigns</h3>
-              <div className="grid gap-3 grid-cols-3">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
                 {campaigns.map((c) => {
                   const pct = c.goal > 0 ? Math.round(((c.raised || 0) / c.goal) * 100) : 0;
                   return (

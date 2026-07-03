@@ -104,11 +104,11 @@ export function CounselingPage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-4 gap-3">
-        <StatCard label="Total Sessions" value={stats.total} icon={Heart} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Open" value={stats.open} icon={CircleDot} color="bg-primary/10 text-primary-bright" />
-        <StatCard label="Follow-up" value={stats.followUp} icon={Clock} color="bg-gold/10 text-gold" />
-        <StatCard label="Overdue" value={stats.overdue} icon={AlertTriangle} color="bg-danger/10 text-danger" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Total Sessions" value={stats.total} icon={Heart} color="text-primary-bright" />
+        <StatCard label="Open" value={stats.open} icon={CircleDot} color="text-primary-bright" />
+        <StatCard label="Follow-up" value={stats.followUp} icon={Clock} color="text-gold" />
+        <StatCard label="Overdue" value={stats.overdue} icon={AlertTriangle} color="text-danger" />
       </div>
 
       <div className="mb-4 flex items-center gap-3">
@@ -242,7 +242,7 @@ function CounselingForm({ churchId, counselorId, members, existing, onClose, onS
           </select>
         </div>
       </div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <div><label className="block text-xs font-medium text-ink-muted mb-1">Status</label>
           <select value={form.status} onChange={set("status")} className="input">
             <option value="open">Open</option>

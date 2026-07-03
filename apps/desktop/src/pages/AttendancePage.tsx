@@ -108,11 +108,11 @@ export function AttendancePage() {
       </PageHeader>
 
       {/* Stats */}
-      <div className="mb-5 grid grid-cols-4 gap-3">
-        <StatCard label="This week" value={stats.thisWeek} icon={UserCheck} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="This month" value={stats.thisMonth} icon={CalendarCheck2} color="bg-success/10 text-success" />
-        <StatCard label="Avg / service" value={stats.avg} icon={TrendingUp} color="bg-gold/10 text-gold" />
-        <StatCard label="Services logged" value={stats.totalSessions} icon={Users} color="bg-info/10 text-info" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="This week" value={stats.thisWeek} icon={UserCheck} color="text-primary-bright" />
+        <StatCard label="This month" value={stats.thisMonth} icon={CalendarCheck2} color="text-success" />
+        <StatCard label="Avg / service" value={stats.avg} icon={TrendingUp} color="text-gold" />
+        <StatCard label="Services logged" value={stats.totalSessions} icon={Users} color="text-info" />
       </div>
 
       {/* Most recent + trend */}
@@ -308,7 +308,7 @@ function SessionForm({ churchId, existing, onClose, onSaved }: { churchId: strin
           <input type="date" value={form.date} onChange={set("date")} className="input" required />
         </div>
       </div>
-      <div className="grid grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {(["adults", "teens", "children", "visitors"] as const).map((key) => (
           <div key={key}>
             <label className="block text-xs font-medium text-ink-muted mb-1 capitalize">{key}</label>
@@ -422,7 +422,7 @@ function SessionDetailModal({ sessionId, churchId, serverUrl, onClose, onChanged
           <p className="-mt-3 text-sm text-ink-muted">{formatDate(sess.date)}</p>
 
           {/* Summary + breakdown */}
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
             <div className="card flex flex-col items-center justify-center p-4 text-center">
               <div className="text-3xl font-bold text-ink">{total}</div>
               <div className="text-[11px] text-ink-muted">total present</div>

@@ -58,7 +58,7 @@ export function AuditLogPage() {
       <PageHeader title="Audit Log" description="A record of all actions performed in your church account." />
 
       <div className="mb-5">
-        <StatCard label="Total Entries" value={logs.length} icon={Shield} color="bg-primary-soft text-primary-bright" />
+        <StatCard label="Total Entries" value={logs.length} icon={Shield} color="text-primary-bright" />
       </div>
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row">

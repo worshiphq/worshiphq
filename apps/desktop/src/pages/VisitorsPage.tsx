@@ -101,8 +101,8 @@ export function VisitorsPage() {
       </PageHeader>
 
       <div className="mb-5 grid grid-cols-2 gap-3">
-        <StatCard label="Total Visitors" value={stats.total} icon={UserRoundPlus} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="This Month" value={stats.thisMonth} icon={Calendar} color="bg-success/10 text-success" />
+        <StatCard label="Total Visitors" value={stats.total} icon={UserRoundPlus} color="text-primary-bright" />
+        <StatCard label="This Month" value={stats.thisMonth} icon={Calendar} color="text-success" />
       </div>
 
       <div className="mb-4 relative max-w-xs">

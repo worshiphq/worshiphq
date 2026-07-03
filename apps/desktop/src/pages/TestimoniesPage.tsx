@@ -78,11 +78,11 @@ export function TestimoniesPage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-4 gap-3">
-        <StatCard label="Total" value={stats.total} icon={Star} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Featured" value={stats.featured} icon={Star} color="bg-gold/10 text-gold" />
-        <StatCard label="Praise" value={stats.praise} icon={Star} color="bg-success/10 text-success" />
-        <StatCard label="Healing" value={stats.healing} icon={Star} color="bg-info/10 text-info" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Total" value={stats.total} icon={Star} color="text-primary-bright" />
+        <StatCard label="Featured" value={stats.featured} icon={Star} color="text-gold" />
+        <StatCard label="Praise" value={stats.praise} icon={Star} color="text-success" />
+        <StatCard label="Healing" value={stats.healing} icon={Star} color="text-info" />
       </div>
 
       <div className="mb-4 flex items-center gap-3">

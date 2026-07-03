@@ -183,11 +183,11 @@ export function AccountingPage() {
         </div>
       ) : (
         <>
-          <div className="mb-5 grid grid-cols-4 gap-3">
-            <StatCard label="Income" value={cedis(income)} icon={TrendingUp} color="bg-success/10 text-success" />
-            <StatCard label="Expenses" value={cedis(expenses)} icon={TrendingDown} color="bg-danger/10 text-danger" />
+          <div className="mb-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard label="Income" value={cedis(income)} icon={TrendingUp} color="text-success" />
+            <StatCard label="Expenses" value={cedis(expenses)} icon={TrendingDown} color="text-danger" />
             <StatCard label={net >= 0 ? "Surplus" : "Deficit"} value={cedis(Math.abs(net))} icon={Scale} color={net >= 0 ? "bg-primary-soft text-primary-bright" : "bg-gold/10 text-gold"} />
-            <StatCard label="Entries" value={rows.length} icon={Layers} color="bg-info/10 text-info" />
+            <StatCard label="Entries" value={rows.length} icon={Layers} color="text-info" />
           </div>
 
           <div className="grid grid-cols-3 gap-4">

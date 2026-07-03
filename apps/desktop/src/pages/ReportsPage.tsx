@@ -103,8 +103,8 @@ export function ReportsPage() {
       <PageHeader title="Reports & Analytics" description="Church growth, giving trends, and attendance analytics." />
 
       {/* KPI row */}
-      <div className="mb-5 grid grid-cols-5 gap-3">
-        <StatCard label="Total members" value={data.totalMembers} icon={Users} color="bg-primary-soft text-primary-bright" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatCard label="Total members" value={data.totalMembers} icon={Users} color="text-primary-bright" />
         <CompareStat label="Income this month" value={formatCurrency(data.giveThis)} current={data.giveThis} previous={data.giveLast} icon={HandCoins} accent="text-success" iconBg="bg-success/10 text-success" />
         <CompareStat label="Expenses this month" value={formatCurrency(data.expThis)} current={data.expThis} previous={data.expLast} icon={Receipt} accent="text-danger" iconBg="bg-danger/10 text-danger" />
         <div className="card-hover">

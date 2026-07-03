@@ -88,10 +88,10 @@ export function PrayerRequestsPage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-3 gap-3">
-        <StatCard label="Total Requests" value={stats.total} icon={HandHeart} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Active" value={stats.active} icon={Clock} color="bg-gold/10 text-gold" />
-        <StatCard label="Answered" value={stats.answered} icon={CheckCircle2} color="bg-success/10 text-success" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <StatCard label="Total Requests" value={stats.total} icon={HandHeart} color="text-primary-bright" />
+        <StatCard label="Active" value={stats.active} icon={Clock} color="text-gold" />
+        <StatCard label="Answered" value={stats.answered} icon={CheckCircle2} color="text-success" />
       </div>
 
       {prayUrl && (

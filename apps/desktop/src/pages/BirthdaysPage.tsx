@@ -102,10 +102,10 @@ export function BirthdaysPage() {
     <PageShell title="Birthdays">
       <PageHeader title="Birthdays & anniversaries" description="Celebrate your members. See who has a birthday or anniversary coming up." />
 
-      <div className="mb-5 grid grid-cols-3 gap-3">
-        <StatCard label="With Celebrations" value={enriched.length} icon={Cake} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Next 30 Days" value={monthCount} icon={PartyPopper} color="bg-gold/10 text-gold" />
-        <StatCard label="Today" value={todayCount} icon={Cake} color="bg-success/10 text-success" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <StatCard label="With Celebrations" value={enriched.length} icon={Cake} color="text-primary-bright" />
+        <StatCard label="Next 30 Days" value={monthCount} icon={PartyPopper} color="text-gold" />
+        <StatCard label="Today" value={todayCount} icon={Cake} color="text-success" />
       </div>
 
       {todayCount > 0 && (

@@ -63,10 +63,10 @@ export function HarvestPage() {
         <button onClick={() => setShowForm(true)} className="btn-primary btn-sm"><Plus className="size-3.5" /> New Harvest</button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-3 gap-3">
-        <StatCard label="Harvests" value={stats.count} icon={Wheat} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Total Goal" value={formatCurrency(stats.totalGoal)} icon={Target} color="bg-gold/10 text-gold" />
-        <StatCard label="Total Raised" value={formatCurrency(stats.totalRaised)} icon={Wheat} color="bg-success/10 text-success" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <StatCard label="Harvests" value={stats.count} icon={Wheat} color="text-primary-bright" />
+        <StatCard label="Total Goal" value={formatCurrency(stats.totalGoal)} icon={Target} color="text-gold" />
+        <StatCard label="Total Raised" value={formatCurrency(stats.totalRaised)} icon={Wheat} color="text-success" />
       </div>
 
       {loading ? (
@@ -190,11 +190,11 @@ function HarvestDetail({ harvest, churchId, onBack, onChanged }: { harvest: any;
       <button onClick={onBack} className="mb-3 flex items-center gap-1 text-sm text-ink-muted hover:text-ink"><ChevronLeft className="size-4" /> All harvests</button>
       <PageHeader title={harvest.title} description={`${harvest.year}${harvest.date ? ` · ${formatDate(harvest.date)}` : ""}`} />
 
-      <div className="mb-5 grid grid-cols-4 gap-3">
-        <StatCard label="Total raised" value={formatCurrency(totalRaised)} icon={Wheat} color="bg-success/10 text-success" />
-        <StatCard label="Contributors" value={contributorCount} icon={Users} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Members" value={memberCount} icon={Crown} color="bg-gold/10 text-gold" />
-        <StatCard label="Visitors" value={visitorCount} icon={UserPlus} color="bg-info/10 text-info" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Total raised" value={formatCurrency(totalRaised)} icon={Wheat} color="text-success" />
+        <StatCard label="Contributors" value={contributorCount} icon={Users} color="text-primary-bright" />
+        <StatCard label="Members" value={memberCount} icon={Crown} color="text-gold" />
+        <StatCard label="Visitors" value={visitorCount} icon={UserPlus} color="text-info" />
       </div>
 
       {harvest.goal > 0 && (
@@ -379,7 +379,7 @@ function ContributionRecorder({ harvest, churchId, members, onRecorded, onMember
       {showVisitor && (
         <form onSubmit={addVisitor} className="card mb-4 border-primary/20 bg-primary/5 p-4 space-y-3">
           <h4 className="text-sm font-semibold text-ink">Add visitor</h4>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             <div><label className="block text-xs font-medium text-ink-muted mb-1">First name</label><input value={vForm.firstName} onChange={(e) => setVForm((f) => ({ ...f, firstName: e.target.value }))} className="input" required placeholder="Kwame" /></div>
             <div><label className="block text-xs font-medium text-ink-muted mb-1">Last name</label><input value={vForm.lastName} onChange={(e) => setVForm((f) => ({ ...f, lastName: e.target.value }))} className="input" required placeholder="Mensah" /></div>
             <div><label className="block text-xs font-medium text-ink-muted mb-1">Phone</label><input value={vForm.phone} onChange={(e) => setVForm((f) => ({ ...f, phone: e.target.value }))} className="input" placeholder="024XXXXXXX" /></div>

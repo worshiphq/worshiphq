@@ -88,10 +88,10 @@ export function ChildrenPage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-3 gap-3">
-        <StatCard label="Total" value={stats.total} icon={Users} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Children" value={stats.children} icon={Baby} color="bg-success/10 text-success" />
-        <StatCard label="Teens" value={stats.teens} icon={GraduationCap} color="bg-gold/10 text-gold" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <StatCard label="Total" value={stats.total} icon={Users} color="text-primary-bright" />
+        <StatCard label="Children" value={stats.children} icon={Baby} color="text-success" />
+        <StatCard label="Teens" value={stats.teens} icon={GraduationCap} color="text-gold" />
       </div>
 
       <div className="mb-4 flex items-center justify-between gap-3">

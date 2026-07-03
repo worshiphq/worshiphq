@@ -96,11 +96,11 @@ export function VolunteersPage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-4 gap-3">
-        <StatCard label="Rosters" value={stats.rosters} icon={Calendar} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Slots" value={stats.slots} icon={HandHelping} color="bg-info/10 text-info" />
-        <StatCard label="Scheduled" value={stats.scheduled} icon={Users} color="bg-success/10 text-success" />
-        <StatCard label="Confirmed" value={stats.confirmed} icon={CheckCircle2} color="bg-gold/10 text-gold" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Rosters" value={stats.rosters} icon={Calendar} color="text-primary-bright" />
+        <StatCard label="Slots" value={stats.slots} icon={HandHelping} color="text-info" />
+        <StatCard label="Scheduled" value={stats.scheduled} icon={Users} color="text-success" />
+        <StatCard label="Confirmed" value={stats.confirmed} icon={CheckCircle2} color="text-gold" />
       </div>
 
       {loading ? (

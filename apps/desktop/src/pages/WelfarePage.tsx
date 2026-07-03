@@ -69,11 +69,11 @@ export function WelfarePage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-4 gap-3">
-        <StatCard label="Total Disbursed" value={formatCurrency(stats.total)} icon={HeartHandshake} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="This Month" value={formatCurrency(stats.monthTotal)} icon={Calendar} color="bg-gold/10 text-gold" />
-        <StatCard label="Records" value={stats.count} icon={HeartHandshake} color="bg-success/10 text-success" />
-        <StatCard label="Recipients" value={stats.uniqueRecipients} icon={HeartHandshake} color="bg-info/10 text-info" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Total Disbursed" value={formatCurrency(stats.total)} icon={HeartHandshake} color="text-primary-bright" />
+        <StatCard label="This Month" value={formatCurrency(stats.monthTotal)} icon={Calendar} color="text-gold" />
+        <StatCard label="Records" value={stats.count} icon={HeartHandshake} color="text-success" />
+        <StatCard label="Recipients" value={stats.uniqueRecipients} icon={HeartHandshake} color="text-info" />
       </div>
 
       <div className="mb-4 relative max-w-xs">

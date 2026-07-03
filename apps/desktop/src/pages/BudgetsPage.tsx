@@ -75,10 +75,10 @@ export function BudgetsPage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-3 gap-3">
-        <StatCard label="Budgets" value={stats.count} icon={PiggyBank} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Total Budgeted" value={formatCurrency(stats.totalBudgeted)} icon={PiggyBank} color="bg-success/10 text-success" />
-        <StatCard label="Total Spent" value={formatCurrency(stats.totalSpent)} icon={PiggyBank} color="bg-danger/10 text-danger" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <StatCard label="Budgets" value={stats.count} icon={PiggyBank} color="text-primary-bright" />
+        <StatCard label="Total Budgeted" value={formatCurrency(stats.totalBudgeted)} icon={PiggyBank} color="text-success" />
+        <StatCard label="Total Spent" value={formatCurrency(stats.totalSpent)} icon={PiggyBank} color="text-danger" />
       </div>
 
       {loading ? (

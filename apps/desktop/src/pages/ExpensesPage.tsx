@@ -68,10 +68,10 @@ export function ExpensesPage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-3 gap-3">
-        <StatCard label="Total Expenses" value={formatCurrency(stats.total)} icon={Receipt} color="bg-danger/10 text-danger" />
-        <StatCard label="This Month" value={formatCurrency(stats.monthTotal)} icon={Calendar} color="bg-gold/10 text-gold" />
-        <StatCard label="Records" value={stats.count} icon={Wallet} color="bg-primary-soft text-primary-bright" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <StatCard label="Total Expenses" value={formatCurrency(stats.total)} icon={Receipt} color="text-danger" />
+        <StatCard label="This Month" value={formatCurrency(stats.monthTotal)} icon={Calendar} color="text-gold" />
+        <StatCard label="Records" value={stats.count} icon={Wallet} color="text-primary-bright" />
       </div>
 
       <div className="mb-4 relative max-w-xs">

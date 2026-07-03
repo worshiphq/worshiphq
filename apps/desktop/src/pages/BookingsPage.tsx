@@ -98,10 +98,10 @@ export function BookingsPage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-3 gap-3">
-        <StatCard label="Bookings" value={stats.total} icon={CalendarCheck} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Upcoming" value={stats.upcoming} icon={Clock} color="bg-success/10 text-success" />
-        <StatCard label="Facilities" value={stats.facilities} icon={Building} color="bg-gold/10 text-gold" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <StatCard label="Bookings" value={stats.total} icon={CalendarCheck} color="text-primary-bright" />
+        <StatCard label="Upcoming" value={stats.upcoming} icon={Clock} color="text-success" />
+        <StatCard label="Facilities" value={stats.facilities} icon={Building} color="text-gold" />
       </div>
 
       {/* Tabs */}
@@ -181,7 +181,7 @@ export function BookingsPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
             {facilities.map((f) => (
               <div key={f.id} className="card p-4">
                 <div className="flex items-start justify-between">

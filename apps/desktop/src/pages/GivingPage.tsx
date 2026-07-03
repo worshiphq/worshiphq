@@ -164,11 +164,11 @@ export function GivingPage() {
         <div className="flex items-center justify-center py-16"><Loader2 className="size-6 text-primary-bright whq-spin" /></div>
       ) : view === "giving" ? (
         <>
-          <div className="mb-5 grid grid-cols-4 gap-3">
-            <StatCard label="This Month" value={formatCurrency(stats.monthTotal)} icon={HandCoins} color="bg-gold/10 text-gold" />
-            <StatCard label="Recurring Givers" value={stats.recurringCount} icon={Repeat} color="bg-primary-soft text-primary-bright" />
-            <StatCard label="Mobile Money %" value={`${stats.momoPct}%`} icon={Smartphone} color="bg-info/10 text-info" />
-            <StatCard label="Avg. Gift" value={formatCurrency(stats.avgGift)} icon={Banknote} color="bg-success/10 text-success" />
+          <div className="mb-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <StatCard label="This Month" value={formatCurrency(stats.monthTotal)} icon={HandCoins} color="text-gold" />
+            <StatCard label="Recurring Givers" value={stats.recurringCount} icon={Repeat} color="text-primary-bright" />
+            <StatCard label="Mobile Money %" value={`${stats.momoPct}%`} icon={Smartphone} color="text-info" />
+            <StatCard label="Avg. Gift" value={formatCurrency(stats.avgGift)} icon={Banknote} color="text-success" />
           </div>
 
           {fundBreakdown.length > 0 && (
@@ -399,11 +399,11 @@ function TitheSection({ people, gifts, church, funds, churchId, onChanged }: {
         <span className="text-sm text-ink-muted">{monthLabel}</span>
       </div>
 
-      <div className="grid grid-cols-4 gap-3">
-        <StatCard label="Month total" value={formatCurrency(monthTotal)} icon={HandCoins} color="bg-gold/10 text-gold" />
-        <StatCard label="Tithe payers" value={payerCount} icon={Users} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Weeks recorded" value={`${weeks.filter((w) => w.records.length > 0).length} / ${weeks.length}`} icon={Calendar} color="bg-info/10 text-info" />
-        <StatCard label="Avg per payer" value={formatCurrency(payerCount ? Math.round(monthTotal / payerCount) : 0)} icon={Banknote} color="bg-success/10 text-success" />
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Month total" value={formatCurrency(monthTotal)} icon={HandCoins} color="text-gold" />
+        <StatCard label="Tithe payers" value={payerCount} icon={Users} color="text-primary-bright" />
+        <StatCard label="Weeks recorded" value={`${weeks.filter((w) => w.records.length > 0).length} / ${weeks.length}`} icon={Calendar} color="text-info" />
+        <StatCard label="Avg per payer" value={formatCurrency(payerCount ? Math.round(monthTotal / payerCount) : 0)} icon={Banknote} color="text-success" />
       </div>
 
       <div className="flex gap-1 rounded-xl bg-surface-2 p-1">

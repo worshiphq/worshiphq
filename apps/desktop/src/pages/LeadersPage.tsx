@@ -123,10 +123,10 @@ export function LeadersPage() {
     <PageShell title="Leaders">
       <PageHeader title="Church Leadership" description="Pastors, elders, shepherds, and department heads — everyone who leads your church." />
 
-      <div className="mb-5 grid grid-cols-3 gap-3">
-        <StatCard label="Church Leaders" value={churchLeaders.length} icon={Crown} color="bg-gold/10 text-gold" />
-        <StatCard label="Departments" value={departments.length} icon={Users2} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Dept. Positions" value={positions.length} icon={Check} color="bg-success/10 text-success" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <StatCard label="Church Leaders" value={churchLeaders.length} icon={Crown} color="text-gold" />
+        <StatCard label="Departments" value={departments.length} icon={Users2} color="text-primary-bright" />
+        <StatCard label="Dept. Positions" value={positions.length} icon={Check} color="text-success" />
       </div>
 
       {loading ? (

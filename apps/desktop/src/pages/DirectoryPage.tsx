@@ -73,8 +73,8 @@ export function DirectoryPage() {
       <PageHeader title="Member directory" description={`${people.length} active member${people.length !== 1 ? "s" : ""}`} />
 
       <div className="mb-5 grid grid-cols-2 gap-3">
-        <StatCard label="Active Members" value={people.length} icon={Users} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Departments" value={departments.length} icon={Users} color="bg-success/10 text-success" />
+        <StatCard label="Active Members" value={people.length} icon={Users} color="text-primary-bright" />
+        <StatCard label="Departments" value={departments.length} icon={Users} color="text-success" />
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">

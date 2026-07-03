@@ -64,8 +64,8 @@ export function NoticesPage() {
       </PageHeader>
 
       <div className="mb-5 grid grid-cols-2 gap-3">
-        <StatCard label="Total Notices" value={stats.total} icon={Bell} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Pinned" value={stats.pinned} icon={Pin} color="bg-gold/10 text-gold" />
+        <StatCard label="Total Notices" value={stats.total} icon={Bell} color="text-primary-bright" />
+        <StatCard label="Pinned" value={stats.pinned} icon={Pin} color="text-gold" />
       </div>
 
       <div className="mb-4 relative max-w-xs">

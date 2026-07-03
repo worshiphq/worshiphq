@@ -85,10 +85,10 @@ export function GroupsPage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-3 gap-3">
-        <StatCard label="Groups" value={stats.total} icon={Users2} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Total Members" value={stats.totalMembers} icon={User} color="bg-success/10 text-success" />
-        <StatCard label="Avg Size" value={stats.total ? Math.round(stats.totalMembers / stats.total) : 0} icon={Users2} color="bg-info/10 text-info" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <StatCard label="Groups" value={stats.total} icon={Users2} color="text-primary-bright" />
+        <StatCard label="Total Members" value={stats.totalMembers} icon={User} color="text-success" />
+        <StatCard label="Avg Size" value={stats.total ? Math.round(stats.totalMembers / stats.total) : 0} icon={Users2} color="text-info" />
       </div>
 
       <div className="mb-4 relative max-w-xs">
@@ -105,29 +105,26 @@ export function GroupsPage() {
           <p className="mt-1 text-xs text-ink-muted">Create your first group to organize members.</p>
         </div>
       ) : (
-        <div className="grid gap-3 grid-cols-2">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((g) => {
             const memberCount = members[g.id] || 0;
             const leaderName = g.leader_first ? `${g.leader_first} ${g.leader_last}` : null;
             return (
-              <div key={g.id} onClick={() => setDetailId(g.id)} className="card p-4 hover:shadow-lg transition-shadow cursor-pointer">
+              <div key={g.id} onClick={() => setDetailId(g.id)} className="card relative p-4 transition hover:shadow-md cursor-pointer">
                 <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="grid size-10 place-items-center rounded-xl bg-primary-soft"><Users2 className="size-5 text-primary-bright" /></div>
-                    <div>
-                      <h3 className="font-bold text-ink">{g.name}</h3>
-                      <span className="rounded-md bg-surface-3 px-2 py-0.5 text-[11px] font-medium text-ink-muted">{TYPE_LABELS[g.type] ?? g.type}</span>
-                      {g.is_active === 0 && <span className="ml-1 rounded-md bg-surface-3 px-2 py-0.5 text-[11px] font-medium text-ink-faint">Inactive</span>}
-                    </div>
+                  <div className="min-w-0 flex-1">
+                    <h3 className="text-sm font-semibold text-ink">{g.name}</h3>
+                    <span className="badge badge-muted mt-1 text-[10px]">{TYPE_LABELS[g.type] ?? g.type}</span>
+                    {g.is_active === 0 && <span className="badge badge-muted ml-1 text-[10px]">Inactive</span>}
                   </div>
                   <div className="flex gap-1" onClick={(e) => e.stopPropagation()}>
                     <button onClick={() => { setEditing(g); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
-                    <button onClick={() => handleDelete(g.id, g.name)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                    <button onClick={() => handleDelete(g.id, g.name)} className="shrink-0 rounded-lg p-1.5 text-ink-faint hover:bg-danger/10 hover:text-danger" title="Delete"><Trash2 className="size-4" /></button>
                   </div>
                 </div>
-                {g.description && <p className="mt-2 text-xs text-ink-muted line-clamp-2">{g.description}</p>}
-                <div className="mt-3 flex flex-wrap items-center gap-4 text-xs text-ink-faint">
-                  <span className="flex items-center gap-1"><User className="size-3" /> {memberCount} member{memberCount !== 1 ? "s" : ""}</span>
+                {g.description && <p className="mt-2 line-clamp-2 text-xs text-ink-muted">{g.description}</p>}
+                <div className="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-xs text-ink-muted">
+                  <span className="flex items-center gap-1"><Users2 className="size-3" /> {memberCount} member{memberCount !== 1 ? "s" : ""}</span>
                   {leaderName && <span className="flex items-center gap-1"><User className="size-3" /> {leaderName}</span>}
                   {g.meeting_day && <span className="flex items-center gap-1"><Calendar className="size-3" /> {g.meeting_day} {g.meeting_time && `at ${g.meeting_time}`}</span>}
                   {g.location && <span className="flex items-center gap-1"><MapPin className="size-3" /> {g.location}</span>}
@@ -205,7 +202,7 @@ function GroupForm({ churchId, existing, onClose, onSaved }: { churchId: string;
         </div>
       </div>
       <div><label className="block text-xs font-medium text-ink-muted mb-1">Description</label><textarea value={form.description} onChange={set("description")} className="input" rows={2} placeholder="Brief description..." /></div>
-      <div className="grid grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
         <div><label className="block text-xs font-medium text-ink-muted mb-1">Meeting Day</label>
           <select value={form.meeting_day} onChange={set("meeting_day")} className="input">
             <option value="">— None —</option>

@@ -108,11 +108,11 @@ export function FollowUpsPage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-4 gap-3">
-        <StatCard label="Total" value={stats.total} icon={ListTodo} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Active" value={stats.open} icon={Clock} color="bg-gold/10 text-gold" />
-        <StatCard label="Done" value={stats.done} icon={CheckCircle2} color="bg-success/10 text-success" />
-        <StatCard label="Overdue" value={stats.overdue} icon={AlertCircle} color="bg-danger/10 text-danger" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard label="Total" value={stats.total} icon={ListTodo} color="text-primary-bright" />
+        <StatCard label="Active" value={stats.open} icon={Clock} color="text-gold" />
+        <StatCard label="Done" value={stats.done} icon={CheckCircle2} color="text-success" />
+        <StatCard label="Overdue" value={stats.overdue} icon={AlertCircle} color="text-danger" />
       </div>
 
       <div className="mb-4 flex items-center gap-3">

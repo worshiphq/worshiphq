@@ -66,11 +66,11 @@ export function EventsPage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-4 gap-3">
-        <StatCard label="Events" value={stats.total} icon={CalendarDays} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Registered" value={stats.totalReg} icon={Users} color="bg-success/10 text-success" />
-        <StatCard label="Paid Events" value={stats.paid} icon={Ticket} color="bg-gold/10 text-gold" />
-        <StatCard label="Upcoming" value={stats.upcoming} icon={Clock} color="bg-info/10 text-info" />
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard label="Events" value={stats.total} icon={CalendarDays} color="text-primary-bright" />
+        <StatCard label="Registered" value={stats.totalReg} icon={Users} color="text-success" />
+        <StatCard label="Paid Events" value={stats.paid} icon={Ticket} color="text-gold" />
+        <StatCard label="Upcoming" value={stats.upcoming} icon={Clock} color="text-info" />
       </div>
 
       {loading ? (
@@ -78,25 +78,25 @@ export function EventsPage() {
           <Loader2 className="size-6 text-primary-bright whq-spin" />
         </div>
       ) : events.length === 0 ? (
-        <div className="py-16 text-center">
-          <CalendarDays className="mx-auto size-10 text-ink-faint/30" />
-          <p className="mt-3 text-sm font-medium text-ink">No events yet</p>
-          <p className="mt-1 text-xs text-ink-muted">Create your first service, seminar or camp.</p>
+        <div className="mt-6 grid place-items-center rounded-2xl border border-dashed border-line py-20 text-center">
+          <div className="mb-4 grid size-14 place-items-center rounded-2xl border border-line bg-surface text-ink-muted"><CalendarDays className="size-6" /></div>
+          <h3 className="font-display text-lg font-semibold">No events yet</h3>
+          <p className="mt-1 max-w-xs text-sm text-ink-muted">Create your first service, seminar or camp to start taking registrations.</p>
           <button onClick={() => setShowForm(true)} className="btn-primary btn-sm mt-4">
             <Plus className="size-3.5" /> Create Event
           </button>
         </div>
       ) : (
-        <div className="grid gap-4 grid-cols-3">
+        <div className="mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3">
           {events.map((e) => {
             const pct = e.capacity ? Math.round(((e.registered || 0) / e.capacity) * 100) : 0;
             const d = new Date(e.starts_at);
             const colorClass = TYPE_COLORS[e.type] || "bg-surface-3 text-ink-muted";
             return (
-              <div key={e.id} className="card flex flex-col p-5 hover:shadow-lg transition-shadow">
-                <div className="mb-3 flex items-start justify-between">
+              <div key={e.id} className="card group relative flex flex-col p-5 transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:shadow-md">
+                <div className="mb-4 flex items-start justify-between">
                   <div className="grid size-14 place-items-center rounded-2xl border border-line bg-surface-2 text-center">
-                    <span className="text-lg font-bold leading-none text-ink">{d.getDate()}</span>
+                    <span className="font-display text-lg font-bold leading-none text-ink">{d.getDate()}</span>
                     <span className="text-[10px] uppercase text-ink-faint">
                       {d.toLocaleDateString(undefined, { month: "short" })}
                     </span>
@@ -114,7 +114,7 @@ export function EventsPage() {
                   </div>
                 </div>
 
-                <h3 className="text-base font-bold text-ink leading-snug">{e.title}</h3>
+                <h3 className="font-display text-lg font-semibold leading-snug text-ink">{e.title}</h3>
 
                 <div className="mt-2 space-y-1 text-sm text-ink-muted">
                   <div className="flex items-center gap-2">
@@ -136,12 +136,12 @@ export function EventsPage() {
                 </div>
 
                 {e.capacity > 0 && (
-                  <div className="mt-3">
-                    <div className="mb-1 flex items-center justify-between text-xs">
+                  <div className="mt-4">
+                    <div className="mb-1.5 flex items-center justify-between text-xs">
                       <span className="text-ink-muted">{e.registered || 0} registered</span>
-                      <span className="text-ink-faint">{pct}%</span>
+                      <span className="text-ink-faint">{pct}% full</span>
                     </div>
-                    <div className="h-1.5 overflow-hidden rounded-full bg-surface-3">
+                    <div className="h-2 overflow-hidden rounded-full bg-surface-2">
                       <div
                         className="h-full rounded-full bg-gradient-to-r from-primary to-primary-bright transition-all"
                         style={{ width: `${Math.min(pct, 100)}%` }}
@@ -150,7 +150,7 @@ export function EventsPage() {
                   </div>
                 )}
 
-                <div className="mt-auto pt-4 flex justify-end gap-1">
+                <div className="mt-auto flex gap-2 border-t border-line pt-4">
                   <button
                     onClick={() => { setEditing(e); setShowForm(true); }}
                     className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright"

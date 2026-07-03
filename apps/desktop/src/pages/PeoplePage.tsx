@@ -151,12 +151,12 @@ export function PeoplePage() {
       </PageHeader>
 
       {/* Stat cards */}
-      <div className="mb-5 grid grid-cols-2 lg:grid-cols-5 gap-3">
-        <StatCard label="Total" value={stats.total} icon={Users} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Adults" value={stats.adults} icon={Users} color="bg-success/10 text-success" />
-        <StatCard label="Teens" value={stats.teens} icon={GraduationCap} color="bg-info/10 text-info" />
-        <StatCard label="Children" value={stats.children} icon={Baby} color="bg-gold/10 text-gold" />
-        <StatCard label="Departments" value={stats.departments} icon={Shield} color="bg-sky/10 text-sky" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatCard label="Total" value={stats.total} icon={Users} color="text-primary-bright" />
+        <StatCard label="Adults" value={stats.adults} icon={Users} color="text-success" />
+        <StatCard label="Teens" value={stats.teens} icon={GraduationCap} color="text-info" />
+        <StatCard label="Children" value={stats.children} icon={Baby} color="text-gold" />
+        <StatCard label="Departments" value={stats.departments} icon={Shield} color="text-sky" />
       </div>
 
       {/* Age group tabs */}
@@ -675,7 +675,7 @@ function PersonForm({
 
       {/* Basic Info — always open */}
       <FormSection title="Basic Information" defaultOpen>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-medium text-ink-muted mb-1">First Name *</label>
             <input value={form.first_name} onChange={set("first_name")} className="input" required />
@@ -689,7 +689,7 @@ function PersonForm({
             <input value={form.other_names} onChange={set("other_names")} className="input" />
           </div>
         </div>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
           <div>
             <label className="block text-xs font-medium text-ink-muted mb-1">Title</label>
             <input value={form.title} onChange={set("title")} className="input" placeholder="Mr, Mrs, Dr..." />

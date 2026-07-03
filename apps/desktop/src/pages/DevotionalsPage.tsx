@@ -63,10 +63,10 @@ export function DevotionalsPage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-3 gap-3">
-        <StatCard label="Total Devotionals" value={stats.total} icon={BookHeart} color="bg-primary-soft text-primary-bright" />
-        <StatCard label="Published" value={stats.published} icon={Eye} color="bg-success/10 text-success" />
-        <StatCard label="Drafts" value={stats.drafts} icon={EyeOff} color="bg-gold/10 text-gold" />
+      <div className="mb-5 grid grid-cols-2 lg:grid-cols-3 gap-4">
+        <StatCard label="Total Devotionals" value={stats.total} icon={BookHeart} color="text-primary-bright" />
+        <StatCard label="Published" value={stats.published} icon={Eye} color="text-success" />
+        <StatCard label="Drafts" value={stats.drafts} icon={EyeOff} color="text-gold" />
       </div>
 
       <div className="mb-4 relative max-w-xs">
