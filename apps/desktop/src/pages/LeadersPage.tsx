@@ -123,7 +123,7 @@ export function LeadersPage() {
     <PageShell title="Leaders">
       <PageHeader title="Church Leadership" description="Pastors, elders, shepherds, and department heads — everyone who leads your church." />
 
-      <div className="mb-5 grid grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="Church Leaders" value={churchLeaders.length} icon={Crown} color="text-gold" />
         <StatCard label="Departments" value={departments.length} icon={Users2} color="text-primary-bright" />
         <StatCard label="Dept. Positions" value={positions.length} icon={Check} color="text-success" />
@@ -139,7 +139,7 @@ export function LeadersPage() {
               <div className="flex items-center justify-between border-b border-line px-5 py-4">
                 <div className="flex items-center gap-2">
                   <span className="grid size-8 place-items-center rounded-lg bg-gold/10"><Crown className="size-4 text-gold" /></span>
-                  <h3 className="text-lg font-semibold text-ink">Church Leadership</h3>
+                  <h3 className="font-display text-lg font-semibold text-ink">Church Leadership</h3>
                 </div>
                 {reordering ? (
                   <div className="flex items-center gap-2">
@@ -155,7 +155,7 @@ export function LeadersPage() {
                   </button>
                 )}
               </div>
-              <div className={cn("grid gap-4 p-5", reordering ? "grid-cols-1" : "grid-cols-2 lg:grid-cols-3")}>
+              <div className={cn("grid gap-4 p-5", reordering ? "grid-cols-1" : "sm:grid-cols-2 lg:grid-cols-3")}>
                 {churchLeaders.map((l, i) => {
                   const isHead = i === 0 && !reordering;
                   const name = fullName(l);
@@ -204,7 +204,7 @@ export function LeadersPage() {
             <div className="mb-4 flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <span className="grid size-8 place-items-center rounded-lg bg-primary/10"><Users2 className="size-4 text-primary-bright" /></span>
-                <h3 className="text-lg font-semibold text-ink">Department Leaders</h3>
+                <h3 className="font-display text-lg font-semibold text-ink">Department Leaders</h3>
               </div>
             </div>
 
@@ -215,7 +215,7 @@ export function LeadersPage() {
                 <p className="mt-1 text-sm text-ink-muted">Create departments in Settings first, then assign leaders here.</p>
               </div>
             ) : (
-              <div className="grid gap-4 grid-cols-2 lg:grid-cols-3">
+              <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
                 {departments.map((dept) => (
                   <DepartmentCard key={dept.id} dept={dept} members={deptLeaders.get(dept.id) ?? []}
                     people={people} customPositions={customPositions}
@@ -248,7 +248,7 @@ function DepartmentCard({ dept, members, people, customPositions, churchId, onCh
   return (
     <div className="card p-0 flex flex-col overflow-hidden">
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
-        <h4 className="font-semibold text-ink">{dept.name}</h4>
+        <h4 className="font-display font-semibold text-ink">{dept.name}</h4>
         {members.length > 0 && <span className="badge badge-muted">{members.length}</span>}
       </div>
       <div className="flex-1 divide-y divide-line-soft">

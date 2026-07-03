@@ -100,7 +100,7 @@ export function VisitorsPage() {
         </div>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-2 gap-3">
+      <div className="mb-5 grid gap-4 sm:grid-cols-2">
         <StatCard label="Total Visitors" value={stats.total} icon={UserRoundPlus} color="text-primary-bright" />
         <StatCard label="This Month" value={stats.thisMonth} icon={Calendar} color="text-success" />
       </div>
@@ -119,7 +119,7 @@ export function VisitorsPage() {
           <p className="mt-1 text-xs text-ink-muted">Share your visitor form link to start collecting visitor info.</p>
         </div>
       ) : (
-        <div className="grid gap-3 grid-cols-3">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {filtered.map((v) => (
             <div key={v.id} onClick={() => { setEditing(v); setShowForm(true); }}
               className="card group cursor-pointer p-4 space-y-2 transition-colors hover:border-primary/30">

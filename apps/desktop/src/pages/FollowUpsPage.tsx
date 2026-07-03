@@ -168,9 +168,9 @@ export function FollowUpsPage() {
                   </div>
                   {f.note && <p className="mt-1 text-xs text-ink-faint italic">{f.note}</p>}
                 </div>
-                <div className="flex gap-1">
-                  <button onClick={() => { setEditing(f); setShowForm(true); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-3.5" /></button>
-                  <button onClick={() => handleDelete(f.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                <div className="flex shrink-0 gap-1">
+                  <button onClick={() => { setEditing(f); setShowForm(true); }} className="rounded-lg p-1.5 text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit"><Pencil className="size-4" /></button>
+                  <button onClick={() => handleDelete(f.id)} className="rounded-lg p-1.5 text-ink-faint hover:bg-danger/10 hover:text-danger" title="Delete"><Trash2 className="size-4" /></button>
                 </div>
               </div>
             );
