@@ -205,7 +205,7 @@ export function GivingPage() {
             </div>
             <div className="relative">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-              <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-9 pl-9 w-56" placeholder="Search gifts..." />
+              <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-10 pl-9 w-56" placeholder="Search gifts..." />
             </div>
           </div>
 
@@ -861,7 +861,7 @@ function StatementsSection({ gifts, people, church }: { gifts: any[]; people: an
       <p className="text-sm text-ink-muted">{year} giving summary for each member. Click a member to view their detailed statement.</p>
       <div className="relative max-w-sm">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-9 pl-9" placeholder="Search donors by name or ID..." />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-10 pl-9" placeholder="Search donors by name or ID..." />
       </div>
       {filtered.length === 0 ? (
         <div className="card p-12 text-center">

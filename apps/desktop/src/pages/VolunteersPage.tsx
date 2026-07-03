@@ -106,7 +106,7 @@ export function VolunteersPage() {
       {loading ? (
         <div className="flex items-center justify-center py-16"><Loader2 className="size-6 text-primary-bright whq-spin" /></div>
       ) : (
-        <div className="grid gap-4 grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           {/* Rosters + slots */}
           <div>
             <h3 className="mb-3 text-sm font-bold text-ink uppercase tracking-wider">Rosters</h3>

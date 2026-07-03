@@ -8,12 +8,12 @@ export function PageHeader({
   children?: React.ReactNode;
 }) {
   return (
-    <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+    <div className="mb-7 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
       <div>
-        <h1 className="text-xl font-bold text-ink">{title}</h1>
-        {description && <p className="mt-0.5 text-sm text-ink-muted">{description}</p>}
+        <h1 className="text-2xl font-bold tracking-tight sm:text-3xl" style={{ fontFamily: "'Plus Jakarta Sans', var(--font-display, sans-serif)" }}>{title}</h1>
+        {description && <p className="mt-1.5 text-sm text-ink-muted">{description}</p>}
       </div>
-      {children && <div className="flex items-center gap-2">{children}</div>}
+      {children && <div className="flex flex-wrap items-center gap-2">{children}</div>}
     </div>
   );
 }

@@ -131,7 +131,7 @@ export function CalendarPage() {
             </div>
             <div className="grid grid-cols-7">
               {calendarDays.map((day, i) => {
-                if (day.date === null) return <div key={`e-${i}`} className="min-h-[84px] border-b border-r border-line-soft bg-surface-2/30" />;
+                if (day.date === null) return <div key={`e-${i}`} className="min-h-[80px] border-b border-r border-line/50 bg-surface-2/30" />;
                 const dayEvents = eventsByDate[day.key!] ?? [];
                 const isToday = day.key === todayKey;
                 const isSelected = day.key === selected;
@@ -140,14 +140,13 @@ export function CalendarPage() {
                     key={day.key}
                     onClick={() => setSelected(isSelected ? null : day.key)}
                     className={cn(
-                      "min-h-[84px] border-b border-r border-line-soft p-1.5 text-left transition hover:bg-surface-2",
+                      "min-h-[80px] border-b border-r border-line/50 p-1 text-left transition hover:bg-surface-2",
                       isSelected && "bg-primary-soft/40 ring-1 ring-primary/30",
-                      !isSelected && isToday && "bg-primary-soft/20"
                     )}
                   >
                     <span className={cn(
-                      "inline-grid size-6 place-items-center rounded-full text-xs font-medium",
-                      isToday ? "bg-primary-bright text-white font-bold" : "text-ink"
+                      "inline-flex size-6 items-center justify-center rounded-full text-xs font-medium",
+                      isToday ? "bg-primary-bright text-white" : "text-ink"
                     )}>{day.date}</span>
                     <div className="mt-0.5 space-y-0.5">
                       {dayEvents.slice(0, 3).map((e) => (
@@ -178,7 +177,7 @@ export function CalendarPage() {
           {/* Selected day detail */}
           {selected && (
             <div className="card mt-4 p-4">
-              <h3 className="text-sm font-bold text-ink">
+              <h3 className="text-sm font-semibold text-ink">
                 {new Date(selected + "T00:00:00").toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
               </h3>
               {selectedEvents.length === 0 ? (

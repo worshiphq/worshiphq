@@ -72,15 +72,15 @@ export function DirectoryPage() {
     <PageShell title="Directory">
       <PageHeader title="Member directory" description={`${people.length} active member${people.length !== 1 ? "s" : ""}`} />
 
-      <div className="mb-5 grid grid-cols-2 gap-3">
+      <div className="mb-5 grid grid-cols-2 gap-4">
         <StatCard label="Active Members" value={people.length} icon={Users} color="text-primary-bright" />
         <StatCard label="Departments" value={departments.length} icon={Users} color="text-success" />
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
-        <div className="relative max-w-xs flex-1">
+        <div className="relative max-w-md flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-9 pl-9" placeholder="Search by name, phone, email..." />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-10 pl-9" placeholder="Search by name, phone, email..." />
         </div>
         {departments.length > 0 && (
           <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="input h-9 w-44 text-sm">
@@ -113,7 +113,7 @@ export function DirectoryPage() {
           <p className="mt-3 text-sm font-medium text-ink">{search || deptFilter !== "all" || letterFilter ? "No members match your search" : "No members yet"}</p>
         </div>
       ) : layout === "grid" ? (
-        <div className="grid gap-3 grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
           {filtered.map((p) => {
             const depts = deptMap[p.id] || [];
             return (

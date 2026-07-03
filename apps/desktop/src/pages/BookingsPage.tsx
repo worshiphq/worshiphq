@@ -120,16 +120,17 @@ export function BookingsPage() {
         <div className="flex items-center justify-center py-16"><Loader2 className="size-6 text-primary-bright whq-spin" /></div>
       ) : tab === "bookings" ? (
         <>
-          <div className="mb-4 relative max-w-xs">
+          <div className="relative mb-4">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-            <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-9 pl-9" placeholder="Search bookings..." />
+            <input value={search} onChange={(e) => setSearch(e.target.value)} className="h-10 w-full max-w-md rounded-xl border border-line bg-surface pl-10 pr-3 text-sm" placeholder="Search bookings..." />
           </div>
 
           {filtered.length === 0 ? (
-            <div className="card py-16 text-center">
-              <DoorOpen className="mx-auto size-10 text-ink-faint/30" />
-              <p className="mt-3 text-sm font-medium text-ink">{search ? "No bookings match your search" : "No bookings yet"}</p>
-              {!search && <p className="mt-1 text-xs text-ink-muted">Add facilities first, then create bookings.</p>}
+            <div className="card p-12 text-center">
+              <DoorOpen className="mx-auto size-10 text-ink-faint" />
+              <p className="mt-3 text-sm text-ink-muted">
+                {search ? "No bookings match your search." : "No bookings yet. Add facilities first, then create bookings."}
+              </p>
             </div>
           ) : (
             <div className="space-y-2">
@@ -172,10 +173,11 @@ export function BookingsPage() {
       ) : (
         // Facilities tab
         facilities.length === 0 ? (
-          <div className="card py-16 text-center">
-            <Building className="mx-auto size-10 text-ink-faint/30" />
-            <p className="mt-3 text-sm font-medium text-ink">No facilities registered yet</p>
-            <p className="mt-1 text-xs text-ink-muted">Add rooms or spaces to enable bookings.</p>
+          <div className="card p-12 text-center">
+            <Building className="mx-auto size-10 text-ink-faint" />
+            <p className="mt-3 text-sm text-ink-muted">
+              No facilities registered yet. Add rooms or spaces to enable bookings.
+            </p>
             <button onClick={() => { setEditingFacility(null); setShowFacility(true); }} className="btn-primary btn-sm mt-4">
               <Building className="size-3.5" /> Add facility
             </button>

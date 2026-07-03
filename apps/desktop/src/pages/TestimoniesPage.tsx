@@ -86,9 +86,9 @@ export function TestimoniesPage() {
       </div>
 
       <div className="mb-4 flex items-center gap-3">
-        <div className="relative max-w-xs flex-1">
+        <div className="relative max-w-md flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-9 pl-9" placeholder="Search testimonies..." />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-10 pl-9" placeholder="Search testimonies..." />
         </div>
         <select value={filter} onChange={(e) => setFilter(e.target.value)} className="input h-9 max-w-[10rem]">
           <option value="all">All categories</option>
