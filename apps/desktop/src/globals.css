@@ -198,7 +198,7 @@ select.input {
 }
 
 .drawer {
-  @apply fixed inset-y-0 right-0 z-50 w-full max-w-md bg-surface shadow-2xl animate-slide-right overflow-y-auto;
+  @apply fixed inset-y-0 right-0 z-50 w-full max-w-md border-l border-line bg-surface shadow-2xl animate-fade-up overflow-y-auto;
 }
 
 .modal-overlay {

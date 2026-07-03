@@ -364,14 +364,14 @@ function PersonDrawer({
     <>
       <div className="drawer-overlay" onClick={onClose} />
       <div className="drawer">
-        <div className="relative bg-gradient-to-br from-primary/10 via-primary/5 to-transparent p-6 pb-8">
-          <button onClick={onClose} className="absolute right-4 top-4 grid size-8 place-items-center rounded-lg bg-surface/80 hover:bg-surface">
-            <X className="size-4 text-ink-faint" />
+        <div className="relative bg-gradient-to-br from-primary/8 via-surface to-surface px-6 pb-4 pt-6">
+          <button onClick={onClose} className="absolute right-4 top-4 grid size-9 place-items-center rounded-lg text-ink-muted transition-colors hover:bg-surface-2">
+            <X className="size-5" />
           </button>
           <div className="flex items-center gap-4">
             <div onClick={() => p.photo_url && onPhotoClick(p.photo_url)}
               className={p.photo_url ? "cursor-zoom-in" : ""}>
-              <Avatar name={fullName} src={p.photo_url} size="xl" />
+              <Avatar name={fullName} src={p.photo_url} size="xl" className="ring-4 ring-surface" />
             </div>
             <div>
               <h2 className="text-xl font-bold text-ink">{fullName}</h2>
@@ -389,7 +389,7 @@ function PersonDrawer({
           </div>
         </div>
 
-        <div className="p-6 space-y-4 overflow-y-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
+        <div className="px-6 pb-6 overflow-y-auto" style={{ maxHeight: "calc(100vh - 200px)" }}>
           <DetailSection title="Contact">
             <DetailRow icon={Phone} label="Phone" value={p.phone} />
             <DetailRow icon={Phone} label="Work Phone" value={p.work_phone} />
@@ -496,9 +496,9 @@ function PersonDrawer({
 
 function DetailSection({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div>
-      <p className="text-xs font-semibold text-ink-faint uppercase tracking-wider mb-2">{title}</p>
-      <div className="space-y-2">{children}</div>
+    <div className="mt-4">
+      <h3 className="text-xs font-semibold uppercase tracking-wide text-ink-faint mb-1">{title}</h3>
+      <div className="space-y-0.5">{children}</div>
     </div>
   );
 }
@@ -506,11 +506,13 @@ function DetailSection({ title, children }: { title: string; children: React.Rea
 function DetailRow({ icon: Icon, label, value }: { icon: any; label: string; value?: string | null }) {
   if (!value) return null;
   return (
-    <div className="flex items-center gap-3">
-      <Icon className="size-4 text-ink-faint shrink-0" />
+    <div className="flex items-center gap-3 rounded-lg px-1 py-2 text-sm transition-colors hover:bg-surface-2/50">
+      <span className="grid size-8 place-items-center rounded-lg bg-surface-2/60">
+        <Icon className="size-3.5 text-ink-faint" />
+      </span>
       <div>
         <p className="text-[10px] text-ink-faint">{label}</p>
-        <p className="text-sm text-ink">{value}</p>
+        <p className="text-ink">{value}</p>
       </div>
     </div>
   );
