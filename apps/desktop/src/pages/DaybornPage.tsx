@@ -177,7 +177,7 @@ export function DaybornPage() {
     <PageShell title="Day Born">
       <PageHeader title="Day Born" description="Sunday day-born collections by day of the week." />
 
-      <div className="mb-5 grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Total Collected" value={formatCurrency(stats.totalAll)} icon={Sun} color="text-primary-bright" />
         <StatCard label="Cash Collections" value={formatCurrency(stats.totalCash)} icon={Sun} color="text-success" />
         <StatCard label="MoMo / Bank" value={formatCurrency(stats.totalMomo)} icon={Smartphone} color="text-info" />
@@ -220,7 +220,7 @@ export function DaybornPage() {
                 <p className="text-lg font-bold text-primary-bright">{formatCurrency(liveCashTotal)}</p>
               </div>
             </div>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
               {DAYS.map((day) => (
                 <div key={day} className="space-y-1">
                   <label className="block text-xs font-medium text-ink-muted">{DAY_LABELS[day]} <span className="text-ink-faint">({DAY_AKAN[day]})</span></label>

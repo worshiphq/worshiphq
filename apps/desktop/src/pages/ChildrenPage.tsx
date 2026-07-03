@@ -88,7 +88,7 @@ export function ChildrenPage() {
         </button>
       </PageHeader>
 
-      <div className="mb-5 grid grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="mb-5 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard label="Total" value={stats.total} icon={Users} color="text-primary-bright" />
         <StatCard label="Children" value={stats.children} icon={Baby} color="text-success" />
         <StatCard label="Teens" value={stats.teens} icon={GraduationCap} color="text-gold" />
@@ -118,7 +118,7 @@ export function ChildrenPage() {
           <p className="mt-1 text-xs text-ink-faint">{search ? `No one matches "${search}".` : "Add children and teens to track them separately from adult members."}</p>
         </div>
       ) : (
-        <div className="card p-0 overflow-hidden">
+        <div className="overflow-hidden rounded-2xl border border-line">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-line bg-surface-2/50">
