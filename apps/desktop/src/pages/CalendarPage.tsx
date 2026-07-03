@@ -40,9 +40,11 @@ export function CalendarPage() {
   async function loadData() {
     setLoading(true);
     const cid = session!.churchId;
+    const rangeStart = `${year - 1}-01-01`;
+    const rangeEnd = `${year + 1}-12-31`;
     const [evRows, sessRows, bdayRows] = await Promise.all([
-      db.rawQuery("SELECT id, title, type, starts_at FROM event WHERE church_id = ? ORDER BY starts_at ASC", [cid]),
-      db.rawQuery("SELECT id, service_name, date FROM attendance_session WHERE church_id = ? ORDER BY date ASC", [cid]),
+      db.rawQuery("SELECT id, title, type, starts_at FROM event WHERE church_id = ? AND starts_at >= ? AND starts_at <= ? ORDER BY starts_at ASC", [cid, rangeStart, rangeEnd]),
+      db.rawQuery("SELECT id, service_name, date FROM attendance_session WHERE church_id = ? AND date >= ? AND date <= ? ORDER BY date ASC", [cid, rangeStart, rangeEnd]),
       db.rawQuery("SELECT first_name, last_name, birthday FROM person WHERE church_id = ? AND birthday IS NOT NULL", [cid]),
     ]);
 

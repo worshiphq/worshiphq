@@ -26,10 +26,16 @@ export function TestimoniesPage() {
     if (session?.churchId) loadData();
   }, [session?.churchId, syncVersion]);
 
+  const [people, setPeople] = useState<any[]>([]);
+
   async function loadData() {
     setLoading(true);
-    const rows = await db.rawQuery("SELECT * FROM testimony WHERE church_id = ? ORDER BY date DESC LIMIT 500", [session!.churchId]);
+    const [rows, ppl] = await Promise.all([
+      db.rawQuery("SELECT * FROM testimony WHERE church_id = ? ORDER BY date DESC LIMIT 500", [session!.churchId]),
+      db.rawQuery("SELECT id, first_name, last_name FROM person WHERE church_id = ? AND status = 'active' ORDER BY first_name ASC", [session!.churchId]),
+    ]);
     setTestimonies(rows);
+    setPeople(ppl);
     setLoading(false);
   }
 
@@ -126,19 +132,19 @@ export function TestimoniesPage() {
       )}
 
       <Modal open={showForm} onClose={() => { setShowForm(false); setEditing(null); }} title={editing ? "Edit Testimony" : "Add Testimony"}>
-        <TestimonyForm churchId={session!.churchId} existing={editing} onClose={() => { setShowForm(false); setEditing(null); }} onSaved={() => { setShowForm(false); setEditing(null); loadData(); }} />
+        <TestimonyForm churchId={session!.churchId} existing={editing} people={people} onClose={() => { setShowForm(false); setEditing(null); }} onSaved={() => { setShowForm(false); setEditing(null); loadData(); }} />
       </Modal>
     </PageShell>
   );
 }
 
-function TestimonyForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
+function TestimonyForm({ churchId, existing, people, onClose, onSaved }: { churchId: string; existing?: any; people: any[]; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
     title: existing?.title || "", category: existing?.category || "praise",
     body: existing?.body || "", date: existing?.date?.slice(0, 10) || new Date().toISOString().slice(0, 10),
-    anonymous: existing?.anonymous ? true : false,
+    anonymous: existing?.anonymous ? true : false, person_id: existing?.person_id || "",
   });
   const set = (k: string) => (e: any) => setForm((f) => ({ ...f, [k]: e.target.value }));
 
@@ -149,6 +155,7 @@ function TestimonyForm({ churchId, existing, onClose, onSaved }: { churchId: str
     const data = {
       title: form.title.trim(), category: form.category || "praise",
       body: form.body.trim(), date: form.date, anonymous: form.anonymous ? 1 : 0,
+      person_id: form.person_id || null,
     };
     if (existing) {
       await db.update("testimony", existing.id, data);
@@ -171,6 +178,12 @@ function TestimonyForm({ churchId, existing, onClose, onSaved }: { churchId: str
           </select>
         </div>
         <div><label className="block text-xs font-medium text-ink-muted mb-1">Date</label><input type="date" value={form.date} onChange={set("date")} className="input" /></div>
+      </div>
+      <div><label className="block text-xs font-medium text-ink-muted mb-1">Member (optional)</label>
+        <select value={form.person_id} onChange={set("person_id")} className="input">
+          <option value="">— None —</option>
+          {people.map((p) => <option key={p.id} value={p.id}>{p.first_name} {p.last_name}</option>)}
+        </select>
       </div>
       <div><label className="block text-xs font-medium text-ink-muted mb-1">Testimony *</label><textarea value={form.body} onChange={set("body")} className="input" rows={4} required placeholder="Share the testimony..." /></div>
       <label className="flex items-center gap-2 text-sm text-ink-muted"><input type="checkbox" checked={form.anonymous} onChange={(e) => setForm((f) => ({ ...f, anonymous: e.target.checked }))} /> Share anonymously</label>

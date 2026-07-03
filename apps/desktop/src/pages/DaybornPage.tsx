@@ -73,8 +73,8 @@ export function DaybornPage() {
     setWeeks(wk);
     const map: Record<string, any[]> = {};
     if (wk.length) {
-      const ids = wk.map((w: any) => `'${w.id}'`).join(",");
-      const ent = await db.rawQuery(`SELECT * FROM day_born_entry WHERE week_id IN (${ids}) ORDER BY created_at ASC`);
+      const placeholders = wk.map(() => "?").join(",");
+      const ent = await db.rawQuery(`SELECT * FROM day_born_entry WHERE week_id IN (${placeholders}) ORDER BY created_at ASC`, wk.map((w: any) => w.id));
       for (const e of ent) { (map[e.week_id] ||= []).push(e); }
     }
     setEntriesByWeek(map);

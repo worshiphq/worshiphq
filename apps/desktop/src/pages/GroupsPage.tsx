@@ -45,7 +45,12 @@ export function GroupsPage() {
          WHERE g.church_id = ? ORDER BY g.name ASC`,
         [session!.churchId]
       ),
-      db.rawQuery("SELECT group_id, COUNT(*) as cnt FROM group_member GROUP BY group_id", []),
+      db.rawQuery(
+        `SELECT gm.group_id, COUNT(*) as cnt FROM group_member gm
+         INNER JOIN "group" g ON gm.group_id = g.id AND g.church_id = ?
+         GROUP BY gm.group_id`,
+        [session!.churchId]
+      ),
     ]);
     setGroups(g);
     const counts: Record<string, number> = {};

@@ -488,7 +488,6 @@ function BatchRecorder({ people, church, churchId, onChanged }: { people: any[];
 
   async function saveTemplate() {
     setSavingTpl(true);
-    // NOTE: church.tithe_receipt_template is a SCHEMA NEED; write is a no-op until column exists.
     await db.update("church", churchId, { tithe_receipt_template: templateText });
     setSavingTpl(false);
     showToast("Tithe message template saved");

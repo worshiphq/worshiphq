@@ -245,7 +245,6 @@ function HarvestTemplateEditor({ church, churchId }: { church: any; churchId: st
 
   async function save() {
     setSaving(true);
-    // NOTE: church.harvest_receipt_template is a SCHEMA NEED; write is a no-op until column exists.
     await db.update("church", churchId, { harvest_receipt_template: text });
     setSaving(false); showToast("Harvest message template saved"); setShow(false);
   }

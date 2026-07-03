@@ -11,7 +11,7 @@ import { useAppStore } from "../stores/app-store";
 import { formatCurrency, cn } from "../lib/utils";
 import { v4 as uuid } from "uuid";
 
-const CONDITIONS = ["New", "Good", "Fair", "Poor", "Needs Repair", "Decommissioned"];
+const CONDITIONS = ["new", "good", "fair", "poor", "decommissioned"];
 
 export function AssetsPage() {
   const { session, showToast, syncVersion } = useAppStore();
@@ -52,8 +52,9 @@ export function AssetsPage() {
   }
 
   const conditionColor = (c: string) => {
-    if (c === "New" || c === "Good") return "bg-success/10 text-success";
-    if (c === "Fair") return "bg-gold/10 text-gold";
+    const lc = c.toLowerCase();
+    if (lc === "new" || lc === "good") return "bg-success/10 text-success";
+    if (lc === "fair") return "bg-gold/10 text-gold";
     return "bg-danger/10 text-danger";
   };
 
@@ -103,7 +104,7 @@ export function AssetsPage() {
                   <td className="px-4 py-3"><span className="rounded-md bg-surface-3 px-2 py-0.5 text-[11px] font-medium text-ink-muted">{a.category || "—"}</span></td>
                   <td className="px-4 py-3 text-right font-bold text-ink">{formatCurrency(a.purchase_price || 0)}</td>
                   <td className="px-4 py-3 text-center">
-                    <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold", conditionColor(a.condition || ""))}>{a.condition || "—"}</span>
+                    <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-bold capitalize", conditionColor(a.condition || ""))}>{a.condition || "—"}</span>
                   </td>
                   <td className="px-4 py-3 text-ink-muted">{a.location || "—"}</td>
                   <td className="px-4 py-3">
@@ -132,7 +133,7 @@ function AssetForm({ churchId, existing, onClose, onSaved }: { churchId: string;
   const [form, setForm] = useState({
     name: existing?.name || "", category: existing?.category || "",
     purchase_price: existing?.purchase_price != null ? String(existing.purchase_price) : "",
-    condition: existing?.condition || "New", location: existing?.location || "",
+    condition: existing?.condition || "new", location: existing?.location || "",
     serial_no: existing?.serial_no || "", purchase_date: existing?.purchase_date ? existing.purchase_date.slice(0, 10) : "",
     notes: existing?.notes || "",
   });
@@ -167,7 +168,7 @@ function AssetForm({ churchId, existing, onClose, onSaved }: { churchId: string;
       </div>
       <div className="grid grid-cols-2 gap-3">
         <div><label className="block text-xs font-medium text-ink-muted mb-1">Condition</label>
-          <select value={form.condition} onChange={set("condition")} className="input">{CONDITIONS.map((c) => <option key={c}>{c}</option>)}</select>
+          <select value={form.condition} onChange={set("condition")} className="input capitalize">{CONDITIONS.map((c) => <option key={c} value={c} className="capitalize">{c}</option>)}</select>
         </div>
         <div><label className="block text-xs font-medium text-ink-muted mb-1">Location</label><input value={form.location} onChange={set("location")} className="input" placeholder="e.g. Main Hall" /></div>
       </div>

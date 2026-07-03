@@ -38,10 +38,11 @@ export function BookingsPage() {
   async function loadData() {
     setLoading(true);
     const cid = session!.churchId;
+    const cutoff = new Date(Date.now() - 90 * 86400000).toISOString();
     const [b, f] = await Promise.all([
       db.rawQuery(
-        "SELECT bk.*, f.name AS facility_name FROM booking bk LEFT JOIN facility f ON bk.facility_id = f.id WHERE bk.church_id = ? ORDER BY bk.start_time DESC LIMIT 500",
-        [cid]
+        "SELECT bk.*, f.name AS facility_name FROM booking bk LEFT JOIN facility f ON bk.facility_id = f.id WHERE bk.church_id = ? AND (bk.start_time >= ? OR bk.end_time >= ?) ORDER BY bk.start_time DESC LIMIT 500",
+        [cid, cutoff, cutoff]
       ),
       db.rawQuery("SELECT * FROM facility WHERE church_id = ? ORDER BY name ASC", [cid]),
     ]);

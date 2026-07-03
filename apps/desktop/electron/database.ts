@@ -133,6 +133,7 @@ function createTables() {
       custom_role_id TEXT,
       photo_url     TEXT,
       phone         TEXT,
+      phone_verified INTEGER DEFAULT 0,
       person_id     TEXT,
       created_at    TEXT DEFAULT (datetime('now'))
     );
@@ -785,6 +786,7 @@ function migrateSchema() {
     { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='tithe_receipt_template'", sql: "ALTER TABLE church ADD COLUMN tithe_receipt_template TEXT" },
     { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='harvest_receipt_template'", sql: "ALTER TABLE church ADD COLUMN harvest_receipt_template TEXT" },
     { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='featured_leader_count'", sql: "ALTER TABLE church ADD COLUMN featured_leader_count INTEGER DEFAULT 6" },
+    { check: "SELECT 1 FROM pragma_table_info('user') WHERE name='phone_verified'", sql: "ALTER TABLE user ADD COLUMN phone_verified INTEGER DEFAULT 0" },
   ];
 
   for (const m of migrations) {
