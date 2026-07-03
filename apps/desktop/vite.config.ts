@@ -38,6 +38,7 @@ export default defineConfig({
     ]),
     electronRenderer(),
   ],
+  base: "./",
   build: {
     sourcemap: false,
   },

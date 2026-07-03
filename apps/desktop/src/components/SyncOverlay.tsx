@@ -97,8 +97,8 @@ export function SyncOverlay() {
   const isActive = syncOverlay.phase !== "done" && syncOverlay.phase !== "error";
 
   return (
-    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm">
-      <div className="mx-4 w-full max-w-md rounded-2xl bg-surface p-6 shadow-2xl border border-line">
+    <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
+      <div className="mx-4 w-full max-w-md rounded-2xl bg-surface p-6 shadow-[0_24px_60px_-16px_rgba(0,0,0,0.25)] border border-line animate-scale-in">
         {/* Icon */}
         <div className="flex justify-center mb-4">
           <div className={`rounded-2xl p-4 ${syncOverlay.phase === "done" ? "bg-success/10" : syncOverlay.phase === "error" ? "bg-danger/10" : "bg-primary-soft"}`}>

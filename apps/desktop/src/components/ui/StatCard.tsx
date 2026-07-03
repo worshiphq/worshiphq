@@ -18,16 +18,16 @@ export function StatCard({
   trend?: number;
 }) {
   return (
-    <div className="card-hover">
+    <div className="card-hover animate-fade-up">
       <div className="flex items-center justify-between">
         <span className="text-xs font-medium text-ink-muted">{label}</span>
-        <span className={cn("grid size-9 place-items-center rounded-xl", color)}>
+        <span className={cn("grid size-9 place-items-center rounded-xl transition-transform duration-300 group-hover:scale-110", color)}>
           <Icon className="size-4" />
         </span>
       </div>
       <div className="mt-2 flex items-baseline gap-1">
         {prefix && <span className="text-sm text-ink-muted">{prefix}</span>}
-        <span className="text-2xl font-bold text-ink">{value}</span>
+        <span className="text-2xl font-bold text-ink stat-value">{value}</span>
         {suffix && <span className="text-sm text-ink-muted">{suffix}</span>}
       </div>
       {trend !== undefined && (

@@ -13,13 +13,26 @@ export function Topbar({ title }: { title: string }) {
   const { session, syncStatus, setSyncStatus, setSession } = useAppStore();
   const [syncing, setSyncing] = useState(false);
   const [syncPhase, setSyncPhase] = useState<string | null>(null);
-  const [online, setOnline] = useState(navigator.onLine);
+  const [online, setOnline] = useState(true);
   const [menuOpen, setMenuOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
-    const onOnline = () => setOnline(true);
-    const onOffline = () => setOnline(false);
+    let mounted = true;
+    async function checkOnline() {
+      try {
+        const s = useAppStore.getState().session;
+        const url = s?.serverUrl || "https://worshiphq.app";
+        const r = await fetch(`${url}/api/health`, { method: "HEAD", signal: AbortSignal.timeout(5000) });
+        if (mounted) setOnline(r.ok);
+      } catch {
+        if (mounted) setOnline(false);
+      }
+    }
+    checkOnline();
+    const interval = setInterval(checkOnline, 30000);
+    const onOnline = () => { checkOnline(); };
+    const onOffline = () => { checkOnline(); };
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
 
@@ -35,6 +48,8 @@ export function Topbar({ title }: { title: string }) {
     });
 
     return () => {
+      mounted = false;
+      clearInterval(interval);
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
       unsub();

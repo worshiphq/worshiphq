@@ -17,7 +17,7 @@ export function TitleBar() {
     >
       {/* Left: app icon + name */}
       <div className="flex items-center gap-2 pl-3">
-        <img src="/icon.png" alt="" className="size-4 object-contain" />
+        <img src="./icon.png" alt="" className="size-4 object-contain" />
         <span className="text-[11px] font-semibold text-ink-muted">WorshipHQ</span>
       </div>
 

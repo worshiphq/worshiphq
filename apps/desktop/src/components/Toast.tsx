@@ -21,8 +21,8 @@ export function Toast() {
   const Icon = icons[toast.type];
 
   return (
-    <div className="fixed bottom-5 right-5 z-50 animate-in slide-in-from-bottom-2">
-      <div className={cn("flex items-center gap-2.5 rounded-xl border px-4 py-2.5 shadow-lg", colors[toast.type])}>
+    <div className="fixed bottom-5 right-5 z-50 animate-slide-up">
+      <div className={cn("flex items-center gap-2.5 rounded-xl border px-4 py-2.5 shadow-lg backdrop-blur-sm", colors[toast.type])}>
         <Icon className="size-4 shrink-0" />
         <span className="text-sm font-medium">{toast.message}</span>
         <button onClick={clearToast} className="ml-2 opacity-60 hover:opacity-100">

@@ -12,16 +12,32 @@ export function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
-  const [online, setOnline] = useState(navigator.onLine);
+  const [online, setOnline] = useState(true);
 
   useEffect(() => {
+    let mounted = true;
+    async function check() {
+      try {
+        const r = await fetch("https://worshiphq.app/api/health", {
+          method: "HEAD",
+          signal: AbortSignal.timeout(5000),
+        });
+        if (mounted) setOnline(r.ok);
+      } catch {
+        if (mounted) setOnline(true);
+      }
+    }
+    check();
     const onOnline = () => setOnline(true);
-    const onOffline = () => setOnline(false);
+    const onOffline = () => { check(); };
     window.addEventListener("online", onOnline);
     window.addEventListener("offline", onOffline);
+    const interval = setInterval(check, 15000);
     return () => {
+      mounted = false;
       window.removeEventListener("online", onOnline);
       window.removeEventListener("offline", onOffline);
+      clearInterval(interval);
     };
   }, []);
 
@@ -59,7 +75,7 @@ export function LoginPage() {
       <div className="hidden lg:flex lg:w-[45%] flex-col justify-between border-r border-line bg-surface p-10 relative overflow-hidden">
         <div className="absolute inset-0 bg-gradient-to-br from-primary/5 via-transparent to-primary/10" />
         <div className="relative flex items-center justify-center flex-1">
-          <img src="/logo.png" alt="WorshipHQ" className="h-40 w-auto object-contain" />
+          <img src="./logo.png" alt="WorshipHQ" className="h-40 w-auto object-contain" />
         </div>
         <div className="relative max-w-md">
           <p className="text-lg font-medium leading-snug text-ink">
@@ -77,7 +93,7 @@ export function LoginPage() {
         <div className="w-full max-w-sm">
           {/* Logo for narrow view */}
           <div className="mb-8 lg:hidden text-center">
-            <img src="/icon.png" alt="WorshipHQ" className="mx-auto h-16 w-auto object-contain" />
+            <img src="./icon.png" alt="WorshipHQ" className="mx-auto h-16 w-auto object-contain" />
           </div>
 
           <h1 className="text-3xl font-bold text-ink">Welcome back</h1>
@@ -152,7 +168,7 @@ export function LoginPage() {
 
             <button
               type="submit"
-              disabled={loading || !online}
+              disabled={loading}
               className="btn-primary w-full py-2.5 text-sm font-semibold"
             >
               {loading && <Loader2 className="size-4 whq-spin" />}

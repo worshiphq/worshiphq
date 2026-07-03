@@ -116,7 +116,7 @@ export function Sidebar() {
           />
         ) : (
           <div className="grid size-8 shrink-0 place-items-center rounded-lg bg-primary-soft">
-            <img src="/icon.png" alt="" className="size-5 object-contain" />
+            <img src="./icon.png" alt="" className="size-5 object-contain" />
           </div>
         )}
         {!collapsed && (

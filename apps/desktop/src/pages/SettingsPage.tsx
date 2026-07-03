@@ -1903,7 +1903,7 @@ function AboutTab({ version }: { version: string }) {
 
       <div className="card space-y-4">
         <div className="flex items-center gap-4">
-          <img src="/icon.png" alt="" className="size-14 object-contain" />
+          <img src="./icon.png" alt="" className="size-14 object-contain" />
           <div>
             <p className="text-lg font-bold text-ink">WorshipHQ</p>
             <p className="text-sm text-ink-muted">Church Management System</p>
