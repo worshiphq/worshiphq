@@ -439,10 +439,7 @@ function PersonDrawer({ person, canWrite, adults, onClose, onEdit }: { person: P
                 {isYouth ? (
                   <Badge variant={person.ageGroup === "teen" ? "gold" : "info"} className="capitalize">{person.ageGroup}</Badge>
                 ) : (
-                  <>
-                    <Badge variant={eng.variant}>{eng.label}</Badge>
-                    <Badge variant="default" className="capitalize">{person.status}</Badge>
-                  </>
+                  <Badge variant={eng.variant}>{eng.label}</Badge>
                 )}
                 {person.biometricRegistered ? (
                   <Badge variant="success" className="gap-1"><Fingerprint className="size-3" /> Biometrics</Badge>

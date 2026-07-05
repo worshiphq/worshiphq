@@ -26,7 +26,7 @@ export function Modal({
   return (
     <div className="modal-overlay" onClick={onClose}>
       <div
-        className={`modal ${wide ? "max-w-2xl" : "max-w-lg"}`}
+        className={`modal ${wide ? "max-w-2xl max-h-[95vh]" : ""}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-5 flex items-start justify-between">

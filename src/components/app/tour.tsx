@@ -107,7 +107,7 @@ export function TourProvider({ children }: { children: React.ReactNode }) {
       {mounted && onThisPage && steps.length > 0 && !running && (
         <button
           onClick={startCurrent}
-          className="fixed bottom-5 right-5 z-[80] flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition-transform hover:-translate-y-0.5"
+          className="fixed bottom-5 right-5 z-30 flex items-center gap-2 rounded-full bg-primary px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition-transform hover:-translate-y-0.5"
         >
           <HelpCircle className="size-4" /> Tips
         </button>

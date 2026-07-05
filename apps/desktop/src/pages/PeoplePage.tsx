@@ -385,9 +385,8 @@ function PersonDrawer({
               {p.member_id && <p className="mt-0.5 text-xs text-ink-faint font-mono">{p.member_id}</p>}
               <div className="mt-2 flex gap-1.5">
                 <span className={cn("badge", p.status === "active" ? "badge-success" : "badge-muted")}>
-                  {p.status || "active"}
+                  {(p.status || "active").charAt(0).toUpperCase() + (p.status || "active").slice(1)}
                 </span>
-                {p.featured && <span className="badge badge-primary">Featured</span>}
                 {p.baptized && <span className="badge badge-info">Baptized</span>}
               </div>
             </div>
