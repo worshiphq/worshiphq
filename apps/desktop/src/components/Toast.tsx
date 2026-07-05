@@ -1,3 +1,4 @@
+import { createPortal } from "react-dom";
 import { CheckCircle2, AlertCircle, Info, X } from "lucide-react";
 import { useAppStore } from "../stores/app-store";
 import { cn } from "../lib/utils";
@@ -20,7 +21,7 @@ export function Toast() {
 
   const Icon = icons[toast.type];
 
-  return (
+  return createPortal(
     <div className="pointer-events-none fixed inset-x-0 bottom-4 z-[110] flex flex-col items-center gap-2 px-4">
       <div className={cn("pointer-events-auto flex items-center gap-2.5 rounded-xl border px-4 py-3 text-sm font-medium shadow-lg animate-slide-up", colors[toast.type])}>
         <Icon className="size-4 shrink-0" />
@@ -29,6 +30,7 @@ export function Toast() {
           <X className="size-3.5" />
         </button>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 export function Modal({
@@ -23,7 +24,7 @@ export function Modal({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <div className="modal-overlay" onClick={onClose}>
       <div
         className={`modal ${wide ? "max-w-2xl max-h-[95vh]" : ""}`}
@@ -37,7 +38,8 @@ export function Modal({
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
@@ -59,10 +61,11 @@ export function Drawer({
 
   if (!open) return null;
 
-  return (
+  return createPortal(
     <>
       <div className="drawer-overlay" onClick={onClose} />
       <div className="drawer">{children}</div>
-    </>
+    </>,
+    document.body,
   );
 }

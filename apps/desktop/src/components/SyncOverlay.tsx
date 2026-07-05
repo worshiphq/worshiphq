@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import {
   RefreshCw, CheckCircle2, XCircle, CloudUpload, CloudDownload,
   Loader2, Database,
@@ -96,7 +97,7 @@ export function SyncOverlay() {
   const Icon = config.icon;
   const isActive = syncOverlay.phase !== "done" && syncOverlay.phase !== "error";
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40 backdrop-blur-sm animate-fade-in">
       <div className="mx-4 w-full max-w-md rounded-2xl bg-surface p-6 shadow-[0_24px_60px_-16px_rgba(0,0,0,0.25)] border border-line animate-fade-up">
         {/* Icon */}
@@ -168,7 +169,8 @@ export function SyncOverlay() {
           </button>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

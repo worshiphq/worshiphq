@@ -1,4 +1,5 @@
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 export function Lightbox({
@@ -18,7 +19,7 @@ export function Lightbox({
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  return (
+  return createPortal(
     <>
       <div
         className="fixed inset-0 z-[90] bg-black/80 backdrop-blur-md"
@@ -41,6 +42,7 @@ export function Lightbox({
           className="max-h-[80vh] max-w-[90vw] rounded-2xl object-contain shadow-2xl ring-1 ring-white/10"
         />
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
