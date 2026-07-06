@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Plus, Loader2, Wallet, TrendingUp, TrendingDown, Scale,
-  Pencil, Trash2, ChevronLeft, ChevronRight, Layers,
+  Pencil, Trash2, ChevronLeft, ChevronRight, Layers, Download,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -157,6 +157,22 @@ export function AccountingPage() {
         title="Accounting"
         description="Income, expenses and fund balances in ₵. Categories classify the type (Offering, Tithe, Rent); Funds track which pot of money (General, Building, Missions)."
       >
+        <button onClick={() => {
+          const headers = ["Date", "Description", "Category", "Fund", "Amount", "Source"];
+          const csvRows = rows.map((r) => [
+            new Date(r.date).toLocaleDateString(), r.description, r.category, r.fund,
+            String(r.amount), r.source,
+          ]);
+          const csv = [headers, ...csvRows].map((r) => r.map((c) => `"${(c || "").replace(/"/g, '""')}"`).join(",")).join("\n");
+          const blob = new Blob([csv], { type: "text/csv" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a"); a.href = url;
+          a.download = `accounting-${allTime ? "all" : `${year}-${String(month + 1).padStart(2, "0")}`}.csv`;
+          a.click(); URL.revokeObjectURL(url);
+          showToast("CSV exported");
+        }} className="btn-secondary btn-sm">
+          <Download className="size-3.5" /> Export CSV
+        </button>
         <button onClick={() => { setEditing(null); setShowForm(true); }} className="btn-primary btn-sm">
           <Plus className="size-3.5" /> New Transaction
         </button>
