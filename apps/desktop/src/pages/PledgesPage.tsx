@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import {
   Plus, Loader2, Target, Trash2, HandCoins, TrendingUp, Pencil, Coins,
+  Search, AlertTriangle,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -21,6 +22,7 @@ export function PledgesPage() {
   const [editingCampaign, setEditingCampaign] = useState<any>(null);
   const [editingPledge, setEditingPledge] = useState<any>(null);
   const [payingPledge, setPayingPledge] = useState<any>(null);
+  const [search, setSearch] = useState("");
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -115,7 +117,14 @@ export function PledgesPage() {
           )}
 
           {/* Pledges table */}
-          <h3 className="mb-3 text-sm font-bold text-ink uppercase tracking-wider">Pledges</h3>
+          <div className="mb-3 flex items-center justify-between">
+            <h3 className="text-sm font-bold text-ink uppercase tracking-wider">Pledges</h3>
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
+              <input value={search} onChange={(e) => setSearch(e.target.value)}
+                className="input h-9 pl-9 w-52 text-sm" placeholder="Search pledges..." />
+            </div>
+          </div>
           <div className="card p-0 overflow-hidden">
             {pledges.length === 0 ? (
               <div className="py-12 text-center">
@@ -136,16 +145,20 @@ export function PledgesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-line-soft">
-                  {pledges.map((p) => {
+                  {pledges.filter((p) => !search || (p.donor_name || "").toLowerCase().includes(search.toLowerCase()) || (p.campaign_name || "").toLowerCase().includes(search.toLowerCase())).map((p) => {
                     const pct = p.amount > 0 ? Math.round(((p.fulfilled || 0) / p.amount) * 100) : 0;
                     const fulfilled = pct >= 100;
+                    const overdue = !fulfilled && p.due_at && new Date(p.due_at) < new Date();
                     return (
                       <tr key={p.id} className="hover:bg-surface-2/50">
                         <td className="px-4 py-3 font-medium text-ink">{p.donor_name}</td>
                         <td className="px-4 py-3 text-ink-muted">{p.campaign_name || "—"}</td>
                         <td className="px-4 py-3 text-right font-bold text-ink">{formatCurrency(p.amount)}</td>
                         <td className="px-4 py-3 text-right font-bold text-success">{formatCurrency(p.fulfilled || 0)}</td>
-                        <td className="px-4 py-3 text-xs text-ink-faint">{p.due_at ? formatDate(p.due_at) : "—"}</td>
+                        <td className="px-4 py-3 text-xs text-ink-faint">
+                          {p.due_at ? formatDate(p.due_at) : "—"}
+                          {overdue && <span className="ml-1.5 inline-flex items-center gap-0.5 badge badge-danger text-[10px]"><AlertTriangle className="size-2.5" />Overdue</span>}
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-2">
                             <div className="w-16 h-1.5 overflow-hidden rounded-full bg-surface-3">

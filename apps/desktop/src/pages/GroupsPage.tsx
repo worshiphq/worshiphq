@@ -1,4 +1,5 @@
 import { useEffect, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   Plus, Loader2, Users2, Trash2, Search, MapPin, Calendar, User, Pencil,
   UserPlus, X, ArrowLeft, Phone,
@@ -280,7 +281,7 @@ function GroupDetailDrawer({ churchId, groupId, onClose }: { churchId: string; g
   const filteredMembers = members.filter((m) => !search || `${m.first_name} ${m.last_name}`.toLowerCase().includes(search.toLowerCase()));
   const filteredAvailable = available.filter((p) => !addSearch || `${p.first_name} ${p.last_name}`.toLowerCase().includes(addSearch.toLowerCase())).slice(0, 20);
 
-  return (
+  return createPortal(
     <>
       <div className="drawer-overlay" onClick={onClose} />
       <div className={cn("drawer", busy && "opacity-70")}>
@@ -385,6 +386,7 @@ function GroupDetailDrawer({ churchId, groupId, onClose }: { churchId: string; g
           )}
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }

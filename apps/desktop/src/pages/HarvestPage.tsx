@@ -26,6 +26,7 @@ export function HarvestPage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [yearFilter, setYearFilter] = useState("");
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -38,11 +39,18 @@ export function HarvestPage() {
     setLoading(false);
   }
 
+  const harvestYears = useMemo(() => [...new Set(harvests.map((h) => String(h.year || new Date(h.date || "").getFullYear())).filter((y) => y && y !== "NaN"))].sort().reverse(), [harvests]);
+
+  const displayHarvests = useMemo(() => {
+    if (!yearFilter) return harvests;
+    return harvests.filter((h) => String(h.year || new Date(h.date || "").getFullYear()) === yearFilter);
+  }, [harvests, yearFilter]);
+
   const stats = useMemo(() => ({
-    count: harvests.length,
-    totalGoal: harvests.reduce((s, h) => s + (h.goal || 0), 0),
-    totalRaised: harvests.reduce((s, h) => s + (h.raised || 0), 0),
-  }), [harvests]);
+    count: displayHarvests.length,
+    totalGoal: displayHarvests.reduce((s, h) => s + (h.goal || 0), 0),
+    totalRaised: displayHarvests.reduce((s, h) => s + (h.raised || 0), 0),
+  }), [displayHarvests]);
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this harvest and all its contributions?")) return;
@@ -60,6 +68,12 @@ export function HarvestPage() {
   return (
     <PageShell title="Harvest">
       <PageHeader title="Harvest" description="Track annual harvest campaigns, contributions, and reports.">
+        {harvestYears.length > 1 && (
+          <select value={yearFilter} onChange={(e) => setYearFilter(e.target.value)} className="input h-9 w-32 text-sm">
+            <option value="">All Years</option>
+            {harvestYears.map((y) => <option key={y} value={y}>{y}</option>)}
+          </select>
+        )}
         <button onClick={() => setShowForm(true)} className="btn-primary btn-sm"><Plus className="size-3.5" /> New Harvest</button>
       </PageHeader>
 
@@ -71,7 +85,7 @@ export function HarvestPage() {
 
       {loading ? (
         <div className="flex items-center justify-center py-16"><Loader2 className="size-6 text-primary-bright whq-spin" /></div>
-      ) : harvests.length === 0 ? (
+      ) : displayHarvests.length === 0 ? (
         <div className="py-16 text-center">
           <Wheat className="mx-auto size-10 text-ink-faint/30" />
           <p className="mt-3 text-sm font-medium text-ink">No harvest campaigns yet</p>
@@ -79,7 +93,7 @@ export function HarvestPage() {
         </div>
       ) : (
         <div className="grid gap-3 grid-cols-2">
-          {harvests.map((h) => {
+          {displayHarvests.map((h) => {
             const pct = h.goal > 0 ? Math.round(((h.raised || 0) / h.goal) * 100) : 0;
             return (
               <div key={h.id} className="card p-4">

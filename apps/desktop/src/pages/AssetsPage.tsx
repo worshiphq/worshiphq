@@ -20,6 +20,7 @@ export function AssetsPage() {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+  const [catFilter, setCatFilter] = useState("");
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -32,11 +33,17 @@ export function AssetsPage() {
     setLoading(false);
   }
 
+  const assetCategories = useMemo(() => [...new Set(assets.map((a) => a.category).filter(Boolean))].sort(), [assets]);
+
   const filtered = useMemo(() => {
-    if (!search) return assets;
-    const q = search.toLowerCase();
-    return assets.filter((a) => a.name?.toLowerCase().includes(q) || a.category?.toLowerCase().includes(q) || a.location?.toLowerCase().includes(q));
-  }, [assets, search]);
+    let list = assets;
+    if (catFilter) list = list.filter((a) => a.category === catFilter);
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter((a) => a.name?.toLowerCase().includes(q) || a.category?.toLowerCase().includes(q) || a.location?.toLowerCase().includes(q));
+    }
+    return list;
+  }, [assets, search, catFilter]);
 
   const stats = useMemo(() => {
     const totalValue = assets.reduce((s, a) => s + (a.purchase_price || 0), 0);
@@ -72,9 +79,17 @@ export function AssetsPage() {
         <StatCard label="Categories" value={stats.categories} icon={Package} color="text-gold" />
       </div>
 
-      <div className="mb-4 relative max-w-md">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-10 pl-9" placeholder="Search assets..." />
+      <div className="mb-4 flex items-center gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-10 pl-9" placeholder="Search assets..." />
+        </div>
+        {assetCategories.length > 0 && (
+          <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)} className="input h-10 w-44 text-sm">
+            <option value="">All Categories</option>
+            {assetCategories.map((c) => <option key={c} value={c}>{c}</option>)}
+          </select>
+        )}
       </div>
 
       <div className="card p-0 overflow-hidden">

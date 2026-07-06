@@ -20,6 +20,7 @@ export function ExpensesPage() {
   const [search, setSearch] = useState("");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
+  const [catFilter, setCatFilter] = useState("");
 
   useEffect(() => {
     if (session?.churchId) loadData();
@@ -33,10 +34,14 @@ export function ExpensesPage() {
   }
 
   const filtered = useMemo(() => {
-    if (!search) return expenses;
-    const q = search.toLowerCase();
-    return expenses.filter((e) => e.description?.toLowerCase().includes(q) || e.category?.toLowerCase().includes(q) || e.vendor?.toLowerCase().includes(q));
-  }, [expenses, search]);
+    let list = expenses;
+    if (catFilter) list = list.filter((e) => e.category === catFilter);
+    if (search) {
+      const q = search.toLowerCase();
+      list = list.filter((e) => e.description?.toLowerCase().includes(q) || e.category?.toLowerCase().includes(q) || e.vendor?.toLowerCase().includes(q));
+    }
+    return list;
+  }, [expenses, search, catFilter]);
 
   const stats = useMemo(() => {
     const total = expenses.reduce((s, e) => s + (e.amount || 0), 0);
@@ -74,9 +79,15 @@ export function ExpensesPage() {
         <StatCard label="Records" value={stats.count} icon={Wallet} color="text-primary-bright" />
       </div>
 
-      <div className="mb-4 relative max-w-md">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-10 pl-9" placeholder="Search expenses..." />
+      <div className="mb-4 flex items-center gap-3">
+        <div className="relative flex-1 max-w-md">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-10 pl-9" placeholder="Search expenses..." />
+        </div>
+        <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)} className="input h-10 w-44 text-sm">
+          <option value="">All Categories</option>
+          {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+        </select>
       </div>
 
       <div className="card p-0 overflow-hidden">

@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import {
   Plus, Loader2, CalendarDays, Users, Ticket, MapPin, Trash2,
-  X, Clock, Tag, Pencil,
+  X, Clock, Tag, Pencil, Globe,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -61,6 +61,9 @@ export function EventsPage() {
   return (
     <PageShell title="Events">
       <PageHeader title="Events & Calendar" description="Services, seminars and camps — with registration tracking.">
+        <button onClick={() => window.api?.openExternal("https://worshiphq.app/app/calendar")} className="btn-secondary btn-sm">
+          <Globe className="size-3.5" /> Public Calendar
+        </button>
         <button onClick={() => setShowForm(true)} className="btn-primary btn-sm">
           <Plus className="size-3.5" /> Create Event
         </button>

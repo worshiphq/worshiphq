@@ -1,10 +1,11 @@
 import { useEffect, useState, useMemo } from "react";
+import { createPortal } from "react-dom";
 import {
   Search, Plus, Loader2, Trash2, Edit3, X, Users, User,
   Grid3X3, List, Phone, Mail, MapPin, Briefcase, Heart,
   ChevronRight, ArrowDownAZ, GraduationCap, Baby, MessageSquare,
   Camera, ChevronDown, ChevronUp, Shield, Calendar, Home, Globe,
-  BookOpen, Star, AlertCircle, Fingerprint,
+  BookOpen, Star, AlertCircle, Fingerprint, Download,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -19,7 +20,7 @@ import { cn, formatDate } from "../lib/utils";
 import { v4 as uuid } from "uuid";
 
 type AgeTab = "adult" | "teen" | "child";
-type Segment = "all" | "active" | "inactive";
+type Segment = "all" | "active" | "inactive" | "visitor";
 type ViewMode = "list" | "grid";
 type SortBy = "name-az" | "name-za" | "newest" | "oldest";
 
@@ -33,6 +34,7 @@ const segments: { key: Segment; label: string }[] = [
   { key: "all", label: "All" },
   { key: "active", label: "Active" },
   { key: "inactive", label: "Inactive" },
+  { key: "visitor", label: "Visitors" },
 ];
 
 export function PeoplePage() {
@@ -91,7 +93,11 @@ export function PeoplePage() {
     } else {
       list = list.filter((p) => !p.age_group || p.age_group === "adult");
     }
-    if (segment !== "all") list = list.filter((p) => p.status === segment);
+    if (segment === "visitor") {
+      list = list.filter((p) => p.status === "visitor" || p.is_visitor);
+    } else if (segment !== "all") {
+      list = list.filter((p) => p.status === segment);
+    }
     if (deptFilter) {
       list = list.filter((p) => p.department_id === deptFilter);
     }
@@ -115,6 +121,22 @@ export function PeoplePage() {
     });
     return list;
   }, [people, ageTab, segment, search, sortBy, deptFilter]);
+
+  function exportCsv() {
+    const headers = ["First Name", "Last Name", "Phone", "Email", "Gender", "Status", "Member ID", "Date of Birth", "Department", "Joined"];
+    const rows = filtered.map((p) => [
+      p.first_name, p.last_name, p.phone || "", p.email || "", p.gender || "",
+      p.status || "active", p.member_id || "", p.date_of_birth || "",
+      departments.find((d) => d.id === p.department_id)?.name || "", p.joined_at || "",
+    ]);
+    const csv = [headers, ...rows].map((r) => r.map((c: string) => `"${(c || "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = `members-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    showToast("CSV exported");
+  }
 
   function openEdit(id: string) {
     setEditingId(id);
@@ -145,6 +167,9 @@ export function PeoplePage() {
   return (
     <PageShell title="People">
       <PageHeader title="People" description="Manage your church members, visitors and contacts.">
+        <button onClick={exportCsv} className="btn-secondary btn-sm">
+          <Download className="size-3.5" /> Export CSV
+        </button>
         <button onClick={() => { setEditingId(null); setShowForm(true); }} className="btn-primary btn-sm">
           <Plus className="size-3.5" /> Add Member
         </button>
@@ -365,7 +390,7 @@ function PersonDrawer({
   const fullName = `${p.first_name} ${p.last_name}`;
   const deptName = departments.find((d) => d.id === p.department_id)?.name;
 
-  return (
+  return createPortal(
     <>
       <div className="drawer-overlay" onClick={onClose} />
       <div className="drawer">
@@ -483,7 +508,8 @@ function PersonDrawer({
           </div>
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }
 
