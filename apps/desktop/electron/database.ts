@@ -314,6 +314,19 @@ function createTables() {
       color     TEXT DEFAULT '#6D5EF8'
     );
 
+    -- ── Church Account (financial accounts/buckets) ──
+    CREATE TABLE IF NOT EXISTS church_account (
+      id          TEXT PRIMARY KEY,
+      church_id   TEXT NOT NULL REFERENCES church(id) ON DELETE CASCADE,
+      name        TEXT NOT NULL,
+      type        TEXT DEFAULT 'bank',
+      bank_name   TEXT,
+      account_number TEXT,
+      is_default  INTEGER DEFAULT 0,
+      created_at  TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_church_account_church ON church_account(church_id);
+
     -- ── Gift (giving/tithe) ──
     CREATE TABLE IF NOT EXISTS gift (
       id          TEXT PRIMARY KEY,
@@ -787,6 +800,10 @@ function migrateSchema() {
     { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='harvest_receipt_template'", sql: "ALTER TABLE church ADD COLUMN harvest_receipt_template TEXT" },
     { check: "SELECT 1 FROM pragma_table_info('church') WHERE name='featured_leader_count'", sql: "ALTER TABLE church ADD COLUMN featured_leader_count INTEGER DEFAULT 6" },
     { check: "SELECT 1 FROM pragma_table_info('user') WHERE name='phone_verified'", sql: "ALTER TABLE user ADD COLUMN phone_verified INTEGER DEFAULT 0" },
+    // v4: Multiple accounts feature
+    { check: "SELECT 1 FROM sqlite_master WHERE type='table' AND name='church_account'", sql: `CREATE TABLE IF NOT EXISTS church_account (id TEXT PRIMARY KEY, church_id TEXT NOT NULL REFERENCES church(id) ON DELETE CASCADE, name TEXT NOT NULL, type TEXT DEFAULT 'bank', bank_name TEXT, account_number TEXT, is_default INTEGER DEFAULT 0, created_at TEXT DEFAULT (datetime('now'))); CREATE INDEX IF NOT EXISTS idx_church_account_church ON church_account(church_id)` },
+    { check: "SELECT 1 FROM pragma_table_info('fund') WHERE name='account_id'", sql: "ALTER TABLE fund ADD COLUMN account_id TEXT REFERENCES church_account(id) ON DELETE SET NULL" },
+    { check: "SELECT 1 FROM pragma_table_info('transaction') WHERE name='account_id'", sql: 'ALTER TABLE "transaction" ADD COLUMN account_id TEXT REFERENCES church_account(id) ON DELETE SET NULL' },
   ];
 
   for (const m of migrations) {

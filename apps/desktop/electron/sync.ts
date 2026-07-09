@@ -14,6 +14,7 @@ const SYNC_TABLES = [
   "group_member",
   "attendance_session",
   "attendance_record",
+  "church_account",
   "fund",
   "gift",
   "transaction",

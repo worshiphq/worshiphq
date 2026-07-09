@@ -79,6 +79,7 @@ model Church {
   departments   Department[]
   households     Household[]
   groups        Group[]
+  churchAccounts ChurchAccount[]
   funds         Fund[]
   gifts         Gift[]
   pledges       Pledge[]
@@ -423,14 +424,32 @@ enum GiftMethod {
   Cash
 }
 
+model ChurchAccount {
+  id            String   @id @default(cuid())
+  churchId      String
+  church        Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name          String
+  type          String   @default("bank")
+  bankName      String?
+  accountNumber String?
+  isDefault     Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  funds         Fund[]
+  transactions  Transaction[]
+
+  @@index([churchId])
+}
+
 model Fund {
-  id       String   @id @default(cuid())
-  churchId String
-  church   Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  name     String
-  color    String   @default("#6D5EF8")
-  gifts    Gift[]
-  pledges  Pledge[]
+  id        String         @id @default(cuid())
+  churchId  String
+  church    Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name      String
+  color     String         @default("#6D5EF8")
+  accountId String?
+  account   ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  gifts     Gift[]
+  pledges   Pledge[]
 
   @@index([churchId])
 }
@@ -670,14 +689,16 @@ model DayBornEntry {
 
 // ── Accounting ────────────────────────────────────────────
 model Transaction {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   churchId    String
-  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  church      Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
   description String
   category    String
   fund        String?
-  amount      Decimal  @db.Decimal(12, 2) // positive = income, negative = expense
-  date        DateTime @default(now())
+  accountId   String?
+  account     ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  amount      Decimal        @db.Decimal(12, 2) // positive = income, negative = expense
+  date        DateTime       @default(now())
 
   @@index([churchId])
 }
