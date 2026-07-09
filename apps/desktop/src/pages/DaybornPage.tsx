@@ -7,7 +7,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { StatCard } from "../components/ui/StatCard";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
-import { cn, formatCurrency } from "../lib/utils";
+import { cn, formatCurrency, safeNum } from "../lib/utils";
 import { v4 as uuid } from "uuid";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
@@ -90,15 +90,15 @@ export function DaybornPage() {
 
   const liveCashTotal = useMemo(() => DAYS.reduce((sum, day) => {
     const local = amounts[day];
-    const val = local !== undefined ? parseFloat(local) || 0 : Number(currentWeek?.[day] ?? 0);
+    const val = local !== undefined ? parseFloat(local) || 0 : safeNum(currentWeek?.[day]);
     return sum + val;
   }, 0), [amounts, currentWeek]);
-  const momoTotal = currentEntries.reduce((s, e) => s + Number(e.amount), 0);
+  const momoTotal = currentEntries.reduce((s, e) => s + safeNum(e.amount), 0);
   const liveGrandTotal = liveCashTotal + momoTotal;
 
   const stats = useMemo(() => {
-    const cashOf = (w: any) => DAYS.reduce((s, d) => s + Number(w[d] || 0), 0);
-    const momoOf = (w: any) => (entriesByWeek[w.id] || []).reduce((s, e) => s + Number(e.amount), 0);
+    const cashOf = (w: any) => DAYS.reduce((s, d) => s + safeNum(w[d]), 0);
+    const momoOf = (w: any) => (entriesByWeek[w.id] || []).reduce((s, e) => s + safeNum(e.amount), 0);
     const totalCash = weeks.reduce((s, w) => s + cashOf(w), 0);
     const totalMomo = weeks.reduce((s, w) => s + momoOf(w), 0);
     const posted = weeks.filter((w) => w.posted).length;
@@ -126,7 +126,7 @@ export function DaybornPage() {
     const dayData: Record<string, number> = {};
     for (const day of DAYS) {
       const local = amounts[day];
-      dayData[day] = local !== undefined ? Math.max(0, parseFloat(local) || 0) : Number(currentWeek?.[day] ?? 0);
+      dayData[day] = local !== undefined ? Math.max(0, parseFloat(local) || 0) : safeNum(currentWeek?.[day]);
     }
     if (currentWeek) {
       await db.update("day_born_week", currentWeek.id, dayData);
@@ -157,7 +157,7 @@ export function DaybornPage() {
 
   async function postToAccounting(week: any) {
     const cash = DAYS.reduce((s, d) => s + Number(week[d] || 0), 0);
-    const momo = (entriesByWeek[week.id] || []).reduce((s, e) => s + Number(e.amount), 0);
+    const momo = (entriesByWeek[week.id] || []).reduce((s, e) => s + safeNum(e.amount), 0);
     const grand = cash + momo;
     if (grand <= 0 || week.posted) return;
     setPostingId(week.id);
@@ -259,7 +259,7 @@ export function DaybornPage() {
                         <p className="truncate text-sm font-medium text-ink">{entry.person_name || DAY_LABELS[entry.day]} <span className="font-normal text-ink-faint">({DAY_AKAN[entry.day] ?? entry.day})</span></p>
                         <p className="text-xs text-ink-faint">{method?.label ?? entry.method}{entry.reference && ` · ${entry.reference}`}</p>
                       </div>
-                      <span className="text-sm font-semibold text-ink">{formatCurrency(Number(entry.amount))}</span>
+                      <span className="text-sm font-semibold text-ink">{formatCurrency(safeNum(entry.amount))}</span>
                       <button onClick={() => deleteEntry(entry)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
                     </div>
                   );
@@ -382,7 +382,7 @@ function HistoryTab({ weeks, entriesByWeek, postingId, onPost, onDelete }: {
         const sundayIso = new Date(new Date(week.week_of).getTime() + 6 * 86400000).toISOString().slice(0, 10);
         const entries = entriesByWeek[week.id] || [];
         const cash = DAYS.reduce((s, d) => s + Number(week[d] || 0), 0);
-        const momo = entries.reduce((s, e) => s + Number(e.amount), 0);
+        const momo = entries.reduce((s, e) => s + safeNum(e.amount), 0);
         const grand = cash + momo;
         return (
           <div key={week.id} className="card p-4">

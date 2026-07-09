@@ -11,7 +11,7 @@ import { Avatar } from "../components/ui/Avatar";
 import { Modal } from "../components/ui/Modal";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
-import { formatCurrency, formatDate, cn } from "../lib/utils";
+import { formatCurrency, formatDate, cn, safeNum } from "../lib/utils";
 import { v4 as uuid } from "uuid";
 
 const METHODS = ["Cash", "MTN_MoMo", "Telecel_Cash", "AirtelTigo", "Card"];
@@ -187,7 +187,7 @@ function HarvestDetail({ harvest, churchId, onBack, onChanged }: { harvest: any;
     setContributions(c); setMembers(m); setChurch(ch); setLoading(false);
   }
 
-  const totalRaised = contributions.reduce((s, c) => s + (c.amount || 0), 0);
+  const totalRaised = contributions.reduce((s, c) => s + (safeNum(c.amount)), 0);
   const memberCount = contributions.filter((c) => c.donor_type === "member").length;
   const visitorCount = contributions.filter((c) => c.donor_type === "visitor").length;
   const contributorCount = new Set(contributions.map((c) => c.person_id ?? c.donor_name)).size;
@@ -332,8 +332,8 @@ function ContributionRecorder({ harvest, churchId, members, onRecorded, onMember
   const updateAmount = (i: number, v: string) => setEntries((p) => p.map((e, idx) => idx === i ? { ...e, amount: v } : e));
   const updateMethod = (i: number, v: string) => setEntries((p) => p.map((e, idx) => idx === i ? { ...e, method: v } : e));
   const removeEntry = (i: number) => setEntries((p) => p.filter((_, idx) => idx !== i));
-  const totalAmount = entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-  const validEntries = entries.filter((e) => Number(e.amount) > 0);
+  const totalAmount = entries.reduce((s, e) => s + (safeNum(e.amount)), 0);
+  const validEntries = entries.filter((e) => safeNum(e.amount) > 0);
 
   async function handleSubmit() {
     if (!validEntries.length) { showToast("Add at least one entry with an amount"); return; }
@@ -341,7 +341,7 @@ function ContributionRecorder({ harvest, churchId, members, onRecorded, onMember
     for (const e of validEntries) {
       await db.insert("harvest_contribution", {
         id: uuid(), harvest_id: harvest.id, church_id: churchId, person_id: e.personId || null,
-        donor_name: e.name, donor_phone: e.phone || null, donor_type: e.type, amount: Number(e.amount),
+        donor_name: e.name, donor_phone: e.phone || null, donor_type: e.type, amount: safeNum(e.amount),
         method: e.method, receipt_sent: 0, date: new Date().toISOString().slice(0, 10),
       });
     }

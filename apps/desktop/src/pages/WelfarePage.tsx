@@ -8,7 +8,7 @@ import { StatCard } from "../components/ui/StatCard";
 import { Modal } from "../components/ui/Modal";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
-import { formatCurrency, formatDate, cn } from "../lib/utils";
+import { formatCurrency, formatDate, cn, safeNum } from "../lib/utils";
 import { v4 as uuid } from "uuid";
 
 const TYPES = ["Financial", "Medical", "Food", "Housing", "Education", "Counseling", "Other"];
@@ -46,10 +46,10 @@ export function WelfarePage() {
   }, [records, search]);
 
   const stats = useMemo(() => {
-    const total = records.reduce((s, r) => s + (r.amount || 0), 0);
+    const total = records.reduce((s, r) => s + (safeNum(r.amount)), 0);
     const now = new Date();
     const thisMonth = records.filter((r) => { const d = new Date(r.date); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
-    const monthTotal = thisMonth.reduce((s, r) => s + (r.amount || 0), 0);
+    const monthTotal = thisMonth.reduce((s, r) => s + (safeNum(r.amount)), 0);
     const uniqueRecipients = new Set(records.map((r) => r.recipient_name?.toLowerCase())).size;
     return { total, monthTotal, count: records.length, uniqueRecipients };
   }, [records]);
@@ -150,7 +150,7 @@ function WelfareForm({ churchId, people, existing, onClose, onSaved }: { churchI
     setSaving(true);
     const data = {
       person_id: form.person_id || null, recipient_name: form.recipient_name.trim(), type: form.type,
-      description: form.description || null, amount: Number(form.amount) || 0, date: form.date,
+      description: form.description || null, amount: safeNum(form.amount), date: form.date,
     };
     if (existing) {
       await db.update("welfare_record", existing.id, data);

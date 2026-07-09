@@ -9,13 +9,14 @@ import { StatCard } from "../components/ui/StatCard";
 import { Modal } from "../components/ui/Modal";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
-import { cn } from "../lib/utils";
+import { cn, safeNum } from "../lib/utils";
 import { v4 as uuid } from "uuid";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-function cedis(n: number) {
-  return "₵" + (n || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function cedis(n: number | string | null | undefined) {
+  const v = typeof n === "string" ? parseFloat(n) : (n ?? 0);
+  return "₵" + (isNaN(v) ? 0 : v).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 interface Row {
@@ -74,7 +75,7 @@ export function AccountingPage() {
       .filter((t) => inPeriod(t.date))
       .map((t) => ({
         id: t.id, description: t.description, category: t.category,
-        fund: t.fund || "General", amount: Number(t.amount), date: t.date, source: "manual" as const,
+        fund: t.fund || "General", amount: safeNum(t.amount), date: t.date, source: "manual" as const,
       }));
 
     const givingRows: Row[] = gifts
@@ -82,7 +83,7 @@ export function AccountingPage() {
       .map((g) => ({
         id: g.id, description: `${g.donor_name || "Anonymous"} — ${fundName(g.fund_id)}`,
         category: fundName(g.fund_id), fund: fundName(g.fund_id),
-        amount: Number(g.amount), date: g.date, source: "giving" as const,
+        amount: safeNum(g.amount), date: g.date, source: "giving" as const,
       }));
 
     const all = [...manualRows, ...givingRows].sort(
@@ -353,11 +354,11 @@ export function AccountingPage() {
 function TxnForm({ churchId, existing, onClose, onSaved }: { churchId: string; existing?: any; onClose: () => void; onSaved: () => void }) {
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
-  const initType = existing ? (Number(existing.amount) < 0 ? "Expense" : "Income") : "Income";
+  const initType = existing ? (safeNum(existing.amount) < 0 ? "Expense" : "Income") : "Income";
   const [form, setForm] = useState({
     description: existing?.description || "",
     type: initType,
-    amount: existing ? String(Math.abs(Number(existing.amount))) : "",
+    amount: existing ? String(Math.abs(safeNum(existing.amount))) : "",
     category: existing?.category || "General",
     fund: existing?.fund || "General",
   });
@@ -366,7 +367,7 @@ function TxnForm({ churchId, existing, onClose, onSaved }: { churchId: string; e
     e.preventDefault();
     if (!form.description.trim() || !form.amount) return;
     setSaving(true);
-    const raw = Math.abs(Number(form.amount));
+    const raw = Math.abs(safeNum(form.amount));
     const amount = form.type === "Expense" ? -raw : raw;
     const data = {
       description: form.description.trim(),

@@ -12,7 +12,7 @@ import { Avatar } from "../components/ui/Avatar";
 import { Modal } from "../components/ui/Modal";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
-import { formatCurrency, formatDate, cn } from "../lib/utils";
+import { formatCurrency, formatDate, cn, safeNum } from "../lib/utils";
 import { v4 as uuid } from "uuid";
 
 const METHODS = ["Cash", "MTN_MoMo", "Telecel_Cash", "AirtelTigo", "Card"];
@@ -102,11 +102,11 @@ export function GivingPage() {
   const stats = useMemo(() => {
     const now = new Date();
     const monthGifts = gifts.filter((g) => { const d = new Date(g.date); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
-    const monthTotal = monthGifts.reduce((s, g) => s + (g.amount || 0), 0);
+    const monthTotal = monthGifts.reduce((s, g) => s + (safeNum(g.amount)), 0);
     const momoCount = monthGifts.filter((g) => ["MTN_MoMo", "Telecel_Cash", "AirtelTigo"].includes(g.method)).length;
     const recurringCount = gifts.filter((g) => g.recurring).length;
     return {
-      total: gifts.reduce((s, g) => s + (g.amount || 0), 0),
+      total: gifts.reduce((s, g) => s + (safeNum(g.amount)), 0),
       monthTotal, count: gifts.length,
       avgGift: monthGifts.length ? Math.round(monthTotal / monthGifts.length) : 0,
       momoPct: monthGifts.length ? Math.round((momoCount / monthGifts.length) * 100) : 0,
@@ -121,7 +121,7 @@ export function GivingPage() {
       const d = new Date(g.date);
       if (d.getMonth() !== now.getMonth() || d.getFullYear() !== now.getFullYear()) continue;
       const name = g.fund_name || "General";
-      byFund.set(name, (byFund.get(name) || 0) + (g.amount || 0));
+      byFund.set(name, (byFund.get(name) || 0) + (safeNum(g.amount)));
     }
     return [...byFund.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value);
   }, [gifts]);
@@ -292,11 +292,11 @@ function GiftForm({ churchId, people, funds, existing, onClose, onSaved }: {
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!form.amount || Number(form.amount) <= 0) return;
+    if (!form.amount || safeNum(form.amount) <= 0) return;
     setSaving(true);
     const data = {
       person_id: form.person_id || null, donor_name: form.donor_name || null,
-      fund_id: form.fund_id || null, amount: Number(form.amount), method: form.method,
+      fund_id: form.fund_id || null, amount: safeNum(form.amount), method: form.method,
       recurring: form.recurring ? 1 : 0, currency: "GHS", date: form.date,
     };
     if (existing) { await db.update("gift", existing.id, data); showToast("Gift updated"); }
@@ -371,10 +371,10 @@ function TitheSection({ people, gifts, church, funds, churchId, onChanged }: {
         label: w.label, start: w.start, end: w.end,
         records: recs.map((g) => ({
           id: g.id, donorName: g.first_name ? `${g.first_name} ${g.last_name}` : g.donor_name || "Anonymous",
-          amount: g.amount || 0, method: methodLabel(g.method), date: g.date,
+          amount: safeNum(g.amount), method: methodLabel(g.method), date: g.date,
           receiptSent: !!g.receipt_sent, phone: g.phone, photoUrl: g.photo_url, personId: g.person_id,
         })),
-        total: recs.reduce((s, g) => s + (g.amount || 0), 0),
+        total: recs.reduce((s, g) => s + (safeNum(g.amount)), 0),
       };
     });
   }, [titheGifts, year, month]);
@@ -457,8 +457,8 @@ function BatchRecorder({ people, church, churchId, onChanged }: { people: any[];
   const updateMethod = (i: number, v: string) => setEntries((p) => p.map((e, idx) => idx === i ? { ...e, method: v } : e));
   const removeEntry = (i: number) => setEntries((p) => p.filter((_, idx) => idx !== i));
 
-  const totalAmount = entries.reduce((s, e) => s + (Number(e.amount) || 0), 0);
-  const validEntries = entries.filter((e) => Number(e.amount) > 0);
+  const totalAmount = entries.reduce((s, e) => s + (safeNum(e.amount) || 0), 0);
+  const validEntries = entries.filter((e) => safeNum(e.amount) > 0);
 
   /** Resolve (or create) the target fund by name for this church. */
   async function resolveFund(name: string): Promise<string> {
@@ -476,7 +476,7 @@ function BatchRecorder({ people, church, churchId, onChanged }: { people: any[];
     for (const e of validEntries) {
       await db.insert("gift", {
         id: uuid(), church_id: churchId, person_id: e.personId, donor_name: e.name,
-        fund_id: fundId, amount: Number(e.amount), method: e.method, currency: "GHS", receipt_sent: 0,
+        fund_id: fundId, amount: safeNum(e.amount), method: e.method, currency: "GHS", receipt_sent: 0,
         date: new Date().toISOString().slice(0, 10),
       });
     }
@@ -705,7 +705,7 @@ function MonthlyReport({ weeks, monthLabel, monthTotal }: { weeks: any[]; monthL
   for (const r of allRecords) {
     const key = r.personId ?? r.donorName;
     const ex = byPayer.get(key);
-    if (ex) { ex.total += r.amount; ex.count++; } else byPayer.set(key, { name: r.donorName, total: r.amount, count: 1 });
+    if (ex) { ex.total += safeNum(r.amount); ex.count++; } else byPayer.set(key, { name: r.donorName, total: safeNum(r.amount), count: 1 });
   }
   const payerList = [...byPayer.values()].sort((a, b) => b.total - a.total);
 
@@ -783,10 +783,10 @@ function StatementsSection({ gifts, people, church }: { gifts: any[]; people: an
         });
       }
       const rec = byPerson.get(key);
-      rec.total += g.amount || 0;
+      rec.total += safeNum(g.amount);
       const fundName = g.fund_name || "General";
-      rec.byFund.set(fundName, (rec.byFund.get(fundName) || 0) + (g.amount || 0));
-      rec.gifts.push({ id: g.id, amount: g.amount || 0, date: g.date, method: methodLabel(g.method), fund: fundName });
+      rec.byFund.set(fundName, (rec.byFund.get(fundName) || 0) + (safeNum(g.amount)));
+      rec.gifts.push({ id: g.id, amount: safeNum(g.amount), date: g.date, method: methodLabel(g.method), fund: fundName });
     }
     return [...byPerson.values()].map((d) => ({
       ...d, giftCount: d.gifts.length,

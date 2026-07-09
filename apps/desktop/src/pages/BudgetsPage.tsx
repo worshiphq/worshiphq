@@ -8,7 +8,7 @@ import { StatCard } from "../components/ui/StatCard";
 import { Modal } from "../components/ui/Modal";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
-import { formatCurrency, cn } from "../lib/utils";
+import { formatCurrency, cn, safeNum } from "../lib/utils";
 import { v4 as uuid } from "uuid";
 
 export function BudgetsPage() {
@@ -40,7 +40,7 @@ export function BudgetsPage() {
   }
 
   const stats = useMemo(() => {
-    const totalBudgeted = budgets.reduce((s, b) => s + (b.total || 0), 0);
+    const totalBudgeted = budgets.reduce((s, b) => s + (safeNum(b.total)), 0);
     const totalSpent = items.reduce((s, i) => s + (i.spent || 0), 0);
     return { count: budgets.length, totalBudgeted, totalSpent };
   }, [budgets, items]);
@@ -93,7 +93,7 @@ export function BudgetsPage() {
         <div className="space-y-3">
           {budgets.map((b) => {
             const budgetItems = items.filter((i) => i.budget_id === b.id);
-            const totalAllocated = budgetItems.reduce((s, i) => s + (i.amount || 0), 0);
+            const totalAllocated = budgetItems.reduce((s, i) => s + (safeNum(i.amount)), 0);
             const totalSpent = budgetItems.reduce((s, i) => s + (i.spent || 0), 0);
             const isExpanded = expanded.has(b.id);
 
@@ -252,7 +252,7 @@ function ItemForm({ churchId, budgetId, existing, onClose, onSaved }: { churchId
     setSaving(true);
     const data = {
       category: form.category.trim(), description: form.description || null,
-      amount: Number(form.amount) || 0,
+      amount: safeNum(form.amount),
     };
     if (existing) {
       await db.update("budget_item", existing.id, data);

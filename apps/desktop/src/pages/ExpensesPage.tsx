@@ -8,7 +8,7 @@ import { StatCard } from "../components/ui/StatCard";
 import { Modal } from "../components/ui/Modal";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
-import { formatCurrency, formatDate, cn } from "../lib/utils";
+import { formatCurrency, formatDate, cn, safeNum } from "../lib/utils";
 import { v4 as uuid } from "uuid";
 
 const CATEGORIES = ["Utilities", "Supplies", "Transport", "Rent", "Salary", "Maintenance", "Equipment", "Food", "Donation", "Other"];
@@ -44,10 +44,10 @@ export function ExpensesPage() {
   }, [expenses, search, catFilter]);
 
   const stats = useMemo(() => {
-    const total = expenses.reduce((s, e) => s + (e.amount || 0), 0);
+    const total = expenses.reduce((s, e) => s + (safeNum(e.amount)), 0);
     const now = new Date();
     const thisMonth = expenses.filter((e) => { const d = new Date(e.date); return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear(); });
-    const monthTotal = thisMonth.reduce((s, e) => s + (e.amount || 0), 0);
+    const monthTotal = thisMonth.reduce((s, e) => s + (safeNum(e.amount)), 0);
     return { total, monthTotal, count: expenses.length };
   }, [expenses]);
 
@@ -60,7 +60,7 @@ export function ExpensesPage() {
     // Mirror web: remove the paired ledger transaction (amount is negative).
     if (exp) {
       const txDesc = `${exp.description}${exp.vendor ? ` (${exp.vendor})` : ""}`;
-      const rows = await db.rawQuery('SELECT id FROM "transaction" WHERE church_id = ? AND description = ? AND amount = ?', [exp.church_id, txDesc, -(exp.amount || 0)]);
+      const rows = await db.rawQuery('SELECT id FROM "transaction" WHERE church_id = ? AND description = ? AND amount = ?', [exp.church_id, txDesc, -safeNum(exp.amount)]);
       for (const r of rows) await db.delete("transaction", r.id);
     }
   }
@@ -152,7 +152,7 @@ function ExpenseForm({ churchId, existing, onClose, onSaved }: { churchId: strin
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setSaving(true);
-    const amount = Number(form.amount) || 0;
+    const amount = safeNum(form.amount);
     const vendor = form.vendor || null;
     const data = {
       description: form.description.trim(), category: form.category,

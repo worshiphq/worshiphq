@@ -9,7 +9,7 @@ import { StatCard } from "../components/ui/StatCard";
 import { Modal } from "../components/ui/Modal";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
-import { formatCurrency, formatDate, cn } from "../lib/utils";
+import { formatCurrency, formatDate, cn, safeNum } from "../lib/utils";
 import { v4 as uuid } from "uuid";
 
 export function PledgesPage() {
@@ -41,7 +41,7 @@ export function PledgesPage() {
   }
 
   const stats = useMemo(() => {
-    const totalPledged = pledges.reduce((s, p) => s + (p.amount || 0), 0);
+    const totalPledged = pledges.reduce((s, p) => s + (safeNum(p.amount)), 0);
     const totalFulfilled = pledges.reduce((s, p) => s + (p.fulfilled || 0), 0);
     const pct = totalPledged > 0 ? Math.round((totalFulfilled / totalPledged) * 100) : 0;
     return { campaigns: campaigns.length, pledges: pledges.length, totalPledged, totalFulfilled, pct };
@@ -250,7 +250,7 @@ function PledgeForm({ churchId, campaigns, existing, onClose, onSaved }: { churc
     e.preventDefault();
     setSaving(true);
     const data = {
-      donor_name: form.donor_name.trim(), amount: Number(form.amount) || 0,
+      donor_name: form.donor_name.trim(), amount: safeNum(form.amount),
       campaign_id: form.campaign_id || null, due_at: form.due_at || null,
     };
     if (existing) {
@@ -288,14 +288,14 @@ function PaymentForm({ pledge, onClose, onSaved }: { pledge: any; onClose: () =>
   const { showToast } = useAppStore();
   const [saving, setSaving] = useState(false);
   const [payment, setPayment] = useState("");
-  const remaining = Math.max(0, (pledge.amount || 0) - (pledge.fulfilled || 0));
+  const remaining = Math.max(0, (safeNum(pledge.amount)) - (safeNum(pledge.fulfilled)));
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     const amt = Number(payment);
     if (!amt || amt <= 0) return;
     setSaving(true);
-    const newFulfilled = Math.min(pledge.amount || 0, (pledge.fulfilled || 0) + amt);
+    const newFulfilled = Math.min(safeNum(pledge.amount), (safeNum(pledge.fulfilled)) + amt);
     await db.update("pledge", pledge.id, { fulfilled: newFulfilled });
     // Mirror web: increment the linked campaign's raised total.
     if (pledge.campaign_id) {
@@ -311,7 +311,7 @@ function PaymentForm({ pledge, onClose, onSaved }: { pledge: any; onClose: () =>
     <form onSubmit={handleSubmit} className="space-y-3">
       <div className="rounded-xl border border-line bg-surface-2/50 p-3 text-sm">
         <div className="flex justify-between"><span className="text-ink-muted">Pledged</span><span className="font-bold text-ink">{formatCurrency(pledge.amount)}</span></div>
-        <div className="flex justify-between"><span className="text-ink-muted">Fulfilled</span><span className="font-bold text-success">{formatCurrency(pledge.fulfilled || 0)}</span></div>
+        <div className="flex justify-between"><span className="text-ink-muted">Fulfilled</span><span className="font-bold text-success">{formatCurrency(safeNum(pledge.fulfilled))}</span></div>
         <div className="flex justify-between"><span className="text-ink-muted">Remaining</span><span className="font-bold text-ink">{formatCurrency(remaining)}</span></div>
       </div>
       <div><label className="block text-xs font-medium text-ink-muted mb-1">Payment Amount (GHS) *</label><input type="number" step="0.01" min="0.01" value={payment} onChange={(e) => setPayment(e.target.value)} className="input" required autoFocus placeholder={String(remaining)} /></div>

@@ -8,7 +8,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { StatCard } from "../components/ui/StatCard";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
-import { formatCurrency, cn } from "../lib/utils";
+import { formatCurrency, cn, safeNum } from "../lib/utils";
 
 const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -57,11 +57,11 @@ export function ReportsPage() {
       months.push({ key: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`, label: MONTH_ABBR[d.getMonth()] });
     }
     const sumByMonth = (rows: any[]) => {
-      const m = new Map(rows.map((r) => [r.month, Number(r.total || 0)]));
+      const m = new Map(rows.map((r) => [r.month, safeNum(r.total)]));
       return months.map((mo) => ({ label: mo.label, value: m.get(mo.key) || 0 }));
     };
     const avgAttByMonth = () => {
-      const m = new Map<string, { total: number; sessions: number }>(monthlyAttendance.map((r: any) => [r.month, { total: Number(r.total || 0), sessions: Number(r.sessions || 0) }]));
+      const m = new Map<string, { total: number; sessions: number }>(monthlyAttendance.map((r: any) => [r.month, { total: safeNum(r.total), sessions: safeNum(r.sessions) }]));
       return months.map((mo) => {
         const v = m.get(mo.key);
         return { label: mo.label, value: v && v.sessions > 0 ? Math.round(v.total / v.sessions) : 0 };

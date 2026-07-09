@@ -9,7 +9,7 @@ import { StatCard } from "../components/ui/StatCard";
 import { Modal } from "../components/ui/Modal";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
-import { formatCurrency, formatDate, cn } from "../lib/utils";
+import { formatCurrency, formatDate, cn, safeNum } from "../lib/utils";
 import { v4 as uuid } from "uuid";
 
 const EVENT_TYPES = ["Service", "Seminar", "Camp", "Special", "Retreat", "Conference"];
@@ -107,7 +107,7 @@ export function EventsPage() {
                   <div className="flex items-center gap-2">
                     {e.paid ? (
                       <span className="rounded-full bg-gold/10 px-2.5 py-0.5 text-xs font-bold text-gold">
-                        {formatCurrency(e.price || 0)}
+                        {formatCurrency(safeNum(e.price))}
                       </span>
                     ) : (
                       <span className="rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-bold text-success">
@@ -229,8 +229,8 @@ function EventForm({ churchId, existing, onClose, onSaved }: { churchId: string;
     // from starts_at, and registration counts come from the (online-only) event_registration relation.
     const data = {
       title: form.title.trim(), type: form.type,
-      starts_at: startsAt, capacity: Number(form.capacity) || 0,
-      price: Number(form.price) || 0, paid: form.paid ? 1 : 0,
+      starts_at: startsAt, capacity: safeNum(form.capacity),
+      price: safeNum(form.price), paid: form.paid ? 1 : 0,
     };
     if (existing) {
       await db.update("event", existing.id, data);
