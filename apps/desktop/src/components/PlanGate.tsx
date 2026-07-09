@@ -11,7 +11,7 @@ interface Props {
 type GateState = "checking" | "ok" | "warning" | "expired" | "error";
 
 export function PlanGate({ children }: Props) {
-  const { session, showToast, setSession } = useAppStore();
+  const { session, showToast, setSession, setPlanInfo: setStorePlan } = useAppStore();
   const [state, setState] = useState<GateState>("checking");
   const [planInfo, setPlanInfo] = useState<PlanInfo | null>(null);
   const [daysLeft, setDaysLeft] = useState<number | null>(null);
@@ -38,6 +38,7 @@ export function PlanGate({ children }: Props) {
     }
 
     setPlanInfo(info);
+    setStorePlan(info);
     evaluatePlan(info);
   }
 

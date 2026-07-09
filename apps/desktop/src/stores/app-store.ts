@@ -1,5 +1,5 @@
 import { create } from "zustand";
-import type { Session, SyncStatus, SyncProgress } from "../lib/api";
+import type { Session, SyncStatus, SyncProgress, PlanInfo } from "../lib/api";
 
 interface SyncOverlayState {
   visible: boolean;
@@ -17,6 +17,7 @@ interface SyncOverlayState {
 
 interface AppState {
   session: Session | null;
+  planInfo: PlanInfo | null;
   syncStatus: SyncStatus;
   syncOverlay: SyncOverlayState;
   syncVersion: number;
@@ -24,6 +25,7 @@ interface AppState {
   toast: { message: string; type: "success" | "error" | "info" } | null;
 
   setSession: (session: Session | null) => void;
+  setPlanInfo: (plan: PlanInfo | null) => void;
   setSyncStatus: (status: SyncStatus) => void;
   updateSyncOverlay: (update: Partial<SyncOverlayState>) => void;
   bumpSyncVersion: () => void;
@@ -48,6 +50,7 @@ const defaultOverlay: SyncOverlayState = {
 
 export const useAppStore = create<AppState>((set) => ({
   session: null,
+  planInfo: null,
   syncStatus: { lastSyncAt: null, pendingChanges: 0, syncing: false, error: null },
   syncOverlay: { ...defaultOverlay },
   syncVersion: 0,
@@ -55,6 +58,7 @@ export const useAppStore = create<AppState>((set) => ({
   toast: null,
 
   setSession: (session) => set({ session }),
+  setPlanInfo: (planInfo) => set({ planInfo }),
   setSyncStatus: (syncStatus) => set({ syncStatus }),
   updateSyncOverlay: (update) => set((s) => ({ syncOverlay: { ...s.syncOverlay, ...update } })),
   bumpSyncVersion: () => set((s) => ({ syncVersion: s.syncVersion + 1 })),

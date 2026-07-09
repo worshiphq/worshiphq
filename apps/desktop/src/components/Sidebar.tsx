@@ -6,12 +6,13 @@ import {
   Megaphone, BookUser, Calendar, BookMarked, Package, Receipt,
   DoorOpen, BookHeart, Sparkles, HeartHandshake, PiggyBank,
   CalendarClock, Crown, Sun, MessageSquare, BellRing, ScrollText,
-  PanelLeftClose, PanelLeft, RefreshCw, Loader2, Baby,
+  PanelLeftClose, PanelLeft, RefreshCw, Loader2, Baby, Lock,
 } from "lucide-react";
 import { useState } from "react";
 import { useAppStore } from "../stores/app-store";
 import { sync } from "../lib/api";
 import { cn } from "../lib/utils";
+import { routeAllowedByPlan, getMinimumPlan } from "../lib/plan-gate";
 
 interface NavItem {
   label: string;
@@ -87,9 +88,10 @@ const sections: NavSection[] = [
 ];
 
 export function Sidebar() {
-  const { session, sidebarCollapsed, toggleSidebar, syncOverlay, syncStatus, setSyncStatus } = useAppStore();
+  const { session, planInfo, sidebarCollapsed, toggleSidebar, syncOverlay, syncStatus, setSyncStatus, showToast } = useAppStore();
   const collapsed = sidebarCollapsed;
   const [syncing, setSyncing] = useState(false);
+  const currentPlan = planInfo?.plan || "free";
 
   async function handleSync() {
     if (syncing || syncOverlay.visible) return;
@@ -139,35 +141,62 @@ export function Sidebar() {
                 {section.title}
               </p>
             )}
-            {section.items.map((item) => (
-              <NavLink
-                key={item.href}
-                to={item.href}
-                end={item.href === "/"}
-                className={({ isActive }) =>
-                  cn(
-                    "group relative mb-0.5 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300",
-                    isActive
-                      ? "text-ink"
-                      : "text-ink-muted hover:bg-surface-2 hover:text-ink"
-                  )
-                }
-                title={collapsed ? item.label : undefined}
-              >
-                {({ isActive }: { isActive: boolean }) => (
-                  <>
-                    {isActive && (
+            {section.items.map((item) => {
+              const allowed = routeAllowedByPlan(currentPlan, item.href);
+              const minPlan = getMinimumPlan(item.href);
+
+              if (!allowed) {
+                return (
+                  <button
+                    key={item.href}
+                    onClick={() => {
+                      showToast(`Upgrade to ${minPlan} plan to unlock ${item.label}`, "info");
+                      window.api?.openExternal("https://worshiphq.app/app/settings?tab=billing");
+                    }}
+                    className="group relative mb-0.5 flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-ink-faint/50 transition-all duration-300 hover:bg-surface-2"
+                    title={collapsed ? `${item.label} (${minPlan} plan)` : undefined}
+                  >
+                    <item.icon className="relative size-[1.15rem] shrink-0 opacity-40" />
+                    {!collapsed && (
                       <>
-                        <span className="absolute inset-0 rounded-xl border border-primary/30 bg-primary/10" />
-                        <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-primary-bright" />
+                        <span className="relative truncate opacity-40">{item.label}</span>
+                        <Lock className="ml-auto size-3 shrink-0 text-ink-faint/60" />
                       </>
                     )}
-                    <item.icon className="relative size-[1.15rem] shrink-0" />
-                    {!collapsed && <span className="relative truncate">{item.label}</span>}
-                  </>
-                )}
-              </NavLink>
-            ))}
+                  </button>
+                );
+              }
+
+              return (
+                <NavLink
+                  key={item.href}
+                  to={item.href}
+                  end={item.href === "/"}
+                  className={({ isActive }) =>
+                    cn(
+                      "group relative mb-0.5 flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all duration-300",
+                      isActive
+                        ? "text-ink"
+                        : "text-ink-muted hover:bg-surface-2 hover:text-ink"
+                    )
+                  }
+                  title={collapsed ? item.label : undefined}
+                >
+                  {({ isActive }: { isActive: boolean }) => (
+                    <>
+                      {isActive && (
+                        <>
+                          <span className="absolute inset-0 rounded-xl border border-primary/30 bg-primary/10" />
+                          <span className="absolute left-0 top-1/2 h-5 w-0.5 -translate-y-1/2 rounded-r-full bg-primary-bright" />
+                        </>
+                      )}
+                      <item.icon className="relative size-[1.15rem] shrink-0" />
+                      {!collapsed && <span className="relative truncate">{item.label}</span>}
+                    </>
+                  )}
+                </NavLink>
+              );
+            })}
           </div>
         ))}
       </nav>
