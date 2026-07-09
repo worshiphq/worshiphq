@@ -6,6 +6,7 @@ import {
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
+import { PageTips } from "../components/Tour";
 import { StatCard } from "../components/ui/StatCard";
 import { Avatar } from "../components/ui/Avatar";
 import { db } from "../lib/api";
@@ -139,8 +140,14 @@ export function DashboardPage() {
         </button>
       </PageHeader>
 
+      <PageTips tourId="desktop-dashboard" steps={[
+        { target: "dash-kpis", title: "Your church at a glance", body: "These cards show your key metrics. Trends compare to last month." },
+        { target: "dash-actions", title: "Quick actions", body: "Jump straight to adding members, recording attendance, or logging giving." },
+        { target: "dash-leadership", title: "Church leadership", body: "Your featured leaders appear here. Manage them from the Leaders page." },
+      ]} />
+
       {/* KPI cards */}
-      <div className="mb-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div data-tour="dash-kpis" className="mb-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard label="Active Members" value={stats.active} icon={Users} color="text-primary-bright" trend={kpiTrends.members} />
         <StatCard label="Weekly Attendance" value={stats.weeklyAtt} icon={CalendarCheck2} color="text-success" trend={kpiTrends.attendance} />
         <StatCard label="Monthly Giving" value={formatCurrency(stats.monthlyGiving)} icon={HandCoins} color="text-gold" trend={kpiTrends.giving} />
@@ -148,7 +155,7 @@ export function DashboardPage() {
       </div>
 
       {/* Quick actions */}
-      <div className="mb-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div data-tour="dash-actions" className="mb-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
         {quickActions.map((a) => (
           <button key={a.label} onClick={() => navigate(a.to)} className="rounded-2xl border border-line bg-surface p-4 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/25 hover:shadow-md flex items-center gap-3 text-left">
             <span className={`grid size-10 place-items-center rounded-xl ${a.color}`}><a.icon className="size-4" /></span>
@@ -159,7 +166,7 @@ export function DashboardPage() {
 
       {/* Featured leaders */}
       {leaders.length > 0 && (
-        <div className="card mb-6">
+        <div data-tour="dash-leadership" className="card mb-6">
           <div className="mb-4 flex items-center justify-between border-b border-line pb-3">
             <h2 className="flex items-center gap-2 font-display text-lg font-semibold text-ink">
               <Crown className="size-4 text-gold" /> Church Leadership

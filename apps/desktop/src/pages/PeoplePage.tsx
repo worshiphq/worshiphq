@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
+import { PageTips } from "../components/Tour";
 import { StatCard } from "../components/ui/StatCard";
 import { Avatar } from "../components/ui/Avatar";
 import { Modal, Drawer } from "../components/ui/Modal";
@@ -174,13 +175,21 @@ export function PeoplePage() {
 
   return (
     <PageShell title="People">
+      <PageTips tourId="desktop-people" steps={[
+        { target: "people-add", title: "Add members", body: "Add members one-by-one or export your list as CSV." },
+        { target: "people-filters", title: "Filter & search", body: "Use age tabs, status filters, department dropdowns, and search to find anyone fast." },
+        { target: "people-list", title: "Member list", body: "Click any member to see their full profile, send SMS, or edit their info." },
+      ]} />
+
       <PageHeader title="People" description="Manage your church members, visitors and contacts.">
-        <button onClick={exportCsv} className="btn-secondary btn-sm">
-          <Download className="size-3.5" /> Export CSV
-        </button>
-        <button onClick={() => { setEditingId(null); setShowForm(true); }} className="btn-primary btn-sm">
-          <Plus className="size-3.5" /> Add Member
-        </button>
+        <div data-tour="people-add" className="flex items-center gap-2">
+          <button onClick={exportCsv} className="btn-secondary btn-sm">
+            <Download className="size-3.5" /> Export CSV
+          </button>
+          <button onClick={() => { setEditingId(null); setShowForm(true); }} className="btn-primary btn-sm">
+            <Plus className="size-3.5" /> Add Member
+          </button>
+        </div>
       </PageHeader>
 
       {/* Stat cards */}
@@ -193,7 +202,7 @@ export function PeoplePage() {
       </div>
 
       {/* Age group tabs */}
-      <div className="mb-4 flex items-center gap-4">
+      <div data-tour="people-filters" className="mb-4 flex items-center gap-4">
         <div className="flex gap-1.5">
           {ageGroupTabs.map((t) => (
             <button key={t.key} onClick={() => setAgeTab(t.key)}
@@ -217,7 +226,7 @@ export function PeoplePage() {
         </div>
         <div className="h-5 w-px bg-line" />
         <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
-          className="input h-9 w-36 text-sm">
+          className="input h-8 w-32 text-xs">
           <option value="all">All Status</option>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
@@ -233,20 +242,20 @@ export function PeoplePage() {
 
       {/* Filters bar */}
       <div className="mb-4 flex items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
             <input value={search} onChange={(e) => setSearch(e.target.value)}
-              className="input h-10 pl-9 w-56" placeholder="Search members..." />
+              className="input h-9 pl-9 w-56 text-sm" placeholder="Search members..." />
           </div>
           {departments.length > 0 && (
-            <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="input h-9 w-40 text-sm">
+            <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="input h-9 w-44 text-sm">
               <option value="">All Departments</option>
               {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
             </select>
           )}
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-3">
           <select value={sortBy} onChange={(e) => setSortBy(e.target.value as SortBy)} className="input h-9 w-36 text-sm">
             <option value="name-az">Name A-Z</option>
             <option value="name-za">Name Z-A</option>
@@ -281,7 +290,7 @@ export function PeoplePage() {
           </button>
         </div>
       ) : view === "list" ? (
-        <div className="card p-0 overflow-hidden">
+        <div data-tour="people-list" className="card p-0 overflow-hidden">
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-line bg-surface-2/50">
@@ -552,6 +561,15 @@ function PersonDrawer({
                 <MessageSquare className="size-3.5" /> SMS
               </button>
             )}
+            <button
+              onClick={() => {
+                window.api?.openExternal(`https://worshiphq.app/app/people?highlight=${p.id}&action=biometric`);
+              }}
+              className="btn-secondary btn-sm px-3"
+              title="Register biometric on web"
+            >
+              <Fingerprint className="size-3.5" />
+            </button>
             <button onClick={() => onDelete(p.id)} className="btn-danger btn-sm px-3">
               <Trash2 className="size-3.5" />
             </button>
