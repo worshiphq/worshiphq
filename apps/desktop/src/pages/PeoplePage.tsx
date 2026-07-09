@@ -45,6 +45,7 @@ export function PeoplePage() {
   const [search, setSearch] = useState("");
   const [ageTab, setAgeTab] = useState<AgeTab>("adult");
   const [segment, setSegment] = useState<Segment>("all");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
   const [view, setView] = useState<ViewMode>("list");
   const [sortBy, setSortBy] = useState<SortBy>("name-az");
   const [deptFilter, setDeptFilter] = useState("");
@@ -98,6 +99,13 @@ export function PeoplePage() {
     } else if (segment !== "all") {
       list = list.filter((p) => p.status === segment);
     }
+    if (statusFilter !== "all") {
+      if (statusFilter === "visitor") {
+        list = list.filter((p) => p.status === "visitor" || p.is_visitor);
+      } else {
+        list = list.filter((p) => p.status === statusFilter);
+      }
+    }
     if (deptFilter) {
       list = list.filter((p) => p.department_id === deptFilter);
     }
@@ -120,7 +128,7 @@ export function PeoplePage() {
       }
     });
     return list;
-  }, [people, ageTab, segment, search, sortBy, deptFilter]);
+  }, [people, ageTab, segment, statusFilter, search, sortBy, deptFilter]);
 
   function exportCsv() {
     const headers = ["First Name", "Last Name", "Phone", "Email", "Gender", "Status", "Member ID", "Date of Birth", "Department", "Joined"];
@@ -207,6 +215,20 @@ export function PeoplePage() {
             </button>
           ))}
         </div>
+        <div className="h-5 w-px bg-line" />
+        <select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}
+          className="input h-9 w-36 text-sm">
+          <option value="all">All Status</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+          <option value="visitor">Visitor</option>
+        </select>
+        {(search || segment !== "all" || statusFilter !== "all" || deptFilter) && (
+          <button onClick={() => { setSearch(""); setSegment("all"); setStatusFilter("all"); setDeptFilter(""); }}
+            className="btn-ghost btn-sm flex items-center gap-1 text-ink-muted">
+            <X className="size-3.5" /> Clear
+          </button>
+        )}
       </div>
 
       {/* Filters bar */}
@@ -252,7 +274,7 @@ export function PeoplePage() {
       ) : filtered.length === 0 ? (
         <div className="py-16 text-center">
           <Users className="mx-auto size-10 text-ink-faint/30" />
-          <p className="mt-3 text-sm font-medium text-ink">{search || deptFilter ? "No members match your filter" : "No members yet"}</p>
+          <p className="mt-3 text-sm font-medium text-ink">{search || deptFilter || statusFilter !== "all" ? "No members match your filter" : "No members yet"}</p>
           <p className="mt-1 text-xs text-ink-muted">Add a member or sync with the cloud to pull data.</p>
           <button onClick={() => { setEditingId(null); setShowForm(true); }} className="btn-primary btn-sm mt-4">
             <Plus className="size-3.5" /> Add Member
@@ -265,8 +287,17 @@ export function PeoplePage() {
               <tr className="border-b border-line bg-surface-2/50">
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Member</th>
                 <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Contact</th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Status</th>
-                <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">ID</th>
+                {(ageTab === "teen" || ageTab === "child") ? (
+                  <>
+                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Parent / Guardian</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">School</th>
+                  </>
+                ) : (
+                  <>
+                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">Status</th>
+                    <th className="px-4 py-3 text-left text-[11px] font-semibold uppercase tracking-wider text-ink-faint">ID</th>
+                  </>
+                )}
                 <th className="w-10"></th>
               </tr>
             </thead>
@@ -290,12 +321,31 @@ export function PeoplePage() {
                     <td className="px-4 py-3">
                       <p className="text-xs text-ink-muted">{p.phone || p.email || "—"}</p>
                     </td>
-                    <td className="px-4 py-3">
-                      <span className={cn("badge", p.status === "active" ? "badge-success" : "badge-muted")}>
-                        {p.status || "active"}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-xs text-ink-faint font-mono">{p.member_id || "—"}</td>
+                    {(ageTab === "teen" || ageTab === "child") ? (
+                      <>
+                        <td className="px-4 py-3">
+                          <div>
+                            <p className="text-xs text-ink">{p.guardian_name || "—"}</p>
+                            {p.guardian_phone && <p className="text-[11px] text-ink-faint">{p.guardian_phone}</p>}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div>
+                            <p className="text-xs text-ink">{p.school || "—"}</p>
+                            {p.grade && <p className="text-[11px] text-ink-faint">{p.grade}</p>}
+                          </div>
+                        </td>
+                      </>
+                    ) : (
+                      <>
+                        <td className="px-4 py-3">
+                          <span className={cn("badge", p.status === "active" ? "badge-success" : "badge-muted")}>
+                            {p.status || "active"}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3 text-xs text-ink-faint font-mono">{p.member_id || "—"}</td>
+                      </>
+                    )}
                     <td className="px-4 py-3">
                       <ChevronRight className="size-4 text-ink-faint" />
                     </td>

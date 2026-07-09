@@ -136,6 +136,12 @@ export function EventsPage() {
                       Capacity: {e.capacity}
                     </div>
                   )}
+                  {(e.location || e.branch) && (
+                    <div className="flex items-center gap-2 text-xs text-ink-muted">
+                      <MapPin className="size-3.5 text-ink-faint" />
+                      {e.location || e.branch}
+                    </div>
+                  )}
                 </div>
 
                 {e.capacity > 0 && (
@@ -162,8 +168,19 @@ export function EventsPage() {
                     <Pencil className="size-3.5" />
                   </button>
                   <button
+                    onClick={() => {
+                      showToast("Open web to manage attendees");
+                      window.api?.openExternal("https://worshiphq.app/app/events");
+                    }}
+                    className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-info/10 hover:text-info"
+                    title="Manage attendees"
+                  >
+                    <Users className="size-3.5" />
+                  </button>
+                  <button
                     onClick={() => handleDelete(e.id, e.title)}
                     className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"
+                    title="Delete"
                   >
                     <Trash2 className="size-3.5" />
                   </button>

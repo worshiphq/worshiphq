@@ -29,6 +29,7 @@ export function GroupsPage() {
   const [members, setMembers] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
+  const [typeFilter, setTypeFilter] = useState("all");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
@@ -61,10 +62,16 @@ export function GroupsPage() {
   }
 
   const filtered = useMemo(() => {
-    if (!search) return groups;
-    const q = search.toLowerCase();
-    return groups.filter((g) => g.name?.toLowerCase().includes(q) || g.type?.toLowerCase().includes(q) || g.description?.toLowerCase().includes(q));
-  }, [groups, search]);
+    let result = groups;
+    if (typeFilter !== "all") {
+      result = result.filter((g) => g.type === typeFilter);
+    }
+    if (search) {
+      const q = search.toLowerCase();
+      result = result.filter((g) => g.name?.toLowerCase().includes(q) || g.type?.toLowerCase().includes(q) || g.description?.toLowerCase().includes(q));
+    }
+    return result;
+  }, [groups, search, typeFilter]);
 
   const stats = useMemo(() => {
     const totalMembers = Object.values(members).reduce((a, b) => a + b, 0);
@@ -95,6 +102,23 @@ export function GroupsPage() {
       <div className="mb-4 relative max-w-md">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
         <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-10 pl-9" placeholder="Search groups..." />
+      </div>
+
+      <div className="mb-4 flex flex-wrap gap-2">
+        {[{ value: "all", label: "All" }, ...GROUP_TYPES].map((t) => (
+          <button
+            key={t.value}
+            onClick={() => setTypeFilter(t.value)}
+            className={cn(
+              "btn-sm rounded-lg px-3 py-1.5 text-xs font-medium transition-colors",
+              typeFilter === t.value
+                ? "bg-primary text-white"
+                : "bg-surface-2 text-ink-muted hover:bg-surface-3 hover:text-ink"
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {loading ? (

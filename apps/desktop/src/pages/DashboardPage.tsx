@@ -27,6 +27,7 @@ export function DashboardPage() {
   const [deptBreakdown, setDeptBreakdown] = useState<{ name: string; count: number }[]>([]);
   const [givingTrend, setGivingTrend] = useState<{ label: string; value: number }[]>([]);
   const [attTrend, setAttTrend] = useState<{ label: string; value: number }[]>([]);
+  const [kpiTrends, setKpiTrends] = useState<{ members: number | undefined; attendance: number | undefined; giving: number | undefined; messages: number | undefined }>({ members: undefined, attendance: undefined, giving: undefined, messages: undefined });
 
   useEffect(() => {
     if (session?.churchId) loadAll();
@@ -40,7 +41,14 @@ export function DashboardPage() {
     const day = String(now.getDate()).padStart(2, "0");
     const monthStart = `${now.getFullYear()}-${month}-01`;
 
-    const [active, weeklyAtt, monthGiving, msgReach, recent, bdays, lead, evts, care, depts, gTrend, aTrend] = await Promise.all([
+    // Previous month date range for trend calculations
+    const prevMonthDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+    const prevMonth2 = String(prevMonthDate.getMonth() + 1).padStart(2, "0");
+    const prevMonthStart = `${prevMonthDate.getFullYear()}-${prevMonth2}-01`;
+    const prevMonthEnd = `${now.getFullYear()}-${month}-01`;
+
+    const [active, weeklyAtt, monthGiving, msgReach, recent, bdays, lead, evts, care, depts, gTrend, aTrend,
+      prevMembers, prevAtt, prevGiving, prevMsg] = await Promise.all([
       db.rawQuery("SELECT COUNT(*) as c FROM person WHERE church_id = ? AND status = 'active'", [cid]),
       db.rawQuery("SELECT COALESCE(SUM(adults+teens+children+visitors),0) as t FROM attendance_session WHERE church_id = ? AND date >= date('now','-7 days')", [cid]),
       db.rawQuery("SELECT COALESCE(SUM(amount),0) as t FROM gift WHERE church_id = ? AND date >= ?", [cid, monthStart]),
@@ -53,6 +61,14 @@ export function DashboardPage() {
       db.rawQuery(`SELECT d.name, COUNT(p.id) as count FROM department d LEFT JOIN person p ON p.department_id = d.id AND p.church_id = d.church_id WHERE d.church_id = ? GROUP BY d.id ORDER BY count DESC LIMIT 8`, [cid]),
       db.rawQuery(`SELECT strftime('%Y-%m', date) as ym, COALESCE(SUM(amount),0) as total FROM gift WHERE church_id = ? AND date >= date('now','-6 months') GROUP BY ym ORDER BY ym ASC`, [cid]),
       db.rawQuery(`SELECT strftime('%Y-%m', date) as ym, COALESCE(SUM(adults+teens+children+visitors),0) as total FROM attendance_session WHERE church_id = ? AND date >= date('now','-6 months') GROUP BY ym ORDER BY ym ASC`, [cid]),
+      // Previous month: members who joined last month
+      db.rawQuery("SELECT COUNT(*) as c FROM person WHERE church_id = ? AND status = 'active' AND joined_at >= ? AND joined_at < ?", [cid, prevMonthStart, prevMonthEnd]),
+      // Previous month: attendance (week before last 7 days)
+      db.rawQuery("SELECT COALESCE(SUM(adults+teens+children+visitors),0) as t FROM attendance_session WHERE church_id = ? AND date >= date('now','-14 days') AND date < date('now','-7 days')", [cid]),
+      // Previous month: giving
+      db.rawQuery("SELECT COALESCE(SUM(amount),0) as t FROM gift WHERE church_id = ? AND date >= ? AND date < ?", [cid, prevMonthStart, prevMonthEnd]),
+      // Previous month: messages (compare last 30 days vs 30 days before)
+      db.rawQuery("SELECT COALESCE(SUM(sent),0) as t FROM communication WHERE church_id = ? AND created_at >= date('now','-60 days') AND created_at < date('now','-30 days')", [cid]),
     ]);
 
     setStats({
@@ -60,6 +76,27 @@ export function DashboardPage() {
       weeklyAtt: weeklyAtt[0]?.t || 0,
       monthlyGiving: monthGiving[0]?.t || 0,
       messageReach: msgReach[0]?.t || 0,
+    });
+
+    // Calculate KPI trend percentages (current vs previous period)
+    const calcTrend = (current: number, previous: number): number | undefined => {
+      if (previous === 0 && current === 0) return undefined;
+      if (previous === 0) return 100;
+      return Math.round(((current - previous) / previous) * 100);
+    };
+
+    // Members trend: new members this month vs members who joined last month
+    const thisMonthNewMembers = await db.rawQuery(
+      "SELECT COUNT(*) as c FROM person WHERE church_id = ? AND status = 'active' AND joined_at >= ?", [cid, monthStart]
+    );
+    const membersThisMonth = thisMonthNewMembers[0]?.c || 0;
+    const membersLastMonth = prevMembers[0]?.c || 0;
+
+    setKpiTrends({
+      members: calcTrend(membersThisMonth, membersLastMonth),
+      attendance: calcTrend(weeklyAtt[0]?.t || 0, prevAtt[0]?.t || 0),
+      giving: calcTrend(monthGiving[0]?.t || 0, prevGiving[0]?.t || 0),
+      messages: calcTrend(msgReach[0]?.t || 0, prevMsg[0]?.t || 0),
     });
     setRecentPeople(recent);
     setBirthdays(bdays);
@@ -104,10 +141,10 @@ export function DashboardPage() {
 
       {/* KPI cards */}
       <div className="mb-6 grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard label="Active Members" value={stats.active} icon={Users} color="text-primary-bright" />
-        <StatCard label="Weekly Attendance" value={stats.weeklyAtt} icon={CalendarCheck2} color="text-success" />
-        <StatCard label="Monthly Giving" value={formatCurrency(stats.monthlyGiving)} icon={HandCoins} color="text-gold" />
-        <StatCard label="Message Reach" value={stats.messageReach} icon={MessageSquare} color="text-info" />
+        <StatCard label="Active Members" value={stats.active} icon={Users} color="text-primary-bright" trend={kpiTrends.members} />
+        <StatCard label="Weekly Attendance" value={stats.weeklyAtt} icon={CalendarCheck2} color="text-success" trend={kpiTrends.attendance} />
+        <StatCard label="Monthly Giving" value={formatCurrency(stats.monthlyGiving)} icon={HandCoins} color="text-gold" trend={kpiTrends.giving} />
+        <StatCard label="Message Reach" value={stats.messageReach} icon={MessageSquare} color="text-info" trend={kpiTrends.messages} />
       </div>
 
       {/* Quick actions */}
@@ -220,6 +257,23 @@ export function DashboardPage() {
                     <p className="truncate text-sm font-medium text-ink">{p.first_name} {p.last_name}</p>
                     <p className="text-[10px] text-gold font-medium">Birthday today</p>
                   </div>
+                  <button
+                    title={p.phone ? `Send birthday SMS to ${p.first_name}` : `Copy ${p.first_name}'s name`}
+                    className="grid size-7 shrink-0 place-items-center rounded-lg border border-line bg-surface-2 text-primary-bright transition-colors hover:bg-primary-soft hover:border-primary/30"
+                    onClick={() => {
+                      if (p.phone) {
+                        const msg = encodeURIComponent(`Happy Birthday, ${p.first_name}! 🎂 Wishing you a blessed day from ${session?.churchName || "your church family"}.`);
+                        window.api?.openExternal(`sms:${p.phone}?body=${msg}`);
+                      } else {
+                        navigator.clipboard.writeText(`${p.first_name} ${p.last_name}`);
+                        // Toast fallback — show a brief visual cue
+                        const el = document.getElementById(`bday-btn-${p.id}`);
+                        if (el) { el.textContent = "✓"; setTimeout(() => { el.textContent = ""; }, 1200); }
+                      }
+                    }}
+                  >
+                    <Send id={`bday-btn-${p.id}`} className="size-3.5" />
+                  </button>
                 </div>
               ))}
             </div>

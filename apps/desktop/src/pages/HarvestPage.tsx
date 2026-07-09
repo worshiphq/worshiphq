@@ -504,6 +504,7 @@ function ContributionsList({ contributions, onChanged }: { contributions: any[];
 function HarvestReport({ contributions, totalRaised, contributorCount, memberCount, visitorCount, harvest }: {
   contributions: any[]; totalRaised: number; contributorCount: number; memberCount: number; visitorCount: number; harvest: any;
 }) {
+  const { showToast } = useAppStore();
   const byDonor = new Map<string, { name: string; type: string; total: number; count: number }>();
   for (const c of contributions) {
     const key = c.person_id ?? c.donor_name;
@@ -514,11 +515,32 @@ function HarvestReport({ contributions, totalRaised, contributorCount, memberCou
   const memberTotal = contributions.filter((c) => c.donor_type === "member").reduce((s, c) => s + c.amount, 0);
   const visitorTotal = contributions.filter((c) => c.donor_type === "visitor").reduce((s, c) => s + c.amount, 0);
 
+  function exportCSV() {
+    const headers = ["Donor Name", "Total Given", "Contributions"];
+    const csvRows = donorList.map((d) => [d.name, String(d.total), String(d.count)]);
+    const csv = [headers, ...csvRows].map((r) => r.map((c) => `"${(c || "").replace(/"/g, '""')}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a"); a.href = url;
+    a.download = `harvest-report-${harvest.title.replace(/\s+/g, "-").toLowerCase()}-${harvest.year}.csv`;
+    a.click(); URL.revokeObjectURL(url);
+    showToast("CSV exported");
+  }
+
   return (
     <div className="space-y-4">
       <div className="card p-6">
-        <h3 className="text-lg font-bold text-ink">{harvest.title} Report — {harvest.year}</h3>
-        <p className="text-sm text-ink-muted">{contributorCount} contributors · {formatCurrency(totalRaised)} raised</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h3 className="text-lg font-bold text-ink">{harvest.title} Report — {harvest.year}</h3>
+            <p className="text-sm text-ink-muted">{contributorCount} contributors · {formatCurrency(totalRaised)} raised</p>
+          </div>
+          {donorList.length > 0 && (
+            <button onClick={exportCSV} className="btn-secondary btn-sm">
+              <Download className="size-3.5" /> Export CSV
+            </button>
+          )}
+        </div>
         <div className="mt-5 grid grid-cols-4 gap-4">
           <div className="rounded-xl border border-line bg-surface-2/50 p-4 text-center"><div className="text-sm text-ink-muted">Total raised</div><div className="mt-1 text-2xl font-bold text-success">{formatCurrency(totalRaised)}</div></div>
           <div className="rounded-xl border border-line bg-surface-2/50 p-4 text-center"><div className="text-sm text-ink-muted">From members</div><div className="mt-1 text-2xl font-bold text-ink">{formatCurrency(memberTotal)}</div></div>

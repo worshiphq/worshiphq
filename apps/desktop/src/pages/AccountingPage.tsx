@@ -140,15 +140,32 @@ export function AccountingPage() {
     if (month === 11) { setMonth(0); setYear((y) => y + 1); } else setMonth((m) => m + 1);
   }
 
-  async function handleDelete(row: Row) {
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const confirmTimerRef = useState<ReturnType<typeof setTimeout> | null>(null);
+
+  function handleDelete(row: Row) {
     if (row.source !== "manual") {
       showToast("Giving entries are managed on the Giving page");
       return;
     }
-    if (!confirm("Delete this transaction?")) return;
-    setTxns((prev) => prev.filter((t) => t.id !== row.id));
-    showToast("Transaction deleted");
-    await db.delete("transaction", row.id);
+    const key = `${row.source}-${row.id}`;
+    if (confirmDeleteId === key) {
+      // Second click — actually delete
+      if (confirmTimerRef[0]) clearTimeout(confirmTimerRef[0]);
+      confirmTimerRef[0] = null;
+      setConfirmDeleteId(null);
+      setTxns((prev) => prev.filter((t) => t.id !== row.id));
+      showToast("Transaction deleted");
+      db.delete("transaction", row.id);
+    } else {
+      // First click — enter confirm state
+      if (confirmTimerRef[0]) clearTimeout(confirmTimerRef[0]);
+      setConfirmDeleteId(key);
+      confirmTimerRef[0] = setTimeout(() => {
+        setConfirmDeleteId(null);
+        confirmTimerRef[0] = null;
+      }, 3000);
+    }
   }
 
   return (
@@ -187,7 +204,12 @@ export function AccountingPage() {
         {!allTime && (
           <div className="flex items-center gap-1">
             <button onClick={prevMonth} className="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-surface-2"><ChevronLeft className="size-4" /></button>
-            <span className="min-w-[9rem] text-center text-sm font-bold text-ink">{MONTHS[month]} {year}</span>
+            <select value={month} onChange={(e) => setMonth(Number(e.target.value))} className="input h-8 w-auto px-2 text-sm font-bold text-ink">
+              {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
+            </select>
+            <select value={year} onChange={(e) => setYear(Number(e.target.value))} className="input h-8 w-auto px-2 text-sm font-bold text-ink">
+              {Array.from({ length: 11 }, (_, i) => now.getFullYear() - 5 + i).map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
             <button onClick={nextMonth} className="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-surface-2"><ChevronRight className="size-4" /></button>
           </div>
         )}
@@ -248,10 +270,17 @@ export function AccountingPage() {
                                     className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary-soft hover:text-primary-bright" title="Edit">
                                     <Pencil className="size-3.5" />
                                   </button>
-                                  <button onClick={() => handleDelete(r)}
-                                    className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger" title="Delete">
-                                    <Trash2 className="size-3.5" />
-                                  </button>
+                                  {confirmDeleteId === `${r.source}-${r.id}` ? (
+                                    <button onClick={() => handleDelete(r)}
+                                      className="rounded-lg bg-danger px-2 py-1 text-[11px] font-bold text-white animate-pulse" title="Click again to confirm">
+                                      Confirm?
+                                    </button>
+                                  ) : (
+                                    <button onClick={() => handleDelete(r)}
+                                      className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger" title="Delete">
+                                      <Trash2 className="size-3.5" />
+                                    </button>
+                                  )}
                                 </>
                               ) : (
                                 <span className="text-[11px] text-ink-faint/60">—</span>

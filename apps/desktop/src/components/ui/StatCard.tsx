@@ -32,9 +32,12 @@ export function StatCard({
       </div>
       {trend !== undefined && (
         <div className="mt-2 flex items-center gap-1.5 text-xs">
-          <span className={cn("inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-medium", trend >= 0 ? "bg-success/10 text-success" : "bg-danger/10 text-danger")}>
-            {trend >= 0 ? "↑" : "↓"} {Math.abs(trend)}%
+          <span className={cn("inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 font-medium",
+            trend > 0 ? "bg-success/10 text-success" : trend < 0 ? "bg-danger/10 text-danger" : "bg-surface-2 text-ink-faint"
+          )}>
+            {trend > 0 ? "↑" : trend < 0 ? "↓" : "→"} {Math.abs(trend)}%
           </span>
+          <span className="text-ink-faint">vs last month</span>
         </div>
       )}
     </div>
