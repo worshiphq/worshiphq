@@ -11,10 +11,10 @@ export const metadata: Metadata = {
 };
 
 const values = [
-  { icon: Heart, n: "i", title: "Ministry first", body: "Technology should serve the mission, never complicate it. Every feature earns its place by helping you shepherd people." },
-  { icon: Globe2, n: "ii", title: "Built for every church", body: "Mobile Money, SMS broadcasts, online giving and offline-ready design — built around how churches actually operate, wherever they are." },
-  { icon: ShieldCheck, n: "iii", title: "Trust & stewardship", body: "Your data and your offerings are sacred. Bank-grade security, full audit trails and strict tenant isolation." },
-  { icon: Zap, n: "iv", title: "Delightfully simple", body: "Powerful doesn't have to mean complicated. WorshipHQ is fast, beautiful and a joy to use on any device." },
+  { icon: Heart, title: "Ministry first", body: "Technology should serve the mission, never complicate it. Every feature earns its place by helping you shepherd people." },
+  { icon: Globe2, title: "Built for every church", body: "Mobile Money, SMS broadcasts, online giving and offline-ready design — built around how churches actually operate, wherever they are." },
+  { icon: ShieldCheck, title: "Trust & stewardship", body: "Your data and your offerings are sacred. Bank-grade security, full audit trails and strict tenant isolation." },
+  { icon: Zap, title: "Delightfully simple", body: "Powerful doesn't have to mean complicated. WorshipHQ is fast, beautiful and a joy to use on any device." },
 ];
 
 export default function AboutPage() {
@@ -26,7 +26,7 @@ export default function AboutPage() {
           <>
             A well-kept house for
             <br />
-            <em className="font-light italic text-primary">your church.</em>
+            <span className="text-primary">your church.</span>
           </>
         }
         subtitle="We're on a mission to give every church — from the smallest fellowship to the largest ministry — the tools to manage, connect and grow."
@@ -62,11 +62,10 @@ export default function AboutPage() {
             {values.map((v, i) => (
               <Reveal key={v.title} delay={i * 0.08}>
                 <article className="border-t border-ink/10 pt-5">
-                  <div className="flex items-baseline justify-between">
-                    <span className="font-serif text-sm italic text-brass">{v.n}.</span>
-                    <v.icon className="size-4 text-evergreen/60" strokeWidth={1.75} />
+                  <div className="grid size-10 place-items-center border border-evergreen/20 bg-evergreen/5 text-evergreen">
+                    <v.icon className="size-4" strokeWidth={1.75} />
                   </div>
-                  <h3 className="mt-3 font-serif text-2xl font-semibold text-evergreen-deep">{v.title}</h3>
+                  <h3 className="mt-4 font-display text-2xl font-bold text-evergreen-deep">{v.title}</h3>
                   <p className="mt-3 text-[15px] leading-[1.8] text-ink-muted">{v.body}</p>
                 </article>
               </Reveal>

@@ -17,7 +17,7 @@ export function TrustBar() {
         <Reveal>
           <div className="rule-engraved py-10 sm:py-12">
             <p className="rubric mb-10 text-center !text-[10px]">
-              ✦ &nbsp; From the parish ledger &nbsp; ✦
+              ✦ &nbsp; Trusted by ministries worldwide &nbsp; ✦
             </p>
 
             <div className="grid grid-cols-2 gap-x-6 gap-y-10 md:grid-cols-4">
@@ -26,7 +26,7 @@ export function TrustBar() {
                   key={s.label}
                   className="relative text-center md:border-l md:border-ink/10 md:first:border-l-0"
                 >
-                  <div className="font-serif text-4xl font-semibold tracking-tight text-evergreen-deep sm:text-5xl">
+                  <div className="font-display text-4xl font-bold tracking-tight text-evergreen-deep sm:text-5xl">
                     <AnimatedNumber
                       value={s.value}
                       prefix={s.prefix}
@@ -41,7 +41,7 @@ export function TrustBar() {
               ))}
             </div>
 
-            <p className="mt-10 text-center font-serif text-[11px] italic text-ink-faint">
+            <p className="mt-10 text-center text-[11px] italic text-ink-faint">
               * figures are illustrative
             </p>
           </div>

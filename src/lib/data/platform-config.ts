@@ -15,12 +15,14 @@ export const getPlatformConfig = cache(async () => {
   const config = await db.platformConfig.upsert({
     where: { id: "default" },
     update: {},
-    create: { id: "default", currency: "GHS", currencySymbol: "₵", planPrices: DEFAULT_PRICES },
+    create: { id: "default", currency: "USD", currencySymbol: "$", planPrices: DEFAULT_PRICES },
   });
   const prices = (config.planPrices as PlanPrices) ?? DEFAULT_PRICES;
   return {
     currency: config.currency,
     currencySymbol: config.currencySymbol,
     prices,
+    /** GHS charged per 1 unit of display currency at Paystack checkout. */
+    usdToGhsRate: config.usdToGhsRate ?? 12.0,
   };
 });

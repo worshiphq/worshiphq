@@ -17,15 +17,15 @@ export const metadata: Metadata = {
 };
 
 const audiences = [
-  { icon: Sprout, n: "i", title: "Small fellowships", body: "Just getting started? Manage your first members, take offerings and check people in — free, forever, up to 50 members." },
-  { icon: Building2, n: "ii", title: "Growing churches", body: "Scale your operations with SMS broadcasts, automations, recurring giving and reports as your congregation grows." },
-  { icon: Network, n: "iii", title: "Large ministries", body: "Unlimited members, advanced analytics, API access and a dedicated success manager for your leadership team." },
+  { icon: Sprout, title: "Small fellowships", body: "Just getting started? Manage your first members, take offerings and check people in — free, forever, up to 50 members." },
+  { icon: Building2, title: "Growing churches", body: "Scale your operations with SMS broadcasts, automations, recurring giving and reports as your congregation grows." },
+  { icon: Network, title: "Large ministries", body: "Unlimited members, advanced analytics, API access and a dedicated success manager for your leadership team." },
 ];
 
 const roles = [
-  { icon: UserCog, n: "i", title: "For Pastors", body: "See the health of your church at a glance — attendance, giving and the people who need a shepherd's care this week." },
-  { icon: Wallet, n: "ii", title: "For Finance Officers", body: "Fund accounting, automated receipts and an audit trail you can trust. Reports in minutes, not days." },
-  { icon: HeartHandshake, n: "iii", title: "For Ministry Leaders", body: "Schedule volunteers, message your team and track engagement — without waiting on the church office." },
+  { icon: UserCog, title: "For Pastors", body: "See the health of your church at a glance — attendance, giving and the people who need a shepherd's care this week." },
+  { icon: Wallet, title: "For Finance Officers", body: "Fund accounting, automated receipts and an audit trail you can trust. Reports in minutes, not days." },
+  { icon: HeartHandshake, title: "For Ministry Leaders", body: "Schedule volunteers, message your team and track engagement — without waiting on the church office." },
 ];
 
 function PressCardRow({ heading, items }: { heading: string; items: typeof audiences }) {
@@ -40,13 +40,10 @@ function PressCardRow({ heading, items }: { heading: string; items: typeof audie
         {items.map((a) => (
           <StaggerItem key={a.title}>
             <article className="group h-full border-t border-ink/10 pt-5 transition-colors">
-              <div className="flex items-baseline justify-between">
-                <span className="font-serif text-sm italic text-brass">{a.n}.</span>
-                <div className="grid size-10 place-items-center border border-evergreen/20 bg-evergreen/5 text-evergreen transition-colors group-hover:bg-evergreen group-hover:text-parchment">
-                  <a.icon className="size-4.5" strokeWidth={1.75} />
-                </div>
+              <div className="grid size-10 place-items-center border border-evergreen/20 bg-evergreen/5 text-evergreen transition-colors group-hover:bg-evergreen group-hover:text-parchment">
+                <a.icon className="size-4.5" strokeWidth={1.75} />
               </div>
-              <h3 className="mt-4 font-serif text-2xl font-semibold text-evergreen-deep">{a.title}</h3>
+              <h3 className="mt-4 font-display text-2xl font-bold text-evergreen-deep">{a.title}</h3>
               <p className="mt-3 text-[15px] leading-[1.8] text-ink-muted">{a.body}</p>
             </article>
           </StaggerItem>
@@ -65,7 +62,7 @@ export default function SolutionsPage() {
           <>
             Every church,
             <br />
-            <em className="font-light italic text-primary">every calling.</em>
+            <span className="text-primary">every calling.</span>
           </>
         }
         subtitle="Whether you're a 30-member fellowship or a thousand-member ministry, WorshipHQ adapts to how you serve."

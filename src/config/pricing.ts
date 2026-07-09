@@ -1,4 +1,5 @@
-/** Pricing plans — edit here to change every pricing surface. Prices in GHS (₵). */
+/** Pricing plans — edit here to change every pricing surface. Prices are in USD ($);
+ * Paystack charges the GHS equivalent at checkout using PlatformConfig.usdToGhsRate. */
 
 export interface Plan {
   id: string;
@@ -26,7 +27,7 @@ export const plans: Plan[] = [
     cta: "Start free",
     features: [
       "People & households",
-      "Giving & offerings (₵)",
+      "Giving & offerings",
       "Events & attendance",
       "QR check-in",
       "Mobile app (PWA)",
@@ -37,8 +38,8 @@ export const plans: Plan[] = [
     id: "starter",
     name: "Starter",
     tagline: "For growing churches",
-    monthly: 99,
-    yearly: 990,
+    monthly: 10,
+    yearly: 100,
     members: "Up to 250 members",
     cta: "Choose Starter",
     features: [
@@ -60,8 +61,8 @@ export const plans: Plan[] = [
     id: "pro",
     name: "Pro",
     tagline: "For established ministries",
-    monthly: 249,
-    yearly: 2490,
+    monthly: 24,
+    yearly: 240,
     members: "Up to 1,000 members",
     featured: true,
     cta: "Choose Pro",
@@ -84,8 +85,8 @@ export const plans: Plan[] = [
     id: "max",
     name: "Max",
     tagline: "For large churches",
-    monthly: 499,
-    yearly: 4990,
+    monthly: 47,
+    yearly: 470,
     members: "Unlimited members",
     cta: "Choose Max",
     features: [

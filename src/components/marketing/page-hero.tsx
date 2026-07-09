@@ -24,7 +24,7 @@ export function PageHero({
           {title}
         </h1>
         <p
-          className="mx-auto mt-6 max-w-xl font-serif text-lg italic leading-relaxed text-ink-muted animate-fade-up"
+          className="mx-auto mt-6 max-w-xl text-lg leading-relaxed text-ink-muted animate-fade-up"
           style={{ animationDelay: "0.2s" }}
         >
           {subtitle}

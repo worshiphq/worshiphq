@@ -585,14 +585,16 @@ export async function changePlan(plan: string, interval: "monthly" | "yearly") {
   const platformConfig = await getPlatformConfig();
   const dbPrice = platformConfig.prices[plan];
   const amount = interval === "yearly" ? (dbPrice?.yearly ?? planConfig.yearly) : (dbPrice?.monthly ?? planConfig.monthly);
+  // Prices are displayed in USD; Paystack (Ghana) charges the GHS equivalent.
+  const chargeAmountGhs = Math.round(amount * platformConfig.usdToGhsRate);
   const reference = newPaymentReference();
   const appUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
   const returnUrl = `${appUrl}/app/settings?upgraded=${plan}&ref=${reference}&interval=${interval}`;
 
   const init = await initializePayment({
     email: session.email || `billing+${session.churchId}@worshiphq.org`,
-    amount,
-    currency: platformConfig.currency,
+    amount: chargeAmountGhs,
+    currency: "GHS",
     reference,
     callbackUrl: returnUrl,
     stubReturnUrl: returnUrl,
@@ -601,6 +603,8 @@ export async function changePlan(plan: string, interval: "monthly" | "yearly") {
       churchId: session.churchId,
       plan,
       interval,
+      displayAmountUsd: amount,
+      usdToGhsRate: platformConfig.usdToGhsRate,
     },
   });
 
@@ -613,7 +617,7 @@ export async function changePlan(plan: string, interval: "monthly" | "yearly") {
       update: { plan, interval, status: "active", renewsAt },
     });
     const sym = platformConfig.currencySymbol;
-    await sendUpgradeReceipt(session.churchId, planConfig.name, `${sym}${amount.toLocaleString()}`, interval, reference);
+    await sendUpgradeReceipt(session.churchId, planConfig.name, `${sym}${amount.toLocaleString()} (₵${chargeAmountGhs.toLocaleString()})`, interval, reference);
     revalidatePath("/app/settings");
     revalidatePath("/app", "layout");
     return { ok: true, plan };
@@ -665,7 +669,8 @@ export async function verifyPlanUpgrade(reference: string, plan: string, interva
   const sym = platformConfig.currencySymbol;
   const dbPrice = platformConfig.prices[plan];
   const amount = billingInterval === "yearly" ? (dbPrice?.yearly ?? planConfig?.yearly ?? 0) : (dbPrice?.monthly ?? planConfig?.monthly ?? 0);
-  await sendUpgradeReceipt(session.churchId, planConfig?.name ?? plan, `${sym}${amount.toLocaleString()}`, billingInterval, reference);
+  const chargedGhs = Math.round(amount * platformConfig.usdToGhsRate);
+  await sendUpgradeReceipt(session.churchId, planConfig?.name ?? plan, `${sym}${amount.toLocaleString()} (₵${chargedGhs.toLocaleString()})`, billingInterval, reference);
 
   revalidatePath("/app/settings");
   revalidatePath("/app", "layout");

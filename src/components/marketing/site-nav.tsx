@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
@@ -16,6 +17,7 @@ const links = [
 export function SiteNav() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 12);
@@ -24,26 +26,31 @@ export function SiteNav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
+  // The homepage opens on a dark full-screen slider — use light text until scrolled.
+  const overDark = pathname === "/" && !scrolled && !open;
+
   return (
     <header
       className={cn(
         "fixed inset-x-0 top-0 z-50 transition-all duration-300",
-        scrolled
+        scrolled || open
           ? "border-b border-ink/10 bg-parchment/95 shadow-[0_8px_24px_-18px_rgba(28,26,22,0.4)] backdrop-blur-md"
           : "border-b border-transparent bg-transparent",
       )}
     >
       <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
-        <Logo href="/" size="sm" />
+        <Logo href="/" size="sm" className={cn(overDark && "brightness-0 invert")} />
 
-        {/* Center links — small caps, letterspaced, hairline separators */}
         <div className="hidden items-center md:flex">
           {links.map((l, i) => (
             <span key={l.href} className="flex items-center">
-              {i > 0 && <span className="mx-1 text-[8px] text-brass/60">✦</span>}
+              {i > 0 && <span className={cn("mx-1 text-[8px]", overDark ? "text-brass" : "text-brass/60")}>✦</span>}
               <Link
                 href={l.href}
-                className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted transition-colors hover:text-evergreen"
+                className={cn(
+                  "px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] transition-colors",
+                  overDark ? "text-parchment/85 hover:text-white" : "text-ink-muted hover:text-evergreen",
+                )}
               >
                 {l.label}
               </Link>
@@ -54,20 +61,28 @@ export function SiteNav() {
         <div className="hidden items-center gap-5 md:flex">
           <Link
             href="/sign-in"
-            className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted transition-colors hover:text-evergreen"
+            className={cn(
+              "text-[11px] font-semibold uppercase tracking-[0.18em] transition-colors",
+              overDark ? "text-parchment/85 hover:text-white" : "text-ink-muted hover:text-evergreen",
+            )}
           >
             Log in
           </Link>
           <Link
             href="/sign-up"
-            className="rounded-full border border-evergreen bg-evergreen px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-parchment transition-colors hover:bg-evergreen-deep"
+            className={cn(
+              "rounded-full px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.15em] transition-colors",
+              overDark
+                ? "bg-parchment text-evergreen-deep hover:bg-white"
+                : "border border-evergreen bg-evergreen text-parchment hover:bg-evergreen-deep",
+            )}
           >
             Get started
           </Link>
         </div>
 
         <button
-          className="grid size-10 place-items-center text-ink md:hidden"
+          className={cn("grid size-10 place-items-center md:hidden", overDark ? "text-parchment" : "text-ink")}
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
         >

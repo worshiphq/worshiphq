@@ -207,12 +207,14 @@ export async function updatePlatformPricing(
   currency: string,
   currencySymbol: string,
   planPrices: Record<string, { monthly: number; yearly: number }>,
+  usdToGhsRate?: number,
 ) {
   await requireSuperAdmin();
+  const rate = usdToGhsRate && usdToGhsRate > 0 ? usdToGhsRate : undefined;
   await db.platformConfig.upsert({
     where: { id: "default" },
-    update: { currency, currencySymbol, planPrices: planPrices as object },
-    create: { id: "default", currency, currencySymbol, planPrices: planPrices as object },
+    update: { currency, currencySymbol, planPrices: planPrices as object, ...(rate ? { usdToGhsRate: rate } : {}) },
+    create: { id: "default", currency, currencySymbol, planPrices: planPrices as object, usdToGhsRate: rate ?? 12.0 },
   });
   revalidatePath("/admin/pricing");
   revalidatePath("/app/settings");

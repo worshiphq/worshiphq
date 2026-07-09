@@ -26,7 +26,7 @@ export default async function HomePage() {
       <HowItWorks />
       <Testimonials items={content.testimonials} />
       <PricingSection platformPricing={platformConfig} />
-      <FAQ />
+      <FAQ starterPrice={`${platformConfig.currencySymbol}${platformConfig.prices.starter?.monthly ?? 10}`} />
       <FinalCTA />
     </>
   );

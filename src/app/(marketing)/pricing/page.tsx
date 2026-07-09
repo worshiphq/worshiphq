@@ -20,13 +20,13 @@ export default async function PricingPage() {
           <>
             Pricing that grows
             <br />
-            <em className="font-light italic text-primary">with you.</em>
+            <span className="text-primary">with you.</span>
           </>
         }
-        subtitle={`Start free forever. Upgrade when you're ready. No hidden fees, no surprises — all in ${platformConfig.currencySymbol}.`}
+        subtitle="Start free forever. Upgrade when you're ready. Prices in US dollars — billed in Ghana Cedi via Paystack."
       />
       <PricingSection platformPricing={platformConfig} />
-      <FAQ />
+      <FAQ starterPrice={`${platformConfig.currencySymbol}${platformConfig.prices.starter?.monthly ?? 10}`} />
       <FinalCTA />
     </>
   );

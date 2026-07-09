@@ -7,21 +7,18 @@ import { Reveal } from "@/components/ui/reveal";
 import { faqs } from "@/config/marketing";
 import { cn } from "@/lib/utils";
 
-export function FAQ() {
+export function FAQ({ starterPrice = "$10" }: { starterPrice?: string }) {
   const [open, setOpen] = useState<number | null>(0);
 
   return (
     <section className="relative py-20 sm:py-28">
       <div className="mx-auto max-w-3xl px-5">
         <Reveal>
-          <div className="mb-4 flex items-baseline gap-4">
-            <span className="font-serif text-sm italic text-brass">ix.</span>
-            <p className="rubric">The Catechism</p>
-          </div>
+          <p className="rubric mb-4">FAQ</p>
           <div className="border-t-2 border-evergreen pt-8">
             <h2 className="press-display text-4xl sm:text-5xl">
               Asked, and
-              <em className="font-light italic text-primary"> answered.</em>
+              <span className="text-primary"> answered.</span>
             </h2>
           </div>
         </Reveal>
@@ -36,18 +33,13 @@ export function FAQ() {
                     onClick={() => setOpen(isOpen ? null : i)}
                     className="group flex w-full items-baseline justify-between gap-6 py-6 text-left"
                   >
-                    <span className="flex items-baseline gap-4">
-                      <span className="font-serif text-sm italic text-brass">
-                        Q{i + 1}.
-                      </span>
-                      <span
-                        className={cn(
-                          "font-serif text-lg transition-colors sm:text-xl",
-                          isOpen ? "font-semibold text-evergreen-deep" : "text-ink group-hover:text-evergreen",
-                        )}
-                      >
-                        {f.q}
-                      </span>
+                    <span
+                      className={cn(
+                        "font-display text-lg font-semibold transition-colors sm:text-xl",
+                        isOpen ? "text-evergreen-deep" : "text-ink group-hover:text-evergreen",
+                      )}
+                    >
+                      {f.q}
                     </span>
                     <Plus
                       className={cn(
@@ -65,10 +57,9 @@ export function FAQ() {
                         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                         className="overflow-hidden"
                       >
-                        <div className="flex gap-4 pb-7 pl-0 sm:pl-1">
-                          <span className="font-serif text-sm italic text-evergreen shrink-0">A.</span>
-                          <p className="max-w-xl text-[15px] leading-[1.85] text-ink-muted">{f.a}</p>
-                        </div>
+                        <p className="max-w-xl pb-7 text-[15px] leading-[1.85] text-ink-muted">
+                          {f.a.replace("{PRICE}", starterPrice)}
+                        </p>
                       </motion.div>
                     )}
                   </AnimatePresence>

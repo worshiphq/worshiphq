@@ -15,15 +15,12 @@ export function FeatureGrid() {
       <div className="mx-auto max-w-6xl px-5">
         {/* ── Section heading ── */}
         <Reveal>
-          <div className="mb-4 flex items-baseline gap-4">
-            <span className="font-serif text-sm italic text-brass">i.</span>
-            <p className="rubric">The Index</p>
-          </div>
+          <p className="rubric mb-4">Platform</p>
           <div className="grid gap-8 border-t-2 border-evergreen pt-8 lg:grid-cols-[1.2fr_1fr]">
             <h2 className="press-display text-4xl sm:text-5xl">
               Every ministry,
               <br />
-              <em className="font-light italic text-primary">one register.</em>
+              <span className="text-primary">one platform.</span>
             </h2>
             <p className="dropcap max-w-md self-end text-[15px] leading-[1.8] text-ink-muted">
               Stop juggling spreadsheets, WhatsApp groups and paper notebooks.
@@ -53,14 +50,14 @@ export function FeatureGrid() {
                       <span
                         className={cn(
                           "text-[15px] transition-all",
-                          isActive ? "font-serif text-lg font-semibold italic" : "font-medium",
+                          isActive ? "font-display text-lg font-bold" : "font-medium",
                         )}
                       >
                         {f.title}
                       </span>
                       <span
                         className={cn(
-                          "font-serif text-sm tabular-nums",
+                          "font-mono text-xs tabular-nums",
                           isActive ? "text-brass" : "text-ink-faint",
                         )}
                       >
@@ -92,7 +89,7 @@ export function FeatureGrid() {
                   className="relative"
                 >
                   <div className="mb-6 flex items-center justify-between">
-                    <span className="font-serif text-5xl font-light italic text-brass/50">
+                    <span className="font-display text-5xl font-bold text-brass/40">
                       {String(active + 1).padStart(2, "0")}
                     </span>
                     <div className="grid size-12 place-items-center border border-evergreen/20 bg-evergreen/5 text-evergreen">
@@ -100,7 +97,7 @@ export function FeatureGrid() {
                     </div>
                   </div>
 
-                  <h3 className="font-serif text-2xl font-semibold text-evergreen-deep sm:text-3xl">
+                  <h3 className="font-display text-2xl font-bold text-evergreen-deep sm:text-3xl">
                     {feature.title}
                   </h3>
                   <div className="ornament-divider my-5 text-[10px]">✦</div>

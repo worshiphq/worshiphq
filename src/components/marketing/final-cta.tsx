@@ -16,12 +16,12 @@ export function FinalCTA() {
           <span className="absolute bottom-4 right-4 size-4 border-b-2 border-r-2 border-brass/50" aria-hidden />
 
           <div className="relative">
-            <p className="rubric">The Benediction</p>
+            <p className="rubric">Get started</p>
 
             <h2 className="press-display mx-auto mt-6 max-w-2xl text-4xl sm:text-[3.4rem] sm:leading-[1.04]">
-              Go, and run your church
+              Run your church
               <br />
-              <em className="font-light italic text-primary">in peace.</em>
+              <span className="text-primary">with confidence.</span>
             </h2>
 
             <p className="mx-auto mt-6 max-w-md text-[15px] leading-[1.8] text-ink-muted">
@@ -48,7 +48,7 @@ export function FinalCTA() {
               </Link>
             </div>
 
-            <p className="mt-7 font-serif text-xs italic text-ink-faint">
+            <p className="mt-7 text-xs text-ink-faint">
               Free forever for up to 50 members · no credit card required
             </p>
           </div>

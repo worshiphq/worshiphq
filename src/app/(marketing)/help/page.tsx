@@ -205,43 +205,39 @@ const sections = [
   },
 ];
 
-const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
-
 export default function HelpPage() {
   return (
     <>
       <PageHero
-        eyebrow="The Handbook"
+        eyebrow="Help center"
         title={
           <>
             Everything,
             <br />
-            <em className="font-light italic text-primary">explained.</em>
+            <span className="text-primary">explained.</span>
           </>
         }
-        subtitle="A complete guide to every feature in WorshipHQ — chapter and verse."
+        subtitle="A complete guide to every feature in WorshipHQ."
       />
 
       <section className="mx-auto max-w-5xl px-4 pb-24 pt-4 sm:px-6">
         <div className="space-y-16">
-          {sections.map((section, si) => (
+          {sections.map((section) => (
             <div key={section.title}>
               {/* Chapter heading */}
-              <div className="flex items-baseline gap-4 border-t-2 border-evergreen pt-6">
-                <span className="font-serif text-sm italic text-brass">Ch. {ROMAN[si]}</span>
-                <h2 className="font-serif text-2xl font-semibold text-evergreen-deep sm:text-3xl">
+              <div className="flex items-center gap-4 border-t-2 border-evergreen pt-6">
+                <div className="grid size-10 place-items-center border border-evergreen/20 bg-evergreen/5 text-evergreen">
+                  <section.icon className="size-4.5" strokeWidth={1.75} />
+                </div>
+                <h2 className="font-display text-2xl font-bold text-evergreen-deep sm:text-3xl">
                   {section.title}
                 </h2>
-                <section.icon className="ml-auto size-5 self-center text-evergreen/50" strokeWidth={1.75} />
               </div>
               <div className="mt-8 grid gap-x-12 gap-y-8 sm:grid-cols-2">
-                {section.features.map((f, fi) => (
+                {section.features.map((f) => (
                   <div key={f.name} className="border-t border-ink/10 pt-4">
-                    <h3 className="leaders font-serif text-lg font-semibold text-evergreen-deep">
-                      <span>{f.name}</span>
-                      <span className="font-serif text-xs italic text-brass">
-                        §{si + 1}.{fi + 1}
-                      </span>
+                    <h3 className="font-display text-lg font-bold text-evergreen-deep">
+                      {f.name}
                     </h3>
                     <p className="mt-2.5 text-sm leading-[1.8] text-ink-muted">{f.desc}</p>
                   </div>

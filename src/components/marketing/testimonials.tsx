@@ -15,16 +15,13 @@ export function Testimonials({ items }: { items?: Testimonial[] }) {
     <section className="relative overflow-hidden py-20 sm:py-28">
       <div className="mx-auto max-w-6xl px-5">
         <Reveal>
-          <div className="mb-4 flex items-baseline gap-4">
-            <span className="font-serif text-sm italic text-brass">vii.</span>
-            <p className="rubric">Letters from the Church</p>
-          </div>
+          <p className="rubric mb-4">Testimonials</p>
           <div className="flex flex-wrap items-end justify-between gap-6 border-t-2 border-evergreen pt-8">
             <h2 className="press-display text-4xl sm:text-5xl">
               In their own
-              <em className="font-light italic text-primary"> words.</em>
+              <span className="text-primary"> words.</span>
             </h2>
-            <p className="max-w-[16rem] font-serif text-xs italic leading-relaxed text-ink-faint">
+            <p className="max-w-[16rem] text-xs leading-relaxed text-ink-faint">
               Names and churches are illustrative placeholders.
             </p>
           </div>
@@ -78,20 +75,20 @@ function TestimonialCard({ t }: { t: Testimonial }) {
     <figure className="relative w-[400px] shrink-0 border border-ink/12 bg-surface p-7 transition-colors duration-300 hover:border-brass/40">
       {/* Gilt top edge */}
       <span className="absolute inset-x-7 top-0 h-0.5 bg-gradient-to-r from-transparent via-brass/50 to-transparent" aria-hidden />
-      <span className="block font-serif text-5xl font-light leading-none text-brass/35 select-none" aria-hidden>
+      <span className="block font-display text-5xl font-bold leading-none text-brass/30 select-none" aria-hidden>
         &ldquo;
       </span>
-      <blockquote className="mt-1 font-serif text-[15px] italic leading-[1.75] text-ink">
+      <blockquote className="mt-1 text-[15px] leading-[1.75] text-ink">
         {t.quote}
       </blockquote>
       <figcaption className="mt-6 flex items-baseline justify-between gap-3 border-t border-ink/8 pt-4">
         <div>
-          <div className="text-sm font-semibold tracking-tight text-evergreen-deep">{t.name}</div>
+          <div className="font-display text-sm font-bold tracking-tight text-evergreen-deep">{t.name}</div>
           <div className="mt-0.5 text-[11px] uppercase tracking-[0.12em] text-ink-faint">
             {t.role}
           </div>
         </div>
-        <div className="text-right font-serif text-[11px] italic text-ink-faint">{t.church}</div>
+        <div className="text-right text-[11px] text-ink-faint">{t.church}</div>
       </figcaption>
     </figure>
   );

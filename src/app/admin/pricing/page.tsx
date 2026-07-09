@@ -13,6 +13,7 @@ export default async function AdminPricingPage() {
         currency={config.currency}
         currencySymbol={config.currencySymbol}
         prices={config.prices}
+        usdToGhsRate={config.usdToGhsRate}
       />
     </AdminShell>
   );

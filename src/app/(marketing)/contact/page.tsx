@@ -18,7 +18,7 @@ export default function ContactPage() {
           <>
             See it with your
             <br />
-            <em className="font-light italic text-primary">own eyes.</em>
+            <span className="text-primary">own eyes.</span>
           </>
         }
         subtitle="Tell us about your church and we'll set up a personalised walkthrough — usually within one working day."
@@ -41,13 +41,13 @@ export default function ContactPage() {
                   </div>
                   <div>
                     <div className="rubric !text-[9px]">{c.label}</div>
-                    <div className="mt-1 font-serif text-lg text-evergreen-deep">{c.value}</div>
+                    <div className="mt-1 font-display text-lg font-semibold text-evergreen-deep">{c.value}</div>
                   </div>
                 </div>
               ))}
             </div>
-            <p className="mt-8 font-serif text-sm italic leading-relaxed text-ink-faint">
-              &ldquo;We usually reply the same day — and always within one working day.&rdquo;
+            <p className="mt-8 text-sm leading-relaxed text-ink-faint">
+              We usually reply the same day — and always within one working day.
             </p>
           </div>
 

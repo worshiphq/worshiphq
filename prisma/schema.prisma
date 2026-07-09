@@ -18,10 +18,12 @@ datasource db {
 // ── Platform config (singleton — one row, id="default") ──
 model PlatformConfig {
   id       String @id @default("default")
-  currency String @default("GHS")
-  currencySymbol String @default("₵")
-  // Plan prices stored as JSON: { free: { monthly: 0, yearly: 0 }, starter: { monthly: 99, yearly: 990 }, ... }
+  currency String @default("USD")
+  currencySymbol String @default("$")
+  // Plan prices stored as JSON in DISPLAY currency (USD): { free: { monthly: 0, yearly: 0 }, starter: { monthly: 10, yearly: 100 }, ... }
   planPrices Json?
+  // Exchange rate used when charging via Paystack in GHS: chargeAmount = price * usdToGhsRate
+  usdToGhsRate Float @default(12.0)
   updatedAt DateTime @updatedAt
 }
 

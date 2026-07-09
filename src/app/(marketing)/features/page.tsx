@@ -16,9 +16,9 @@ export default function FeaturesPage() {
         eyebrow="Features"
         title={
           <>
-            One book for your
+            One platform for your
             <br />
-            <em className="font-light italic text-primary">whole ministry.</em>
+            <span className="text-primary">whole ministry.</span>
           </>
         }
         subtitle="From the first-time visitor to the year-end statement — WorshipHQ handles it all, beautifully."

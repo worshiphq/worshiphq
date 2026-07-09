@@ -24,11 +24,11 @@ export function HowItWorks() {
 
             <div className="relative">
               <div className="mx-auto max-w-xl text-center">
-                <p className="rubric !text-brass">vi. &nbsp; Getting started</p>
-                <h2 className="mt-5 font-serif text-4xl font-medium leading-[1.05] tracking-tight sm:text-5xl">
+                <p className="rubric !text-brass">Getting started</p>
+                <h2 className="mt-5 font-display text-4xl font-bold leading-[1.05] tracking-tight sm:text-5xl">
                   From chaos to clarity,
                   <br />
-                  <em className="font-light italic text-brass">in one afternoon.</em>
+                  <span className="text-brass">in one afternoon.</span>
                 </h2>
               </div>
 
@@ -37,11 +37,11 @@ export function HowItWorks() {
                   <StaggerItem key={s.n}>
                     <div className="relative border-t border-parchment/20 pt-6 text-center md:text-left">
                       {/* Step numeral */}
-                      <span className="font-serif text-5xl font-light italic text-brass/80">{s.n}</span>
-                      <h3 className="mt-4 font-serif text-xl font-semibold text-parchment">{s.title}</h3>
+                      <span className="font-display text-5xl font-bold text-brass/80">{s.n}</span>
+                      <h3 className="mt-4 font-display text-xl font-bold text-parchment">{s.title}</h3>
                       <p className="mt-2.5 text-sm leading-[1.8] text-parchment/70">{s.body}</p>
                       {i < steps.length - 1 && (
-                        <span className="absolute -right-5 top-10 hidden font-serif text-lg italic text-brass/50 md:block" aria-hidden>
+                        <span className="absolute -right-5 top-10 hidden text-lg text-brass/50 md:block" aria-hidden>
                           →
                         </span>
                       )}
@@ -50,7 +50,7 @@ export function HowItWorks() {
                 ))}
               </StaggerGroup>
 
-              <p className="mt-14 text-center font-serif text-sm italic text-parchment/50">
+              <p className="mt-14 text-center text-sm text-parchment/50">
                 ✦ &nbsp; Your first fifty members are free, forever. &nbsp; ✦
               </p>
             </div>

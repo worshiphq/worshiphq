@@ -30,13 +30,16 @@ export function PricingEditor({
   currency: initCurrency,
   currencySymbol: initSymbol,
   prices: initPrices,
+  usdToGhsRate: initRate = 12,
 }: {
   currency: string;
   currencySymbol: string;
   prices: PlanPrices;
+  usdToGhsRate?: number;
 }) {
   const [currency, setCurrency] = useState(initCurrency);
   const [symbol, setSymbol] = useState(initSymbol);
+  const [rate, setRate] = useState(String(initRate));
   const [prices, setPrices] = useState<PlanPrices>(() => {
     const p: PlanPrices = {};
     for (const plan of PLAN_ORDER) {
@@ -63,7 +66,7 @@ export function PricingEditor({
   function handleSave() {
     setSaved(false);
     startSave(async () => {
-      await updatePlatformPricing(currency, symbol, prices);
+      await updatePlatformPricing(currency, symbol, prices, Number(rate) || undefined);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     });
@@ -114,6 +117,29 @@ export function PricingEditor({
           </select>
           <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-slate-400">
             Symbol: <span className="font-mono text-lg font-bold text-slate-100">{symbol}</span>
+          </div>
+        </div>
+
+        <div className="mt-5 border-t border-white/10 pt-4">
+          <h3 className="text-sm font-semibold text-slate-200">Paystack exchange rate</h3>
+          <p className="text-xs text-slate-500">
+            Prices are shown in {currency}, but Paystack charges the Ghana Cedi equivalent.
+            Set how many GHS are charged per 1 {currency}.
+          </p>
+          <div className="mt-3 flex items-center gap-3">
+            <span className="text-sm text-slate-400">1 {currency} =</span>
+            <input
+              type="number"
+              min={0}
+              step="0.01"
+              value={rate}
+              onChange={(e) => setRate(e.target.value)}
+              className="h-10 w-28 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-slate-100 focus:border-teal-400/60 focus:outline-none"
+            />
+            <span className="text-sm text-slate-400">GHS</span>
+            <span className="ml-2 text-xs text-slate-500">
+              e.g. Starter at {symbol}{prices.starter?.monthly ?? 0}/mo charges ₵{Math.round((prices.starter?.monthly ?? 0) * (Number(rate) || 0)).toLocaleString()}
+            </span>
           </div>
         </div>
       </div>

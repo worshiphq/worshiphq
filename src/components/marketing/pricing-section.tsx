@@ -10,12 +10,13 @@ import { formatCurrency as defaultFmt } from "@/config/brand";
 import { cn } from "@/lib/utils";
 import type { PlanPrices } from "@/lib/data/platform-config";
 
-export function PricingSection({ showComparison = true, platformPricing }: { showComparison?: boolean; platformPricing?: { currency: string; currencySymbol: string; prices: PlanPrices } }) {
+export function PricingSection({ showComparison = true, platformPricing }: { showComparison?: boolean; platformPricing?: { currency: string; currencySymbol: string; prices: PlanPrices; usdToGhsRate?: number } }) {
   const plans = defaultPlans.map((p) => {
     const dbPrice = platformPricing?.prices[p.id];
     return dbPrice ? { ...p, monthly: dbPrice.monthly, yearly: dbPrice.yearly } : p;
   });
-  const sym = platformPricing?.currencySymbol ?? "₵";
+  const sym = platformPricing?.currencySymbol ?? "$";
+  const ghsRate = platformPricing?.usdToGhsRate ?? 12;
   const formatCurrency = (amount: number) => platformPricing ? `${sym}${amount.toLocaleString()}` : defaultFmt(amount);
   const [yearly, setYearly] = useState(false);
 
@@ -23,15 +24,17 @@ export function PricingSection({ showComparison = true, platformPricing }: { sho
     <section id="pricing" className="relative py-20 sm:py-28">
       <div className="mx-auto max-w-6xl px-5">
         <Reveal>
-          <div className="mb-4 flex items-baseline gap-4">
-            <span className="font-serif text-sm italic text-brass">viii.</span>
-            <p className="rubric">The Offering</p>
-          </div>
+          <p className="rubric mb-4">Pricing</p>
           <div className="flex flex-wrap items-end justify-between gap-8 border-t-2 border-evergreen pt-8">
-            <h2 className="press-display max-w-xl text-4xl sm:text-5xl">
-              Fair prices, plainly
-              <em className="font-light italic text-primary"> stated.</em>
-            </h2>
+            <div className="max-w-xl">
+              <h2 className="press-display text-4xl sm:text-5xl">
+                Fair prices, plainly
+                <span className="text-primary"> stated.</span>
+              </h2>
+              <p className="mt-3 text-sm text-ink-muted">
+                Prices in US dollars. Paystack bills the Ghana Cedi equivalent at checkout.
+              </p>
+            </div>
 
             {/* Toggle — set like a ballot */}
             <div className="flex items-center gap-3">
@@ -56,7 +59,7 @@ export function PricingSection({ showComparison = true, platformPricing }: { sho
               <span className={cn("text-sm transition-colors", yearly ? "font-semibold text-evergreen-deep" : "text-ink-faint")}>
                 Yearly
               </span>
-              <span className="ml-1 font-serif text-xs italic text-brass">({YEARLY_DISCOUNT_LABEL})</span>
+              <span className="ml-1 text-xs font-medium text-brass">({YEARLY_DISCOUNT_LABEL})</span>
             </div>
           </div>
         </Reveal>
@@ -84,7 +87,7 @@ export function PricingSection({ showComparison = true, platformPricing }: { sho
                     <p className="rubric mb-3 !text-brass !text-[9px]">✦ most chosen ✦</p>
                   )}
 
-                  <h3 className={cn("font-serif text-2xl font-semibold", featured ? "text-parchment" : "text-evergreen-deep")}>
+                  <h3 className={cn("font-display text-2xl font-bold", featured ? "text-parchment" : "text-evergreen-deep")}>
                     {plan.name}
                   </h3>
                   <p className={cn("mt-1 text-xs", featured ? "text-parchment/60" : "text-ink-faint")}>
@@ -92,11 +95,11 @@ export function PricingSection({ showComparison = true, platformPricing }: { sho
                   </p>
 
                   <div className="mt-6 flex items-baseline gap-1.5">
-                    <span className={cn("font-serif text-[2.6rem] font-semibold leading-none tracking-tight", featured ? "text-parchment" : "text-evergreen-deep")}>
+                    <span className={cn("font-display text-[2.6rem] font-bold leading-none tracking-tight", featured ? "text-parchment" : "text-evergreen-deep")}>
                       {price === 0 ? "Free" : formatCurrency(price)}
                     </span>
                     {price !== 0 && (
-                      <span className={cn("font-serif text-sm italic", featured ? "text-parchment/60" : "text-ink-faint")}>
+                      <span className={cn("text-sm", featured ? "text-parchment/60" : "text-ink-faint")}>
                         {period}
                       </span>
                     )}
@@ -104,6 +107,11 @@ export function PricingSection({ showComparison = true, platformPricing }: { sho
                   <div className={cn("mt-1.5 text-[11px] uppercase tracking-[0.14em]", featured ? "text-brass" : "text-ink-faint")}>
                     {plan.members}
                   </div>
+                  {price !== 0 && (
+                    <div className={cn("mt-1 text-[11px]", featured ? "text-parchment/50" : "text-ink-faint")}>
+                      ≈ ₵{Math.round(price * ghsRate).toLocaleString()} billed via Paystack
+                    </div>
+                  )}
 
                   <Link
                     href={`/sign-up?plan=${plan.id}`}
@@ -123,7 +131,7 @@ export function PricingSection({ showComparison = true, platformPricing }: { sho
                         key={f}
                         className={cn("flex items-baseline gap-2.5 py-2.5 text-[13px] leading-snug", featured ? "text-parchment/85" : "text-ink-muted")}
                       >
-                        <span className={cn("font-serif text-[11px] italic", featured ? "text-brass" : "text-brass")}>✦</span>
+                        <span className="text-[11px] text-brass">✦</span>
                         {f}
                       </li>
                     ))}
@@ -137,16 +145,16 @@ export function PricingSection({ showComparison = true, platformPricing }: { sho
         {showComparison && (
           <Reveal className="mt-24">
             <div className="mb-8 text-center">
-              <p className="rubric">Set side by side</p>
-              <h3 className="press-display mt-3 text-3xl">Compare every plan</h3>
+              <p className="rubric">Compare</p>
+              <h3 className="press-display mt-3 text-3xl">Every plan, side by side</h3>
             </div>
             <div className="overflow-x-auto border border-ink/12">
               <table className="w-full min-w-[640px] text-sm">
                 <thead>
                   <tr className="border-b-2 border-evergreen bg-parchment">
-                    <th className="p-4 text-left font-serif text-sm font-semibold italic text-evergreen-deep">Features</th>
+                    <th className="p-4 text-left font-display text-sm font-bold text-evergreen-deep">Features</th>
                     {plans.map((p) => (
-                      <th key={p.id} className="p-4 text-center font-serif text-base font-semibold text-evergreen-deep">
+                      <th key={p.id} className="p-4 text-center font-display text-base font-bold text-evergreen-deep">
                         {p.name}
                       </th>
                     ))}

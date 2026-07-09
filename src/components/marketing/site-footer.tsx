@@ -69,7 +69,7 @@ export function SiteFooter() {
         <div className="grid gap-12 lg:grid-cols-[1.6fr_repeat(4,1fr)]">
           <div>
             <Logo href="/" />
-            <p className="mt-5 max-w-xs font-serif text-sm italic leading-relaxed text-parchment/60">
+            <p className="mt-5 max-w-xs text-sm leading-relaxed text-parchment/60">
               {brand.supportingLine}
             </p>
             <div className="mt-6 flex gap-2.5">
@@ -109,8 +109,8 @@ export function SiteFooter() {
 
         {/* Colophon */}
         <div className="mt-16 flex flex-col items-center gap-3 border-t border-parchment/12 pt-8 text-center">
-          <span className="font-serif text-lg italic text-brass" aria-hidden>✦</span>
-          <p className="font-serif text-xs italic text-parchment/50">
+          <span className="text-lg text-brass" aria-hidden>✦</span>
+          <p className="text-xs text-parchment/50">
             © {new Date().getFullYear()} {brand.productName}.
             {brand.parentCompany && <> {brand.parentCompany}</>} Set with care for the Church —
             Accra, and everywhere the doors are open.
