@@ -54,7 +54,14 @@ const COLUMN_MAP: Record<string, Record<string, string>> = {
     session_id: "sessionId", guest_name: "guestName", service_name: "serviceName",
   },
   transaction: {
-    church_id: "churchId",
+    church_id: "churchId", account_id: "accountId",
+  },
+  church_account: {
+    church_id: "churchId", bank_name: "bankName", account_number: "accountNumber",
+    is_default: "isDefault", created_at: "createdAt",
+  },
+  fund: {
+    church_id: "churchId", account_id: "accountId",
   },
 };
 
@@ -100,6 +107,7 @@ const TABLE_TO_MODEL: Record<string, string> = {
   group: "group",
   branch: "branch",
   reminder: "reminder",
+  church_account: "churchAccount",
 };
 
 const REVERSE_RENAMES: Record<string, string> = {

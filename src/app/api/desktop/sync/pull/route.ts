@@ -90,6 +90,7 @@ export async function GET(req: Request) {
       pullTable(db.department, "department", churchId, sinceDate),
       pullTable(db.departmentPosition, "department_position", churchId, sinceDate),
       pullTable(db.customRole, "custom_role", churchId, sinceDate),
+      pullTable(db.churchAccount, "church_account", churchId, sinceDate),
       pullTable(db.fund, "fund", churchId, sinceDate, null),
       pullTable(db.gift, "gift", churchId, sinceDate, "date"),
       pullTable(db.attendanceSession, "attendance_session", churchId, sinceDate, null),

@@ -156,7 +156,7 @@ export function DaybornPage() {
   }
 
   async function postToAccounting(week: any) {
-    const cash = DAYS.reduce((s, d) => s + Number(week[d] || 0), 0);
+    const cash = DAYS.reduce((s, d) => s + safeNum(week[d]), 0);
     const momo = (entriesByWeek[week.id] || []).reduce((s, e) => s + safeNum(e.amount), 0);
     const grand = cash + momo;
     if (grand <= 0 || week.posted) return;
@@ -381,7 +381,7 @@ function HistoryTab({ weeks, entriesByWeek, postingId, onPost, onDelete }: {
       {weeks.map((week) => {
         const sundayIso = new Date(new Date(week.week_of).getTime() + 6 * 86400000).toISOString().slice(0, 10);
         const entries = entriesByWeek[week.id] || [];
-        const cash = DAYS.reduce((s, d) => s + Number(week[d] || 0), 0);
+        const cash = DAYS.reduce((s, d) => s + safeNum(week[d]), 0);
         const momo = entries.reduce((s, e) => s + safeNum(e.amount), 0);
         const grand = cash + momo;
         return (
@@ -406,7 +406,7 @@ function HistoryTab({ weeks, entriesByWeek, postingId, onPost, onDelete }: {
               {DAYS.map((day) => (
                 <div key={day} className="text-center">
                   <p className="text-[10px] text-ink-faint">{DAY_LABELS[day].slice(0, 3)}</p>
-                  <p className={cn("text-xs font-medium", Number(week[day]) > 0 ? "text-ink" : "text-ink-faint/40")}>{Number(week[day]) > 0 ? formatCurrency(Number(week[day])) : "—"}</p>
+                  <p className={cn("text-xs font-medium", safeNum(week[day]) > 0 ? "text-ink" : "text-ink-faint/40")}>{safeNum(week[day]) > 0 ? formatCurrency(safeNum(week[day])) : "—"}</p>
                 </div>
               ))}
             </div>

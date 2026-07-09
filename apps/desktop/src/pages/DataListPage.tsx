@@ -5,7 +5,7 @@ import { PageHeader } from "../components/ui/PageHeader";
 import { Modal } from "../components/ui/Modal";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
-import { formatCurrency, formatDate, cn } from "../lib/utils";
+import { formatCurrency, formatDate, cn, safeNum } from "../lib/utils";
 import { v4 as uuid } from "uuid";
 
 interface Column {
@@ -86,7 +86,7 @@ export function DataListPage({
     const val = row[col.key];
     if (val == null || val === "") return <span className="text-ink-faint">—</span>;
     if (col.format === "date") return <span className="text-xs">{formatDate(val)}</span>;
-    if (col.format === "currency") return <span className="font-semibold text-success">{formatCurrency(Number(val))}</span>;
+    if (col.format === "currency") return <span className="font-semibold text-success">{formatCurrency(safeNum(val))}</span>;
     if (col.format === "status") {
       const colors: Record<string, string> = {
         active: "badge-success", inactive: "badge-muted", visitor: "badge-info",
