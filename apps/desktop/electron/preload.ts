@@ -46,6 +46,10 @@ contextBridge.exposeInMainWorld("api", {
   pickImage: () => ipcRenderer.invoke("dialog:pickImage"),
   setMeta: (key: string, value: string) => ipcRenderer.invoke("meta:set", key, value),
 
+  // ── Server API ──
+  serverFetch: (path: string, method: string, body?: any) =>
+    ipcRenderer.invoke("api:serverFetch", path, method, body),
+
   // ── Plan / billing ──
   getPlan: () => ipcRenderer.invoke("plan:get"),
   refreshPlan: () => ipcRenderer.invoke("plan:refresh"),

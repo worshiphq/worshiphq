@@ -21,6 +21,7 @@ declare global {
       openExternal: (url: string) => Promise<void>;
       pickImage: () => Promise<string | { error: string } | null>;
       setMeta: (key: string, value: string) => Promise<void>;
+      serverFetch: (path: string, method: string, body?: any) => Promise<any>;
       getPlan: () => Promise<PlanInfo>;
       refreshPlan: () => Promise<PlanInfo & { error?: string }>;
       getVersion: () => Promise<string>;
@@ -107,6 +108,11 @@ export const sync = {
 export const plan = {
   get: () => api?.getPlan() ?? mock({ plan: "free", status: "active", renewsAt: null, signedExpiry: null } as PlanInfo),
   refresh: () => api?.refreshPlan() ?? mock({ plan: "free", status: "active", renewsAt: null, signedExpiry: null } as PlanInfo & { error?: string }),
+};
+
+export const server = {
+  fetch: (path: string, method = "GET", body?: any) =>
+    api?.serverFetch(path, method, body) ?? mock({ error: "Not in Electron" }),
 };
 
 export const appInfo = {

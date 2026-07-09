@@ -307,6 +307,25 @@ export function registerSyncHandlers() {
     }
   });
 
+  ipcMain.handle("api:serverFetch", async (_e, path: string, method: string, body?: any) => {
+    const serverUrl = getSyncMeta("server_url");
+    const token = getSyncMeta("auth_token");
+    if (!serverUrl || !token) return { error: "Not logged in" };
+    try {
+      const opts: RequestInit = {
+        method,
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      };
+      if (body && method !== "GET") opts.body = JSON.stringify(body);
+      const res = await fetch(`${serverUrl}${path}`, opts);
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) return { error: data.error || `Request failed (${res.status})` };
+      return data;
+    } catch (err: any) {
+      return { error: err?.message || "Connection failed" };
+    }
+  });
+
   ipcMain.handle("auth:logout", () => {
     const db = getDatabase();
     db.prepare("DELETE FROM _sync_meta WHERE key IN ('auth_token', 'user_id', 'church_id', 'user_name', 'user_email', 'user_role', 'church_name')").run();

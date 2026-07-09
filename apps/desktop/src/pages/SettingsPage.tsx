@@ -3,14 +3,15 @@ import {
   Save, Loader2, Database, RefreshCw, Trash2, User, Church, HardDrive,
   ExternalLink, Users2, Layers, Shield, Plus, X, Check, Pencil,
   Palette, Link2, CreditCard, MessageSquare, Copy, Eye, EyeOff,
-  UserPlus, ChevronDown, ChevronUp, AlertTriangle, Building2, Bell, Award,
+  UserPlus, ChevronDown, ChevronUp, AlertTriangle, Building2, Bell, Award, Wallet,
+  Clock, CheckCircle2,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
 import { Avatar } from "../components/ui/Avatar";
 import { Modal } from "../components/ui/Modal";
 import { useAppStore } from "../stores/app-store";
-import { db, sync, auth, appInfo } from "../lib/api";
+import { db, sync, auth, appInfo, server } from "../lib/api";
 import { requireOnline } from "../lib/net";
 import { cn } from "../lib/utils";
 import { v4 as uuid } from "uuid";
@@ -21,7 +22,7 @@ import {
 
 type Tab =
   | "profile" | "church" | "branding" | "team" | "departments" | "positions"
-  | "branches" | "joinlink" | "automations" | "billing" | "sms" | "sync" | "about";
+  | "branches" | "joinlink" | "automations" | "billing" | "online-payments" | "sms" | "sync" | "about";
 
 const ALL_ROLES = ["Admin", "Pastor", "Finance", "Media", "Leader", "Volunteer"];
 // Mirrors web src/lib/permissions.ts ALL_MODULES (includes harvest).
@@ -78,6 +79,7 @@ export function SettingsPage() {
     { key: "joinlink", label: "Join Link & Forms", icon: Link2 },
     { key: "automations", label: "Automations", icon: Bell },
     { key: "billing", label: "Billing", icon: CreditCard },
+    { key: "online-payments", label: "Online Payments", icon: Wallet },
     { key: "sms", label: "SMS Settings", icon: MessageSquare },
     { key: "sync", label: "Sync & Data", icon: RefreshCw },
     { key: "about", label: "About", icon: HardDrive },
@@ -144,6 +146,7 @@ export function SettingsPage() {
           {tab === "joinlink" && <JoinLinkTab />}
           {tab === "automations" && <AutomationsTab />}
           {tab === "billing" && <BillingTab />}
+          {tab === "online-payments" && <OnlinePaymentsTab />}
           {tab === "sms" && <SmsTab />}
           {tab === "sync" && (
             <SyncTab
@@ -1887,6 +1890,211 @@ function SyncTab({
         <button onClick={onClear} className="mt-3 flex items-center gap-2 rounded-lg border border-danger/30 px-3 py-1.5 text-xs font-medium text-danger hover:bg-danger/10">
           <Trash2 className="size-3.5" /> Clear Data & Log Out
         </button>
+      </div>
+    </div>
+  );
+}
+
+/* ─── Online Payments Tab ─── */
+function OnlinePaymentsTab() {
+  const { session, showToast } = useAppStore();
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [request, setRequest] = useState<any>(null);
+  const [form, setForm] = useState({ contactName: "", contactPhone: "", contactEmail: "", needs: "" });
+
+  useEffect(() => { loadStatus(); }, []);
+
+  async function loadStatus() {
+    setLoading(true);
+    const ok = await requireOnline("check payment request status");
+    if (!ok) { setLoading(false); return; }
+    const result = await server.fetch("/api/desktop/payment-request", "GET");
+    if (!result.error) setRequest(result.request);
+    setLoading(false);
+  }
+
+  async function handleSubmit() {
+    if (!form.contactName.trim()) { showToast("Contact name is required", "error"); return; }
+    const ok = await requireOnline("submit a payment request");
+    if (!ok) return;
+    setSubmitting(true);
+    const result = await server.fetch("/api/desktop/payment-request", "POST", form);
+    if (result.error) {
+      showToast(result.error, "error");
+    } else {
+      showToast("Payment request submitted! We'll be in touch.");
+      setForm({ contactName: "", contactPhone: "", contactEmail: "", needs: "" });
+      loadStatus();
+    }
+    setSubmitting(false);
+  }
+
+  if (loading) {
+    return <div className="flex items-center justify-center py-20"><Loader2 className="size-6 text-primary-bright whq-spin" /></div>;
+  }
+
+  const status = request?.status;
+  const isActive = status === "pending" || status === "scheduled" || status === "in_progress";
+  const isCompleted = status === "completed";
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-lg font-bold text-ink">Online Payments</h2>
+        <p className="text-sm text-ink-muted">
+          Request online payment setup so your members can give digitally via mobile money, card, or USSD.
+        </p>
+      </div>
+
+      {isCompleted && (
+        <div className="card space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="grid size-10 place-items-center rounded-xl bg-success/10">
+              <CheckCircle2 className="size-5 text-success" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-ink">Online Payments Active</p>
+              <p className="text-xs text-ink-muted">Your online payment setup is complete.</p>
+            </div>
+          </div>
+
+          {request.ussdCode && (
+            <div className="rounded-xl border border-line bg-surface-2/50 p-3">
+              <p className="text-xs text-ink-faint">USSD Code</p>
+              <p className="text-lg font-bold font-mono text-ink">{request.ussdCode}</p>
+              <p className="text-xs text-ink-faint mt-1">Members can dial this code on any phone to give.</p>
+            </div>
+          )}
+
+          {request.portalUrl && (
+            <div className="rounded-xl border border-line bg-surface-2/50 p-3">
+              <p className="text-xs text-ink-faint">Payment Portal</p>
+              <button
+                onClick={() => window.api?.openExternal(request.portalUrl)}
+                className="text-sm font-medium text-primary-bright hover:underline break-all text-left"
+              >
+                {request.portalUrl}
+              </button>
+              <p className="text-xs text-ink-faint mt-1">Share this link with your members.</p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {isActive && (
+        <div className="card space-y-4">
+          <div className="flex items-center gap-3">
+            <div className={cn(
+              "grid size-10 place-items-center rounded-xl",
+              status === "pending" ? "bg-warning/10" : "bg-primary-soft"
+            )}>
+              {status === "pending" ? (
+                <Clock className="size-5 text-warning" />
+              ) : (
+                <Loader2 className="size-5 text-primary-bright whq-spin" />
+              )}
+            </div>
+            <div>
+              <p className="text-sm font-bold text-ink">
+                {status === "pending" && "Request Pending"}
+                {status === "scheduled" && "Meeting Scheduled"}
+                {status === "in_progress" && "Setup In Progress"}
+              </p>
+              <p className="text-xs text-ink-muted">
+                {status === "pending" && "Your request has been submitted. We'll reach out to schedule a meeting."}
+                {status === "scheduled" && "A meeting has been scheduled to set up your payment account."}
+                {status === "in_progress" && "We're setting up your payment account. This should be done shortly."}
+              </p>
+            </div>
+          </div>
+
+          {request.meetingDate && (
+            <div className="rounded-xl border border-line bg-surface-2/50 p-3">
+              <p className="text-xs text-ink-faint">Meeting</p>
+              <p className="text-sm font-medium text-ink">
+                {new Date(request.meetingDate).toLocaleString()}
+                {request.meetingType && (
+                  <span className="ml-2 text-xs text-ink-faint capitalize">({request.meetingType.replace("_", " ")})</span>
+                )}
+              </p>
+            </div>
+          )}
+
+          <p className="text-xs text-ink-faint">
+            Submitted: {new Date(request.createdAt).toLocaleDateString()}
+          </p>
+
+          <button onClick={loadStatus} className="btn-ghost btn-sm">
+            <RefreshCw className="size-3.5" /> Check Status
+          </button>
+        </div>
+      )}
+
+      {!isActive && !isCompleted && (
+        <div className="card space-y-4">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="grid size-10 place-items-center rounded-xl bg-primary-soft">
+              <Wallet className="size-5 text-primary-bright" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-ink">Request Online Payment Setup</p>
+              <p className="text-xs text-ink-muted">We'll set up a payment account for your church.</p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1">Contact Name *</label>
+              <input
+                value={form.contactName}
+                onChange={(e) => setForm((f) => ({ ...f, contactName: e.target.value }))}
+                className="input"
+                placeholder="Your full name"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-ink-muted mb-1">Phone Number</label>
+              <input
+                value={form.contactPhone}
+                onChange={(e) => setForm((f) => ({ ...f, contactPhone: e.target.value }))}
+                className="input"
+                placeholder="e.g. 024 XXX XXXX"
+              />
+            </div>
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Email</label>
+            <input
+              type="email"
+              value={form.contactEmail}
+              onChange={(e) => setForm((f) => ({ ...f, contactEmail: e.target.value }))}
+              className="input"
+              placeholder="your@email.com"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">What payment options do you need?</label>
+            <textarea
+              value={form.needs}
+              onChange={(e) => setForm((f) => ({ ...f, needs: e.target.value }))}
+              className="input min-h-[80px]"
+              placeholder="e.g. Mobile Money, Visa/Mastercard, USSD, online payment portal..."
+            />
+          </div>
+          <button onClick={handleSubmit} disabled={submitting} className="btn-primary">
+            {submitting && <Loader2 className="size-4 whq-spin" />}
+            {submitting ? "Submitting..." : "Submit Request"}
+          </button>
+        </div>
+      )}
+
+      <div className="card !bg-surface-2/30">
+        <p className="text-xs text-ink-faint">
+          Online payments are processed through Paystack. After submitting your request, our team will reach out
+          to verify your church details and set up your payment account. You'll receive a USSD code and payment
+          portal link once your account is ready.
+        </p>
       </div>
     </div>
   );
