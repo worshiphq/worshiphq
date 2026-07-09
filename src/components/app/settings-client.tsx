@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Building, Palette, Users2, CreditCard, Plug, Check, Pencil, CircleDot,
   Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, Shield, MessageSquare,
-  ExternalLink, Rocket,
+  ExternalLink, Rocket, Wallet, Loader2 as Spinner, Clock, CheckCircle2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input, Label } from "@/components/ui/input";
 import type { Session } from "@/lib/permissions";
 import { ROLE_PERMISSIONS } from "@/lib/permissions";
+import { submitPaymentRequest, getPaymentRequestStatus } from "@/app/actions/payment-request";
 import {
   updateChurch, inviteTeammate,
   changeUserRole, removeTeamMember,
@@ -69,6 +70,7 @@ const tabs = [
   { key: "departments", label: "Departments", icon: Layers },
   { key: "registration", label: "Join link", icon: Link2 },
   { key: "billing", label: "Billing", icon: CreditCard },
+  { key: "online-payments", label: "Online Payments", icon: Wallet },
   { key: "sms", label: "SMS Settings", icon: MessageSquare },
 ] as const;
 
@@ -435,6 +437,9 @@ export function SettingsClient({
 
         {/* ── Billing ── */}
         {tab === "billing" && <BillingTab subscription={subscription} features={features} ro={ro} platformPricing={platformPricing} />}
+
+        {/* ── Online Payments ── */}
+        {tab === "online-payments" && <OnlinePaymentsTab churchId={session.churchId} />}
 
         {tab === "sms" && (
           <Card className="p-6">
@@ -1214,6 +1219,134 @@ function SharedLinkCard({ title, description, path, slug }: { title: string; des
               <ExternalLink className="size-3.5" /> Open
             </Button>
           </a>
+        </div>
+      )}
+    </Card>
+  );
+}
+
+/* ── Online Payments Tab ── */
+function OnlinePaymentsTab({ churchId }: { churchId: string }) {
+  const [status, setStatus] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
+  const [error, setError] = useState("");
+
+  useEffect(() => {
+    getPaymentRequestStatus().then((s) => { setStatus(s); setLoading(false); });
+  }, []);
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setSubmitting(true);
+    setError("");
+    const formData = new FormData(e.currentTarget);
+    const result = await submitPaymentRequest(formData);
+    setSubmitting(false);
+    if (result?.error) {
+      setError(result.error);
+    } else {
+      setSubmitted(true);
+      getPaymentRequestStatus().then(setStatus);
+    }
+  }
+
+  if (loading) {
+    return (
+      <Card className="p-6">
+        <div className="flex items-center justify-center py-8">
+          <Spinner className="size-5 animate-spin text-teal-500" />
+        </div>
+      </Card>
+    );
+  }
+
+  const hasActive = status && ["pending", "scheduled", "in_progress"].includes(status.status);
+  const isCompleted = status?.status === "completed";
+
+  return (
+    <Card className="p-6 space-y-6">
+      <div>
+        <h3 className="font-display text-lg font-semibold">Online Payments</h3>
+        <p className="text-sm text-muted-foreground">
+          Request online payment setup for your church. Our team will schedule a meeting to discuss your needs
+          and set up payment portals, USSD codes, and mobile money options.
+        </p>
+      </div>
+
+      {isCompleted && (
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-4 dark:border-emerald-800 dark:bg-emerald-950/20">
+          <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400">
+            <CheckCircle2 className="size-5" />
+            <span className="font-semibold">Online payments are set up!</span>
+          </div>
+          <div className="mt-3 space-y-2 text-sm">
+            {status.ussdCode && <p><strong>USSD Code:</strong> {status.ussdCode}</p>}
+            {status.portalUrl && <p><strong>Payment Portal:</strong> <a href={status.portalUrl} target="_blank" rel="noopener" className="text-teal-600 underline">{status.portalUrl}</a></p>}
+            {status.adminNotes && <p className="text-muted-foreground">{status.adminNotes}</p>}
+          </div>
+        </div>
+      )}
+
+      {hasActive && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/20">
+          <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
+            <Clock className="size-5" />
+            <span className="font-semibold">
+              {status.status === "pending" && "Request submitted — waiting for admin review"}
+              {status.status === "scheduled" && "Meeting scheduled"}
+              {status.status === "in_progress" && "Setup in progress"}
+            </span>
+          </div>
+          {status.meetingDate && (
+            <p className="mt-2 text-sm">
+              Meeting: {new Date(status.meetingDate).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+              {status.meetingType && ` (${status.meetingType === "call" ? "Phone call" : status.meetingType === "video" ? "Video call" : "In person"})`}
+            </p>
+          )}
+          {status.adminNotes && <p className="mt-1 text-sm text-muted-foreground">{status.adminNotes}</p>}
+        </div>
+      )}
+
+      {!hasActive && !submitted && (
+        <form onSubmit={handleSubmit} className="space-y-4">
+          <div>
+            <Label>Contact Name *</Label>
+            <Input name="contactName" required placeholder="Who should we reach out to?" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Phone</Label>
+              <Input name="contactPhone" type="tel" placeholder="+233..." />
+            </div>
+            <div>
+              <Label>Email</Label>
+              <Input name="contactEmail" type="email" placeholder="you@church.org" />
+            </div>
+          </div>
+          <div>
+            <Label>What do you need?</Label>
+            <textarea name="needs" rows={3} placeholder="Tell us what payment options you'd like — mobile money, card payments, USSD, QR codes, etc."
+              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
+          </div>
+          {error && <p className="text-sm text-destructive">{error}</p>}
+          <Button type="submit" disabled={submitting}>
+            {submitting && <Spinner className="size-4 animate-spin" />}
+            {submitting ? "Submitting..." : "Request Online Payments Setup"}
+          </Button>
+        </form>
+      )}
+
+      {submitted && !hasActive && (
+        <div className="rounded-xl border border-teal-200 bg-teal-50 p-4 dark:border-teal-800 dark:bg-teal-950/20">
+          <div className="flex items-center gap-2 text-teal-700 dark:text-teal-400">
+            <CheckCircle2 className="size-5" />
+            <span className="font-semibold">Request submitted!</span>
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Our team will review your request and reach out to schedule a meeting. You&apos;ll see updates here.
+          </p>
         </div>
       )}
     </Card>

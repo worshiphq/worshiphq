@@ -270,3 +270,37 @@ export async function deleteAnnouncement(id: string) {
   await db.announcement.delete({ where: { id } });
   revalidatePath("/admin/broadcast");
 }
+
+// ── Payment requests ──
+export async function updatePaymentRequest(id: string, formData: FormData) {
+  await requireSuperAdmin();
+  const status = String(formData.get("status") ?? "").trim();
+  const adminNotes = String(formData.get("adminNotes") ?? "").trim();
+  const meetingDateStr = String(formData.get("meetingDate") ?? "").trim();
+  const meetingType = String(formData.get("meetingType") ?? "").trim();
+  const ussdCode = String(formData.get("ussdCode") ?? "").trim();
+  const portalUrl = String(formData.get("portalUrl") ?? "").trim();
+  const paystackSubId = String(formData.get("paystackSubId") ?? "").trim();
+
+  await db.paymentRequest.update({
+    where: { id },
+    data: {
+      status: status || undefined,
+      adminNotes: adminNotes || null,
+      meetingDate: meetingDateStr ? new Date(meetingDateStr) : null,
+      meetingType: meetingType || null,
+      ussdCode: ussdCode || null,
+      portalUrl: portalUrl || null,
+      paystackSubId: paystackSubId || null,
+    },
+  });
+  revalidatePath("/admin/payments");
+}
+
+export async function getAllPaymentRequests() {
+  await requireSuperAdmin();
+  return db.paymentRequest.findMany({
+    orderBy: { createdAt: "desc" },
+    include: { church: { select: { name: true, slug: true } } },
+  });
+}

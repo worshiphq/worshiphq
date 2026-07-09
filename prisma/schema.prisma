@@ -115,6 +115,7 @@ model Church {
   volunteerRosters VolunteerRoster[]
   volunteerSlots  VolunteerSlot[]
   dayBornWeeks    DayBornWeek[]
+  paymentRequests PaymentRequest[]
 }
 
 model Branch {
@@ -1088,6 +1089,31 @@ model VolunteerSlot {
 
   @@index([rosterId])
   @@index([personId])
+}
+
+// ── Online Payment Request ───────────────────────────────
+// Churches request online payment setup; admin handles it manually.
+model PaymentRequest {
+  id            String   @id @default(cuid())
+  churchId      String
+  church        Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  requestedBy   String
+  contactName   String
+  contactPhone  String?
+  contactEmail  String?
+  needs         String?  @db.Text
+  status        String   @default("pending") // pending, scheduled, in_progress, completed, declined
+  adminNotes    String?  @db.Text
+  meetingDate   DateTime?
+  meetingType   String?  // call, video, in_person
+  paystackSubId String?
+  ussdCode      String?
+  portalUrl     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([churchId])
+  @@index([status])
 }
 
 // ── Biometric Credentials ────────────────────────────────
