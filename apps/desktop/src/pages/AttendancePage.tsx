@@ -418,7 +418,7 @@ function SessionDetailModal({ sessionId, churchId, serverUrl, onClose, onChanged
             <div className="mb-2 flex items-center gap-2 text-sm font-bold text-ink"><UserCheck className="size-4" /> Check in members</div>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Start typing a name…" className="input h-10 pl-9" />
+              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Start typing a name…" className="input h-9 pl-9 text-sm" />
               {filtered.length > 0 && (
                 <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
                   {filtered.map((c) => (

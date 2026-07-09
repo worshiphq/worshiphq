@@ -82,9 +82,9 @@ export function ExpensesPage() {
       <div className="mb-4 flex items-center gap-3">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-10 pl-9" placeholder="Search expenses..." />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-9 pl-9 text-sm" placeholder="Search expenses..." />
         </div>
-        <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)} className="input h-10 w-44 text-sm">
+        <select value={catFilter} onChange={(e) => setCatFilter(e.target.value)} className="input h-9 w-44 text-sm">
           <option value="">All Categories</option>
           {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
         </select>

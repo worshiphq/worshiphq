@@ -80,7 +80,7 @@ export function DirectoryPage() {
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative max-w-md flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-          <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-10 pl-9" placeholder="Search by name, phone, email..." />
+          <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-9 pl-9 text-sm" placeholder="Search by name, phone, email..." />
         </div>
         {departments.length > 0 && (
           <select value={deptFilter} onChange={(e) => setDeptFilter(e.target.value)} className="input h-9 w-44 text-sm">

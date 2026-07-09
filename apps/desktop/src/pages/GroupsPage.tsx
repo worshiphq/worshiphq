@@ -101,7 +101,7 @@ export function GroupsPage() {
 
       <div className="mb-4 relative max-w-md">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-10 pl-9" placeholder="Search groups..." />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-9 pl-9 text-sm" placeholder="Search groups..." />
       </div>
 
       <div className="mb-4 flex flex-wrap gap-2">
@@ -361,7 +361,7 @@ function GroupDetailDrawer({ churchId, groupId, onClose }: { churchId: string; g
                 <div className="card mt-3 p-4">
                   <div className="relative">
                     <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-                    <input value={addSearch} onChange={(e) => setAddSearch(e.target.value)} autoFocus className="input h-10 pl-9" placeholder="Search members to add..." />
+                    <input value={addSearch} onChange={(e) => setAddSearch(e.target.value)} autoFocus className="input h-9 pl-9 text-sm" placeholder="Search members to add..." />
                   </div>
                   {filteredAvailable.length === 0 ? (
                     <p className="mt-3 text-center text-xs text-ink-muted">No members available to add.</p>
@@ -382,7 +382,7 @@ function GroupDetailDrawer({ churchId, groupId, onClose }: { churchId: string; g
                 {members.length > 5 && (
                   <div className="relative mb-3">
                     <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-                    <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-10 pl-9" placeholder="Search members..." />
+                    <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-9 pl-9 text-sm" placeholder="Search members..." />
                   </div>
                 )}
                 {filteredMembers.length === 0 ? (

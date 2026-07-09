@@ -99,7 +99,7 @@ export function CommunicationsPage() {
 
       <div className="mb-4 relative max-w-md">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-        <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-10 pl-9" placeholder="Search campaigns..." />
+        <input value={search} onChange={(e) => setSearch(e.target.value)} className="input h-9 pl-9 text-sm" placeholder="Search campaigns..." />
       </div>
 
       <div className="card p-0 overflow-hidden">

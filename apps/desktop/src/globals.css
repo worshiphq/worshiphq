@@ -162,9 +162,10 @@ html, body, #root {
 
 /* ── Form elements ── */
 .input {
-  @apply w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm text-ink
+  @apply w-full rounded-xl border border-line bg-surface px-3.5 py-2 text-sm text-ink
     outline-none transition-all duration-200 placeholder:text-ink-faint
     focus:border-primary-bright focus:ring-2 focus:ring-primary-soft focus:shadow-[0_0_0_3px_rgba(109,94,248,0.1)];
+  height: 36px;
 }
 
 textarea.input { @apply min-h-[80px] resize-y; }
