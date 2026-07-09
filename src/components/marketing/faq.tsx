@@ -11,51 +11,48 @@ export function FAQ() {
   const [open, setOpen] = useState<number | null>(0);
 
   return (
-    <section className="relative py-28">
-      {/* Divider with diamond */}
-      <div className="absolute inset-x-0 top-0 flex items-center justify-center">
-        <div className="h-px flex-1 bg-gradient-to-r from-transparent to-line" />
-        <div className="mx-3 size-1.5 rotate-45 border border-line bg-surface" />
-        <div className="h-px flex-1 bg-gradient-to-l from-transparent to-line" />
-      </div>
-
+    <section className="relative py-20 sm:py-28">
       <div className="mx-auto max-w-3xl px-5">
         <Reveal>
-          <div className="max-w-xl">
-            <span className="mb-3 inline-block font-mono text-xs font-medium uppercase tracking-[0.2em] text-gold">
-              08 / FAQ
-            </span>
-            <h2 className="font-display text-4xl font-bold tracking-tight sm:text-5xl">
-              Common questions,
-              <br />
-              <span className="text-ink-muted">honest answers.</span>
+          <div className="mb-4 flex items-baseline gap-4">
+            <span className="font-serif text-sm italic text-brass">ix.</span>
+            <p className="rubric">The Catechism</p>
+          </div>
+          <div className="border-t-2 border-evergreen pt-8">
+            <h2 className="press-display text-4xl sm:text-5xl">
+              Asked, and
+              <em className="font-light italic text-primary"> answered.</em>
             </h2>
           </div>
         </Reveal>
 
-        <div className="mt-14 space-y-3">
+        <div className="mt-12 divide-y divide-ink/10 border-y border-ink/10">
           {faqs.map((f, i) => {
             const isOpen = open === i;
             return (
-              <Reveal key={f.q} delay={i * 0.06}>
-                <div className={cn(
-                  "rounded-2xl border border-line bg-surface transition-colors duration-300",
-                  isOpen && "border-primary/20 bg-primary/[0.02]",
-                )}>
+              <Reveal key={f.q} delay={i * 0.05}>
+                <div>
                   <button
                     onClick={() => setOpen(isOpen ? null : i)}
-                    className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left"
+                    className="group flex w-full items-baseline justify-between gap-6 py-6 text-left"
                   >
-                    <span className="flex items-baseline gap-3">
-                      <span className="font-mono text-xs text-ink-faint">
-                        {String(i + 1).padStart(2, "0")}
+                    <span className="flex items-baseline gap-4">
+                      <span className="font-serif text-sm italic text-brass">
+                        Q{i + 1}.
                       </span>
-                      <span className="font-medium text-ink">{f.q}</span>
+                      <span
+                        className={cn(
+                          "font-serif text-lg transition-colors sm:text-xl",
+                          isOpen ? "font-semibold text-evergreen-deep" : "text-ink group-hover:text-evergreen",
+                        )}
+                      >
+                        {f.q}
+                      </span>
                     </span>
                     <Plus
                       className={cn(
-                        "size-4 shrink-0 text-ink-muted transition-transform duration-300",
-                        isOpen && "rotate-45 text-primary-bright",
+                        "size-4 shrink-0 self-center text-ink-faint transition-transform duration-300",
+                        isOpen && "rotate-45 text-brass",
                       )}
                     />
                   </button>
@@ -68,9 +65,10 @@ export function FAQ() {
                         transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
                         className="overflow-hidden"
                       >
-                        <p className="px-6 pb-6 pl-[3.25rem] text-sm leading-relaxed text-ink-muted">
-                          {f.a}
-                        </p>
+                        <div className="flex gap-4 pb-7 pl-0 sm:pl-1">
+                          <span className="font-serif text-sm italic text-evergreen shrink-0">A.</span>
+                          <p className="max-w-xl text-[15px] leading-[1.85] text-ink-muted">{f.a}</p>
+                        </div>
                       </motion.div>
                     )}
                   </AnimatePresence>

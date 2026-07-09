@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
-import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const links = [
@@ -26,42 +25,49 @@ export function SiteNav() {
   }, []);
 
   return (
-    <header className="fixed inset-x-0 top-0 z-50 flex justify-center px-4 pt-3">
-      <nav
-        className={cn(
-          "flex w-full max-w-6xl items-center justify-between rounded-2xl px-4 py-2.5 transition-all duration-300 sm:px-5",
-          scrolled
-            ? "border border-line/60 bg-surface/95 shadow-lg backdrop-blur-xl"
-            : "border border-transparent bg-transparent",
-        )}
-      >
-        <Logo href="/" />
+    <header
+      className={cn(
+        "fixed inset-x-0 top-0 z-50 transition-all duration-300",
+        scrolled
+          ? "border-b border-ink/10 bg-parchment/95 shadow-[0_8px_24px_-18px_rgba(28,26,22,0.4)] backdrop-blur-md"
+          : "border-b border-transparent bg-transparent",
+      )}
+    >
+      <nav className="mx-auto flex h-16 max-w-6xl items-center justify-between px-5">
+        <Logo href="/" size="sm" />
 
-        <div className="hidden items-center gap-1 md:flex">
-          {links.map((l) => (
-            <Link
-              key={l.href}
-              href={l.href}
-              className="rounded-lg px-3 py-2 text-sm text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink"
-            >
-              {l.label}
-            </Link>
+        {/* Center links — small caps, letterspaced, hairline separators */}
+        <div className="hidden items-center md:flex">
+          {links.map((l, i) => (
+            <span key={l.href} className="flex items-center">
+              {i > 0 && <span className="mx-1 text-[8px] text-brass/60">✦</span>}
+              <Link
+                href={l.href}
+                className="px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted transition-colors hover:text-evergreen"
+              >
+                {l.label}
+              </Link>
+            </span>
           ))}
         </div>
 
-        <div className="hidden items-center gap-2 md:flex">
-          <Link href="/sign-in">
-            <Button variant="ghost" size="sm">
-              Log in
-            </Button>
+        <div className="hidden items-center gap-5 md:flex">
+          <Link
+            href="/sign-in"
+            className="text-[11px] font-semibold uppercase tracking-[0.18em] text-ink-muted transition-colors hover:text-evergreen"
+          >
+            Log in
           </Link>
-          <Link href="/contact">
-            <Button size="sm">Request demo</Button>
+          <Link
+            href="/sign-up"
+            className="rounded-full border border-evergreen bg-evergreen px-5 py-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-parchment transition-colors hover:bg-evergreen-deep"
+          >
+            Get started
           </Link>
         </div>
 
         <button
-          className="grid size-10 place-items-center rounded-lg text-ink md:hidden"
+          className="grid size-10 place-items-center text-ink md:hidden"
           onClick={() => setOpen((v) => !v)}
           aria-label="Toggle menu"
         >
@@ -70,26 +76,32 @@ export function SiteNav() {
       </nav>
 
       {open && (
-        <div className="fixed inset-x-4 top-20 z-50 rounded-2xl border border-line/60 bg-surface/95 p-4 shadow-lg backdrop-blur-xl md:hidden">
-          <div className="flex flex-col gap-1">
+        <div className="border-t border-ink/10 bg-parchment px-5 pb-6 pt-3 md:hidden">
+          <div className="flex flex-col">
             {links.map((l) => (
               <Link
                 key={l.href}
                 href={l.href}
                 onClick={() => setOpen(false)}
-                className="rounded-lg px-3 py-2.5 text-sm text-ink-muted hover:bg-surface-2 hover:text-ink"
+                className="border-b border-ink/8 py-3.5 text-sm font-medium text-ink"
               >
                 {l.label}
               </Link>
             ))}
-            <div className="mt-2 flex flex-col gap-2 border-t border-line pt-3">
-              <Link href="/sign-in" onClick={() => setOpen(false)}>
-                <Button variant="outline" className="w-full">
-                  Log in
-                </Button>
+            <div className="mt-4 flex flex-col gap-2.5">
+              <Link
+                href="/sign-in"
+                onClick={() => setOpen(false)}
+                className="rounded-full border border-ink/20 py-3 text-center text-sm font-semibold text-ink"
+              >
+                Log in
               </Link>
-              <Link href="/contact" onClick={() => setOpen(false)}>
-                <Button className="w-full">Request demo</Button>
+              <Link
+                href="/sign-up"
+                onClick={() => setOpen(false)}
+                className="rounded-full bg-evergreen py-3 text-center text-sm font-semibold text-parchment"
+              >
+                Get started
               </Link>
             </div>
           </div>

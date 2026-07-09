@@ -205,34 +205,45 @@ const sections = [
   },
 ];
 
+const ROMAN = ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+
 export default function HelpPage() {
   return (
     <>
       <PageHero
-        eyebrow="Help center"
+        eyebrow="The Handbook"
         title={
           <>
-            Everything <span className="text-gradient">explained</span>
+            Everything,
+            <br />
+            <em className="font-light italic text-primary">explained.</em>
           </>
         }
-        subtitle="A complete guide to every feature in WorshipHQ. Click any section to learn more."
+        subtitle="A complete guide to every feature in WorshipHQ — chapter and verse."
       />
 
-      <section className="mx-auto max-w-5xl px-4 pb-24 sm:px-6">
-        <div className="space-y-12">
-          {sections.map((section) => (
+      <section className="mx-auto max-w-5xl px-4 pb-24 pt-4 sm:px-6">
+        <div className="space-y-16">
+          {sections.map((section, si) => (
             <div key={section.title}>
-              <div className="flex items-center gap-3 border-b border-line pb-3">
-                <div className="grid size-9 place-items-center rounded-xl bg-primary/10">
-                  <section.icon className="size-5 text-primary-bright" />
-                </div>
-                <h2 className="font-display text-xl font-bold">{section.title}</h2>
+              {/* Chapter heading */}
+              <div className="flex items-baseline gap-4 border-t-2 border-evergreen pt-6">
+                <span className="font-serif text-sm italic text-brass">Ch. {ROMAN[si]}</span>
+                <h2 className="font-serif text-2xl font-semibold text-evergreen-deep sm:text-3xl">
+                  {section.title}
+                </h2>
+                <section.icon className="ml-auto size-5 self-center text-evergreen/50" strokeWidth={1.75} />
               </div>
-              <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                {section.features.map((f) => (
-                  <div key={f.name} className="rounded-2xl border border-line bg-surface p-5">
-                    <h3 className="font-display text-sm font-semibold">{f.name}</h3>
-                    <p className="mt-1.5 text-sm leading-relaxed text-ink-muted">{f.desc}</p>
+              <div className="mt-8 grid gap-x-12 gap-y-8 sm:grid-cols-2">
+                {section.features.map((f, fi) => (
+                  <div key={f.name} className="border-t border-ink/10 pt-4">
+                    <h3 className="leaders font-serif text-lg font-semibold text-evergreen-deep">
+                      <span>{f.name}</span>
+                      <span className="font-serif text-xs italic text-brass">
+                        §{si + 1}.{fi + 1}
+                      </span>
+                    </h3>
+                    <p className="mt-2.5 text-sm leading-[1.8] text-ink-muted">{f.desc}</p>
                   </div>
                 ))}
               </div>

@@ -18,7 +18,9 @@ export default async function PricingPage() {
         eyebrow="Pricing"
         title={
           <>
-            Pricing that <span className="text-gradient">grows with you</span>
+            Pricing that grows
+            <br />
+            <em className="font-light italic text-primary">with you.</em>
           </>
         }
         subtitle={`Start free forever. Upgrade when you're ready. No hidden fees, no surprises — all in ${platformConfig.currencySymbol}.`}

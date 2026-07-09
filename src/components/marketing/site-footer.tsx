@@ -60,19 +60,25 @@ const columns = [
 
 export function SiteFooter() {
   return (
-    <footer className="relative border-t border-line bg-surface/40">
-      <div className="mx-auto max-w-6xl px-5 py-16">
-        <div className="grid gap-10 lg:grid-cols-[1.5fr_repeat(4,1fr)]">
+    <footer className="relative bg-evergreen-deep text-parchment">
+      {/* Gilt top edge */}
+      <div className="h-px bg-brass/50" aria-hidden />
+      <div className="mt-1 h-px bg-brass/25" aria-hidden />
+
+      <div className="mx-auto max-w-6xl px-5 pb-10 pt-16">
+        <div className="grid gap-12 lg:grid-cols-[1.6fr_repeat(4,1fr)]">
           <div>
             <Logo href="/" />
-            <p className="mt-4 max-w-xs text-sm text-ink-muted">{brand.supportingLine}</p>
-            <div className="mt-5 flex gap-2">
+            <p className="mt-5 max-w-xs font-serif text-sm italic leading-relaxed text-parchment/60">
+              {brand.supportingLine}
+            </p>
+            <div className="mt-6 flex gap-2.5">
               {brand.socials.map((s) => (
                 <a
                   key={s.label}
                   href={s.href}
                   aria-label={s.label}
-                  className="grid size-9 place-items-center rounded-lg border border-line bg-surface text-ink-muted transition-colors hover:border-primary/40 hover:text-ink"
+                  className="grid size-9 place-items-center border border-parchment/15 text-parchment/60 transition-colors hover:border-brass/60 hover:text-brass"
                 >
                   <BrandIcon name={s.icon} className="size-4" />
                 </a>
@@ -82,11 +88,16 @@ export function SiteFooter() {
 
           {columns.map((col) => (
             <div key={col.title}>
-              <h4 className="mb-3 text-sm font-semibold text-ink">{col.title}</h4>
-              <ul className="space-y-2.5">
+              <h4 className="mb-4 text-[10px] font-semibold uppercase tracking-[0.25em] text-brass">
+                {col.title}
+              </h4>
+              <ul className="space-y-3">
                 {col.links.map((l) => (
                   <li key={l.label}>
-                    <Link href={l.href} className="text-sm text-ink-muted transition-colors hover:text-ink">
+                    <Link
+                      href={l.href}
+                      className="text-sm text-parchment/70 transition-colors hover:text-parchment"
+                    >
                       {l.label}
                     </Link>
                   </li>
@@ -96,13 +107,13 @@ export function SiteFooter() {
           ))}
         </div>
 
-        <div className="mt-14 flex flex-col items-start justify-between gap-3 border-t border-line pt-7 text-sm text-ink-faint sm:flex-row sm:items-center">
-          <p>
+        {/* Colophon */}
+        <div className="mt-16 flex flex-col items-center gap-3 border-t border-parchment/12 pt-8 text-center">
+          <span className="font-serif text-lg italic text-brass" aria-hidden>✦</span>
+          <p className="font-serif text-xs italic text-parchment/50">
             © {new Date().getFullYear()} {brand.productName}.
-            {brand.parentCompany && <> {brand.parentCompany}</>}
-          </p>
-          <p className="flex items-center gap-1.5">
-            Built with care for the Church
+            {brand.parentCompany && <> {brand.parentCompany}</>} Set with care for the Church —
+            Accra, and everywhere the doors are open.
           </p>
         </div>
       </div>

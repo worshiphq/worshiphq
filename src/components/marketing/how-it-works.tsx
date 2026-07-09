@@ -1,65 +1,61 @@
 "use client";
 
-import { motion } from "motion/react";
-import { Reveal } from "@/components/ui/reveal";
+import { Reveal, StaggerGroup, StaggerItem } from "@/components/ui/reveal";
 import { steps } from "@/config/marketing";
 
 export function HowItWorks() {
   return (
-    <section className="relative overflow-hidden py-28">
-      {/* Background accent */}
-      <div className="pointer-events-none absolute inset-0" aria-hidden>
-        <div className="absolute inset-0 bg-gradient-to-b from-transparent via-surface-2/30 to-transparent" />
-      </div>
-
-      <div className="relative mx-auto max-w-6xl px-5">
+    <section className="relative py-16 sm:py-24">
+      <div className="mx-auto max-w-6xl px-5">
         <Reveal>
-          <div className="flex items-end justify-between gap-8">
-            <div className="max-w-xl">
-              <span className="mb-3 inline-block font-mono text-xs font-medium uppercase tracking-[0.2em] text-gold">
-                06 / Getting started
-              </span>
-              <h2 className="font-display text-4xl font-bold tracking-tight sm:text-5xl">
-                From chaos to clarity.
-                <br />
-                <span className="text-ink-muted">In one afternoon.</span>
-              </h2>
+          <div className="relative overflow-hidden bg-evergreen-deep px-6 py-16 text-parchment sm:px-14 sm:py-20">
+            {/* Fine gold rules top & bottom, like gilt edges */}
+            <div className="absolute inset-x-6 top-4 h-px bg-brass/40 sm:inset-x-10" aria-hidden />
+            <div className="absolute inset-x-6 top-6 h-px bg-brass/20 sm:inset-x-10" aria-hidden />
+            <div className="absolute inset-x-6 bottom-4 h-px bg-brass/40 sm:inset-x-10" aria-hidden />
+            <div className="absolute inset-x-6 bottom-6 h-px bg-brass/20 sm:inset-x-10" aria-hidden />
+
+            {/* Faint radial light, like a sanctuary lamp */}
+            <div
+              className="pointer-events-none absolute inset-0 opacity-60"
+              style={{ background: "radial-gradient(70% 50% at 50% 0%, rgba(151,116,42,0.18) 0%, transparent 70%)" }}
+              aria-hidden
+            />
+
+            <div className="relative">
+              <div className="mx-auto max-w-xl text-center">
+                <p className="rubric !text-brass">vi. &nbsp; Getting started</p>
+                <h2 className="mt-5 font-serif text-4xl font-medium leading-[1.05] tracking-tight sm:text-5xl">
+                  From chaos to clarity,
+                  <br />
+                  <em className="font-light italic text-brass">in one afternoon.</em>
+                </h2>
+              </div>
+
+              <StaggerGroup className="mt-14 grid gap-10 md:grid-cols-3 md:gap-8" stagger={0.12}>
+                {steps.map((s, i) => (
+                  <StaggerItem key={s.n}>
+                    <div className="relative border-t border-parchment/20 pt-6 text-center md:text-left">
+                      {/* Step numeral */}
+                      <span className="font-serif text-5xl font-light italic text-brass/80">{s.n}</span>
+                      <h3 className="mt-4 font-serif text-xl font-semibold text-parchment">{s.title}</h3>
+                      <p className="mt-2.5 text-sm leading-[1.8] text-parchment/70">{s.body}</p>
+                      {i < steps.length - 1 && (
+                        <span className="absolute -right-5 top-10 hidden font-serif text-lg italic text-brass/50 md:block" aria-hidden>
+                          →
+                        </span>
+                      )}
+                    </div>
+                  </StaggerItem>
+                ))}
+              </StaggerGroup>
+
+              <p className="mt-14 text-center font-serif text-sm italic text-parchment/50">
+                ✦ &nbsp; Your first fifty members are free, forever. &nbsp; ✦
+              </p>
             </div>
           </div>
         </Reveal>
-
-        <div className="relative mt-16 grid gap-6 md:grid-cols-3">
-          {/* Connecting line — more refined */}
-          <div className="absolute left-0 right-0 top-[3.25rem] hidden md:block">
-            <div className="mx-16 h-px bg-gradient-to-r from-primary/20 via-gold/15 to-primary/20" />
-          </div>
-
-          {steps.map((s, i) => (
-            <Reveal key={s.n} delay={i * 0.15}>
-              <motion.div
-                whileHover={{ y: -4 }}
-                transition={{ duration: 0.25 }}
-                className="group relative h-full rounded-2xl border border-line bg-surface p-7 transition-colors duration-300 hover:border-primary/20"
-              >
-                {/* Step number — large, muted background element */}
-                <div className="relative mb-6">
-                  <span className="absolute -left-1 -top-2 font-display text-6xl font-bold text-ink/[0.04]">
-                    {s.n}
-                  </span>
-                  <div className="relative flex size-12 items-center justify-center rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 to-primary/5 font-display text-lg font-bold text-primary-bright transition-colors duration-300 group-hover:border-primary/40 group-hover:from-primary/15">
-                    {s.n}
-                  </div>
-                </div>
-
-                <h3 className="font-display text-xl font-semibold tracking-tight">{s.title}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-ink-muted">{s.body}</p>
-
-                {/* Bottom line accent */}
-                <div className="absolute bottom-0 left-7 right-7 h-px scale-x-0 bg-gradient-to-r from-transparent via-primary/25 to-transparent transition-transform duration-500 group-hover:scale-x-100" />
-              </motion.div>
-            </Reveal>
-          ))}
-        </div>
       </div>
     </section>
   );

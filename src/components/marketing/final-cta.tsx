@@ -1,71 +1,56 @@
 "use client";
 
 import Link from "next/link";
-import { motion } from "motion/react";
 import { ArrowRight } from "lucide-react";
-import { Button } from "@/components/ui/button";
 import { Reveal } from "@/components/ui/reveal";
-import { brand } from "@/config/brand";
 
 export function FinalCTA() {
   return (
-    <section className="relative px-5 py-24">
+    <section className="relative px-5 py-20 sm:py-28">
       <Reveal>
-        <div className="relative mx-auto max-w-5xl overflow-hidden rounded-3xl border border-primary/15 bg-gradient-to-br from-surface via-primary-soft/30 to-surface">
-          {/* Decorative elements */}
-          <div className="pointer-events-none absolute inset-0" aria-hidden>
-            {/* Large radial glow */}
-            <div className="absolute -right-20 -top-20 size-80 rounded-full bg-primary/8 blur-[80px]" />
-            <div className="absolute -bottom-10 -left-10 size-60 rounded-full bg-gold/6 blur-[60px]" />
-            {/* Grid dots */}
-            <div
-              className="absolute inset-0 opacity-[0.03]"
-              style={{
-                backgroundImage: "radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)",
-                backgroundSize: "24px 24px",
-              }}
-            />
-            {/* Corner accents */}
-            <div className="absolute left-8 top-8 size-12 rounded-xl border border-primary/10" />
-            <div className="absolute bottom-8 right-8 size-8 rotate-45 border border-gold/10" />
-          </div>
+        <div className="paper-panel relative mx-auto max-w-4xl border border-ink/12 px-6 py-16 text-center shadow-[0_30px_70px_-40px_rgba(28,26,22,0.45)] sm:px-12 sm:py-24">
+          {/* Corner ticks */}
+          <span className="absolute left-4 top-4 size-4 border-l-2 border-t-2 border-brass/50" aria-hidden />
+          <span className="absolute right-4 top-4 size-4 border-r-2 border-t-2 border-brass/50" aria-hidden />
+          <span className="absolute bottom-4 left-4 size-4 border-b-2 border-l-2 border-brass/50" aria-hidden />
+          <span className="absolute bottom-4 right-4 size-4 border-b-2 border-r-2 border-brass/50" aria-hidden />
 
-          <div className="relative px-6 py-16 text-center sm:px-12 sm:py-24">
-            <motion.div
-              initial={{ scale: 0.95 }}
-              whileInView={{ scale: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <span className="mb-4 inline-block font-mono text-[10px] font-medium uppercase tracking-[0.3em] text-primary-bright">
-                Get started today
-              </span>
+          <div className="relative">
+            <p className="rubric">The Benediction</p>
 
-              <h2 className="mx-auto max-w-2xl font-display text-4xl font-bold tracking-tight sm:text-5xl">
-                Give your ministry the
-                <br />
-                headquarters it deserves.
-              </h2>
+            <h2 className="press-display mx-auto mt-6 max-w-2xl text-4xl sm:text-[3.4rem] sm:leading-[1.04]">
+              Go, and run your church
+              <br />
+              <em className="font-light italic text-primary">in peace.</em>
+            </h2>
 
-              <p className="mx-auto mt-5 max-w-lg text-base leading-relaxed text-ink-muted">
-                Join churches worldwide running everything in one beautiful place.
-                Free forever for up to 50 members.
-              </p>
+            <p className="mx-auto mt-6 max-w-md text-[15px] leading-[1.8] text-ink-muted">
+              Join churches around the world keeping every member, every cedi and
+              every Sunday in one well-ordered place.
+            </p>
 
-              <div className="mt-10 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <Link href="/sign-up">
-                  <Button size="lg" className="group">
-                    Get started free
-                    <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
-                  </Button>
-                </Link>
-                <Link href="/sign-in">
-                  <Button size="lg" variant="glass">
-                    View live demo
-                  </Button>
-                </Link>
-              </div>
-            </motion.div>
+            <div className="ornament-divider mx-auto my-9 max-w-[16rem] text-xs">✦</div>
+
+            <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+              <Link
+                href="/sign-up"
+                className="group inline-flex items-center gap-2.5 rounded-full bg-evergreen px-8 py-4 text-sm font-semibold text-parchment shadow-[0_14px_30px_-12px_rgba(11,43,38,0.5)] transition-all hover:bg-evergreen-deep"
+              >
+                Get started free
+                <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+              <Link
+                href="/sign-in"
+                className="group inline-flex items-center gap-2 border-b border-ink/25 pb-0.5 text-sm font-medium text-ink transition-colors hover:border-brass hover:text-evergreen"
+              >
+                View the live demo
+                <span className="text-brass transition-transform group-hover:translate-x-0.5">→</span>
+              </Link>
+            </div>
+
+            <p className="mt-7 font-serif text-xs italic text-ink-faint">
+              Free forever for up to 50 members · no credit card required
+            </p>
           </div>
         </div>
       </Reveal>

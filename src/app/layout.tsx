@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Bricolage_Grotesque, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Plus_Jakarta_Sans, JetBrains_Mono, Fraunces } from "next/font/google";
 import { brand } from "@/config/brand";
 import { ServiceWorker } from "@/components/pwa/service-worker";
 import { FeedbackProvider } from "@/components/ui/feedback";
@@ -25,6 +25,14 @@ const mono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--ff-mono",
   weight: ["400", "500"],
+  display: "swap",
+});
+
+const serif = Fraunces({
+  subsets: ["latin"],
+  variable: "--ff-serif",
+  weight: ["300", "400", "500", "600", "700"],
+  style: ["normal", "italic"],
   display: "swap",
 });
 
@@ -72,8 +80,12 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning>
-      <body className={`${display.variable} ${sans.variable} ${mono.variable} antialiased`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${display.variable} ${sans.variable} ${mono.variable} ${serif.variable}`}
+    >
+      <body className="antialiased">
         <Suspense fallback={null}>
           <NavProgress />
         </Suspense>

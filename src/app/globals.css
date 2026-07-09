@@ -44,6 +44,13 @@
   --font-display: var(--ff-display), "Bricolage Grotesque", ui-sans-serif, system-ui, sans-serif;
   --font-sans: var(--ff-sans), "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--ff-mono), "JetBrains Mono", ui-monospace, monospace;
+  --font-serif: var(--ff-serif), "Fraunces", Georgia, "Times New Roman", serif;
+
+  /* ── Cathedral Press (marketing) palette additions ── */
+  --color-evergreen: #123d36;
+  --color-evergreen-deep: #0b2b26;
+  --color-parchment: #f6f1e6;
+  --color-brass: #97742a;
 
   /* ── Radius ── */
   --radius-xl: 1rem;
@@ -255,6 +262,100 @@
 /* radial spotlight helper */
 @utility spotlight {
   background-image: radial-gradient(60% 60% at 50% 0%, color-mix(in oklab, var(--color-primary) 18%, transparent) 0%, transparent 70%);
+}
+
+/* ════════════════════════════════════════════════════════════════
+   Cathedral Press — liturgical print utilities (marketing pages)
+   ════════════════════════════════════════════════════════════════ */
+
+/* Small-caps letterspaced eyebrow, like an engraved rubric */
+@utility rubric {
+  font-family: var(--font-sans);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--color-brass);
+}
+
+/* Dotted leader row — order-of-service / hymnal index style */
+.leaders {
+  display: flex;
+  align-items: baseline;
+  gap: 0.75rem;
+}
+.leaders::after {
+  content: "";
+  order: 1;
+  flex: 1;
+  border-bottom: 2px dotted color-mix(in oklab, var(--color-ink) 22%, transparent);
+  transform: translateY(-0.3em);
+}
+.leaders > *:last-child {
+  order: 2;
+}
+
+/* Drop cap for manifesto paragraphs */
+.dropcap::first-letter {
+  font-family: var(--font-serif);
+  font-weight: 600;
+  font-size: 3.4em;
+  line-height: 0.82;
+  float: left;
+  padding-right: 0.12em;
+  padding-top: 0.06em;
+  color: var(--color-evergreen);
+}
+
+/* Engraved double rule (top+bottom hairlines) */
+@utility rule-engraved {
+  border-top: 1px solid color-mix(in oklab, var(--color-ink) 18%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--color-ink) 18%, transparent);
+  box-shadow: inset 0 3px 0 -2px color-mix(in oklab, var(--color-ink) 8%, transparent),
+    inset 0 -3px 0 -2px color-mix(in oklab, var(--color-ink) 8%, transparent);
+}
+
+/* Serif display with tight leading — the Press voice */
+@utility press-display {
+  font-family: var(--font-serif);
+  font-weight: 500;
+  letter-spacing: -0.015em;
+  line-height: 1.02;
+  color: var(--color-evergreen-deep);
+}
+
+/* Paper texture — slightly stronger grain + vignette for hero panels */
+.paper-panel {
+  position: relative;
+  background:
+    radial-gradient(120% 90% at 50% 0%, color-mix(in oklab, var(--color-gold) 7%, transparent) 0%, transparent 55%),
+    var(--color-parchment);
+}
+.paper-panel::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* Ornament divider: ─── ✦ ─── */
+.ornament-divider {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: var(--color-brass);
+}
+.ornament-divider::before,
+.ornament-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(to var(--tw-ornament-dir, right), transparent, color-mix(in oklab, var(--color-ink) 20%, transparent));
+}
+.ornament-divider::after {
+  background: linear-gradient(to left, transparent, color-mix(in oklab, var(--color-ink) 20%, transparent));
 }
 
 /* Reveal-on-scroll initial state (paired with JS/Framer or .in-view) */

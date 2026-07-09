@@ -4,8 +4,6 @@ import Link from "next/link";
 import { useState } from "react";
 import { motion } from "motion/react";
 import { Check, Minus } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Reveal } from "@/components/ui/reveal";
 import { plans as defaultPlans, comparison, YEARLY_DISCOUNT_LABEL } from "@/config/pricing";
 import { formatCurrency as defaultFmt } from "@/config/brand";
@@ -22,88 +20,110 @@ export function PricingSection({ showComparison = true, platformPricing }: { sho
   const [yearly, setYearly] = useState(false);
 
   return (
-    <section id="pricing" className="relative py-24">
+    <section id="pricing" className="relative py-20 sm:py-28">
       <div className="mx-auto max-w-6xl px-5">
-        <Reveal className="mx-auto max-w-2xl text-center">
-          <Badge variant="primary" className="mb-4">
-            Simple, fair pricing
-          </Badge>
-          <h2 className="font-display text-4xl font-bold tracking-tight sm:text-5xl">
-            Pricing that grows with your church
-          </h2>
-          <p className="mt-4 text-lg text-ink-muted">
-            Start free forever. Upgrade when you&rsquo;re ready.
-          </p>
+        <Reveal>
+          <div className="mb-4 flex items-baseline gap-4">
+            <span className="font-serif text-sm italic text-brass">viii.</span>
+            <p className="rubric">The Offering</p>
+          </div>
+          <div className="flex flex-wrap items-end justify-between gap-8 border-t-2 border-evergreen pt-8">
+            <h2 className="press-display max-w-xl text-4xl sm:text-5xl">
+              Fair prices, plainly
+              <em className="font-light italic text-primary"> stated.</em>
+            </h2>
+
+            {/* Toggle — set like a ballot */}
+            <div className="flex items-center gap-3">
+              <span className={cn("text-sm transition-colors", !yearly ? "font-semibold text-evergreen-deep" : "text-ink-faint")}>
+                Monthly
+              </span>
+              <button
+                role="switch"
+                aria-checked={yearly}
+                onClick={() => setYearly((v) => !v)}
+                className={cn(
+                  "relative h-7 w-12 rounded-full border transition-colors",
+                  yearly ? "border-evergreen bg-evergreen" : "border-ink/25 bg-surface-2",
+                )}
+              >
+                <motion.span
+                  layout
+                  transition={{ type: "spring", stiffness: 500, damping: 32 }}
+                  className={cn("absolute top-0.5 size-5 rounded-full", yearly ? "left-[1.6rem] bg-parchment" : "left-0.5 bg-white shadow-sm")}
+                />
+              </button>
+              <span className={cn("text-sm transition-colors", yearly ? "font-semibold text-evergreen-deep" : "text-ink-faint")}>
+                Yearly
+              </span>
+              <span className="ml-1 font-serif text-xs italic text-brass">({YEARLY_DISCOUNT_LABEL})</span>
+            </div>
+          </div>
         </Reveal>
 
-        {/* Toggle */}
-        <div className="mt-8 flex items-center justify-center gap-3">
-          <span className={cn("text-sm", !yearly ? "text-ink" : "text-ink-muted")}>Monthly</span>
-          <button
-            role="switch"
-            aria-checked={yearly}
-            onClick={() => setYearly((v) => !v)}
-            className={cn(
-              "relative h-7 w-12 rounded-full border border-line transition-colors",
-              yearly ? "bg-primary" : "bg-surface-2",
-            )}
-          >
-            <motion.span
-              layout
-              transition={{ type: "spring", stiffness: 500, damping: 32 }}
-              className={cn("absolute top-0.5 size-5 rounded-full bg-white", yearly ? "left-[1.6rem]" : "left-0.5")}
-            />
-          </button>
-          <span className={cn("text-sm", yearly ? "text-ink" : "text-ink-muted")}>Yearly</span>
-          <Badge variant="gold" className="ml-1">
-            {YEARLY_DISCOUNT_LABEL}
-          </Badge>
-        </div>
-
-        {/* Cards */}
-        <div className="mt-12 grid gap-4 lg:grid-cols-4">
+        {/* ── Ledger cards ── */}
+        <div className="mt-12 grid gap-5 md:grid-cols-2 lg:grid-cols-4 lg:gap-0 lg:divide-x lg:divide-ink/10 lg:border lg:border-ink/10">
           {plans.map((plan, i) => {
             const price = yearly ? plan.yearly : plan.monthly;
             const period = yearly ? "/yr" : "/mo";
+            const featured = plan.featured;
             return (
-              <Reveal key={plan.id} delay={i * 0.07}>
+              <Reveal key={plan.id} delay={i * 0.08}>
                 <div
                   className={cn(
-                    "relative flex h-full flex-col rounded-2xl border p-6",
-                    plan.featured
-                      ? "border-primary/40 bg-gradient-to-b from-primary/10 to-surface glow"
-                      : "card-surface",
+                    "relative flex h-full flex-col p-7",
+                    featured
+                      ? "bg-evergreen-deep text-parchment lg:-my-5 lg:py-12 shadow-[0_30px_60px_-30px_rgba(11,43,38,0.55)]"
+                      : "border border-ink/10 bg-surface lg:border-0",
                   )}
                 >
-                  {plan.featured && (
-                    <div className="absolute -top-3 left-1/2 -translate-x-1/2">
-                      <Badge variant="primary" className="border-primary/40 bg-primary text-white shadow-sm">
-                        Most popular
-                      </Badge>
-                    </div>
+                  {featured && (
+                    <span className="absolute inset-x-7 top-3 h-px bg-brass/50" aria-hidden />
                   )}
-                  <h3 className="font-display text-xl font-semibold">{plan.name}</h3>
-                  <p className="mt-1 text-xs text-ink-muted">{plan.tagline}</p>
-                  <div className="mt-5 flex items-end gap-1">
-                    <span className="font-display text-4xl font-bold">
+                  {featured && (
+                    <p className="rubric mb-3 !text-brass !text-[9px]">✦ most chosen ✦</p>
+                  )}
+
+                  <h3 className={cn("font-serif text-2xl font-semibold", featured ? "text-parchment" : "text-evergreen-deep")}>
+                    {plan.name}
+                  </h3>
+                  <p className={cn("mt-1 text-xs", featured ? "text-parchment/60" : "text-ink-faint")}>
+                    {plan.tagline}
+                  </p>
+
+                  <div className="mt-6 flex items-baseline gap-1.5">
+                    <span className={cn("font-serif text-[2.6rem] font-semibold leading-none tracking-tight", featured ? "text-parchment" : "text-evergreen-deep")}>
                       {price === 0 ? "Free" : formatCurrency(price)}
                     </span>
-                    {price !== 0 && <span className="mb-1 text-sm text-ink-faint">{period}</span>}
+                    {price !== 0 && (
+                      <span className={cn("font-serif text-sm italic", featured ? "text-parchment/60" : "text-ink-faint")}>
+                        {period}
+                      </span>
+                    )}
                   </div>
-                  <div className="mt-1 text-xs text-ink-faint">
+                  <div className={cn("mt-1.5 text-[11px] uppercase tracking-[0.14em]", featured ? "text-brass" : "text-ink-faint")}>
                     {plan.members}
                   </div>
 
-                  <Link href={`/sign-up?plan=${plan.id}`} className="mt-5">
-                    <Button variant={plan.featured ? "primary" : "secondary"} className="w-full">
-                      {plan.cta}
-                    </Button>
+                  <Link
+                    href={`/sign-up?plan=${plan.id}`}
+                    className={cn(
+                      "mt-6 inline-flex items-center justify-center rounded-full py-3 text-sm font-semibold transition-colors",
+                      featured
+                        ? "bg-parchment text-evergreen-deep hover:bg-white"
+                        : "border border-evergreen/30 text-evergreen hover:bg-evergreen hover:text-parchment",
+                    )}
+                  >
+                    {plan.cta}
                   </Link>
 
-                  <ul className="mt-6 space-y-3 text-sm">
+                  <ul className={cn("mt-7 flex-1 space-y-0 divide-y", featured ? "divide-parchment/10" : "divide-ink/6")}>
                     {plan.features.map((f) => (
-                      <li key={f} className="flex items-start gap-2.5 text-ink-muted">
-                        <Check className="mt-0.5 size-4 shrink-0 text-success" />
+                      <li
+                        key={f}
+                        className={cn("flex items-baseline gap-2.5 py-2.5 text-[13px] leading-snug", featured ? "text-parchment/85" : "text-ink-muted")}
+                      >
+                        <span className={cn("font-serif text-[11px] italic", featured ? "text-brass" : "text-brass")}>✦</span>
                         {f}
                       </li>
                     ))}
@@ -115,15 +135,18 @@ export function PricingSection({ showComparison = true, platformPricing }: { sho
         </div>
 
         {showComparison && (
-          <Reveal className="mt-20">
-            <h3 className="mb-6 text-center font-display text-2xl font-semibold">Compare every plan</h3>
-            <div className="overflow-x-auto rounded-2xl border border-line">
+          <Reveal className="mt-24">
+            <div className="mb-8 text-center">
+              <p className="rubric">Set side by side</p>
+              <h3 className="press-display mt-3 text-3xl">Compare every plan</h3>
+            </div>
+            <div className="overflow-x-auto border border-ink/12">
               <table className="w-full min-w-[640px] text-sm">
                 <thead>
-                  <tr className="border-b border-line bg-surface/60">
-                    <th className="p-4 text-left font-medium text-ink-muted">Features</th>
+                  <tr className="border-b-2 border-evergreen bg-parchment">
+                    <th className="p-4 text-left font-serif text-sm font-semibold italic text-evergreen-deep">Features</th>
                     {plans.map((p) => (
-                      <th key={p.id} className="p-4 text-center font-semibold">
+                      <th key={p.id} className="p-4 text-center font-serif text-base font-semibold text-evergreen-deep">
                         {p.name}
                       </th>
                     ))}
@@ -146,24 +169,24 @@ export function PricingSection({ showComparison = true, platformPricing }: { sho
 function CompareGroup({ group }: { group: (typeof comparison)[number] }) {
   return (
     <>
-      <tr className="bg-surface-2/40">
-        <td colSpan={5} className="px-4 py-2.5 text-xs font-semibold uppercase tracking-wide text-primary-bright">
-          {group.group}
+      <tr className="bg-surface-2/60">
+        <td colSpan={5} className="px-4 py-2.5">
+          <span className="rubric !text-[10px]">{group.group}</span>
         </td>
       </tr>
       {group.rows.map((row) => (
-        <tr key={row.label} className="border-b border-line-soft last:border-0">
+        <tr key={row.label} className="border-b border-ink/6 last:border-0">
           <td className="p-4 text-ink-muted">{row.label}</td>
           {row.values.map((v, i) => (
             <td key={i} className="p-4 text-center">
               {typeof v === "boolean" ? (
                 v ? (
-                  <Check className="mx-auto size-4 text-success" />
+                  <Check className="mx-auto size-4 text-evergreen" strokeWidth={2.5} />
                 ) : (
-                  <Minus className="mx-auto size-4 text-ink-faint" />
+                  <Minus className="mx-auto size-4 text-ink-faint/50" />
                 )
               ) : (
-                <span className="text-ink">{v}</span>
+                <span className="font-medium text-ink">{v}</span>
               )}
             </td>
           ))}
