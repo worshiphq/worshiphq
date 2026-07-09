@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from "react";
 import {
   Plus, Loader2, CalendarCheck2, Users, X, TrendingUp,
-  UserPlus, UserCheck, Search, Copy, Check, QrCode, ChevronRight,
+  UserPlus, UserCheck, Search, Copy, Check, QrCode, ChevronRight, MapPin,
 } from "lucide-react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
@@ -124,7 +124,14 @@ export function AttendancePage() {
                   <h3 className="font-display text-lg font-semibold">{mostRecent.service_name}</h3>
                   <span className="badge badge-primary px-2 py-0 text-[10px]">Most recent</span>
                 </div>
-                <p className="text-sm text-ink-muted">{formatDate(mostRecent.date)}</p>
+                <p className="text-sm text-ink-muted">
+                  {formatDate(mostRecent.date)}
+                  {mostRecent.branch && (
+                    <span className="ml-2 inline-flex items-center gap-1 text-ink-faint">
+                      <MapPin className="size-3" /> {mostRecent.branch}
+                    </span>
+                  )}
+                </p>
               </div>
             </div>
             <div className="flex items-center gap-6">
