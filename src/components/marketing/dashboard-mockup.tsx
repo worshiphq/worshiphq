@@ -10,7 +10,6 @@ import {
   Cake,
 } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
-import { formatCurrency } from "@/config/brand";
 import { givingTrend } from "@/lib/demo/data";
 
 /** A realistic, non-interactive render of the actual WorshipHQ dashboard.
@@ -63,7 +62,7 @@ export function DashboardMockup() {
           <div className="flex items-center justify-between">
             <div>
               <div className="font-display text-sm font-semibold">Good morning, Pastor</div>
-              <div className="text-ink-faint">Accra Central · Sunday overview</div>
+              <div className="text-ink-faint">Main Campus · Sunday overview</div>
             </div>
             <div className="rounded-md bg-primary px-2 py-1 text-[9px] font-semibold text-white">
               + New
@@ -75,7 +74,7 @@ export function DashboardMockup() {
             {[
               { label: "Active members", value: "3,085", trend: "+3.4%" },
               { label: "Attendance", value: "1,485", trend: "+5.3%" },
-              { label: "Giving (mo)", value: formatCurrency(58400), trend: "+12%" },
+              { label: "Giving (mo)", value: "$8,400", trend: "+12%" },
             ].map((k) => (
               <div key={k.label} className="card-surface p-2.5">
                 <div className="text-ink-faint">{k.label}</div>
@@ -119,7 +118,7 @@ export function DashboardMockup() {
                 <Cake className="size-3 text-gold" /> Birthdays
               </div>
               <div className="space-y-2">
-                {["Akosua M.", "Yaw B.", "Ama O."].map((n, i) => (
+                {["Sarah T.", "Yaw B.", "Maria S."].map((n, i) => (
                   <div key={n} className="flex items-center gap-1.5">
                     <div
                       className={`size-4 rounded-full bg-gradient-to-br ${
@@ -141,9 +140,9 @@ export function DashboardMockup() {
             <div className="mb-2 font-medium">Recent giving</div>
             <div className="space-y-1.5">
               {[
-                ["Kofi Asante", "MTN MoMo", 200],
-                ["Adwoa Sarpong", "Telecel Cash", 500],
-                ["Kwame Mensah", "Card", 150],
+                ["James Whitfield", "Mobile Money", 200],
+                ["Adwoa Sarpong", "Card", 500],
+                ["Daniel Park", "Bank transfer", 150],
               ].map(([name, method, amt]) => (
                 <div key={name as string} className="flex items-center justify-between">
                   <div className="flex items-center gap-1.5">
@@ -151,7 +150,7 @@ export function DashboardMockup() {
                     <span className="text-ink-muted">{name}</span>
                     <span className="rounded bg-surface-2 px-1 text-[8px] text-ink-faint">{method}</span>
                   </div>
-                  <span className="font-medium text-success">{formatCurrency(amt as number)}</span>
+                  <span className="font-medium text-success">${amt}</span>
                 </div>
               ))}
             </div>

@@ -16,7 +16,6 @@ export function PricingSection({ showComparison = true, platformPricing }: { sho
     return dbPrice ? { ...p, monthly: dbPrice.monthly, yearly: dbPrice.yearly } : p;
   });
   const sym = platformPricing?.currencySymbol ?? "$";
-  const ghsRate = platformPricing?.usdToGhsRate ?? 12;
   const formatCurrency = (amount: number) => platformPricing ? `${sym}${amount.toLocaleString()}` : defaultFmt(amount);
   const [yearly, setYearly] = useState(false);
 
@@ -32,7 +31,7 @@ export function PricingSection({ showComparison = true, platformPricing }: { sho
                 <span className="text-primary"> stated.</span>
               </h2>
               <p className="mt-3 text-sm text-ink-muted">
-                Prices in US dollars. Paystack bills the Ghana Cedi equivalent at checkout.
+                Prices in US dollars, billed securely via Paystack.
               </p>
             </div>
 
@@ -107,11 +106,6 @@ export function PricingSection({ showComparison = true, platformPricing }: { sho
                   <div className={cn("mt-1.5 text-[11px] uppercase tracking-[0.14em]", featured ? "text-brass" : "text-ink-faint")}>
                     {plan.members}
                   </div>
-                  {price !== 0 && (
-                    <div className={cn("mt-1 text-[11px]", featured ? "text-parchment/50" : "text-ink-faint")}>
-                      ≈ ₵{Math.round(price * ghsRate).toLocaleString()} billed via Paystack
-                    </div>
-                  )}
 
                   <Link
                     href={`/sign-up?plan=${plan.id}`}

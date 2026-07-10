@@ -33,7 +33,7 @@ export default function ContactPage() {
               {[
                 { icon: Mail, label: "Email us", value: brand.email.sales },
                 { icon: MessageCircle, label: "WhatsApp", value: "+233 20 000 0000" },
-                { icon: MapPin, label: "Based in", value: "Accra, Ghana 🇬🇭" },
+                { icon: MapPin, label: "Headquarters", value: "Accra · Serving churches worldwide" },
               ].map((c) => (
                 <div key={c.label} className="flex items-center gap-5 py-5">
                   <div className="grid size-11 shrink-0 place-items-center border border-evergreen/20 bg-evergreen/5 text-evergreen">

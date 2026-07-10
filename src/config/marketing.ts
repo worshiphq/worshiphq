@@ -105,9 +105,9 @@ export interface Faq {
 
 export const faqs: Faq[] = [
   { q: "Is my church's data secure?", a: "Yes. Every church's data is fully isolated (multi-tenant), encrypted in transit and at rest, and backed up regularly. You control who on your team can see what through role-based permissions." },
-  { q: "Does it support Mobile Money?", a: "Absolutely. WorshipHQ supports Mobile Money (MTN MoMo, Telecel Cash, AirtelTigo) plus debit/credit cards — powered by Paystack." },
+  { q: "Does it support Mobile Money?", a: "Absolutely. WorshipHQ supports Mobile Money wallets, debit/credit cards and bank transfers — powered by Paystack." },
   { q: "Can you help us migrate from our current system?", a: "Yes. Import your members, giving history and groups from a spreadsheet with our guided importer. On paid plans, free assisted migration is included." },
   { q: "Does it work when the internet is slow or down?", a: "Yes. WorshipHQ is a Progressive Web App that caches your recent data on your device, so it loads instantly and keeps working offline, then syncs when you're back online." },
   { q: "Can we install it like an app?", a: "Yes — install it on any phone, tablet or computer straight from the browser. No app store needed. It feels and behaves like a native app." },
-  { q: "How much does it cost?", a: "There's a free plan forever for up to 50 members. Paid plans start at {PRICE}/month, with about two months free when you pay yearly. Prices are shown in US dollars; Paystack bills the Ghana Cedi equivalent at checkout." },
+  { q: "How much does it cost?", a: "There's a free plan forever for up to 50 members. Paid plans start at {PRICE}/month, with about two months free when you pay yearly. Billing is handled securely by Paystack." },
 ];

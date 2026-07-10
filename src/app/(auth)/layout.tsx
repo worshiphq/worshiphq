@@ -22,7 +22,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
             priority
           />
           <p className="mt-10 max-w-md font-display text-2xl font-bold leading-snug text-ink xl:text-3xl">
-            Every member. Every cedi.
+            Every member. Every gift.
             <br />
             <span className="text-primary">Every Sunday — sorted.</span>
           </p>

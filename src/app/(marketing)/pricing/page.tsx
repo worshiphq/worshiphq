@@ -23,7 +23,7 @@ export default async function PricingPage() {
             <span className="text-primary">with you.</span>
           </>
         }
-        subtitle="Start free forever. Upgrade when you're ready. Prices in US dollars — billed in Ghana Cedi via Paystack."
+        subtitle="Start free forever. Upgrade when you're ready — no hidden fees, no surprises."
       />
       <PricingSection platformPricing={platformConfig} />
       <FAQ starterPrice={`${platformConfig.currencySymbol}${platformConfig.prices.starter?.monthly ?? 10}`} />

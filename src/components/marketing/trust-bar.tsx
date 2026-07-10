@@ -6,7 +6,7 @@ import { Reveal } from "@/components/ui/reveal";
 const stats = [
   { label: "Churches onboarded", value: 480, suffix: "+" },
   { label: "Members managed", value: 320000, suffix: "+" },
-  { label: "Giving processed", value: 14, prefix: "₵", suffix: "M+" },
+  { label: "Giving processed", value: 14, prefix: "$", suffix: "M+" },
   { label: "Messages delivered", value: 2.4, suffix: "M+", decimals: 1 },
 ];
 

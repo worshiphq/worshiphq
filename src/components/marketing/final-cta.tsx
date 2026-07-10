@@ -25,7 +25,7 @@ export function FinalCTA() {
             </h2>
 
             <p className="mx-auto mt-6 max-w-md text-[15px] leading-[1.8] text-ink-muted">
-              Join churches around the world keeping every member, every cedi and
+              Join churches around the world keeping every member, every gift and
               every Sunday in one well-ordered place.
             </p>
 
