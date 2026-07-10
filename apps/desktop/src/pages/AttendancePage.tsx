@@ -2,7 +2,9 @@ import { useEffect, useState, useMemo } from "react";
 import {
   Plus, Loader2, CalendarCheck2, Users, X, TrendingUp,
   UserPlus, UserCheck, Search, Copy, Check, QrCode, ChevronRight, MapPin,
+  Pencil, Trash2, Play,
 } from "lucide-react";
+import { QRCodeCanvas } from "qrcode.react";
 import { PageShell } from "../components/PageShell";
 import { PageHeader } from "../components/ui/PageHeader";
 import { StatCard } from "../components/ui/StatCard";
@@ -42,10 +44,34 @@ export function AttendancePage() {
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState<any>(null);
   const [detailId, setDetailId] = useState<string | null>(null);
+  const [startingCheckIn, setStartingCheckIn] = useState(false);
 
   useEffect(() => {
     if (session?.churchId) loadSessions();
   }, [session?.churchId, syncVersion]);
+
+  /** One-click: create (or reuse) today's service and open its check-in panel. */
+  async function startCheckIn() {
+    setStartingCheckIn(true);
+    const today = new Date().toISOString().slice(0, 10);
+    const existing = await db.rawQuery(
+      "SELECT id FROM attendance_session WHERE church_id = ? AND date LIKE ? ORDER BY date DESC LIMIT 1",
+      [session!.churchId, today + "%"],
+    );
+    let id = existing[0]?.id;
+    if (!id) {
+      id = uuid();
+      await db.insert("attendance_session", {
+        id, church_id: session!.churchId,
+        service_name: "Sunday Service", date: today,
+        adults: 0, teens: 0, children: 0, visitors: 0, note: null,
+      });
+      showToast("Check-in started");
+      await loadSessions();
+    }
+    setStartingCheckIn(false);
+    setDetailId(id);
+  }
 
   async function loadSessions() {
     setLoading(true);
@@ -95,6 +121,10 @@ export function AttendancePage() {
   return (
     <PageShell title="Attendance">
       <PageHeader title="Attendance" description="Record and track who's gathering, service by service.">
+        <button onClick={startCheckIn} disabled={startingCheckIn} className="btn-secondary btn-sm">
+          {startingCheckIn ? <Loader2 className="size-3.5 whq-spin" /> : <Play className="size-3.5" />}
+          {startingCheckIn ? "Starting..." : "Start check-in"}
+        </button>
         <button onClick={() => { setEditing(null); setShowForm(true); }} className="btn-primary btn-sm">
           <Plus className="size-3.5" /> Record service
         </button>
@@ -215,6 +245,7 @@ export function AttendancePage() {
           serverUrl={session?.serverUrl ?? ""}
           onClose={() => setDetailId(null)}
           onChanged={loadSessions}
+          onEdit={(s: any) => { setDetailId(null); setEditing(s); setShowForm(true); }}
         />
       )}
     </PageShell>
@@ -297,8 +328,9 @@ function SessionForm({ churchId, existing, onClose, onSaved }: { churchId: strin
 const CATEGORY_LABEL: Record<string, string> = { adult: "Adult", teen: "Teen", child: "Child", visitor: "Visitor" };
 
 /** Session detail: demographic breakdown + per-member check-in (mirrors web CheckInPanel). */
-function SessionDetailModal({ sessionId, churchId, serverUrl, onClose, onChanged }: {
+function SessionDetailModal({ sessionId, churchId, serverUrl, onClose, onChanged, onEdit }: {
   sessionId: string; churchId: string; serverUrl: string; onClose: () => void; onChanged: () => void;
+  onEdit: (session: any) => void;
 }) {
   const { showToast } = useAppStore();
   const [sess, setSess] = useState<any>(null);
@@ -308,8 +340,23 @@ function SessionDetailModal({ sessionId, churchId, serverUrl, onClose, onChanged
   const [q, setQ] = useState("");
   const [pending, setPending] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => { load(); }, [sessionId]);
+
+  async function handleDeleteSession() {
+    if (!confirm("Delete this service and all its check-ins?\n\nThis cannot be undone.")) return;
+    setDeleting(true);
+    // Per-row deletes so each removal is written to the sync change log.
+    for (const r of records) {
+      await db.delete("attendance_record", r.id);
+    }
+    await db.delete("attendance_session", sessionId);
+    showToast("Service deleted");
+    setDeleting(false);
+    onChanged();
+    onClose();
+  }
 
   async function load() {
     setLoading(true);
@@ -382,7 +429,18 @@ function SessionDetailModal({ sessionId, churchId, serverUrl, onClose, onChanged
         <div className="flex items-center justify-center py-16"><Loader2 className="size-6 text-primary-bright whq-spin" /></div>
       ) : (
         <div className="space-y-4">
-          <p className="-mt-3 text-sm text-ink-muted">{formatDate(sess.date)}</p>
+          <div className="-mt-3 flex items-center justify-between gap-3">
+            <p className="text-sm text-ink-muted">{formatDate(sess.date)}</p>
+            <div className="flex items-center gap-2">
+              <button onClick={() => onEdit(sess)} className="btn-secondary btn-sm">
+                <Pencil className="size-3.5" /> Edit
+              </button>
+              <button onClick={handleDeleteSession} disabled={deleting} className="btn-ghost btn-sm text-danger">
+                {deleting ? <Loader2 className="size-3.5 whq-spin" /> : <Trash2 className="size-3.5" />}
+                {deleting ? "Deleting..." : "Delete"}
+              </button>
+            </div>
+          </div>
 
           {/* Summary + breakdown */}
           <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
@@ -400,17 +458,24 @@ function SessionDetailModal({ sessionId, churchId, serverUrl, onClose, onChanged
 
           {/* Self check-in URL */}
           <div className="card p-4">
-            <div className="mb-2 flex items-center gap-2 text-sm font-bold text-ink"><QrCode className="size-4" /> Self check-in link</div>
-            <div className="flex items-center gap-2">
-              <input readOnly value={checkInUrl} className="input h-9 flex-1 font-mono text-[11px]" />
-              <button
-                onClick={() => { navigator.clipboard?.writeText(checkInUrl); setCopied(true); showToast("Link copied"); setTimeout(() => setCopied(false), 1500); }}
-                className="btn-secondary btn-sm"
-              >
-                {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />} Copy
-              </button>
+            <div className="mb-2 flex items-center gap-2 text-sm font-bold text-ink"><QrCode className="size-4" /> Self check-in</div>
+            <div className="flex items-center gap-4">
+              <div className="shrink-0 rounded-lg border border-line bg-white p-2">
+                <QRCodeCanvas value={checkInUrl} size={96} bgColor="#ffffff" fgColor="#1c1a16" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <input readOnly value={checkInUrl} className="input h-9 flex-1 font-mono text-[11px]" />
+                  <button
+                    onClick={() => { navigator.clipboard?.writeText(checkInUrl); setCopied(true); showToast("Link copied"); setTimeout(() => setCopied(false), 1500); }}
+                    className="btn-secondary btn-sm shrink-0"
+                  >
+                    {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />} Copy
+                  </button>
+                </div>
+                <p className="mt-1.5 text-[11px] text-ink-faint">Members scan the QR or open the link to check themselves in. Requires online — self check-ins will sync.</p>
+              </div>
             </div>
-            <p className="mt-1.5 text-[11px] text-ink-faint">Members open this to check themselves in. Requires online — self check-ins will sync.</p>
           </div>
 
           {/* Check-in members */}

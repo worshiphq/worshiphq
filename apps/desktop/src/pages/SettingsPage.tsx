@@ -304,6 +304,181 @@ function ProfileTab() {
           </div>
         </div>
       </div>
+
+      <AccountSecuritySection />
+    </div>
+  );
+}
+
+/* ─── Account security: change password / phone / email via server bridge ─── */
+function AccountSecuritySection() {
+  const { session, setSession, showToast } = useAppStore();
+  const [mode, setMode] = useState<"none" | "password" | "phone" | "email">("none");
+  const [busy, setBusy] = useState(false);
+  const [otpStage, setOtpStage] = useState<{ verificationId: string; kind: "phone" | "email"; newValue: string } | null>(null);
+  const [form, setForm] = useState({ current: "", next: "", password: "", newPhone: "", newEmail: "", code: "" });
+
+  const set = (key: keyof typeof form) => (e: any) => setForm((f) => ({ ...f, [key]: e.target.value }));
+
+  function reset() {
+    setMode("none");
+    setOtpStage(null);
+    setForm({ current: "", next: "", password: "", newPhone: "", newEmail: "", code: "" });
+  }
+
+  async function call(payload: Record<string, any>): Promise<any> {
+    const ok = await requireOnline("update your account");
+    if (!ok) return null;
+    setBusy(true);
+    const result = await server.fetch("/api/desktop/account", "POST", payload);
+    setBusy(false);
+    if (result?.error && !("ok" in result)) {
+      showToast(result.error, "error");
+      return null;
+    }
+    return result;
+  }
+
+  async function handleChangePassword() {
+    const r = await call({ action: "change-password", current: form.current, next: form.next });
+    if (!r) return;
+    if (!r.ok) { showToast(r.error || "Failed", "error"); return; }
+    showToast("Password changed");
+    reset();
+  }
+
+  async function handleStartPhone() {
+    const r = await call({ action: "start-phone-change", password: form.password, newPhone: form.newPhone });
+    if (!r) return;
+    if (!r.ok) { showToast(r.error || "Failed", "error"); return; }
+    setOtpStage({ verificationId: r.verificationId, kind: "phone", newValue: form.newPhone });
+    showToast("Verification code sent by SMS");
+  }
+
+  async function handleStartEmail() {
+    const r = await call({ action: "start-email-change", password: form.password, newEmail: form.newEmail });
+    if (!r) return;
+    if (!r.ok) { showToast(r.error || "Failed", "error"); return; }
+    setOtpStage({ verificationId: r.verificationId, kind: "email", newValue: form.newEmail });
+    showToast("Verification code sent");
+  }
+
+  async function handleConfirmOtp() {
+    if (!otpStage) return;
+    const payload = otpStage.kind === "phone"
+      ? { action: "confirm-phone-change", verificationId: otpStage.verificationId, code: form.code, newPhone: otpStage.newValue }
+      : { action: "confirm-email-change", verificationId: otpStage.verificationId, code: form.code, newEmail: otpStage.newValue };
+    const r = await call(payload);
+    if (!r) return;
+    if (!r.ok) { showToast(r.error || "Invalid code", "error"); return; }
+    if (otpStage.kind === "email" && session) {
+      setSession({ ...session, userEmail: otpStage.newValue });
+    }
+    showToast(otpStage.kind === "phone" ? "Phone number updated" : "Email updated");
+    reset();
+  }
+
+  const options = [
+    { key: "password" as const, icon: Shield, title: "Change password", desc: "Requires your current password." },
+    { key: "phone" as const, icon: MessageSquare, title: "Change phone", desc: "Password + SMS code to the new number." },
+    { key: "email" as const, icon: ExternalLink, title: "Change email", desc: "Password + code sent to the new email." },
+  ];
+
+  return (
+    <div className="card space-y-4">
+      <div>
+        <h3 className="text-sm font-bold text-ink flex items-center gap-2">
+          <Shield className="size-4" /> Security
+        </h3>
+        <p className="text-xs text-ink-muted mt-0.5">Update your password, phone or email. Requires an internet connection.</p>
+      </div>
+
+      {mode === "none" && (
+        <div className="grid gap-2 sm:grid-cols-3">
+          {options.map((o) => (
+            <button key={o.key} onClick={() => setMode(o.key)}
+              className="rounded-xl border border-line p-3.5 text-left transition-colors hover:border-primary/40 hover:bg-primary/5">
+              <o.icon className="size-4 text-primary-bright" />
+              <p className="mt-2 text-sm font-semibold text-ink">{o.title}</p>
+              <p className="mt-0.5 text-[11px] text-ink-faint">{o.desc}</p>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {mode === "password" && (
+        <div className="space-y-3 rounded-xl border border-line p-4">
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Current password</label>
+            <input type="password" value={form.current} onChange={set("current")} className="input" autoFocus />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">New password</label>
+            <input type="password" value={form.next} onChange={set("next")} className="input"
+              placeholder="8+ chars, capital, number, symbol" />
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button onClick={reset} className="btn-ghost btn-sm">Cancel</button>
+            <button onClick={handleChangePassword} disabled={busy || !form.current || !form.next} className="btn-primary btn-sm">
+              {busy && <Loader2 className="size-3.5 whq-spin" />}
+              {busy ? "Saving..." : "Change password"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {(mode === "phone" || mode === "email") && !otpStage && (
+        <div className="space-y-3 rounded-xl border border-line p-4">
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">Your password</label>
+            <input type="password" value={form.password} onChange={set("password")} className="input" autoFocus />
+          </div>
+          <div>
+            <label className="block text-xs font-medium text-ink-muted mb-1">
+              {mode === "phone" ? "New phone number" : "New email"}
+            </label>
+            {mode === "phone" ? (
+              <input type="tel" value={form.newPhone} onChange={set("newPhone")} className="input" placeholder="024 000 0000" />
+            ) : (
+              <input type="email" value={form.newEmail} onChange={set("newEmail")} className="input" placeholder="you@church.org" />
+            )}
+          </div>
+          <div className="flex gap-2 pt-1">
+            <button onClick={reset} className="btn-ghost btn-sm">Cancel</button>
+            <button
+              onClick={mode === "phone" ? handleStartPhone : handleStartEmail}
+              disabled={busy || !form.password || (mode === "phone" ? !form.newPhone : !form.newEmail)}
+              className="btn-primary btn-sm"
+            >
+              {busy && <Loader2 className="size-3.5 whq-spin" />}
+              {busy ? "Sending code..." : "Send verification code"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {otpStage && (
+        <div className="space-y-3 rounded-xl border border-line p-4">
+          <p className="text-sm text-ink-muted">
+            Enter the 6-digit code we sent to <span className="font-semibold text-ink">{otpStage.newValue}</span>.
+          </p>
+          <input
+            value={form.code}
+            onChange={set("code")}
+            className="input text-center font-mono text-lg tracking-[0.5em]"
+            maxLength={6}
+            placeholder="••••••"
+            autoFocus
+          />
+          <div className="flex gap-2 pt-1">
+            <button onClick={reset} className="btn-ghost btn-sm">Cancel</button>
+            <button onClick={handleConfirmOtp} disabled={busy || form.code.length < 4} className="btn-primary btn-sm">
+              {busy && <Loader2 className="size-3.5 whq-spin" />}
+              {busy ? "Verifying..." : "Verify & update"}
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
