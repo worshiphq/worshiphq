@@ -50,7 +50,8 @@ export async function signUp(formData: FormData) {
   const validPlans = ["free", "starter", "pro", "max"];
   const chosenPlan = validPlans.includes(plan) ? plan : "free";
 
-  if (!churchName || !name || !email || !phone || password.length < 6) {
+  const { passwordMeetsPolicy } = await import("@/lib/password-policy");
+  if (!churchName || !name || !email || !phone || !passwordMeetsPolicy(password)) {
     redirect("/sign-up?error=invalid");
   }
   if (await db.user.findUnique({ where: { email } })) {

@@ -29,7 +29,7 @@ export default async function SignUpPage({
     error === "exists"
       ? "An account with that email already exists. Try logging in."
       : error === "invalid"
-        ? "Please fill in every field (password must be at least 6 characters)."
+        ? "Please fill in every field. Password needs 8+ characters with a capital letter, a number and a symbol."
         : error === "sms"
           ? "We couldn't send the verification SMS. Check the phone number and try again."
           : error === "expired"

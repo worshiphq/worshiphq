@@ -10,6 +10,7 @@ import {
 import { signUp } from "@/app/actions/auth";
 import { Input, Label } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
+import { PASSWORD_RULES, passwordMeetsPolicy } from "@/lib/password-policy";
 import { cn } from "@/lib/utils";
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -26,7 +27,7 @@ const STEPS = [
   { key: "church", label: "Church", icon: Church, title: "What's your church called?", sub: "This becomes the name of your WorshipHQ workspace." },
   { key: "you", label: "You", icon: User, title: "And what's your name?", sub: "You'll be the owner of this church account." },
   { key: "contact", label: "Contact", icon: AtSign, title: "How do we reach you?", sub: "We'll send a one-time code to verify your phone." },
-  { key: "password", label: "Security", icon: Lock, title: "Set a password", sub: "At least 6 characters. Make it strong." },
+  { key: "password", label: "Security", icon: Lock, title: "Set a password", sub: "At least 8 characters, with a capital letter, a number and a symbol." },
   { key: "plan", label: "Plan", icon: Sparkles, title: "Choose your plan", sub: "Start free and upgrade any time — or jump straight in." },
   { key: "review", label: "Review", icon: ClipboardCheck, title: "Everything look right?", sub: "One tap and we'll send your verification code." },
 ] as const;
@@ -73,8 +74,11 @@ export function SignupWizard({
         if (data.phone.trim().replace(/\D/g, "").length < 9) return "Please enter a valid phone number.";
         return null;
       }
-      case "password":
-        return data.password.length >= 6 ? null : "Password must be at least 6 characters.";
+      case "password": {
+        if (passwordMeetsPolicy(data.password)) return null;
+        const missing = PASSWORD_RULES.filter((r) => !r.test(data.password)).map((r) => r.label.toLowerCase());
+        return `Your password still needs: ${missing.join(", ")}.`;
+      }
       default:
         return null;
     }
@@ -201,24 +205,51 @@ export function SignupWizard({
                     id="w-password"
                     value={data.password}
                     onChange={set("password")}
-                    placeholder="At least 6 characters"
+                    placeholder="e.g. Sunday@2026"
                     autoFocus
                   />
-                  {/* Strength hint */}
-                  <div className="mt-2.5 flex gap-1">
-                    {[0, 1, 2].map((i) => {
-                      const score = data.password.length >= 12 ? 3 : data.password.length >= 8 ? 2 : data.password.length >= 6 ? 1 : 0;
+
+                  {/* Strength bar — one segment per rule met */}
+                  <div className="mt-3 flex gap-1">
+                    {PASSWORD_RULES.map((r, i) => {
+                      const met = PASSWORD_RULES.filter((x) => x.test(data.password)).length;
                       return (
                         <span
-                          key={i}
+                          key={r.key}
                           className={cn(
-                            "h-1 flex-1 rounded-full transition-colors",
-                            i < score ? (score >= 3 ? "bg-success" : score === 2 ? "bg-gold" : "bg-warning") : "bg-line",
+                            "h-1 flex-1 rounded-full transition-colors duration-300",
+                            i < met ? (met === 4 ? "bg-success" : met >= 3 ? "bg-gold" : "bg-warning") : "bg-line",
                           )}
                         />
                       );
                     })}
                   </div>
+
+                  {/* Live requirements checklist */}
+                  <ul className="mt-3 grid grid-cols-1 gap-1.5 sm:grid-cols-2">
+                    {PASSWORD_RULES.map((r) => {
+                      const ok = r.test(data.password);
+                      return (
+                        <li
+                          key={r.key}
+                          className={cn(
+                            "flex items-center gap-2 text-xs transition-colors duration-300",
+                            ok ? "text-success" : "text-ink-faint",
+                          )}
+                        >
+                          <span
+                            className={cn(
+                              "grid size-4 shrink-0 place-items-center rounded-full border transition-colors duration-300",
+                              ok ? "border-success bg-success text-white" : "border-line bg-surface",
+                            )}
+                          >
+                            {ok && <Check className="size-2.5" strokeWidth={3} />}
+                          </span>
+                          {r.label}
+                        </li>
+                      );
+                    })}
+                  </ul>
                 </div>
               )}
 
