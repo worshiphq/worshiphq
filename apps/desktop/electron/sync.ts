@@ -374,6 +374,28 @@ async function pushChanges(serverUrl: string, token: string): Promise<number> {
     throw new Error(body.error || `Push failed (${res.status})`);
   }
 
+  const body = await res.json().catch(() => ({} as any));
+  const results: { ok: boolean; error?: string }[] | undefined = body.results;
+
+  if (Array.isArray(results) && results.length === changes.length) {
+    // Only mark changes the server actually applied. Rejected changes get
+    // synced = -1 so they stop blocking the queue but stay inspectable.
+    const okIds: number[] = [];
+    const failedIds: number[] = [];
+    changes.forEach((c, i) => (results[i]?.ok ? okIds : failedIds).push(c.id));
+    if (okIds.length) {
+      db.prepare(`UPDATE _change_log SET synced = 1 WHERE id IN (${okIds.map(() => "?").join(",")})`).run(...okIds);
+    }
+    if (failedIds.length) {
+      db.prepare(`UPDATE _change_log SET synced = -1 WHERE id IN (${failedIds.map(() => "?").join(",")})`).run(...failedIds);
+      results.forEach((r, i) => {
+        if (!r.ok) console.error(`[sync] push rejected: ${changes[i].table_name}/${changes[i].record_id} — ${r.error}`);
+      });
+    }
+    return okIds.length;
+  }
+
+  // Older server without per-record results — previous behaviour.
   const ids = changes.map((c) => c.id);
   db.prepare(`UPDATE _change_log SET synced = 1 WHERE id IN (${ids.map(() => "?").join(",")})`).run(...ids);
   return changes.length;
@@ -393,7 +415,7 @@ async function pullChanges(serverUrl: string, token: string): Promise<{ applied:
     throw new Error(body.error || `Pull failed (${res.status})`);
   }
 
-  const { changes } = await res.json();
+  const { changes, fullTables } = await res.json();
   const db = getDatabase();
 
   broadcast("sync:progress", { phase: "pulling", progress: 55, detail: `Received ${changes.length} record${changes.length !== 1 ? "s" : ""} from server`, count: changes.length });
@@ -479,13 +501,48 @@ async function pullChanges(serverUrl: string, token: string): Promise<{ applied:
     }
   });
 
+  let deleted = 0;
   try {
     applyChanges();
+
+    // ── Deletion reconciliation ──
+    // The server sends complete snapshots for the tables in `fullTables`.
+    // Any local row missing from the snapshot was deleted on the web — remove
+    // it here, unless it has pending unsynced local changes (offline creates
+    // that haven't pushed yet).
+    if (Array.isArray(fullTables) && fullTables.length > 0) {
+      const pulledIdsByTable = new Map<string, Set<string>>();
+      for (const c of changes) {
+        if (!pulledIdsByTable.has(c.table)) pulledIdsByTable.set(c.table, new Set());
+        pulledIdsByTable.get(c.table)!.add(String(c.recordId));
+      }
+
+      const reconcile = db.transaction(() => {
+        for (const table of fullTables) {
+          const validCols = getTableColumns(table);
+          if (!validCols.has("id")) continue;
+          const pulled = pulledIdsByTable.get(table) ?? new Set<string>();
+          const pending = new Set(
+            (db.prepare("SELECT record_id FROM _change_log WHERE table_name = ? AND synced = 0").all(table) as any[])
+              .map((r) => String(r.record_id)),
+          );
+          const localIds = (db.prepare(`SELECT id FROM "${table}"`).all() as any[]).map((r) => String(r.id));
+          const del = db.prepare(`DELETE FROM "${table}" WHERE id = ?`);
+          for (const id of localIds) {
+            if (!pulled.has(id) && !pending.has(id)) {
+              del.run(id);
+              deleted++;
+            }
+          }
+        }
+      });
+      reconcile();
+    }
   } finally {
     if (fkWasOn) db.pragma("foreign_keys = ON");
   }
 
-  broadcast("sync:progress", { phase: "applying", progress: 92, detail: `Applied ${applied} records across ${tablesProcessed.size} tables`, count: applied, skipped });
+  broadcast("sync:progress", { phase: "applying", progress: 92, detail: `Applied ${applied} records across ${tablesProcessed.size} tables${deleted ? `, removed ${deleted} deleted` : ""}`, count: applied, skipped });
 
   return { applied, skipped };
 }

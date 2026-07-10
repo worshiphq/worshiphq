@@ -54,7 +54,10 @@ export function HarvestPage() {
 
   async function handleDelete(id: string) {
     if (!confirm("Delete this harvest and all its contributions?")) return;
-    await db.rawQuery("DELETE FROM harvest_contribution WHERE harvest_id = ?", [id]);
+    const contribs = await db.rawQuery("SELECT id FROM harvest_contribution WHERE harvest_id = ?", [id]);
+    for (const c of contribs) {
+      await db.delete("harvest_contribution", c.id);
+    }
     setHarvests((prev) => prev.filter((h) => h.id !== id));
     showToast("Deleted");
     await db.delete("harvest", id);

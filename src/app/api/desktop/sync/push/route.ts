@@ -1,5 +1,7 @@
 import { NextResponse } from "next/server";
+import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
+import { hashPassword } from "@/lib/auth";
 import crypto from "node:crypto";
 
 const SECRET = process.env.NEXTAUTH_SECRET ?? "dev-insecure-secret-change-me";
@@ -23,7 +25,8 @@ function verifyToken(authHeader: string | null): { uid: string; cid: string } | 
   }
 }
 
-// Column name mapping: SQLite snake_case → Prisma camelCase
+// Column name mapping: SQLite snake_case → Prisma camelCase (only where the
+// naive snake→camel conversion is wrong).
 const COLUMN_MAP: Record<string, Record<string, string>> = {
   person: {
     church_id: "churchId", branch_id: "branchId", member_id: "memberId",
@@ -62,6 +65,9 @@ const COLUMN_MAP: Record<string, Record<string, string>> = {
   },
   fund: {
     church_id: "churchId", account_id: "accountId",
+  },
+  branch: {
+    church_id: "churchId", is_hq: "isHQ",
   },
 };
 
@@ -108,24 +114,97 @@ const TABLE_TO_MODEL: Record<string, string> = {
   branch: "branch",
   reminder: "reminder",
   church_account: "churchAccount",
+  church: "church",
+  user: "user",
 };
 
 const REVERSE_RENAMES: Record<string, string> = {
   trigger_type: "trigger",
 };
 
+// Fields the desktop is never allowed to overwrite (server-managed).
+const PROTECTED_FIELDS: Record<string, string[]> = {
+  church: ["smsCredits", "isDemo", "suspended", "slug"],
+  user: ["role"], // role changes for existing users go through the web; inserts keep their role below
+};
+
+/* ── Prisma schema metadata: field types per model, for coercion + stripping ── */
+interface FieldMeta { type: string; isList: boolean }
+const MODEL_FIELDS: Record<string, Map<string, FieldMeta>> = {};
+for (const m of Prisma.dmmf.datamodel.models) {
+  const name = m.name.charAt(0).toLowerCase() + m.name.slice(1);
+  MODEL_FIELDS[name] = new Map(
+    m.fields
+      .filter((f) => f.kind === "scalar" || f.kind === "enum")
+      .map((f) => [f.name, { type: f.type, isList: f.isList }]),
+  );
+}
+
 function toCamelCase(s: string): string {
   return s.replace(/_([a-z])/g, (_, c) => c.toUpperCase());
 }
 
-function mapColumns(table: string, data: Record<string, any>): Record<string, any> {
+/** Coerce SQLite representations to what Prisma expects. */
+function coerceValue(field: FieldMeta, value: any): any {
+  if (value === null || value === undefined) return value;
+  if (field.isList) {
+    // SQLite stores lists as JSON strings (e.g. custom_role.sections)
+    if (typeof value === "string") {
+      try {
+        const parsed = JSON.parse(value);
+        if (Array.isArray(parsed)) return parsed;
+      } catch { /* fall through */ }
+    }
+    return value;
+  }
+  switch (field.type) {
+    case "Boolean":
+      if (typeof value === "number") return value !== 0;
+      if (typeof value === "string") return value === "1" || value === "true";
+      return value;
+    case "DateTime": {
+      if (value instanceof Date) return value;
+      const s = String(value);
+      let iso = s;
+      if (/^\d{4}-\d{2}-\d{2}$/.test(s)) iso = `${s}T00:00:00.000Z`; // date-only
+      else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}(:\d{2})?/.test(s)) iso = s.replace(" ", "T") + "Z"; // SQLite datetime('now')
+      const d = new Date(iso);
+      return isNaN(d.getTime()) ? value : d;
+    }
+    case "Int":
+    case "BigInt": {
+      const n = typeof value === "string" ? parseInt(value, 10) : value;
+      return Number.isFinite(n) ? Math.trunc(n as number) : value;
+    }
+    case "Float":
+    case "Decimal": {
+      const n = typeof value === "string" ? parseFloat(value) : value;
+      return Number.isFinite(n) ? n : value;
+    }
+    default:
+      return value;
+  }
+}
+
+/**
+ * Map a desktop row to Prisma data: rename columns, drop unknown fields
+ * (e.g. desktop-only columns like volunteer_assignment.person_id), drop
+ * server-managed fields, and coerce types (0/1 booleans, SQLite dates,
+ * JSON-string lists).
+ */
+function mapColumns(table: string, model: string, data: Record<string, any>): Record<string, any> {
   const mapping = COLUMN_MAP[table] || {};
+  const fields = MODEL_FIELDS[model];
+  const protectedFields = new Set(PROTECTED_FIELDS[table] ?? []);
   const result: Record<string, any> = {};
   for (const [key, value] of Object.entries(data)) {
     if (key === "created_at" || key === "updated_at") continue;
     const renamed = REVERSE_RENAMES[key] || key;
     const mapped = mapping[renamed] || toCamelCase(renamed);
-    result[mapped] = value;
+    if (protectedFields.has(mapped)) continue;
+    const field = fields?.get(mapped);
+    if (!field) continue; // unknown to Prisma — desktop-only column, drop it
+    result[mapped] = coerceValue(field, value);
   }
   return result;
 }
@@ -139,42 +218,89 @@ export async function POST(req: Request) {
   try {
     const { changes } = await req.json();
     let applied = 0;
+    // Per-change outcome, aligned with the input array, so the client only
+    // marks successfully applied changes as synced.
+    const results: { ok: boolean; error?: string }[] = [];
 
     for (const change of changes) {
       const { table, recordId, action, data } = change;
       const model = TABLE_TO_MODEL[table];
-      if (!model) continue;
-
-      const prismaModel = (db as any)[model];
-      if (!prismaModel) continue;
+      const prismaModel = model ? (db as any)[model] : null;
+      if (!model || !prismaModel) {
+        results.push({ ok: false, error: `unknown table ${table}` });
+        continue;
+      }
+      const hasChurchId = MODEL_FIELDS[model]?.has("churchId") ?? false;
 
       try {
+        if (table === "church" && recordId !== auth.cid) {
+          results.push({ ok: false, error: "cross-tenant church write rejected" });
+          continue;
+        }
+
         if (action === "delete") {
-          await prismaModel.delete({ where: { id: recordId } }).catch(() => {});
+          // Tenant-scoped delete: never allow deleting another church's rows.
+          if (table === "church") {
+            results.push({ ok: false, error: "church delete not allowed" });
+            continue;
+          }
+          if (hasChurchId) {
+            await prismaModel.deleteMany({ where: { id: recordId, churchId: auth.cid } });
+          } else {
+            await prismaModel.deleteMany({ where: { id: recordId } });
+          }
+          applied++;
+          results.push({ ok: true });
         } else if (action === "insert") {
-          const mapped = mapColumns(table, data);
-          mapped.churchId = mapped.churchId || auth.cid;
+          const mapped = mapColumns(table, model, data);
+          if (hasChurchId) mapped.churchId = auth.cid; // enforce tenant, never trust client
+          if (table === "user") await prepareUserWrite(mapped, true);
           await prismaModel.upsert({
             where: { id: recordId },
-            create: mapped,
+            create: { id: recordId, ...mapped },
             update: mapped,
           });
+          applied++;
+          results.push({ ok: true });
         } else if (action === "update") {
-          const mapped = mapColumns(table, data);
+          const mapped = mapColumns(table, model, data);
           delete mapped.id;
-          await prismaModel.update({
-            where: { id: recordId },
-            data: mapped,
-          }).catch(() => {});
+          if (hasChurchId) delete mapped.churchId; // can't be moved between tenants
+          if (table === "user") await prepareUserWrite(mapped, false);
+          if (table === "church") {
+            await db.church.update({ where: { id: auth.cid }, data: mapped });
+          } else if (hasChurchId) {
+            await prismaModel.updateMany({ where: { id: recordId, churchId: auth.cid }, data: mapped });
+          } else {
+            await prismaModel.update({ where: { id: recordId }, data: mapped });
+          }
+          applied++;
+          results.push({ ok: true });
+        } else {
+          results.push({ ok: false, error: `unknown action ${action}` });
         }
-        applied++;
-      } catch (err) {
-        console.error(`[sync:push] Failed to apply ${action} on ${table}/${recordId}:`, err);
+      } catch (err: any) {
+        console.error(`[sync:push] Failed to apply ${action} on ${table}/${recordId}:`, err?.message);
+        results.push({ ok: false, error: err?.message?.slice(0, 200) ?? "unknown error" });
       }
     }
 
-    return NextResponse.json({ applied, total: changes.length });
+    return NextResponse.json({ applied, total: changes.length, results });
   } catch (err: any) {
     return NextResponse.json({ error: "Push failed" }, { status: 500 });
+  }
+}
+
+/**
+ * Desktop "invite teammate" stores the raw temp password in password_hash.
+ * Hash it properly before it touches the database; never accept an empty one.
+ */
+async function prepareUserWrite(mapped: Record<string, any>, isInsert: boolean) {
+  const pw = mapped.passwordHash;
+  if (typeof pw === "string" && pw.length > 0 && !pw.startsWith("$2")) {
+    mapped.passwordHash = await hashPassword(pw);
+  } else if (!isInsert) {
+    // Never overwrite an existing hash with empty/unknown material on update.
+    delete mapped.passwordHash;
   }
 }

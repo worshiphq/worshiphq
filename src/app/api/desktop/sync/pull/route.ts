@@ -25,6 +25,7 @@ function verifyToken(authHeader: string | null): { uid: string; cid: string } | 
 
 const COLUMN_RENAMES: Record<string, string> = {
   trigger: "trigger_type",
+  is_h_q: "is_hq",
 };
 
 function toSnakeCase(obj: Record<string, any>): Record<string, any> {
@@ -36,6 +37,10 @@ function toSnakeCase(obj: Record<string, any>): Record<string, any> {
       result[snakeKey] = value.toISOString();
     } else if (typeof value === "bigint") {
       result[snakeKey] = Number(value);
+    } else if (typeof value === "object" && value !== null && typeof (value as any).toNumber === "function") {
+      // Prisma Decimal — JSON.stringify would produce a quoted string that
+      // poisons SQLite numeric columns.
+      result[snakeKey] = (value as any).toNumber();
     } else if (typeof value === "object" && value !== null && !Array.isArray(value)) {
       result[snakeKey] = JSON.stringify(value);
     } else {
@@ -45,18 +50,18 @@ function toSnakeCase(obj: Record<string, any>): Record<string, any> {
   return result;
 }
 
+// Full-snapshot pull. Date filters were removed deliberately: they made
+// updates to old rows (and backdated inserts) invisible to the desktop
+// forever. Church-scale data is small enough to pull whole tables, and the
+// client uses the snapshot to reconcile server-side deletions too.
 async function pullTable(
   model: any,
   table: string,
   churchId: string,
-  sinceDate: Date,
-  dateField: string | null = "createdAt"
+  _sinceDate?: Date,
+  _dateField?: string | null,
 ) {
-  const where: any = { churchId };
-  if (dateField) {
-    where[dateField] = { gte: sinceDate };
-  }
-  const rows = await model.findMany({ where });
+  const rows = await model.findMany({ where: { churchId } });
   return rows.map((r: any) => ({
     table,
     recordId: r.id,
@@ -180,32 +185,39 @@ export async function GET(req: Request) {
       }
     }
 
-    // Pull child tables that use parent FK, not churchId
-    const budgetIds = changes.filter(c => c.table === "budget").map(c => c.recordId);
-    if (budgetIds.length > 0) {
-      const items = await db.budgetItem.findMany({ where: { churchId } });
-      for (const i of items) {
-        changes.push({ table: "budget_item", recordId: i.id, action: "upsert", data: toSnakeCase(i as any) });
-      }
+    // Child tables — always pulled in full so items added under old parents sync.
+    const items = await db.budgetItem.findMany({ where: { churchId } });
+    for (const i of items) {
+      changes.push({ table: "budget_item", recordId: i.id, action: "upsert", data: toSnakeCase(i as any) });
     }
 
-    const rosterIds = changes.filter(c => c.table === "volunteer_roster").map(c => c.recordId);
-    if (rosterIds.length > 0) {
-      const slots = await db.volunteerSlot.findMany({ where: { churchId } });
-      for (const s of slots) {
-        changes.push({ table: "volunteer_slot", recordId: s.id, action: "upsert", data: toSnakeCase(s as any) });
-      }
+    const slots = await db.volunteerSlot.findMany({ where: { churchId } });
+    for (const s of slots) {
+      changes.push({ table: "volunteer_slot", recordId: s.id, action: "upsert", data: toSnakeCase(s as any) });
     }
 
-    const weekIds = changes.filter(c => c.table === "day_born_week").map(c => c.recordId);
-    if (weekIds.length > 0) {
-      const entries = await db.dayBornEntry.findMany({ where: { weekId: { in: weekIds } } });
-      for (const e of entries) {
-        changes.push({ table: "day_born_entry", recordId: e.id, action: "upsert", data: toSnakeCase(e as any) });
-      }
+    const entries = await db.dayBornEntry.findMany({ where: { week: { churchId } } });
+    for (const e of entries) {
+      changes.push({ table: "day_born_entry", recordId: e.id, action: "upsert", data: toSnakeCase(e as any) });
     }
 
-    return NextResponse.json({ changes, count: changes.length });
+    // Every table listed here was pulled as a COMPLETE snapshot: the client
+    // may delete local rows that are absent from this pull (unless they have
+    // pending unsynced changes). Junction tables are excluded — their rows
+    // use synthetic ids.
+    const fullTables = [
+      "church", "person", "department", "department_position", "custom_role",
+      "church_account", "fund", "gift", "attendance_session", "attendance_record",
+      "event", "visitor", "expense", "transaction", "branch", "group", "harvest",
+      "harvest_contribution", "day_born_week", "day_born_entry", "follow_up",
+      "prayer_request", "church_notice", "sermon", "asset", "budget", "budget_item",
+      "volunteer_roster", "volunteer_slot", "volunteer_assignment", "facility",
+      "booking", "welfare_record", "devotional", "testimony", "counseling_session",
+      "pledge", "campaign", "communication", "automation", "household", "reminder",
+      "user",
+    ];
+
+    return NextResponse.json({ changes, count: changes.length, fullTables });
   } catch (err: any) {
     console.error("[sync:pull]", err?.message || err, err?.stack);
     return NextResponse.json({ error: "Pull failed", detail: err?.message || String(err) }, { status: 500 });

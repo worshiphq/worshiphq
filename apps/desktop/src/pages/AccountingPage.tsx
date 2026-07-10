@@ -608,7 +608,15 @@ function AccountForm({ churchId, existing, onClose, onSaved, onDelete }: {
       is_default: form.is_default ? 1 : 0,
     };
     if (form.is_default) {
-      await db.rawQuery("UPDATE church_account SET is_default = 0 WHERE church_id = ?", [churchId]);
+      // Per-row updates so each change is written to the sync change log
+      // (rawQuery bypasses it and the reset would never reach the server).
+      const others = await db.rawQuery(
+        "SELECT id FROM church_account WHERE church_id = ? AND is_default = 1",
+        [churchId],
+      );
+      for (const row of others) {
+        await db.update("church_account", row.id, { is_default: 0 });
+      }
     }
     if (existing) {
       await db.update("church_account", existing.id, data);
