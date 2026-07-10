@@ -1,6 +1,5 @@
 import Link from "next/link";
 import Image from "next/image";
-import { Quote } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { Aurora, GridBackdrop } from "@/components/marketing/aurora";
 import { brand } from "@/config/brand";
@@ -9,22 +8,30 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
   return (
     <div className="grid min-h-dvh bg-base lg:grid-cols-2">
       {/* Brand panel */}
-      <div className="relative hidden flex-col justify-between overflow-hidden border-r border-line p-12 lg:flex">
+      <div className="relative hidden flex-col overflow-hidden border-r border-line p-12 lg:flex">
         <Aurora />
         <GridBackdrop />
-        <div className="relative flex items-center justify-center flex-1">
-          {/* Large centered logo */}
-          <Image src="/logo.png" alt="WorshipHQ" width={160} height={160} className="h-40 w-auto object-contain" priority />
-        </div>
-        <div className="relative max-w-md">
-          <Quote className="size-8 text-primary/50" />
-          <p className="mt-4 font-display text-2xl font-medium leading-snug">
-            We moved 1,200 members onto WorshipHQ in a weekend. Online giving alone has
-            transformed our offerings.
+        <div className="relative flex flex-1 flex-col items-center justify-center text-center">
+          {/* Huge centered logo */}
+          <Image
+            src="/logo.png"
+            alt="WorshipHQ"
+            width={320}
+            height={320}
+            className="h-64 w-auto object-contain drop-shadow-[0_20px_40px_rgba(13,115,119,0.15)] xl:h-80"
+            priority
+          />
+          <p className="mt-10 max-w-md font-display text-2xl font-bold leading-snug text-ink xl:text-3xl">
+            Every member. Every cedi.
+            <br />
+            <span className="text-primary">Every Sunday — sorted.</span>
           </p>
-          <p className="mt-4 text-sm text-ink-muted">Rev. Daniel Mensah · Grace Temple, Accra</p>
+          <p className="mt-4 max-w-sm text-sm leading-relaxed text-ink-muted">
+            People, giving, attendance, events and SMS — the complete church
+            management system, in one calm place.
+          </p>
         </div>
-        <div className="relative text-xs text-ink-faint">
+        <div className="relative text-center text-xs text-ink-faint">
           © {new Date().getFullYear()} {brand.productName}
         </div>
       </div>

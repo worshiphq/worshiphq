@@ -95,7 +95,7 @@ export function Hero({ subhead = DEFAULT_SUBHEAD }: { subhead?: string }) {
       ))}
 
       {/* ── Slide content ── */}
-      <div className="relative z-10 mx-auto flex h-full max-w-6xl flex-col justify-center px-5 pt-16">
+      <div className="relative z-10 mx-auto flex h-full max-w-7xl flex-col justify-center px-6 pt-16 lg:px-10">
         <AnimatePresence mode="wait">
           {index === 0 && (
             <motion.div
@@ -108,12 +108,12 @@ export function Hero({ subhead = DEFAULT_SUBHEAD }: { subhead?: string }) {
             >
               <div>
                 <p className="rubric !text-brass">The Church Management System</p>
-                <h1 className="mt-5 font-display text-4xl font-bold leading-[1.05] tracking-tight text-parchment sm:text-5xl xl:text-6xl">
+                <h1 className="mt-5 font-display text-4xl font-bold leading-[1.04] tracking-tight text-parchment sm:text-5xl lg:text-6xl xl:text-7xl">
                   Your whole church.
                   <br />
                   <span className="text-brass">One dashboard.</span>
                 </h1>
-                <p className="mt-6 max-w-md text-base leading-relaxed text-parchment/80 sm:text-lg">
+                <p className="mt-6 max-w-lg text-base leading-relaxed text-parchment/80 sm:text-lg xl:text-xl">
                   {subhead}
                 </p>
                 <div className="mt-9 flex flex-wrap items-center gap-4">
@@ -157,19 +157,19 @@ export function Hero({ subhead = DEFAULT_SUBHEAD }: { subhead?: string }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.7, ease }}
-              className="mx-auto max-w-3xl text-center"
+              className="mx-auto max-w-4xl text-center"
             >
               <p className="rubric !text-brass">Everything built in</p>
-              <h2 className="mt-5 font-display text-4xl font-bold leading-[1.05] tracking-tight text-parchment sm:text-5xl xl:text-6xl">
+              <h2 className="mt-5 font-display text-4xl font-bold leading-[1.04] tracking-tight text-parchment sm:text-5xl lg:text-6xl xl:text-7xl">
                 Giving, attendance & SMS.
                 <br />
                 <span className="text-brass">No extra tools needed.</span>
               </h2>
-              <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-parchment/80 sm:text-lg">
+              <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-parchment/80 sm:text-lg xl:text-xl">
                 Accept Mobile Money and card giving, check members in with a QR
                 scan, and reach your whole congregation by SMS — from one place.
               </p>
-              <div className="mx-auto mt-10 grid max-w-2xl grid-cols-2 gap-3 sm:grid-cols-4">
+              <div className="mx-auto mt-10 grid max-w-3xl grid-cols-2 gap-3.5 sm:grid-cols-4">
                 {FEATURE_PILLS.map((f, i) => (
                   <motion.div
                     key={f.label}
@@ -179,7 +179,7 @@ export function Hero({ subhead = DEFAULT_SUBHEAD }: { subhead?: string }) {
                     className="flex flex-col items-center gap-2.5 rounded-2xl border border-parchment/15 bg-parchment/5 px-3 py-5 backdrop-blur-sm"
                   >
                     <f.icon className="size-5 text-brass" strokeWidth={1.75} />
-                    <span className="text-xs font-medium leading-tight text-parchment/90">{f.label}</span>
+                    <span className="text-xs font-medium leading-tight text-parchment/90 xl:text-sm">{f.label}</span>
                   </motion.div>
                 ))}
               </div>
@@ -202,13 +202,13 @@ export function Hero({ subhead = DEFAULT_SUBHEAD }: { subhead?: string }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -20 }}
               transition={{ duration: 0.7, ease }}
-              className="mx-auto max-w-3xl text-center"
+              className="mx-auto max-w-4xl text-center"
             >
               <p className="rubric !text-brass">Built for the local church</p>
-              <h2 className="mt-5 font-display text-5xl font-bold leading-[1.02] tracking-tight text-parchment sm:text-6xl xl:text-7xl">
+              <h2 className="mt-5 font-display text-5xl font-bold leading-[1.02] tracking-tight text-parchment sm:text-6xl lg:text-7xl xl:text-8xl">
                 Welcome home.
               </h2>
-              <p className="mx-auto mt-6 max-w-xl text-base leading-relaxed text-parchment/80 sm:text-lg">
+              <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-parchment/80 sm:text-lg xl:text-xl">
                 From a 30-member fellowship to a multi-campus ministry — churches
                 around the world run their week on WorshipHQ. Yours can too,
                 starting today.

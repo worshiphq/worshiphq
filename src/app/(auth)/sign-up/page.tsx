@@ -1,10 +1,5 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Check, AlertCircle } from "lucide-react";
-import { signUp } from "@/app/actions/auth";
-import { SubmitButton } from "@/components/ui/submit-button";
-import { Input, Label } from "@/components/ui/input";
-import { PasswordInput } from "@/components/ui/password-input";
+import { SignupWizard } from "@/components/auth/signup-wizard";
 import { plans as defaultPlans } from "@/config/pricing";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 
@@ -21,9 +16,14 @@ export default async function SignUpPage({
   ]);
   const plans = defaultPlans.map((p) => {
     const dbPrice = platformConfig.prices[p.id];
-    return dbPrice ? { ...p, monthly: dbPrice.monthly, yearly: dbPrice.yearly } : p;
+    return {
+      id: p.id,
+      name: p.name,
+      monthly: dbPrice?.monthly ?? p.monthly,
+      members: p.members,
+      features: p.features,
+    };
   });
-  const sym = platformConfig.currencySymbol;
   const selectedPlan = planParam && plans.some((p) => p.id === planParam) ? planParam : "free";
   const message =
     error === "exists"
@@ -37,90 +37,11 @@ export default async function SignUpPage({
             : null;
 
   return (
-    <div>
-      <h1 className="font-display text-3xl font-bold">Start your church</h1>
-      <p className="mt-2 text-sm text-ink-muted">Create your WorshipHQ account.</p>
-
-      {message && (
-        <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
-          <AlertCircle className="size-4 shrink-0" />
-          {message}
-        </div>
-      )}
-
-      <form action={signUp} className="mt-7 space-y-4">
-        <div>
-          <Label htmlFor="church">Church name</Label>
-          <Input id="church" name="church" placeholder="Grace Temple" required />
-        </div>
-        <div>
-          <Label htmlFor="name">Your name</Label>
-          <Input id="name" name="name" placeholder="Rev. Daniel Mensah" required />
-        </div>
-        <div>
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" placeholder="you@church.org" required />
-        </div>
-        <div>
-          <Label htmlFor="phone">Phone (for verification)</Label>
-          <Input id="phone" name="phone" type="tel" placeholder="024 000 0000" required />
-        </div>
-        <div>
-          <Label htmlFor="password">Password</Label>
-          <PasswordInput id="password" name="password" placeholder="At least 6 characters" required minLength={6} />
-        </div>
-
-        {/* Plan selection */}
-        <div>
-          <Label>Choose your plan</Label>
-          <div className="mt-2 grid grid-cols-2 gap-2">
-            {plans.map((p) => (
-              <label
-                key={p.id}
-                className={`cursor-pointer rounded-xl border p-3 text-center transition-all ${
-                  selectedPlan === p.id
-                    ? "border-primary bg-primary/5 ring-2 ring-primary/30"
-                    : "border-line hover:border-primary/30"
-                }`}
-              >
-                <input
-                  type="radio"
-                  name="plan"
-                  value={p.id}
-                  defaultChecked={selectedPlan === p.id}
-                  className="sr-only"
-                />
-                <div className="font-display text-sm font-semibold">{p.name}</div>
-                <div className="mt-0.5 text-xs text-ink-muted">
-                  {p.monthly === 0 ? "Free forever" : `${sym}${p.monthly.toLocaleString()}/mo`}
-                </div>
-                <div className="mt-1 text-[10px] text-ink-faint">{p.members}</div>
-              </label>
-            ))}
-          </div>
-          {/* Show what's included */}
-          {plans.find((p) => p.id === selectedPlan) && (
-            <ul className="mt-3 space-y-1.5">
-              {plans.find((p) => p.id === selectedPlan)!.features.map((f) => (
-                <li key={f} className="flex items-center gap-2 text-xs text-ink-muted">
-                  <Check className="size-3 text-success" /> {f}
-                </li>
-              ))}
-            </ul>
-          )}
-        </div>
-
-        <SubmitButton size="lg" className="w-full" pendingLabel="Sending code…">
-          Continue — verify phone
-        </SubmitButton>
-      </form>
-
-      <p className="mt-6 text-center text-sm text-ink-muted">
-        Already have an account?{" "}
-        <Link href="/sign-in" className="font-medium text-primary-bright hover:underline">
-          Log in
-        </Link>
-      </p>
-    </div>
+    <SignupWizard
+      plans={plans}
+      currencySymbol={platformConfig.currencySymbol}
+      initialPlan={selectedPlan}
+      errorMessage={message}
+    />
   );
 }
