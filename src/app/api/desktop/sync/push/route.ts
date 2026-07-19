@@ -158,6 +158,20 @@ function coerceValue(field: FieldMeta, value: any): any {
     return value;
   }
   switch (field.type) {
+    case "Json": {
+      // SQLite holds Json columns as TEXT. Writing that raw string into a
+      // Prisma Json column stores a JSON *string scalar* rather than the
+      // object/array — which silently breaks every reader (this corrupted
+      // the church form-builder definitions once). Always parse first.
+      if (typeof value !== "string") return value;
+      const s = value.trim();
+      if (!s) return value;
+      try {
+        return JSON.parse(s);
+      } catch {
+        return value; // genuinely a plain string value
+      }
+    }
     case "Boolean":
       if (typeof value === "number") return value !== 0;
       if (typeof value === "string") return value === "1" || value === "true";

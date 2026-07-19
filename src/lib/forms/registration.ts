@@ -165,13 +165,32 @@ function coerceField(raw: unknown): FormField | null {
 }
 
 /**
+ * Unwrap a definition that was stored as a JSON *string* rather than a JSON
+ * array/object. A Prisma Json column can legitimately hold a string scalar,
+ * and when that happens every resolver below would otherwise fall through to
+ * its DEFAULT_ form — making a church's saved layout look wiped, and risking
+ * the builder overwriting the real definition on the next save.
+ */
+function unwrapStored(raw: unknown): unknown {
+  if (typeof raw !== "string") return raw;
+  const s = raw.trim();
+  if (!s.startsWith("[") && !s.startsWith("{")) return raw;
+  try {
+    return JSON.parse(s);
+  } catch {
+    return raw;
+  }
+}
+
+/**
  * Resolve the stored value into a usable FormField[].
  * - new shape: an array of field objects → used as-is (validated)
  * - legacy shape: a { key: boolean } map → enable matching system fields
  * - null/unknown: the DEFAULT_FORM
  * firstName/lastName are always guaranteed first.
  */
-export function getFormDefinition(raw: unknown): FormField[] {
+export function getFormDefinition(rawInput: unknown): FormField[] {
+  const raw = unwrapStored(rawInput);
   let fields: FormField[];
 
   if (Array.isArray(raw)) {
@@ -212,7 +231,8 @@ export const DEFAULT_VISITOR_FORM: FormField[] = [
   { id: "notes", label: "Prayer request or notes", type: "textarea", system: true },
 ];
 
-export function getVisitorFormDefinition(raw: unknown): FormField[] {
+export function getVisitorFormDefinition(rawInput: unknown): FormField[] {
+  const raw = unwrapStored(rawInput);
   if (Array.isArray(raw)) {
     const fields = raw.map(coerceField).filter((f): f is FormField => f !== null);
     if (fields.length > 0) {
@@ -240,7 +260,8 @@ export const DEFAULT_CHILDREN_FORM: FormField[] = [
   { id: "grade", label: "Class / grade", type: "text", system: true },
 ];
 
-export function getChildrenFormDefinition(raw: unknown): FormField[] {
+export function getChildrenFormDefinition(rawInput: unknown): FormField[] {
+  const raw = unwrapStored(rawInput);
   if (Array.isArray(raw)) {
     const fields = raw.map(coerceField).filter((f): f is FormField => f !== null);
     if (fields.length > 0) {
@@ -270,7 +291,8 @@ export const DEFAULT_TEENS_FORM: FormField[] = [
   { id: "department", label: "Department / ministry", type: "select", system: true },
 ];
 
-export function getTeensFormDefinition(raw: unknown): FormField[] {
+export function getTeensFormDefinition(rawInput: unknown): FormField[] {
+  const raw = unwrapStored(rawInput);
   if (Array.isArray(raw)) {
     const fields = raw.map(coerceField).filter((f): f is FormField => f !== null);
     if (fields.length > 0) {
