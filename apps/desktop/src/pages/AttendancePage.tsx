@@ -374,7 +374,10 @@ function SessionDetailModal({ sessionId, churchId, serverUrl, onClose, onChanged
     setSess(srows[0] ?? null);
     setRecords(recs);
     const checkedIn = new Set(recs.map((r: any) => r.person_id).filter(Boolean));
-    setCandidates(people.filter((p: any) => !checkedIn.has(p.id)));
+    // Everyone stays searchable — already-checked-in people are flagged rather
+    // than hidden, so a search never comes back empty and it's obvious they're
+    // already in (prevents confused double check-in attempts).
+    setCandidates(people.map((p: any) => ({ ...p, checkedIn: checkedIn.has(p.id) })));
     setLoading(false);
   }
 
@@ -385,6 +388,10 @@ function SessionDetailModal({ sessionId, churchId, serverUrl, onClose, onChanged
     : [];
 
   async function checkIn(c: any) {
+    if (c.checkedIn) {
+      showToast(`${c.first_name} ${c.last_name} is already checked in`, "info");
+      return;
+    }
     setPending(true);
     const category = categoryForPerson(c);
     await db.insert("attendance_record", {
@@ -487,12 +494,22 @@ function SessionDetailModal({ sessionId, churchId, serverUrl, onClose, onChanged
               {filtered.length > 0 && (
                 <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
                   {filtered.map((c) => (
-                    <button key={c.id} onClick={() => checkIn(c)} disabled={pending}
-                      className="flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-surface-2 disabled:opacity-50">
+                    <button key={c.id} onClick={() => checkIn(c)} disabled={pending || c.checkedIn}
+                      className={c.checkedIn
+                        ? "flex w-full cursor-default items-center gap-3 bg-success/5 px-3 py-2 text-left text-sm"
+                        : "flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-surface-2 disabled:opacity-50"}>
                       <Avatar name={`${c.first_name} ${c.last_name}`} src={c.photo_url} size="sm" />
-                      <span className="flex-1 font-medium text-ink">{c.first_name} {c.last_name}</span>
-                      {c.status === "visitor" && <span className="text-[11px] text-gold">visitor</span>}
-                      <UserPlus className="size-4 text-primary-bright" />
+                      <span className={c.checkedIn ? "flex-1 font-medium text-ink-muted" : "flex-1 font-medium text-ink"}>
+                        {c.first_name} {c.last_name}
+                      </span>
+                      {c.status === "visitor" && !c.checkedIn && <span className="text-[11px] text-gold">visitor</span>}
+                      {c.checkedIn ? (
+                        <span className="flex items-center gap-1 text-[11px] font-semibold text-success">
+                          <Check className="size-3.5" /> Checked in
+                        </span>
+                      ) : (
+                        <UserPlus className="size-4 text-primary-bright" />
+                      )}
                     </button>
                   ))}
                 </div>

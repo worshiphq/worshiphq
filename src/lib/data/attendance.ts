@@ -127,6 +127,7 @@ export async function getAttendanceSession(churchId: string, id: string) {
     id: r.id,
     name: r.person ? `${r.person.firstName} ${r.person.lastName}` : r.guestName ?? "Guest",
     gender: r.person?.gender ?? null,
+    photoUrl: r.person?.photoUrl ?? null,
     category: r.category,
     method: r.method,
     time: r.date.toISOString(),
@@ -156,9 +157,17 @@ export async function getCheckInCandidates(churchId: string, sessionId: string) 
     db.attendanceRecord.findMany({ where: { sessionId }, select: { personId: true } }),
   ]);
   const checkedIn = new Set(records.map((r) => r.personId).filter(Boolean));
-  return people
-    .filter((p) => !checkedIn.has(p.id))
-    .map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`, gender: p.gender, status: p.status }));
+  // Everyone stays searchable — already-checked-in people are flagged rather
+  // than hidden, so searching a name never comes back empty and it's obvious
+  // they're already in (prevents confused double check-in attempts).
+  return people.map((p) => ({
+    id: p.id,
+    name: `${p.firstName} ${p.lastName}`,
+    gender: p.gender,
+    photoUrl: p.photoUrl,
+    status: p.status,
+    checkedIn: checkedIn.has(p.id),
+  }));
 }
 
 /** Minimal public info for the self check-in page (no auth). */

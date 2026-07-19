@@ -14,12 +14,15 @@ interface Candidate {
   id: string;
   name: string;
   gender: string | null;
+  photoUrl?: string | null;
   status: string;
+  checkedIn?: boolean;
 }
 interface Attendee {
   id: string;
   name: string;
   gender: string | null;
+  photoUrl?: string | null;
   category: string;
   method: string;
 }
@@ -61,6 +64,10 @@ export function CheckInPanel({
     : [];
 
   function check(c: Candidate) {
+    if (c.checkedIn) {
+      toast(`${c.name} is already checked in`, "info");
+      return;
+    }
     start(async () => {
       await checkInMember(sessionId, c.id);
       toast(`${c.name} checked in`, "success");
@@ -115,13 +122,25 @@ export function CheckInPanel({
                   <button
                     key={c.id}
                     onClick={() => check(c)}
-                    disabled={pending}
-                    className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-surface-2 disabled:opacity-50"
+                    disabled={pending || c.checkedIn}
+                    className={
+                      c.checkedIn
+                        ? "flex w-full cursor-default items-center gap-3 bg-success/5 px-3.5 py-2.5 text-left text-sm"
+                        : "flex w-full items-center gap-3 px-3.5 py-2.5 text-left text-sm transition-colors hover:bg-surface-2 disabled:opacity-50"
+                    }
                   >
-                    <MemberAvatar name={c.name} gender={c.gender} size="sm" />
-                    <span className="flex-1 font-medium">{c.name}</span>
-                    {c.status === "visitor" && <span className="text-xs text-gold">visitor</span>}
-                    <UserPlus className="size-4 text-primary-bright" />
+                    <MemberAvatar name={c.name} photoUrl={c.photoUrl} gender={c.gender} size="sm" />
+                    <span className={c.checkedIn ? "flex-1 font-medium text-ink-muted" : "flex-1 font-medium"}>
+                      {c.name}
+                    </span>
+                    {c.status === "visitor" && !c.checkedIn && <span className="text-xs text-gold">visitor</span>}
+                    {c.checkedIn ? (
+                      <span className="flex items-center gap-1 text-xs font-semibold text-success">
+                        <Check className="size-3.5" /> Checked in
+                      </span>
+                    ) : (
+                      <UserPlus className="size-4 text-primary-bright" />
+                    )}
                   </button>
                 ))}
               </div>
@@ -144,7 +163,7 @@ export function CheckInPanel({
             <ul className="grid gap-2 sm:grid-cols-2">
               {attendees.map((a) => (
                 <li key={a.id} className="flex items-center gap-3 rounded-xl border border-line bg-base px-3 py-2">
-                  <MemberAvatar name={a.name} gender={a.gender} size="sm" />
+                  <MemberAvatar name={a.name} photoUrl={a.photoUrl} gender={a.gender} size="sm" />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-medium">{a.name}</div>
                     <div className="text-[11px] text-ink-faint">
