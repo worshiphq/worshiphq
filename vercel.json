@@ -1,5 +1,7 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
+  "//regions": "Run functions in Frankfurt to sit beside the Supabase database (aws eu-central-1). Vercel's default is iad1 (Washington DC), which put every query on a transatlantic round trip — the app makes many sequential queries per page, so that latency stacked into multi-second loads and timeouts.",
+  "regions": ["fra1"],
   "crons": [
     {
       "path": "/api/cron/automations",
