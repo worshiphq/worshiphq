@@ -396,6 +396,27 @@
   animation: new-tag-pulse 2s ease-in-out infinite;
 }
 
+/* ── Check-in confirmation ──
+   Fires on the single row that was just checked in, so the operator gets
+   immediate, localised feedback instead of a page-wide loading state. */
+@keyframes checkin-pop {
+  0%   { transform: scale(1); background-color: color-mix(in oklab, var(--color-success) 22%, transparent); }
+  40%  { transform: scale(1.015); background-color: color-mix(in oklab, var(--color-success) 16%, transparent); }
+  100% { transform: scale(1); background-color: color-mix(in oklab, var(--color-success) 6%, transparent); }
+}
+.whq-checkin-pop {
+  animation: checkin-pop 0.45s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes checkin-tick {
+  0%   { transform: scale(0.4); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+.whq-checkin-tick {
+  animation: checkin-tick 0.35s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
 /* iOS Safari force-zooms when a focused form control's font-size is under 16px.
    !important is required: the .auth-bubbly rules above are far more specific
    than a bare element selector and would otherwise keep those fields at 15px. */

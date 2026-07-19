@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useRef, useState, useMemo } from "react";
 import {
   Plus, Loader2, CalendarCheck2, Users, X, TrendingUp,
   UserPlus, UserCheck, Search, Copy, Check, QrCode, ChevronRight, MapPin,
@@ -12,7 +12,7 @@ import { Avatar } from "../components/ui/Avatar";
 import { Modal } from "../components/ui/Modal";
 import { db } from "../lib/api";
 import { useAppStore } from "../stores/app-store";
-import { formatDate } from "../lib/utils";
+import { cn, formatDate } from "../lib/utils";
 import { v4 as uuid } from "uuid";
 
 const MONTH_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
@@ -341,6 +341,10 @@ function SessionDetailModal({ sessionId, churchId, serverUrl, onClose, onChanged
   const [pending, setPending] = useState(false);
   const [copied, setCopied] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  // Per-row state so one check-in never freezes the rest of the queue.
+  const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
+  const [justDone, setJustDone] = useState<Set<string>>(new Set());
+  const searchRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => { load(); }, [sessionId]);
 
@@ -387,27 +391,49 @@ function SessionDetailModal({ sessionId, churchId, serverUrl, onClose, onChanged
     ? candidates.filter((c) => `${c.first_name} ${c.last_name}`.toLowerCase().includes(q.toLowerCase())).slice(0, 8)
     : [];
 
+  /**
+   * Optimistic check-in: the row turns green instantly and only that row
+   * spins, so the operator can keep working through a queue without waiting.
+   */
   async function checkIn(c: any) {
-    if (c.checkedIn) {
-      showToast(`${c.first_name} ${c.last_name} is already checked in`, "info");
-      return;
-    }
-    setPending(true);
+    if (c.checkedIn || busyIds.has(c.id)) return;
+
     const category = categoryForPerson(c);
-    await db.insert("attendance_record", {
-      id: uuid(), church_id: churchId, branch_id: sess?.branch_id ?? null,
-      person_id: c.id, session_id: sessionId, category,
-      service_name: sess?.service_name ?? "Service",
-      date: new Date().toISOString(), method: "manual",
-    });
-    // increment matching demographic counter on the session
+    const recordId = uuid();
     const field = CATEGORY_FIELD[category];
-    await db.update("attendance_session", sessionId, { [field]: (sess?.[field] || 0) + 1 });
-    showToast(`${c.first_name} ${c.last_name} checked in`);
+
+    // Paint the result immediately.
+    setBusyIds((prev) => new Set(prev).add(c.id));
+    setJustDone((prev) => new Set(prev).add(c.id));
+    setTimeout(() => setJustDone((prev) => { const n = new Set(prev); n.delete(c.id); return n; }), 600);
+    setCandidates((prev) => prev.map((p) => (p.id === c.id ? { ...p, checkedIn: true } : p)));
+    setRecords((prev) => [
+      { id: recordId, person_id: c.id, category, first_name: c.first_name, last_name: c.last_name,
+        gender: c.gender, photo_url: c.photo_url, method: "manual", date: new Date().toISOString() },
+      ...prev,
+    ]);
+    setSess((prev: any) => (prev ? { ...prev, [field]: (prev[field] || 0) + 1 } : prev));
     setQ("");
-    setPending(false);
-    await load();
-    onChanged();
+    searchRef.current?.focus();
+
+    try {
+      await db.insert("attendance_record", {
+        id: recordId, church_id: churchId, branch_id: sess?.branch_id ?? null,
+        person_id: c.id, session_id: sessionId, category,
+        service_name: sess?.service_name ?? "Service",
+        date: new Date().toISOString(), method: "manual",
+      });
+      await db.update("attendance_session", sessionId, { [field]: (sess?.[field] || 0) + 1 });
+      onChanged();
+    } catch {
+      // Roll back the optimistic paint.
+      setCandidates((prev) => prev.map((p) => (p.id === c.id ? { ...p, checkedIn: false } : p)));
+      setRecords((prev) => prev.filter((r) => r.id !== recordId));
+      setSess((prev: any) => (prev ? { ...prev, [field]: Math.max((prev[field] || 1) - 1, 0) } : prev));
+      showToast(`Couldn't check in ${c.first_name} — please try again`, "error");
+    } finally {
+      setBusyIds((prev) => { const n = new Set(prev); n.delete(c.id); return n; });
+    }
   }
 
   async function undo(r: any) {
@@ -490,28 +516,36 @@ function SessionDetailModal({ sessionId, churchId, serverUrl, onClose, onChanged
             <div className="mb-2 flex items-center gap-2 text-sm font-bold text-ink"><UserCheck className="size-4" /> Check in members</div>
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-              <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Start typing a name…" className="input h-9 pl-9 text-sm" />
+              <input ref={searchRef} value={q} onChange={(e) => setQ(e.target.value)} placeholder="Start typing a name…" className="input h-9 pl-9 text-sm" />
               {filtered.length > 0 && (
                 <div className="absolute z-10 mt-1 w-full overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
-                  {filtered.map((c) => (
-                    <button key={c.id} onClick={() => checkIn(c)} disabled={pending || c.checkedIn}
-                      className={c.checkedIn
-                        ? "flex w-full cursor-default items-center gap-3 bg-success/5 px-3 py-2 text-left text-sm"
-                        : "flex w-full items-center gap-3 px-3 py-2 text-left text-sm hover:bg-surface-2 disabled:opacity-50"}>
-                      <Avatar name={`${c.first_name} ${c.last_name}`} src={c.photo_url} size="sm" />
-                      <span className={c.checkedIn ? "flex-1 font-medium text-ink-muted" : "flex-1 font-medium text-ink"}>
-                        {c.first_name} {c.last_name}
-                      </span>
-                      {c.status === "visitor" && !c.checkedIn && <span className="text-[11px] text-gold">visitor</span>}
-                      {c.checkedIn ? (
-                        <span className="flex items-center gap-1 text-[11px] font-semibold text-success">
-                          <Check className="size-3.5" /> Checked in
+                  {filtered.map((c) => {
+                    const busy = busyIds.has(c.id);
+                    const popping = justDone.has(c.id);
+                    return (
+                      <button key={c.id} onClick={() => checkIn(c)} disabled={c.checkedIn}
+                        className={cn(
+                          "flex w-full items-center gap-3 px-3 py-2 text-left text-sm",
+                          c.checkedIn ? "cursor-default bg-success/5" : "hover:bg-surface-2",
+                          popping && "whq-checkin-pop",
+                        )}>
+                        <Avatar name={`${c.first_name} ${c.last_name}`} src={c.photo_url} size="sm" />
+                        <span className={cn("flex-1 font-medium", c.checkedIn ? "text-ink-muted" : "text-ink")}>
+                          {c.first_name} {c.last_name}
                         </span>
-                      ) : (
-                        <UserPlus className="size-4 text-primary-bright" />
-                      )}
-                    </button>
-                  ))}
+                        {c.status === "visitor" && !c.checkedIn && <span className="text-[11px] text-gold">visitor</span>}
+                        {busy ? (
+                          <Loader2 className="size-4 shrink-0 whq-spin text-success" />
+                        ) : c.checkedIn ? (
+                          <span className={cn("flex items-center gap-1 text-[11px] font-semibold text-success", popping && "whq-checkin-tick")}>
+                            <Check className="size-3.5" /> Checked in
+                          </span>
+                        ) : (
+                          <UserPlus className="size-4 text-primary-bright" />
+                        )}
+                      </button>
+                    );
+                  })}
                 </div>
               )}
             </div>

@@ -73,10 +73,11 @@ export async function checkInMember(sessionId: string, personId: string) {
     }),
     db.attendanceRecord.findFirst({ where: { sessionId, personId } }),
   ]);
-  if (!sess || !person || existing) return;
+  if (!sess || !person) return { ok: false as const, reason: "not-found" as const };
+  if (existing) return { ok: false as const, reason: "already" as const, recordId: existing.id };
 
   const category = categoryForPerson(person);
-  await db.attendanceRecord.create({
+  const record = await db.attendanceRecord.create({
     data: {
       churchId: session.churchId,
       branchId: sess.branchId ?? undefined,
@@ -93,7 +94,12 @@ export async function checkInMember(sessionId: string, personId: string) {
     data: { [CATEGORY_FIELD[category]]: { increment: 1 } },
   });
 
-  revalidatePath(`/app/attendance/${sessionId}`);
+  // Deliberately NOT calling revalidatePath here: this is the check-in queue
+  // hot path, and re-rendering the page re-sends every candidate — including
+  // megabytes of base64 member photos — on every single check-in. The client
+  // updates optimistically from the record returned below, so a queue stays
+  // instant. Counts re-sync naturally on the next navigation/refresh.
+  return { ok: true as const, recordId: record.id, category };
 }
 
 /** Check a member in by scanning their member-ID QR code. Returns a result. */
@@ -147,13 +153,15 @@ export async function undoCheckIn(recordId: string) {
   const rec = await db.attendanceRecord.findFirst({
     where: { id: recordId, churchId: session.churchId },
   });
-  if (!rec || !rec.sessionId) return;
+  if (!rec || !rec.sessionId) return { ok: false as const };
   await db.attendanceRecord.delete({ where: { id: rec.id } });
   await db.attendanceSession.update({
     where: { id: rec.sessionId },
     data: { [CATEGORY_FIELD[(rec.category as AttendanceCategory) ?? "adult"]]: { decrement: 1 } },
   });
-  revalidatePath(`/app/attendance/${rec.sessionId}`);
+  // No revalidatePath — same reason as checkInMember: it would re-send every
+  // candidate photo. The client removes the row optimistically.
+  return { ok: true as const, personId: rec.personId };
 }
 
 export async function deleteSession(sessionId: string) {
