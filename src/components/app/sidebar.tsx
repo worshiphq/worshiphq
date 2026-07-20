@@ -7,11 +7,11 @@ import { PanelLeftClose, PanelLeft, Lock } from "lucide-react";
 import { ChurchLogo } from "@/components/app/church-logo";
 import { nav } from "@/config/nav";
 import { hasSection } from "@/lib/permissions";
-import { routeAllowedByPlan, getRouteFeature, planHasFeature, type PlanId } from "@/lib/plan-gate";
+import { routeAllowedByPlan, getRouteFeature, planHasFeature, type PlanId, type PlanTable } from "@/lib/plan-gate";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-export function Sidebar({ sections, churchName, churchLogo, plan = "free" }: { sections: string[]; churchName: string; churchLogo?: string | null; plan?: PlanId }) {
+export function Sidebar({ sections, churchName, churchLogo, plan = "free", planTable }: { sections: string[]; churchName: string; churchLogo?: string | null; plan?: PlanId; planTable?: PlanTable }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [prevPlan, setPrevPlan] = useState<PlanId | null>(null);
@@ -31,7 +31,7 @@ export function Sidebar({ sections, churchName, churchLogo, plan = "free" }: { s
     if (!prevPlan) return false;
     const feature = getRouteFeature(href);
     if (!feature) return false;
-    return planHasFeature(plan, feature) && !planHasFeature(prevPlan, feature);
+    return planHasFeature(plan, feature, planTable) && !planHasFeature(prevPlan, feature, planTable);
   };
 
   return (
@@ -59,7 +59,7 @@ export function Sidebar({ sections, churchName, churchLogo, plan = "free" }: { s
               <div className="space-y-0.5">
                 {items.map((item) => {
                   const active = isActive(item.href);
-                  const locked = !routeAllowedByPlan(plan, item.href);
+                  const locked = !routeAllowedByPlan(plan, item.href, planTable);
                   return (
                     <Link
                       key={item.href}

@@ -10,11 +10,29 @@ import { formatCurrency as defaultFmt } from "@/config/brand";
 import { cn } from "@/lib/utils";
 import type { PlanPrices } from "@/lib/data/platform-config";
 
-export function PricingSection({ showComparison = true, platformPricing }: { showComparison?: boolean; platformPricing?: { currency: string; currencySymbol: string; prices: PlanPrices; usdToGhsRate?: number } }) {
-  const plans = defaultPlans.map((p) => {
-    const dbPrice = platformPricing?.prices[p.id];
-    return dbPrice ? { ...p, monthly: dbPrice.monthly, yearly: dbPrice.yearly } : p;
-  });
+export function PricingSection({ showComparison = true, platformPricing }: {
+  showComparison?: boolean;
+  platformPricing?: {
+    currency: string; currencySymbol: string; prices: PlanPrices; usdToGhsRate?: number;
+    /** Full plan definitions from the SuperAdmin plan editor. */
+    planList?: Array<{
+      id: string; name: string; tagline: string; monthly: number; yearly: number;
+      membersLabel: string; featured: boolean; cta: string; marketingFeatures: string[];
+    }>;
+  };
+}) {
+  // Prefer the SuperAdmin-edited plans; fall back to the code defaults.
+  const plans = platformPricing?.planList?.length
+    ? platformPricing.planList.map((p) => ({
+        id: p.id, name: p.name, tagline: p.tagline,
+        monthly: p.monthly, yearly: p.yearly,
+        members: p.membersLabel, featured: p.featured,
+        cta: p.cta, features: p.marketingFeatures,
+      }))
+    : defaultPlans.map((p) => {
+        const dbPrice = platformPricing?.prices[p.id];
+        return dbPrice ? { ...p, monthly: dbPrice.monthly, yearly: dbPrice.yearly } : p;
+      });
   const sym = platformPricing?.currencySymbol ?? "$";
   const formatCurrency = (amount: number) => platformPricing ? `${sym}${amount.toLocaleString()}` : defaultFmt(amount);
   const [yearly, setYearly] = useState(false);

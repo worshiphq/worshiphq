@@ -10,7 +10,7 @@ import { Topbar } from "./topbar";
 import { ChurchLogo } from "@/components/app/church-logo";
 import { nav } from "@/config/nav";
 import { hasSection, type Session } from "@/lib/permissions";
-import { routeAllowedByPlan, type PlanId } from "@/lib/plan-gate";
+import { routeAllowedByPlan, type PlanId, type PlanTable } from "@/lib/plan-gate";
 import { cn } from "@/lib/utils";
 import { themeFromAccent } from "@/lib/color";
 import { exitImpersonation } from "@/app/actions/admin";
@@ -26,6 +26,7 @@ export function AppShell({
   churchLogo = null,
   accentColor = null,
   plan = "free",
+  planTable,
   children,
 }: {
   session: Session;
@@ -34,6 +35,7 @@ export function AppShell({
   churchLogo?: string | null;
   accentColor?: string | null;
   plan?: PlanId;
+  planTable?: PlanTable;
   children: React.ReactNode;
 }) {
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -68,7 +70,7 @@ export function AppShell({
 
   return (
     <div className="flex min-h-dvh bg-base lg:touch-none" style={themeStyle} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-      <Sidebar sections={session.sections} churchName={session.churchName} churchLogo={churchLogo} plan={plan} />
+      <Sidebar sections={session.sections} churchName={session.churchName} churchLogo={churchLogo} plan={plan} planTable={planTable} />
 
       {/* Mobile drawer */}
       <AnimatePresence>
@@ -107,7 +109,7 @@ export function AppShell({
                       )}
                       {items.map((item) => {
                         const active = item.href === "/app" ? pathname === "/app" : pathname.startsWith(item.href);
-                        const locked = !routeAllowedByPlan(plan, item.href);
+                        const locked = !routeAllowedByPlan(plan, item.href, planTable);
                         return (
                           <Link
                             key={item.href}

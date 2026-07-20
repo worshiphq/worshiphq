@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AppShell } from "@/components/app/app-shell";
+import { getPlatformConfig } from "@/lib/data/platform-config";
 import { TourProvider } from "@/components/app/tour";
 import { getActiveAnnouncements } from "@/lib/data/announcements";
 import { getRecentNotifications } from "@/lib/data/notifications";
@@ -20,7 +21,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/verify-phone");
   }
 
-  const [announcements, church, notifications, plan] = await Promise.all([
+  const [announcements, church, notifications, plan, platformConfig] = await Promise.all([
     getActiveAnnouncements(),
     db.church.findUnique({
       where: { id: session.churchId },
@@ -28,6 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     }),
     getRecentNotifications(session.churchId),
     getChurchPlan(session.churchId),
+    getPlatformConfig(),
   ]);
 
   // Suspended churches are locked out — but SuperAdmin support can still enter.
@@ -51,6 +53,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       churchLogo={church?.logoUrl ?? null}
       accentColor={church?.accentColor ?? null}
       plan={plan}
+      planTable={platformConfig.planTable}
     >
       <TourProvider>{children}</TourProvider>
     </AppShell>

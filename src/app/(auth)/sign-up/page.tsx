@@ -1,6 +1,5 @@
 import type { Metadata } from "next";
 import { SignupWizard } from "@/components/auth/signup-wizard";
-import { plans as defaultPlans } from "@/config/pricing";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 
 export const metadata: Metadata = { title: "Create your church" };
@@ -14,16 +13,15 @@ export default async function SignUpPage({
     searchParams,
     getPlatformConfig(),
   ]);
-  const plans = defaultPlans.map((p) => {
-    const dbPrice = platformConfig.prices[p.id];
-    return {
-      id: p.id,
-      name: p.name,
-      monthly: dbPrice?.monthly ?? p.monthly,
-      members: p.members,
-      features: p.features,
-    };
-  });
+  // Plans come from the SuperAdmin plan editor so sign-up never drifts
+  // from the pricing page.
+  const plans = platformConfig.planList.map((p) => ({
+    id: p.id,
+    name: p.name,
+    monthly: p.monthly,
+    members: p.membersLabel,
+    features: p.marketingFeatures,
+  }));
   const selectedPlan = planParam && plans.some((p) => p.id === planParam) ? planParam : "free";
   const message =
     error === "exists"

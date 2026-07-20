@@ -24,6 +24,12 @@ model PlatformConfig {
   planPrices Json?
   // Exchange rate used when charging via Paystack in GHS: chargeAmount = price * usdToGhsRate
   usdToGhsRate Float @default(12.0)
+  // Full editable plan definitions, keyed by plan id. Edited by the SuperAdmin
+  // plan editor and merged over the code defaults in src/config/pricing.ts, so
+  // one save changes the marketing page, sign-up, billing AND feature gating.
+  // Shape per plan: { name, tagline, membersLabel, memberLimit, teamUsers,
+  //                   featured, cta, marketingFeatures: [], features: [] }
+  planDefs Json?
   updatedAt DateTime @updatedAt
 }
 

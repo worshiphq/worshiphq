@@ -221,6 +221,89 @@ export async function updatePlatformPricing(
   revalidatePath("/", "layout");
 }
 
+/**
+ * Save the full plan definitions — names, taglines, limits, marketing bullets
+ * AND which features each plan unlocks. Prices are written alongside so one
+ * save updates the marketing site, sign-up, billing and feature gating together.
+ */
+export async function updatePlanDefinitions(input: {
+  currency: string;
+  currencySymbol: string;
+  usdToGhsRate?: number;
+  plans: Array<{
+    id: string;
+    name: string;
+    tagline: string;
+    monthly: number;
+    yearly: number;
+    membersLabel: string;
+    memberLimit: number;
+    teamUsers: number;
+    featured: boolean;
+    cta: string;
+    marketingFeatures: string[];
+    features: string[];
+  }>;
+}) {
+  await requireSuperAdmin();
+
+  const VALID = ["free", "starter", "pro", "max"];
+  const planDefs: Record<string, unknown> = {};
+  const planPrices: Record<string, { monthly: number; yearly: number }> = {};
+
+  for (const p of input.plans) {
+    if (!VALID.includes(p.id)) continue;
+    const monthly = Math.max(0, Number(p.monthly) || 0);
+    const yearly = Math.max(0, Number(p.yearly) || 0);
+    planPrices[p.id] = { monthly, yearly };
+    planDefs[p.id] = {
+      name: String(p.name || p.id).slice(0, 40),
+      tagline: String(p.tagline || "").slice(0, 120),
+      membersLabel: String(p.membersLabel || "").slice(0, 60),
+      // -1 means unlimited
+      memberLimit: Number.isFinite(Number(p.memberLimit)) ? Number(p.memberLimit) : -1,
+      teamUsers: Number.isFinite(Number(p.teamUsers)) ? Number(p.teamUsers) : -1,
+      featured: Boolean(p.featured),
+      cta: String(p.cta || "Choose plan").slice(0, 40),
+      marketingFeatures: (p.marketingFeatures ?? [])
+        .map((f) => String(f).trim()).filter(Boolean).slice(0, 20),
+      features: [...new Set((p.features ?? []).map((f) => String(f).trim()).filter(Boolean))],
+    };
+  }
+
+  if (Object.keys(planDefs).length === 0) {
+    return { ok: false as const, error: "No valid plans supplied." };
+  }
+
+  const rate = input.usdToGhsRate && input.usdToGhsRate > 0 ? input.usdToGhsRate : undefined;
+  await db.platformConfig.upsert({
+    where: { id: "default" },
+    update: {
+      currency: input.currency,
+      currencySymbol: input.currencySymbol,
+      planPrices: planPrices as object,
+      planDefs: planDefs as object,
+      ...(rate ? { usdToGhsRate: rate } : {}),
+    },
+    create: {
+      id: "default",
+      currency: input.currency,
+      currencySymbol: input.currencySymbol,
+      planPrices: planPrices as object,
+      planDefs: planDefs as object,
+      usdToGhsRate: rate ?? 12.0,
+    },
+  });
+
+  // Everything that reads plans: marketing, sign-up, the app shell and settings.
+  revalidatePath("/admin/pricing");
+  revalidatePath("/pricing");
+  revalidatePath("/sign-up");
+  revalidatePath("/app/settings");
+  revalidatePath("/", "layout");
+  return { ok: true as const };
+}
+
 // ── Marketing content ──
 export async function saveMarketing(formData: FormData) {
   await requireSuperAdmin();

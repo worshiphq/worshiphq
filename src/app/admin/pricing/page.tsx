@@ -1,6 +1,6 @@
 import { requireSuperAdmin } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { PricingEditor } from "@/components/admin/pricing-editor";
+import { PlanEditor } from "@/components/admin/plan-editor";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 
 export default async function AdminPricingPage() {
@@ -9,11 +9,11 @@ export default async function AdminPricingPage() {
 
   return (
     <AdminShell email={sa.email}>
-      <PricingEditor
+      <PlanEditor
         currency={config.currency}
         currencySymbol={config.currencySymbol}
-        prices={config.prices}
         usdToGhsRate={config.usdToGhsRate}
+        planList={config.planList}
       />
     </AdminShell>
   );
