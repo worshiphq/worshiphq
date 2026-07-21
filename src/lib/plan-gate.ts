@@ -14,30 +14,49 @@ export interface PlanLimits {
  *  override it in the database and the server passes the result down. */
 export type PlanTable = Record<PlanId, PlanLimits>;
 
+// ── Feature ladder — each tier inherits the ones below it. ──
+// Rebalanced so every step is a clear jump, and Max is a big leap over Pro
+// (intelligence + full finance + integration), not just accounting.
+
+/** Core — every plan, always on. The essentials a church needs to start. */
 const FREE_FEATURES = [
-  "people", "attendance", "events", "giving", "dashboard", "reports",
-  "children-forms", "teens-forms", "visitors", "prayer-requests",
-  "groups", "households", "directory", "birthdays", "calendar",
-  "departments", "leaders", "notices",
+  "dashboard", "people", "attendance", "events", "giving", "reports",
+  "directory", "calendar", "birthdays", "departments", "leaders", "notices",
+  "groups", "households", "visitors", "prayer-requests", "children-forms", "teens-forms",
 ];
-const STARTER_FEATURES = [
-  ...FREE_FEATURES,
-  "sms", "form-builder", "import-export", "member-ids", "qr-codes",
-  "custom-roles", "harvest", "pledges", "recurring-giving",
-  "auto-receipts", "reminders", "data-migration", "follow-ups",
-  "sermons", "devotionals", "testimonies",
+
+/** Starter adds — reach & self-service for a growing church. */
+const STARTER_ADDS = [
+  "sms", "reminders", "member-ids", "qr-codes",
+  "form-builder", "import-export", "auto-receipts", "follow-ups",
 ];
-const PRO_FEATURES = [
-  ...STARTER_FEATURES,
-  "automations", "volunteers", "rosters", "volunteer-scheduling",
-  "engagement-scoring", "advanced-reports", "welfare", "counseling",
-  "auto-inactive", "bookings",
+
+/** Pro adds — teams, deeper giving, content and facilities. */
+const PRO_ADDS = [
+  "custom-roles", "harvest", "pledges", "recurring-giving", "data-migration",
+  "volunteers", "rosters", "volunteer-scheduling", "bookings",
+  "sermons", "devotionals", "testimonies", "welfare",
 ];
-const MAX_FEATURES = [
-  ...PRO_FEATURES,
-  "accounting", "budgets", "expenses", "fund-accounting",
-  "assets", "api-access", "audit-log",
+
+/** Max adds — intelligence, automation, full finance, integration & scale. */
+const MAX_ADDS = [
+  "automations", "engagement-scoring", "advanced-reports", "auto-inactive", "counseling",
+  "accounting", "budgets", "expenses", "fund-accounting", "assets",
+  "api-access", "audit-log",
 ];
+
+const STARTER_FEATURES = [...FREE_FEATURES, ...STARTER_ADDS];
+const PRO_FEATURES = [...STARTER_FEATURES, ...PRO_ADDS];
+const MAX_FEATURES = [...PRO_FEATURES, ...MAX_ADDS];
+
+/** Feature keys grouped by the tier they unlock at — used by the plan editor
+ *  matrix so it reads as a clean staircase, and re-usable elsewhere. */
+export const FEATURE_TIERS = {
+  core: FREE_FEATURES,
+  starter: STARTER_ADDS,
+  pro: PRO_ADDS,
+  max: MAX_ADDS,
+} as const;
 
 export const DEFAULT_PLAN_TABLE: PlanTable = {
   free:    { members: 50,       teamUsers: 2,        features: FREE_FEATURES },

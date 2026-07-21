@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { updatePlanDefinitions } from "@/app/actions/admin";
 import {
-  CORE_FEATURES, FEATURE_LABELS, PLAN_IDS, type PlanId,
+  CORE_FEATURES, FEATURE_LABELS, FEATURE_TIERS, PLAN_IDS, type PlanId,
 } from "@/lib/plan-gate";
 import type { EditablePlan } from "@/lib/data/platform-config";
 
@@ -20,12 +20,13 @@ const CURRENCIES = [
   { code: "EUR", symbol: "€", name: "Euro" },
 ];
 
-/** Feature keys grouped into matrix sections. Anything unlisted falls into "Other". */
-const FEATURE_GROUPS: { label: string; keys: string[] }[] = [
-  { label: "Core", keys: ["dashboard", "people", "attendance", "events", "giving", "reports", "directory", "calendar", "birthdays", "departments", "leaders", "notices", "groups", "households", "visitors", "prayer-requests", "children-forms", "teens-forms"] },
-  { label: "Growth", keys: ["sms", "reminders", "form-builder", "import-export", "member-ids", "qr-codes", "custom-roles", "harvest", "pledges", "recurring-giving", "auto-receipts", "data-migration", "follow-ups", "sermons", "devotionals", "testimonies"] },
-  { label: "Advanced", keys: ["automations", "volunteers", "rosters", "volunteer-scheduling", "engagement-scoring", "advanced-reports", "welfare", "counseling", "auto-inactive", "bookings"] },
-  { label: "Finance & scale", keys: ["accounting", "budgets", "expenses", "fund-accounting", "assets", "api-access", "audit-log"] },
+/** Matrix sections mirror the tier ladder, so the grid reads as a staircase:
+ *  Core lit across all plans, then each block lighting up one column further right. */
+const FEATURE_GROUPS: { label: string; keys: readonly string[] }[] = [
+  { label: "Core — every plan", keys: FEATURE_TIERS.core },
+  { label: "Communication & self-service", keys: FEATURE_TIERS.starter },
+  { label: "Teams, giving & content", keys: FEATURE_TIERS.pro },
+  { label: "Intelligence, finance & scale", keys: FEATURE_TIERS.max },
 ];
 
 /** Short helper line under each feature name in the matrix. */
@@ -34,11 +35,18 @@ const FEATURE_DESC: Record<string, string> = {
   attendance: "Mark present or scan a QR", sms: "Text your whole church or a group",
   reminders: "Birthday & anniversary automations", "form-builder": "Design your own join forms",
   "import-export": "Bring data in and out via CSV/Excel", "qr-codes": "Member ID QR codes",
-  "custom-roles": "Fine-grained team permissions", harvest: "Annual harvest tracking",
-  automations: "Trigger-based workflows", volunteers: "Schedule & manage volunteers",
+  automations: "Trigger-based workflows & sequences", volunteers: "Schedule & manage volunteers",
   accounting: "Full fund accounting", budgets: "Plan & track budgets",
   "api-access": "Integrate with other tools", "audit-log": "Who changed what, when",
-  "advanced-reports": "Deeper analytics & trends", welfare: "Benevolence records",
+  "advanced-reports": "Deep analytics & trends", welfare: "Benevolence records",
+  "engagement-scoring": "See who's active, cooling or at risk",
+  "auto-inactive": "Auto-flag members who've gone quiet",
+  counseling: "Confidential pastoral case notes", expenses: "Track church spending",
+  "fund-accounting": "Ring-fence funds & designations", assets: "Equipment & asset register",
+  pledges: "Pledges & giving campaigns", harvest: "Annual harvest & thanksgiving",
+  bookings: "Facility & room reservations", sermons: "Sermon library & media",
+  "custom-roles": "Fine-grained team permissions", "recurring-giving": "Standing-order giving",
+  rosters: "Service rosters", "member-ids": "Printable member ID cards",
 };
 
 const label = (k: string) => FEATURE_LABELS[k] ?? k;
@@ -367,7 +375,7 @@ export function PlanEditor({
 function FeatureGroupRows({
   group, plans, onToggle,
 }: {
-  group: { label: string; keys: string[] };
+  group: { label: string; keys: readonly string[] };
   plans: EditablePlan[];
   onToggle: (id: PlanId, key: string) => void;
 }) {

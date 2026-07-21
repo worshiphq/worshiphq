@@ -5,8 +5,10 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-export function formatCurrency(amount: number, symbol = "₵"): string {
-  return `${symbol}${amount.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+export function formatCurrency(amount: number | string | null | undefined, symbol = "₵"): string {
+  const n = typeof amount === "string" ? parseFloat(amount) : (amount ?? 0);
+  if (isNaN(n)) return `${symbol}0.00`;
+  return `${symbol}${n.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
 export function formatDate(date: string | Date): string {
@@ -15,6 +17,12 @@ export function formatDate(date: string | Date): string {
 
 export function formatDateTime(date: string | Date): string {
   return new Date(date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+export function safeNum(v: any): number {
+  if (v == null) return 0;
+  const n = typeof v === "string" ? parseFloat(v.replace(/[^0-9.\-]/g, "")) : Number(v);
+  return isNaN(n) ? 0 : n;
 }
 
 export function timeAgo(date: string | Date): string {
