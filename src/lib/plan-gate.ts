@@ -49,6 +49,10 @@ export const DEFAULT_PLAN_TABLE: PlanTable = {
 /** Every feature key the product knows about — drives the plan editor's checkbox grid. */
 export const ALL_FEATURES: string[] = [...MAX_FEATURES];
 
+/** Base features every plan always includes — shown as "CORE" and not toggleable,
+ *  so a plan can never lose the essentials (dashboard, people, etc.). */
+export const CORE_FEATURES: string[] = [...FREE_FEATURES];
+
 /** Human labels for the plan editor. Falls back to the raw key. */
 export const FEATURE_LABELS: Record<string, string> = {
   people: "People & profiles", attendance: "Attendance", events: "Events",
