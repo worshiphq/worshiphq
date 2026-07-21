@@ -38,9 +38,11 @@ const PRO_ADDS = [
   "sermons", "devotionals", "testimonies", "welfare",
 ];
 
-/** Max adds — intelligence, automation, full finance, integration & scale. */
+/** Max adds — intelligence, automation, full finance, integration & scale.
+ *  `fingerprint` unlocks biometric check-in in the desktop app; the USB
+ *  scanner is a separate one-time hardware purchase (~$130+/unit). */
 const MAX_ADDS = [
-  "automations", "engagement-scoring", "advanced-reports", "auto-inactive", "counseling",
+  "fingerprint", "automations", "engagement-scoring", "advanced-reports", "auto-inactive", "counseling",
   "accounting", "budgets", "expenses", "fund-accounting", "assets",
   "api-access", "audit-log",
 ];
@@ -92,6 +94,7 @@ export const FEATURE_LABELS: Record<string, string> = {
   bookings: "Facility bookings", accounting: "Accounting", budgets: "Budgets",
   expenses: "Expenses", "fund-accounting": "Fund accounting", assets: "Assets",
   "api-access": "API access", "audit-log": "Audit log",
+  fingerprint: "Fingerprint check-in",
 };
 
 /** Map nav item hrefs to plan feature keys. */

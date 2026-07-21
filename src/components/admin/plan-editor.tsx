@@ -47,6 +47,7 @@ const FEATURE_DESC: Record<string, string> = {
   bookings: "Facility & room reservations", sermons: "Sermon library & media",
   "custom-roles": "Fine-grained team permissions", "recurring-giving": "Standing-order giving",
   rosters: "Service rosters", "member-ids": "Printable member ID cards",
+  fingerprint: "Biometric check-in (desktop; USB scanner sold separately)",
 };
 
 const label = (k: string) => FEATURE_LABELS[k] ?? k;

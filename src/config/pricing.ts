@@ -93,6 +93,7 @@ export const plans: Plan[] = [
     cta: "Choose Max",
     features: [
       "Everything in Pro",
+      "Fingerprint check-in for fast queues",
       "Smart automations & workflow sequences",
       "Engagement scoring & at-risk member alerts",
       "Advanced analytics & giving intelligence",
@@ -101,6 +102,7 @@ export const plans: Plan[] = [
       "API access, unlimited members & priority support",
     ],
     upgradeTips: [
+      "Check members in by fingerprint — no queues, no double check-ins",
       "Automate follow-ups, welcomes and reminders — hands-off",
       "See who's active, cooling off or at risk of leaving",
       "Deep analytics across giving, attendance and engagement",
@@ -121,6 +123,7 @@ export const comparison: { group: string; rows: { label: string; values: (boolea
       { label: "QR check-in & attendance", values: [true, true, true, true] },
       { label: "Member ID cards & QR codes", values: [false, true, true, true] },
       { label: "Custom join forms & import/export", values: [false, true, true, true] },
+      { label: "Fingerprint check-in (scanner sold separately)", values: [false, false, false, true] },
       { label: "Engagement scoring & at-risk alerts", values: [false, false, false, true] },
     ],
   },
