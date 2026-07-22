@@ -546,6 +546,36 @@ export async function updateRolePermissions(formData: FormData) {
   revalidatePath("/app", "layout");
 }
 
+/** Edit an existing custom role's name, sections and delete permission. */
+export async function updateCustomRole(formData: FormData) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  if (session.role !== "Owner" && session.role !== "Admin") return;
+
+  const id = String(formData.get("id") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
+  if (!id || !name) return;
+
+  const role = await db.customRole.findFirst({
+    where: { id, churchId: session.churchId },
+    select: { id: true },
+  });
+  if (!role) return;
+
+  const sections = formData.getAll("sections").map(String);
+  const manageSections = formData.getAll("manageSections").map(String).filter((s) => sections.includes(s));
+  const canDelete = formData.get("canDelete") === "on" || formData.get("canDelete") === "yes";
+
+  await db.customRole.update({
+    where: { id },
+    data: { name, sections, manageSections, canDelete },
+  });
+
+  revalidatePath("/app/settings");
+  // Anyone signed in with this role needs their nav re-resolved.
+  revalidatePath("/app", "layout");
+}
+
 export async function deleteCustomRole(id: string) {
   const session = await requireSession();
   assertCanWrite(session);

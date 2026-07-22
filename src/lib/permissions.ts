@@ -112,6 +112,9 @@ export interface Session {
   sections: string[];
   /** Sections this user can MANAGE (add/edit). Subset of what they can see. */
   manageSections: string[];
+  /** True for custom roles & scoped leaders: sections match exactly, with no
+   *  expansion to sibling sections under the same parent group. */
+  exactSections?: boolean;
   /** Whether this user may delete records (built-ins: yes; custom roles: configurable). */
   canDelete: boolean;
   churchId: string;
@@ -154,21 +157,36 @@ export function can(role: Role, module: string): boolean {
   return perms.includes("*") || perms.includes(module);
 }
 
-/** Does this set of granted keys cover `module`? A grant covers a section when
- *  it lists the section's own fine key, its coarse parent, or the wildcard. */
-export function granted(keys: string[], module: string): boolean {
-  if (keys.includes("*") || keys.includes(module)) return true;
+/**
+ * Does this set of granted keys cover `module`?
+ *
+ * `exact` matters: custom roles store the precise sections an admin ticked, so
+ * they must match exactly — ticking "People" must NOT also hand over Visitors,
+ * Groups or Leaders just because those sit under the same parent. Built-in
+ * roles (and church-level overrides) store coarse group keys and DO expand to
+ * everything beneath them, which is what makes "Admin" broad by default.
+ */
+export function granted(keys: string[], module: string, exact = false): boolean {
+  if (keys.includes("*")) return true;
+  if (keys.includes(module)) return true;
+  if (exact) return false;
   const parent = SECTION_PARENT[module];
   return parent ? keys.includes(parent) : false;
 }
 
 /** Whether a session can SEE a given section. Dashboard is always allowed. */
-export function hasSection(session: Pick<Session, "sections">, module: string): boolean {
+export function hasSection(
+  session: Pick<Session, "sections"> & { exactSections?: boolean },
+  module: string,
+): boolean {
   if (module === "dashboard") return true;
-  return granted(session.sections, module);
+  return granted(session.sections, module, session.exactSections);
 }
 
 /** Whether a session can MANAGE (add/edit) a given section. */
-export function canManage(session: Pick<Session, "manageSections">, module: string): boolean {
-  return granted(session.manageSections ?? [], module);
+export function canManage(
+  session: Pick<Session, "manageSections"> & { exactSections?: boolean },
+  module: string,
+): boolean {
+  return granted(session.manageSections ?? [], module, session.exactSections);
 }

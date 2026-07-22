@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import {
   Building, Palette, Users2, CreditCard, Plug, Check, Pencil, CircleDot,
   Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, Shield, MessageSquare,
-  ExternalLink, Rocket, Wallet, Loader2 as Spinner, Clock, CheckCircle2,
+  ExternalLink, Rocket, Wallet, Loader2 as Spinner, Clock, CheckCircle2, X,
 } from "lucide-react";
+import { OnFormComplete } from "@/components/ui/form-effects";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -18,11 +19,12 @@ import { submitPaymentRequest, getPaymentRequestStatus } from "@/app/actions/pay
 import {
   updateChurch, inviteTeammate,
   changeUserRole, removeTeamMember,
-  createCustomRole, deleteCustomRole, requestSenderId,
+  createCustomRole, deleteCustomRole, updateCustomRole, requestSenderId,
   updateRolePermissions, changePlan, redeemPlanBypass, verifyPlanUpgrade, previewCoupon,
   saveVisitorForm, saveChildrenForm, saveTeensForm, updateSlug, inviteBudgetLeader,
 } from "@/app/actions/settings";
-import { ALL_MODULES, SECTION_GROUPS, MODULE_LABELS } from "@/lib/permissions";
+import { ALL_MODULES, MODULE_LABELS } from "@/lib/permissions";
+import { RoleMatrix } from "@/components/app/role-matrix";
 import { BrandingForm } from "@/components/app/branding-form";
 import { FormBuilder } from "@/components/app/form-builder";
 import { getFormDefinition, getVisitorFormDefinition, getChildrenFormDefinition, getTeensFormDefinition } from "@/lib/forms/registration";
@@ -104,6 +106,7 @@ export function SettingsClient({
   platformPricing?: PlatformPricing;
 }) {
   const [tab, setTab] = useState<(typeof tabs)[number]["key"]>("church");
+  const [editingRole, setEditingRole] = useState<CustomRoleRow | null>(null);
   const ro = session.isDemo;
   const isAdmin = session.role === "Owner" || session.role === "Admin";
 
@@ -296,18 +299,23 @@ export function SettingsClient({
                   <div className="mt-4 divide-y divide-line-soft rounded-xl border border-line">
                     {customRoles.map((cr) => (
                       <div key={cr.id} className="flex items-start justify-between gap-3 p-4">
-                        <div>
+                        <div className="min-w-0">
                           <div className="font-medium">{cr.name}</div>
                           <div className="mt-0.5 text-xs text-ink-faint">
                             {cr.sections.length ? cr.sections.map((s) => MODULE_LABELS[s] ?? s).join(", ") : "No sections"}
                             {" · "}{cr.canDelete ? "can delete" : "add only"}
                           </div>
                         </div>
-                        <form action={deleteCustomRole.bind(null, cr.id)}>
-                          <SubmitButton size="sm" variant="ghost" overlay={false} successMessage="Role deleted" className="text-danger">
-                            <Trash2 className="size-3.5" />
-                          </SubmitButton>
-                        </form>
+                        <div className="flex shrink-0 items-center gap-1">
+                          <Button size="sm" variant="secondary" onClick={() => setEditingRole(cr)} disabled={ro}>
+                            <Pencil className="size-3.5" /> Edit
+                          </Button>
+                          <form action={deleteCustomRole.bind(null, cr.id)}>
+                            <SubmitButton size="sm" variant="ghost" overlay={false} successMessage="Role deleted" className="text-danger">
+                              <Trash2 className="size-3.5" />
+                            </SubmitButton>
+                          </form>
+                        </div>
                       </div>
                     ))}
                   </div>
@@ -316,42 +324,8 @@ export function SettingsClient({
                 <form action={createCustomRole} className="mt-4 space-y-4">
                   <Input name="name" placeholder="Role name (e.g. Finance — Day Born)" required disabled={ro} />
                   <div>
-                    <div className="flex items-center justify-between">
-                      <Label>What can this role do?</Label>
-                      <div className="flex items-center gap-3 text-[10px] font-semibold uppercase tracking-wide text-ink-faint">
-                        <span className="w-12 text-center">View</span>
-                        <span className="w-12 text-center">Manage</span>
-                      </div>
-                    </div>
-                    <p className="mb-2 text-xs text-ink-faint">
-                      <b>View</b> = can open &amp; read. <b>Manage</b> = can also add &amp; edit. Tick only the sections this person should ever see.
-                    </p>
-                    <div className="max-h-80 space-y-3 overflow-y-auto rounded-xl border border-line p-3">
-                      {SECTION_GROUPS.map((group) => (
-                        <div key={group.category}>
-                          <div className="mb-1 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">{group.category}</div>
-                          <div className="divide-y divide-line-soft">
-                            {group.sections.map((s) => (
-                              <div key={s.key} className="flex items-center justify-between gap-3 py-1.5">
-                                <span className="text-sm">{s.label}</span>
-                                <div className="flex items-center gap-3">
-                                  <span className="w-12 text-center">
-                                    <input type="checkbox" name="sections" value={s.key} className="size-4 rounded border-line accent-primary" />
-                                  </span>
-                                  <span className="w-12 text-center">
-                                    {s.manageable ? (
-                                      <input type="checkbox" name="manageSections" value={s.key} className="size-4 rounded border-line accent-primary" />
-                                    ) : (
-                                      <span className="text-ink-faint/40">—</span>
-                                    )}
-                                  </span>
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
-                    </div>
+                    <Label>What can this role do?</Label>
+                    <RoleMatrix idPrefix="new-role" />
                   </div>
                   <label className="flex items-center gap-2 text-sm text-ink-muted">
                     <input type="checkbox" name="canDelete" className="size-4 rounded border-line accent-primary" />
@@ -360,6 +334,55 @@ export function SettingsClient({
                   <SubmitButton disabled={ro} pendingLabel="Saving…" successMessage="Role saved">Create role</SubmitButton>
                 </form>
               </Card>
+            )}
+
+            {/* ── Edit an existing custom role ── */}
+            {editingRole && (
+              <>
+                <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setEditingRole(null)} />
+                <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l border-line bg-surface shadow-2xl">
+                  <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-5 py-4">
+                    <h2 className="font-display text-lg font-semibold">Edit role</h2>
+                    <button onClick={() => setEditingRole(null)} className="grid size-8 place-items-center rounded-lg hover:bg-surface-2">
+                      <X className="size-5" />
+                    </button>
+                  </div>
+
+                  <form action={updateCustomRole} className="space-y-4 p-5">
+                    <OnFormComplete onComplete={() => setEditingRole(null)} />
+                    <input type="hidden" name="id" value={editingRole.id} />
+
+                    <div>
+                      <Label>Role name</Label>
+                      <Input name="name" defaultValue={editingRole.name} required disabled={ro} />
+                    </div>
+
+                    <div>
+                      <Label>What can this role do?</Label>
+                      <RoleMatrix
+                        key={editingRole.id}
+                        idPrefix={`edit-${editingRole.id}`}
+                        initialView={editingRole.sections}
+                        initialManage={editingRole.manageSections ?? []}
+                      />
+                    </div>
+
+                    <label className="flex items-center gap-2 text-sm text-ink-muted">
+                      <input
+                        type="checkbox"
+                        name="canDelete"
+                        defaultChecked={editingRole.canDelete}
+                        className="size-4 rounded border-line accent-primary"
+                      />
+                      Allow this role to delete records
+                    </label>
+
+                    <SubmitButton className="w-full" disabled={ro} pendingLabel="Saving…" successMessage="Role updated">
+                      Save changes
+                    </SubmitButton>
+                  </form>
+                </div>
+              </>
             )}
 
             <BuiltInRolesEditor

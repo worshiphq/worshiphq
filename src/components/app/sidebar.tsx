@@ -11,7 +11,7 @@ import { routeAllowedByPlan, getRouteFeature, planHasFeature, type PlanId, type 
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
-export function Sidebar({ sections, churchName, churchLogo, plan = "free", planTable }: { sections: string[]; churchName: string; churchLogo?: string | null; plan?: PlanId; planTable?: PlanTable }) {
+export function Sidebar({ sections, exactSections, churchName, churchLogo, plan = "free", planTable }: { sections: string[]; exactSections?: boolean; churchName: string; churchLogo?: string | null; plan?: PlanId; planTable?: PlanTable }) {
   const pathname = usePathname();
   const [collapsed, setCollapsed] = useState(false);
   const [prevPlan, setPrevPlan] = useState<PlanId | null>(null);
@@ -47,7 +47,7 @@ export function Sidebar({ sections, churchName, churchLogo, plan = "free", planT
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-5">
         {nav.map((section, i) => {
-          const items = section.items.filter((it) => hasSection({ sections }, navSection(it)));
+          const items = section.items.filter((it) => hasSection({ sections, exactSections }, navSection(it)));
           if (!items.length) return null;
           return (
             <div key={i}>

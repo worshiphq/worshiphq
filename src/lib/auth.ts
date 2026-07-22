@@ -185,6 +185,7 @@ async function _getSession(): Promise<Session | null> {
       customRole: user.customRole?.name ?? "Budget leader",
       sections: scoped,
       manageSections: scoped,
+      exactSections: true,
       canDelete: false,
       churchId: user.churchId,
       churchName: user.church.name,
@@ -221,6 +222,8 @@ async function _getSession(): Promise<Session | null> {
     customRole: user.customRole?.name ?? null,
     sections,
     manageSections,
+    // Custom roles mean exactly what was ticked — no sibling expansion.
+    exactSections: !!user.customRole,
     canDelete,
     churchId: user.churchId,
     churchName: user.church.name,

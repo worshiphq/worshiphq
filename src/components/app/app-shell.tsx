@@ -70,7 +70,7 @@ export function AppShell({
 
   return (
     <div className="flex min-h-dvh bg-base lg:touch-none" style={themeStyle} onTouchStart={handleTouchStart} onTouchEnd={handleTouchEnd}>
-      <Sidebar sections={session.sections} churchName={session.churchName} churchLogo={churchLogo} plan={plan} planTable={planTable} />
+      <Sidebar sections={session.sections} exactSections={session.exactSections} churchName={session.churchName} churchLogo={churchLogo} plan={plan} planTable={planTable} />
 
       {/* Mobile drawer */}
       <AnimatePresence>
