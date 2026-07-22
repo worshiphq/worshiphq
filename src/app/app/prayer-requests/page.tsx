@@ -10,7 +10,7 @@ import { headers } from "next/headers";
 export const metadata = { title: "Prayer requests" };
 
 export default async function PrayerRequestsPage() {
-  const session = await requireModule("people");
+  const session = await requireModule("prayer-requests");
 
   const [requests, church] = await Promise.all([
     db.prayerRequest.findMany({

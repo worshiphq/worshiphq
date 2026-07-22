@@ -9,7 +9,7 @@ import { Plus, Target } from "lucide-react";
 export const metadata = { title: "Pledges & campaigns" };
 
 export default async function PledgesPage() {
-  const session = await requireModule("giving");
+  const session = await requireModule("pledges");
 
   const [campaigns, pledges] = await Promise.all([
     db.campaign.findMany({

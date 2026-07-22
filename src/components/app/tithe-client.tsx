@@ -32,7 +32,6 @@ const MONTHS = ["January", "February", "March", "April", "May", "June", "July", 
 const FUND_TYPES = [
   { key: "tithes", label: "Tithes" },
   { key: "offertory", label: "Offertory" },
-  { key: "dayborn", label: "Day Born (Kofi ne Ama)" },
   { key: "custom", label: "Custom" },
 ] as const;
 
@@ -74,7 +73,6 @@ export function TitheClient({
 
   const activeFundName = fundType === "tithes" ? "Tithes"
     : fundType === "offertory" ? "Offertory"
-    : fundType === "dayborn" ? "Day Born"
     : customFund || "Custom";
 
   const navigatePeriod = (newYear: number, newMonth: number) => {

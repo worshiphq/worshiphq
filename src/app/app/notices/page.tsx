@@ -9,7 +9,7 @@ import { Plus } from "lucide-react";
 export const metadata = { title: "Notices" };
 
 export default async function NoticesPage() {
-  const session = await requireModule("communications");
+  const session = await requireModule("notices");
 
   const notices = await db.churchNotice.findMany({
     where: { churchId: session.churchId },

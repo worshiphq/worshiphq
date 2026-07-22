@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/app/page-header";
 export const metadata = { title: "Audit log" };
 
 export default async function AuditLogPage() {
-  const session = await requireModule("settings");
+  const session = await requireModule("audit-log");
 
   const logs = await db.auditLog.findMany({
     where: { churchId: session.churchId },

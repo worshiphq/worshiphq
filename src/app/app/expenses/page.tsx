@@ -11,7 +11,7 @@ export const metadata = { title: "Expenses" };
 const CATEGORIES = ["general", "utilities", "rent", "transport", "maintenance", "supplies", "salaries", "missions", "welfare", "events", "other"];
 
 export default async function ExpensesPage() {
-  const session = await requireModule("accounting");
+  const session = await requireModule("expenses");
 
   const expenses = await db.expense.findMany({
     where: { churchId: session.churchId },

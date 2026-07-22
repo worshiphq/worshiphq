@@ -11,7 +11,7 @@ export const metadata = { title: "Welfare & benevolence" };
 const WELFARE_TYPES = ["financial", "food", "medical", "housing", "education", "other"];
 
 export default async function WelfarePage() {
-  const session = await requireModule("giving");
+  const session = await requireModule("welfare");
 
   const [records, people] = await Promise.all([
     db.welfareRecord.findMany({

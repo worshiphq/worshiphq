@@ -12,7 +12,7 @@ const CATEGORIES = ["general", "audio-visual", "musical", "furniture", "vehicle"
 const CONDITIONS = ["new", "good", "fair", "poor", "decommissioned"];
 
 export default async function AssetsPage() {
-  const session = await requireModule("settings");
+  const session = await requireModule("assets");
 
   const assets = await db.asset.findMany({
     where: { churchId: session.churchId },

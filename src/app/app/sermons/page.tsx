@@ -9,7 +9,7 @@ import { Plus } from "lucide-react";
 export const metadata = { title: "Sermons" };
 
 export default async function SermonsPage() {
-  const session = await requireModule("events");
+  const session = await requireModule("sermons");
 
   const sermons = await db.sermon.findMany({
     where: { churchId: session.churchId },

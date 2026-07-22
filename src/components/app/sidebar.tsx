@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { PanelLeftClose, PanelLeft, Lock } from "lucide-react";
 import { ChurchLogo } from "@/components/app/church-logo";
-import { nav } from "@/config/nav";
+import { nav, navSection } from "@/config/nav";
 import { hasSection } from "@/lib/permissions";
 import { routeAllowedByPlan, getRouteFeature, planHasFeature, type PlanId, type PlanTable } from "@/lib/plan-gate";
 import { Badge } from "@/components/ui/badge";
@@ -47,7 +47,7 @@ export function Sidebar({ sections, churchName, churchLogo, plan = "free", planT
 
       <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-5">
         {nav.map((section, i) => {
-          const items = section.items.filter((it) => hasSection({ sections }, it.key));
+          const items = section.items.filter((it) => hasSection({ sections }, navSection(it)));
           if (!items.length) return null;
           return (
             <div key={i}>

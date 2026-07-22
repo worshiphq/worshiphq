@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/app/page-header";
 export const metadata = { title: "Member directory" };
 
 export default async function DirectoryPage() {
-  const session = await requireModule("people");
+  const session = await requireModule("directory");
 
   const [people, departments] = await Promise.all([
     db.person.findMany({

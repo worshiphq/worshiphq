@@ -10,7 +10,7 @@ function getMonthDay(d: Date): string {
 }
 
 export default async function BirthdaysPage() {
-  const session = await requireModule("people");
+  const session = await requireModule("birthdays");
 
   const people = await db.person.findMany({
     where: {

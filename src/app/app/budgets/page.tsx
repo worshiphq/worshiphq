@@ -9,7 +9,7 @@ import { Plus } from "lucide-react";
 export const metadata = { title: "Budgets" };
 
 export default async function BudgetsPage() {
-  const session = await requireModule("accounting");
+  const session = await requireModule("budgets");
 
   const budgets = await db.budget.findMany({
     where: { churchId: session.churchId },

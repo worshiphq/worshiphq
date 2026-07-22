@@ -9,7 +9,7 @@ import { Plus, Building } from "lucide-react";
 export const metadata = { title: "Facility bookings" };
 
 export default async function BookingsPage() {
-  const session = await requireModule("events");
+  const session = await requireModule("bookings");
 
   const [facilities, bookings] = await Promise.all([
     db.facility.findMany({

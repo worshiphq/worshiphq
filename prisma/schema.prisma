@@ -169,6 +169,7 @@ model Department {
   people    Person[] @relation("PrimaryDepartment") // legacy single-department link
   members   Person[] @relation("PersonDepartments") // many-to-many membership
   positions DepartmentPosition[]
+  budgetLeaders User[] @relation("DepartmentBudgetLeaders")
 
   @@unique([churchId, name])
   @@index([churchId])
@@ -193,13 +194,14 @@ model DepartmentPosition {
 
 // Admin-defined role with custom section access + delete permission.
 model CustomRole {
-  id        String   @id @default(cuid())
-  churchId  String
-  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  name      String
-  sections  String[] // module keys this role can see
-  canDelete Boolean  @default(false)
-  createdAt DateTime @default(now())
+  id             String   @id @default(cuid())
+  churchId       String
+  church         Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name           String
+  sections       String[] // fine section keys this role can SEE
+  manageSections String[] @default([]) // subset this role can add/edit (manage)
+  canDelete      Boolean  @default(false)
+  createdAt      DateTime @default(now())
 
   users User[]
 
@@ -219,6 +221,10 @@ model User {
   role         Role     @default(Volunteer)
   customRoleId String?
   customRole   CustomRole? @relation(fields: [customRoleId], references: [id])
+  // When set, this user is a scoped department-budget leader: they only see
+  // their department's budget, expenses and income — nothing else.
+  budgetDepartmentId String?
+  budgetDepartment   Department? @relation("DepartmentBudgetLeaders", fields: [budgetDepartmentId], references: [id])
   photoUrl      String?  // staff profile picture (data URL)
   phone         String?
   phoneVerified Boolean  @default(false)

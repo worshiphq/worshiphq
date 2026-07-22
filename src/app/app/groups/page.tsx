@@ -12,7 +12,7 @@ const GROUP_TYPES = ["small_group", "ministry", "committee", "fellowship"];
 const DAYS = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
 
 export default async function GroupsPage() {
-  const session = await requireModule("people");
+  const session = await requireModule("groups");
 
   const [groups, people] = await Promise.all([
     db.group.findMany({

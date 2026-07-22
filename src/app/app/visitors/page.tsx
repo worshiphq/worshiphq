@@ -5,7 +5,7 @@ import { VisitorsClient } from "@/components/app/visitors-client";
 export const metadata = { title: "Visitors" };
 
 export default async function VisitorsPage() {
-  const session = await requireModule("people");
+  const session = await requireModule("visitors");
 
   const [visitors, church] = await Promise.all([
     db.visitor.findMany({

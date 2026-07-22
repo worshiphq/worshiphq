@@ -450,12 +450,14 @@ export async function createCustomRole(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
   const sections = formData.getAll("sections").map(String);
+  // A section can only be managed if it's also viewable — keep them consistent.
+  const manageSections = formData.getAll("manageSections").map(String).filter((s) => sections.includes(s));
   const canDelete = formData.get("canDelete") === "on" || formData.get("canDelete") === "yes";
 
   await db.customRole.upsert({
     where: { churchId_name: { churchId: session.churchId, name } },
-    create: { churchId: session.churchId, name, sections, canDelete },
-    update: { sections, canDelete },
+    create: { churchId: session.churchId, name, sections, manageSections, canDelete },
+    update: { sections, manageSections, canDelete },
   });
 
   revalidatePath("/app/settings");

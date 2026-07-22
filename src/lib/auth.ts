@@ -6,7 +6,7 @@ import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { type Session, can, ROLE_PERMISSIONS, ALL_MODULES, modulesForRole } from "@/lib/permissions";
+import { type Session, can, ROLE_PERMISSIONS, ALL_MODULES, modulesForRole, hasSection, canManage } from "@/lib/permissions";
 
 export type { Session };
 export { can, ROLE_PERMISSIONS };
@@ -136,6 +136,7 @@ async function _getSession(): Promise<Session | null> {
       avatarName: "Demo Visitor",
       isDemo: true,
       sections: [...ALL_MODULES],
+      manageSections: [...ALL_MODULES],
       canDelete: true,
     };
   }
@@ -159,15 +160,42 @@ async function _getSession(): Promise<Session | null> {
       isDemo: false,
       impersonating: true,
       sections: [...ALL_MODULES],
+      manageSections: [...ALL_MODULES],
       canDelete: true,
     };
   }
 
   const user = await db.user.findUnique({
     where: { id: payload.uid },
-    include: { church: true, branch: true, customRole: true },
+    include: { church: true, branch: true, customRole: true, budgetDepartment: true },
   });
   if (!user) return null;
+
+  // A scoped department-budget leader only ever sees their department's budget,
+  // expenses and income — regardless of role.
+  if (user.budgetDepartmentId) {
+    const scoped = ["budgets", "expenses"];
+    return {
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      customRole: user.customRole?.name ?? "Budget leader",
+      sections: scoped,
+      manageSections: scoped,
+      canDelete: false,
+      churchId: user.churchId,
+      churchName: user.church.name,
+      budgetDepartmentId: user.budgetDepartmentId,
+      budgetDepartmentName: user.budgetDepartment?.name ?? null,
+      branch: user.branch?.name ?? "All branches",
+      branchId: user.branchId,
+      avatarName: user.name,
+      avatarUrl: user.photoUrl,
+      isDemo: user.church.isDemo,
+      phoneVerified: user.phoneVerified,
+    };
+  }
 
   // Custom role overrides the built-in role's access + delete permission.
   // Church-level rolePermissions override the hardcoded defaults for built-in roles.
@@ -175,6 +203,12 @@ async function _getSession(): Promise<Session | null> {
   const sections = user.customRole
     ? user.customRole.sections
     : churchOverrides[user.role] ?? modulesForRole(user.role);
+  // Built-in roles manage everything they can see; custom roles manage only the
+  // subset explicitly granted (falling back to all sections for legacy roles
+  // saved before the View/Manage split existed).
+  const manageSections = user.customRole
+    ? (user.customRole.manageSections.length ? user.customRole.manageSections : user.customRole.sections)
+    : sections;
   const canDelete = user.customRole ? user.customRole.canDelete : true;
 
   return {
@@ -184,6 +218,7 @@ async function _getSession(): Promise<Session | null> {
     role: user.role,
     customRole: user.customRole?.name ?? null,
     sections,
+    manageSections,
     canDelete,
     churchId: user.churchId,
     churchName: user.church.name,
@@ -220,10 +255,20 @@ export function assertCanDelete(session: Session) {
   if (!session.canDelete) throw new Error("Your role doesn't have permission to delete records.");
 }
 
-/** Require the session to have access to a module/section, else redirect. */
+/** Require the session to have access to a module/section, else redirect.
+ *  Parent-aware: holding a coarse parent key grants its fine sections. */
 export async function requireModule(module: string): Promise<Session> {
   const session = await requireSession();
-  if (module !== "dashboard" && !session.sections.includes(module)) {
+  if (!hasSection(session, module)) {
+    redirect("/app");
+  }
+  return session;
+}
+
+/** Require the session to be able to manage (add/edit) a section, else redirect. */
+export async function requireManage(module: string): Promise<Session> {
+  const session = await requireSession();
+  if (!canManage(session, module)) {
     redirect("/app");
   }
   return session;

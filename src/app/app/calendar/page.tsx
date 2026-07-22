@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/app/page-header";
 export const metadata = { title: "Calendar" };
 
 export default async function CalendarPage() {
-  const session = await requireModule("events");
+  const session = await requireModule("calendar");
 
   const now = new Date();
   const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);

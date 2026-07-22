@@ -8,7 +8,7 @@ import { X, ShieldCheck, Megaphone, AlertTriangle, CheckCircle2, Lock } from "lu
 import { Sidebar } from "./sidebar";
 import { Topbar } from "./topbar";
 import { ChurchLogo } from "@/components/app/church-logo";
-import { nav } from "@/config/nav";
+import { nav, navSection } from "@/config/nav";
 import { hasSection, type Session } from "@/lib/permissions";
 import { routeAllowedByPlan, type PlanId, type PlanTable } from "@/lib/plan-gate";
 import { cn } from "@/lib/utils";
@@ -98,7 +98,7 @@ export function AppShell({
               </div>
               <nav className="flex-1 space-y-5 overflow-y-auto p-3">
                 {nav.map((section, i) => {
-                  const items = section.items.filter((it) => hasSection(session, it.key));
+                  const items = section.items.filter((it) => hasSection(session, navSection(it)));
                   if (!items.length) return null;
                   return (
                     <div key={i}>

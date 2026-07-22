@@ -37,11 +37,21 @@ import {
 } from "lucide-react";
 
 export interface NavItem {
+  /** Coarse group (legacy). Gating now uses the fine section — see navSection(). */
   key: string;
   label: string;
   href: string;
   icon: LucideIcon;
   badge?: string;
+  /** Fine section key for permission gating; defaults to the last href segment. */
+  section?: string;
+}
+
+/** The fine section key a nav item gates on. Dashboard is always allowed. */
+export function navSection(item: NavItem): string {
+  if (item.section) return item.section;
+  if (item.href === "/app") return "dashboard";
+  return item.href.split("/").pop() || item.key;
 }
 
 export interface NavSection {

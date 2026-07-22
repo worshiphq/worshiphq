@@ -25,7 +25,7 @@ export default async function SettingsPage() {
     db.customRole.findMany({
       where: { churchId: session.churchId },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, sections: true, canDelete: true },
+      select: { id: true, name: true, sections: true, manageSections: true, canDelete: true },
     }),
     db.subscription.findUnique({
       where: { churchId: session.churchId },

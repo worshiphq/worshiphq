@@ -6,7 +6,7 @@ import { LeadersClient } from "@/components/app/leaders-client";
 export const metadata = { title: "Leaders" };
 
 export default async function LeadersPage() {
-  const session = await requireModule("people");
+  const session = await requireModule("leaders");
   let data;
   try {
     data = await getLeaders(session.churchId);
