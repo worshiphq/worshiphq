@@ -616,7 +616,44 @@ async function sendUpgradeReceipt(churchId: string, planName: string, amount: st
   }
 }
 
-export async function changePlan(plan: string, interval: "monthly" | "yearly") {
+/** Check a discount code and show what the church would actually pay. */
+export async function previewCoupon(code: string, plan: string, interval: "monthly" | "yearly") {
+  const session = await requireSession();
+
+  const { plans } = await import("@/config/pricing");
+  const planConfig = plans.find((p) => p.id === plan);
+  if (!planConfig) return { ok: false as const, error: "Invalid plan." };
+
+  const { getPlatformConfig } = await import("@/lib/data/platform-config");
+  const platformConfig = await getPlatformConfig();
+  const dbPrice = platformConfig.prices[plan];
+  const listAmount = interval === "yearly" ? (dbPrice?.yearly ?? planConfig.yearly) : (dbPrice?.monthly ?? planConfig.monthly);
+
+  const { checkCoupon } = await import("@/lib/billing/coupons");
+  const check = await checkCoupon({
+    code,
+    churchId: session.churchId,
+    plan,
+    interval,
+    amount: listAmount,
+  });
+  if (!check.ok) return { ok: false as const, error: check.error ?? "Invalid coupon." };
+
+  return {
+    ok: true as const,
+    label: check.label!,
+    listAmount,
+    newAmount: check.newAmount!,
+    saved: check.saved!,
+    symbol: platformConfig.currencySymbol,
+  };
+}
+
+export async function changePlan(
+  plan: string,
+  interval: "monthly" | "yearly",
+  couponCode?: string,
+) {
   const session = await requireSession();
   assertCanWrite(session);
   if (session.role !== "Owner") return { error: "Only the church owner can change plans" };
@@ -644,9 +681,46 @@ export async function changePlan(plan: string, interval: "monthly" | "yearly") {
   const { getPlatformConfig } = await import("@/lib/data/platform-config");
   const platformConfig = await getPlatformConfig();
   const dbPrice = platformConfig.prices[plan];
-  const amount = interval === "yearly" ? (dbPrice?.yearly ?? planConfig.yearly) : (dbPrice?.monthly ?? planConfig.monthly);
+  const listAmount = interval === "yearly" ? (dbPrice?.yearly ?? planConfig.yearly) : (dbPrice?.monthly ?? planConfig.monthly);
+
+  // Apply a SuperAdmin-issued discount code, if one was entered.
+  let amount = listAmount;
+  let couponId: string | null = null;
+  if (couponCode?.trim()) {
+    const { checkCoupon } = await import("@/lib/billing/coupons");
+    const check = await checkCoupon({
+      code: couponCode,
+      churchId: session.churchId,
+      plan,
+      interval,
+      amount: listAmount,
+    });
+    if (!check.ok) return { error: check.error ?? "That coupon isn't valid." };
+    amount = check.newAmount ?? listAmount;
+    couponId = check.couponId ?? null;
+  }
+
   // Prices are displayed in USD; Paystack (Ghana) charges the GHS equivalent.
   const chargeAmountGhs = Math.round(amount * platformConfig.usdToGhsRate);
+
+  // A 100%-off coupon means nothing to charge — activate straight away.
+  if (couponId && chargeAmountGhs <= 0) {
+    const { redeemCoupon } = await import("@/lib/billing/coupons");
+    if (!(await redeemCoupon(couponId, session.churchId))) {
+      return { error: "This coupon has already been used." };
+    }
+    const renewsAt = new Date();
+    renewsAt.setMonth(renewsAt.getMonth() + (interval === "yearly" ? 12 : 1));
+    await db.subscription.upsert({
+      where: { churchId: session.churchId },
+      create: { churchId: session.churchId, plan, interval, status: "active", renewsAt },
+      update: { plan, interval, status: "active", renewsAt },
+    });
+    await sendUpgradeReceipt(session.churchId, planConfig.name, "Free (100% coupon)", interval, `COUPON-${Date.now()}`);
+    revalidatePath("/app/settings");
+    revalidatePath("/app", "layout");
+    return { ok: true as const, plan };
+  }
   const reference = newPaymentReference();
   const appUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
   const returnUrl = `${appUrl}/app/settings?upgraded=${plan}&ref=${reference}&interval=${interval}`;
@@ -664,11 +738,17 @@ export async function changePlan(plan: string, interval: "monthly" | "yearly") {
       plan,
       interval,
       displayAmountUsd: amount,
+      listAmountUsd: listAmount,
+      couponId,
       usdToGhsRate: platformConfig.usdToGhsRate,
     },
   });
 
   if (init.stubbed) {
+    if (couponId) {
+      const { redeemCoupon } = await import("@/lib/billing/coupons");
+      await redeemCoupon(couponId, session.churchId);
+    }
     const renewsAt = new Date();
     renewsAt.setMonth(renewsAt.getMonth() + (interval === "yearly" ? 12 : 1));
     await db.subscription.upsert({
@@ -686,12 +766,17 @@ export async function changePlan(plan: string, interval: "monthly" | "yearly") {
   // Live mode: hand the payment init back so the client opens the in-app
   // Paystack popup, then confirms via verifyPlanUpgrade on success.
   if (init.ok && (init.accessCode || init.authorizationUrl)) {
-    return { ok: true as const, plan, payment: init };
+    return { ok: true as const, plan, payment: init, couponId };
   }
   return { error: init.error ?? "Could not start payment. Please try again." };
 }
 
-export async function verifyPlanUpgrade(reference: string, plan: string, interval: string) {
+export async function verifyPlanUpgrade(
+  reference: string,
+  plan: string,
+  interval: string,
+  couponId?: string | null,
+) {
   const session = await requireSession();
 
   const validPlans = ["starter", "pro", "max"];
@@ -714,6 +799,12 @@ export async function verifyPlanUpgrade(reference: string, plan: string, interva
     } catch {
       return { error: "Could not verify payment. Please refresh the page." };
     }
+  }
+
+  // Payment confirmed — burn the coupon now (atomic, so it can never be reused).
+  if (couponId) {
+    const { redeemCoupon } = await import("@/lib/billing/coupons");
+    await redeemCoupon(couponId, session.churchId);
   }
 
   const billingInterval = interval === "yearly" ? "yearly" : "monthly";

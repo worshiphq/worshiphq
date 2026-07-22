@@ -126,6 +126,7 @@ model Church {
   budgets        Budget[]
   budgetItems    BudgetItem[]
   budgetEntries  BudgetEntry[]
+  coupons        Coupon[]
   volunteerRosters VolunteerRoster[]
   volunteerSlots  VolunteerSlot[]
   dayBornWeeks    DayBornWeek[]
@@ -863,6 +864,32 @@ model Subscription {
   // SuperAdmin bypass: lets a church upgrade to bypassPlan without payment
   bypassPlan String?  // plan they can upgrade to for free
   bypassCode String?  // 6-digit code sent via SMS
+}
+
+/**
+ * A single-use discount code issued by the SuperAdmin — e.g. after agreeing a
+ * price with a pastor in person. Unlike the bypass above (which is a free
+ * upgrade), a coupon takes a percentage or fixed amount off the plan price.
+ * Once redeemed it can never be used again.
+ */
+model Coupon {
+  id            String    @id @default(cuid())
+  code          String    @unique // e.g. WOR2650off — case-insensitive on lookup
+  discountType  String    @default("percent") // "percent" | "fixed"
+  discountValue Float // 50 => 50% off, or 50 => $50 off
+  // Optional restrictions. Null means "any".
+  plan          String? // starter | pro | max
+  interval      String? // monthly | yearly
+  churchId      String? // lock the code to one specific church
+  church        Church?   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  note          String? // why it was granted
+  expiresAt     DateTime?
+  // Single use: set the moment it's successfully redeemed.
+  usedAt         DateTime?
+  usedByChurchId String?
+  createdAt      DateTime  @default(now())
+
+  @@index([churchId])
 }
 
 // ── Prayer requests ───────────────────────────────────────

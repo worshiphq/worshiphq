@@ -19,7 +19,7 @@ import {
   updateChurch, inviteTeammate,
   changeUserRole, removeTeamMember,
   createCustomRole, deleteCustomRole, requestSenderId,
-  updateRolePermissions, changePlan, redeemPlanBypass, verifyPlanUpgrade,
+  updateRolePermissions, changePlan, redeemPlanBypass, verifyPlanUpgrade, previewCoupon,
   saveVisitorForm, saveChildrenForm, saveTeensForm, updateSlug, inviteBudgetLeader,
 } from "@/app/actions/settings";
 import { ALL_MODULES, SECTION_GROUPS, MODULE_LABELS } from "@/lib/permissions";
@@ -855,6 +855,13 @@ function BillingTab({ subscription, features, ro, platformPricing }: { subscript
   );
   const [switching, startSwitch] = useTransition();
   const [upgradePlan, setUpgradePlan] = useState<typeof plans[number] | null>(null);
+  // SuperAdmin-issued discount code applied at checkout.
+  const [couponCode, setCouponCode] = useState("");
+  const [couponError, setCouponError] = useState("");
+  const [couponInfo, setCouponInfo] = useState<
+    { label: string; listAmount: number; newAmount: number; saved: number; symbol: string } | null
+  >(null);
+  const [checkingCoupon, startCouponCheck] = useTransition();
   const [celebrating, setCelebrating] = useState<{ planName: string; newFeatures: string[] } | null>(null);
 
   const previousPlan = (subscription?.plan ?? "free") as PlanId;
@@ -1135,6 +1142,43 @@ function BillingTab({ subscription, features, ro, platformPricing }: { subscript
               </div>
             )}
 
+            {/* ── Discount code ── */}
+            <div className="mt-4">
+              <Label>Have a discount code?</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={couponCode}
+                  onChange={(e) => { setCouponCode(e.target.value); setCouponInfo(null); setCouponError(""); }}
+                  placeholder="e.g. WOR2650OFF"
+                  className="font-mono uppercase"
+                />
+                <Button
+                  type="button"
+                  variant="secondary"
+                  disabled={!couponCode.trim() || checkingCoupon}
+                  onClick={() => {
+                    setCouponError("");
+                    startCouponCheck(async () => {
+                      const res = await previewCoupon(couponCode, upgradePlan.id, interval);
+                      if (!res.ok) { setCouponInfo(null); setCouponError(res.error); return; }
+                      setCouponInfo(res);
+                    });
+                  }}
+                >
+                  {checkingCoupon ? <Spinner className="size-4 animate-spin" /> : "Apply"}
+                </Button>
+              </div>
+              {couponError && <p className="mt-1 text-xs text-danger">{couponError}</p>}
+              {couponInfo && (
+                <p className="mt-1 text-xs font-medium text-success">
+                  {couponInfo.label} applied — you pay {couponInfo.symbol}
+                  {couponInfo.newAmount.toLocaleString()} instead of {couponInfo.symbol}
+                  {couponInfo.listAmount.toLocaleString()} (save {couponInfo.symbol}
+                  {couponInfo.saved.toLocaleString()}).
+                </p>
+              )}
+            </div>
+
             {!features.payments && (
               <p className="mt-4 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
                 Payment gateway is in stub mode — upgrade will be applied instantly without payment. Enable Paystack to collect payments.
@@ -1154,17 +1198,17 @@ function BillingTab({ subscription, features, ro, platformPricing }: { subscript
                 disabled={switching}
                 onClick={() => {
                   startSwitch(async () => {
-                    const res = await changePlan(upgradePlan.id, interval);
+                    const res = await changePlan(upgradePlan.id, interval, couponCode.trim() || undefined);
                     if (res && "error" in res) { alert(res.error); return; }
                     if (!res || !("plan" in res)) return;
                     const planId = res.plan as string;
-                    const planName = upgradePlan.name;
+                    const usedCouponId = "couponId" in res ? res.couponId : null;
                     // Live mode returns payment init → open the in-app popup and
                     // celebrate once the charge succeeds. Stub/free celebrates now.
                     if ("payment" in res && res.payment) {
                       await startPaystack(res.payment, {
                         onSuccess: async (ref) => {
-                          await verifyPlanUpgrade(ref, planId, interval);
+                          await verifyPlanUpgrade(ref, planId, interval, usedCouponId);
                           setUpgradePlan(null);
                           setShowPlans(false);
                           triggerCelebration(planId);
