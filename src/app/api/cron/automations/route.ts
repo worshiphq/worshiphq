@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { runAutomations } from "@/lib/automations/run";
 import { refreshUsdToGhsRate } from "@/lib/integrations/fx";
+import { runPledgeReminders } from "@/lib/pledges/reminders";
 
 export const dynamic = "force-dynamic";
 // Allow longer execution for churches with many members.
@@ -26,7 +27,9 @@ export async function GET(request: NextRequest) {
     // on-demand refresh (persisted to PlatformConfig).
     const fxRate = await refreshUsdToGhsRate();
     const result = await runAutomations();
-    return Response.json({ ok: true, fxRate, ...result });
+    // Pledge due-date reminders on each church's configured schedule.
+    const pledgeReminders = await runPledgeReminders();
+    return Response.json({ ok: true, fxRate, pledgeReminders, ...result });
   } catch (e) {
     console.error("[cron/automations] failed:", e);
     return new Response("Automation run failed", { status: 500 });

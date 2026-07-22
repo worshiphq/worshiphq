@@ -77,6 +77,11 @@ model Church {
   // Customizable SMS receipt templates (use {name}, {amount}, {church} placeholders)
   titheReceiptTemplate   String?
   harvestReceiptTemplate String?
+  pledgeReceiptTemplate  String?
+  pledgeReminderTemplate String?
+  /** Days before a pledge due date to auto-remind, e.g. [30, 7, 3]. */
+  pledgeReminderDays     Int[]   @default([30, 7, 3])
+  pledgePayments         PledgePayment[]
 
   featuredLeaderCount Int @default(6) // number of leaders shown on dashboard
 
@@ -335,6 +340,7 @@ model Person {
   tags        Tag[]      @relation("PersonTags")
   gifts       Gift[]
   harvestContributions HarvestContribution[]
+  pledges     Pledge[]
   attendance  AttendanceRecord[]
   followUps      FollowUp[]
   prayerRequests PrayerRequest[]
@@ -521,12 +527,45 @@ model Pledge {
   fund       Fund?     @relation(fields: [fundId], references: [id])
   campaignId String?
   campaign   Campaign? @relation(fields: [campaignId], references: [id])
+  // A pledge can be made toward a harvest — Pledges is the single engine and
+  // Harvest simply links to it rather than keeping its own pledge list.
+  harvestId  String?
+  harvest    Harvest?  @relation(fields: [harvestId], references: [id], onDelete: SetNull)
+  // Pledger: an existing member (phone already on file) or a visitor.
+  personId   String?
+  person     Person?   @relation(fields: [personId], references: [id], onDelete: SetNull)
   donorName  String
+  donorPhone String?
+  donorType  String    @default("member") // "member" | "visitor"
   amount     Decimal   @db.Decimal(12, 2)
   fulfilled  Decimal   @default(0) @db.Decimal(12, 2)
   dueAt      DateTime?
+  notes      String?
+  /** Which reminder milestones have already gone out, e.g. ["30","7","3"]. */
+  remindersSent String[] @default([])
+  createdAt  DateTime  @default(now())
+  payments   PledgePayment[]
 
   @@index([churchId])
+  @@index([harvestId])
+  @@index([personId])
+}
+
+/** Each part-payment against a pledge, so churches keep a full record. */
+model PledgePayment {
+  id        String     @id @default(cuid())
+  churchId  String
+  church    Church     @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  pledgeId  String
+  pledge    Pledge     @relation(fields: [pledgeId], references: [id], onDelete: Cascade)
+  amount    Decimal    @db.Decimal(12, 2)
+  method    GiftMethod @default(Cash)
+  note      String?
+  date      DateTime   @default(now())
+  createdAt DateTime   @default(now())
+
+  @@index([churchId])
+  @@index([pledgeId])
 }
 
 // ── Events ────────────────────────────────────────────────
@@ -644,6 +683,7 @@ model Harvest {
   createdAt DateTime @default(now())
 
   contributions HarvestContribution[]
+  pledges       Pledge[]
 
   @@unique([churchId, year])
   @@index([churchId])
