@@ -646,6 +646,65 @@ async function sendUpgradeReceipt(churchId: string, planName: string, amount: st
   }
 }
 
+/** Undo a scheduled downgrade before it takes effect. */
+export async function cancelScheduledChange() {
+  const session = await requireSession();
+  assertCanWrite(session);
+  if (session.role !== "Owner") return { error: "Only the church owner can change plans" };
+
+  await db.subscription.update({
+    where: { churchId: session.churchId },
+    data: { scheduledPlan: null, scheduledAt: null, cancelAtPeriodEnd: false },
+  });
+  revalidatePath("/app/settings");
+  return { ok: true as const };
+}
+
+/** What would this plan change cost? Drives the confirmation dialog. */
+export async function previewPlanChangeAction(plan: string, interval: "monthly" | "yearly") {
+  const session = await requireSession();
+
+  const { plans } = await import("@/config/pricing");
+  const { getPlatformConfig } = await import("@/lib/data/platform-config");
+  const { previewPlanChange } = await import("@/lib/billing/periods");
+
+  const [sub, platformConfig, lastPayment] = await Promise.all([
+    db.subscription.findUnique({ where: { churchId: session.churchId } }),
+    getPlatformConfig(),
+    db.planPayment.findFirst({
+      where: { churchId: session.churchId, status: "paid" },
+      orderBy: { paidAt: "desc" },
+      select: { amountUsd: true },
+    }),
+  ]);
+
+  const cfg = plans.find((p) => p.id === plan);
+  const dbPrice = platformConfig.prices[plan];
+  const listPrice = plan === "free"
+    ? 0
+    : interval === "yearly" ? (dbPrice?.yearly ?? cfg?.yearly ?? 0) : (dbPrice?.monthly ?? cfg?.monthly ?? 0);
+
+  const preview = previewPlanChange({
+    currentPlan: sub?.plan ?? "free",
+    newPlan: plan,
+    interval,
+    periodEnd: sub?.renewsAt ?? null,
+    amountPaidUsd: lastPayment?.amountUsd ?? 0,
+    newPlanPriceUsd: listPrice,
+  });
+
+  return {
+    direction: preview.direction,
+    amountDueUsd: preview.amountDueUsd,
+    listPrice,
+    daysLeft: preview.daysLeft,
+    unusedCreditUsd: preview.unusedCreditUsd,
+    effectiveDate: preview.effectiveDate.toISOString(),
+    summary: preview.summary,
+    symbol: platformConfig.currencySymbol,
+  };
+}
+
 /** Check a discount code and show what the church would actually pay. */
 export async function previewCoupon(code: string, plan: string, interval: "monthly" | "yearly") {
   const session = await requireSession();
@@ -694,24 +753,76 @@ export async function changePlan(
   const existing = await db.subscription.findUnique({ where: { churchId: session.churchId } });
   if (existing?.status === "grace") return { error: "Your plan cannot be changed (Gift of Grace)" };
 
-  if (plan === "free") {
-    await db.subscription.upsert({
-      where: { churchId: session.churchId },
-      create: { churchId: session.churchId, plan: "free", interval: "monthly", status: "active" },
-      update: { plan: "free", interval: "monthly", status: "active", renewsAt: null, paystackCustomerCode: null },
-    });
-    revalidatePath("/app/settings");
-    return { ok: true };
-  }
-
   const { plans } = await import("@/config/pricing");
-  const planConfig = plans.find((p) => p.id === plan);
-  if (!planConfig) return { error: "Invalid plan" };
-
   const { getPlatformConfig } = await import("@/lib/data/platform-config");
   const platformConfig = await getPlatformConfig();
-  const dbPrice = platformConfig.prices[plan];
-  const listAmount = interval === "yearly" ? (dbPrice?.yearly ?? planConfig.yearly) : (dbPrice?.monthly ?? planConfig.monthly);
+
+  // ── Work out whether this is an upgrade (pay the difference) or a downgrade
+  //    (schedule it for period end — no money moves either way). ──
+  const { previewPlanChange } = await import("@/lib/billing/periods");
+  const lastPayment = await db.planPayment.findFirst({
+    where: { churchId: session.churchId, status: "paid" },
+    orderBy: { paidAt: "desc" },
+    select: { amountUsd: true },
+  });
+  const targetConfig = plans.find((p) => p.id === plan);
+  const targetDbPrice = platformConfig.prices[plan];
+  const targetList = plan === "free"
+    ? 0
+    : interval === "yearly"
+      ? (targetDbPrice?.yearly ?? targetConfig?.yearly ?? 0)
+      : (targetDbPrice?.monthly ?? targetConfig?.monthly ?? 0);
+
+  const preview = previewPlanChange({
+    currentPlan: existing?.plan ?? "free",
+    newPlan: plan,
+    interval,
+    periodEnd: existing?.renewsAt ?? null,
+    amountPaidUsd: lastPayment?.amountUsd ?? 0,
+    newPlanPriceUsd: targetList,
+  });
+
+  if (preview.direction === "same") return { error: "You're already on this plan." };
+
+  // ── Downgrade: never charges, never refunds. Scheduled for period end. ──
+  if (preview.direction === "downgrade") {
+    const stillInPaidPeriod = existing?.renewsAt && existing.renewsAt.getTime() > Date.now();
+    if (stillInPaidPeriod) {
+      await db.subscription.update({
+        where: { churchId: session.churchId },
+        data: {
+          scheduledPlan: plan,
+          scheduledAt: new Date(),
+          cancelAtPeriodEnd: plan === "free",
+        },
+      });
+      revalidatePath("/app/settings");
+      revalidatePath("/app", "layout");
+      return {
+        ok: true as const,
+        scheduled: true as const,
+        plan,
+        effectiveDate: preview.effectiveDate.toISOString(),
+        summary: preview.summary,
+      };
+    }
+    // No paid time left — apply straight away.
+    await db.subscription.upsert({
+      where: { churchId: session.churchId },
+      create: { churchId: session.churchId, plan, interval: "monthly", status: "active" },
+      update: { plan, interval: "monthly", status: "active", renewsAt: null, scheduledPlan: null, cancelAtPeriodEnd: false },
+    });
+    revalidatePath("/app/settings");
+    revalidatePath("/app", "layout");
+    return { ok: true as const, plan };
+  }
+
+  const planConfig = targetConfig;
+  if (!planConfig) return { error: "Invalid plan" };
+
+  // Upgrades charge only the prorated difference; new purchases pay full price.
+  const listAmount = preview.direction === "upgrade" ? preview.amountDueUsd : targetList;
+  const isProratedUpgrade = preview.direction === "upgrade";
 
   // Apply a SuperAdmin-issued discount code, if one was entered.
   let amount = listAmount;
@@ -791,13 +902,16 @@ export async function changePlan(
       const { redeemCoupon } = await import("@/lib/billing/coupons");
       await redeemCoupon(couponId, session.churchId);
     }
-    const periodStart = new Date();
-    const renewsAt = new Date();
-    renewsAt.setMonth(renewsAt.getMonth() + (interval === "yearly" ? 12 : 1));
+    const periodStart = existing?.periodStart ?? new Date();
+    // A prorated upgrade buys the REMAINDER of the current period, so the
+    // renewal date must not move.
+    const renewsAt = isProratedUpgrade && existing?.renewsAt
+      ? existing.renewsAt
+      : (() => { const d = new Date(); d.setMonth(d.getMonth() + (interval === "yearly" ? 12 : 1)); return d; })();
     await db.subscription.upsert({
       where: { churchId: session.churchId },
-      create: { churchId: session.churchId, plan, interval, status: "active", renewsAt },
-      update: { plan, interval, status: "active", renewsAt },
+      create: { churchId: session.churchId, plan, interval, status: "active", renewsAt, periodStart },
+      update: { plan, interval, status: "active", renewsAt, periodStart, scheduledPlan: null, cancelAtPeriodEnd: false },
     });
     const { recordPlanPayment } = await import("@/lib/billing/payments");
     await recordPlanPayment({
@@ -860,14 +974,18 @@ export async function verifyPlanUpgrade(
   }
 
   const billingInterval = interval === "yearly" ? "yearly" : "monthly";
-  const periodStart = new Date();
-  const renewsAt = new Date();
-  renewsAt.setMonth(renewsAt.getMonth() + (billingInterval === "yearly" ? 12 : 1));
+  // If they were mid-way through a paid period, this was a prorated upgrade —
+  // they bought the remainder, so the renewal date must not move.
+  const wasMidPaidPeriod = !!sub && sub.plan !== "free" && !!sub.renewsAt && sub.renewsAt.getTime() > Date.now();
+  const periodStart = wasMidPaidPeriod ? (sub!.periodStart ?? new Date()) : new Date();
+  const renewsAt = wasMidPaidPeriod
+    ? sub!.renewsAt!
+    : (() => { const d = new Date(); d.setMonth(d.getMonth() + (billingInterval === "yearly" ? 12 : 1)); return d; })();
 
   await db.subscription.upsert({
     where: { churchId: session.churchId },
-    create: { churchId: session.churchId, plan, interval: billingInterval, status: "active", renewsAt },
-    update: { plan, interval: billingInterval, status: "active", renewsAt },
+    create: { churchId: session.churchId, plan, interval: billingInterval, status: "active", renewsAt, periodStart },
+    update: { plan, interval: billingInterval, status: "active", renewsAt, periodStart, scheduledPlan: null, cancelAtPeriodEnd: false },
   });
 
   const { plans } = await import("@/config/pricing");

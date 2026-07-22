@@ -866,6 +866,16 @@ model Subscription {
   // SuperAdmin bypass: lets a church upgrade to bypassPlan without payment
   bypassPlan String?  // plan they can upgrade to for free
   bypassCode String?  // 6-digit code sent via SMS
+
+  // Billing period. `renewsAt` is the period end.
+  periodStart DateTime?
+  // A downgrade takes effect at period end rather than immediately — the church
+  // keeps what it already paid for. No money moves in either direction.
+  scheduledPlan     String?
+  scheduledAt       DateTime?
+  cancelAtPeriodEnd Boolean   @default(false)
+  // Renewal reminder milestones already sent for this period, e.g. ["7","3"].
+  renewalRemindersSent String[] @default([])
 }
 
 /**

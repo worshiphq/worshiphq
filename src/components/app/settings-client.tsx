@@ -21,6 +21,7 @@ import {
   changeUserRole, removeTeamMember,
   createCustomRole, deleteCustomRole, updateCustomRole, requestSenderId,
   updateRolePermissions, changePlan, redeemPlanBypass, verifyPlanUpgrade, previewCoupon,
+  previewPlanChangeAction, cancelScheduledChange,
   saveVisitorForm, saveChildrenForm, saveTeensForm, updateSlug, inviteBudgetLeader,
 } from "@/app/actions/settings";
 import { ALL_MODULES, MODULE_LABELS } from "@/lib/permissions";
@@ -58,7 +59,17 @@ type Church = {
 type TeamUser = { id: string; name: string; email: string; role: string; customRole?: { id: string; name: string } | null };
 type Dept = { id: string; name: string };
 type CustomRoleRow = { id: string; name: string; sections: string[]; manageSections?: string[]; canDelete: boolean };
-type SubscriptionData = { plan: string; status: string; interval: string; renewsAt: Date | null; bypassPlan: string | null } | null;
+type SubscriptionData = { plan: string; status: string; interval: string; renewsAt: Date | null; bypassPlan: string | null; scheduledPlan?: string | null; cancelAtPeriodEnd?: boolean } | null;
+type PlanChangePreviewData = {
+  direction: string;
+  amountDueUsd: number;
+  listPrice: number;
+  daysLeft: number;
+  unusedCreditUsd: number;
+  effectiveDate: string;
+  summary: string;
+  symbol: string;
+};
 export type PlanPaymentRow = {
   id: string;
   reference: string;
@@ -899,6 +910,10 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
     { label: string; listAmount: number; newAmount: number; saved: number; symbol: string } | null
   >(null);
   const [checkingCoupon, startCouponCheck] = useTransition();
+  // Proration / scheduled-downgrade preview for the plan-change dialog.
+  const [changePreview, setChangePreview] = useState<PlanChangePreviewData | null>(null);
+  const [loadingPreview, startPreview] = useTransition();
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [celebrating, setCelebrating] = useState<{ planName: string; newFeatures: string[] } | null>(null);
 
   const previousPlan = (subscription?.plan ?? "free") as PlanId;
@@ -956,6 +971,8 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
   }, [router, previousPlan]);
 
   const currentPlanId = subscription?.plan ?? "free";
+  // Downgrades never charge and never refund — they're scheduled for period end.
+  const isDowngrade = changePreview?.direction === "downgrade";
   const currentPlan = plans.find((p) => p.id === currentPlanId) ?? plans[0];
   const isGrace = subscription?.status === "grace";
   const price = interval === "yearly" ? currentPlan.yearly / 12 : currentPlan.monthly;
@@ -969,6 +986,27 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
           onDone={handleCelebrationDone}
         />
       )}
+      {/* A queued downgrade — they keep what they paid for until period end. */}
+      {(subscription?.scheduledPlan || subscription?.cancelAtPeriodEnd) && (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-info/30 bg-info/10 px-4 py-3">
+          <p className="text-sm text-info">
+            <Clock className="mr-1.5 inline size-4" />
+            Scheduled: you move to{" "}
+            <b className="capitalize">{subscription.cancelAtPeriodEnd ? "Free" : subscription.scheduledPlan}</b>
+            {subscription.renewsAt && <> on {new Date(subscription.renewsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</>}.
+            You keep your current plan until then — nothing more to pay.
+          </p>
+          <Button
+            size="sm"
+            variant="secondary"
+            disabled={switching}
+            onClick={() => startSwitch(async () => { await cancelScheduledChange(); router.refresh(); })}
+          >
+            Keep my current plan
+          </Button>
+        </div>
+      )}
+
       <Card className="p-6">
         <h3 className="font-display text-lg font-semibold">Billing & subscription</h3>
         <p className="text-sm text-ink-muted">Powered by Paystack. Billed in {platformPricing?.currency ?? "GHS"}.</p>
@@ -1124,6 +1162,11 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
                     onClick={() => {
                       if (isCurrent) return;
                       setUpgradePlan(plan);
+                      setCouponCode(""); setCouponInfo(null); setCouponError(""); setAcceptedTerms(false);
+                      setChangePreview(null);
+                      startPreview(async () => {
+                        setChangePreview(await previewPlanChangeAction(plan.id, interval));
+                      });
                     }}
                   >
                     {isCurrent ? "Current plan" : plan.cta}
@@ -1208,16 +1251,33 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
             </div>
 
             <div className="mt-4 rounded-xl border border-primary/20 bg-primary/5 p-4">
-              <div className="font-display text-2xl font-bold">
-                {fmtPrice(interval === "yearly" ? upgradePlan.yearly / 12 : upgradePlan.monthly)}
-                <span className="text-sm font-normal text-ink-faint">/mo</span>
-              </div>
-              <p className="text-xs text-ink-faint">
-                {interval === "yearly"
-                  ? `${sym}${upgradePlan.yearly.toLocaleString()} billed yearly`
-                  : "Billed monthly"}
-                {" · "}{upgradePlan.members}
-              </p>
+              {loadingPreview || !changePreview ? (
+                <div className="flex items-center gap-2 text-sm text-ink-muted">
+                  <Spinner className="size-4 animate-spin" /> Working out your price…
+                </div>
+              ) : isDowngrade ? (
+                <>
+                  <div className="font-display text-2xl font-bold text-ink">No charge</div>
+                  <p className="mt-1 text-xs text-ink-muted">{changePreview.summary}</p>
+                </>
+              ) : (
+                <>
+                  <div className="font-display text-2xl font-bold">
+                    {sym}{(couponInfo?.newAmount ?? changePreview.amountDueUsd).toLocaleString()}
+                    <span className="text-sm font-normal text-ink-faint"> due now</span>
+                  </div>
+                  <p className="mt-1 text-xs text-ink-muted">{changePreview.summary}</p>
+                  {changePreview.direction === "upgrade" && changePreview.unusedCreditUsd > 0 && (
+                    <p className="mt-1 text-xs text-success">
+                      Includes {sym}{changePreview.unusedCreditUsd.toLocaleString()} credit for the time you&rsquo;ve already paid for.
+                    </p>
+                  )}
+                  <p className="mt-2 text-xs text-ink-faint">
+                    Then {sym}{(interval === "yearly" ? upgradePlan.yearly : upgradePlan.monthly).toLocaleString()}
+                    {interval === "yearly" ? " / year" : " / month"} · {upgradePlan.members}
+                  </p>
+                </>
+              )}
             </div>
 
             {upgradePlan.upgradeTips.length > 0 && (
@@ -1234,8 +1294,8 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
               </div>
             )}
 
-            {/* ── Discount code ── */}
-            <div className="mt-4">
+            {/* ── Discount code (paid changes only) ── */}
+            <div className={cn("mt-4", isDowngrade && "hidden")}>
               <Label>Have a discount code?</Label>
               <div className="flex gap-2">
                 <Input
@@ -1271,10 +1331,30 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
               )}
             </div>
 
-            {!features.payments && (
+            {!features.payments && !isDowngrade && (
               <p className="mt-4 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
                 Payment gateway is in stub mode — upgrade will be applied instantly without payment. Enable Paystack to collect payments.
               </p>
+            )}
+
+            {/* ── Terms acceptance (required before any payment) ── */}
+            {!isDowngrade && (
+              <label className="mt-4 flex items-start gap-2 rounded-lg border border-line bg-surface-2/50 p-3 text-xs text-ink-muted">
+                <input
+                  type="checkbox"
+                  checked={acceptedTerms}
+                  onChange={(e) => setAcceptedTerms(e.target.checked)}
+                  className="mt-0.5 size-4 shrink-0 rounded border-line accent-primary"
+                />
+                <span>
+                  I understand and accept the{" "}
+                  <a href="/terms" target="_blank" className="font-semibold text-primary hover:underline">Terms of Service</a>{" "}
+                  and{" "}
+                  <a href="/refund-policy" target="_blank" className="font-semibold text-primary hover:underline">Refund Policy</a>.
+                  Refunds are limited to the eligibility window; outside it, plan changes are handled by downgrading, which takes
+                  effect at the end of the period you&rsquo;ve paid for.
+                </span>
+              </label>
             )}
 
             <div className="mt-5 flex gap-2">
@@ -1287,12 +1367,19 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
               </Button>
               <Button
                 className="flex-1"
-                disabled={switching}
+                disabled={switching || loadingPreview || (!isDowngrade && !acceptedTerms)}
                 onClick={() => {
                   startSwitch(async () => {
                     const res = await changePlan(upgradePlan.id, interval, couponCode.trim() || undefined);
                     if (res && "error" in res) { alert(res.error); return; }
                     if (!res || !("plan" in res)) return;
+                    // Downgrade: nothing was charged, it's queued for period end.
+                    if ("scheduled" in res && res.scheduled) {
+                      setUpgradePlan(null);
+                      setShowPlans(false);
+                      router.refresh();
+                      return;
+                    }
                     const planId = res.plan as string;
                     const usedCouponId = "couponId" in res ? res.couponId : null;
                     // Live mode returns payment init → open the in-app popup and
@@ -1316,10 +1403,12 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
                 }}
               >
                 {switching
-                  ? (features.payments ? "Redirecting to checkout…" : "Upgrading…")
-                  : features.payments
-                    ? `Pay & upgrade to ${upgradePlan.name}`
-                    : `Upgrade to ${upgradePlan.name}`}
+                  ? (isDowngrade ? "Scheduling…" : features.payments ? "Opening checkout…" : "Applying…")
+                  : isDowngrade
+                    ? `Schedule move to ${upgradePlan.name}`
+                    : features.payments
+                      ? `Pay ${sym}${(couponInfo?.newAmount ?? changePreview?.amountDueUsd ?? 0).toLocaleString()} & switch`
+                      : `Switch to ${upgradePlan.name}`}
               </Button>
             </div>
           </div>
