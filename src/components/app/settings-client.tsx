@@ -221,7 +221,8 @@ export function SettingsClient({
                 </h3>
                 <form action={inviteTeammate} className="mt-4 grid gap-3 sm:grid-cols-2">
                   <Input name="name" placeholder="Full name" required disabled={ro} />
-                  <Input name="email" type="email" placeholder="email@church.org" required disabled={ro} />
+                  <Input name="phone" type="tel" placeholder="Mobile number (for SMS invite)" required disabled={ro} />
+                  <Input name="email" type="email" placeholder="Email (optional)" disabled={ro} />
                   <select
                     name="role"
                     defaultValue="Leader"
@@ -238,10 +239,10 @@ export function SettingsClient({
                     )}
                   </select>
                   <Input name="password" placeholder="Temp password (optional)" disabled={ro} />
-                  <SubmitButton className="sm:col-span-2" disabled={ro} pendingLabel="Sending invite…" successMessage="Invite sent">Send invite</SubmitButton>
+                  <SubmitButton className="sm:col-span-2" disabled={ro} pendingLabel="Sending invite…" successMessage="Invite sent">Send SMS invite</SubmitButton>
                 </form>
                 <p className="mt-2 text-xs text-ink-faint">
-                  They&rsquo;ll sign in with this email and temporary password.
+                  They get a text with a link to accept, verify their number, set a password and add a photo — like a Discord invite. A temp password is optional.
                 </p>
               </Card>
             )}

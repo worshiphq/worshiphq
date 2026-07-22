@@ -5,8 +5,10 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, hashPassword, verifyPassword } from "@/lib/auth";
 import { getFormDefinition, getVisitorFormDefinition } from "@/lib/forms/registration";
+import crypto from "node:crypto";
 import { sendSms } from "@/lib/integrations/sms";
 import { sendOtp, verifyOtp } from "@/lib/auth/otp";
+import { normalisePhone } from "@/lib/phone";
 import { initializePayment, newPaymentReference } from "@/lib/integrations/paystack";
 import { env } from "@/lib/env";
 import type { Role } from "@prisma/client";
@@ -368,50 +370,62 @@ export async function inviteTeammate(formData: FormData) {
   assertCanWrite(session);
   if (session.role !== "Owner" && session.role !== "Admin") return;
 
-  const email = String(formData.get("email") ?? "").toLowerCase().trim();
   const name = String(formData.get("name") ?? "").trim();
+  const emailRaw = String(formData.get("email") ?? "").toLowerCase().trim();
+  const phone = normalisePhone(String(formData.get("phone") ?? ""));
   const { role, customRoleId } = parseRoleValue(String(formData.get("role") ?? "Volunteer"));
-  if (!email || !name) return;
+  if (!name || phone.length < 10) return;
 
-  const exists = await db.user.findUnique({ where: { email } });
-  if (exists) return;
+  // Email is the login identifier but optional to type — synthesize a stable
+  // placeholder from the phone when the admin doesn't provide one.
+  const email = emailRaw || `p${phone.replace(/\D/g, "")}@invite.worshiphq.app`;
 
-  const tempPassword = String(formData.get("password") ?? "").trim() || "changeme123";
+  if (await db.user.findUnique({ where: { email } })) return;
+  if (await db.user.findFirst({ where: { churchId: session.churchId, phone } })) return;
+
+  // Optional temp password lets them also sign in immediately; otherwise they
+  // set their own password when accepting the invite.
+  const tempPassword = String(formData.get("password") ?? "").trim();
+  const inviteToken = crypto.randomBytes(24).toString("base64url");
+
   await db.user.create({
     data: {
       churchId: session.churchId,
       email,
       name,
+      phone,
       role,
       customRoleId,
-      passwordHash: await hashPassword(tempPassword),
+      inviteToken,
+      passwordHash: tempPassword ? await hashPassword(tempPassword) : null,
     },
   });
-  const church = await db.church.findUnique({
-    where: { id: session.churchId },
-    select: { name: true },
-  });
 
-  const emailResult = await sendEmail({
-    to: email,
-    subject: `You've been invited to ${church?.name ?? "WorshipHQ"}`,
-    html: `
-    <h2>Welcome to ${church?.name ?? "WorshipHQ"}</h2>
+  const church = await db.church.findUnique({ where: { id: session.churchId }, select: { name: true } });
+  const churchName = church?.name ?? "WorshipHQ";
+  const appUrl = env.NEXT_PUBLIC_APP_URL ?? "https://worshiphq.app";
+  const acceptUrl = `${appUrl}/invite/${inviteToken}`;
 
-    <p>You have been added as a team member.</p>
+  // SMS is the reliable delivery channel. Keep it short (1 credit where possible).
+  await sendSms(
+    phone,
+    `You've been invited to join ${churchName} on WorshipHQ${role ? ` as ${role}` : ""}. Accept & set up your account: ${acceptUrl}`,
+    { heading: null },
+  );
 
-    <p><strong>Email:</strong> ${email}</p>
-    <p><strong>Temporary Password:</strong> ${tempPassword}</p>
-
-    <p>Please sign in and change your password immediately.</p>
-
-    <p>
-      <a href="${process.env.NEXT_PUBLIC_APP_URL ?? "https://worshiphq.app"}/sign-in">
-        Login to WorshipHQ
-      </a>
-    </p>
-  `,
-  });
+  // Also email when a real address was given (delivers only if email is configured).
+  if (emailRaw) {
+    await sendEmail({
+      to: emailRaw,
+      subject: `You've been invited to ${churchName}`,
+      html: `
+        <h2>Welcome to ${churchName}</h2>
+        <p>You've been invited to join the team on WorshipHQ${role ? ` as <strong>${role}</strong>` : ""}.</p>
+        <p><a href="${acceptUrl}">Accept your invite & set up your account →</a></p>
+        ${tempPassword ? `<p>Or sign in with <strong>${email}</strong> and the temporary password you were given.</p>` : ""}
+      `,
+    });
+  }
 
   revalidatePath("/app/settings");
 }

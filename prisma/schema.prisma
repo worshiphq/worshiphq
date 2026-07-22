@@ -228,6 +228,10 @@ model User {
   photoUrl      String?  // staff profile picture (data URL)
   phone         String?
   phoneVerified Boolean  @default(false)
+  // Discord-style invite: a one-time token sent by SMS; the invitee opens the
+  // link to verify their phone, set a password & photo, then the token clears.
+  inviteToken      String?   @unique
+  inviteAcceptedAt DateTime?
   // A User (logs in) may be linked to a Person (a congregant record).
   personId     String?  @unique
   person       Person?  @relation(fields: [personId], references: [id])
