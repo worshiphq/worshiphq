@@ -127,6 +127,8 @@ model Church {
   budgetItems    BudgetItem[]
   budgetEntries  BudgetEntry[]
   coupons        Coupon[]
+  planPayments   PlanPayment[]
+  refundRequests RefundRequest[]
   volunteerRosters VolunteerRoster[]
   volunteerSlots  VolunteerSlot[]
   dayBornWeeks    DayBornWeek[]
@@ -864,6 +866,64 @@ model Subscription {
   // SuperAdmin bypass: lets a church upgrade to bypassPlan without payment
   bypassPlan String?  // plan they can upgrade to for free
   bypassCode String?  // 6-digit code sent via SMS
+}
+
+/**
+ * Every completed subscription payment. `Subscription` only knows the CURRENT
+ * plan; this is the ledger of what was actually charged, when, and against
+ * which Paystack reference — which is what makes receipts, billing history,
+ * proration and refunds possible at all.
+ */
+model PlanPayment {
+  id           String   @id @default(cuid())
+  churchId     String
+  church       Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  reference    String   @unique // Paystack reference — also the de-dupe key
+  plan         String
+  interval     String // monthly | yearly
+  amountUsd    Float // what we displayed
+  amountGhs    Float // what Paystack actually charged
+  usdToGhsRate Float
+  couponId     String?
+  discountUsd  Float    @default(0)
+  kind         String   @default("new") // new | renewal | upgrade (proration)
+  periodStart  DateTime
+  periodEnd    DateTime
+  status       String   @default("paid") // paid | refunded
+  paidAt       DateTime @default(now())
+  createdAt    DateTime @default(now())
+
+  refundRequests RefundRequest[]
+
+  @@index([churchId, paidAt])
+}
+
+/**
+ * A church's request to be refunded a specific PlanPayment. The SuperAdmin
+ * reviews it; on approval we call Paystack's refund API and track the outcome
+ * through their refund.* webhooks.
+ */
+model RefundRequest {
+  id                String   @id @default(cuid())
+  churchId          String
+  church            Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  paymentId         String
+  payment           PlanPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  amountUsd         Float
+  amountGhs         Float
+  reason            String   @db.Text
+  // pending | approved | rejected | processing | processed | failed
+  status            String   @default("pending")
+  requestedByUserId String?
+  requestedAt       DateTime @default(now())
+  reviewedAt        DateTime?
+  reviewerNote      String?
+  paystackRefundRef String?
+  processedAt       DateTime?
+  failureReason     String?
+
+  @@index([churchId])
+  @@index([status])
 }
 
 /**

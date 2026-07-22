@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { verifyPaystackSignature } from "@/lib/integrations/paystack";
 import { recordOnlineGift, methodFromPaystackChannel } from "@/lib/giving/record";
 import { addCredits } from "@/lib/sms/credits";
+import { recordPlanPayment } from "@/lib/billing/payments";
 import { db } from "@/lib/db";
 
 // Webhooks must never be statically cached and always run on the server.
@@ -63,6 +64,7 @@ export async function POST(request: NextRequest) {
       const interval = meta.interval === "yearly" ? "yearly" : "monthly";
       if (!validPlans.includes(plan)) return Response.json({ received: true, ignored: true });
 
+      const periodStart = new Date();
       const renewsAt = new Date();
       renewsAt.setMonth(renewsAt.getMonth() + (interval === "yearly" ? 12 : 1));
 
@@ -84,6 +86,25 @@ export async function POST(request: NextRequest) {
           paystackCustomerCode: data.customer?.email ?? null,
         },
       });
+
+      // Ledger entry — de-dupes on reference against verifyPlanUpgrade().
+      // Paystack sends the charged amount in subunits (pesewas).
+      const amountGhs = typeof data.amount === "number" ? data.amount / 100 : 0;
+      const rate = Number(meta.usdToGhsRate) || 0;
+      await recordPlanPayment({
+        churchId: meta.churchId,
+        reference: String(data.reference),
+        plan,
+        interval,
+        amountUsd: Number(meta.displayAmountUsd) || (rate ? amountGhs / rate : 0),
+        amountGhs,
+        usdToGhsRate: rate,
+        couponId: meta.couponId ? String(meta.couponId) : null,
+        discountUsd: Math.max(0, (Number(meta.listAmountUsd) || 0) - (Number(meta.displayAmountUsd) || 0)),
+        periodStart,
+        periodEnd: renewsAt,
+      });
+
       return Response.json({ received: true, kind: "plan_upgrade", plan });
     } catch (e) {
       console.error("[Paystack webhook] failed to activate plan:", e);
@@ -127,6 +148,10 @@ interface GiftMetadata {
   bundleId?: string;
   plan?: string;
   interval?: string;
+  displayAmountUsd?: number | string;
+  listAmountUsd?: number | string;
+  usdToGhsRate?: number | string;
+  couponId?: string | null;
 }
 
 interface PaystackEvent {

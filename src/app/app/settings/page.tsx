@@ -10,7 +10,7 @@ export const metadata = { title: "Settings" };
 export default async function SettingsPage() {
   const session = await requireModule("settings");
 
-  const [church, users, departments, customRoles, subscription, platformConfig] = await Promise.all([
+  const [church, users, departments, customRoles, subscription, platformConfig, planPayments] = await Promise.all([
     db.church.findUnique({ where: { id: session.churchId } }),
     db.user.findMany({
       where: { churchId: session.churchId },
@@ -32,6 +32,11 @@ export default async function SettingsPage() {
       select: { plan: true, status: true, interval: true, renewsAt: true, bypassPlan: true },
     }),
     getPlatformConfig(),
+    db.planPayment.findMany({
+      where: { churchId: session.churchId },
+      orderBy: { paidAt: "desc" },
+      take: 50,
+    }),
   ]);
 
   // Auto-provision subscription for churches created before subscriptions existed
@@ -84,6 +89,18 @@ export default async function SettingsPage() {
         customRoles={customRoles}
         subscription={sub}
         platformPricing={platformConfig}
+        payments={planPayments.map((p) => ({
+          id: p.id,
+          reference: p.reference,
+          plan: p.plan,
+          interval: p.interval,
+          amountUsd: p.amountUsd,
+          amountGhs: p.amountGhs,
+          discountUsd: p.discountUsd,
+          status: p.status,
+          paidAt: p.paidAt.toISOString(),
+          periodEnd: p.periodEnd.toISOString(),
+        }))}
       />
     </div>
   );

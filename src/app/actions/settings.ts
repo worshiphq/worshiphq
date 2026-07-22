@@ -739,12 +739,24 @@ export async function changePlan(
     if (!(await redeemCoupon(couponId, session.churchId))) {
       return { error: "This coupon has already been used." };
     }
+    const periodStart = new Date();
     const renewsAt = new Date();
     renewsAt.setMonth(renewsAt.getMonth() + (interval === "yearly" ? 12 : 1));
     await db.subscription.upsert({
       where: { churchId: session.churchId },
       create: { churchId: session.churchId, plan, interval, status: "active", renewsAt },
       update: { plan, interval, status: "active", renewsAt },
+    });
+    // Zero-value payment, but still a ledger entry so billing history is complete.
+    const { recordPlanPayment } = await import("@/lib/billing/payments");
+    await recordPlanPayment({
+      churchId: session.churchId,
+      reference: `COUPON-${couponId}-${Date.now()}`,
+      plan, interval,
+      amountUsd: 0, amountGhs: 0,
+      usdToGhsRate: platformConfig.usdToGhsRate,
+      couponId, discountUsd: listAmount,
+      periodStart, periodEnd: renewsAt,
     });
     await sendUpgradeReceipt(session.churchId, planConfig.name, "Free (100% coupon)", interval, `COUPON-${Date.now()}`);
     revalidatePath("/app/settings");
@@ -779,12 +791,22 @@ export async function changePlan(
       const { redeemCoupon } = await import("@/lib/billing/coupons");
       await redeemCoupon(couponId, session.churchId);
     }
+    const periodStart = new Date();
     const renewsAt = new Date();
     renewsAt.setMonth(renewsAt.getMonth() + (interval === "yearly" ? 12 : 1));
     await db.subscription.upsert({
       where: { churchId: session.churchId },
       create: { churchId: session.churchId, plan, interval, status: "active", renewsAt },
       update: { plan, interval, status: "active", renewsAt },
+    });
+    const { recordPlanPayment } = await import("@/lib/billing/payments");
+    await recordPlanPayment({
+      churchId: session.churchId,
+      reference, plan, interval,
+      amountUsd: amount, amountGhs: chargeAmountGhs,
+      usdToGhsRate: platformConfig.usdToGhsRate,
+      couponId, discountUsd: listAmount - amount,
+      periodStart, periodEnd: renewsAt,
     });
     const sym = platformConfig.currencySymbol;
     await sendUpgradeReceipt(session.churchId, planConfig.name, `${sym}${amount.toLocaleString()} (₵${chargeAmountGhs.toLocaleString()})`, interval, reference);
@@ -838,6 +860,7 @@ export async function verifyPlanUpgrade(
   }
 
   const billingInterval = interval === "yearly" ? "yearly" : "monthly";
+  const periodStart = new Date();
   const renewsAt = new Date();
   renewsAt.setMonth(renewsAt.getMonth() + (billingInterval === "yearly" ? 12 : 1));
 
@@ -855,6 +878,18 @@ export async function verifyPlanUpgrade(
   const dbPrice = platformConfig.prices[plan];
   const amount = billingInterval === "yearly" ? (dbPrice?.yearly ?? planConfig?.yearly ?? 0) : (dbPrice?.monthly ?? planConfig?.monthly ?? 0);
   const chargedGhs = Math.round(amount * platformConfig.usdToGhsRate);
+
+  // Ledger entry. De-dupes on `reference`, so if the webhook already recorded
+  // this charge we simply no-op here.
+  const { recordPlanPayment } = await import("@/lib/billing/payments");
+  await recordPlanPayment({
+    churchId: session.churchId,
+    reference, plan, interval: billingInterval,
+    amountUsd: amount, amountGhs: chargedGhs,
+    usdToGhsRate: platformConfig.usdToGhsRate,
+    periodStart, periodEnd: renewsAt,
+  });
+
   await sendUpgradeReceipt(session.churchId, planConfig?.name ?? plan, `${sym}${amount.toLocaleString()} (₵${chargedGhs.toLocaleString()})`, billingInterval, reference);
 
   revalidatePath("/app/settings");

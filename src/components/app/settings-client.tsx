@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Building, Palette, Users2, CreditCard, Plug, Check, Pencil, CircleDot,
   Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, Shield, MessageSquare,
-  ExternalLink, Rocket, Wallet, Loader2 as Spinner, Clock, CheckCircle2, X,
+  ExternalLink, Rocket, Wallet, Loader2 as Spinner, Clock, CheckCircle2, X, Receipt,
 } from "lucide-react";
 import { OnFormComplete } from "@/components/ui/form-effects";
 import { Card } from "@/components/ui/card";
@@ -59,6 +59,18 @@ type TeamUser = { id: string; name: string; email: string; role: string; customR
 type Dept = { id: string; name: string };
 type CustomRoleRow = { id: string; name: string; sections: string[]; manageSections?: string[]; canDelete: boolean };
 type SubscriptionData = { plan: string; status: string; interval: string; renewsAt: Date | null; bypassPlan: string | null } | null;
+export type PlanPaymentRow = {
+  id: string;
+  reference: string;
+  plan: string;
+  interval: string;
+  amountUsd: number;
+  amountGhs: number;
+  discountUsd: number;
+  status: string;
+  paidAt: string;
+  periodEnd: string;
+};
 
 const tabs = [
   { key: "church", label: "Church profile", icon: Building },
@@ -95,6 +107,7 @@ export function SettingsClient({
   customRoles,
   subscription,
   platformPricing,
+  payments = [],
 }: {
   session: Session;
   features: FeatureMap;
@@ -104,6 +117,7 @@ export function SettingsClient({
   customRoles: CustomRoleRow[];
   subscription: SubscriptionData;
   platformPricing?: PlatformPricing;
+  payments?: PlanPaymentRow[];
 }) {
   const [tab, setTab] = useState<(typeof tabs)[number]["key"]>("church");
   const [editingRole, setEditingRole] = useState<CustomRoleRow | null>(null);
@@ -516,7 +530,7 @@ export function SettingsClient({
         )}
 
         {/* ── Billing ── */}
-        {tab === "billing" && <BillingTab subscription={subscription} features={features} ro={ro} platformPricing={platformPricing} />}
+        {tab === "billing" && <BillingTab subscription={subscription} features={features} ro={ro} platformPricing={platformPricing} payments={payments} />}
 
         {/* ── Online Payments ── */}
         {tab === "online-payments" && <OnlinePaymentsTab churchId={session.churchId} />}
@@ -863,7 +877,7 @@ function UpgradeCelebration({ planName, newFeatures, onDone }: { planName: strin
   );
 }
 
-function BillingTab({ subscription, features, ro, platformPricing }: { subscription: SubscriptionData; features: FeatureMap; ro: boolean; platformPricing?: PlatformPricing }) {
+function BillingTab({ subscription, features, ro, platformPricing, payments = [] }: { subscription: SubscriptionData; features: FeatureMap; ro: boolean; platformPricing?: PlatformPricing; payments?: PlanPaymentRow[] }) {
   const router = useRouter();
   const plans = defaultPlans.map((p) => {
     const dbPrice = platformPricing?.prices[p.id];
@@ -1122,6 +1136,61 @@ function BillingTab({ subscription, features, ro, platformPricing }: { subscript
       )}
 
       {/* Upgrade confirmation dialog */}
+      {/* ── Billing history ── */}
+      <Card className="mt-6 p-6">
+        <h3 className="flex items-center gap-2 font-display text-base font-semibold">
+          <Receipt className="size-4" /> Billing history
+        </h3>
+        {payments.length === 0 ? (
+          <p className="mt-2 text-sm text-ink-muted">
+            No payments yet. Once you subscribe, every charge and receipt shows up here.
+          </p>
+        ) : (
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-ink-faint">
+                  <th className="pb-2 pr-3">Date</th>
+                  <th className="pb-2 pr-3">Plan</th>
+                  <th className="pb-2 pr-3 text-right">Paid</th>
+                  <th className="pb-2 pr-3">Status</th>
+                  <th className="pb-2">Reference</th>
+                </tr>
+              </thead>
+              <tbody>
+                {payments.map((p) => (
+                  <tr key={p.id} className="border-b border-line/50">
+                    <td className="py-2 pr-3 whitespace-nowrap">
+                      {new Date(p.paidAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                    </td>
+                    <td className="py-2 pr-3 capitalize">
+                      {p.plan}
+                      <span className="ml-1 text-xs text-ink-faint">({p.interval})</span>
+                    </td>
+                    <td className="py-2 pr-3 text-right whitespace-nowrap">
+                      {sym}{p.amountUsd.toLocaleString()}
+                      {p.discountUsd > 0 && (
+                        <span className="ml-1 text-xs text-success">−{sym}{p.discountUsd.toLocaleString()}</span>
+                      )}
+                      <div className="text-[11px] text-ink-faint">₵{p.amountGhs.toLocaleString()}</div>
+                    </td>
+                    <td className="py-2 pr-3">
+                      <span className={cn(
+                        "rounded-full px-2 py-0.5 text-[11px] font-medium",
+                        p.status === "refunded" ? "bg-ink-faint/10 text-ink-faint" : "bg-success/10 text-success",
+                      )}>
+                        {p.status === "refunded" ? "Refunded" : "Paid"}
+                      </span>
+                    </td>
+                    <td className="py-2 font-mono text-[11px] text-ink-faint">{p.reference}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+
       {upgradePlan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setUpgradePlan(null)}>
           <div
