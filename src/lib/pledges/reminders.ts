@@ -1,18 +1,9 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { sendChurchSms } from "@/lib/sms/credits";
-import { DEFAULT_PLEDGE_REMINDER_TEMPLATE } from "@/app/actions/pledges";
+import { DEFAULT_PLEDGE_REMINDER_TEMPLATE, money, fill } from "@/lib/pledges/templates";
 
 const DAY_MS = 86_400_000;
-const money = (n: number) =>
-  n.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-function fill(tpl: string, vars: Record<string, string>) {
-  return Object.entries(vars).reduce(
-    (s, [k, v]) => s.replace(new RegExp(`\\{${k}\\}`, "gi"), v),
-    tpl,
-  );
-}
 
 /**
  * Send due-date reminders for outstanding pledges, honouring each church's

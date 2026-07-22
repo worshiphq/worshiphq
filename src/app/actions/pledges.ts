@@ -4,6 +4,13 @@ import { revalidatePath } from "next/cache";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sendChurchSms } from "@/lib/sms/credits";
+import {
+  DEFAULT_PLEDGE_TEMPLATE,
+  DEFAULT_PLEDGE_PAYMENT_TEMPLATE,
+  DEFAULT_PLEDGE_REMINDER_TEMPLATE,
+  money,
+  fill,
+} from "@/lib/pledges/templates";
 import type { GiftMethod } from "@prisma/client";
 
 const METHOD_FROM_LABEL: Record<string, GiftMethod> = {
@@ -13,23 +20,6 @@ const METHOD_FROM_LABEL: Record<string, GiftMethod> = {
   Card: "Card",
   Cash: "Cash",
 };
-
-export const DEFAULT_PLEDGE_TEMPLATE =
-  "Dear {name}, your pledge of GHS {amount} to {church} has been recorded{due}. Thank you and God bless you!";
-export const DEFAULT_PLEDGE_PAYMENT_TEMPLATE =
-  "Dear {name}, we've received GHS {amount} toward your pledge at {church}. Paid so far: GHS {paid} of GHS {total}. God bless you!";
-export const DEFAULT_PLEDGE_REMINDER_TEMPLATE =
-  "Dear {name}, a friendly reminder: your pledge of GHS {total} to {church} is due in {days} day(s). Outstanding: GHS {balance}. God bless you!";
-
-const money = (n: number) =>
-  n.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
-function fill(tpl: string, vars: Record<string, string>) {
-  return Object.entries(vars).reduce(
-    (s, [k, v]) => s.replace(new RegExp(`\\{${k}\\}`, "gi"), v),
-    tpl,
-  );
-}
 
 export async function createCampaign(formData: FormData) {
   const session = await requireModule("pledges");
