@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { OnFormComplete } from "@/components/ui/form-effects";
 import { Search, Link2, UserRoundPlus, Mail, Phone, Calendar, Pencil, Trash2, UserPlus, X } from "lucide-react";
-import { updateVisitor, deleteVisitor, convertVisitorToMember } from "@/app/actions/visit";
+import { updateVisitor, deleteVisitor, convertVisitorToMember, addVisitor } from "@/app/actions/visit";
 
 type VisitorRow = {
   id: string;
@@ -36,6 +36,7 @@ export function VisitorsClient({
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [editing, setEditing] = useState<VisitorRow | null>(null);
+  const [adding, setAdding] = useState(false);
   const [pending, startTransition] = useTransition();
 
   const filtered = visitors.filter((v) => {
@@ -77,18 +78,25 @@ export function VisitorsClient({
           </p>
         </div>
 
-        {visitUrl && (
-          <Button
-            variant="secondary"
-            onClick={() => {
-              const url = `${window.location.origin}${visitUrl}`;
-              navigator.clipboard.writeText(url);
-              alert("Visitor form link copied!");
-            }}
-          >
-            <Link2 className="size-4" /> Copy visitor link
-          </Button>
-        )}
+        <div className="flex flex-wrap items-center gap-2">
+          {canWrite && (
+            <Button onClick={() => setAdding(true)}>
+              <UserRoundPlus className="size-4" /> Add visitor
+            </Button>
+          )}
+          {visitUrl && (
+            <Button
+              variant="secondary"
+              onClick={() => {
+                const url = `${window.location.origin}${visitUrl}`;
+                navigator.clipboard.writeText(url);
+                alert("Visitor form link copied!");
+              }}
+            >
+              <Link2 className="size-4" /> Copy visitor link
+            </Button>
+          )}
+        </div>
       </div>
 
       <div className="relative">
@@ -105,7 +113,7 @@ export function VisitorsClient({
         <Card className="p-12 text-center">
           <UserRoundPlus className="mx-auto size-10 text-ink-faint" />
           <p className="mt-3 text-sm text-ink-muted">
-            {search ? "No visitors match your search." : "No visitors yet. Share your visitor form link to start collecting visitor info."}
+            {search ? "No visitors match your search." : "No visitors yet. Add one manually, or share your visitor form link to collect them automatically."}
           </p>
         </Card>
       ) : (
@@ -165,6 +173,77 @@ export function VisitorsClient({
             </Card>
           ))}
         </div>
+      )}
+
+      {/* Add visitor drawer — for people who signed a paper sheet in person */}
+      {adding && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setAdding(false)} />
+          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l border-line bg-surface shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-5 py-4">
+              <h2 className="font-display text-lg font-semibold">Add visitor</h2>
+              <button onClick={() => setAdding(false)} className="grid size-8 place-items-center rounded-lg hover:bg-surface-2">
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <form action={addVisitor} className="space-y-4 p-5">
+              <OnFormComplete onComplete={() => setAdding(false)} />
+              <p className="rounded-lg bg-surface-2 px-3 py-2 text-xs text-ink-muted">
+                Use this to enter someone who filled a paper sheet in person.
+              </p>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label>First name</Label>
+                  <Input name="firstName" required />
+                </div>
+                <div>
+                  <Label>Last name</Label>
+                  <Input name="lastName" />
+                </div>
+              </div>
+
+              <div>
+                <Label>Phone</Label>
+                <Input name="phone" type="tel" placeholder="024 000 0000" />
+              </div>
+
+              <div>
+                <Label>Email</Label>
+                <Input name="email" type="email" />
+              </div>
+
+              <div>
+                <Label>Date of visit</Label>
+                <Input name="visitDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
+              </div>
+
+              <div>
+                <Label>Purpose of visit</Label>
+                <select
+                  name="purpose"
+                  defaultValue=""
+                  className="h-10 w-full rounded-xl border border-line bg-base px-3 text-sm"
+                >
+                  <option value="">— Select —</option>
+                  {PURPOSES.map((p) => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+
+              <div>
+                <Label>Notes / prayer request</Label>
+                <textarea
+                  name="notes"
+                  rows={3}
+                  className="w-full rounded-xl border border-line bg-base px-3 py-2 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                />
+              </div>
+
+              <SubmitButton className="w-full" pendingLabel="Saving…" successMessage="Visitor added">Add visitor</SubmitButton>
+            </form>
+          </div>
+        </>
       )}
 
       {/* Edit visitor drawer */}

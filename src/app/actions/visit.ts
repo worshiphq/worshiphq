@@ -59,6 +59,36 @@ export async function submitVisitorForm(formData: FormData) {
   redirect(`/visit/${churchSlug}/thank-you`);
 }
 
+/** Admin-side manual visitor entry — for when people signed a paper sheet
+ *  in person rather than using the share link. */
+export async function addVisitor(formData: FormData) {
+  const { requireSession, assertCanWrite } = await import("@/lib/auth");
+  const session = await requireSession();
+  assertCanWrite(session);
+
+  const firstName = String(formData.get("firstName") ?? "").trim();
+  const lastName = String(formData.get("lastName") ?? "").trim();
+  if (!firstName) return;
+
+  const visitDateStr = String(formData.get("visitDate") ?? "").trim();
+
+  await db.visitor.create({
+    data: {
+      churchId: session.churchId,
+      firstName,
+      lastName,
+      phone: String(formData.get("phone") ?? "").trim() || null,
+      email: String(formData.get("email") ?? "").trim() || null,
+      purpose: String(formData.get("purpose") ?? "").trim() || null,
+      notes: String(formData.get("notes") ?? "").trim() || null,
+      visitDate: visitDateStr ? new Date(visitDateStr) : new Date(),
+    },
+  });
+
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/app/visitors");
+}
+
 export async function updateVisitor(formData: FormData) {
   const { requireSession, assertCanWrite } = await import("@/lib/auth");
   const session = await requireSession();
