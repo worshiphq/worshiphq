@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { runAutomations } from "@/lib/automations/run";
+import { refreshUsdToGhsRate } from "@/lib/integrations/fx";
 
 export const dynamic = "force-dynamic";
 // Allow longer execution for churches with many members.
@@ -21,8 +22,11 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Keep the USD→GHS rate fresh daily as a reliable backstop to the
+    // on-demand refresh (persisted to PlatformConfig).
+    const fxRate = await refreshUsdToGhsRate();
     const result = await runAutomations();
-    return Response.json({ ok: true, ...result });
+    return Response.json({ ok: true, fxRate, ...result });
   } catch (e) {
     console.error("[cron/automations] failed:", e);
     return new Response("Automation run failed", { status: 500 });

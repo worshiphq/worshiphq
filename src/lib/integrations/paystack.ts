@@ -2,6 +2,12 @@ import "server-only";
 import crypto from "node:crypto";
 import { env, features } from "@/lib/env";
 
+/** The currency the Paystack merchant account actually settles in. Prices may be
+ *  DISPLAYED in another currency (e.g. USD), but every charge is sent to Paystack
+ *  in this currency — sending an unsupported one fails with "currency not
+ *  supported by merchant". Ghana merchants settle in GHS. */
+export const SETTLEMENT_CURRENCY = env.PAYSTACK_CURRENCY || "GHS";
+
 export type InitResult = {
   ok: boolean;
   stubbed: boolean;

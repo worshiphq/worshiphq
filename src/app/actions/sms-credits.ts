@@ -4,10 +4,9 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { requireSession, assertCanWrite } from "@/lib/auth";
-import { initializePayment, newPaymentReference } from "@/lib/integrations/paystack";
+import { initializePayment, newPaymentReference, SETTLEMENT_CURRENCY } from "@/lib/integrations/paystack";
 import { addCredits } from "@/lib/sms/credits";
 import { getBundle } from "@/config/sms";
-import { getPlatformConfig } from "@/lib/data/platform-config";
 
 /**
  * Buy an SMS credit bundle via Paystack. In stub mode (no keys) the credits are
@@ -24,12 +23,11 @@ export async function buySmsCredits(bundleId: string) {
   const appUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
   const returnUrl = `${appUrl}/app/communications/credits?topup=${reference}`;
 
-  const platformConfig = await getPlatformConfig();
-
   const init = await initializePayment({
     email: session.email || `billing+${session.churchId}@worshiphq.org`,
+    // Bundles are priced in GHS and charged in the merchant's settlement currency.
     amount: bundle.priceGhs,
-    currency: platformConfig.currency,
+    currency: SETTLEMENT_CURRENCY,
     reference,
     callbackUrl: returnUrl,
     stubReturnUrl: returnUrl,

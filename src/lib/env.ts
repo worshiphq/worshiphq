@@ -40,6 +40,8 @@ const schema = z.object({
   NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: str,
   PAYSTACK_WEBHOOK_SECRET: str,
   PAYSTACK_CALLBACK_URL: str,
+  // Currency the Paystack merchant settles in (charges are always sent in this).
+  PAYSTACK_CURRENCY: z.string().default("GHS"),
 
   // ── SMS (Ghana providers) ────────────────────────────
   SMS_PROVIDER: z.enum(["arkesel", "hubtel", "mnotify", "twilio"]).default("arkesel"),

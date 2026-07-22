@@ -1,6 +1,7 @@
 import "server-only";
 import { cache } from "react";
 import { db } from "@/lib/db";
+import { getUsdToGhsRate } from "@/lib/integrations/fx";
 import { plans as defaultPlans } from "@/config/pricing";
 import {
   DEFAULT_PLAN_TABLE, PLAN_IDS,
@@ -123,8 +124,9 @@ export const getPlatformConfig = cache(async () => {
     currency: config.currency,
     currencySymbol: config.currencySymbol,
     prices,
-    /** GHS charged per 1 unit of display currency at Paystack checkout. */
-    usdToGhsRate: config.usdToGhsRate ?? 12.0,
+    /** Live GHS charged per 1 USD at Paystack checkout. Falls back to the
+     *  DB-stored value (kept fresh by the FX helper), then a sane default. */
+    usdToGhsRate: getUsdToGhsRate(config.usdToGhsRate ?? 12.0),
     /** Full editable plan definitions (marketing + limits + features). */
     planDefs,
     /** Ordered list, handy for rendering pricing tables. */

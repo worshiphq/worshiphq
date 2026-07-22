@@ -8,7 +8,7 @@ import crypto from "node:crypto";
 import { sendSms } from "@/lib/integrations/sms";
 import { sendOtp, verifyOtp } from "@/lib/auth/otp";
 import { normalisePhone } from "@/lib/phone";
-import { initializePayment, newPaymentReference } from "@/lib/integrations/paystack";
+import { initializePayment, newPaymentReference, SETTLEMENT_CURRENCY } from "@/lib/integrations/paystack";
 import { env } from "@/lib/env";
 import type { Role } from "@prisma/client";
 import { sendEmail } from "@/lib/integrations/email";
@@ -609,7 +609,7 @@ export async function changePlan(plan: string, interval: "monthly" | "yearly") {
   const init = await initializePayment({
     email: session.email || `billing+${session.churchId}@worshiphq.org`,
     amount: chargeAmountGhs,
-    currency: "GHS",
+    currency: SETTLEMENT_CURRENCY,
     reference,
     callbackUrl: returnUrl,
     stubReturnUrl: returnUrl,
