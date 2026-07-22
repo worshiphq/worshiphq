@@ -34,6 +34,7 @@ import {
   Crown,
   Baby,
   Sun,
+  Download,
 } from "lucide-react";
 
 export interface NavItem {
@@ -114,6 +115,7 @@ export const nav: NavSection[] = [
     title: "Organisation",
     items: [
       { key: "settings", label: "Assets", href: "/app/assets", icon: Package },
+      { key: "settings", label: "Download data", href: "/app/export", icon: Download },
       { key: "settings", label: "Audit log", href: "/app/audit-log", icon: ScrollText },
       { key: "settings", label: "Settings", href: "/app/settings", icon: Settings },
     ],

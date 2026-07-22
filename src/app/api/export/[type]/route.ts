@@ -2,6 +2,8 @@ import type { NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getFormDefinition } from "@/lib/forms/registration";
+import { hasSection } from "@/lib/permissions";
+import { DATASETS } from "@/lib/export/datasets";
 import ExcelJS from "exceljs";
 
 export const dynamic = "force-dynamic";
@@ -201,7 +203,16 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
       ];
     }
   } else {
-    return new Response("Unknown export type", { status: 404 });
+    // Fall back to the shared dataset registry so every tab can export without
+    // duplicating query logic here.
+    const ds = DATASETS.find((x) => x.key === type);
+    if (!ds) return new Response("Unknown export type", { status: 404 });
+    if (!hasSection(session, ds.section)) return new Response("Forbidden", { status: 403 });
+    const data = await ds.fetch(churchId);
+    baseName = ds.key;
+    sheetTitle = ds.label;
+    headers = data.headers;
+    rows = data.rows;
   }
 
   if (format === "xlsx") {
