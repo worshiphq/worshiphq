@@ -30,6 +30,7 @@ import { createDepartment, deleteDepartment } from "@/app/actions/departments";
 import { plans as defaultPlans } from "@/config/pricing";
 import type { PlanPrices } from "@/lib/data/platform-config";
 import { getPlanLimits, type PlanId } from "@/lib/plan-gate";
+import { usePaystack } from "@/components/payments/use-paystack";
 import { cn } from "@/lib/utils";
 
 type FeatureMap = Record<string, boolean>;
@@ -858,6 +859,8 @@ function BillingTab({ subscription, features, ro, platformPricing }: { subscript
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  const { start: startPaystack } = usePaystack();
+
   const triggerCelebration = useCallback((newPlanId: string) => {
     const p = plans.find((pl) => pl.id === newPlanId);
     if (p) {
@@ -1117,16 +1120,27 @@ function BillingTab({ subscription, features, ro, platformPricing }: { subscript
                 disabled={switching}
                 onClick={() => {
                   startSwitch(async () => {
-                    try {
-                      const res = await changePlan(upgradePlan.id, interval);
-                      if (res && "error" in res) alert(res.error);
-                      else if (res && "plan" in res) {
-                        setUpgradePlan(null);
-                        setShowPlans(false);
-                        triggerCelebration(res.plan as string);
-                      }
-                    } catch {
-                      // redirect() throws NEXT_REDIRECT — expected for Paystack checkout
+                    const res = await changePlan(upgradePlan.id, interval);
+                    if (res && "error" in res) { alert(res.error); return; }
+                    if (!res || !("plan" in res)) return;
+                    const planId = res.plan as string;
+                    const planName = upgradePlan.name;
+                    // Live mode returns payment init → open the in-app popup and
+                    // celebrate once the charge succeeds. Stub/free celebrates now.
+                    if ("payment" in res && res.payment) {
+                      await startPaystack(res.payment, {
+                        onSuccess: async (ref) => {
+                          await verifyPlanUpgrade(ref, planId, interval);
+                          setUpgradePlan(null);
+                          setShowPlans(false);
+                          triggerCelebration(planId);
+                        },
+                        onError: (m) => alert(m),
+                      });
+                    } else {
+                      setUpgradePlan(null);
+                      setShowPlans(false);
+                      triggerCelebration(planId);
                     }
                   });
                 }}

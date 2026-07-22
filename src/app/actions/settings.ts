@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, hashPassword, verifyPassword } from "@/lib/auth";
@@ -639,7 +638,11 @@ export async function changePlan(plan: string, interval: "monthly" | "yearly") {
     return { ok: true, plan };
   }
 
-  if (init.ok && init.authorizationUrl) redirect(init.authorizationUrl);
+  // Live mode: hand the payment init back so the client opens the in-app
+  // Paystack popup, then confirms via verifyPlanUpgrade on success.
+  if (init.ok && (init.accessCode || init.authorizationUrl)) {
+    return { ok: true as const, plan, payment: init };
+  }
   return { error: init.error ?? "Could not start payment. Please try again." };
 }
 

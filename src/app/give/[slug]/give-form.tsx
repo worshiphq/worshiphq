@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { startOnlineGift } from "@/app/actions/public-giving";
-import { SubmitButton } from "@/components/ui/submit-button";
+import { usePaystack } from "@/components/payments/use-paystack";
 
 const PRESETS = [20, 50, 100, 200, 500];
 const METHODS = ["MTN MoMo", "Telecel Cash", "AirtelTigo", "Card"];
@@ -20,13 +20,37 @@ export function GiveForm({
 }) {
   const [amount, setAmount] = useState<string>("100");
   const [method, setMethod] = useState<string>("MTN MoMo");
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const { start } = usePaystack();
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setError(null);
+    setSubmitting(true);
+    try {
+      const init = await startOnlineGift(new FormData(e.currentTarget));
+      if (!init.ok) {
+        // Live-mode failure still has a thank-you URL only in stub; show error.
+        if (init.error) { setError(init.error); return; }
+      }
+      await start(init, {
+        onSuccess: () => { window.location.href = init.thankYouUrl; },
+        onCancel: () => setSubmitting(false),
+        onError: (m) => { setError(m); setSubmitting(false); },
+      });
+    } catch {
+      setError("Something went wrong starting your gift. Please try again.");
+      setSubmitting(false);
+    }
+  }
 
   const base =
     "flex h-11 w-full rounded-xl border border-[#e8e2d6] bg-white px-3.5 text-sm text-[#1c1a16] placeholder:text-[#a09888] focus-visible:border-[#0d7377]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0d7377]/20";
 
   return (
     <form
-      action={startOnlineGift}
+      onSubmit={handleSubmit}
       className="space-y-6 rounded-2xl border border-[#e8e2d6] bg-white p-6 shadow-sm sm:p-8"
     >
       <input type="hidden" name="churchSlug" value={churchSlug} />
@@ -128,13 +152,15 @@ export function GiveForm({
       </fieldset>
 
       <div className="border-t border-[#e8e2d6] pt-6">
-        <SubmitButton
-          pendingLabel="Redirecting to secure checkout…"
-          className="w-full rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2"
+        {error && <p className="mb-3 text-center text-sm text-red-600">{error}</p>}
+        <button
+          type="submit"
+          disabled={submitting}
+          className="w-full rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-60"
           style={{ backgroundColor: accentColor }}
         >
-          Give ₵{amount || "0"} now
-        </SubmitButton>
+          {submitting ? "Opening secure checkout…" : `Give ₵${amount || "0"} now`}
+        </button>
         <p className="mt-3 text-center text-xs text-[#a09888]">
           Secure giving to {churchName} via Paystack. You'll receive a receipt by SMS or email.
         </p>

@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -19,7 +18,7 @@ export async function buySmsCredits(bundleId: string) {
   const session = await requireSession();
   assertCanWrite(session);
   const bundle = getBundle(bundleId);
-  if (!bundle) return;
+  if (!bundle) return { ok: false, stubbed: false, reference: "", error: "Unknown bundle." };
 
   const reference = newPaymentReference();
   const appUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
@@ -50,8 +49,9 @@ export async function buySmsCredits(bundleId: string) {
     revalidatePath("/app/communications/credits");
   }
 
-  if (init.ok && init.authorizationUrl) redirect(init.authorizationUrl);
-  redirect(returnUrl);
+  // Return the init result so the client opens the in-app Paystack popup.
+  // (Stub mode carries authorizationUrl = returnUrl for the redirect fallback.)
+  return init;
 }
 
 /** Toggle the welcome-SMS-on-registration setting. */

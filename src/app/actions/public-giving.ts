@@ -1,6 +1,5 @@
 "use server";
 
-import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { initializePayment, newPaymentReference } from "@/lib/integrations/paystack";
@@ -16,18 +15,30 @@ import { getPlatformConfig } from "@/lib/data/platform-config";
  * - In stub mode (no keys) → record the Gift immediately and go to thank-you, so
  *   the whole flow is demoable without credentials.
  */
-export async function startOnlineGift(formData: FormData): Promise<void> {
+export type GiftInit = {
+  ok: boolean;
+  stubbed: boolean;
+  accessCode?: string;
+  authorizationUrl?: string;
+  reference: string;
+  thankYouUrl: string;
+  error?: string;
+};
+
+const giftError = (error: string): GiftInit => ({ ok: false, stubbed: false, reference: "", thankYouUrl: "", error });
+
+export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
   const churchSlug = String(formData.get("churchSlug") ?? "").trim();
-  if (!churchSlug) return;
+  if (!churchSlug) return giftError("Missing church.");
 
   const church = await db.church.findUnique({
     where: { slug: churchSlug },
     select: { id: true, isDemo: true },
   });
-  if (!church || church.isDemo) return;
+  if (!church || church.isDemo) return giftError("This church can't receive gifts right now.");
 
   const amount = Number(formData.get("amount") ?? 0);
-  if (!amount || amount <= 0) return;
+  if (!amount || amount <= 0) return giftError("Enter a valid amount.");
 
   const donorName = String(formData.get("donor") ?? "").trim() || "Anonymous";
   const email = String(formData.get("email") ?? "").trim() || null;
@@ -77,10 +88,15 @@ export async function startOnlineGift(formData: FormData): Promise<void> {
     });
   }
 
-  if (init.ok && init.authorizationUrl) {
-    redirect(init.authorizationUrl);
-  }
-
-  // Fallback: if initialization failed, still land the donor on thank-you.
-  redirect(thankYouUrl);
+  // Hand the init back so the donor pays in an in-app popup; stub mode carries
+  // the thank-you URL as authorizationUrl for the redirect fallback.
+  return {
+    ok: init.ok,
+    stubbed: init.stubbed,
+    accessCode: init.accessCode,
+    authorizationUrl: init.authorizationUrl ?? thankYouUrl,
+    reference,
+    thankYouUrl,
+    error: init.error,
+  };
 }

@@ -6,6 +6,8 @@ export type InitResult = {
   ok: boolean;
   stubbed: boolean;
   authorizationUrl?: string;
+  /** Access code for the in-app Paystack Inline popup (resumeTransaction). */
+  accessCode?: string;
   reference: string;
   error?: string;
 };
@@ -70,6 +72,7 @@ export async function initializePayment(opts: {
       stubbed: false,
       reference,
       authorizationUrl: data?.data?.authorization_url,
+      accessCode: data?.data?.access_code,
       error: data?.message,
     };
   } catch (e) {

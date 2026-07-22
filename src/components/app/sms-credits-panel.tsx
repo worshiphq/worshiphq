@@ -1,11 +1,14 @@
 "use client";
 
-import { MessageSquare, Check } from "lucide-react";
+import { useState } from "react";
+import { useRouter } from "next/navigation";
+import { MessageSquare, Check, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
-import { ActionButton } from "@/components/ui/action-button";
+import { Button } from "@/components/ui/button";
 import { SMS_BUNDLES } from "@/config/sms";
 import { buySmsCredits, setWelcomeSms } from "@/app/actions/sms-credits";
 import { useFeedback } from "@/components/ui/feedback";
+import { usePaystack } from "@/components/payments/use-paystack";
 import { cn } from "@/lib/utils";
 
 export function SmsCreditsPanel({
@@ -17,7 +20,26 @@ export function SmsCreditsPanel({
   welcomeOn: boolean;
   canWrite: boolean;
 }) {
-  const { run } = useFeedback();
+  const { run, toast } = useFeedback();
+  const { start } = usePaystack();
+  const router = useRouter();
+  const [busyBundle, setBusyBundle] = useState<string | null>(null);
+
+  async function buy(bundleId: string) {
+    setBusyBundle(bundleId);
+    try {
+      const init = await buySmsCredits(bundleId);
+      await start(init, {
+        onSuccess: () => {
+          toast("Payment received — your credits are on the way.", "success");
+          router.refresh();
+        },
+        onError: (m) => toast(m, "error"),
+      });
+    } finally {
+      setBusyBundle(null);
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -58,15 +80,14 @@ export function SmsCreditsPanel({
               <div className="text-xs text-ink-faint">credits</div>
               <div className="mt-3 text-lg font-semibold text-ink">₵{b.priceGhs}</div>
               <div className="text-xs text-ink-faint">≈ ₵{(b.priceGhs / b.credits).toFixed(3)} / SMS</div>
-              <ActionButton
-                action={() => buySmsCredits(b.id)}
-                disabled={!canWrite}
-                pendingLabel="Starting checkout…"
+              <Button
+                onClick={() => buy(b.id)}
+                disabled={!canWrite || busyBundle !== null}
                 className="mt-4 w-full"
                 size="sm"
               >
-                Buy
-              </ActionButton>
+                {busyBundle === b.id ? <><Loader2 className="mr-1.5 size-3.5 animate-spin" /> Starting…</> : "Buy"}
+              </Button>
             </Card>
           ))}
         </div>
