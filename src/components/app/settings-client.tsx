@@ -20,7 +20,7 @@ import {
   changeUserRole, removeTeamMember,
   createCustomRole, deleteCustomRole, requestSenderId,
   updateRolePermissions, changePlan, redeemPlanBypass, verifyPlanUpgrade,
-  saveVisitorForm, saveChildrenForm, saveTeensForm, updateSlug,
+  saveVisitorForm, saveChildrenForm, saveTeensForm, updateSlug, inviteBudgetLeader,
 } from "@/app/actions/settings";
 import { ALL_MODULES, SECTION_GROUPS, MODULE_LABELS } from "@/lib/permissions";
 import { BrandingForm } from "@/components/app/branding-form";
@@ -245,6 +245,40 @@ export function SettingsClient({
                 <p className="mt-2 text-xs text-ink-faint">
                   They get a text with a link to accept, verify their number, set a password and add a photo — like a Discord invite. A temp password is optional.
                 </p>
+              </Card>
+            )}
+
+            {/* ── Department budget leaders ── */}
+            {isAdmin && (
+              <Card className="p-6">
+                <h3 className="flex items-center gap-2 font-display text-base font-semibold">
+                  <Wallet className="size-4" /> Department budget leaders
+                </h3>
+                <p className="mt-1 text-sm text-ink-muted">
+                  Give a ministry leader a scoped login to record their own income &amp; expenses. They see <b>only</b> their department&rsquo;s budget — nothing else.
+                </p>
+                {departments.length === 0 ? (
+                  <p className="mt-3 rounded-lg bg-surface-2 px-3 py-2 text-xs text-ink-faint">
+                    Add a department first (Departments tab) so you can assign a budget leader to it.
+                  </p>
+                ) : (
+                  <form action={inviteBudgetLeader} className="mt-4 grid gap-3 sm:grid-cols-2">
+                    <Input name="name" placeholder="Leader's full name" required disabled={ro} />
+                    <Input name="phone" type="tel" placeholder="Mobile number (SMS invite)" required disabled={ro} />
+                    <Input name="email" type="email" placeholder="Email (optional)" disabled={ro} />
+                    <select
+                      name="departmentId"
+                      required
+                      disabled={ro}
+                      defaultValue=""
+                      className="flex h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    >
+                      <option value="" disabled>Choose department…</option>
+                      {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+                    </select>
+                    <SubmitButton className="sm:col-span-2" disabled={ro} pendingLabel="Sending invite…" successMessage="Budget leader invited">Invite budget leader</SubmitButton>
+                  </form>
+                )}
               </Card>
             )}
 

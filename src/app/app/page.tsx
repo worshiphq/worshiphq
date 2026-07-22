@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import {
   Users, CalendarCheck2, HandCoins, MessageSquare, Cake, ArrowRight,
   UserPlus, Send, CalendarPlus, Heart, Clock, TrendingUp, ChevronRight, Crown,
@@ -27,6 +28,8 @@ const quickActions = [
 
 export default async function DashboardPage() {
   const session = await requireSession();
+  // Scoped budget leaders have no dashboard — send them to their budget.
+  if (session.budgetDepartmentId) redirect("/app/budgets");
   const { kpis, trend, todaysBirthdays, events, careTasks, recentMembers, departmentBreakdown, leaders, totalLeaders, featuredLeaderCount } = await getDashboard(session.churchId);
   const has = (m: string) => session.sections.includes(m);
   const h = new Date().getHours();

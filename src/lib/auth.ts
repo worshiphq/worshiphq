@@ -174,7 +174,9 @@ async function _getSession(): Promise<Session | null> {
   // A scoped department-budget leader only ever sees their department's budget,
   // expenses and income — regardless of role.
   if (user.budgetDepartmentId) {
-    const scoped = ["budgets", "expenses"];
+    // Scoped to just their department budget (income/expenses live inside it) —
+    // never the church-wide Expenses/Accounting tabs.
+    const scoped = ["budgets"];
     return {
       userId: user.id,
       name: user.name,

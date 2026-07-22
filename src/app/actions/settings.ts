@@ -429,6 +429,51 @@ export async function inviteTeammate(formData: FormData) {
   revalidatePath("/app/settings");
 }
 
+/** Invite a department budget leader — a scoped account that only ever sees its
+ *  own department's budget, income and expenses. Uses the same SMS accept flow. */
+export async function inviteBudgetLeader(formData: FormData) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  if (session.role !== "Owner" && session.role !== "Admin") return;
+
+  const name = String(formData.get("name") ?? "").trim();
+  const phone = normalisePhone(String(formData.get("phone") ?? ""));
+  const emailRaw = String(formData.get("email") ?? "").toLowerCase().trim();
+  const departmentId = String(formData.get("departmentId") ?? "").trim();
+  if (!name || phone.length < 10 || !departmentId) return;
+
+  const dept = await db.department.findFirst({ where: { id: departmentId, churchId: session.churchId }, select: { id: true, name: true } });
+  if (!dept) return;
+
+  const email = emailRaw || `p${phone.replace(/\D/g, "")}@invite.worshiphq.app`;
+  if (await db.user.findUnique({ where: { email } })) return;
+  if (await db.user.findFirst({ where: { churchId: session.churchId, phone } })) return;
+
+  const inviteToken = crypto.randomBytes(24).toString("base64url");
+  await db.user.create({
+    data: {
+      churchId: session.churchId,
+      email,
+      name,
+      phone,
+      role: "Volunteer",
+      budgetDepartmentId: dept.id,
+      inviteToken,
+    },
+  });
+
+  const church = await db.church.findUnique({ where: { id: session.churchId }, select: { name: true } });
+  const appUrl = env.NEXT_PUBLIC_APP_URL ?? "https://worshiphq.app";
+  const acceptUrl = `${appUrl}/invite/${inviteToken}`;
+  await sendSms(
+    phone,
+    `You've been made ${dept.name} budget leader at ${church?.name ?? "your church"} on WorshipHQ. Set up your account: ${acceptUrl}`,
+    { heading: null },
+  );
+
+  revalidatePath("/app/settings");
+}
+
 /** Change a team member's role (Owner/Admin only). */
 export async function changeUserRole(formData: FormData) {
   const session = await requireSession();
