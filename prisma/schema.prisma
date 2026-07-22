@@ -120,6 +120,7 @@ model Church {
   counselingSessions CounselingSession[]
   budgets        Budget[]
   budgetItems    BudgetItem[]
+  budgetEntries  BudgetEntry[]
   volunteerRosters VolunteerRoster[]
   volunteerSlots  VolunteerSlot[]
   dayBornWeeks    DayBornWeek[]
@@ -170,6 +171,7 @@ model Department {
   members   Person[] @relation("PersonDepartments") // many-to-many membership
   positions DepartmentPosition[]
   budgetLeaders User[] @relation("DepartmentBudgetLeaders")
+  budgets   Budget[] @relation("DepartmentBudgets")
 
   @@unique([churchId, name])
   @@index([churchId])
@@ -1048,6 +1050,10 @@ model Budget {
   id        String   @id @default(cuid())
   churchId  String
   church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  // Optional owning department/ministry/auxiliary. When set, that department's
+  // budget leaders manage it and see only their own budget(s).
+  departmentId String?
+  department   Department? @relation("DepartmentBudgets", fields: [departmentId], references: [id], onDelete: SetNull)
   name      String
   year      Int
   quarter   Int?     // null = annual, 1-4 = quarterly
@@ -1055,9 +1061,31 @@ model Budget {
   total     Float    @default(0)
   notes     String?  @db.Text
   items     BudgetItem[]
+  entries   BudgetEntry[]
   createdAt DateTime @default(now())
 
   @@index([churchId, year])
+  @@index([departmentId])
+}
+
+// Actual money in/out logged against a budget by a department leader (or admin).
+// Planned lines live in BudgetItem; these are the real transactions.
+model BudgetEntry {
+  id          String   @id @default(cuid())
+  churchId    String
+  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  budgetId    String
+  budget      Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  type        String   // "income" | "expense"
+  description String
+  category    String?
+  amount      Float
+  date        DateTime @default(now())
+  createdById String?  // the user/leader who logged it
+  createdAt   DateTime @default(now())
+
+  @@index([churchId])
+  @@index([budgetId])
 }
 
 model BudgetItem {

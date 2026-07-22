@@ -1,6 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Bricolage_Grotesque, Plus_Jakarta_Sans, JetBrains_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Poppins, JetBrains_Mono } from "next/font/google";
 import { brand } from "@/config/brand";
 import { ServiceWorker } from "@/components/pwa/service-worker";
 import { FeedbackProvider } from "@/components/ui/feedback";
@@ -14,7 +14,7 @@ const display = Bricolage_Grotesque({
   display: "swap",
 });
 
-const sans = Plus_Jakarta_Sans({
+const sans = Poppins({
   subsets: ["latin"],
   variable: "--ff-sans",
   weight: ["300", "400", "500", "600", "700"],
