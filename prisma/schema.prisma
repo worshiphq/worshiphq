@@ -30,6 +30,13 @@ model PlatformConfig {
   // Shape per plan: { name, tagline, membersLabel, memberLimit, teamUsers,
   //                   featured, cta, marketingFeatures: [], features: [] }
   planDefs Json?
+  // ── Refund policy (surfaced in the Refund Policy page and enforced in code) ──
+  /** Days a church may request a refund on their FIRST paid subscription. */
+  refundWindowFirstDays   Int @default(14)
+  /** Days a church may request a refund on a renewal (accidental charges). */
+  refundWindowRenewalDays Int @default(7)
+  /** How long we tell churches a review takes. */
+  refundSlaHours          Int @default(24)
   updatedAt DateTime @updatedAt
 }
 

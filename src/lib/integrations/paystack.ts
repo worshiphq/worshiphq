@@ -86,6 +86,61 @@ export async function initializePayment(opts: {
   }
 }
 
+export type RefundResult = {
+  ok: boolean;
+  stubbed: boolean;
+  /** Paystack's own reference for the refund record. */
+  refundRef?: string;
+  status?: string;
+  error?: string;
+};
+
+/**
+ * Refund a transaction. `amountGhs` refunds only part of it; omit for a full
+ * refund. Paystack processes it and then sends refund.processed / refund.failed
+ * webhooks — money typically reaches the customer's bank in 5–10 working days.
+ */
+export async function refundTransaction(opts: {
+  reference: string;
+  amountGhs?: number;
+  merchantNote?: string;
+  customerNote?: string;
+}): Promise<RefundResult> {
+  if (!features.payments) {
+    console.info(`[Paystack:stub] refund ${opts.reference} (${opts.amountGhs ?? "full"})`);
+    return { ok: true, stubbed: true, refundRef: `stub_refund_${Date.now()}`, status: "processed" };
+  }
+
+  try {
+    const res = await fetch("https://api.paystack.co/refund", {
+      method: "POST",
+      headers: {
+        authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        transaction: opts.reference,
+        ...(opts.amountGhs ? { amount: Math.round(opts.amountGhs * 100) } : {}),
+        currency: SETTLEMENT_CURRENCY,
+        merchant_note: opts.merchantNote,
+        customer_note: opts.customerNote,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data?.status) {
+      return { ok: false, stubbed: false, error: data?.message ?? "Paystack rejected the refund." };
+    }
+    return {
+      ok: true,
+      stubbed: false,
+      refundRef: data?.data?.id ? String(data.data.id) : undefined,
+      status: data?.data?.status,
+    };
+  } catch (e) {
+    return { ok: false, stubbed: false, error: (e as Error).message };
+  }
+}
+
 /**
  * Verify a Paystack webhook signature. Paystack signs the raw request body with
  * HMAC-SHA512 using your secret key and sends it as the `x-paystack-signature`

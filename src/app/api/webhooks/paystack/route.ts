@@ -31,6 +31,33 @@ export async function POST(request: NextRequest) {
     return new Response("Bad payload", { status: 400 });
   }
 
+  // ── Refund lifecycle ── Paystack processes an approved refund asynchronously
+  // and then tells us the outcome. Settle the request + mark the payment.
+  if (event.event === "refund.processed" || event.event === "refund.failed") {
+    const refundData = (event.data ?? {}) as { transaction?: { reference?: string } | string; reference?: string };
+    const txnRef =
+      typeof refundData.transaction === "object"
+        ? refundData.transaction?.reference
+        : (refundData.transaction ?? refundData.reference);
+    if (txnRef) {
+      const payment = await db.planPayment.findUnique({ where: { reference: txnRef }, select: { id: true } });
+      if (payment) {
+        const req = await db.refundRequest.findFirst({
+          where: { paymentId: payment.id, status: { in: ["processing", "approved"] } },
+          orderBy: { requestedAt: "desc" },
+          select: { id: true },
+        });
+        if (event.event === "refund.processed") {
+          if (req) await db.refundRequest.update({ where: { id: req.id }, data: { status: "processed", processedAt: new Date() } });
+          await db.planPayment.update({ where: { id: payment.id }, data: { status: "refunded" } });
+        } else if (req) {
+          await db.refundRequest.update({ where: { id: req.id }, data: { status: "failed", failureReason: "Paystack reported the refund failed." } });
+        }
+      }
+    }
+    return Response.json({ received: true });
+  }
+
   if (event.event !== "charge.success") {
     // Acknowledge everything else so Paystack doesn't retry.
     return Response.json({ received: true });

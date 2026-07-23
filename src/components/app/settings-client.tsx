@@ -16,6 +16,7 @@ import { Input, Label } from "@/components/ui/input";
 import type { Session } from "@/lib/permissions";
 import { ROLE_PERMISSIONS } from "@/lib/permissions";
 import { submitPaymentRequest, getPaymentRequestStatus } from "@/app/actions/payment-request";
+import { checkRefundEligibility, requestRefund } from "@/app/actions/refunds";
 import {
   updateChurch, inviteTeammate,
   changeUserRole, removeTeamMember,
@@ -60,6 +61,12 @@ type TeamUser = { id: string; name: string; email: string; role: string; customR
 type Dept = { id: string; name: string };
 type CustomRoleRow = { id: string; name: string; sections: string[]; manageSections?: string[]; canDelete: boolean };
 type SubscriptionData = { plan: string; status: string; interval: string; renewsAt: Date | null; bypassPlan: string | null; scheduledPlan?: string | null; cancelAtPeriodEnd?: boolean } | null;
+type RefundEligibilityData = {
+  eligible: boolean;
+  reason?: string;
+  deadline?: string | null;
+  slaHours?: number;
+};
 type PlanChangePreviewData = {
   direction: string;
   amountDueUsd: number;
@@ -973,6 +980,17 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
   const currentPlanId = subscription?.plan ?? "free";
   // Downgrades never charge and never refund — they're scheduled for period end.
   const isDowngrade = changePreview?.direction === "downgrade";
+
+  // Refund request drawer state.
+  const [refundFor, setRefundFor] = useState<PlanPaymentRow | null>(null);
+  const [refundElig, setRefundElig] = useState<RefundEligibilityData | null>(null);
+  const [refundLoading, startRefundCheck] = useTransition();
+  const [, startRefund] = useTransition();
+  function openRefund(p: PlanPaymentRow) {
+    setRefundFor(p);
+    setRefundElig(null);
+    startRefundCheck(async () => setRefundElig(await checkRefundEligibility(p.id)));
+  }
   const currentPlan = plans.find((p) => p.id === currentPlanId) ?? plans[0];
   const isGrace = subscription?.status === "grace";
   const price = interval === "yearly" ? currentPlan.yearly / 12 : currentPlan.monthly;
@@ -1197,7 +1215,8 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
                   <th className="pb-2 pr-3">Plan</th>
                   <th className="pb-2 pr-3 text-right">Paid</th>
                   <th className="pb-2 pr-3">Status</th>
-                  <th className="pb-2">Reference</th>
+                  <th className="pb-2 pr-3">Reference</th>
+                  <th className="pb-2" />
                 </tr>
               </thead>
               <tbody>
@@ -1225,7 +1244,14 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
                         {p.status === "refunded" ? "Refunded" : "Paid"}
                       </span>
                     </td>
-                    <td className="py-2 font-mono text-[11px] text-ink-faint">{p.reference}</td>
+                    <td className="py-2 pr-3 font-mono text-[11px] text-ink-faint">{p.reference}</td>
+                    <td className="py-2 text-right">
+                      {p.status !== "refunded" && p.amountUsd > 0 && (
+                        <Button size="sm" variant="ghost" className="text-xs" onClick={() => openRefund(p)}>
+                          Request refund
+                        </Button>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -1233,6 +1259,82 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
           </div>
         )}
       </Card>
+
+      {/* ── Refund request drawer ── */}
+      {refundFor && (
+        <>
+          <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setRefundFor(null)} />
+          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l border-line bg-surface shadow-2xl">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-5 py-4">
+              <h2 className="font-display text-lg font-semibold">Request a refund</h2>
+              <button onClick={() => setRefundFor(null)} className="grid size-8 place-items-center rounded-lg hover:bg-surface-2">
+                <X className="size-5" />
+              </button>
+            </div>
+
+            <div className="p-5">
+              <div className="rounded-xl border border-line bg-surface-2/50 p-3 text-sm">
+                <div className="font-medium capitalize">{refundFor.plan} · {refundFor.interval}</div>
+                <div className="text-xs text-ink-muted">
+                  {sym}{refundFor.amountUsd.toLocaleString()} · paid {new Date(refundFor.paidAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
+                </div>
+              </div>
+
+              {refundLoading ? (
+                <div className="mt-4 flex items-center gap-2 text-sm text-ink-muted">
+                  <Spinner className="size-4 animate-spin" /> Checking eligibility…
+                </div>
+              ) : refundElig && !refundElig.eligible ? (
+                <div className="mt-4 rounded-xl border border-warning/30 bg-warning/10 p-3 text-sm text-warning">
+                  {refundElig.reason}
+                </div>
+              ) : refundElig ? (
+                <form
+                  className="mt-4 space-y-4"
+                  action={(fd) =>
+                    startRefund(async () => {
+                      fd.set("paymentId", refundFor.id);
+                      const res = await requestRefund(fd);
+                      if (!res?.ok) { alert(res?.error ?? "Couldn't submit."); return; }
+                      alert(res.message);
+                      setRefundFor(null);
+                      router.refresh();
+                    })
+                  }
+                >
+                  <div className="rounded-xl border border-info/30 bg-info/10 p-3 text-xs text-info">
+                    Refunds are reviewed within <b>{refundElig.slaHours ?? 24} hours</b>. If approved, Paystack sends it to your
+                    bank — usually <b>5–10 working days</b>. This window closes{" "}
+                    {refundElig.deadline && <b>{new Date(refundElig.deadline).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</b>}.
+                    To simply move to a cheaper plan, use a <b>downgrade</b> instead.
+                  </div>
+                  <div>
+                    <Label>Why are you requesting a refund?</Label>
+                    <textarea
+                      name="reason"
+                      rows={3}
+                      required
+                      minLength={10}
+                      placeholder="Tell us briefly what happened…"
+                      className="w-full rounded-xl border border-line bg-base px-3 py-2 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    />
+                  </div>
+                  <label className="flex items-start gap-2 text-xs text-ink-muted">
+                    <input type="checkbox" name="accepted" className="mt-0.5 size-4 rounded border-line accent-primary" />
+                    <span>
+                      I&rsquo;ve read the <a href="/refund-policy" target="_blank" className="font-semibold text-primary hover:underline">Refund Policy</a> and
+                      understand a refund can take 5–10 working days to reach my bank after approval.
+                    </span>
+                  </label>
+                  <SubmitButton className="w-full" pendingLabel="Submitting…" successMessage="Request submitted">
+                    Submit refund request
+                  </SubmitButton>
+                </form>
+              ) : null}
+            </div>
+          </div>
+        </>
+      )}
 
       {upgradePlan && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setUpgradePlan(null)}>
