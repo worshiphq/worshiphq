@@ -185,6 +185,8 @@ export async function updateChurch(formData: FormData) {
       city: String(formData.get("city") ?? "").trim() || null,
       country: String(formData.get("country") ?? "Ghana").trim() || "Ghana",
       address: String(formData.get("address") ?? "").trim() || null,
+      // Admins get SMS+email when a member submits a prayer/testimony/counselling.
+      notifySubmissions: formData.get("notifySubmissions") === "on",
       // logoUrl is managed in the Branding tab (updateBranding), not here.
     },
   });

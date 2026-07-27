@@ -44,6 +44,7 @@ type Church = {
   city: string;
   country: string;
   address: string;
+  notifySubmissions?: boolean;
   accentColor: string;
   logoUrl: string;
   slug: string;
@@ -179,6 +180,13 @@ export function SettingsClient({
                 <div><Label>Country</Label><Input name="country" defaultValue={church?.country ?? "Ghana"} disabled={ro} /></div>
                 <div className="sm:col-span-2"><Label>Address</Label><Input name="address" defaultValue={church?.address ?? ""} disabled={ro} /></div>
               </div>
+              <label className="mt-4 flex items-start gap-2 rounded-xl border border-line bg-surface-2/40 p-3 text-sm text-ink-muted">
+                <input type="checkbox" name="notifySubmissions" defaultChecked={church?.notifySubmissions ?? true} disabled={ro} className="mt-0.5 size-4 rounded border-line accent-primary" />
+                <span>
+                  <span className="font-medium text-ink">Notify admins of new submissions</span> — text &amp; email your admins when a member sends a
+                  prayer request, testimony or counselling request.
+                </span>
+              </label>
               <p className="mt-3 text-xs text-ink-faint">Add your church logo in the <span className="font-medium text-ink-muted">Branding</span> tab.</p>
               <SubmitButton className="mt-5" disabled={ro} successMessage="Changes saved">Save changes</SubmitButton>
             </form>

@@ -62,6 +62,7 @@ export default async function SettingsPage() {
       city: church.city ?? "",
       country: church.country ?? "Ghana",
       address: church.address ?? "",
+      notifySubmissions: church.notifySubmissions ?? true,
       accentColor: church.accentColor ?? "#0d7377",
       logoUrl: church.logoUrl ?? "",
       slug: church.slug,

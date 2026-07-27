@@ -32,6 +32,13 @@ export async function createTestimony(formData: FormData) {
   });
 
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "testimony", entityId: testimony.id, detail: `Added testimony "${title}"` });
+
+  const { notifyChurchAdmins } = await import("@/lib/notify/admins");
+  await notifyChurchAdmins(session.churchId, {
+    subject: "New testimony",
+    sms: `✨ New testimony at your church: "${title}". Open WorshipHQ to review or share it.`,
+  });
+
   revalidatePath("/app/testimonies");
 }
 

@@ -52,6 +52,9 @@ model Church {
   smsCredits       Int     @default(50) // prepaid SMS units (50 free on signup)
   smsWelcomeMember Boolean @default(true) // SMS a welcome to members who self-register
   smsTier          String? // per-church SMS price tier override (null = use site default)
+  // Notify admins (SMS + email) when a member submits a prayer request,
+  // testimony or counselling request. Editable in Settings.
+  notifySubmissions Boolean @default(true)
   memberPrefix String? // member ID prefix, e.g. "GBC" (derived from name if unset)
   memberSeq    Int     @default(0) // last issued member number
   name         String

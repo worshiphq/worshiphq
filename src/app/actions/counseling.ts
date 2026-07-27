@@ -36,6 +36,13 @@ export async function createCounselingSession(formData: FormData) {
   });
 
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "counseling", entityId: cs.id, detail: `Added counseling session (${type})` });
+
+  const { notifyChurchAdmins } = await import("@/lib/notify/admins");
+  await notifyChurchAdmins(session.churchId, {
+    subject: "New counselling request",
+    sms: `🤝 A new counselling request (${type}) has been logged at your church. Open WorshipHQ to follow up.`,
+  });
+
   revalidatePath("/app/counseling");
 }
 
