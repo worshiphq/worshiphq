@@ -10,8 +10,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
 /**
- * Daily automations cron. Vercel Cron hits this once a day (see vercel.json) and
- * authenticates with the CRON_SECRET (sent as `Authorization: Bearer <secret>`).
+ * Daily automations cron. A scheduler hits this once a day and authenticates
+ * with the CRON_SECRET (sent as `Authorization: Bearer <secret>`).
  * Sends birthday/anniversary/visitor/lapsed messages for every church.
  *
  * If no CRON_SECRET is configured (stub mode) we allow the call but only on
@@ -47,7 +47,7 @@ function isAuthorized(request: NextRequest): boolean {
   }
   const header = request.headers.get("authorization");
   if (header === `Bearer ${secret}`) return true;
-  // Vercel Cron can also be configured to pass the secret as a query param.
+  // A scheduler can also be configured to pass the secret as a query param.
   const url = new URL(request.url);
   return url.searchParams.get("secret") === secret;
 }

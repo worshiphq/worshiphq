@@ -51,6 +51,7 @@ export default async function BudgetsPage() {
             disabled={session.isDemo}
           >
             <Field label="Budget name" name="name" placeholder="e.g. 2026 Youth Ministry" required />
+            <Field label="Allocated amount (₵)" name="amount" type="number" placeholder="e.g. 5000" required hint="The funds this budget is given. Income & expenses are tracked live against it." />
             <Field label="Department / ministry" name="departmentId" type="select" options={[
               { label: "Whole church (no department)", value: "" },
               ...departments.map((d) => ({ label: d.name, value: d.id })),

@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Trash2, ChevronDown, ChevronRight, Plus, Loader2, ArrowUpRight, ArrowDownRight } from "lucide-react";
-import { deleteBudget, deleteBudgetItem } from "@/app/actions/budgets";
+import { deleteBudget, deleteBudgetItem, setBudgetAmount } from "@/app/actions/budgets";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { useFeedback } from "@/components/ui/feedback";
 import { cn } from "@/lib/utils";
@@ -136,6 +136,29 @@ export function BudgetsClient({
 
                 {open && (
                   <div className="border-t border-line p-4">
+                    {/* Allocated amount (admins can adjust) */}
+                    <div className="mb-3 flex items-center justify-between text-sm">
+                      <span className="text-ink-muted">Allocated budget</span>
+                      <span className="flex items-center gap-2">
+                        <span className="font-semibold">{fmt(b.total)}</span>
+                        {!isLeader && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const v = prompt(`Set allocated amount for "${b.name}" (₵):`, String(b.total));
+                              const n = Number(v);
+                              if (v !== null && n >= 0) start(async () => {
+                                const fd = new FormData(); fd.set("id", b.id); fd.set("amount", String(n));
+                                await setBudgetAmount(fd); toast("Budget amount updated", "success");
+                              });
+                            }}
+                            className="rounded-md px-1.5 py-0.5 text-xs text-primary hover:bg-primary/10"
+                          >
+                            Edit
+                          </button>
+                        )}
+                      </span>
+                    </div>
                     {/* Spend progress vs allocation */}
                     <div className="mb-4 h-2 rounded-full bg-surface-2">
                       <div className={cn("h-2 rounded-full", pct > 90 ? "bg-danger" : pct > 70 ? "bg-gold" : "bg-success")} style={{ width: `${pct}%` }} />

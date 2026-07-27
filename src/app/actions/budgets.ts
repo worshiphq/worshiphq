@@ -22,6 +22,9 @@ export async function createBudget(formData: FormData) {
   const quarter = quarterStr ? parseInt(quarterStr) : null;
   const notes = String(formData.get("notes") ?? "").trim() || null;
   const departmentId = String(formData.get("departmentId") ?? "").trim() || null;
+  // The allocated amount — what this budget is funded with. Income/expense
+  // entries are tracked live against it (allocated + income − spent = balance).
+  const amount = Math.max(0, parseFloat(String(formData.get("amount") ?? "0")) || 0);
 
   // Guard the department belongs to this church.
   let deptId: string | null = null;
@@ -31,7 +34,7 @@ export async function createBudget(formData: FormData) {
   }
 
   const budget = await db.budget.create({
-    data: { churchId: session.churchId, name, year, quarter, notes, departmentId: deptId },
+    data: { churchId: session.churchId, name, year, quarter, notes, departmentId: deptId, total: amount },
   });
 
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "budget", entityId: budget.id, detail: `Created budget "${name}" for ${year}` });
@@ -51,11 +54,22 @@ export async function addBudgetItem(formData: FormData) {
   await db.budgetItem.create({
     data: { churchId: session.churchId, budgetId, category, description, amount },
   });
+  // Line items are a planned breakdown only — they never override the budget's
+  // allocated amount (Budget.total), which the admin sets directly.
 
-  const items = await db.budgetItem.findMany({ where: { budgetId }, select: { amount: true } });
-  const total = items.reduce((s, i) => s + i.amount, 0);
-  await db.budget.update({ where: { id: budgetId }, data: { total } });
+  revalidatePath("/app/budgets");
+}
 
+/** Change a budget's allocated amount after creation (admin only). */
+export async function setBudgetAmount(formData: FormData) {
+  const session = await requireModule("budgets");
+  if (session.isDemo || isLeader(session)) return;
+
+  const id = String(formData.get("id") ?? "").trim();
+  const amount = Math.max(0, parseFloat(String(formData.get("amount") ?? "0")) || 0);
+  if (!id) return;
+
+  await db.budget.updateMany({ where: { id, churchId: session.churchId }, data: { total: amount } });
   revalidatePath("/app/budgets");
 }
 
@@ -135,14 +149,6 @@ export async function deleteBudgetItem(formData: FormData) {
   if (session.isDemo || isLeader(session)) return;
 
   const id = String(formData.get("id"));
-  const item = await db.budgetItem.findFirst({ where: { id, churchId: session.churchId }, select: { budgetId: true } });
   await db.budgetItem.deleteMany({ where: { id, churchId: session.churchId } });
-
-  if (item) {
-    const items = await db.budgetItem.findMany({ where: { budgetId: item.budgetId }, select: { amount: true } });
-    const total = items.reduce((s, i) => s + i.amount, 0);
-    await db.budget.update({ where: { id: item.budgetId }, data: { total } });
-  }
-
   revalidatePath("/app/budgets");
 }
