@@ -55,6 +55,9 @@ model Church {
   // Notify admins (SMS + email) when a member submits a prayer request,
   // testimony or counselling request. Editable in Settings.
   notifySubmissions Boolean @default(true)
+  // Weekly digest of the week's upcoming birthdays sent to admins.
+  birthdayDigestOn  Boolean @default(true)
+  birthdayDigestDay Int     @default(1) // 0=Sun … 6=Sat (Monday default)
   memberPrefix String? // member ID prefix, e.g. "GBC" (derived from name if unset)
   memberSeq    Int     @default(0) // last issued member number
   name         String

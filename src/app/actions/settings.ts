@@ -187,6 +187,9 @@ export async function updateChurch(formData: FormData) {
       address: String(formData.get("address") ?? "").trim() || null,
       // Admins get SMS+email when a member submits a prayer/testimony/counselling.
       notifySubmissions: formData.get("notifySubmissions") === "on",
+      // Weekly upcoming-birthdays digest to admins.
+      birthdayDigestOn: formData.get("birthdayDigestOn") === "on",
+      birthdayDigestDay: (() => { const d = parseInt(String(formData.get("birthdayDigestDay") ?? "1")); return Number.isFinite(d) && d >= 0 && d <= 6 ? d : 1; })(),
       // logoUrl is managed in the Branding tab (updateBranding), not here.
     },
   });

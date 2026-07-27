@@ -45,6 +45,8 @@ type Church = {
   country: string;
   address: string;
   notifySubmissions?: boolean;
+  birthdayDigestOn?: boolean;
+  birthdayDigestDay?: number;
   accentColor: string;
   logoUrl: string;
   slug: string;
@@ -187,6 +189,20 @@ export function SettingsClient({
                   prayer request, testimony or counselling request.
                 </span>
               </label>
+              <div className="mt-3 rounded-xl border border-line bg-surface-2/40 p-3 text-sm text-ink-muted">
+                <label className="flex items-start gap-2">
+                  <input type="checkbox" name="birthdayDigestOn" defaultChecked={church?.birthdayDigestOn ?? true} disabled={ro} className="mt-0.5 size-4 rounded border-line accent-primary" />
+                  <span>
+                    <span className="font-medium text-ink">Weekly birthday digest</span> — text &amp; email admins the week&rsquo;s upcoming birthdays.
+                  </span>
+                </label>
+                <div className="mt-2 flex items-center gap-2 pl-6">
+                  <span className="text-xs text-ink-faint">Send every</span>
+                  <select name="birthdayDigestDay" defaultValue={String(church?.birthdayDigestDay ?? 1)} disabled={ro} className="h-8 rounded-lg border border-line bg-base px-2 text-xs">
+                    {["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"].map((d, i) => <option key={i} value={i}>{d}</option>)}
+                  </select>
+                </div>
+              </div>
               <p className="mt-3 text-xs text-ink-faint">Add your church logo in the <span className="font-medium text-ink-muted">Branding</span> tab.</p>
               <SubmitButton className="mt-5" disabled={ro} successMessage="Changes saved">Save changes</SubmitButton>
             </form>

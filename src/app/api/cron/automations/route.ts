@@ -4,6 +4,7 @@ import { runAutomations } from "@/lib/automations/run";
 import { refreshUsdToGhsRate } from "@/lib/integrations/fx";
 import { runPledgeReminders } from "@/lib/pledges/reminders";
 import { runBillingCycle } from "@/lib/billing/renewals";
+import { runBirthdayDigests } from "@/lib/automations/birthday-digest";
 
 export const dynamic = "force-dynamic";
 // Allow longer execution for churches with many members.
@@ -32,7 +33,9 @@ export async function GET(request: NextRequest) {
     const pledgeReminders = await runPledgeReminders();
     // Apply scheduled downgrades, send renewal reminders, lapse unpaid plans.
     const billing = await runBillingCycle();
-    return Response.json({ ok: true, fxRate, pledgeReminders, billing, ...result });
+    // Weekly digest of upcoming birthdays to admins (on each church's chosen day).
+    const birthdayDigest = await runBirthdayDigests();
+    return Response.json({ ok: true, fxRate, pledgeReminders, billing, birthdayDigest, ...result });
   } catch (e) {
     console.error("[cron/automations] failed:", e);
     return new Response("Automation run failed", { status: 500 });
