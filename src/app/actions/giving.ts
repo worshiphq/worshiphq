@@ -86,6 +86,8 @@ export interface TitheEntry {
   personId: string;
   amount: number;
   method: string;
+  /** Optional account the whole batch is banked into (else the default). */
+  accountId?: string | null;
 }
 
 export async function recordGivingBatch(fundName: string, entries: TitheEntry[]) {
@@ -104,6 +106,9 @@ export async function recordGivingBatch(fundName: string, entries: TitheEntry[])
   });
   const personMap = new Map(people.map((p) => [p.id, p]));
 
+  const { resolveAccountId } = await import("@/lib/data/accounts");
+  const batchAccountId = await resolveAccountId(session.churchId, entries[0]?.accountId ?? null);
+
   let recorded = 0;
   for (const entry of entries) {
     const person = personMap.get(entry.personId);
@@ -116,6 +121,7 @@ export async function recordGivingBatch(fundName: string, entries: TitheEntry[])
         personId: person.id,
         donorName: `${person.firstName} ${person.lastName}`,
         fundId: fund.id,
+        ...(batchAccountId ? { accountId: batchAccountId } : {}),
         amount: entry.amount,
         method,
         currency: "GHS",
@@ -137,6 +143,10 @@ export async function recordTitheBatch(entries: TitheEntry[]) {
   const titheFund =
     (await db.fund.findFirst({ where: { churchId: session.churchId, name: { equals: "Tithes", mode: "insensitive" } } })) ??
     (await db.fund.create({ data: { churchId: session.churchId, name: "Tithes" } }));
+
+  // Bank this batch into the chosen account, or the church's default.
+  const { resolveAccountId } = await import("@/lib/data/accounts");
+  const batchAccountId = await resolveAccountId(session.churchId, entries[0]?.accountId ?? null);
 
   const [people, church] = await Promise.all([
     db.person.findMany({
@@ -171,6 +181,7 @@ export async function recordTitheBatch(entries: TitheEntry[]) {
         personId: person.id,
         donorName,
         fundId: titheFund.id,
+        ...(batchAccountId ? { accountId: batchAccountId } : {}),
         amount: entry.amount,
         method,
         currency: "GHS",

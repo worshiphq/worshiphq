@@ -15,12 +15,14 @@ export async function createTransaction(formData: FormData) {
   const type = String(formData.get("type") ?? "Income");
   const amount = type === "Expense" ? -rawAmount : rawAmount;
 
+  const accountId = String(formData.get("accountId") ?? "").trim() || null;
   await db.transaction.create({
     data: {
       churchId: session.churchId,
       description,
       category: String(formData.get("category") ?? "General"),
       fund: String(formData.get("fund") ?? "General"),
+      ...(accountId ? { accountId } : {}),
       amount,
       date: new Date(),
     },

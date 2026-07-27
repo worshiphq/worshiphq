@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import {
-  Search, Receipt, Trash2, Calendar, Store, FileText, UserCheck, Banknote,
+  Search, Receipt, Trash2, Calendar, Store, FileText, UserCheck, Banknote, Landmark,
 } from "lucide-react";
 import { deleteExpense } from "@/app/actions/expenses";
 
@@ -17,6 +17,7 @@ type ExpenseRow = {
   vendor: string | null;
   receiptRef: string | null;
   approvedBy: string | null;
+  account: string | null;
   date: string;
 };
 
@@ -138,6 +139,11 @@ export function ExpensesClient({
                     {e.approvedBy && (
                       <span className="flex items-center gap-1">
                         <UserCheck className="size-3" /> {e.approvedBy}
+                      </span>
+                    )}
+                    {e.account && (
+                      <span className="flex items-center gap-1">
+                        <Landmark className="size-3" /> {e.account}
                       </span>
                     )}
                   </div>

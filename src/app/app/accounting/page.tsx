@@ -6,6 +6,8 @@ import { getAccounting } from "@/lib/data/modules";
 import { createTransaction } from "@/app/actions/accounting";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { AccountingClient } from "@/components/app/accounting-client";
+import { AccountsManager } from "@/components/app/accounts-manager";
+import { getAccountsWithBalances } from "@/lib/data/accounts";
 
 export const metadata = { title: "Accounting" };
 
@@ -22,7 +24,14 @@ export default async function AccountingPage({
   const rawMonth = params.month != null ? Number(params.month) : NaN;
   const month = rawMonth >= 0 && rawMonth <= 11 ? rawMonth : now.getMonth();
 
-  const data = await getAccounting(session.churchId, year, month, isAllTime);
+  const [data, accounts] = await Promise.all([
+    getAccounting(session.churchId, year, month, isAllTime),
+    getAccountsWithBalances(session.churchId),
+  ]);
+  const accountOptions = [
+    { label: "— No account —", value: "" },
+    ...accounts.map((a) => ({ label: a.isDefault ? `${a.name} (default)` : a.name, value: a.id })),
+  ];
 
   return (
     <div>
@@ -46,8 +55,13 @@ export default async function AccountingPage({
             <Field label="Category" name="category" placeholder="Offering / Operations" defaultValue="General" hint="What type of income or expense — e.g. Offering, Tithe, Utilities, Salaries" />
             <Field label="Fund" name="fund" placeholder="General" defaultValue="General" hint="Which pot of money — e.g. General, Building, Missions, Youth" />
           </div>
+          {accounts.length > 0 && (
+            <Field label="Account" name="accountId" type="select" options={accountOptions} hint="Which account the money moves through" />
+          )}
         </ActionDialog>
       </PageHeader>
+
+      <AccountsManager accounts={accounts} canWrite={!session.isDemo} />
 
       <AccountingClient {...data} canWrite={!session.isDemo} />
     </div>

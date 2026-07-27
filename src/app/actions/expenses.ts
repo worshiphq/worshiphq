@@ -20,6 +20,13 @@ export async function createExpense(formData: FormData) {
   const receiptRef = String(formData.get("receiptRef") ?? "").trim() || null;
   const approvedBy = String(formData.get("approvedBy") ?? "").trim() || null;
   const dateStr = String(formData.get("date") ?? "").trim();
+  // Guard the account belongs to this church before deducting from it.
+  const accountIdRaw = String(formData.get("accountId") ?? "").trim();
+  let accountId: string | null = null;
+  if (accountIdRaw) {
+    const acc = await db.churchAccount.findFirst({ where: { id: accountIdRaw, churchId: session.churchId }, select: { id: true } });
+    accountId = acc?.id ?? null;
+  }
 
   const expenseDate = dateStr ? new Date(dateStr) : new Date();
 
@@ -32,6 +39,7 @@ export async function createExpense(formData: FormData) {
       vendor,
       receiptRef,
       approvedBy,
+      ...(accountId ? { accountId } : {}),
       date: expenseDate,
     },
   });
