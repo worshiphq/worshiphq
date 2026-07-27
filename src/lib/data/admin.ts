@@ -17,6 +17,7 @@ export interface ChurchRow {
   createdAt: string;
   smsSenderId: string | null;
   smsSenderIdStatus: string;
+  smsTier: string | null;
 }
 
 /** Every church on the platform, with headline stats (newest first). */
@@ -34,6 +35,7 @@ export async function getAllChurches(): Promise<ChurchRow[]> {
       suspended: true,
       isDemo: true,
       smsCredits: true,
+      smsTier: true,
       smsSenderId: true,
       smsSenderIdStatus: true,
       createdAt: true,
@@ -66,6 +68,7 @@ export async function getAllChurches(): Promise<ChurchRow[]> {
     members: c._count.people,
     users: c._count.users,
     smsCredits: c.smsCredits,
+    smsTier: c.smsTier,
     givingThisMonth: givingMap.get(c.id) ?? 0,
     createdAt: c.createdAt.toISOString(),
   }));

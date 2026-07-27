@@ -123,6 +123,8 @@ export const getPlatformConfig = cache(async () => {
   return {
     currency: config.currency,
     currencySymbol: config.currencySymbol,
+    /** Site-wide SMS pricing tier (B|C|D). Per-church override lives on Church.smsTier. */
+    smsTier: config.smsTier ?? "D",
     prices,
     /** Live GHS charged per 1 USD at Paystack checkout. Falls back to the
      *  DB-stored value (kept fresh by the FX helper), then a sane default. */

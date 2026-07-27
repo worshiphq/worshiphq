@@ -7,6 +7,7 @@ import { requireSession, assertCanWrite } from "@/lib/auth";
 import { initializePayment, newPaymentReference, SETTLEMENT_CURRENCY } from "@/lib/integrations/paystack";
 import { addCredits } from "@/lib/sms/credits";
 import { getBundle } from "@/config/sms";
+import { resolveSmsTier } from "@/lib/sms/tier";
 
 /**
  * Buy an SMS credit bundle via Paystack. In stub mode (no keys) the credits are
@@ -16,7 +17,9 @@ import { getBundle } from "@/config/sms";
 export async function buySmsCredits(bundleId: string) {
   const session = await requireSession();
   assertCanWrite(session);
-  const bundle = getBundle(bundleId);
+  // Price the bundle at THIS church's effective SMS tier (never trust the client).
+  const tier = await resolveSmsTier(session.churchId);
+  const bundle = getBundle(bundleId, tier);
   if (!bundle) return { ok: false, stubbed: false, reference: "", error: "Unknown bundle." };
 
   const reference = newPaymentReference();

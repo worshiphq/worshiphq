@@ -37,6 +37,9 @@ model PlatformConfig {
   refundWindowRenewalDays Int @default(7)
   /** How long we tell churches a review takes. */
   refundSlaHours          Int @default(24)
+  /** Site-wide SMS pricing tier: "B" | "C" | "D" (default D). Per-church
+   *  overrides live on Church.smsTier. */
+  smsTier                 String @default("D")
   updatedAt DateTime @updatedAt
 }
 
@@ -48,6 +51,7 @@ model Church {
   suspended    Boolean  @default(false)
   smsCredits       Int     @default(50) // prepaid SMS units (50 free on signup)
   smsWelcomeMember Boolean @default(true) // SMS a welcome to members who self-register
+  smsTier          String? // per-church SMS price tier override (null = use site default)
   memberPrefix String? // member ID prefix, e.g. "GBC" (derived from name if unset)
   memberSeq    Int     @default(0) // last issued member number
   name         String

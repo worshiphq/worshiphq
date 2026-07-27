@@ -2,6 +2,7 @@ import { requireSuperAdmin } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { PlanEditor } from "@/components/admin/plan-editor";
 import { CouponManager } from "@/components/admin/coupon-manager";
+import { SmsTierControl } from "@/components/admin/sms-tier-control";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { db } from "@/lib/db";
 
@@ -29,6 +30,8 @@ export default async function AdminPricingPage() {
         usdToGhsRate={config.usdToGhsRate}
         planList={config.planList}
       />
+
+      <SmsTierControl current={config.smsTier} />
 
       <CouponManager
         currencySymbol={config.currencySymbol}

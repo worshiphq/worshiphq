@@ -14,6 +14,7 @@ import {
 import { saveMarketingContent, type MarketingContent } from "@/lib/data/site-content";
 import { sendSms } from "@/lib/integrations/sms";
 import { addCredits } from "@/lib/sms/credits";
+import { isSmsTier } from "@/config/sms";
 
 // ── Auth ──
 export async function superAdminSignIn(formData: FormData) {
@@ -388,4 +389,29 @@ export async function getAllPaymentRequests() {
     orderBy: { createdAt: "desc" },
     include: { church: { select: { name: true, slug: true } } },
   });
+}
+
+// ── SMS pricing tiers ──
+
+/** Set the site-wide SMS pricing tier (applies to every church without an override). */
+export async function setPlatformSmsTier(tier: string) {
+  await requireSuperAdmin();
+  if (!isSmsTier(tier)) return { ok: false as const, error: "Invalid tier." };
+  await db.platformConfig.upsert({
+    where: { id: "default" },
+    update: { smsTier: tier },
+    create: { id: "default", smsTier: tier },
+  });
+  revalidatePath("/admin/pricing");
+  revalidatePath("/app/communications/credits");
+  return { ok: true as const };
+}
+
+/** Override (or clear) a single church's SMS tier. Empty string = inherit default. */
+export async function setChurchSmsTier(churchId: string, tier: string) {
+  await requireSuperAdmin();
+  const value = isSmsTier(tier) ? tier : null;
+  await db.church.update({ where: { id: churchId }, data: { smsTier: value } });
+  revalidatePath("/admin");
+  return { ok: true as const };
 }

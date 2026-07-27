@@ -5,13 +5,14 @@ import { Card } from "@/components/ui/card";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { SmsCreditsPanel } from "@/components/app/sms-credits-panel";
+import { smsBundlesForChurch } from "@/lib/sms/tier";
 import { formatDate } from "@/lib/utils";
 
 export const metadata = { title: "SMS credits" };
 
 export default async function SmsCreditsPage() {
   const session = await requireModule("communications");
-  const [church, transactions] = await Promise.all([
+  const [church, transactions, sms] = await Promise.all([
     db.church.findUnique({
       where: { id: session.churchId },
       select: { smsCredits: true, smsWelcomeMember: true },
@@ -21,6 +22,7 @@ export default async function SmsCreditsPage() {
       orderBy: { createdAt: "desc" },
       take: 15,
     }),
+    smsBundlesForChurch(session.churchId),
   ]);
 
   return (
@@ -34,6 +36,7 @@ export default async function SmsCreditsPage() {
         balance={church?.smsCredits ?? 0}
         welcomeOn={church?.smsWelcomeMember ?? true}
         canWrite={!session.isDemo}
+        bundles={sms.bundles}
       />
 
       {/* History */}

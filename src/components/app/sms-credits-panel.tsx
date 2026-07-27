@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { MessageSquare, Check, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { SMS_BUNDLES } from "@/config/sms";
+import type { SmsBundle } from "@/config/sms";
 import { buySmsCredits, setWelcomeSms } from "@/app/actions/sms-credits";
 import { useFeedback } from "@/components/ui/feedback";
 import { usePaystack } from "@/components/payments/use-paystack";
@@ -15,10 +15,12 @@ export function SmsCreditsPanel({
   balance,
   welcomeOn,
   canWrite,
+  bundles,
 }: {
   balance: number;
   welcomeOn: boolean;
   canWrite: boolean;
+  bundles: SmsBundle[];
 }) {
   const { run, toast } = useFeedback();
   const { start } = usePaystack();
@@ -69,7 +71,7 @@ export function SmsCreditsPanel({
       <div>
         <h3 className="mb-3 font-display text-lg font-semibold">Buy SMS credits</h3>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-          {SMS_BUNDLES.map((b) => (
+          {bundles.map((b) => (
             <Card key={b.id} className={cn("relative flex flex-col p-5", b.popular && "overflow-visible border-primary/40 ring-1 ring-primary/20")}>
               {b.popular && (
                 <span className="absolute -top-2 right-4 rounded-full bg-primary px-2 py-0.5 text-[10px] font-semibold text-white">

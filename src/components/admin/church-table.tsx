@@ -12,11 +12,33 @@ import {
   grantPlanBypass,
   approveSenderId,
   rejectSenderId,
+  setChurchSmsTier,
 } from "@/app/actions/admin";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { useFeedback } from "@/components/ui/feedback";
 
 const PLANS = ["free", "starter", "pro", "max"];
+const SMS_TIERS = ["B", "C", "D"];
+
+/** Compact SMS-tier picker (Default = inherit site-wide). */
+function SmsTierSelect({ church, run }: { church: ChurchRow; run: ReturnType<typeof useFeedback>["run"] }) {
+  return (
+    <select
+      defaultValue={church.smsTier ?? ""}
+      onChange={(e) =>
+        run(() => setChurchSmsTier(church.id, e.target.value), {
+          pending: "Setting SMS tier…",
+          success: e.target.value ? `SMS tier ${e.target.value}` : "SMS tier: site default",
+        })
+      }
+      title="SMS pricing tier for this church"
+      className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-200 focus:outline-none"
+    >
+      <option value="" className="bg-slate-800">SMS: Default</option>
+      {SMS_TIERS.map((t) => <option key={t} value={t} className="bg-slate-800">SMS: {t}</option>)}
+    </select>
+  );
+}
 
 export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
   const [q, setQ] = useState("");
@@ -137,6 +159,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
               >
                 {PLANS.map((p) => <option key={p} value={p} className="bg-slate-800">{p}</option>)}
               </select>
+              <SmsTierSelect church={c} run={run} />
               <button
                 type="button"
                 title="Gift free plan upgrade"
@@ -283,6 +306,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                       <option key={p} value={p} className="bg-slate-800">{p}</option>
                     ))}
                   </select>
+                  <div className="mt-1"><SmsTierSelect church={c} run={run} /></div>
                 </td>
                 <td className="px-4 py-3">
                   {c.suspended ? (
