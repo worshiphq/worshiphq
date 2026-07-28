@@ -14,6 +14,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { StatCard } from "@/components/app/stat-card";
 import { useFeedback } from "@/components/ui/feedback";
 import { recordTitheBatch, recordGivingBatch, saveTitheTemplate, type TitheEntry } from "@/app/actions/giving";
+import { AccountSelect, type AccountOption } from "@/components/app/account-select";
 import { Pencil, MessageSquare, X } from "lucide-react";
 import { Input, Label } from "@/components/ui/input";
 import { formatCurrency } from "@/config/brand";
@@ -44,6 +45,7 @@ export function TitheClient({
   monthLabel,
   year,
   month,
+  accounts = [],
   canWrite,
   titheTemplate,
 }: {
@@ -53,6 +55,7 @@ export function TitheClient({
   monthLabel: string;
   year: number;
   month: number;
+  accounts?: AccountOption[];
   canWrite: boolean;
   titheTemplate?: string | null;
 }) {
@@ -233,7 +236,7 @@ export function TitheClient({
         </div>
       )}
 
-      {tab === "record" && canWrite && <BatchRecorder members={members} fundType={fundType} activeFundName={activeFundName} />}
+      {tab === "record" && canWrite && <BatchRecorder members={members} fundType={fundType} activeFundName={activeFundName} accounts={accounts} />}
       {tab === "records" && <WeeklyRecords weeks={weeks} />}
       {tab === "report" && <MonthlyReport weeks={weeks} monthLabel={monthLabel} monthTotal={monthTotal} year={year} month={month} />}
     </div>
@@ -242,7 +245,7 @@ export function TitheClient({
 
 /* ────── Batch Recorder ────── */
 
-function BatchRecorder({ members, fundType, activeFundName }: { members: TitheMember[]; fundType: string; activeFundName: string }) {
+function BatchRecorder({ members, fundType, activeFundName, accounts }: { members: TitheMember[]; fundType: string; activeFundName: string; accounts: AccountOption[] }) {
   const router = useRouter();
   const [entries, setEntries] = useState<LocalEntry[]>([]);
   const [search, setSearch] = useState("");
@@ -250,6 +253,8 @@ function BatchRecorder({ members, fundType, activeFundName }: { members: TitheMe
   const [showList, setShowList] = useState(false);
   const [pending, startTransition] = useTransition();
   const { toast, showBusy, hideBusy } = useFeedback();
+  const defaultAccountId = accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "";
+  const [accountId, setAccountId] = useState(defaultAccountId);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return members.slice(0, 20);
@@ -299,6 +304,7 @@ function BatchRecorder({ members, fundType, activeFundName }: { members: TitheMe
         personId: e.personId,
         amount: Number(e.amount),
         method: e.method,
+        accountId: accountId || null,
       }));
       const result = isTithe
         ? await recordTitheBatch(batch)
@@ -435,12 +441,27 @@ function BatchRecorder({ members, fundType, activeFundName }: { members: TitheMe
         </div>
       )}
 
+      {/* Account picker */}
+      {entries.length > 0 && accounts.length > 1 && (
+        <div className="mb-4 max-w-xs">
+          <AccountSelect
+            accounts={accounts}
+            value={accountId}
+            onChange={setAccountId}
+            label={`Deposit ${activeFundName.toLowerCase()} into`}
+          />
+        </div>
+      )}
+
       {/* Summary + submit */}
       {entries.length > 0 && (
         <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 px-5 py-4">
           <div>
             <div className="text-sm text-ink-muted">{validEntries.length} of {entries.length} valid</div>
             <div className="font-display text-2xl font-bold">{formatCurrency(totalAmount, { decimals: true })}</div>
+            {accounts.length === 1 && (
+              <div className="mt-1"><AccountSelect accounts={accounts} value={accountId} onChange={setAccountId} /></div>
+            )}
           </div>
           <Button onClick={handleSubmit} disabled={pending || !validEntries.length} size="lg">
             {pending ? (

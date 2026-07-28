@@ -16,6 +16,7 @@ import { StatCard } from "@/components/app/stat-card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { useFeedback } from "@/components/ui/feedback";
 import { setHarvestDate, recordHarvestContributions, createVisitorForHarvest, deleteHarvestContribution, editHarvestContribution, deleteHarvest, saveHarvestTemplate, type HarvestEntry } from "@/app/actions/harvest";
+import { AccountSelect, type AccountOption } from "@/components/app/account-select";
 import { formatCurrency } from "@/config/brand";
 import { formatDate, cn } from "@/lib/utils";
 import type { HarvestData, HarvestContributionRow } from "@/lib/data/harvest";
@@ -43,9 +44,10 @@ export function HarvestClient({
   visitorCount,
   members,
   year,
+  accounts = [],
   canWrite,
   harvestTemplate,
-}: HarvestData & { year: number; canWrite: boolean; harvestTemplate: string | null }) {
+}: HarvestData & { year: number; accounts?: AccountOption[]; canWrite: boolean; harvestTemplate: string | null }) {
   const [tab, setTab] = useState<"record" | "contributions" | "report">(harvest ? "contributions" : "record");
   const [selectedYear, setSelectedYear] = useState(year);
   const currentYear = new Date().getFullYear();
@@ -121,7 +123,7 @@ export function HarvestClient({
         <>
           <HarvestEditBar harvest={harvest} year={year} />
           <HarvestTemplateEditor template={harvestTemplate} />
-          <ContributionRecorder members={members} year={year} />
+          <ContributionRecorder members={members} year={year} accounts={accounts} />
         </>
       )}
       {tab === "contributions" && <ContributionsList contributions={contributions} canWrite={canWrite} />}
@@ -275,7 +277,7 @@ function HarvestTemplateEditor({ template }: { template: string | null }) {
 
 /* ────── Contribution Recorder ────── */
 
-function ContributionRecorder({ members, year }: { members: HarvestData["members"]; year: number }) {
+function ContributionRecorder({ members, year, accounts }: { members: HarvestData["members"]; year: number; accounts: AccountOption[] }) {
   const router = useRouter();
   const [entries, setEntries] = useState<LocalEntry[]>([]);
   const [search, setSearch] = useState("");
@@ -284,6 +286,8 @@ function ContributionRecorder({ members, year }: { members: HarvestData["members
   const [showVisitorForm, setShowVisitorForm] = useState(false);
   const [pending, startTransition] = useTransition();
   const { toast, showBusy, hideBusy } = useFeedback();
+  const defaultAccountId = accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "";
+  const [accountId, setAccountId] = useState(defaultAccountId);
 
   const filtered = useMemo(() => {
     if (!search.trim()) return members.slice(0, 20);
@@ -341,7 +345,7 @@ function ContributionRecorder({ members, year }: { members: HarvestData["members
         amount: Number(e.amount),
         method: e.method,
       }));
-      const result = await recordHarvestContributions(year, batch);
+      const result = await recordHarvestContributions(year, batch, accountId || null);
       hideBusy();
       if (result.ok) {
         toast(`${result.recorded} recorded, ${result.smsSent} receipts sent${result.insufficientCredits ? " (credits ran out)" : ""}`, result.insufficientCredits ? "error" : "success");
@@ -465,12 +469,22 @@ function ContributionRecorder({ members, year }: { members: HarvestData["members
         </div>
       )}
 
+      {/* Account picker */}
+      {entries.length > 0 && accounts.length > 1 && (
+        <div className="mb-4 max-w-xs">
+          <AccountSelect accounts={accounts} value={accountId} onChange={setAccountId} label="Deposit harvest into" />
+        </div>
+      )}
+
       {/* Submit */}
       {entries.length > 0 && (
         <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 px-5 py-4">
           <div>
             <div className="text-sm text-ink-muted">{validEntries.length} valid entries</div>
             <div className="font-display text-2xl font-bold">{formatCurrency(totalAmount, { decimals: true })}</div>
+            {accounts.length === 1 && (
+              <div className="mt-1"><AccountSelect accounts={accounts} value={accountId} onChange={setAccountId} /></div>
+            )}
           </div>
           <Button onClick={handleSubmit} disabled={pending || !validEntries.length} size="lg">
             {pending ? (<><div className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> Sending…</>) : (<><Send className="size-4" /> Record & send receipts</>)}

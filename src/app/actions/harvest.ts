@@ -46,7 +46,7 @@ export interface HarvestEntry {
   method: string;
 }
 
-export async function recordHarvestContributions(year: number, entries: HarvestEntry[]) {
+export async function recordHarvestContributions(year: number, entries: HarvestEntry[], accountId?: string | null) {
   const session = await requireSession();
   assertCanWrite(session);
   if (!entries.length) return { ok: false, error: "No entries." };
@@ -105,6 +105,7 @@ export async function recordHarvestContributions(year: number, entries: HarvestE
       category: "Harvest",
       amount: batchTotal,
       fund: "Harvest",
+      accountId: accountId ?? null,
     });
   }
 

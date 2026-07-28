@@ -3,6 +3,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getHarvestData } from "@/lib/data/harvest";
+import { getAccountOptions } from "@/lib/data/accounts";
 import { HarvestClient } from "@/components/app/harvest-client";
 
 export const metadata = { title: "Harvest" };
@@ -16,7 +17,7 @@ export default async function HarvestPage({
   const params = await searchParams;
   const year = Number(params.year) || new Date().getFullYear();
 
-  const [data, church, harvestPledges] = await Promise.all([
+  const [data, church, harvestPledges, accounts] = await Promise.all([
     getHarvestData(session.churchId, year),
     db.church.findUnique({
       where: { id: session.churchId },
@@ -28,6 +29,7 @@ export default async function HarvestPage({
       select: { id: true, donorName: true, amount: true, fulfilled: true, dueAt: true },
       orderBy: [{ dueAt: "asc" }, { donorName: "asc" }],
     }),
+    getAccountOptions(session.churchId),
   ]);
 
   const pledgedTotal = harvestPledges.reduce((s, p) => s + Number(p.amount), 0);
@@ -39,6 +41,7 @@ export default async function HarvestPage({
       <HarvestClient
         {...data}
         year={year}
+        accounts={accounts}
         canWrite={!session.isDemo}
         harvestTemplate={church?.harvestReceiptTemplate ?? null}
       />

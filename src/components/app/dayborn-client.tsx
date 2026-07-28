@@ -19,6 +19,7 @@ import {
   deleteDayBornWeek,
   postDayBornToAccounting,
 } from "@/app/actions/dayborn";
+import { AccountSelect, type AccountOption } from "@/components/app/account-select";
 import { formatCurrency } from "@/config/brand";
 import { cn } from "@/lib/utils";
 import type { DayBornWeekRow, DayBornEntryRow } from "@/lib/data/dayborn";
@@ -91,11 +92,13 @@ function isPast(iso: string): boolean {
 export function DayBornClient({
   weeks,
   currentMonday,
+  accounts = [],
   canWrite,
   canDelete,
 }: {
   weeks: DayBornWeekRow[];
   currentMonday: string;
+  accounts?: AccountOption[];
   canWrite: boolean;
   canDelete: boolean;
 }) {
@@ -105,6 +108,8 @@ export function DayBornClient({
   const [selectedSunday, setSelectedSunday] = useState(() => getSunday(new Date()));
   const [showMomoForm, setShowMomoForm] = useState(false);
   const [pending, startTransition] = useTransition();
+  const defaultAccountId = accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "";
+  const [postAccountId, setPostAccountId] = useState(defaultAccountId);
 
   // Optimistic deletion — items vanish instantly
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
@@ -362,13 +367,28 @@ export function DayBornClient({
               </div>
             </div>
             {canWrite && currentWeek && !currentWeek.posted && currentWeek.grandTotal > 0 && (
-              <div className="mt-4 flex justify-center">
+              <div className="mt-4 flex flex-col items-center gap-3">
+                {accounts.length > 1 && (
+                  <div className="w-full max-w-xs">
+                    <Label className="text-xs flex items-center gap-1.5 mb-1"><Landmark className="h-3.5 w-3.5" /> Deposit into account</Label>
+                    <select
+                      value={postAccountId}
+                      onChange={(e) => setPostAccountId(e.target.value)}
+                      className="w-full border border-separator rounded-md px-3 py-2 text-sm bg-surface"
+                    >
+                      {accounts.map((a) => (
+                        <option key={a.id} value={a.id}>{a.name}{a.isDefault ? " (default)" : ""}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
                 <Button
                   onClick={() => {
                     startTransition(async () => {
-                      await postDayBornToAccounting(currentWeek.id);
+                      await postDayBornToAccounting(currentWeek.id, postAccountId || null);
                       router.refresh();
-                      toast("Posted to Accounting as Day Born income");
+                      const acct = accounts.find((a) => a.id === postAccountId);
+                      toast(acct ? `Posted to ${acct.name}` : "Posted to Accounting as Day Born income");
                     });
                   }}
                   disabled={pending}
@@ -398,7 +418,7 @@ export function DayBornClient({
       )}
 
       {tab === "history" && (
-        <HistoryTab weeks={visibleWeeks} canWrite={canWrite} canDelete={canDelete} onDeleteWeek={(id) => setDeletedIds((prev) => new Set(prev).add(id))} />
+        <HistoryTab weeks={visibleWeeks} accounts={accounts} canWrite={canWrite} canDelete={canDelete} onDeleteWeek={(id) => setDeletedIds((prev) => new Set(prev).add(id))} />
       )}
     </div>
   );
@@ -531,11 +551,13 @@ function EntryRow({ entry, canWrite, onDelete }: { entry: DayBornEntryRow; canWr
 /* ── History tab with delete ─────────────────────────────── */
 function HistoryTab({
   weeks,
+  accounts,
   canWrite,
   canDelete,
   onDeleteWeek,
 }: {
   weeks: DayBornWeekRow[];
+  accounts: AccountOption[];
   canWrite: boolean;
   canDelete: boolean;
   onDeleteWeek: (id: string) => void;
@@ -544,6 +566,8 @@ function HistoryTab({
   const { toast } = useFeedback();
   const [actionPending, startAction] = useTransition();
   const [actionId, setActionId] = useState<string | null>(null);
+  const defaultAccountId = accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "";
+  const [postAccounts, setPostAccounts] = useState<Record<string, string>>({});
 
   if (weeks.length === 0) {
     return (
@@ -606,27 +630,42 @@ function HistoryTab({
             )}
 
             {/* Action buttons */}
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex flex-wrap items-center gap-2">
               {canWrite && !week.posted && week.grandTotal > 0 && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  disabled={actionPending && actionId === week.id}
-                  onClick={() => {
-                    setActionId(week.id);
-                    startAction(async () => {
-                      await postDayBornToAccounting(week.id);
-                      router.refresh();
-                      toast("Posted to Accounting");
-                      setActionId(null);
-                    });
-                  }}
-                >
-                  {actionPending && actionId === week.id && (
-                    <span className="whq-spin inline-block h-3 w-3 border-2 border-current border-t-transparent rounded-full mr-1" />
+                <>
+                  {accounts.length > 1 && (
+                    <select
+                      value={postAccounts[week.id] ?? defaultAccountId}
+                      onChange={(e) => setPostAccounts((p) => ({ ...p, [week.id]: e.target.value }))}
+                      className="border border-separator rounded-md px-2 py-1.5 text-xs bg-surface"
+                    >
+                      {accounts.map((a) => (
+                        <option key={a.id} value={a.id}>{a.name}{a.isDefault ? " (default)" : ""}</option>
+                      ))}
+                    </select>
                   )}
-                  Post to Accounting
-                </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    disabled={actionPending && actionId === week.id}
+                    onClick={() => {
+                      setActionId(week.id);
+                      const chosen = postAccounts[week.id] ?? defaultAccountId;
+                      startAction(async () => {
+                        await postDayBornToAccounting(week.id, chosen || null);
+                        router.refresh();
+                        const acct = accounts.find((a) => a.id === chosen);
+                        toast(acct ? `Posted to ${acct.name}` : "Posted to Accounting");
+                        setActionId(null);
+                      });
+                    }}
+                  >
+                    {actionPending && actionId === week.id && (
+                      <span className="whq-spin inline-block h-3 w-3 border-2 border-current border-t-transparent rounded-full mr-1" />
+                    )}
+                    Post to Accounting
+                  </Button>
+                </>
               )}
               {canDelete && (
                 <Button

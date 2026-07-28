@@ -51,6 +51,10 @@ export async function recordGift(formData: FormData) {
     select: { id: true },
   });
 
+  // Bank the gift into the chosen account (or the church default).
+  const { resolveAccountId } = await import("@/lib/data/accounts");
+  const accountId = await resolveAccountId(session.churchId, String(formData.get("accountId") ?? "").trim() || null);
+
   const gift = await db.gift.create({
     data: {
       churchId: session.churchId,
@@ -61,6 +65,7 @@ export async function recordGift(formData: FormData) {
       amount,
       method,
       currency: "GHS",
+      ...(accountId ? { accountId } : {}),
     },
   });
 

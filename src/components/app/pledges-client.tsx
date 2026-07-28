@@ -15,6 +15,7 @@ import {
 import {
   recordPledgePayment, deletePledge, deleteCampaign, savePledgeSettings, sendPledgeReminder,
 } from "@/app/actions/pledges";
+import { AccountSelect, type AccountOption } from "@/components/app/account-select";
 import { cn } from "@/lib/utils";
 
 type CampaignRow = {
@@ -50,6 +51,7 @@ export function PledgesClient({
   reminderDays,
   receiptTemplate,
   reminderTemplate,
+  accounts = [],
   isDemo,
 }: {
   campaigns: CampaignRow[];
@@ -57,6 +59,7 @@ export function PledgesClient({
   reminderDays: number[];
   receiptTemplate: string | null;
   reminderTemplate: string | null;
+  accounts?: AccountOption[];
   isDemo: boolean;
 }) {
   const [search, setSearch] = useState("");
@@ -301,6 +304,11 @@ export function PledgesClient({
                             <Button size="sm" type="submit">Record</Button>
                             <Button size="sm" type="button" variant="secondary" onClick={() => setPayFor(null)}>Cancel</Button>
                           </div>
+                          {accounts.length > 0 && (
+                            <div className="sm:col-span-4">
+                              <AccountSelect accounts={accounts} name="accountId" label="Deposit payment into" />
+                            </div>
+                          )}
                           <label className="flex items-center gap-2 text-xs text-ink-muted sm:col-span-4">
                             <input type="checkbox" name="notify" defaultChecked value="on" className="size-3.5 accent-primary" />
                             Text them a receipt

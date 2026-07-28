@@ -1,5 +1,6 @@
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getAccountOptions } from "@/lib/data/accounts";
 import { WelfareClient } from "@/components/app/welfare-client";
 import { createWelfareRecord } from "@/app/actions/welfare";
 import { PageHeader } from "@/components/app/page-header";
@@ -13,7 +14,7 @@ const WELFARE_TYPES = ["financial", "food", "medical", "housing", "education", "
 export default async function WelfarePage() {
   const session = await requireModule("welfare");
 
-  const [records, people] = await Promise.all([
+  const [records, people, accounts] = await Promise.all([
     db.welfareRecord.findMany({
       where: { churchId: session.churchId },
       include: { person: { select: { firstName: true, lastName: true } } },
@@ -26,6 +27,7 @@ export default async function WelfarePage() {
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
       take: 500,
     }),
+    getAccountOptions(session.churchId),
   ]);
 
   const totalAmount = records.reduce((s, r) => s + Number(r.amount ?? 0), 0);
@@ -48,6 +50,13 @@ export default async function WelfarePage() {
           <Field label="Recipient name" name="recipientName" placeholder="Full name" required />
           <Field label="Type" name="type" options={WELFARE_TYPES} />
           <Field label="Amount (GHS)" name="amount" type="number" placeholder="0" />
+          {accounts.length > 1 && (
+            <Field
+              label="Pay from account"
+              name="accountId"
+              options={accounts.map((a) => ({ label: `${a.name}${a.isDefault ? " (default)" : ""}`, value: a.id }))}
+            />
+          )}
           <Field label="Description" name="description" placeholder="Details of aid given..." />
           <Field label="Date" name="date" type="date" />
           <Field

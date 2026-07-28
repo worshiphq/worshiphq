@@ -84,15 +84,9 @@ export async function addDayBornEntry(formData: FormData) {
     },
   });
 
-  // Post the collection into the church's account so balances stay accurate.
-  const { postLedgerToAccount } = await import("@/lib/data/accounts");
-  await postLedgerToAccount(session.churchId, {
-    description: `Day Born — ${day}${personName ? ` (${personName})` : ""}`,
-    category: "Day Born",
-    amount,
-    fund: "Day Born",
-    accountId: String(formData.get("accountId") ?? "").trim() || null,
-  });
+  // NOTE: individual MoMo/bank entries are NOT posted to the ledger here — the
+  // whole week (cash + MoMo) is posted once, into a chosen account, when the
+  // user hits "Post to Accounting". Posting here too would double-count MoMo.
 
   const { audit } = await import("@/lib/audit");
   await audit(session, "create", "dayborn", `Day Born ${amount} (${day})`);
@@ -128,7 +122,7 @@ export async function deleteDayBornWeek(weekId: string) {
   revalidatePath("/app/accounting");
 }
 
-export async function postDayBornToAccounting(weekId: string) {
+export async function postDayBornToAccounting(weekId: string, accountId?: string | null) {
   const session = await requireSession();
   assertCanWrite(session);
 
@@ -148,15 +142,14 @@ export async function postDayBornToAccounting(weekId: string) {
 
   const weekDate = week.weekOf.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
-  await db.transaction.create({
-    data: {
-      churchId: session.churchId,
-      description: `Day Born — week of ${weekDate}`,
-      category: "Income",
-      fund: "Day Born",
-      amount: grandTotal,
-      date: new Date(),
-    },
+  // Post the whole week into the chosen account (or the church default).
+  const { postLedgerToAccount } = await import("@/lib/data/accounts");
+  await postLedgerToAccount(session.churchId, {
+    description: `Day Born — week of ${weekDate}`,
+    category: "Income",
+    fund: "Day Born",
+    amount: grandTotal,
+    accountId: accountId ?? null,
   });
 
   await db.dayBornWeek.update({
@@ -164,6 +157,8 @@ export async function postDayBornToAccounting(weekId: string) {
     data: { posted: true, postedAt: new Date() },
   });
 
+  const { audit } = await import("@/lib/audit");
+  await audit(session, "post", "dayborn", `Posted Day Born week of ${weekDate} (${grandTotal}) to accounting`);
   revalidatePath("/app/dayborn");
   revalidatePath("/app/accounting");
 }

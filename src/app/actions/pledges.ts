@@ -181,6 +181,7 @@ export async function recordPledgePayment(formData: FormData) {
     category: "Pledge",
     amount: payment,
     fund: "Pledges",
+    accountId: String(formData.get("accountId") ?? "").trim() || null,
   });
 
   await audit(session, "create", "pledge-payment", `Payment ${payment} on ${pledge.donorName}'s pledge`, pledge.id);

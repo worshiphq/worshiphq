@@ -26,14 +26,30 @@ export async function getAccountsWithBalances(churchId: string): Promise<Account
       where: { churchId },
       orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
     }),
-    db.transaction.groupBy({ by: ["accountId"], where: { churchId, accountId: { not: null } }, _sum: { amount: true } }),
-    db.gift.groupBy({ by: ["accountId"], where: { churchId, accountId: { not: null } }, _sum: { amount: true } }),
-    db.expense.groupBy({ by: ["accountId"], where: { churchId, accountId: { not: null } }, _sum: { amount: true } }),
+    db.transaction.groupBy({ by: ["accountId"], where: { churchId }, _sum: { amount: true } }),
+    db.gift.groupBy({ by: ["accountId"], where: { churchId }, _sum: { amount: true } }),
+    db.expense.groupBy({ by: ["accountId"], where: { churchId }, _sum: { amount: true } }),
   ]);
 
-  const txnMap = new Map(txns.map((t) => [t.accountId, Number(t._sum.amount ?? 0)]));
-  const giftMap = new Map(gifts.map((g) => [g.accountId, Number(g._sum.amount ?? 0)]));
-  const expMap = new Map(expenses.map((e) => [e.accountId, Number(e._sum.amount ?? 0)]));
+  // The default account (first by the ordering above) absorbs any money that was
+  // recorded without an explicit account — e.g. giving entered before accounts
+  // existed, or any path that didn't tag one. This keeps account balances
+  // reconciled with the income/expense totals instead of silently dropping it.
+  const defaultId = accounts[0]?.id ?? null;
+  const key = (accountId: string | null) => accountId ?? defaultId;
+
+  const sumInto = (rows: { accountId: string | null; _sum: { amount: unknown } }[]) => {
+    const m = new Map<string | null, number>();
+    for (const r of rows) {
+      const k = key(r.accountId);
+      m.set(k, (m.get(k) ?? 0) + Number(r._sum.amount ?? 0));
+    }
+    return m;
+  };
+
+  const txnMap = sumInto(txns);
+  const giftMap = sumInto(gifts);
+  const expMap = sumInto(expenses);
 
   return accounts.map((a) => {
     const txnSum = txnMap.get(a.id) ?? 0;       // signed

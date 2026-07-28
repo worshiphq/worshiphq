@@ -14,6 +14,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Input, Label } from "@/components/ui/input";
 import { recordGift, deleteGift } from "@/app/actions/giving";
 import { DeleteForm } from "@/components/app/delete-form";
+import { AccountSelect, type AccountOption } from "@/components/app/account-select";
 import type { GiftRow } from "@/lib/data/giving";
 import { formatCurrency } from "@/config/brand";
 import { formatDate, cn } from "@/lib/utils";
@@ -28,11 +29,12 @@ type Props = {
   funds: { name: string; color: string }[];
   stats: { monthTotal: number; avgGift: number; recurringCount: number; momoPct: number };
   fundBreakdown: { name: string; value: number }[];
+  accounts?: AccountOption[];
   canWrite: boolean;
   canDelete?: boolean;
 };
 
-export function GivingClient({ rows, funds, stats, fundBreakdown, canWrite, canDelete = false }: Props) {
+export function GivingClient({ rows, funds, stats, fundBreakdown, accounts = [], canWrite, canDelete = false }: Props) {
   const [recording, setRecording] = useState(false);
 
   return (
@@ -111,12 +113,12 @@ export function GivingClient({ rows, funds, stats, fundBreakdown, canWrite, canD
         </div>
       </div>
 
-      {recording && <RecordGiftDialog funds={funds} onClose={() => setRecording(false)} />}
+      {recording && <RecordGiftDialog funds={funds} accounts={accounts} onClose={() => setRecording(false)} />}
     </div>
   );
 }
 
-function RecordGiftDialog({ funds, onClose }: { funds: { name: string }[]; onClose: () => void }) {
+function RecordGiftDialog({ funds, accounts, onClose }: { funds: { name: string }[]; accounts: AccountOption[]; onClose: () => void }) {
   const [method, setMethod] = useState<(typeof methods)[number]>("MTN MoMo");
   const fundOptions = funds.length ? funds.map((f) => f.name) : ["Tithes", "Sunday Offering", "Building Fund", "Missions", "Welfare"];
 
@@ -155,6 +157,7 @@ function RecordGiftDialog({ funds, onClose }: { funds: { name: string }[]; onClo
               })}
             </div>
           </div>
+          {accounts.length > 0 && <AccountSelect accounts={accounts} name="accountId" />}
           <div className="flex gap-2 pt-1">
             <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
             <SubmitButton className="flex-1" pendingLabel="Recording…" successMessage="Gift recorded">Record gift</SubmitButton>

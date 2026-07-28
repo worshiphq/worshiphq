@@ -1,5 +1,6 @@
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getAccountOptions } from "@/lib/data/accounts";
 import { PledgesClient } from "@/components/app/pledges-client";
 import { PledgeRecorder } from "@/components/app/pledge-recorder";
 import { createCampaign } from "@/app/actions/pledges";
@@ -44,6 +45,8 @@ export default async function PledgesPage() {
       select: { pledgeReminderDays: true, pledgeReceiptTemplate: true, pledgeReminderTemplate: true },
     }),
   ]);
+
+  const accounts = await getAccountOptions(session.churchId);
 
   return (
     <div>
@@ -108,6 +111,7 @@ export default async function PledgesPage() {
         reminderDays={church?.pledgeReminderDays ?? [30, 7, 3]}
         receiptTemplate={church?.pledgeReceiptTemplate ?? null}
         reminderTemplate={church?.pledgeReminderTemplate ?? null}
+        accounts={accounts}
         isDemo={session.isDemo}
       />
     </div>
