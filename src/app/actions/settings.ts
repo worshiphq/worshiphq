@@ -12,6 +12,7 @@ import { initializePayment, newPaymentReference, SETTLEMENT_CURRENCY } from "@/l
 import { env } from "@/lib/env";
 import type { Role } from "@prisma/client";
 import { sendEmail } from "@/lib/integrations/email";
+import { audit } from "@/lib/audit";
 
 /** Update the signed-in user's own name, email and profile photo. */
 export async function updateProfile(formData: FormData) {
@@ -495,11 +496,13 @@ export async function changeUserRole(formData: FormData) {
   // Only Owner can make someone else Owner
   if (role === "Owner" && session.role !== "Owner") return;
 
+  const target = await db.user.findFirst({ where: { id: userId, churchId: session.churchId }, select: { name: true } });
   await db.user.updateMany({
     where: { id: userId, churchId: session.churchId },
     data: { role, customRoleId },
   });
 
+  await audit(session, "update", "user", `Changed ${target?.name ?? "a member"}'s role to ${role}`, userId);
   revalidatePath("/app/settings");
   revalidatePath("/app", "layout");
 }
@@ -523,6 +526,7 @@ export async function createCustomRole(formData: FormData) {
     update: { sections, manageSections, canDelete },
   });
 
+  await audit(session, "create", "role", `Saved custom role "${name}"`);
   revalidatePath("/app/settings");
 }
 

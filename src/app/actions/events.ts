@@ -3,11 +3,14 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
+import { audit } from "@/lib/audit";
 
 export async function deleteEvent(id: string) {
   const session = await requireSession();
   assertCanDelete(session);
+  const ev = await db.event.findFirst({ where: { id, churchId: session.churchId }, select: { title: true } });
   await db.event.deleteMany({ where: { id, churchId: session.churchId } });
+  if (ev) await audit(session, "delete", "event", `Deleted event "${ev.title}"`, id);
   revalidatePath("/app/events");
 }
 
@@ -24,7 +27,7 @@ export async function createEvent(formData: FormData) {
   const price = Number(formData.get("price") ?? 0);
   const capacity = Number(formData.get("capacity") ?? 0);
 
-  await db.event.create({
+  const ev = await db.event.create({
     data: {
       churchId: session.churchId,
       branchId: session.branchId ?? undefined,
@@ -37,5 +40,6 @@ export async function createEvent(formData: FormData) {
     },
   });
 
+  await audit(session, "create", "event", `Created event "${title}"`, ev.id);
   revalidatePath("/app/events");
 }

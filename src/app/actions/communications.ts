@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 import { sendEmail } from "@/lib/integrations/email";
 import { sendChurchSms } from "@/lib/sms/credits";
+import { audit } from "@/lib/audit";
 import type { Channel } from "@prisma/client";
 
 /** Send (or stub-send) a broadcast and log it as a campaign. */
@@ -78,6 +79,7 @@ export async function sendBroadcast(formData: FormData) {
     },
   });
 
+  await audit(session, "send", "broadcast", `Sent "${name}" to ${sent} recipient(s)`);
   revalidatePath("/app/communications");
   revalidatePath("/app");
 }

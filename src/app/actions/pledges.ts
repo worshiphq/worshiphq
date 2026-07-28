@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sendChurchSms } from "@/lib/sms/credits";
+import { audit } from "@/lib/audit";
 import {
   DEFAULT_PLEDGE_TEMPLATE,
   DEFAULT_PLEDGE_PAYMENT_TEMPLATE,
@@ -120,6 +121,7 @@ export async function createPledge(formData: FormData) {
     await sendChurchSms(session.churchId, donorPhone, msg, { note: "Pledge confirmation" });
   }
 
+  await audit(session, "create", "pledge", `Pledge of ${amount} by ${donorName}`);
   revalidatePath("/app/pledges");
   revalidatePath("/app/harvest");
   return { ok: true };
@@ -173,6 +175,7 @@ export async function recordPledgePayment(formData: FormData) {
     await sendChurchSms(session.churchId, pledge.donorPhone, msg, { note: "Pledge payment receipt" });
   }
 
+  await audit(session, "create", "pledge-payment", `Payment ${payment} on ${pledge.donorName}'s pledge`, pledge.id);
   revalidatePath("/app/pledges");
   revalidatePath("/app/harvest");
   return { ok: true };
@@ -183,7 +186,9 @@ export async function deletePledge(formData: FormData) {
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
+  const p = await db.pledge.findFirst({ where: { id, churchId: session.churchId }, select: { donorName: true } });
   await db.pledge.deleteMany({ where: { id, churchId: session.churchId } });
+  if (p) await audit(session, "delete", "pledge", `Deleted ${p.donorName}'s pledge`, id);
   revalidatePath("/app/pledges");
 }
 

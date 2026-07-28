@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { audit } from "@/lib/audit";
 
 export async function createFollowUp(formData: FormData) {
   const session = await requireModule("people");
@@ -30,6 +31,7 @@ export async function createFollowUp(formData: FormData) {
     },
   });
 
+  await audit(session, "create", "follow-up", `Created follow-up "${title}"`);
   revalidatePath("/app/follow-ups");
 }
 
@@ -55,5 +57,6 @@ export async function deleteFollowUp(formData: FormData) {
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   await db.followUp.deleteMany({ where: { id, churchId: session.churchId } });
+  await audit(session, "delete", "follow-up", "Deleted a follow-up", id);
   revalidatePath("/app/follow-ups");
 }

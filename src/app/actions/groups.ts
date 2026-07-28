@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { audit } from "@/lib/audit";
 
 export async function createGroup(formData: FormData) {
   const session = await requireModule("people");
@@ -18,7 +19,7 @@ export async function createGroup(formData: FormData) {
   const location = String(formData.get("location") ?? "").trim() || null;
   const leaderId = String(formData.get("leaderId") ?? "").trim() || null;
 
-  await db.group.create({
+  const group = await db.group.create({
     data: {
       churchId: session.churchId,
       name,
@@ -31,6 +32,7 @@ export async function createGroup(formData: FormData) {
     },
   });
 
+  await audit(session, "create", "group", `Created group "${name}"`, group.id);
   revalidatePath("/app/groups");
 }
 
@@ -62,6 +64,7 @@ export async function updateGroup(formData: FormData) {
     },
   });
 
+  await audit(session, "update", "group", `Updated group "${name}"`, id);
   revalidatePath("/app/groups");
   revalidatePath(`/app/groups/${id}`);
 }
@@ -71,11 +74,13 @@ export async function deleteGroup(formData: FormData) {
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
+  const group = await db.group.findFirst({ where: { id, churchId: session.churchId }, select: { name: true } });
 
   await db.group.deleteMany({
     where: { id, churchId: session.churchId },
   });
 
+  if (group) await audit(session, "delete", "group", `Deleted group "${group.name}"`, id);
   revalidatePath("/app/groups");
 }
 

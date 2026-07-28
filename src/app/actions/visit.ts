@@ -72,7 +72,7 @@ export async function addVisitor(formData: FormData) {
 
   const visitDateStr = String(formData.get("visitDate") ?? "").trim();
 
-  await db.visitor.create({
+  const v = await db.visitor.create({
     data: {
       churchId: session.churchId,
       firstName,
@@ -85,6 +85,8 @@ export async function addVisitor(formData: FormData) {
     },
   });
 
+  const { audit } = await import("@/lib/audit");
+  await audit(session, "create", "visitor", `Added visitor ${firstName} ${lastName}`.trim(), v.id);
   const { revalidatePath } = await import("next/cache");
   revalidatePath("/app/visitors");
 }
@@ -121,8 +123,11 @@ export async function deleteVisitor(id: string) {
   const session = await requireSession();
   assertCanWrite(session);
 
+  const v = await db.visitor.findFirst({ where: { id, churchId: session.churchId }, select: { firstName: true, lastName: true } });
   await db.visitor.deleteMany({ where: { id, churchId: session.churchId } });
 
+  const { audit } = await import("@/lib/audit");
+  if (v) await audit(session, "delete", "visitor", `Deleted visitor ${v.firstName} ${v.lastName}`.trim(), id);
   const { revalidatePath } = await import("next/cache");
   revalidatePath("/app/visitors");
 }
@@ -135,7 +140,7 @@ export async function convertVisitorToMember(id: string) {
   const visitor = await db.visitor.findFirst({ where: { id, churchId: session.churchId } });
   if (!visitor) return;
 
-  await db.person.create({
+  const person = await db.person.create({
     data: {
       churchId: session.churchId,
       firstName: visitor.firstName,
@@ -148,6 +153,8 @@ export async function convertVisitorToMember(id: string) {
 
   await db.visitor.delete({ where: { id } });
 
+  const { audit } = await import("@/lib/audit");
+  await audit(session, "update", "person", `Converted visitor ${visitor.firstName} ${visitor.lastName} to a member`.trim(), person.id);
   const { revalidatePath } = await import("next/cache");
   revalidatePath("/app/visitors");
   revalidatePath("/app/people");
