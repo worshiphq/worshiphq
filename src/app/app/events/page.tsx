@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { Plus, MapPin, Users, Ticket, QrCode, CalendarDays } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { StatCard } from "@/components/app/stat-card";
@@ -23,7 +24,7 @@ export default async function EventsPage() {
   return (
     <div>
       <PageHeader title="Events & calendar" description="Services, seminars and camps — with registration and QR check-in.">
-        <Button variant="secondary" size="sm"><CalendarDays /> Public calendar</Button>
+        <Link href="/app/calendar"><Button variant="secondary" size="sm"><CalendarDays /> Open calendar</Button></Link>
         <ActionDialog
           triggerLabel="Create event"
           triggerIcon={<Plus />}

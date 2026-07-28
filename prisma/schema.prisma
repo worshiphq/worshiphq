@@ -603,6 +603,12 @@ model Event {
   title         String
   type          String?
   startsAt      DateTime
+  endsAt        DateTime? // last day for a multi-day (contiguous) event
+  // Explicit day list for non-contiguous events (e.g. Wed/Thu/Fri/Sun).
+  // When empty the event spans startsAt..endsAt (or just startsAt).
+  dates         DateTime[]     @default([])
+  location      String?
+  notes         String?        @db.Text
   capacity      Int?
   paid          Boolean        @default(false)
   price         Decimal?       @db.Decimal(12, 2)

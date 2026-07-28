@@ -14,8 +14,15 @@ export default async function CalendarPage() {
 
   const [events, sessions, birthdays] = await Promise.all([
     db.event.findMany({
-      where: { churchId: session.churchId, startsAt: { gte: start, lte: end } },
-      select: { id: true, title: true, type: true, startsAt: true },
+      where: {
+        churchId: session.churchId,
+        OR: [
+          { startsAt: { gte: start, lte: end } },
+          { endsAt: { gte: start, lte: end } },
+          { dates: { hasSome: [] } }, // include events with explicit day lists
+        ],
+      },
+      select: { id: true, title: true, type: true, startsAt: true, endsAt: true, dates: true },
       orderBy: { startsAt: "asc" },
     }),
     db.attendanceSession.findMany({
@@ -34,6 +41,8 @@ export default async function CalendarPage() {
       id: e.id,
       title: e.title,
       date: e.startsAt.toISOString(),
+      endDate: e.endsAt?.toISOString() ?? null,
+      dates: e.dates.map((d) => d.toISOString()),
       type: "event" as const,
       color: e.type === "Service" ? "brand" as const : "info" as const,
     })),
@@ -65,8 +74,8 @@ export default async function CalendarPage() {
 
   return (
     <div>
-      <PageHeader title="Calendar" description="View events, services, and birthdays at a glance." />
-      <CalendarClient events={calendarEvents} />
+      <PageHeader title="Calendar" description="Your church calendar — click any day to add an event." />
+      <CalendarClient events={calendarEvents} canWrite={!session.isDemo} />
     </div>
   );
 }
