@@ -13,6 +13,7 @@ import { env } from "@/lib/env";
 import type { Role } from "@prisma/client";
 import { sendEmail } from "@/lib/integrations/email";
 import { audit } from "@/lib/audit";
+import { getBaseUrl } from "@/lib/url";
 
 /** Update the signed-in user's own name, email and profile photo. */
 export async function updateProfile(formData: FormData) {
@@ -408,7 +409,7 @@ export async function inviteTeammate(formData: FormData) {
 
   const church = await db.church.findUnique({ where: { id: session.churchId }, select: { name: true } });
   const churchName = church?.name ?? "WorshipHQ";
-  const appUrl = env.NEXT_PUBLIC_APP_URL ?? "https://worshiphq.app";
+  const appUrl = await getBaseUrl();
   const acceptUrl = `${appUrl}/invite/${inviteToken}`;
 
   // SMS is the reliable delivery channel. Keep it short (1 credit where possible).
@@ -469,7 +470,7 @@ export async function inviteBudgetLeader(formData: FormData) {
   });
 
   const church = await db.church.findUnique({ where: { id: session.churchId }, select: { name: true } });
-  const appUrl = env.NEXT_PUBLIC_APP_URL ?? "https://worshiphq.app";
+  const appUrl = await getBaseUrl();
   const acceptUrl = `${appUrl}/invite/${inviteToken}`;
   await sendSms(
     phone,

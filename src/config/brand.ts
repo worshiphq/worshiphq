@@ -26,7 +26,7 @@ export const brand = {
     "WorshipHQ is the all-in-one church management system built for churches everywhere. Manage people, giving, events, communications and more — beautifully.",
 
   domain: "worshiphq.org",
-  url: "https://worshiphq.org",
+  url: "https://worshiphq.app",
 
   email: {
     support: "support@worshiphq.org",

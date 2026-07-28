@@ -2,7 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Trash2, Users } from "lucide-react";
 import { requireModule } from "@/lib/auth";
-import { env } from "@/lib/env";
+import { getBaseUrl } from "@/lib/url";
 import { getAttendanceSession, getCheckInCandidates } from "@/lib/data/attendance";
 import { deleteSession } from "@/app/actions/attendance";
 import { MembershipDonut } from "@/components/app/charts";
@@ -25,7 +25,7 @@ export default async function AttendanceSessionPage({
   ]);
   if (!data) notFound();
 
-  const checkInUrl = `${env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "")}/checkin/${data.id}`;
+  const checkInUrl = `${await getBaseUrl()}/checkin/${data.id}`;
   const donutData = data.breakdown.filter((b) => b.count > 0).map((b) => ({ name: b.name, count: b.count }));
 
   return (
