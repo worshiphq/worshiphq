@@ -84,6 +84,18 @@ export async function addDayBornEntry(formData: FormData) {
     },
   });
 
+  // Post the collection into the church's account so balances stay accurate.
+  const { postLedgerToAccount } = await import("@/lib/data/accounts");
+  await postLedgerToAccount(session.churchId, {
+    description: `Day Born — ${day}${personName ? ` (${personName})` : ""}`,
+    category: "Day Born",
+    amount,
+    fund: "Day Born",
+    accountId: String(formData.get("accountId") ?? "").trim() || null,
+  });
+
+  const { audit } = await import("@/lib/audit");
+  await audit(session, "create", "dayborn", `Day Born ${amount} (${day})`);
   revalidatePath("/app/dayborn");
   revalidatePath("/app/accounting");
 }

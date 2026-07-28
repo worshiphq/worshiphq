@@ -30,6 +30,17 @@ export async function createWelfareRecord(formData: FormData) {
     },
   });
 
+  // Welfare is money out — deduct it from the account.
+  if (amount && amount > 0) {
+    const { postLedgerToAccount } = await import("@/lib/data/accounts");
+    await postLedgerToAccount(session.churchId, {
+      description: `Welfare — ${recipientName}`,
+      category: "Welfare",
+      amount: -amount,
+      accountId: String(formData.get("accountId") ?? "").trim() || null,
+    });
+  }
+
   await audit(session, "create", "welfare", `Welfare for ${recipientName}${amount ? ` (${amount})` : ""}`, rec.id);
   revalidatePath("/app/welfare");
 }

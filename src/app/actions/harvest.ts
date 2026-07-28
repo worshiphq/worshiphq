@@ -96,7 +96,20 @@ export async function recordHarvestContributions(year: number, entries: HarvestE
     data: { raised },
   });
 
+  // Post the harvest total collected in this batch into the church's account.
+  const batchTotal = entries.reduce((s, e) => s + (e.amount || 0), 0);
+  if (batchTotal > 0) {
+    const { postLedgerToAccount } = await import("@/lib/data/accounts");
+    await postLedgerToAccount(session.churchId, {
+      description: `Harvest ${year} — ${recorded} contribution(s)`,
+      category: "Harvest",
+      amount: batchTotal,
+      fund: "Harvest",
+    });
+  }
+
   revalidatePath("/app/harvest");
+  revalidatePath("/app/accounting");
   return { ok: true, recorded, smsSent, insufficientCredits };
 }
 

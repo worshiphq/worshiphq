@@ -175,6 +175,14 @@ export async function recordPledgePayment(formData: FormData) {
     await sendChurchSms(session.churchId, pledge.donorPhone, msg, { note: "Pledge payment receipt" });
   }
 
+  const { postLedgerToAccount } = await import("@/lib/data/accounts");
+  await postLedgerToAccount(session.churchId, {
+    description: `Pledge payment — ${pledge.donorName}`,
+    category: "Pledge",
+    amount: payment,
+    fund: "Pledges",
+  });
+
   await audit(session, "create", "pledge-payment", `Payment ${payment} on ${pledge.donorName}'s pledge`, pledge.id);
   revalidatePath("/app/pledges");
   revalidatePath("/app/harvest");

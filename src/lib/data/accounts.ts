@@ -64,13 +64,51 @@ export async function defaultAccountId(churchId: string): Promise<string | null>
   return acc?.id ?? null;
 }
 
-/** Resolve a chosen account for a church, falling back to the default. */
-export async function resolveAccountId(churchId: string, chosen?: string | null): Promise<string | null> {
+/**
+ * The church's default account, creating a "Main Account" the first time any
+ * money is recorded if none exists yet. Editable/renamable afterwards.
+ */
+export async function ensureDefaultAccount(churchId: string): Promise<string> {
+  const existing = await defaultAccountId(churchId);
+  if (existing) return existing;
+  const created = await db.churchAccount.create({
+    data: { churchId, name: "Main Account", type: "bank", isDefault: true },
+    select: { id: true },
+  });
+  return created.id;
+}
+
+/** Resolve a chosen account for a church, else the default (auto-created). */
+export async function resolveAccountId(churchId: string, chosen?: string | null): Promise<string> {
   if (chosen) {
     const own = await db.churchAccount.findFirst({ where: { id: chosen, churchId }, select: { id: true } });
     if (own) return own.id;
   }
-  return defaultAccountId(churchId);
+  return ensureDefaultAccount(churchId);
+}
+
+/**
+ * Post a money event into an account as a signed transaction so it shows in the
+ * account balance and the unified accounting ledger. `amount` is positive for
+ * income, negative for an outflow. Used by dayborn / harvest / pledge payments /
+ * welfare, which don't carry an accountId of their own.
+ */
+export async function postLedgerToAccount(
+  churchId: string,
+  opts: { description: string; category: string; amount: number; accountId?: string | null; fund?: string | null },
+): Promise<void> {
+  if (!opts.amount) return;
+  const accountId = await resolveAccountId(churchId, opts.accountId);
+  await db.transaction.create({
+    data: {
+      churchId,
+      accountId,
+      description: opts.description,
+      category: opts.category,
+      fund: opts.fund ?? undefined,
+      amount: opts.amount,
+    },
+  });
 }
 
 /** Lightweight account list for pickers (id, name, isDefault). */
