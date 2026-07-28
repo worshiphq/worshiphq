@@ -88,8 +88,8 @@ export function WelfareClient({
           </div>
         </Card>
         <Card className="flex items-center gap-3 p-4">
-          <div className={cn("flex size-10 items-center justify-center rounded-xl", balance >= 0 ? "bg-brand/10" : "bg-danger/10")}>
-            <Scale className={cn("size-5", balance >= 0 ? "text-brand" : "text-danger")} />
+          <div className={cn("flex size-10 items-center justify-center rounded-xl", balance >= 0 ? "bg-primary/10" : "bg-danger/10")}>
+            <Scale className={cn("size-5", balance >= 0 ? "text-primary" : "text-danger")} />
           </div>
           <div>
             <p className={cn("text-2xl font-bold", balance >= 0 ? "text-ink" : "text-danger")}>{formatGHS(balance)}</p>
@@ -100,14 +100,14 @@ export function WelfareClient({
 
       {/* Filter tabs + search */}
       <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1 rounded-xl border border-line bg-surface p-1">
+        <div className="flex items-center gap-1 rounded-xl border border-line bg-surface-2 p-1">
           {(["all", "dues", "aid"] as const).map((t) => (
             <button
               key={t}
               onClick={() => setTab(t)}
               className={cn(
-                "rounded-lg px-3 py-1.5 text-sm font-medium capitalize transition-colors",
-                tab === t ? "bg-brand text-white" : "text-ink-muted hover:bg-surface-2",
+                "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
+                tab === t ? "bg-primary text-white shadow-sm" : "text-ink-muted hover:text-ink",
               )}
             >
               {t === "all" ? "All" : t === "dues" ? "Dues in" : "Aid out"}

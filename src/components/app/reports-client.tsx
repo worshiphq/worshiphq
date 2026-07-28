@@ -132,12 +132,12 @@ export function ReportsClient({
   return (
     <div className="mt-5 space-y-6">
       {/* Range toggle */}
-      <div className="flex items-center justify-end gap-1 rounded-xl border border-line bg-surface p-1 sm:w-fit sm:ml-auto">
+      <div className="ml-auto flex w-fit items-center gap-1 rounded-xl border border-line bg-surface-2 p-1">
         {[6, 12].map((m) => (
           <button
             key={m}
             onClick={() => router.push(`/app/reports?months=${m}`)}
-            className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${span === m ? "bg-brand text-white" : "text-ink-muted hover:bg-surface-2"}`}
+            className={`rounded-lg px-4 py-1.5 text-sm font-medium transition-colors ${span === m ? "bg-primary text-white shadow-sm" : "text-ink-muted hover:text-ink"}`}
           >
             {m} months
           </button>

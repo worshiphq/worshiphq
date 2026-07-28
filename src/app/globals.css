@@ -26,6 +26,12 @@
   --color-primary-bright: #0d9488;
   --color-primary-soft: #e6f7f5;
 
+  /* `brand` is an accent alias used across the app (bg-brand, text-brand,
+     bg-brand/10). Without this token those utilities render nothing, so teal
+     accents silently fall back to plain ink/transparent. Alias to the bright
+     teal so they show the intended colour. */
+  --color-brand: #0d9488;
+
   /* ── Secondary: sacred warm gold ── */
   --color-gold: #b07d20;
   --color-gold-soft: #f7eeda;
