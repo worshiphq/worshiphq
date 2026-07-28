@@ -1,5 +1,6 @@
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getAccountOptions } from "@/lib/data/accounts";
 import { BudgetsClient } from "@/components/app/budgets-client";
 import { createBudget, addBudgetItem, addBudgetEntry, deleteBudgetEntry } from "@/app/actions/budgets";
 import { PageHeader } from "@/components/app/page-header";
@@ -27,6 +28,8 @@ export default async function BudgetsPage() {
     }),
     isLeader ? Promise.resolve([]) : db.department.findMany({ where: { churchId: session.churchId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
+
+  const accounts = await getAccountOptions(session.churchId);
 
   const currentYear = new Date().getFullYear();
 
@@ -96,6 +99,7 @@ export default async function BudgetsPage() {
           })),
         }))}
         isLeader={isLeader}
+        accounts={accounts}
         addItemAction={addBudgetItem}
         addEntryAction={addBudgetEntry}
         deleteEntryAction={deleteBudgetEntry}

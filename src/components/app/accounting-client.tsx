@@ -137,17 +137,18 @@ export function AccountingClient({ transactions, income, expenses, fundBalances,
 
 function MoveAccountControl({ row }: { row: AccountingRow }) {
   const accounts = useContext(AccountsContext);
-  const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
   const { toast } = useFeedback();
   const router = useRouter();
 
   if (accounts.length < 2) return null; // nothing to move between
-  const current = accounts.find((a) => a.id === row.accountId) ?? accounts.find((a) => a.isDefault) ?? accounts[0];
+  const currentId =
+    accounts.find((a) => a.id === row.accountId)?.id ??
+    accounts.find((a) => a.isDefault)?.id ??
+    accounts[0].id;
 
   const move = (accountId: string) => {
-    setOpen(false);
-    if (accountId === (row.accountId ?? current?.id)) return;
+    if (accountId === currentId) return;
     startTransition(async () => {
       const res = await moveLedgerEntryAccount(row.source, row.id, accountId);
       if (res?.ok) { toast(`Moved to ${res.accountName}`, "success"); router.refresh(); }
@@ -155,41 +156,23 @@ function MoveAccountControl({ row }: { row: AccountingRow }) {
     });
   };
 
+  // Native <select> so the menu is never clipped by overflow containers.
   return (
-    <div className="relative">
-      <button
-        onClick={() => setOpen((v) => !v)}
+    <span className="inline-flex items-center gap-1" title="Move this money to another account">
+      {pending
+        ? <div className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent text-ink-faint" />
+        : <Landmark className="size-3 text-ink-faint" />}
+      <select
+        value={currentId}
+        onChange={(e) => move(e.target.value)}
         disabled={pending}
-        title="Move to another account"
-        className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] text-ink-faint hover:bg-primary/10 hover:text-primary"
+        className="max-w-[10rem] truncate rounded-lg border border-line bg-surface px-1.5 py-1 text-[11px] text-ink-muted outline-none hover:border-primary/40 focus:border-primary/50"
       >
-        {pending
-          ? <div className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
-          : <Landmark className="size-3" />}
-        <span className="hidden sm:inline">{current?.name ?? "Account"}</span>
-      </button>
-      {open && (
-        <>
-          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
-          <div className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-xl border border-line bg-surface shadow-xl">
-            <div className="border-b border-line-soft px-3 py-1.5 text-[10px] uppercase tracking-wide text-ink-faint">Move to account</div>
-            {accounts.map((a) => (
-              <button
-                key={a.id}
-                onClick={() => move(a.id)}
-                className={cn(
-                  "flex w-full items-center justify-between px-3 py-2 text-left text-xs hover:bg-surface-2",
-                  a.id === current?.id && "font-semibold text-primary",
-                )}
-              >
-                <span>{a.name}{a.isDefault ? " (default)" : ""}</span>
-                {a.id === current?.id && <Check className="size-3.5" />}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
-    </div>
+        {accounts.map((a) => (
+          <option key={a.id} value={a.id}>{a.name}{a.isDefault ? " (default)" : ""}</option>
+        ))}
+      </select>
+    </span>
   );
 }
 

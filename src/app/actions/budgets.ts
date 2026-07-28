@@ -112,8 +112,20 @@ export async function addBudgetEntry(formData: FormData) {
     },
   });
 
+  // Post into the church's accounts so balances stay accurate: income adds,
+  // expense subtracts, banked into the chosen account (or the default).
+  const { postLedgerToAccount } = await import("@/lib/data/accounts");
+  await postLedgerToAccount(session.churchId, {
+    description: `Budget ${type} — ${description}`,
+    category: category ?? "Budget",
+    amount: type === "income" ? amount : -amount,
+    fund: "Budget",
+    accountId: String(formData.get("accountId") ?? "").trim() || null,
+  });
+
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "budget-entry", entityId: budgetId, detail: `${type === "income" ? "Income" : "Expense"} ${amount} — ${description}` });
   revalidatePath("/app/budgets");
+  revalidatePath("/app/accounting");
   return { ok: true };
 }
 

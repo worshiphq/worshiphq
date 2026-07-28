@@ -51,6 +51,7 @@ export function WelfareClient({
   });
 
   const handleDelete = (id: string) => {
+    if (!confirm("Delete this welfare record? This cannot be undone.")) return;
     const fd = new FormData();
     fd.set("id", id);
     start(() => deleteWelfareRecord(fd));

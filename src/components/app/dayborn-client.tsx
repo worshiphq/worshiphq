@@ -535,6 +535,7 @@ function EntryRow({ entry, canWrite, onDelete }: { entry: DayBornEntryRow; canWr
       {canWrite && (
         <button
           onClick={() => {
+            if (!confirm("Remove this entry? This cannot be undone.")) return;
             onDelete(entry.id);
             toast("Entry removed");
             deleteDayBornEntry(entry.id).then(() => router.refresh());

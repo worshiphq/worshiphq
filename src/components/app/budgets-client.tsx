@@ -4,6 +4,7 @@ import { useState, useTransition } from "react";
 import { Trash2, ChevronDown, ChevronRight, Plus, Loader2, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { deleteBudget, deleteBudgetItem, setBudgetAmount } from "@/app/actions/budgets";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
+import { AccountSelect, type AccountOption } from "@/components/app/account-select";
 import { useFeedback } from "@/components/ui/feedback";
 import { cn } from "@/lib/utils";
 
@@ -57,6 +58,7 @@ function tally(b: Budget) {
 export function BudgetsClient({
   budgets,
   isLeader,
+  accounts = [],
   addItemAction,
   addEntryAction,
   deleteEntryAction,
@@ -64,6 +66,7 @@ export function BudgetsClient({
 }: {
   budgets: Budget[];
   isLeader: boolean;
+  accounts?: AccountOption[];
   addItemAction: (fd: FormData) => Promise<void>;
   addEntryAction: (fd: FormData) => Promise<EntryResult>;
   deleteEntryAction: (fd: FormData) => Promise<void>;
@@ -126,7 +129,7 @@ export function BudgetsClient({
                     </div>
                   </div>
                   {!isLeader && (
-                    <form action={(fd) => start(async () => { fd.set("id", b.id); await deleteBudget(fd); toast("Budget deleted", "info"); })} onClick={(e) => e.stopPropagation()}>
+                    <form action={(fd) => { if (!confirm(`Delete the "${b.name}" budget and all its entries? This cannot be undone.`)) return; start(async () => { fd.set("id", b.id); await deleteBudget(fd); toast("Budget deleted", "info"); }); }} onClick={(e) => e.stopPropagation()}>
                       <button type="submit" disabled={pending} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger disabled:pointer-events-none">
                         {pending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                       </button>
@@ -189,7 +192,7 @@ export function BudgetsClient({
                                     {e.type === "income" ? "+" : "−"}{fmt(e.amount)}
                                   </td>
                                   <td className="py-2 text-right w-8">
-                                    <form action={(fd) => start(async () => { fd.set("id", e.id); await deleteEntryAction(fd); toast("Entry removed", "info"); })}>
+                                    <form action={(fd) => { if (!confirm("Remove this entry? This cannot be undone.")) return; start(async () => { fd.set("id", e.id); await deleteEntryAction(fd); toast("Entry removed", "info"); }); }}>
                                       <button type="submit" disabled={pending} className="grid size-6 place-items-center rounded text-ink-faint hover:text-danger disabled:pointer-events-none">
                                         {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
                                       </button>
@@ -202,7 +205,7 @@ export function BudgetsClient({
                         </div>
                       )}
 
-                      {!isDemo && <AddEntryForm budgetId={b.id} action={addEntryAction} />}
+                      {!isDemo && <AddEntryForm budgetId={b.id} action={addEntryAction} accounts={accounts} />}
                     </div>
 
                     {/* ── Planned line items (admin only) ── */}
@@ -227,7 +230,7 @@ export function BudgetsClient({
                                     <td className="py-2 pr-3 text-ink-muted">{item.description}</td>
                                     <td className="py-2 pr-3 text-right">{fmt(item.amount)}</td>
                                     <td className="py-2 text-right">
-                                      <form action={(fd) => start(async () => { fd.set("id", item.id); await deleteBudgetItem(fd); toast("Item removed", "info"); })}>
+                                      <form action={(fd) => { if (!confirm("Remove this budget line? This cannot be undone.")) return; start(async () => { fd.set("id", item.id); await deleteBudgetItem(fd); toast("Item removed", "info"); }); }}>
                                         <button type="submit" disabled={pending} className="grid size-6 place-items-center rounded text-ink-faint hover:text-danger disabled:pointer-events-none">
                                           {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
                                         </button>
@@ -280,7 +283,7 @@ function Stat({ label, value, tone = "default" }: { label: string; value: string
   );
 }
 
-function AddEntryForm({ budgetId, action }: { budgetId: string; action: (fd: FormData) => Promise<EntryResult> }) {
+function AddEntryForm({ budgetId, action, accounts }: { budgetId: string; action: (fd: FormData) => Promise<EntryResult>; accounts: AccountOption[] }) {
   const [type, setType] = useState<"income" | "expense">("expense");
   const [pending, start] = useTransition();
   const { toast } = useFeedback();
@@ -310,6 +313,15 @@ function AddEntryForm({ budgetId, action }: { budgetId: string; action: (fd: For
       <button type="submit" disabled={pending} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-white disabled:opacity-60">
         {pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} Add
       </button>
+      {accounts.length > 0 && (
+        <div className="sm:col-span-4">
+          <AccountSelect
+            accounts={accounts}
+            name="accountId"
+            label={type === "income" ? "Deposit into account" : "Pay from account"}
+          />
+        </div>
+      )}
     </form>
   );
 }

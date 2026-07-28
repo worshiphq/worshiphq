@@ -535,6 +535,7 @@ function ContributionsList({ contributions, canWrite }: { contributions: Harvest
   };
 
   const handleDelete = (id: string) => {
+    if (!confirm("Delete this contribution? This cannot be undone.")) return;
     startTransition(async () => {
       const res = await deleteHarvestContribution(id);
       if (!res.ok) toast(res.error ?? "Failed to delete", "error");

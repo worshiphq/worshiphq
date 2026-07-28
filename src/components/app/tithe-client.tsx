@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { StatCard } from "@/components/app/stat-card";
 import { useFeedback } from "@/components/ui/feedback";
-import { recordTitheBatch, recordGivingBatch, saveTitheTemplate, type TitheEntry } from "@/app/actions/giving";
+import { recordTitheBatch, recordGivingBatch, recordGift, saveTitheTemplate, type TitheEntry } from "@/app/actions/giving";
 import { AccountSelect, type AccountOption } from "@/components/app/account-select";
 import { Pencil, MessageSquare, X } from "lucide-react";
 import { Input, Label } from "@/components/ui/input";
@@ -255,6 +255,9 @@ function BatchRecorder({ members, fundType, activeFundName, accounts }: { member
   const { toast, showBusy, hideBusy } = useFeedback();
   const defaultAccountId = accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "";
   const [accountId, setAccountId] = useState(defaultAccountId);
+  // Offertory & other collective funds are usually banked as one total, not
+  // per member. Tithes stay per-member (each person gets a receipt).
+  const [lumpMode, setLumpMode] = useState(fundType !== "tithes");
 
   const filtered = useMemo(() => {
     if (!search.trim()) return members.slice(0, 20);
@@ -323,6 +326,17 @@ function BatchRecorder({ members, fundType, activeFundName, accounts }: { member
     });
   };
 
+  // ── Lump-sum mode: record the whole collection as one deposit ──
+  if (lumpMode && fundType !== "tithes") {
+    return (
+      <LumpSumRecorder
+        fundName={activeFundName}
+        accounts={accounts}
+        onSwitchToMembers={() => setLumpMode(false)}
+      />
+    );
+  }
+
   return (
     <Card className="p-6">
       <div className="mb-5 flex items-center justify-between">
@@ -331,10 +345,18 @@ function BatchRecorder({ members, fundType, activeFundName, accounts }: { member
           <p className="text-sm text-ink-muted">
             {fundType === "tithes"
               ? "Select members, enter amounts, then send receipts via SMS."
-              : `Select members and record ${activeFundName} contributions.`}
+              : `Record ${activeFundName} per member below.`}
           </p>
         </div>
-        <Badge variant="outline">{entries.length} {entries.length === 1 ? "entry" : "entries"}</Badge>
+        <div className="flex items-center gap-2">
+          {fundType !== "tithes" && (
+            <button type="button" onClick={() => setLumpMode(true)}
+              className="rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-2">
+              Record as one total
+            </button>
+          )}
+          <Badge variant="outline">{entries.length} {entries.length === 1 ? "entry" : "entries"}</Badge>
+        </div>
       </div>
 
       {/* Default method */}
@@ -486,6 +508,91 @@ function BatchRecorder({ members, fundType, activeFundName, accounts }: { member
           <p className="mt-1 text-xs text-ink-faint">Search and select members above to start recording tithes</p>
         </div>
       )}
+    </Card>
+  );
+}
+
+/* ────── Lump-sum recorder (offering collected together) ────── */
+
+function LumpSumRecorder({
+  fundName, accounts, onSwitchToMembers,
+}: {
+  fundName: string;
+  accounts: AccountOption[];
+  onSwitchToMembers: () => void;
+}) {
+  const router = useRouter();
+  const { toast } = useFeedback();
+  const [amount, setAmount] = useState("");
+  const [method, setMethod] = useState("Cash");
+  const defaultAccountId = accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "";
+  const [accountId, setAccountId] = useState(defaultAccountId);
+  const [pending, start] = useTransition();
+
+  const submit = () => {
+    const value = Number(amount);
+    if (!value || value <= 0) { toast("Enter the total collected", "error"); return; }
+    start(async () => {
+      const fd = new FormData();
+      fd.set("donor", `${fundName} (collection)`);
+      fd.set("amount", String(value));
+      fd.set("fund", fundName);
+      fd.set("method", method);
+      if (accountId) fd.set("accountId", accountId);
+      await recordGift(fd);
+      toast(`${fundName} of ₵${value.toLocaleString()} recorded`, "success");
+      setAmount("");
+      router.refresh();
+    });
+  };
+
+  return (
+    <Card className="p-6">
+      <div className="mb-5 flex items-center justify-between">
+        <div>
+          <h3 className="font-display text-lg font-semibold">Record {fundName}</h3>
+          <p className="text-sm text-ink-muted">Collected together and banked as one deposit — just enter the total.</p>
+        </div>
+        <button type="button" onClick={onSwitchToMembers}
+          className="rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-2">
+          Record per member instead
+        </button>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-ink-muted">Total collected (₵)</label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-faint">₵</span>
+            <input type="number" min="1" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)}
+              placeholder="0.00" autoFocus
+              className="h-11 w-full rounded-xl border border-line bg-surface pl-7 pr-3 text-sm outline-none focus:border-primary/50" />
+          </div>
+        </div>
+        <div>
+          <label className="mb-1.5 block text-sm font-medium text-ink-muted">Method</label>
+          <select value={method} onChange={(e) => setMethod(e.target.value)}
+            className="h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm outline-none focus:border-primary/50">
+            {methods.map((m) => <option key={m} value={m}>{m}</option>)}
+          </select>
+        </div>
+      </div>
+
+      {accounts.length > 0 && (
+        <div className="mt-4 max-w-xs">
+          <AccountSelect accounts={accounts} value={accountId} onChange={setAccountId} label={`Deposit ${fundName.toLowerCase()} into`} />
+        </div>
+      )}
+
+      <div className="mt-5 flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 px-5 py-4">
+        <div>
+          <div className="text-sm text-ink-muted">One deposit</div>
+          <div className="font-display text-2xl font-bold">{formatCurrency(Number(amount) || 0, { decimals: true })}</div>
+        </div>
+        <Button onClick={submit} disabled={pending || !(Number(amount) > 0)} size="lg">
+          {pending ? <><div className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> Recording…</> : <><Send className="size-4" /> Record {fundName}</>}
+        </Button>
+      </div>
     </Card>
   );
 }

@@ -7,7 +7,9 @@ import { createTransaction } from "@/app/actions/accounting";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { AccountingClient } from "@/components/app/accounting-client";
 import { AccountsManager } from "@/components/app/accounts-manager";
+import { FundsManager } from "@/components/app/funds-manager";
 import { getAccountsWithBalances } from "@/lib/data/accounts";
+import { db } from "@/lib/db";
 
 export const metadata = { title: "Accounting" };
 
@@ -24,10 +26,22 @@ export default async function AccountingPage({
   const rawMonth = params.month != null ? Number(params.month) : NaN;
   const month = rawMonth >= 0 && rawMonth <= 11 ? rawMonth : now.getMonth();
 
-  const [data, accounts] = await Promise.all([
+  const [data, accounts, funds] = await Promise.all([
     getAccounting(session.churchId, year, month, isAllTime),
     getAccountsWithBalances(session.churchId),
+    db.fund.findMany({
+      where: { churchId: session.churchId },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, color: true, gifts: { select: { amount: true } } },
+    }),
   ]);
+  const fundRows = funds.map((f) => ({
+    id: f.id,
+    name: f.name,
+    color: f.color,
+    giftCount: f.gifts.length,
+    total: f.gifts.reduce((s, g) => s + Number(g.amount), 0),
+  }));
   const accountOptions = [
     { label: "— No account —", value: "" },
     ...accounts.map((a) => ({ label: a.isDefault ? `${a.name} (default)` : a.name, value: a.id })),
@@ -62,6 +76,8 @@ export default async function AccountingPage({
       </PageHeader>
 
       <AccountsManager accounts={accounts} canWrite={!session.isDemo} />
+
+      <FundsManager funds={fundRows} canWrite={!session.isDemo} />
 
       <AccountingClient
         {...data}
