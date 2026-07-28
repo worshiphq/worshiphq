@@ -568,6 +568,18 @@ export function SettingsClient({
               path={`/pray/${church?.slug ?? ""}`}
               slug={church?.slug}
             />
+            <SharedLinkCard
+              title="Testimonies"
+              description="Members share testimonies here. You review each one before it's published; admins get an SMS + email on every submission."
+              path={`/testify/${church?.slug ?? ""}`}
+              slug={church?.slug}
+            />
+            <SharedLinkCard
+              title="Counselling requests"
+              description="Members privately request counselling. It opens a confidential case and notifies your admins by SMS + email."
+              path={`/counsel/${church?.slug ?? ""}`}
+              slug={church?.slug}
+            />
           </div>
         )}
 
