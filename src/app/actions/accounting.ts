@@ -43,6 +43,39 @@ export async function deleteTransaction(id: string) {
   revalidatePath("/app/accounting");
 }
 
+/**
+ * Move a posted ledger entry from one account to another — fixes money that
+ * was banked into the wrong account. Works for both manual transactions
+ * (Day Born / harvest / pledge / welfare postings) and gifts (giving / tithe).
+ */
+export async function moveLedgerEntryAccount(source: "manual" | "giving", id: string, accountId: string) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  if (session.isDemo) return { ok: false, error: "Read-only demo." };
+
+  // Validate the target account belongs to this church.
+  const account = await db.churchAccount.findFirst({
+    where: { id: accountId, churchId: session.churchId },
+    select: { id: true, name: true },
+  });
+  if (!account) return { ok: false, error: "Account not found." };
+
+  if (source === "manual") {
+    const tx = await db.transaction.findFirst({ where: { id, churchId: session.churchId }, select: { id: true, description: true } });
+    if (!tx) return { ok: false, error: "Entry not found." };
+    await db.transaction.update({ where: { id }, data: { accountId } });
+    await audit(session, "update", "transaction", `Moved "${tx.description}" to ${account.name}`, id);
+  } else {
+    const gift = await db.gift.findFirst({ where: { id, churchId: session.churchId }, select: { id: true, donorName: true } });
+    if (!gift) return { ok: false, error: "Entry not found." };
+    await db.gift.update({ where: { id }, data: { accountId } });
+    await audit(session, "update", "gift", `Moved ${gift.donorName ?? "gift"} to ${account.name}`, id);
+  }
+
+  revalidatePath("/app/accounting");
+  return { ok: true, accountName: account.name };
+}
+
 export async function editTransaction(id: string, formData: FormData) {
   const session = await requireSession();
   assertCanWrite(session);

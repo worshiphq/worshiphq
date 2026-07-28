@@ -85,6 +85,8 @@ export interface AccountingRow {
   amount: number;
   date: string;
   source: "manual" | "giving";
+  /** Account this entry is currently banked in (null = default account). */
+  accountId: string | null;
 }
 
 function accountingWeeks(year: number, month: number) {
@@ -138,6 +140,7 @@ export async function getAccounting(churchId: string, year?: number, month?: num
     amount: Number(t.amount),
     date: t.date.toISOString(),
     source: "manual",
+    accountId: t.accountId ?? null,
   }));
 
   const givingRows: AccountingRow[] = gifts.map((g) => ({
@@ -148,6 +151,7 @@ export async function getAccounting(churchId: string, year?: number, month?: num
     amount: Number(g.amount),
     date: g.date.toISOString(),
     source: "giving",
+    accountId: g.accountId ?? null,
   }));
 
   const allRows = [...manualRows, ...givingRows].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());

@@ -20,10 +20,15 @@ export async function sendBroadcast(formData: FormData) {
   if (!message) return;
 
   // ── Resolve recipients by target ──
-  // target: "all" | "active" | "visitor" | "dept:<id>" | "custom"
+  // target: "all" | "active" | "visitor" | "leaders" | "group-leaders" | "dept:<id>" | "custom"
   const target = String(formData.get("target") ?? "all");
   let recipients: string[] = [];
   let segmentLabel = "All members";
+
+  const pick = (people: { phone: string | null; email: string | null }[]) =>
+    channel === "Email"
+      ? people.map((p) => p.email).filter((e): e is string => !!e)
+      : people.map((p) => p.phone).filter((p): p is string => !!p);
 
   if (target === "custom") {
     // Free-typed numbers/emails, separated by comma / space / newline.
@@ -32,6 +37,30 @@ export async function sendBroadcast(formData: FormData) {
       .map((s) => s.trim())
       .filter(Boolean);
     segmentLabel = `${recipients.length} custom recipient(s)`;
+  } else if (target === "leaders") {
+    // Church leadership team: anyone with a leadership title.
+    const people = await db.person.findMany({
+      where: { churchId: session.churchId, leaderTitle: { not: null } },
+      select: { phone: true, email: true },
+    });
+    recipients = pick(people);
+    segmentLabel = "Church leaders";
+  } else if (target === "group-leaders") {
+    // The leader of every group/ministry (deduped — one person may lead several).
+    const groups = await db.group.findMany({
+      where: { churchId: session.churchId, leaderId: { not: null } },
+      select: { leader: { select: { id: true, phone: true, email: true } } },
+    });
+    const seen = new Set<string>();
+    const leaders = groups
+      .map((g) => g.leader)
+      .filter((l): l is { id: string; phone: string | null; email: string | null } => {
+        if (!l || seen.has(l.id)) return false;
+        seen.add(l.id);
+        return true;
+      });
+    recipients = pick(leaders);
+    segmentLabel = "Group / ministry leaders";
   } else {
     const where: { churchId: string; status?: "active" | "visitor"; departments?: { some: { id: string } } } = {
       churchId: session.churchId,
@@ -45,10 +74,7 @@ export async function sendBroadcast(formData: FormData) {
       segmentLabel = dept ? `${dept.name} department` : "Department";
     }
     const people = await db.person.findMany({ where, select: { phone: true, email: true } });
-    recipients =
-      channel === "Email"
-        ? people.map((p) => p.email).filter((e): e is string => !!e)
-        : people.map((p) => p.phone).filter((p): p is string => !!p);
+    recipients = pick(people);
   }
 
   let sent = recipients.length;

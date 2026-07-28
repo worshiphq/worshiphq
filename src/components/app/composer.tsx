@@ -58,6 +58,8 @@ export function Composer({
             <option value="all">Everyone</option>
             <option value="active">Active members</option>
             <option value="visitor">Visitors</option>
+            <option value="leaders">Church leaders</option>
+            <option value="group-leaders">Group / ministry leaders</option>
             {departments.length > 0 && (
               <optgroup label="By department">
                 {departments.map((d) => <option key={d.id} value={`dept:${d.id}`}>{d.name}</option>)}

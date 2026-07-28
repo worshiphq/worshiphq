@@ -138,17 +138,25 @@ export function BiometricCheckInButton({
                 <div className="mx-auto flex size-24 items-center justify-center rounded-full bg-warning/10">
                   <Fingerprint className="size-12 text-warning" />
                 </div>
-                <h3 className="mt-4 font-display text-xl font-bold">Scanner not found</h3>
+                <h3 className="mt-4 font-display text-xl font-bold">One-time scanner setup</h3>
                 <p className="mt-2 text-sm text-ink-muted">
-                  Install the WorshipHQ scanner agent and plug in a USB fingerprint scanner.
+                  Download and double-click the installer. It sets everything up for you — Python, the driver, and auto-start — then the scanner just works.
                 </p>
                 <a
-                  href="/scanner-agent/whq-scanner-agent.py"
+                  href="/scanner-agent/whq-scanner-setup.bat"
                   download
                   className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-medium text-white hover:bg-brand/90 transition-colors"
                 >
-                  <Download className="size-4" /> Download scanner agent
+                  <Download className="size-4" /> Download 1-click installer (Windows)
                 </a>
+                <ol className="mx-auto mt-4 max-w-xs space-y-1 text-left text-xs text-ink-muted">
+                  <li>1. Open the downloaded <code className="rounded bg-surface-2 px-1">whq-scanner-setup.bat</code></li>
+                  <li>2. Wait for it to finish, then plug in your USB scanner</li>
+                  <li>3. Come back here and press Retry</li>
+                </ol>
+                <p className="mt-3 text-[11px] text-ink-faint">
+                  Advanced: prefer the raw <a href="/scanner-agent/whq-scanner-agent.py" download className="underline">Python script</a>.
+                </p>
                 <div className="mt-4 flex gap-2 justify-center">
                   <Button size="sm" variant="secondary" onClick={() => setState("idle")}>Close</Button>
                   <Button size="sm" onClick={handleScan}>Retry</Button>

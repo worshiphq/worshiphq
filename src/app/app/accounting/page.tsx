@@ -63,7 +63,11 @@ export default async function AccountingPage({
 
       <AccountsManager accounts={accounts} canWrite={!session.isDemo} />
 
-      <AccountingClient {...data} canWrite={!session.isDemo} />
+      <AccountingClient
+        {...data}
+        accounts={accounts.map((a) => ({ id: a.id, name: a.name, isDefault: a.isDefault }))}
+        canWrite={!session.isDemo}
+      />
     </div>
   );
 }

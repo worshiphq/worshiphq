@@ -1,24 +1,29 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { createContext, useContext, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronDown, ChevronRight, Download, Calendar,
   TrendingUp, TrendingDown, Scale, Wallet,
   HandCoins, Banknote, Trash2, Pencil, Check, X,
-  Infinity,
+  Infinity, Landmark,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/app/stat-card";
 import { useFeedback } from "@/components/ui/feedback";
-import { deleteTransaction, editTransaction } from "@/app/actions/accounting";
+import { deleteTransaction, editTransaction, moveLedgerEntryAccount } from "@/app/actions/accounting";
 import { formatCurrency } from "@/config/brand";
 import { formatDate, cn } from "@/lib/utils";
 import type { AccountingWeek, AccountingRow } from "@/lib/data/modules";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+
+export interface LedgerAccount { id: string; name: string; isDefault: boolean }
+
+/** Accounts available for moving ledger entries, provided to deeply-nested rows. */
+const AccountsContext = createContext<LedgerAccount[]>([]);
 
 interface Props {
   transactions: AccountingRow[];
@@ -29,10 +34,11 @@ interface Props {
   monthLabel: string;
   year: number;
   month: number;
+  accounts?: LedgerAccount[];
   canWrite: boolean;
 }
 
-export function AccountingClient({ transactions, income, expenses, fundBalances, weeks, monthLabel, year, month, canWrite }: Props) {
+export function AccountingClient({ transactions, income, expenses, fundBalances, weeks, monthLabel, year, month, accounts = [], canWrite }: Props) {
   const [tab, setTab] = useState<"weekly" | "all" | "report">("weekly");
   const [selectedYear, setSelectedYear] = useState(year);
   const [selectedMonth, setSelectedMonth] = useState(month);
@@ -66,6 +72,7 @@ export function AccountingClient({ transactions, income, expenses, fundBalances,
   };
 
   return (
+    <AccountsContext.Provider value={accounts}>
     <div className="space-y-5">
       {/* Period selector */}
       <div className="flex flex-wrap items-center gap-3">
@@ -121,6 +128,67 @@ export function AccountingClient({ transactions, income, expenses, fundBalances,
       {tab === "weekly" && <WeeklyView weeks={visibleWeeks} canWrite={canWrite} onDelete={onDeleteOptimistic} />}
       {tab === "all" && <AllTransactions rows={visibleTransactions} canWrite={canWrite} onDelete={onDeleteOptimistic} />}
       {tab === "report" && <MonthlyReport weeks={visibleWeeks} income={visibleIncome} expenses={visibleExpenses} fundBalances={fundBalances} monthLabel={monthLabel} year={year} month={month} />}
+    </div>
+    </AccountsContext.Provider>
+  );
+}
+
+/* ────── Move-between-accounts control ────── */
+
+function MoveAccountControl({ row }: { row: AccountingRow }) {
+  const accounts = useContext(AccountsContext);
+  const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const { toast } = useFeedback();
+  const router = useRouter();
+
+  if (accounts.length < 2) return null; // nothing to move between
+  const current = accounts.find((a) => a.id === row.accountId) ?? accounts.find((a) => a.isDefault) ?? accounts[0];
+
+  const move = (accountId: string) => {
+    setOpen(false);
+    if (accountId === (row.accountId ?? current?.id)) return;
+    startTransition(async () => {
+      const res = await moveLedgerEntryAccount(row.source, row.id, accountId);
+      if (res?.ok) { toast(`Moved to ${res.accountName}`, "success"); router.refresh(); }
+      else toast(res?.error ?? "Couldn't move", "error");
+    });
+  };
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setOpen((v) => !v)}
+        disabled={pending}
+        title="Move to another account"
+        className="flex items-center gap-1 rounded-lg px-1.5 py-1 text-[11px] text-ink-faint hover:bg-primary/10 hover:text-primary"
+      >
+        {pending
+          ? <div className="size-3 animate-spin rounded-full border-2 border-current border-t-transparent" />
+          : <Landmark className="size-3" />}
+        <span className="hidden sm:inline">{current?.name ?? "Account"}</span>
+      </button>
+      {open && (
+        <>
+          <div className="fixed inset-0 z-10" onClick={() => setOpen(false)} />
+          <div className="absolute right-0 top-full z-20 mt-1 w-48 overflow-hidden rounded-xl border border-line bg-surface shadow-xl">
+            <div className="border-b border-line-soft px-3 py-1.5 text-[10px] uppercase tracking-wide text-ink-faint">Move to account</div>
+            {accounts.map((a) => (
+              <button
+                key={a.id}
+                onClick={() => move(a.id)}
+                className={cn(
+                  "flex w-full items-center justify-between px-3 py-2 text-left text-xs hover:bg-surface-2",
+                  a.id === current?.id && "font-semibold text-primary",
+                )}
+              >
+                <span>{a.name}{a.isDefault ? " (default)" : ""}</span>
+                {a.id === current?.id && <Check className="size-3.5" />}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </div>
   );
 }
@@ -263,6 +331,7 @@ function TransactionRow({ row, canWrite, onDelete }: { row: AccountingRow; canWr
       </div>
       <div className="flex items-center gap-2">
         {row.source === "giving" && <Badge variant="success" className="text-[10px]">Giving</Badge>}
+        {canWrite && mode !== "delete" && <MoveAccountControl row={row} />}
         <span className={cn("font-display text-sm font-semibold", row.amount >= 0 ? "text-success" : "text-ink")}>
           {row.amount >= 0 ? "+" : "−"}{formatCurrency(Math.abs(row.amount))}
         </span>
@@ -418,32 +487,35 @@ function AllTransactionsRow({ row: r, canWrite, onDelete }: { row: AccountingRow
       </td>
       {canWrite && (
         <td className="p-4 text-right">
-          {r.source === "manual" ? (
-            mode === "delete" ? (
-              <div className="flex items-center justify-end gap-1">
-                <span className="text-xs text-danger">Delete?</span>
-                <button onClick={handleDelete} disabled={pending}
-                  className="grid size-7 place-items-center rounded-lg text-danger hover:bg-danger/10">
-                  {pending ? <div className="size-3.5 animate-spin rounded-full border-2 border-danger border-t-transparent" /> : <Check className="size-3.5" />}
-                </button>
-                <button onClick={() => setMode("view")}
-                  className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-surface-2">
-                  <X className="size-3.5" />
-                </button>
-              </div>
-            ) : (
-              <div className="flex items-center justify-end gap-1">
-                <button onClick={() => setMode("edit")} title="Edit transaction"
-                  className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary/10 hover:text-primary">
-                  <Pencil className="size-3.5" />
-                </button>
-                <button onClick={() => setMode("delete")} title="Delete transaction"
-                  className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
-                  <Trash2 className="size-3.5" />
-                </button>
-              </div>
-            )
-          ) : null}
+          {mode === "delete" ? (
+            <div className="flex items-center justify-end gap-1">
+              <span className="text-xs text-danger">Delete?</span>
+              <button onClick={handleDelete} disabled={pending}
+                className="grid size-7 place-items-center rounded-lg text-danger hover:bg-danger/10">
+                {pending ? <div className="size-3.5 animate-spin rounded-full border-2 border-danger border-t-transparent" /> : <Check className="size-3.5" />}
+              </button>
+              <button onClick={() => setMode("view")}
+                className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-surface-2">
+                <X className="size-3.5" />
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center justify-end gap-1">
+              <MoveAccountControl row={r} />
+              {r.source === "manual" && (
+                <>
+                  <button onClick={() => setMode("edit")} title="Edit transaction"
+                    className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary/10 hover:text-primary">
+                    <Pencil className="size-3.5" />
+                  </button>
+                  <button onClick={() => setMode("delete")} title="Delete transaction"
+                    className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </>
+              )}
+            </div>
+          )}
         </td>
       )}
     </tr>

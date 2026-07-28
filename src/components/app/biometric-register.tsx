@@ -114,19 +114,19 @@ export function BiometricRegisterButton({
                 <div className="mx-auto flex size-20 items-center justify-center rounded-full bg-warning/10">
                   <Fingerprint className="size-10 text-warning" />
                 </div>
-                <h3 className="mt-4 font-display text-lg font-bold">Fingerprint scanner needed</h3>
+                <h3 className="mt-4 font-display text-lg font-bold">One-time scanner setup</h3>
                 <p className="mt-2 text-sm text-ink-muted">
-                  Plug in a USB fingerprint scanner and install the WorshipHQ scanner agent on this computer.
+                  Download and double-click the installer — it sets up everything (Python, driver, auto-start). Then plug in your USB scanner.
                 </p>
                 <a
-                  href="/scanner-agent/whq-scanner-agent.py"
+                  href="/scanner-agent/whq-scanner-setup.bat"
                   download
                   className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-medium text-white hover:bg-brand/90 transition-colors"
                 >
-                  <Download className="size-4" /> Download scanner agent
+                  <Download className="size-4" /> Download 1-click installer (Windows)
                 </a>
-                <p className="mt-3 text-xs text-ink-faint">
-                  Run once: <code className="rounded bg-surface-2 px-1 py-0.5">python whq-scanner-agent.py --install</code>
+                <p className="mt-3 text-[11px] text-ink-faint">
+                  Advanced: prefer the raw <a href="/scanner-agent/whq-scanner-agent.py" download className="underline">Python script</a>.
                 </p>
                 <div className="mt-4 flex gap-2 justify-center">
                   <Button size="sm" variant="secondary" onClick={close}>Close</Button>
