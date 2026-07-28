@@ -1,61 +1,57 @@
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getServiceRoles } from "@/lib/data/rosters";
+import { getSmsBalance } from "@/lib/sms/credits";
 import { RostersClient } from "@/components/app/rosters-client";
-import { createRoster, addSlot } from "@/app/actions/rosters";
+import { createRoster } from "@/app/actions/rosters";
 import { PageHeader } from "@/components/app/page-header";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { Plus } from "lucide-react";
 
-export const metadata = { title: "Volunteer rosters" };
+export const metadata = { title: "Rosters" };
 
 export default async function RostersPage() {
   const session = await requireModule("volunteers");
 
-  const [rosters, members, groups] = await Promise.all([
+  const [rosters, members, roles, smsBalance] = await Promise.all([
     db.volunteerRoster.findMany({
       where: { churchId: session.churchId },
       orderBy: { startDate: "desc" },
       include: {
         slots: {
-          orderBy: { date: "asc" },
-          include: { person: { select: { firstName: true, lastName: true } } },
+          orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+          include: { person: { select: { firstName: true, lastName: true, phone: true } } },
         },
       },
     }),
     db.person.findMany({
-      where: { churchId: session.churchId },
+      where: { churchId: session.churchId, status: { not: "inactive" } },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-      select: { id: true, firstName: true, lastName: true },
+      select: { id: true, firstName: true, lastName: true, phone: true },
     }),
-    db.group.findMany({
-      where: { churchId: session.churchId, type: "ministry" },
-      select: { name: true },
-      orderBy: { name: "asc" },
-    }),
+    getServiceRoles(session.churchId),
+    getSmsBalance(session.churchId),
   ]);
-
-  const ministryOptions = groups.map((g) => g.name);
 
   return (
     <div>
       <PageHeader
-        title="Volunteer rosters"
-        description="Schedule volunteers for services, events, and ministries."
+        title="Rosters"
+        description="Plan who serves at each service — Word, prayer, praise & worship, and more — then share it or text everyone."
       >
         <ActionDialog
           triggerLabel="New roster"
           triggerIcon={<Plus />}
-          title="Create roster"
-          description="Set up a new volunteer schedule."
-          submitLabel="Create"
+          title="Create a roster"
+          description="A roster covers a period — e.g. a month of Sunday & Wednesday services."
+          submitLabel="Create roster"
           action={createRoster}
           disabled={session.isDemo}
         >
-          <Field label="Roster name" name="name" placeholder="e.g. Sunday Ushering - July" required />
-          <Field label="Ministry" name="ministry" type="select" options={ministryOptions} />
+          <Field label="Roster name" name="name" placeholder="e.g. July 2026" required />
           <Field label="Start date" name="startDate" type="date" required />
           <Field label="End date" name="endDate" type="date" required />
-          <Field label="Notes" name="notes" type="textarea" placeholder="Instructions or notes..." />
+          <Field label="Notes (optional)" name="notes" type="textarea" placeholder="Anything the team should know…" />
         </ActionDialog>
       </PageHeader>
 
@@ -63,23 +59,24 @@ export default async function RostersPage() {
         rosters={rosters.map((r) => ({
           id: r.id,
           name: r.name,
-          ministry: r.ministry,
           startDate: r.startDate.toISOString(),
           endDate: r.endDate.toISOString(),
           notes: r.notes,
           slots: r.slots.map((s) => ({
             id: s.id,
+            service: s.service,
             role: s.role,
             date: s.date.toISOString(),
-            shift: s.shift,
-            status: s.status,
-            memberName: s.person ? `${s.person.firstName} ${s.person.lastName}` : "Unassigned",
             personId: s.personId,
+            personName: s.personName ?? (s.person ? `${s.person.firstName} ${s.person.lastName}` : null),
+            hasPhone: !!s.person?.phone,
+            notified: !!s.notifiedAt,
           })),
         }))}
-        members={members.map((m) => ({ label: `${m.firstName} ${m.lastName}`, value: m.id }))}
-        addSlotAction={addSlot}
-        isDemo={session.isDemo}
+        members={members.map((m) => ({ id: m.id, name: `${m.firstName} ${m.lastName}`.trim(), hasPhone: !!m.phone }))}
+        roles={roles}
+        smsBalance={smsBalance}
+        canWrite={!session.isDemo}
       />
     </div>
   );

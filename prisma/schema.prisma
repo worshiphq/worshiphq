@@ -148,6 +148,7 @@ model Church {
   refundRequests RefundRequest[]
   volunteerRosters VolunteerRoster[]
   volunteerSlots  VolunteerSlot[]
+  serviceRoles    ServiceRole[]
   dayBornWeeks    DayBornWeek[]
   paymentRequests PaymentRequest[]
 }
@@ -1295,14 +1296,31 @@ model VolunteerSlot {
   roster    VolunteerRoster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
   personId  String?
   person    Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
-  role      String   // e.g. "Usher", "Sound tech", "Singer"
+  personName String? // typed name/title when not a member record (e.g. "Rev. Foster Odoi")
+  service   String?  // which service, e.g. "Sunday Service", "Wednesday Service"
+  role      String   // the duty, e.g. "Word Ministration", "Prayer Leader", "Praise & Worship"
   date      DateTime
   shift     String   @default("morning") // morning, afternoon, evening, full-day
   status    String   @default("assigned") // assigned, confirmed, swapped, absent
+  notifiedAt DateTime? // set when this person was SMS'd about the assignment
   createdAt DateTime @default(now())
 
   @@index([rosterId])
   @@index([personId])
+}
+
+// Editable, per-church list of service duties used to build rosters
+// (Word Ministration, Service Leader, Prayer Leader, Praise & Worship, …).
+model ServiceRole {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name      String
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+
+  @@unique([churchId, name])
+  @@index([churchId])
 }
 
 // ── Online Payment Request ───────────────────────────────

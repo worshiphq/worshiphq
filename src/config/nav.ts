@@ -75,7 +75,6 @@ export const nav: NavSection[] = [
       { key: "attendance", label: "Attendance", href: "/app/attendance", icon: CalendarCheck2 },
       { key: "events", label: "Events", href: "/app/events", icon: CalendarDays },
       { key: "events", label: "Calendar", href: "/app/calendar", icon: Calendar },
-      { key: "volunteers", label: "Volunteers", href: "/app/volunteers", icon: HandHelping },
       { key: "people", label: "Groups", href: "/app/groups", icon: Users2 },
       { key: "people", label: "Visitors", href: "/app/visitors", icon: UserRoundPlus },
       { key: "people", label: "Birthdays", href: "/app/birthdays", icon: Cake },
