@@ -9,20 +9,31 @@ export async function createWelfareRecord(formData: FormData) {
   const session = await requireModule("giving");
   if (session.isDemo) return;
 
-  const recipientName = String(formData.get("recipientName") ?? "").trim();
-  if (!recipientName) return;
-
+  const kind = String(formData.get("kind") ?? "aid") === "dues" ? "dues" : "aid";
   const type = String(formData.get("type") ?? "financial");
   const amount = parseFloat(String(formData.get("amount") ?? "0")) || null;
   const description = String(formData.get("description") ?? "").trim() || null;
   const dateStr = String(formData.get("date") ?? "").trim();
   const personId = String(formData.get("personId") ?? "").trim() || null;
 
+  // Dues are welfare income — only members pay them, so a member is required and
+  // the name comes from that member. Aid is money out to any recipient (member,
+  // visitor, or a typed name).
+  let recipientName = String(formData.get("recipientName") ?? "").trim();
+  if (kind === "dues") {
+    if (!personId) return;
+    const member = await db.person.findFirst({ where: { id: personId, churchId: session.churchId }, select: { firstName: true, lastName: true } });
+    if (!member) return;
+    recipientName = `${member.firstName} ${member.lastName}`.trim();
+  }
+  if (!recipientName) return;
+
   const rec = await db.welfareRecord.create({
     data: {
       churchId: session.churchId,
+      kind,
       recipientName,
-      type,
+      type: kind === "dues" ? "dues" : type,
       amount,
       description,
       personId,
@@ -30,19 +41,21 @@ export async function createWelfareRecord(formData: FormData) {
     },
   });
 
-  // Welfare is money out — deduct it from the account.
+  // Post to the account: dues add money, aid deducts it.
   if (amount && amount > 0) {
     const { postLedgerToAccount } = await import("@/lib/data/accounts");
     await postLedgerToAccount(session.churchId, {
-      description: `Welfare — ${recipientName}`,
-      category: "Welfare",
-      amount: -amount,
+      description: kind === "dues" ? `Welfare dues — ${recipientName}` : `Welfare aid — ${recipientName}`,
+      category: kind === "dues" ? "Welfare Dues" : "Welfare",
+      fund: "Welfare",
+      amount: kind === "dues" ? amount : -amount,
       accountId: String(formData.get("accountId") ?? "").trim() || null,
     });
   }
 
-  await audit(session, "create", "welfare", `Welfare for ${recipientName}${amount ? ` (${amount})` : ""}`, rec.id);
+  await audit(session, "create", "welfare", `Welfare ${kind === "dues" ? "dues from" : "aid for"} ${recipientName}${amount ? ` (${amount})` : ""}`, rec.id);
   revalidatePath("/app/welfare");
+  revalidatePath("/app/accounting");
 }
 
 export async function deleteWelfareRecord(formData: FormData) {

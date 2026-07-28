@@ -845,8 +845,9 @@ model WelfareRecord {
   church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
   personId    String?
   person      Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  kind        String   @default("aid")  // "dues" = money in (member welfare dues), "aid" = money out (benevolence)
   recipientName String
-  type        String   @default("financial") // "financial" | "food" | "medical" | "housing" | "education" | "other"
+  type        String   @default("financial") // aid: "financial" | "food" | "medical" | "housing" | "education" | "other"
   amount      Decimal? @db.Decimal(12, 2)
   description String?
   date        DateTime @default(now())
