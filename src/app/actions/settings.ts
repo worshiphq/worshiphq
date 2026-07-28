@@ -527,6 +527,8 @@ export async function createCustomRole(formData: FormData) {
   });
 
   await audit(session, "create", "role", `Saved custom role "${name}"`);
+
+  await audit(session, "create", "role", `Saved custom role "${name}"`);
   revalidatePath("/app/settings");
 }
 
