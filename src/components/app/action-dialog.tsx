@@ -84,6 +84,7 @@ export function Field({
   options,
   step,
   hint,
+  rows,
 }: {
   label: string;
   name: string;
@@ -94,9 +95,11 @@ export function Field({
   options?: string[] | { label: string; value: string }[];
   step?: string;
   hint?: string;
+  rows?: number;
 }) {
   const base =
     "flex h-11 w-full rounded-xl border border-line bg-surface px-3.5 text-sm text-ink placeholder:text-ink-faint focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30";
+  const areaBase = base.replace("h-11 ", "").replace("flex ", "");
   return (
     <div>
       <label className="mb-1.5 block text-sm font-medium text-ink-muted">{label}</label>
@@ -112,6 +115,15 @@ export function Field({
             );
           })}
         </select>
+      ) : type === "textarea" ? (
+        <textarea
+          name={name}
+          rows={rows ?? 4}
+          placeholder={placeholder}
+          defaultValue={defaultValue}
+          required={required}
+          className={`${areaBase} min-h-24 py-2.5`}
+        />
       ) : (
         <input
           name={name}

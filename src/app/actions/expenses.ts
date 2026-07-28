@@ -15,7 +15,10 @@ export async function createExpense(formData: FormData) {
   const amount = parseFloat(String(formData.get("amount") ?? "0"));
   if (!amount || amount <= 0) return;
 
-  const category = String(formData.get("category") ?? "general");
+  let category = String(formData.get("category") ?? "general");
+  // "Other" lets the admin type a custom category.
+  const categoryOther = String(formData.get("categoryOther") ?? "").trim();
+  if (category === "other" && categoryOther) category = categoryOther;
   const vendor = String(formData.get("vendor") ?? "").trim() || null;
   const receiptRef = String(formData.get("receiptRef") ?? "").trim() || null;
   const approvedBy = String(formData.get("approvedBy") ?? "").trim() || null;

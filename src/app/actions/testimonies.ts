@@ -13,7 +13,9 @@ export async function createTestimony(formData: FormData) {
   const body = String(formData.get("body") ?? "").trim();
   if (!title || !body) return;
 
-  const category = String(formData.get("category") ?? "praise").trim();
+  let category = String(formData.get("category") ?? "praise").trim();
+  const categoryOther = String(formData.get("categoryOther") ?? "").trim();
+  if (category === "other" && categoryOther) category = categoryOther;
   const personId = String(formData.get("personId") ?? "").trim() || null;
   const anonymous = formData.get("anonymous") === "on";
   const dateStr = String(formData.get("date") ?? "").trim();

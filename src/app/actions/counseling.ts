@@ -9,11 +9,14 @@ export async function createCounselingSession(formData: FormData) {
   const session = await requireModule("people");
   if (session.isDemo) return;
 
-  const summary = String(formData.get("summary") ?? "").trim();
+  let summary = String(formData.get("summary") ?? "").trim();
   if (!summary) return;
 
   const type = String(formData.get("type") ?? "general").trim();
   const personId = String(formData.get("personId") ?? "").trim() || null;
+  // For a visitor / non-member, capture the typed name in the summary.
+  const counseleeName = String(formData.get("counseleeName") ?? "").trim();
+  if (!personId && counseleeName) summary = `[${counseleeName}] ${summary}`;
   const notes = String(formData.get("notes") ?? "").trim() || null;
   const status = String(formData.get("status") ?? "open").trim();
   const confidential = formData.get("confidential") !== "off";

@@ -54,6 +54,7 @@ export default async function ExpensesPage() {
             <Field label="Deduct from account" name="accountId" type="select" options={accountOptions} hint="Which account this payment comes out of" />
           )}
           <Field label="Category" name="category" options={CATEGORIES} />
+          <Field label="If “Other”, type the category" name="categoryOther" placeholder="e.g. Guest speaker honorarium" />
           <Field label="Vendor / payee" name="vendor" placeholder="Who was paid" />
           <Field label="Receipt reference" name="receiptRef" placeholder="Receipt or invoice number" />
           <Field label="Approved by" name="approvedBy" placeholder="Name of approving officer" />
