@@ -31,7 +31,29 @@ export async function createFollowUp(formData: FormData) {
     },
   });
 
-  await audit(session, "create", "follow-up", `Created follow-up "${title}"`);
+  // Let the assigned person know they have a task (SMS + email).
+  if (assigneeId) {
+    const [assignee, person, church] = await Promise.all([
+      db.user.findFirst({ where: { id: assigneeId, churchId: session.churchId }, select: { phone: true, email: true } }),
+      personId ? db.person.findUnique({ where: { id: personId }, select: { firstName: true, lastName: true, phone: true } }) : Promise.resolve(null),
+      db.church.findUnique({ where: { id: session.churchId }, select: { name: true } }),
+    ]);
+    if (assignee?.phone || assignee?.email) {
+      const who = person ? ` — reach out to ${person.firstName} ${person.lastName}${person.phone ? ` (${person.phone})` : ""}` : "";
+      const due = dueDate ? ` Due ${dueDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}.` : "";
+      const msg = `New follow-up assigned to you at ${church?.name ?? "your church"}: "${title}"${who}.${due}`;
+      try {
+        const { sendChurchSms } = await import("@/lib/sms/credits");
+        const { sendEmail } = await import("@/lib/integrations/email");
+        if (assignee.phone) await sendChurchSms(session.churchId, assignee.phone, msg, { note: "Follow-up assigned" });
+        if (assignee.email && !assignee.email.endsWith("@invite.worshiphq.app")) {
+          await sendEmail({ to: assignee.email, subject: `Follow-up assigned — ${title}`, html: `<p>${msg}</p>${note ? `<p>${note}</p>` : ""}` });
+        }
+      } catch { /* notification must not block the task */ }
+    }
+  }
+
+  await audit(session, "create", "follow-up", `Created follow-up "${title}"${assigneeId ? " (assignee notified)" : ""}`);
   revalidatePath("/app/follow-ups");
 }
 
