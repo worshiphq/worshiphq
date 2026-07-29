@@ -23,7 +23,7 @@ export async function selfRegister(formData: FormData) {
   if (!church || church.isDemo) return;
 
   const fields = getFormDefinition(church.registrationFields);
-  const { data, customFields, departmentNames } = buildPersonData(fields, formData);
+  const { data, customFields, departmentNames } = await buildPersonData(fields, formData);
   if (!data.firstName || !data.lastName) return;
 
   const deptIds = await resolveDepartmentIds(church.id, departmentNames);
@@ -70,7 +70,7 @@ export async function registerChild(formData: FormData) {
   if (!church || church.isDemo) return;
 
   const fields = getChildrenFormDefinition(church.childrenFormFields);
-  const { data, customFields } = buildPersonData(fields, formData);
+  const { data, customFields } = await buildPersonData(fields, formData);
   if (!data.firstName || !data.lastName) return;
 
   const memberId = await nextMemberId(church.id);
@@ -100,7 +100,7 @@ export async function registerTeen(formData: FormData) {
   if (!church || church.isDemo) return;
 
   const fields = getTeensFormDefinition(church.teensFormFields);
-  const { data, customFields, departmentNames } = buildPersonData(fields, formData);
+  const { data, customFields, departmentNames } = await buildPersonData(fields, formData);
   if (!data.firstName || !data.lastName) return;
 
   const deptIds = await resolveDepartmentIds(church.id, departmentNames);

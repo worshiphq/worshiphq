@@ -16,7 +16,7 @@ export interface BuiltPerson {
  * Shared by public self-registration and the admin add/edit member form so all
  * three render and save the exact same fields.
  */
-export function buildPersonData(fields: FormField[], formData: FormData): BuiltPerson {
+export async function buildPersonData(fields: FormField[], formData: FormData): Promise<BuiltPerson> {
   const data: Record<string, unknown> = {};
   const customFields: Record<string, string> = {};
   const departmentNames: string[] = [];
@@ -59,6 +59,13 @@ export function buildPersonData(fields: FormField[], formData: FormData): BuiltP
     data.birthday = `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
   }
   data.location = (data.town as string) || (data.region as string) || (data.location as string) || null;
+
+  // Move an uploaded photo out of the DB into Storage (returns a URL). No-op
+  // when Storage isn't configured — the data URL is kept as before.
+  if (typeof data.photoUrl === "string" && data.photoUrl.startsWith("data:image/")) {
+    const { storeImage } = await import("@/lib/storage");
+    data.photoUrl = await storeImage(data.photoUrl, "members");
+  }
 
   return { data, customFields, departmentNames };
 }

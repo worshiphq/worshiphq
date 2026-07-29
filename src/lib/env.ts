@@ -72,10 +72,14 @@ const schema = z.object({
   VAPID_SUBJECT: z.string().default("mailto:admin@worshiphq.org"),
 
   // ── STORAGE ──────────────────────────────────────────
-  STORAGE_PROVIDER: z.enum(["cloudinary", "s3", "uploadthing"]).default("cloudinary"),
+  STORAGE_PROVIDER: z.enum(["cloudinary", "s3", "uploadthing", "supabase"]).default("cloudinary"),
   CLOUDINARY_CLOUD_NAME: str,
   CLOUDINARY_API_KEY: str,
   CLOUDINARY_API_SECRET: str,
+  // Supabase Storage (images move out of the DB into a bucket → tiny egress)
+  SUPABASE_URL: str,
+  SUPABASE_SERVICE_ROLE_KEY: str,
+  SUPABASE_STORAGE_BUCKET: z.string().default("church-media"),
 
   // ── MAPS ─────────────────────────────────────────────
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: str,

@@ -78,11 +78,15 @@ export async function updateChild(formData: FormData) {
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const rawPhoto = String(formData.get("photoUrl") ?? "").trim();
   const MAX_PHOTO = 2 * 1024 * 1024;
-  const photoUrl = rawPhoto.startsWith("data:image/") && rawPhoto.length < MAX_PHOTO
+  let photoUrl = rawPhoto.startsWith("data:image/") && rawPhoto.length < MAX_PHOTO
     ? rawPhoto
     : rawPhoto.startsWith("http")
       ? rawPhoto
       : undefined;
+  if (photoUrl?.startsWith("data:image/")) {
+    const { storeImage } = await import("@/lib/storage");
+    photoUrl = (await storeImage(photoUrl, "children")) ?? undefined;
+  }
 
   const birthday = dateOfBirth && !isNaN(dateOfBirth.getTime())
     ? `${String(dateOfBirth.getMonth() + 1).padStart(2, "0")}-${String(dateOfBirth.getDate()).padStart(2, "0")}`

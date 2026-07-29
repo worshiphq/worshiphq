@@ -23,7 +23,7 @@ export async function createPerson(formData: FormData) {
   assertCanWrite(session);
 
   const fields = await formFields(session.churchId);
-  const { data, customFields, departmentNames } = buildPersonData(fields, formData);
+  const { data, customFields, departmentNames } = await buildPersonData(fields, formData);
   if (!data.firstName || !data.lastName) return;
 
   const status = (String(formData.get("status") ?? "active") as PersonStatus) || "active";
@@ -64,7 +64,7 @@ export async function updatePerson(formData: FormData) {
   if (!existing) return;
 
   const fields = await formFields(session.churchId);
-  const { data, customFields, departmentNames } = buildPersonData(fields, formData);
+  const { data, customFields, departmentNames } = await buildPersonData(fields, formData);
   const status = (String(formData.get("status") ?? "active") as PersonStatus) || "active";
   const leaderTitle = String(formData.get("leaderTitle") ?? "").trim() || null;
   const featured = formData.get("featured") === "true";

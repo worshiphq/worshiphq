@@ -33,11 +33,14 @@ export async function updateProfile(formData: FormData) {
     if (!taken) data.email = email;
   }
 
-  // Profile photo (data URL or empty to clear).
+  // Profile photo (data URL or empty to clear). Uploaded to Storage → URL.
   if (formData.has("photoUrl")) {
     const photo = String(formData.get("photoUrl") ?? "");
     if (!photo) data.photoUrl = null;
-    else if (photo.startsWith("data:image/") && photo.length < 1_500_000) data.photoUrl = photo;
+    else if (photo.startsWith("data:image/") && photo.length < 1_500_000) {
+      const { storeImage } = await import("@/lib/storage");
+      data.photoUrl = await storeImage(photo, "staff");
+    }
   }
 
   await db.user.update({ where: { id: session.userId }, data });
@@ -241,7 +244,10 @@ export async function updateBranding(formData: FormData) {
   const data: { accentColor: string; logoUrl?: string | null } = { accentColor };
   if (formData.has("logoUrl")) {
     if (!logoRaw) data.logoUrl = null;
-    else if (logoRaw.startsWith("data:image/") && logoRaw.length < 1_500_000) data.logoUrl = logoRaw;
+    else if (logoRaw.startsWith("data:image/") && logoRaw.length < 1_500_000) {
+      const { storeImage } = await import("@/lib/storage");
+      data.logoUrl = await storeImage(logoRaw, "logos");
+    }
   }
 
   await db.church.update({ where: { id: session.churchId }, data });

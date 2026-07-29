@@ -40,12 +40,18 @@ export async function acceptInvite(formData: FormData) {
   const check = await verifyOtp(verificationId, code);
   if (!check.ok) return { ok: false as const, error: check.error ?? "That code didn't match." };
 
+  let storedPhoto: string | undefined;
+  if (photoUrl && photoUrl.startsWith("data:")) {
+    const { storeImage } = await import("@/lib/storage");
+    storedPhoto = (await storeImage(photoUrl, "staff")) ?? undefined;
+  }
+
   await db.user.update({
     where: { id: user.id },
     data: {
       name,
       passwordHash: await hashPassword(password),
-      photoUrl: photoUrl && photoUrl.startsWith("data:") ? photoUrl : undefined,
+      photoUrl: storedPhoto,
       phoneVerified: true,
       inviteAcceptedAt: new Date(),
       inviteToken: null,
