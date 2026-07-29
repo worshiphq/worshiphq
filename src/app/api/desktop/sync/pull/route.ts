@@ -70,6 +70,19 @@ async function pullTable(
   }));
 }
 
+// People are pulled WITHOUT photoUrl. Photos are base64 data URLs (~1.5MB each)
+// and re-sending them on every full-snapshot sync is the biggest source of DB
+// egress. The desktop shows initials until photos move to Storage-backed URLs.
+async function pullPeople(churchId: string) {
+  const rows = await db.person.findMany({ where: { churchId }, omit: { photoUrl: true } });
+  return rows.map((r) => ({
+    table: "person",
+    recordId: r.id,
+    action: "upsert" as const,
+    data: toSnakeCase(r as any),
+  }));
+}
+
 export async function GET(req: Request) {
   const auth = verifyToken(req.headers.get("authorization"));
   if (!auth) {
@@ -91,7 +104,7 @@ export async function GET(req: Request) {
     }
 
     const batches = await Promise.all([
-      pullTable(db.person, "person", churchId, sinceDate, null),
+      pullPeople(churchId),
       pullTable(db.department, "department", churchId, sinceDate),
       pullTable(db.departmentPosition, "department_position", churchId, sinceDate),
       pullTable(db.customRole, "custom_role", churchId, sinceDate),
@@ -141,10 +154,10 @@ export async function GET(req: Request) {
       changes.push(...batch);
     }
 
-    // Pull users (no password hash)
+    // Pull users (no password hash, no photoUrl — base64 photos bloat egress)
     const users = await db.user.findMany({
       where: { churchId },
-      select: { id: true, churchId: true, email: true, name: true, role: true, phone: true, photoUrl: true, customRoleId: true, branchId: true, personId: true },
+      select: { id: true, churchId: true, email: true, name: true, role: true, phone: true, customRoleId: true, branchId: true, personId: true },
     });
     for (const u of users) {
       changes.push({ table: "user", recordId: u.id, action: "upsert", data: toSnakeCase(u as any) });
