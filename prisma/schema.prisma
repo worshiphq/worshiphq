@@ -96,6 +96,8 @@ model Church {
   harvestReceiptTemplate String?
   pledgeReceiptTemplate  String?
   pledgeReminderTemplate String?
+  welfareDuesReceiptTemplate  String? @db.Text
+  welfareDuesReminderTemplate String? @db.Text
   /** Days before a pledge due date to auto-remind, e.g. [30, 7, 3]. */
   pledgeReminderDays     Int[]   @default([30, 7, 3])
   pledgePayments         PledgePayment[]
@@ -314,6 +316,7 @@ model Person {
   employer       String?
   previousChurch String?
   dateOfMembership DateTime?
+  welfareStart   DateTime? // when this member starts owing welfare dues (else joinedAt)
   placeOfBirth   String?
   nationality    String?
   country        String?

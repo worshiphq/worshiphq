@@ -7,6 +7,58 @@ import { audit } from "@/lib/audit";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
+const DEFAULT_DUES_RECEIPT = "Dear {name}, your welfare dues of GHS {amount} for {months} have been received by {church}. {balance} God bless.";
+const DEFAULT_DUES_REMINDER = "Dear {name}, a friendly reminder from {church}: your welfare dues balance is GHS {owed}. Kindly settle when you can. God bless you.";
+
+function fill(tpl: string, vars: Record<string, string>): string {
+  return tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
+}
+
+/** Set (or clear) the date a member starts owing welfare dues. */
+export async function setMemberWelfareStart(formData: FormData) {
+  const session = await requireModule("giving");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  const personId = String(formData.get("personId") ?? "").trim();
+  const dateStr = String(formData.get("welfareStart") ?? "").trim();
+  if (!personId) return { ok: false as const, error: "No member." };
+  await db.person.updateMany({
+    where: { id: personId, churchId: session.churchId },
+    data: { welfareStart: dateStr ? new Date(dateStr) : null },
+  });
+  await audit(session, "update", "welfare-dues", `Set welfare start for a member${dateStr ? ` to ${dateStr}` : " (cleared)"}`);
+  revalidatePath("/app/welfare");
+  return { ok: true as const };
+}
+
+/** Correct a single month's dues amount (human-error fix). */
+export async function editWelfareDue(formData: FormData) {
+  const session = await requireModule("giving");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  const id = String(formData.get("id") ?? "");
+  const amount = parseFloat(String(formData.get("amount") ?? "0"));
+  if (!id || !amount || amount <= 0) return { ok: false as const, error: "Enter a valid amount." };
+  await db.welfareDue.updateMany({ where: { id, churchId: session.churchId }, data: { amount } });
+  revalidatePath("/app/welfare");
+  return { ok: true as const };
+}
+
+/** Save the editable welfare SMS templates (receipt + reminder). */
+export async function saveWelfareTemplates(formData: FormData) {
+  const session = await requireModule("giving");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  const receipt = String(formData.get("receipt") ?? "").trim();
+  const reminder = String(formData.get("reminder") ?? "").trim();
+  await db.church.update({
+    where: { id: session.churchId },
+    data: {
+      welfareDuesReceiptTemplate: receipt || null,
+      welfareDuesReminderTemplate: reminder || null,
+    },
+  });
+  revalidatePath("/app/welfare");
+  return { ok: true as const };
+}
+
 /** Set (or update) the monthly welfare-dues rate for a given year. */
 export async function setWelfareRate(formData: FormData) {
   const session = await requireModule("giving");
@@ -77,9 +129,20 @@ export async function recordWelfareDues(formData: FormData) {
   let texted = false;
   if (notify) {
     const { memberOwedSummary } = await import("@/lib/data/welfare");
-    const summary = await memberOwedSummary(session.churchId, personId);
+    const [summary, church] = await Promise.all([
+      memberOwedSummary(session.churchId, personId),
+      db.church.findUnique({ where: { id: session.churchId }, select: { welfareDuesReceiptTemplate: true } }),
+    ]);
     if (summary.phone) {
-      const msg = `Dear ${summary.firstName}, your welfare dues of GHS ${total.toLocaleString()} (${MONTHS[fromMonth - 1]}–${MONTHS[toMonth - 1]} ${year}) have been received by ${summary.churchName}.${summary.owed > 0 ? ` Balance still owing: GHS ${summary.owed.toLocaleString()}.` : " You're fully paid up. Thank you!"} God bless.`;
+      const balance = summary.owed > 0 ? `Balance still owing: GHS ${summary.owed.toLocaleString()}.` : "You're fully paid up. Thank you!";
+      const msg = fill(church?.welfareDuesReceiptTemplate || DEFAULT_DUES_RECEIPT, {
+        name: summary.firstName,
+        amount: total.toLocaleString(),
+        months: `${MONTHS[fromMonth - 1]}–${MONTHS[toMonth - 1]} ${year}`,
+        church: summary.churchName,
+        owed: summary.owed.toLocaleString(),
+        balance,
+      });
       try {
         const { sendChurchSms } = await import("@/lib/sms/credits");
         const res = await sendChurchSms(session.churchId, summary.phone, msg, { note: "Welfare dues receipt" });
@@ -102,12 +165,22 @@ export async function deleteWelfareDue(formData: FormData) {
   revalidatePath("/app/welfare");
 }
 
+/** Full welfare history for one member (for the drill-down view). */
+export async function memberDuesDetail(personId: string) {
+  const session = await requireModule("giving");
+  const { getMemberDuesDetail } = await import("@/lib/data/welfare");
+  return getMemberDuesDetail(session.churchId, personId);
+}
+
 /** Build owing-reminder messages for members who owe (and have a phone). */
 async function buildOwingMessages(churchId: string, onlyPersonId?: string) {
   const { getWelfareData } = await import("@/lib/data/welfare");
-  const data = await getWelfareData(churchId);
-  const church = await db.church.findUnique({ where: { id: churchId }, select: { name: true } });
+  const [data, church] = await Promise.all([
+    getWelfareData(churchId),
+    db.church.findUnique({ where: { id: churchId }, select: { name: true, welfareDuesReminderTemplate: true } }),
+  ]);
   const churchName = church?.name ?? "your church";
+  const tpl = church?.welfareDuesReminderTemplate || DEFAULT_DUES_REMINDER;
   const withPhone = await db.person.findMany({
     where: { churchId, status: { not: "inactive" }, phone: { not: null } },
     select: { id: true, firstName: true, phone: true },
@@ -120,7 +193,7 @@ async function buildOwingMessages(churchId: string, onlyPersonId?: string) {
       const p = phoneMap.get(m.id)!;
       return {
         phone: p.phone,
-        text: `Dear ${p.firstName}, a friendly reminder from ${churchName}: your welfare dues balance is GHS ${m.owed.toLocaleString()}. Kindly settle when you can. God bless you.`,
+        text: fill(tpl, { name: p.firstName, church: churchName, owed: m.owed.toLocaleString() }),
       };
     });
 }

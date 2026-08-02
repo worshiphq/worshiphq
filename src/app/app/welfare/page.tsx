@@ -13,11 +13,17 @@ export const metadata = { title: "Welfare & benevolence" };
 
 const WELFARE_TYPES = ["financial", "food", "medical", "housing", "education", "other"];
 
-export default async function WelfarePage() {
+export default async function WelfarePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ year?: string }>;
+}) {
   const session = await requireModule("welfare");
+  const { year: yearParam } = await searchParams;
+  const year = yearParam ? parseInt(yearParam, 10) : undefined;
 
-  const [welfare, people, accounts, smsBalance] = await Promise.all([
-    getWelfareData(session.churchId),
+  const [welfare, people, accounts, smsBalance, church] = await Promise.all([
+    getWelfareData(session.churchId, year),
     db.person.findMany({
       where: { churchId: session.churchId, status: { not: "inactive" } },
       select: { id: true, firstName: true, lastName: true, phone: true },
@@ -25,6 +31,7 @@ export default async function WelfarePage() {
     }),
     getAccountOptions(session.churchId),
     getSmsBalance(session.churchId),
+    db.church.findUnique({ where: { id: session.churchId }, select: { welfareDuesReceiptTemplate: true, welfareDuesReminderTemplate: true } }),
   ]);
 
   const accountField = accounts.length > 1;
@@ -66,6 +73,10 @@ export default async function WelfarePage() {
         members={people.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`.trim(), hasPhone: !!p.phone }))}
         accounts={accounts}
         smsBalance={smsBalance}
+        templates={{
+          receipt: church?.welfareDuesReceiptTemplate ?? null,
+          reminder: church?.welfareDuesReminderTemplate ?? null,
+        }}
         canWrite={!session.isDemo}
       />
     </div>

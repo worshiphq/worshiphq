@@ -1,11 +1,11 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search, Heart, Trash2, Calendar, User, HandCoins, UtensilsCrossed, Stethoscope,
   Home, GraduationCap, HelpCircle, ArrowUpRight, ArrowDownRight, Scale, Plus, Loader2,
-  Send, Wallet, AlertTriangle, CheckCircle2, X, Settings2, Bell,
+  Send, Wallet, AlertTriangle, CheckCircle2, X, Settings2, Bell, MessageSquare, Pencil, Check,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import { AccountSelect, type AccountOption } from "@/components/app/account-sele
 import {
   deleteWelfareRecord, recordWelfareDues, setWelfareRate,
   previewOwingReminders, sendOwingReminders,
+  memberDuesDetail, editWelfareDue, deleteWelfareDue, setMemberWelfareStart, saveWelfareTemplates,
 } from "@/app/actions/welfare";
 import type { WelfareData } from "@/lib/data/welfare";
 import { cn } from "@/lib/utils";
@@ -33,10 +34,12 @@ function ghs(n: number) { return new Intl.NumberFormat("en-GH", { style: "curren
 
 type Member = { id: string; name: string; hasPhone: boolean };
 
+type Templates = { receipt: string | null; reminder: string | null };
+
 export function WelfareClient({
-  data, members, accounts, smsBalance, canWrite,
+  data, members, accounts, smsBalance, templates, canWrite,
 }: {
-  data: WelfareData; members: Member[]; accounts: AccountOption[]; smsBalance: number; canWrite: boolean;
+  data: WelfareData; members: Member[]; accounts: AccountOption[]; smsBalance: number; templates: Templates; canWrite: boolean;
 }) {
   const [tab, setTab] = useState<"dues" | "aid">("dues");
   const balance = data.collected - data.disbursed;
@@ -63,7 +66,7 @@ export function WelfareClient({
       </div>
 
       {tab === "dues" ? (
-        <DuesTab data={data} members={members} accounts={accounts} smsBalance={smsBalance} canWrite={canWrite} />
+        <DuesTab data={data} members={members} accounts={accounts} smsBalance={smsBalance} templates={templates} canWrite={canWrite} />
       ) : (
         <AidTab data={data} canWrite={canWrite} />
       )}
@@ -84,15 +87,19 @@ function Stat({ icon: Icon, tone, value, label }: { icon: typeof Heart; tone: "s
 
 /* ─────────────────── Dues tab ─────────────────── */
 
-function DuesTab({ data, members, accounts, smsBalance, canWrite }: {
-  data: WelfareData; members: Member[]; accounts: AccountOption[]; smsBalance: number; canWrite: boolean;
+function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
+  data: WelfareData; members: Member[]; accounts: AccountOption[]; smsBalance: number; templates: Templates; canWrite: boolean;
 }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [remindAll, setRemindAll] = useState(false);
   const [remindOne, setRemindOne] = useState<Member | null>(null);
+  const [detailFor, setDetailFor] = useState<{ id: string; name: string } | null>(null);
+  const [showTemplates, setShowTemplates] = useState(false);
 
   const filtered = data.members.filter((m) => !search || m.name.toLowerCase().includes(search.toLowerCase()));
   const owingCount = data.members.filter((m) => m.owed > 0).length;
+  const isCurrentYear = data.selectedYear === data.currentYear;
 
   return (
     <div className="space-y-4">
@@ -101,35 +108,49 @@ function DuesTab({ data, members, accounts, smsBalance, canWrite }: {
 
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
-          <div>
-            <h3 className="font-display text-lg font-semibold">Member dues — {data.currentYear}</h3>
-            <p className="text-xs text-ink-muted">{owingCount} member{owingCount === 1 ? "" : "s"} owing · as of {MONTHS_FULL[data.currentMonth - 1]}</p>
+          <div className="flex items-center gap-3">
+            <h3 className="font-display text-lg font-semibold">Member dues</h3>
+            <select
+              value={data.selectedYear}
+              onChange={(e) => router.push(`/app/welfare?year=${e.target.value}`)}
+              className="h-9 rounded-lg border border-line bg-surface px-2.5 text-sm font-medium"
+            >
+              {data.years.map((y) => <option key={y} value={y}>{y}</option>)}
+            </select>
           </div>
           <div className="flex items-center gap-2">
+            {canWrite && (
+              <Button variant="secondary" size="sm" onClick={() => setShowTemplates(true)}><MessageSquare className="size-4" /> Messages</Button>
+            )}
             {canWrite && owingCount > 0 && (
               <Button size="sm" onClick={() => setRemindAll(true)}><Bell className="size-4" /> Remind all owing</Button>
             )}
           </div>
         </div>
         <div className="p-4">
+          <p className="mb-3 text-xs text-ink-muted">{owingCount} member{owingCount === 1 ? "" : "s"} owing overall (as of {MONTHS_FULL[data.currentMonth - 1]} {data.currentYear}). Green = paid in {data.selectedYear}. Click a member to see their full record.</p>
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
             <Input placeholder="Search members…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
           </div>
           {data.rates.length === 0 && (
             <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0" /> Set a monthly rate for {data.currentYear} above so “owed” can be calculated.
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" /> Set a monthly rate above (per year) so “owed” can be calculated.
             </div>
           )}
           <div className="space-y-2">
             {filtered.map((m) => (
-              <div key={m.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-line px-3 py-2.5">
+              <button key={m.id} onClick={() => setDetailFor({ id: m.id, name: m.name })}
+                className="flex w-full flex-wrap items-center gap-3 rounded-xl border border-line px-3 py-2.5 text-left hover:border-primary/40 hover:bg-surface-2/40">
                 <div className="min-w-40 flex-1">
-                  <div className="text-sm font-medium">{m.name}</div>
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    {m.name}
+                    {!m.hasExplicitStart && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700" title="Using join date — set an explicit start inside">start: {m.startLabel}</span>}
+                  </div>
                   <div className="mt-1 flex gap-0.5">
                     {MONTHS.map((mo, i) => {
-                      const paid = m.monthsPaidThisYear.includes(i + 1);
-                      const past = i + 1 <= data.currentMonth;
+                      const paid = m.monthsPaidInYear.includes(i + 1);
+                      const past = data.selectedYear < data.currentYear || (isCurrentYear && i + 1 <= data.currentMonth);
                       return (
                         <span key={mo} title={`${MONTHS_FULL[i]} ${paid ? "— paid" : past ? "— unpaid" : ""}`}
                           className={cn("grid size-4 place-items-center rounded-[3px] text-[7px] font-bold",
@@ -141,7 +162,7 @@ function DuesTab({ data, members, accounts, smsBalance, canWrite }: {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xs text-ink-faint">Paid</div>
+                  <div className="text-xs text-ink-faint">Paid (total)</div>
                   <div className="text-sm font-semibold text-success">{ghs(m.paidTotal)}</div>
                 </div>
                 <div className="text-right">
@@ -149,12 +170,13 @@ function DuesTab({ data, members, accounts, smsBalance, canWrite }: {
                   <div className={cn("text-sm font-semibold", m.owed > 0 ? "text-danger" : "text-ink-faint")}>{m.owed > 0 ? ghs(m.owed) : "—"}</div>
                 </div>
                 {canWrite && m.owed > 0 && m.hasPhone && (
-                  <button onClick={() => setRemindOne(m)} title="Send reminder"
+                  <span onClick={(e) => { e.stopPropagation(); setRemindOne({ id: m.id, name: m.name, hasPhone: m.hasPhone }); }}
+                    title="Send reminder"
                     className="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-primary/10 hover:text-primary">
                     <Bell className="size-4" />
-                  </button>
+                  </span>
                 )}
-              </div>
+              </button>
             ))}
             {filtered.length === 0 && <p className="py-6 text-center text-sm text-ink-faint">No members found.</p>}
           </div>
@@ -163,6 +185,8 @@ function DuesTab({ data, members, accounts, smsBalance, canWrite }: {
 
       {remindAll && <RemindDialog title="Remind everyone who owes" smsBalance={smsBalance} onClose={() => setRemindAll(false)} />}
       {remindOne && <RemindDialog title={`Remind ${remindOne.name}`} personId={remindOne.id} smsBalance={smsBalance} onClose={() => setRemindOne(null)} />}
+      {detailFor && <MemberDetailDialog member={detailFor} rates={data.rates} canWrite={canWrite} onClose={() => setDetailFor(null)} />}
+      {showTemplates && <TemplatesDialog templates={templates} onClose={() => setShowTemplates(false)} />}
     </div>
   );
 }
@@ -369,6 +393,174 @@ function RemindDialog({ title, personId, smsBalance, onClose }: { title: string;
 function Row({ label, value, strong, tone, icon }: { label: string; value: string; strong?: boolean; tone?: "ok" | "bad"; icon?: React.ReactNode }) {
   const color = tone === "ok" ? "text-success" : tone === "bad" ? "text-danger" : "text-ink";
   return <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-1.5 text-ink-muted">{icon}{label}</span><span className={cn(strong && "font-semibold", color)}>{value}</span></div>;
+}
+
+/* ─────────────────── Member detail (drill-down) ─────────────────── */
+
+type DuesDetail = {
+  name: string; welfareStart: string | null; joinedAt: string | null;
+  owed: number; paidTotal: number; dues: { id: string; year: number; month: number; amount: number }[];
+};
+
+function MemberDetailDialog({ member, rates, canWrite, onClose }: {
+  member: { id: string; name: string }; rates: { year: number; amount: number }[]; canWrite: boolean; onClose: () => void;
+}) {
+  const router = useRouter();
+  const { toast } = useFeedback();
+  const [detail, setDetail] = useState<DuesDetail | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [start, setStart] = useState("");
+  const [pending, startTx] = useTransition();
+  const [editId, setEditId] = useState<string | null>(null);
+  const [editAmt, setEditAmt] = useState("");
+
+  const load = () => {
+    setLoading(true);
+    memberDuesDetail(member.id).then((d) => { setDetail(d); setStart(d.welfareStart ?? ""); setLoading(false); });
+  };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  useEffect(load, [member.id]);
+
+  const saveStart = () => {
+    const fd = new FormData(); fd.set("personId", member.id); fd.set("welfareStart", start);
+    startTx(async () => { const r = await setMemberWelfareStart(fd); if (r?.ok) { toast("Start date saved", "success"); load(); router.refresh(); } else toast(r?.error ?? "Failed", "error"); });
+  };
+  const saveEdit = (id: string) => {
+    const fd = new FormData(); fd.set("id", id); fd.set("amount", editAmt);
+    startTx(async () => { const r = await editWelfareDue(fd); if (r?.ok) { toast("Updated", "success"); setEditId(null); load(); router.refresh(); } else toast(r?.error ?? "Failed", "error"); });
+  };
+  const del = (id: string) => {
+    if (!confirm("Delete this month's dues record?")) return;
+    const fd = new FormData(); fd.set("id", id);
+    startTx(async () => { await deleteWelfareDue(fd); toast("Deleted", "success"); load(); router.refresh(); });
+  };
+
+  // Group dues by year desc.
+  const byYear = new Map<number, { id: string; month: number; amount: number }[]>();
+  for (const d of detail?.dues ?? []) {
+    if (!byYear.has(d.year)) byYear.set(d.year, []);
+    byYear.get(d.year)!.push({ id: d.id, month: d.month, amount: d.amount });
+  }
+  const years = [...byYear.keys()].sort((a, b) => b - a);
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
+      <Card className="max-h-[85vh] w-full max-w-lg overflow-y-auto p-0" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-line bg-surface p-5">
+          <div>
+            <h3 className="font-display text-lg font-semibold">{member.name}</h3>
+            {detail && <p className="text-sm text-ink-muted">Paid {ghs(detail.paidTotal)} · Owes <span className={detail.owed > 0 ? "font-semibold text-danger" : ""}>{detail.owed > 0 ? ghs(detail.owed) : "nothing"}</span></p>}
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1 text-ink-faint hover:bg-surface-2"><X className="size-4" /></button>
+        </div>
+
+        {loading || !detail ? (
+          <div className="flex items-center gap-2 p-6 text-sm text-ink-muted"><Loader2 className="size-4 animate-spin" /> Loading…</div>
+        ) : (
+          <div className="space-y-4 p-5">
+            {/* Start date */}
+            <div className="rounded-xl border border-line p-3">
+              <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">Dues start from</div>
+              <p className="mb-2 text-xs text-ink-muted">Owed is counted from this date. Defaults to their join date ({detail.joinedAt ?? "unknown"}) if not set.</p>
+              <div className="flex items-center gap-2">
+                <input type="date" value={start} onChange={(e) => setStart(e.target.value)} disabled={!canWrite}
+                  className="h-9 rounded-lg border border-line bg-surface px-2.5 text-sm" />
+                {canWrite && <Button size="sm" onClick={saveStart} disabled={pending}>{pending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Save</Button>}
+                {canWrite && start && <Button size="sm" variant="ghost" onClick={() => { setStart(""); }}>Clear</Button>}
+              </div>
+            </div>
+
+            {/* Paid months by year */}
+            {years.length === 0 ? (
+              <p className="text-sm text-ink-faint">No dues recorded yet.</p>
+            ) : years.map((y) => {
+              const rate = rates.find((r) => r.year === y)?.amount;
+              const rows = byYear.get(y)!.sort((a, b) => a.month - b.month);
+              return (
+                <div key={y}>
+                  <div className="mb-1.5 flex items-center justify-between">
+                    <span className="text-sm font-semibold">{y}</span>
+                    {rate != null && <span className="text-xs text-ink-faint">rate {ghs(rate)}/mo</span>}
+                  </div>
+                  <div className="space-y-1">
+                    {rows.map((r) => (
+                      <div key={r.id} className="flex items-center gap-2 rounded-lg border border-line-soft px-3 py-1.5 text-sm">
+                        <span className="w-24 text-ink-muted">{MONTHS_FULL[r.month - 1]}</span>
+                        {editId === r.id ? (
+                          <>
+                            <input type="number" min="0" step="0.01" value={editAmt} onChange={(e) => setEditAmt(e.target.value)}
+                              className="h-8 w-24 rounded-lg border border-line bg-surface px-2 text-sm" autoFocus />
+                            <button onClick={() => saveEdit(r.id)} className="grid size-7 place-items-center rounded-lg text-success hover:bg-success/10"><Check className="size-4" /></button>
+                            <button onClick={() => setEditId(null)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-surface-2"><X className="size-4" /></button>
+                          </>
+                        ) : (
+                          <>
+                            <span className="flex-1 font-medium">{ghs(r.amount)}</span>
+                            {canWrite && (
+                              <>
+                                <button onClick={() => { setEditId(r.id); setEditAmt(String(r.amount)); }} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-primary/10 hover:text-primary"><Pencil className="size-3.5" /></button>
+                                <button onClick={() => del(r.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-3.5" /></button>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </Card>
+    </div>
+  );
+}
+
+/* ─────────────────── Message templates ─────────────────── */
+
+const DEFAULT_RECEIPT = "Dear {name}, your welfare dues of GHS {amount} for {months} have been received by {church}. {balance} God bless.";
+const DEFAULT_REMINDER = "Dear {name}, a friendly reminder from {church}: your welfare dues balance is GHS {owed}. Kindly settle when you can. God bless you.";
+
+function TemplatesDialog({ templates, onClose }: { templates: Templates; onClose: () => void }) {
+  const router = useRouter();
+  const { toast } = useFeedback();
+  const [receipt, setReceipt] = useState(templates.receipt ?? DEFAULT_RECEIPT);
+  const [reminder, setReminder] = useState(templates.reminder ?? DEFAULT_REMINDER);
+  const [pending, start] = useTransition();
+
+  const save = () => {
+    const fd = new FormData(); fd.set("receipt", receipt); fd.set("reminder", reminder);
+    start(async () => { const r = await saveWelfareTemplates(fd); if (r?.ok) { toast("Messages saved", "success"); router.refresh(); onClose(); } else toast(r?.error ?? "Failed", "error"); });
+  };
+
+  const seg = (t: string) => Math.max(1, Math.ceil(t.length / 160));
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
+      <Card className="max-h-[85vh] w-full max-w-lg overflow-y-auto p-0" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-line p-5">
+          <h3 className="font-display text-lg font-semibold">Welfare SMS messages</h3>
+          <button onClick={onClose} className="rounded-lg p-1 text-ink-faint hover:bg-surface-2"><X className="size-4" /></button>
+        </div>
+        <div className="space-y-4 p-5">
+          <p className="text-xs text-ink-muted">Shorten these to save SMS credits. Placeholders: <code className="rounded bg-surface-2 px-1">{"{name}"}</code> <code className="rounded bg-surface-2 px-1">{"{church}"}</code> <code className="rounded bg-surface-2 px-1">{"{amount}"}</code> <code className="rounded bg-surface-2 px-1">{"{months}"}</code> <code className="rounded bg-surface-2 px-1">{"{owed}"}</code> <code className="rounded bg-surface-2 px-1">{"{balance}"}</code></p>
+          <div>
+            <div className="mb-1 flex items-center justify-between text-sm font-medium"><span>Payment receipt</span><span className="text-xs text-ink-faint">{receipt.length} chars · {seg(receipt)} SMS</span></div>
+            <textarea value={receipt} onChange={(e) => setReceipt(e.target.value)} rows={3} className="w-full rounded-lg border border-line bg-surface p-2.5 text-sm outline-none focus:border-primary/50" />
+          </div>
+          <div>
+            <div className="mb-1 flex items-center justify-between text-sm font-medium"><span>Owing reminder</span><span className="text-xs text-ink-faint">{reminder.length} chars · {seg(reminder)} SMS</span></div>
+            <textarea value={reminder} onChange={(e) => setReminder(e.target.value)} rows={3} className="w-full rounded-lg border border-line bg-surface p-2.5 text-sm outline-none focus:border-primary/50" />
+          </div>
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t border-line p-4">
+          <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+          <Button size="sm" onClick={save} disabled={pending}>{pending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Save messages</Button>
+        </div>
+      </Card>
+    </div>
+  );
 }
 
 /* ─────────────────── Aid tab ─────────────────── */
