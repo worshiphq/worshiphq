@@ -34,14 +34,20 @@ export async function createFollowUp(formData: FormData) {
   // Let the assigned person know they have a task (SMS + email).
   if (assigneeId) {
     const [assignee, person, church] = await Promise.all([
-      db.user.findFirst({ where: { id: assigneeId, churchId: session.churchId }, select: { phone: true, email: true } }),
+      db.user.findFirst({ where: { id: assigneeId, churchId: session.churchId }, select: { name: true, phone: true, email: true } }),
       personId ? db.person.findUnique({ where: { id: personId }, select: { firstName: true, lastName: true, phone: true } }) : Promise.resolve(null),
-      db.church.findUnique({ where: { id: session.churchId }, select: { name: true } }),
+      db.church.findUnique({ where: { id: session.churchId }, select: { name: true, messageTemplates: true } }),
     ]);
     if (assignee?.phone || assignee?.email) {
-      const who = person ? ` — reach out to ${person.firstName} ${person.lastName}${person.phone ? ` (${person.phone})` : ""}` : "";
+      const who = person ? `Reach out to ${person.firstName} ${person.lastName}${person.phone ? ` (${person.phone})` : ""}.` : "";
       const due = dueDate ? ` Due ${dueDate.toLocaleDateString("en-GB", { day: "numeric", month: "short" })}.` : "";
-      const msg = `New follow-up assigned to you at ${church?.name ?? "your church"}: "${title}"${who}.${due}`;
+      const { templateFor, renderTemplate } = await import("@/lib/messages/registry");
+      const msg = renderTemplate(templateFor(church?.messageTemplates, "followup_assigned"), {
+        name: (assignee.name ?? "").split(" ")[0] || "there",
+        church: church?.name ?? "your church",
+        title,
+        details: `${who}${due}`.trim(),
+      });
       try {
         const { sendChurchSms } = await import("@/lib/sms/credits");
         const { sendEmail } = await import("@/lib/integrations/email");

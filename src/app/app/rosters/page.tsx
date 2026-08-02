@@ -10,7 +10,7 @@ export const metadata = { title: "Rosters" };
 export default async function RostersPage() {
   const session = await requireModule("volunteers");
 
-  const [sheets, members, roles, smsBalance] = await Promise.all([
+  const [sheets, members, roles, smsBalance, church] = await Promise.all([
     db.volunteerRoster.findMany({
       where: { churchId: session.churchId },
       orderBy: { startDate: "desc" },
@@ -28,7 +28,9 @@ export default async function RostersPage() {
     }),
     getServiceRoles(session.churchId),
     getSmsBalance(session.churchId),
+    db.church.findUnique({ where: { id: session.churchId }, select: { messageTemplates: true } }),
   ]);
+  const messageTemplates = (church?.messageTemplates as Record<string, string> | null) ?? {};
 
   return (
     <div>
@@ -54,6 +56,7 @@ export default async function RostersPage() {
         members={members.map((m) => ({ id: m.id, name: `${m.firstName} ${m.lastName}`.trim(), hasPhone: !!m.phone }))}
         roles={roles}
         smsBalance={smsBalance}
+        messageTemplates={messageTemplates}
         canWrite={!session.isDemo}
       />
     </div>

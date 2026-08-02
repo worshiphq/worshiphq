@@ -13,6 +13,8 @@ import {
   saveServiceSheet, deleteRoster, addServiceRole, deleteServiceRole,
   previewRosterNotify, notifyRoster,
 } from "@/app/actions/rosters";
+import { SystemMessagesDialog } from "@/components/app/system-messages-dialog";
+import { MessageSquare } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Assignment = { id: string; role: string; personId: string | null; personName: string | null; hasPhone: boolean; notified: boolean };
@@ -25,18 +27,20 @@ const SERVICE_PRESETS = ["Sunday Service", "Wednesday Service", "Friday Service"
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 const fmtShort = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
-export function RostersClient({ sheets, members, roles, smsBalance, canWrite }: {
-  sheets: Sheet[]; members: Member[]; roles: Role[]; smsBalance: number; canWrite: boolean;
+export function RostersClient({ sheets, members, roles, smsBalance, messageTemplates, canWrite }: {
+  sheets: Sheet[]; members: Member[]; roles: Role[]; smsBalance: number; messageTemplates: Record<string, string>; canWrite: boolean;
 }) {
   const [editing, setEditing] = useState<Sheet | null>(null);
   const [creating, setCreating] = useState(false);
   const [showRoles, setShowRoles] = useState(false);
+  const [showMessages, setShowMessages] = useState(false);
 
   return (
     <div className="mt-5 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-ink-muted">{sheets.length} service sheet{sheets.length === 1 ? "" : "s"}</p>
         <div className="flex items-center gap-2">
+          {canWrite && <Button variant="secondary" size="sm" onClick={() => setShowMessages(true)}><MessageSquare className="size-4" /> Messages</Button>}
           <Button variant="secondary" size="sm" onClick={() => setShowRoles(true)}><Settings2 className="size-4" /> Manage roles</Button>
           {canWrite && <Button size="sm" onClick={() => setCreating(true)}><Plus className="size-4" /> New service sheet</Button>}
         </div>
@@ -65,6 +69,7 @@ export function RostersClient({ sheets, members, roles, smsBalance, canWrite }: 
         />
       )}
       {showRoles && <RolesManager roles={roles} canWrite={canWrite} onClose={() => setShowRoles(false)} />}
+      {showMessages && <SystemMessagesDialog saved={messageTemplates} onClose={() => setShowMessages(false)} />}
     </div>
   );
 }

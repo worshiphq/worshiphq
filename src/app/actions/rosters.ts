@@ -177,7 +177,7 @@ export async function deleteServiceRole(formData: FormData) {
 async function buildRosterMessages(churchId: string, rosterId: string) {
   const [roster, church, slots] = await Promise.all([
     db.volunteerRoster.findFirst({ where: { id: rosterId, churchId }, select: { name: true } }),
-    db.church.findUnique({ where: { id: churchId }, select: { name: true } }),
+    db.church.findUnique({ where: { id: churchId }, select: { name: true, messageTemplates: true } }),
     db.volunteerSlot.findMany({
       where: { rosterId, churchId, personId: { not: null } },
       include: { person: { select: { firstName: true, phone: true } } },
@@ -185,21 +185,23 @@ async function buildRosterMessages(churchId: string, rosterId: string) {
     }),
   ]);
   const churchName = church?.name ?? "your church";
+  const { templateFor, renderTemplate } = await import("@/lib/messages/registry");
+  const tpl = templateFor(church?.messageTemplates, "roster_reminder");
 
-  // Group slots by person (a person may have several roles/dates).
+  // Group slots by person (a person may have several roles/dates). ASCII only.
   const byPerson = new Map<string, { phone: string; firstName: string; lines: string[] }>();
   for (const s of slots) {
     if (!s.personId || !s.person?.phone) continue;
     const key = s.personId;
     const entry = byPerson.get(key) ?? { phone: s.person.phone, firstName: s.person.firstName, lines: [] };
     const d = s.date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
-    entry.lines.push(`${d}${s.service ? ` ${s.service}` : ""} — ${s.role}`);
+    entry.lines.push(`- ${d}${s.service ? ` ${s.service}` : ""}: ${s.role}`);
     byPerson.set(key, entry);
   }
 
   const messages = [...byPerson.values()].map((p) => ({
     phone: p.phone,
-    text: `Hello ${p.firstName}, you're serving at ${churchName}:\n${p.lines.join("\n")}\nPlease be ready. God bless.`,
+    text: renderTemplate(tpl, { name: p.firstName, church: churchName, duties: p.lines.join("\n") }),
   }));
   return { rosterName: roster?.name ?? "Roster", messages };
 }

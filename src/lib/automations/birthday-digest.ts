@@ -14,8 +14,9 @@ export async function runBirthdayDigests(now = new Date()) {
   const weekday = now.getDay(); // 0=Sun … 6=Sat
   const churches = await db.church.findMany({
     where: { isDemo: false, birthdayDigestOn: true, birthdayDigestDay: weekday },
-    select: { id: true, name: true },
+    select: { id: true, name: true, messageTemplates: true },
   });
+  const { templateFor, renderTemplate } = await import("@/lib/messages/registry");
   if (churches.length === 0) return { churches: 0, sent: 0 };
 
   // The 7 date keys (MM-DD) from today through +6 days.
@@ -41,9 +42,14 @@ export async function runBirthdayDigests(now = new Date()) {
     const lines = people.map((p) => `• ${p.firstName} ${p.lastName} — ${labelByKey.get(p.birthday!) ?? ""}`);
     const smsList = people.slice(0, 8).map((p) => `${p.firstName} ${p.lastName} (${labelByKey.get(p.birthday!)?.split(",")[0] ?? ""})`).join(", ");
 
+    const sms = renderTemplate(templateFor(church.messageTemplates, "birthday_digest"), {
+      count: String(people.length),
+      church: church.name,
+      list: `${smsList}${people.length > 8 ? "..." : ""}`,
+    });
     await notifyChurchAdmins(church.id, {
       subject: "This week's birthdays",
-      sms: `🎂 ${people.length} birthday${people.length !== 1 ? "s" : ""} this week at ${church.name}: ${smsList}${people.length > 8 ? "…" : ""}. Open WorshipHQ for the full list.`,
+      sms,
       emailHtml: `<h2>🎂 Birthdays this week — ${church.name}</h2><p>${people.length} member${people.length !== 1 ? "s" : ""} celebrating in the next 7 days:</p><ul>${lines.map((l) => `<li>${l.replace("• ", "")}</li>`).join("")}</ul>`,
     });
     sent++;
