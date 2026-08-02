@@ -17,8 +17,10 @@ import {
   deleteWelfareRecord, recordWelfareDues, setWelfareRate,
   previewOwingReminders, sendOwingReminders,
   memberDuesDetail, editWelfareDue, deleteWelfareDue, setMemberWelfareStart, saveWelfareTemplates,
+  setChurchWelfareStart,
 } from "@/app/actions/welfare";
 import type { WelfareData } from "@/lib/data/welfare";
+import { wideYears } from "@/lib/years";
 import { cn } from "@/lib/utils";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -104,6 +106,7 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
   return (
     <div className="space-y-4">
       {canWrite && <RatesPanel rates={data.rates} currentYear={data.currentYear} />}
+      {canWrite && <ChurchStartCard churchStart={data.churchStart} />}
       {canWrite && <RecordDuesForm members={members} accounts={accounts} rates={data.rates} currentYear={data.currentYear} />}
 
       <Card>
@@ -191,6 +194,40 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
   );
 }
 
+function ChurchStartCard({ churchStart }: { churchStart: string | null }) {
+  const router = useRouter();
+  const { toast } = useFeedback();
+  const [pending, start] = useTransition();
+  const [date, setDate] = useState(churchStart ?? "");
+
+  const save = (clear = false) => {
+    const fd = new FormData();
+    fd.set("welfareStart", clear ? "" : date);
+    start(async () => {
+      const r = await setChurchWelfareStart(fd);
+      if (r?.ok) { toast(clear ? "Cleared" : "Church dues start saved", "success"); if (clear) setDate(""); router.refresh(); }
+      else toast(r?.error ?? "Failed", "error");
+    });
+  };
+
+  return (
+    <Card className="p-4">
+      <div className="mb-1 flex items-center gap-2 text-sm font-semibold"><Calendar className="size-4 text-primary" /> Dues start (church-wide)</div>
+      <p className="mb-2 text-xs text-ink-muted">
+        Optional. Owed is only counted from here for members who don’t have their own start date.
+        Leave empty and nobody accrues “owed” until each member gets a start — set on their record, or captured automatically the first time you record their dues.
+      </p>
+      <div className="flex flex-wrap items-center gap-2">
+        <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-9 rounded-lg border border-line bg-surface px-2.5 text-sm" />
+        <Button size="sm" onClick={() => save(false)} disabled={pending || !date}>
+          {pending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Save
+        </Button>
+        {churchStart && <Button size="sm" variant="ghost" onClick={() => save(true)} disabled={pending}>Clear</Button>}
+      </div>
+    </Card>
+  );
+}
+
 function RatesPanel({ rates, currentYear }: { rates: { year: number; amount: number }[]; currentYear: number }) {
   const router = useRouter();
   const { toast } = useFeedback();
@@ -262,7 +299,7 @@ function RecordDuesForm({ members, accounts, rates, currentYear }: {
   const monthCount = Math.max(0, toMonth - fromMonth + 1);
   const total = effAmount * monthCount;
 
-  const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+  const years = wideYears();
   const inputCls = "h-9 rounded-lg border border-line bg-surface px-2.5 text-sm outline-none focus:border-primary/50";
 
   const submit = () => {
@@ -398,7 +435,7 @@ function Row({ label, value, strong, tone, icon }: { label: string; value: strin
 /* ─────────────────── Member detail (drill-down) ─────────────────── */
 
 type DuesDetail = {
-  name: string; welfareStart: string | null; joinedAt: string | null;
+  name: string; welfareStart: string | null; churchStart: string | null; joinedAt: string | null; started: boolean;
   owed: number; paidTotal: number; dues: { id: string; year: number; month: number; amount: number }[];
 };
 
@@ -461,7 +498,9 @@ function MemberDetailDialog({ member, rates, canWrite, onClose }: {
             {/* Start date */}
             <div className="rounded-xl border border-line p-3">
               <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">Dues start from</div>
-              <p className="mb-2 text-xs text-ink-muted">Owed is counted from this date. Defaults to their join date ({detail.joinedAt ?? "unknown"}) if not set.</p>
+              <p className="mb-2 text-xs text-ink-muted">
+                Owed is counted from this date. {detail.welfareStart ? "" : detail.churchStart ? `Currently using the church-wide start (${detail.churchStart}).` : "No start set — this member won’t accrue “owed” until you set one here or record their first dues."}
+              </p>
               <div className="flex items-center gap-2">
                 <input type="date" value={start} onChange={(e) => setStart(e.target.value)} disabled={!canWrite}
                   className="h-9 rounded-lg border border-line bg-surface px-2.5 text-sm" />

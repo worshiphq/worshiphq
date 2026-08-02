@@ -14,6 +14,22 @@ function fill(tpl: string, vars: Record<string, string>): string {
   return tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
 }
 
+/** Set (or clear) a church-wide date dues start counting (fallback for members
+ *  with no personal start). Cleared = dues aren't calculated until each member
+ *  gets a start (set manually or auto-captured on their first recorded dues). */
+export async function setChurchWelfareStart(formData: FormData) {
+  const session = await requireModule("giving");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  const dateStr = String(formData.get("welfareStart") ?? "").trim();
+  await db.church.update({
+    where: { id: session.churchId },
+    data: { welfareStart: dateStr ? new Date(dateStr) : null },
+  });
+  await audit(session, "update", "welfare-dues", `Set church welfare start${dateStr ? ` to ${dateStr}` : " (cleared)"}`);
+  revalidatePath("/app/welfare");
+  return { ok: true as const };
+}
+
 /** Set (or clear) the date a member starts owing welfare dues. */
 export async function setMemberWelfareStart(formData: FormData) {
   const session = await requireModule("giving");
@@ -98,7 +114,7 @@ export async function recordWelfareDues(formData: FormData) {
   if (fromMonth < 1 || toMonth > 12 || fromMonth > toMonth) return { ok: false as const, error: "Choose a valid month range." };
   if (!amountPerMonth || amountPerMonth <= 0) return { ok: false as const, error: "Enter the amount per month." };
 
-  const member = await db.person.findFirst({ where: { id: personId, churchId: session.churchId }, select: { firstName: true, lastName: true } });
+  const member = await db.person.findFirst({ where: { id: personId, churchId: session.churchId }, select: { firstName: true, lastName: true, welfareStart: true } });
   if (!member) return { ok: false as const, error: "Member not found." };
 
   const months: number[] = [];
@@ -113,6 +129,16 @@ export async function recordWelfareDues(formData: FormData) {
       }),
     ),
   );
+
+  // First time we record dues for this member, capture their start (the earliest
+  // month of this record) so "owed" counts from when they actually began — no
+  // more everyone-owes-from-nowhere. Only if they don't already have one.
+  if (!member.welfareStart) {
+    await db.person.update({
+      where: { id: personId },
+      data: { welfareStart: new Date(year, fromMonth - 1, 1) },
+    });
+  }
 
   const total = amountPerMonth * months.length;
 

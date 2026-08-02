@@ -98,6 +98,7 @@ model Church {
   pledgeReminderTemplate String?
   welfareDuesReceiptTemplate  String? @db.Text
   welfareDuesReminderTemplate String? @db.Text
+  welfareStart               DateTime? // optional church-wide date dues start counting (fallback when a member has no personal start)
   /** Days before a pledge due date to auto-remind, e.g. [30, 7, 3]. */
   pledgeReminderDays     Int[]   @default([30, 7, 3])
   pledgePayments         PledgePayment[]

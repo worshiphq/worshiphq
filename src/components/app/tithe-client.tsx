@@ -18,6 +18,7 @@ import { AccountSelect, type AccountOption } from "@/components/app/account-sele
 import { Pencil, MessageSquare, X } from "lucide-react";
 import { Input, Label } from "@/components/ui/input";
 import { formatCurrency } from "@/config/brand";
+import { wideYears } from "@/lib/years";
 import { formatDate, cn } from "@/lib/utils";
 import type { TitheMember, WeekGroup } from "@/lib/data/giving";
 
@@ -67,7 +68,7 @@ export function TitheClient({
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
 
   const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 3 }, (_, i) => currentYear - i);
+  const years = wideYears();
 
   const router = useRouter();
   const [templateText, setTemplateText] = useState(titheTemplate || DEFAULT_TITHE_TEMPLATE);

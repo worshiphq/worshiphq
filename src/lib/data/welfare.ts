@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { wideYears } from "@/lib/years";
 
 export interface WelfareMemberRow {
   id: string;
@@ -8,8 +9,9 @@ export interface WelfareMemberRow {
   monthsPaidInYear: number[]; // 1-12, for the selected year
   paidTotal: number;          // all-time dues paid
   owed: number;               // computed against yearly rates, from member's start, up to current month
-  startLabel: string;         // e.g. "Jan 2025" — when dues start counting
-  hasExplicitStart: boolean;  // true if welfareStart set (vs derived from joinedAt)
+  startLabel: string;         // e.g. "Jan 2025" — when dues start counting, or "Not set"
+  hasExplicitStart: boolean;  // true if this member has a personal welfareStart
+  started: boolean;           // false when no start (personal or church) → owed not calculated
 }
 
 export interface WelfareData {
@@ -17,6 +19,7 @@ export interface WelfareData {
   currentMonth: number; // 1-12
   selectedYear: number;
   years: number[];       // years to offer in the switcher
+  churchStart: string | null; // church-wide dues start (yyyy-mm-dd) or null
   rates: { year: number; amount: number }[];
   members: WelfareMemberRow[];
   aid: {
@@ -55,10 +58,10 @@ export async function getWelfareData(churchId: string, year?: number): Promise<W
   const currentMonth = now.getMonth() + 1;
   const selectedYear = year ?? currentYear;
 
-  const [members, rateRows, dues, aidRows] = await Promise.all([
+  const [members, rateRows, dues, aidRows, church] = await Promise.all([
     db.person.findMany({
       where: { churchId, status: { not: "inactive" } },
-      select: { id: true, firstName: true, lastName: true, phone: true, welfareStart: true, joinedAt: true },
+      select: { id: true, firstName: true, lastName: true, phone: true, welfareStart: true },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     }),
     db.welfareRate.findMany({ where: { churchId }, orderBy: { year: "desc" }, select: { year: true, amount: true } }),
@@ -69,7 +72,9 @@ export async function getWelfareData(churchId: string, year?: number): Promise<W
       orderBy: { date: "desc" },
       take: 200,
     }),
+    db.church.findUnique({ where: { id: churchId }, select: { welfareStart: true } }),
   ]);
+  const churchStart = church?.welfareStart ?? null;
 
   const rates = rateRows.map((r) => ({ year: r.year, amount: Number(r.amount) }));
 
@@ -85,9 +90,11 @@ export async function getWelfareData(churchId: string, year?: number): Promise<W
 
   const memberRows: WelfareMemberRow[] = members.map((m) => {
     const e = byPerson.get(m.id);
-    const startDate = m.welfareStart ?? m.joinedAt ?? new Date(currentYear, 0, 1);
-    const start = { y: startDate.getFullYear(), m: startDate.getMonth() + 1 };
-    const owed = computeOwed(rates, e?.perYear ?? new Map(), start, { y: currentYear, m: currentMonth });
+    // Effective start: personal → church-wide → none. No join-date fallback,
+    // so members without a start simply don't accrue "owed" until one is set.
+    const startDate = m.welfareStart ?? churchStart ?? null;
+    const start = startDate ? { y: startDate.getFullYear(), m: startDate.getMonth() + 1 } : null;
+    const owed = start ? computeOwed(rates, e?.perYear ?? new Map(), start, { y: currentYear, m: currentMonth }) : 0;
     return {
       id: m.id,
       name: `${m.firstName} ${m.lastName}`.trim(),
@@ -95,24 +102,21 @@ export async function getWelfareData(churchId: string, year?: number): Promise<W
       monthsPaidInYear: (e?.monthsInYear ?? []).sort((a, b) => a - b),
       paidTotal: e?.total ?? 0,
       owed,
-      startLabel: `${MONTHS_SHORT[start.m - 1]} ${start.y}`,
+      startLabel: start ? `${MONTHS_SHORT[start.m - 1]} ${start.y}` : "Not set",
       hasExplicitStart: !!m.welfareStart,
+      started: !!start,
     };
   });
 
-  // Years to offer: from the earliest of (rates, dues) to current year.
-  const yearsSet = new Set<number>([currentYear, selectedYear]);
-  for (const r of rates) yearsSet.add(r.year);
-  for (const d of dues) yearsSet.add(d.year);
-  const minYear = Math.min(...yearsSet);
-  const years: number[] = [];
-  for (let y = currentYear + 1; y >= minYear; y--) years.push(y);
+  // Wide year range for record-keeping (1980–2050).
+  const years = wideYears();
 
   return {
     currentYear,
     currentMonth,
     selectedYear,
     years,
+    churchStart: churchStart ? churchStart.toISOString().slice(0, 10) : null,
     rates,
     members: memberRows,
     aid: aidRows.map((r) => ({
@@ -131,22 +135,25 @@ export async function getMemberDuesDetail(churchId: string, personId: string) {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
-  const [person, rateRows, dues] = await Promise.all([
+  const [person, rateRows, dues, church] = await Promise.all([
     db.person.findUnique({ where: { id: personId }, select: { firstName: true, lastName: true, welfareStart: true, joinedAt: true } }),
     db.welfareRate.findMany({ where: { churchId }, select: { year: true, amount: true } }),
     db.welfareDue.findMany({ where: { churchId, personId }, orderBy: [{ year: "desc" }, { month: "asc" }], select: { id: true, year: true, month: true, amount: true } }),
+    db.church.findUnique({ where: { id: churchId }, select: { welfareStart: true } }),
   ]);
   const rates = rateRows.map((r) => ({ year: r.year, amount: Number(r.amount) }));
   const paidByYear = new Map<number, number>();
   for (const d of dues) paidByYear.set(d.year, (paidByYear.get(d.year) ?? 0) + Number(d.amount));
-  const startDate = person?.welfareStart ?? person?.joinedAt ?? new Date(currentYear, 0, 1);
-  const start = { y: startDate.getFullYear(), m: startDate.getMonth() + 1 };
-  const owed = computeOwed(rates, paidByYear, start, { y: currentYear, m: currentMonth });
+  const startDate = person?.welfareStart ?? church?.welfareStart ?? null;
+  const start = startDate ? { y: startDate.getFullYear(), m: startDate.getMonth() + 1 } : null;
+  const owed = start ? computeOwed(rates, paidByYear, start, { y: currentYear, m: currentMonth }) : 0;
 
   return {
     name: person ? `${person.firstName} ${person.lastName}`.trim() : "Member",
     welfareStart: person?.welfareStart ? person.welfareStart.toISOString().slice(0, 10) : null,
+    churchStart: church?.welfareStart ? church.welfareStart.toISOString().slice(0, 10) : null,
     joinedAt: person?.joinedAt ? person.joinedAt.toISOString().slice(0, 10) : null,
+    started: !!start,
     owed,
     paidTotal: dues.reduce((s, d) => s + Number(d.amount), 0),
     dues: dues.map((d) => ({ id: d.id, year: d.year, month: d.month, amount: Number(d.amount) })),

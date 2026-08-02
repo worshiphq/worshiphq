@@ -18,6 +18,7 @@ import { useFeedback } from "@/components/ui/feedback";
 import { setHarvestDate, recordHarvestContributions, createVisitorForHarvest, deleteHarvestContribution, editHarvestContribution, deleteHarvest, saveHarvestTemplate, type HarvestEntry } from "@/app/actions/harvest";
 import { AccountSelect, type AccountOption } from "@/components/app/account-select";
 import { formatCurrency } from "@/config/brand";
+import { wideYears } from "@/lib/years";
 import { formatDate, cn } from "@/lib/utils";
 import type { HarvestData, HarvestContributionRow } from "@/lib/data/harvest";
 
@@ -51,7 +52,7 @@ export function HarvestClient({
   const [tab, setTab] = useState<"record" | "contributions" | "report">(harvest ? "contributions" : "record");
   const [selectedYear, setSelectedYear] = useState(year);
   const currentYear = new Date().getFullYear();
-  const years = Array.from({ length: 5 }, (_, i) => currentYear + 1 - i);
+  const years = wideYears();
   const needsRefresh = selectedYear !== year;
 
   return (
