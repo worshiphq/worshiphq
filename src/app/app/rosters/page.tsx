@@ -3,23 +3,20 @@ import { db } from "@/lib/db";
 import { getServiceRoles } from "@/lib/data/rosters";
 import { getSmsBalance } from "@/lib/sms/credits";
 import { RostersClient } from "@/components/app/rosters-client";
-import { createRoster } from "@/app/actions/rosters";
 import { PageHeader } from "@/components/app/page-header";
-import { ActionDialog, Field } from "@/components/app/action-dialog";
-import { Plus } from "lucide-react";
 
 export const metadata = { title: "Rosters" };
 
 export default async function RostersPage() {
   const session = await requireModule("volunteers");
 
-  const [rosters, members, roles, smsBalance] = await Promise.all([
+  const [sheets, members, roles, smsBalance] = await Promise.all([
     db.volunteerRoster.findMany({
       where: { churchId: session.churchId },
       orderBy: { startDate: "desc" },
       include: {
         slots: {
-          orderBy: [{ date: "asc" }, { createdAt: "asc" }],
+          orderBy: { createdAt: "asc" },
           include: { person: { select: { firstName: true, lastName: true, phone: true } } },
         },
       },
@@ -37,40 +34,21 @@ export default async function RostersPage() {
     <div>
       <PageHeader
         title="Rosters"
-        description="Plan who serves at each service — Word, prayer, praise & worship, and more — then share it or text everyone."
-      >
-        <ActionDialog
-          triggerLabel="New roster"
-          triggerIcon={<Plus />}
-          title="Create a roster"
-          description="A roster covers a period — e.g. a month of Sunday & Wednesday services."
-          submitLabel="Create roster"
-          action={createRoster}
-          disabled={session.isDemo}
-        >
-          <Field label="Roster name" name="name" placeholder="e.g. July 2026" required />
-          <Field label="Start date" name="startDate" type="date" required />
-          <Field label="End date" name="endDate" type="date" required />
-          <Field label="Notes (optional)" name="notes" type="textarea" placeholder="Anything the team should know…" />
-        </ActionDialog>
-      </PageHeader>
+        description="Set who serves at each service — Word, prayer, praise & worship — then share it or text everyone their duty."
+      />
 
       <RostersClient
-        rosters={rosters.map((r) => ({
-          id: r.id,
-          name: r.name,
-          startDate: r.startDate.toISOString(),
-          endDate: r.endDate.toISOString(),
-          notes: r.notes,
-          slots: r.slots.map((s) => ({
-            id: s.id,
-            service: s.service,
-            role: s.role,
-            date: s.date.toISOString(),
-            personId: s.personId,
-            personName: s.personName ?? (s.person ? `${s.person.firstName} ${s.person.lastName}` : null),
-            hasPhone: !!s.person?.phone,
-            notified: !!s.notifiedAt,
+        sheets={sheets.map((s) => ({
+          id: s.id,
+          service: s.name,
+          date: s.startDate.toISOString(),
+          assignments: s.slots.map((sl) => ({
+            id: sl.id,
+            role: sl.role,
+            personId: sl.personId,
+            personName: sl.personName ?? (sl.person ? `${sl.person.firstName} ${sl.person.lastName}` : null),
+            hasPhone: !!sl.person?.phone,
+            notified: !!sl.notifiedAt,
           })),
         }))}
         members={members.map((m) => ({ id: m.id, name: `${m.firstName} ${m.lastName}`.trim(), hasPhone: !!m.phone }))}

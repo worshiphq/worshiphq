@@ -68,6 +68,67 @@ export async function addSlot(formData: FormData) {
   revalidatePath("/app/rosters");
 }
 
+/**
+ * Save a whole "service sheet" at once — one service on one date with a person
+ * for each role (the Pulpit Workers bulletin). Each sheet is stored as a
+ * VolunteerRoster (name = service, startDate/endDate = the date) with a slot per
+ * filled role. Creates a new sheet or replaces an existing one (sheetId).
+ */
+export async function saveServiceSheet(formData: FormData) {
+  const session = await requireModule("volunteers");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+
+  const sheetId = String(formData.get("sheetId") ?? "").trim() || null;
+  const service = String(formData.get("service") ?? "").trim();
+  const dateStr = String(formData.get("date") ?? "").trim();
+  if (!service || !dateStr) return { ok: false as const, error: "Pick a date and a service." };
+  const date = new Date(dateStr);
+
+  type Assign = { role: string; personId?: string | null; personName?: string | null };
+  let assignments: Assign[] = [];
+  try { assignments = JSON.parse(String(formData.get("assignments") ?? "[]")); } catch { /* ignore */ }
+  assignments = assignments.filter((a) => a.role && (a.personId || (a.personName && a.personName.trim())));
+  if (assignments.length === 0) return { ok: false as const, error: "Assign at least one person." };
+
+  // Resolve member names for any personIds in one query.
+  const ids = assignments.map((a) => a.personId).filter((x): x is string => !!x);
+  const members = ids.length
+    ? await db.person.findMany({ where: { id: { in: ids }, churchId: session.churchId }, select: { id: true, firstName: true, lastName: true } })
+    : [];
+  const nameById = new Map(members.map((m) => [m.id, `${m.firstName} ${m.lastName}`.trim()]));
+
+  // Get or create the sheet container.
+  let rosterId = sheetId;
+  if (rosterId) {
+    const owned = await db.volunteerRoster.findFirst({ where: { id: rosterId, churchId: session.churchId }, select: { id: true } });
+    if (!owned) return { ok: false as const, error: "Sheet not found." };
+    await db.volunteerRoster.update({ where: { id: rosterId }, data: { name: service, startDate: date, endDate: date } });
+    await db.volunteerSlot.deleteMany({ where: { rosterId, churchId: session.churchId } });
+  } else {
+    const roster = await db.volunteerRoster.create({
+      data: { churchId: session.churchId, name: service, startDate: date, endDate: date },
+      select: { id: true },
+    });
+    rosterId = roster.id;
+  }
+
+  await db.volunteerSlot.createMany({
+    data: assignments.map((a) => ({
+      churchId: session.churchId,
+      rosterId: rosterId!,
+      role: a.role,
+      service,
+      date,
+      personId: a.personId || null,
+      personName: a.personId ? (nameById.get(a.personId) ?? null) : (a.personName?.trim() || null),
+    })),
+  });
+
+  await logAudit({ churchId: session.churchId, userId: session.userId, action: sheetId ? "update" : "create", entity: "roster", entityId: rosterId, detail: `${sheetId ? "Updated" : "Created"} ${service} sheet (${assignments.length} role(s))` });
+  revalidatePath("/app/rosters");
+  return { ok: true as const };
+}
+
 export async function deleteRoster(formData: FormData) {
   const session = await requireModule("volunteers");
   if (session.isDemo) return;
