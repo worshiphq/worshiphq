@@ -1,11 +1,13 @@
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getAccountOptions } from "@/lib/data/accounts";
+import { getWelfareData } from "@/lib/data/welfare";
+import { getSmsBalance } from "@/lib/sms/credits";
 import { WelfareClient } from "@/components/app/welfare-client";
 import { createWelfareRecord } from "@/app/actions/welfare";
 import { PageHeader } from "@/components/app/page-header";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
-import { Plus, HandCoins } from "lucide-react";
+import { Plus } from "lucide-react";
 
 export const metadata = { title: "Welfare & benevolence" };
 
@@ -14,24 +16,17 @@ const WELFARE_TYPES = ["financial", "food", "medical", "housing", "education", "
 export default async function WelfarePage() {
   const session = await requireModule("welfare");
 
-  const [records, people, accounts] = await Promise.all([
-    db.welfareRecord.findMany({
-      where: { churchId: session.churchId },
-      include: { person: { select: { firstName: true, lastName: true } } },
-      orderBy: { date: "desc" },
-      take: 200,
-    }),
+  const [welfare, people, accounts, smsBalance] = await Promise.all([
+    getWelfareData(session.churchId),
     db.person.findMany({
-      where: { churchId: session.churchId },
-      select: { id: true, firstName: true, lastName: true },
+      where: { churchId: session.churchId, status: { not: "inactive" } },
+      select: { id: true, firstName: true, lastName: true, phone: true },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-      take: 500,
     }),
     getAccountOptions(session.churchId),
+    getSmsBalance(session.churchId),
   ]);
 
-  const collected = records.filter((r) => r.kind === "dues").reduce((s, r) => s + Number(r.amount ?? 0), 0);
-  const disbursed = records.filter((r) => r.kind !== "dues").reduce((s, r) => s + Number(r.amount ?? 0), 0);
   const accountField = accounts.length > 1;
   const memberOptions = people.map((p) => ({ label: `${p.firstName} ${p.lastName}`, value: p.id }));
 
@@ -39,32 +34,12 @@ export default async function WelfarePage() {
     <div>
       <PageHeader
         title="Welfare & benevolence"
-        description="Collect members’ welfare dues and track the aid your church gives out."
+        description="Track members’ monthly welfare dues — who has paid, who owes — and the aid your church gives out."
       >
-        <ActionDialog
-          triggerLabel="Record dues"
-          triggerIcon={<HandCoins />}
-          variant="secondary"
-          title="Record welfare dues"
-          description="Welfare contribution collected from a member. Adds to the welfare balance."
-          submitLabel="Record dues"
-          action={createWelfareRecord}
-          disabled={session.isDemo}
-        >
-          <input type="hidden" name="kind" value="dues" />
-          <Field label="Member" name="personId" options={[{ label: "— Select member —", value: "" }, ...memberOptions]} required />
-          <Field label="Amount (GHS)" name="amount" type="number" placeholder="0" required />
-          {accountField && (
-            <Field label="Deposit into account" name="accountId"
-              options={accounts.map((a) => ({ label: `${a.name}${a.isDefault ? " (default)" : ""}`, value: a.id }))} />
-          )}
-          <Field label="Note (optional)" name="description" placeholder="e.g. July welfare dues" />
-          <Field label="Date" name="date" type="date" />
-        </ActionDialog>
-
         <ActionDialog
           triggerLabel="Record aid"
           triggerIcon={<Plus />}
+          variant="secondary"
           title="Record welfare aid"
           description="Support given out — financial, food, medical, etc. Deducts from the account."
           submitLabel="Record aid"
@@ -87,18 +62,11 @@ export default async function WelfarePage() {
       </PageHeader>
 
       <WelfareClient
-        records={records.map((r) => ({
-          id: r.id,
-          kind: r.kind === "dues" ? "dues" : "aid",
-          recipientName: r.recipientName,
-          type: r.type,
-          amount: r.amount ? Number(r.amount) : null,
-          description: r.description,
-          date: r.date.toISOString(),
-          personName: r.person ? `${r.person.firstName} ${r.person.lastName}` : null,
-        }))}
-        collected={collected}
-        disbursed={disbursed}
+        data={welfare}
+        members={people.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`.trim(), hasPhone: !!p.phone }))}
+        accounts={accounts}
+        smsBalance={smsBalance}
+        canWrite={!session.isDemo}
       />
     </div>
   );

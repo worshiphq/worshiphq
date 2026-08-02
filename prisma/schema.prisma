@@ -149,6 +149,8 @@ model Church {
   volunteerRosters VolunteerRoster[]
   volunteerSlots  VolunteerSlot[]
   serviceRoles    ServiceRole[]
+  welfareRates    WelfareRate[]
+  welfareDues     WelfareDue[]
   dayBornWeeks    DayBornWeek[]
   paymentRequests PaymentRequest[]
 }
@@ -366,6 +368,7 @@ model Person {
   followUps      FollowUp[]
   prayerRequests PrayerRequest[]
   welfareRecords WelfareRecord[]
+  welfareDues    WelfareDue[]
   biometrics     BiometricCredential[]
   testimonies    Testimony[]
   counselingSessions CounselingSession[]
@@ -855,6 +858,37 @@ model WelfareRecord {
   createdAt   DateTime @default(now())
 
   @@index([churchId, date])
+}
+
+// The monthly welfare-dues rate for a given year (changes year to year).
+model WelfareRate {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  year      Int
+  amount    Decimal  @db.Decimal(12, 2) // dues per month for this year
+  createdAt DateTime @default(now())
+
+  @@unique([churchId, year])
+  @@index([churchId])
+}
+
+// A member's welfare dues paid for a specific month. One row per member/month
+// so we can show exactly which months are covered and what's still owed.
+model WelfareDue {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  personId  String
+  person    Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
+  year      Int
+  month     Int      // 1-12
+  amount    Decimal  @db.Decimal(12, 2)
+  createdAt DateTime @default(now())
+
+  @@unique([churchId, personId, year, month])
+  @@index([churchId, year])
+  @@index([personId])
 }
 
 // ── Church notices (internal announcements board) ─────────

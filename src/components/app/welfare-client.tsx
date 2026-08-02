@@ -1,177 +1,420 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import {
+  Search, Heart, Trash2, Calendar, User, HandCoins, UtensilsCrossed, Stethoscope,
+  Home, GraduationCap, HelpCircle, ArrowUpRight, ArrowDownRight, Scale, Plus, Loader2,
+  Send, Wallet, AlertTriangle, CheckCircle2, X, Settings2, Bell,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useFeedback } from "@/components/ui/feedback";
+import { AccountSelect, type AccountOption } from "@/components/app/account-select";
 import {
-  Search, Heart, Trash2, Calendar, User, HandCoins, UtensilsCrossed, Stethoscope,
-  Home, GraduationCap, HelpCircle, ArrowUpRight, ArrowDownRight, Scale,
-} from "lucide-react";
-import { deleteWelfareRecord } from "@/app/actions/welfare";
+  deleteWelfareRecord, recordWelfareDues, setWelfareRate,
+  previewOwingReminders, sendOwingReminders,
+} from "@/app/actions/welfare";
+import type { WelfareData } from "@/lib/data/welfare";
 import { cn } from "@/lib/utils";
 
-type WelfareRow = {
-  id: string;
-  kind: "dues" | "aid";
-  recipientName: string;
-  type: string;
-  amount: number | null;
-  description: string | null;
-  date: string;
-  personName: string | null;
-};
+const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const MONTHS_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
 const TYPE_META: Record<string, { icon: typeof Heart; label: string }> = {
-  dues: { icon: HandCoins, label: "Dues" },
-  financial: { icon: HandCoins, label: "Financial" },
-  food: { icon: UtensilsCrossed, label: "Food" },
-  medical: { icon: Stethoscope, label: "Medical" },
-  housing: { icon: Home, label: "Housing" },
-  education: { icon: GraduationCap, label: "Education" },
-  other: { icon: HelpCircle, label: "Other" },
+  financial: { icon: HandCoins, label: "Financial" }, food: { icon: UtensilsCrossed, label: "Food" },
+  medical: { icon: Stethoscope, label: "Medical" }, housing: { icon: Home, label: "Housing" },
+  education: { icon: GraduationCap, label: "Education" }, other: { icon: HelpCircle, label: "Other" },
 };
 
-function formatGHS(n: number) {
-  return new Intl.NumberFormat("en-GH", { style: "currency", currency: "GHS" }).format(n);
-}
+function ghs(n: number) { return new Intl.NumberFormat("en-GH", { style: "currency", currency: "GHS", maximumFractionDigits: 0 }).format(n); }
+
+type Member = { id: string; name: string; hasPhone: boolean };
 
 export function WelfareClient({
-  records,
-  collected,
-  disbursed,
+  data, members, accounts, smsBalance, canWrite,
 }: {
-  records: WelfareRow[];
-  collected: number;
-  disbursed: number;
+  data: WelfareData; members: Member[]; accounts: AccountOption[]; smsBalance: number; canWrite: boolean;
 }) {
-  const [search, setSearch] = useState("");
-  const [tab, setTab] = useState<"all" | "dues" | "aid">("all");
-  const [pending, start] = useTransition();
-
-  const balance = collected - disbursed;
-
-  const filtered = records.filter((r) => {
-    if (tab !== "all" && r.kind !== tab) return false;
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return r.recipientName.toLowerCase().includes(q) || r.description?.toLowerCase().includes(q);
-  });
-
-  const handleDelete = (id: string) => {
-    if (!confirm("Delete this welfare record? This cannot be undone.")) return;
-    const fd = new FormData();
-    fd.set("id", id);
-    start(() => deleteWelfareRecord(fd));
-  };
+  const [tab, setTab] = useState<"dues" | "aid">("dues");
+  const balance = data.collected - data.disbursed;
 
   return (
     <div className="mt-5 space-y-4">
-      {/* Summary: collected in, paid out, balance */}
-      <div className="grid gap-3 sm:grid-cols-3">
-        <Card className="flex items-center gap-3 p-4">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-success/10">
-            <ArrowUpRight className="size-5 text-success" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-success">{formatGHS(collected)}</p>
-            <p className="text-xs text-ink-muted">Dues collected</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-3 p-4">
-          <div className="flex size-10 items-center justify-center rounded-xl bg-danger/10">
-            <ArrowDownRight className="size-5 text-danger" />
-          </div>
-          <div>
-            <p className="text-2xl font-bold text-danger">{formatGHS(disbursed)}</p>
-            <p className="text-xs text-ink-muted">Aid disbursed</p>
-          </div>
-        </Card>
-        <Card className="flex items-center gap-3 p-4">
-          <div className={cn("flex size-10 items-center justify-center rounded-xl", balance >= 0 ? "bg-primary/10" : "bg-danger/10")}>
-            <Scale className={cn("size-5", balance >= 0 ? "text-primary" : "text-danger")} />
-          </div>
-          <div>
-            <p className={cn("text-2xl font-bold", balance >= 0 ? "text-ink" : "text-danger")}>{formatGHS(balance)}</p>
-            <p className="text-xs text-ink-muted">Welfare balance</p>
-          </div>
-        </Card>
+      {/* Summary */}
+      <div className="grid gap-3 sm:grid-cols-4">
+        <Stat icon={ArrowUpRight} tone="success" value={ghs(data.collected)} label="Dues collected" />
+        <Stat icon={Bell} tone="danger" value={ghs(data.totalOwed)} label="Outstanding (owed)" />
+        <Stat icon={ArrowDownRight} tone="danger" value={ghs(data.disbursed)} label="Aid disbursed" />
+        <Stat icon={Scale} tone={balance >= 0 ? "primary" : "danger"} value={ghs(balance)} label="Welfare balance" />
       </div>
 
-      {/* Filter tabs + search */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-1 rounded-xl border border-line bg-surface-2 p-1">
-          {(["all", "dues", "aid"] as const).map((t) => (
-            <button
-              key={t}
-              onClick={() => setTab(t)}
-              className={cn(
-                "rounded-lg px-3 py-1.5 text-sm font-medium transition-colors",
-                tab === t ? "bg-primary text-white shadow-sm" : "text-ink-muted hover:text-ink",
-              )}
-            >
-              {t === "all" ? "All" : t === "dues" ? "Dues in" : "Aid out"}
-            </button>
-          ))}
-        </div>
-        <div className="relative min-w-48 flex-1">
-          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-          <Input placeholder="Search welfare records..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
-        </div>
+      {/* Tabs */}
+      <div className="flex items-center gap-1 rounded-xl border border-line bg-surface-2 p-1 w-fit">
+        {(["dues", "aid"] as const).map((t) => (
+          <button key={t} onClick={() => setTab(t)}
+            className={cn("rounded-lg px-4 py-1.5 text-sm font-medium transition-colors",
+              tab === t ? "bg-primary text-white shadow-sm" : "text-ink-muted hover:text-ink")}>
+            {t === "dues" ? "Dues" : "Aid out"}
+          </button>
+        ))}
       </div>
 
-      {filtered.length === 0 ? (
-        <Card className="p-12 text-center">
-          <Heart className="mx-auto size-10 text-ink-faint" />
-          <p className="mt-3 text-sm text-ink-muted">
-            {search ? "No records match your search." : "No welfare records yet. Record dues collected from members or aid given out."}
-          </p>
-        </Card>
+      {tab === "dues" ? (
+        <DuesTab data={data} members={members} accounts={accounts} smsBalance={smsBalance} canWrite={canWrite} />
       ) : (
-        <div className="space-y-2">
-          {filtered.map((r) => {
-            const isDues = r.kind === "dues";
-            const meta = TYPE_META[r.type] ?? TYPE_META.other;
-            const TypeIcon = isDues ? HandCoins : meta.icon;
+        <AidTab data={data} canWrite={canWrite} />
+      )}
+    </div>
+  );
+}
 
-            return (
-              <Card key={r.id} className={`p-4 ${pending ? "opacity-60" : ""}`}>
-                <div className="flex items-start gap-3">
-                  <div className={cn("mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg", isDues ? "bg-success/10" : "bg-danger/10")}>
-                    <TypeIcon className={cn("size-4", isDues ? "text-success" : "text-danger")} />
+function Stat({ icon: Icon, tone, value, label }: { icon: typeof Heart; tone: "success" | "danger" | "primary"; value: string; label: string }) {
+  const bg = tone === "success" ? "bg-success/10" : tone === "danger" ? "bg-danger/10" : "bg-primary/10";
+  const fg = tone === "success" ? "text-success" : tone === "danger" ? "text-danger" : "text-primary";
+  return (
+    <Card className="flex items-center gap-3 p-4">
+      <div className={cn("flex size-10 items-center justify-center rounded-xl", bg)}><Icon className={cn("size-5", fg)} /></div>
+      <div><p className="text-xl font-bold">{value}</p><p className="text-xs text-ink-muted">{label}</p></div>
+    </Card>
+  );
+}
+
+/* ─────────────────── Dues tab ─────────────────── */
+
+function DuesTab({ data, members, accounts, smsBalance, canWrite }: {
+  data: WelfareData; members: Member[]; accounts: AccountOption[]; smsBalance: number; canWrite: boolean;
+}) {
+  const [search, setSearch] = useState("");
+  const [remindAll, setRemindAll] = useState(false);
+  const [remindOne, setRemindOne] = useState<Member | null>(null);
+
+  const filtered = data.members.filter((m) => !search || m.name.toLowerCase().includes(search.toLowerCase()));
+  const owingCount = data.members.filter((m) => m.owed > 0).length;
+
+  return (
+    <div className="space-y-4">
+      {canWrite && <RatesPanel rates={data.rates} currentYear={data.currentYear} />}
+      {canWrite && <RecordDuesForm members={members} accounts={accounts} rates={data.rates} currentYear={data.currentYear} />}
+
+      <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
+          <div>
+            <h3 className="font-display text-lg font-semibold">Member dues — {data.currentYear}</h3>
+            <p className="text-xs text-ink-muted">{owingCount} member{owingCount === 1 ? "" : "s"} owing · as of {MONTHS_FULL[data.currentMonth - 1]}</p>
+          </div>
+          <div className="flex items-center gap-2">
+            {canWrite && owingCount > 0 && (
+              <Button size="sm" onClick={() => setRemindAll(true)}><Bell className="size-4" /> Remind all owing</Button>
+            )}
+          </div>
+        </div>
+        <div className="p-4">
+          <div className="relative mb-3">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
+            <Input placeholder="Search members…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+          </div>
+          {data.rates.length === 0 && (
+            <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" /> Set a monthly rate for {data.currentYear} above so “owed” can be calculated.
+            </div>
+          )}
+          <div className="space-y-2">
+            {filtered.map((m) => (
+              <div key={m.id} className="flex flex-wrap items-center gap-3 rounded-xl border border-line px-3 py-2.5">
+                <div className="min-w-40 flex-1">
+                  <div className="text-sm font-medium">{m.name}</div>
+                  <div className="mt-1 flex gap-0.5">
+                    {MONTHS.map((mo, i) => {
+                      const paid = m.monthsPaidThisYear.includes(i + 1);
+                      const past = i + 1 <= data.currentMonth;
+                      return (
+                        <span key={mo} title={`${MONTHS_FULL[i]} ${paid ? "— paid" : past ? "— unpaid" : ""}`}
+                          className={cn("grid size-4 place-items-center rounded-[3px] text-[7px] font-bold",
+                            paid ? "bg-success text-white" : past ? "bg-danger/15 text-danger" : "bg-surface-2 text-ink-faint")}>
+                          {mo[0]}
+                        </span>
+                      );
+                    })}
                   </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-ink-faint">Paid</div>
+                  <div className="text-sm font-semibold text-success">{ghs(m.paidTotal)}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-xs text-ink-faint">Owes</div>
+                  <div className={cn("text-sm font-semibold", m.owed > 0 ? "text-danger" : "text-ink-faint")}>{m.owed > 0 ? ghs(m.owed) : "—"}</div>
+                </div>
+                {canWrite && m.owed > 0 && m.hasPhone && (
+                  <button onClick={() => setRemindOne(m)} title="Send reminder"
+                    className="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-primary/10 hover:text-primary">
+                    <Bell className="size-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+            {filtered.length === 0 && <p className="py-6 text-center text-sm text-ink-faint">No members found.</p>}
+          </div>
+        </div>
+      </Card>
 
+      {remindAll && <RemindDialog title="Remind everyone who owes" smsBalance={smsBalance} onClose={() => setRemindAll(false)} />}
+      {remindOne && <RemindDialog title={`Remind ${remindOne.name}`} personId={remindOne.id} smsBalance={smsBalance} onClose={() => setRemindOne(null)} />}
+    </div>
+  );
+}
+
+function RatesPanel({ rates, currentYear }: { rates: { year: number; amount: number }[]; currentYear: number }) {
+  const router = useRouter();
+  const { toast } = useFeedback();
+  const [open, setOpen] = useState(false);
+  const [year, setYear] = useState(String(currentYear));
+  const [amount, setAmount] = useState("");
+  const [pending, start] = useTransition();
+
+  const save = () => {
+    const fd = new FormData(); fd.set("year", year); fd.set("amount", amount);
+    start(async () => {
+      const res = await setWelfareRate(fd);
+      if (res?.ok) { toast("Rate saved", "success"); setAmount(""); router.refresh(); }
+      else toast(res?.error ?? "Failed", "error");
+    });
+  };
+
+  return (
+    <Card className="p-4">
+      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between">
+        <div className="flex items-center gap-2 text-sm font-semibold"><Settings2 className="size-4 text-primary" /> Monthly dues rate by year</div>
+        <span className="text-xs text-ink-muted">{rates.length ? rates.map((r) => `${r.year}: ${ghs(r.amount)}`).join(" · ") : "Not set"}</span>
+      </button>
+      {open && (
+        <div className="mt-3 border-t border-line pt-3">
+          <p className="mb-2 text-xs text-ink-muted">The dues amount per month changes year to year. Set each year’s rate — “owed” is calculated from these.</p>
+          <div className="flex flex-wrap items-end gap-2">
+            <div>
+              <label className="mb-1 block text-xs text-ink-faint">Year</label>
+              <input type="number" value={year} onChange={(e) => setYear(e.target.value)} className="h-9 w-24 rounded-lg border border-line bg-surface px-2.5 text-sm" />
+            </div>
+            <div>
+              <label className="mb-1 block text-xs text-ink-faint">Amount / month (GHS)</label>
+              <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 20" className="h-9 w-40 rounded-lg border border-line bg-surface px-2.5 text-sm" />
+            </div>
+            <Button size="sm" onClick={save} disabled={pending || !amount}>{pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} Save rate</Button>
+          </div>
+          {rates.length > 0 && (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {rates.map((r) => (
+                <span key={r.year} className="rounded-lg border border-line px-2.5 py-1 text-xs">
+                  <b>{r.year}</b> · {ghs(r.amount)}/mo
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+    </Card>
+  );
+}
+
+function RecordDuesForm({ members, accounts, rates, currentYear }: {
+  members: Member[]; accounts: AccountOption[]; rates: { year: number; amount: number }[]; currentYear: number;
+}) {
+  const router = useRouter();
+  const { toast } = useFeedback();
+  const [pending, start] = useTransition();
+  const [personId, setPersonId] = useState("");
+  const [year, setYear] = useState(currentYear);
+  const [fromMonth, setFromMonth] = useState(1);
+  const [toMonth, setToMonth] = useState(currentYear === new Date().getFullYear() ? new Date().getMonth() + 1 : 12);
+  const rateForYear = rates.find((r) => r.year === year)?.amount;
+  const [amount, setAmount] = useState("");
+  const [accountId, setAccountId] = useState(accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "");
+  const [notify, setNotify] = useState(true);
+
+  const effAmount = Number(amount) || rateForYear || 0;
+  const monthCount = Math.max(0, toMonth - fromMonth + 1);
+  const total = effAmount * monthCount;
+
+  const years = Array.from({ length: 5 }, (_, i) => currentYear - i);
+  const inputCls = "h-9 rounded-lg border border-line bg-surface px-2.5 text-sm outline-none focus:border-primary/50";
+
+  const submit = () => {
+    if (!personId) return toast("Choose a member", "error");
+    if (!effAmount) return toast("Enter the amount per month (or set the year rate)", "error");
+    const fd = new FormData();
+    fd.set("personId", personId); fd.set("year", String(year));
+    fd.set("fromMonth", String(fromMonth)); fd.set("toMonth", String(toMonth));
+    fd.set("amountPerMonth", String(effAmount));
+    if (accountId) fd.set("accountId", accountId);
+    if (notify) fd.set("notify", "on");
+    start(async () => {
+      const res = await recordWelfareDues(fd);
+      if (res?.ok) {
+        toast(`Recorded ${res.months} month(s) — ${ghs(res.total)}${res.texted ? " · member texted" : ""}`, "success");
+        setPersonId(""); setAmount("");
+        router.refresh();
+      } else toast(res?.error ?? "Failed", "error");
+    });
+  };
+
+  return (
+    <Card className="p-4">
+      <div className="mb-3 flex items-center gap-2 text-sm font-semibold"><HandCoins className="size-4 text-success" /> Record dues (across months)</div>
+      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+        <select value={personId} onChange={(e) => setPersonId(e.target.value)} className={inputCls}>
+          <option value="">— Member —</option>
+          {members.map((m) => <option key={m.id} value={m.id}>{m.name}{m.hasPhone ? "" : " (no phone)"}</option>)}
+        </select>
+        <select value={year} onChange={(e) => setYear(Number(e.target.value))} className={inputCls}>
+          {years.map((y) => <option key={y} value={y}>{y}{rates.find((r) => r.year === y) ? ` · ${ghs(rates.find((r) => r.year === y)!.amount)}/mo` : ""}</option>)}
+        </select>
+        <div className="flex items-center gap-1">
+          <select value={fromMonth} onChange={(e) => setFromMonth(Number(e.target.value))} className={cn(inputCls, "flex-1")}>
+            {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+          </select>
+          <span className="text-xs text-ink-faint">to</span>
+          <select value={toMonth} onChange={(e) => setToMonth(Number(e.target.value))} className={cn(inputCls, "flex-1")}>
+            {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+          </select>
+        </div>
+        <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)}
+          placeholder={rateForYear ? `${rateForYear} (year rate)` : "Amount / month"} className={inputCls} />
+      </div>
+      <div className="mt-2 flex flex-wrap items-center gap-3">
+        {accounts.length > 1 && (
+          <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className={inputCls}>
+            {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}{a.isDefault ? " (default)" : ""}</option>)}
+          </select>
+        )}
+        <label className="flex items-center gap-2 text-xs text-ink-muted">
+          <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} className="size-3.5 accent-primary" />
+          Text the member a receipt
+        </label>
+        <div className="flex-1" />
+        {monthCount > 0 && effAmount > 0 && (
+          <span className="text-sm text-ink-muted">{monthCount} month{monthCount === 1 ? "" : "s"} × {ghs(effAmount)} = <b className="text-ink">{ghs(total)}</b></span>
+        )}
+        <Button size="sm" onClick={submit} disabled={pending || monthCount <= 0}>
+          {pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} Record dues
+        </Button>
+      </div>
+    </Card>
+  );
+}
+
+function RemindDialog({ title, personId, smsBalance, onClose }: { title: string; personId?: string; smsBalance: number; onClose: () => void }) {
+  const router = useRouter();
+  const [preview, setPreview] = useState<{ recipients: number; cost: number; balance: number; remaining: number; enough: boolean } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  useMemo(() => {
+    previewOwingReminders(personId).then((r) => { if (r.ok) setPreview(r); setLoading(false); });
+  }, [personId]);
+
+  const send = async () => {
+    setSending(true);
+    const res = await sendOwingReminders(personId);
+    setSending(false);
+    if (res.ok) { setResult({ ok: true, message: `Sent ${res.sent} reminder${res.sent === 1 ? "" : "s"}.` }); router.refresh(); }
+    else setResult({ ok: false, message: res.error });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={sending ? undefined : onClose}>
+      <Card className="w-full max-w-md p-0" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 border-b border-line p-5">
+          <div><h3 className="font-display text-lg font-semibold">{title}</h3><p className="text-sm text-ink-muted">A friendly SMS with their balance.</p></div>
+          <button onClick={onClose} disabled={sending} className="rounded-lg p-1 text-ink-faint hover:bg-surface-2 disabled:opacity-40"><X className="size-4" /></button>
+        </div>
+        <div className="p-5">
+          {loading ? (
+            <div className="flex items-center gap-2 py-6 text-sm text-ink-muted"><Loader2 className="size-4 animate-spin" /> Working out the cost…</div>
+          ) : result ? (
+            <div className={cn("flex items-start gap-2 rounded-xl border p-4 text-sm", result.ok ? "border-success/30 bg-success/10 text-success" : "border-danger/30 bg-danger/10 text-danger")}>
+              {result.ok ? <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> : <AlertTriangle className="mt-0.5 size-4 shrink-0" />}<span>{result.message}</span>
+            </div>
+          ) : preview && preview.recipients > 0 ? (
+            <div className="space-y-2.5 text-sm">
+              <Row label="Members to remind" value={`${preview.recipients}`} />
+              <Row label="Current balance" value={`${preview.balance.toLocaleString()} credits`} icon={<Wallet className="size-3.5" />} />
+              <Row label="This costs" value={`− ${preview.cost.toLocaleString()} credits`} strong />
+              <div className="border-t border-line-soft" />
+              <Row label="Balance after" value={`${preview.remaining.toLocaleString()} credits`} strong tone={preview.enough ? "ok" : "bad"} />
+              {!preview.enough && <div className="mt-2 flex items-start gap-2 rounded-xl border border-danger/30 bg-danger/10 p-3 text-danger"><AlertTriangle className="mt-0.5 size-4 shrink-0" /> Not enough credits.</div>}
+            </div>
+          ) : (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700"><AlertTriangle className="mt-0.5 size-4 shrink-0" /> Nobody to remind (no one owes, or no phone numbers).</div>
+          )}
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t border-line p-4">
+          {result?.ok ? <Button variant="secondary" size="sm" onClick={onClose}>Done</Button> : (
+            <>
+              <Button variant="ghost" size="sm" onClick={onClose} disabled={sending}>Cancel</Button>
+              <Button size="sm" onClick={send} disabled={sending || loading || !preview || !preview.enough || preview.recipients === 0}>
+                {sending ? <><Loader2 className="size-4 animate-spin" /> Sending…</> : <><Send className="size-4" /> Send now</>}
+              </Button>
+            </>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+function Row({ label, value, strong, tone, icon }: { label: string; value: string; strong?: boolean; tone?: "ok" | "bad"; icon?: React.ReactNode }) {
+  const color = tone === "ok" ? "text-success" : tone === "bad" ? "text-danger" : "text-ink";
+  return <div className="flex items-center justify-between gap-3"><span className="flex items-center gap-1.5 text-ink-muted">{icon}{label}</span><span className={cn(strong && "font-semibold", color)}>{value}</span></div>;
+}
+
+/* ─────────────────── Aid tab ─────────────────── */
+
+function AidTab({ data, canWrite }: { data: WelfareData; canWrite: boolean }) {
+  const { toast } = useFeedback();
+  const [search, setSearch] = useState("");
+  const [pending, start] = useTransition();
+
+  const filtered = data.aid.filter((r) => !search || r.recipientName.toLowerCase().includes(search.toLowerCase()) || r.description?.toLowerCase().includes(search.toLowerCase()));
+
+  const del = (id: string) => {
+    if (!confirm("Delete this aid record? This cannot be undone.")) return;
+    const fd = new FormData(); fd.set("id", id);
+    start(() => deleteWelfareRecord(fd).then(() => toast("Deleted", "success")));
+  };
+
+  return (
+    <div className="space-y-3">
+      <div className="relative">
+        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
+        <Input placeholder="Search aid records…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+      </div>
+      {filtered.length === 0 ? (
+        <Card className="p-12 text-center"><Heart className="mx-auto size-10 text-ink-faint" /><p className="mt-3 text-sm text-ink-muted">No aid records yet. Use “Record aid” above.</p></Card>
+      ) : (
+        <div className={cn("space-y-2", pending && "opacity-60")}>
+          {filtered.map((r) => {
+            const meta = TYPE_META[r.type] ?? TYPE_META.other; const Icon = meta.icon;
+            return (
+              <Card key={r.id} className="p-4">
+                <div className="flex items-start gap-3">
+                  <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-danger/10"><Icon className="size-4 text-danger" /></div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium">{r.recipientName}</span>
-                      <Badge variant={isDues ? "success" : "default"} className="text-[10px]">
-                        {isDues ? "Dues" : meta.label}
-                      </Badge>
-                      {r.amount && r.amount > 0 && (
-                        <span className={cn("text-sm font-bold", isDues ? "text-success" : "text-danger")}>
-                          {isDues ? "+" : "−"}{formatGHS(r.amount)}
-                        </span>
-                      )}
+                      <Badge variant="default" className="text-[10px]">{meta.label}</Badge>
+                      {r.amount && r.amount > 0 && <span className="text-sm font-bold text-danger">−{ghs(r.amount)}</span>}
                     </div>
-
                     {r.description && <p className="mt-1 text-xs text-ink-muted">{r.description}</p>}
-
                     <div className="mt-1.5 flex flex-wrap gap-x-4 text-xs text-ink-faint">
-                      <span className="flex items-center gap-1">
-                        <Calendar className="size-3" />
-                        {new Date(r.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                      </span>
+                      <span className="flex items-center gap-1"><Calendar className="size-3" />{new Date(r.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>
                       {r.personName && <span className="flex items-center gap-1"><User className="size-3" /> {r.personName}</span>}
                     </div>
                   </div>
-
-                  <button
-                    onClick={() => handleDelete(r.id)}
-                    className="shrink-0 rounded-lg p-1.5 text-ink-faint hover:bg-danger/10 hover:text-danger"
-                    title="Delete"
-                  >
-                    <Trash2 className="size-4" />
-                  </button>
+                  {canWrite && <button onClick={() => del(r.id)} className="shrink-0 rounded-lg p-1.5 text-ink-faint hover:bg-danger/10 hover:text-danger" title="Delete"><Trash2 className="size-4" /></button>}
                 </div>
               </Card>
             );
