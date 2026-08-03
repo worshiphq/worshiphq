@@ -7,11 +7,15 @@ import { audit } from "@/lib/audit";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
-const DEFAULT_DUES_RECEIPT = "Dear {name}, your welfare dues of GHS {amount} for {months} have been received by {church}. {balance} God bless.";
-const DEFAULT_DUES_REMINDER = "Dear {name}, a friendly reminder from {church}: your welfare dues balance is GHS {owed}. Kindly settle when you can. God bless you.";
+const DEFAULT_DUES_RECEIPT = "Dear {title} {name}, your welfare dues of GHS {amount} for {months} have been received by {church}. {balance} God bless.";
+const DEFAULT_DUES_REMINDER = "Dear {title} {name}, a friendly reminder from {church}: your welfare dues balance is GHS {owed}. Kindly settle when you can. God bless you.";
 
 function fill(tpl: string, vars: Record<string, string>): string {
-  return tpl.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
+  return tpl
+    .replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/ ([,.!?:])/g, "$1")
+    .trim();
 }
 
 /** Set (or clear) a church-wide date dues start counting (fallback for members
@@ -162,9 +166,10 @@ export async function recordWelfareDues(formData: FormData) {
     if (summary.phone) {
       const balance = summary.owed > 0 ? `Balance still owing: GHS ${summary.owed.toLocaleString()}.` : "You're fully paid up. Thank you!";
       const msg = fill(church?.welfareDuesReceiptTemplate || DEFAULT_DUES_RECEIPT, {
+        title: summary.title,
         name: summary.firstName,
         amount: total.toLocaleString(),
-        months: `${MONTHS[fromMonth - 1]}–${MONTHS[toMonth - 1]} ${year}`,
+        months: `${MONTHS[fromMonth - 1]}-${MONTHS[toMonth - 1]} ${year}`,
         church: summary.churchName,
         owed: summary.owed.toLocaleString(),
         balance,
@@ -209,9 +214,9 @@ async function buildOwingMessages(churchId: string, onlyPersonId?: string) {
   const tpl = church?.welfareDuesReminderTemplate || DEFAULT_DUES_REMINDER;
   const withPhone = await db.person.findMany({
     where: { churchId, status: { not: "inactive" }, phone: { not: null } },
-    select: { id: true, firstName: true, phone: true },
+    select: { id: true, firstName: true, title: true, phone: true },
   });
-  const phoneMap = new Map(withPhone.map((p) => [p.id, { firstName: p.firstName, phone: p.phone! }]));
+  const phoneMap = new Map(withPhone.map((p) => [p.id, { firstName: p.firstName, title: p.title ?? "", phone: p.phone! }]));
 
   return data.members
     .filter((m) => m.owed > 0 && phoneMap.has(m.id) && (!onlyPersonId || m.id === onlyPersonId))
@@ -219,7 +224,7 @@ async function buildOwingMessages(churchId: string, onlyPersonId?: string) {
       const p = phoneMap.get(m.id)!;
       return {
         phone: p.phone,
-        text: fill(tpl, { name: p.firstName, church: churchName, owed: m.owed.toLocaleString() }),
+        text: fill(tpl, { title: p.title, name: p.firstName, church: churchName, owed: m.owed.toLocaleString() }),
       };
     });
 }

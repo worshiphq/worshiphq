@@ -180,7 +180,7 @@ async function buildRosterMessages(churchId: string, rosterId: string) {
     db.church.findUnique({ where: { id: churchId }, select: { name: true, messageTemplates: true } }),
     db.volunteerSlot.findMany({
       where: { rosterId, churchId, personId: { not: null } },
-      include: { person: { select: { firstName: true, phone: true } } },
+      include: { person: { select: { firstName: true, phone: true, title: true } } },
       orderBy: { date: "asc" },
     }),
   ]);
@@ -189,11 +189,11 @@ async function buildRosterMessages(churchId: string, rosterId: string) {
   const tpl = templateFor(church?.messageTemplates, "roster_reminder");
 
   // Group slots by person (a person may have several roles/dates). ASCII only.
-  const byPerson = new Map<string, { phone: string; firstName: string; lines: string[] }>();
+  const byPerson = new Map<string, { phone: string; firstName: string; title: string; lines: string[] }>();
   for (const s of slots) {
     if (!s.personId || !s.person?.phone) continue;
     const key = s.personId;
-    const entry = byPerson.get(key) ?? { phone: s.person.phone, firstName: s.person.firstName, lines: [] };
+    const entry = byPerson.get(key) ?? { phone: s.person.phone, firstName: s.person.firstName, title: s.person.title ?? "", lines: [] };
     const d = s.date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });
     entry.lines.push(`- ${d}${s.service ? ` ${s.service}` : ""}: ${s.role}`);
     byPerson.set(key, entry);
@@ -201,7 +201,7 @@ async function buildRosterMessages(churchId: string, rosterId: string) {
 
   const messages = [...byPerson.values()].map((p) => ({
     phone: p.phone,
-    text: renderTemplate(tpl, { name: p.firstName, church: churchName, duties: p.lines.join("\n") }),
+    text: renderTemplate(tpl, { title: p.title, name: p.firstName, church: churchName, duties: p.lines.join("\n") }),
   }));
   return { rosterName: roster?.name ?? "Roster", messages };
 }

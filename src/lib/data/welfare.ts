@@ -163,8 +163,8 @@ export async function getMemberDuesDetail(churchId: string, personId: string) {
 export async function memberOwedSummary(churchId: string, personId: string) {
   const detail = await getMemberDuesDetail(churchId, personId);
   const [person, church] = await Promise.all([
-    db.person.findUnique({ where: { id: personId }, select: { firstName: true, phone: true } }),
+    db.person.findUnique({ where: { id: personId }, select: { firstName: true, phone: true, title: true } }),
     db.church.findUnique({ where: { id: churchId }, select: { name: true } }),
   ]);
-  return { owed: detail.owed, firstName: person?.firstName ?? "", phone: person?.phone ?? null, churchName: church?.name ?? "your church" };
+  return { owed: detail.owed, firstName: person?.firstName ?? "", title: person?.title ?? "", phone: person?.phone ?? null, churchName: church?.name ?? "your church" };
 }

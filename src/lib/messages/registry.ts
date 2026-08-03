@@ -19,9 +19,9 @@ export const MESSAGE_TEMPLATES: MessageTemplate[] = [
   {
     key: "roster_reminder",
     label: "Roster duty reminder",
-    description: "Texted to each person on a service sheet when you tap 'Text everyone'.",
-    placeholders: ["name", "church", "duties"],
-    default: "Hello {name}, you are serving at {church}:\n{duties}\nPlease be ready. God bless.",
+    description: "Texted to each person on a service sheet when you tap 'Text everyone'. Use {title} for Mr./Mrs./Rev. etc.",
+    placeholders: ["title", "name", "church", "duties"],
+    default: "Hello {title} {name}, you are serving at {church}:\n{duties}\nPlease be ready. God bless.",
   },
   {
     key: "followup_assigned",
@@ -39,9 +39,16 @@ export const MESSAGE_TEMPLATES: MessageTemplate[] = [
   },
 ];
 
-/** Replace {placeholders} in a template. Unknown placeholders become "". */
+/** Replace {placeholders} in a template. Unknown placeholders become "".
+ *  Collapses runs of spaces (so an empty {title} doesn't leave a double space)
+ *  and trims spaces before punctuation — newlines are preserved. */
 export function renderTemplate(text: string, vars: Record<string, string>): string {
-  return text.replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "");
+  return text
+    .replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "")
+    .replace(/[ \t]{2,}/g, " ")
+    .replace(/ ([,.!?:])/g, "$1")
+    .replace(/[ \t]+\n/g, "\n")
+    .trim();
 }
 
 /** The custom text for a key (from Church.messageTemplates) or its default. */

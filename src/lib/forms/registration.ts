@@ -54,7 +54,7 @@ export function isSystemColumn(id: string): id is SystemColumn {
 }
 
 const GENDER = ["Male", "Female"];
-const TITLES = ["Mr", "Mrs", "Ms", "Dr", "Rev", "Pastor", "Elder", "Deacon", "Deaconess"];
+const TITLES = ["Mr", "Mrs", "Miss", "Ms", "Dr", "Rev", "Pastor", "Prophet", "Apostle", "Bishop", "Evangelist", "Minister", "Elder", "Deacon", "Deaconess"];
 const MARITAL = ["Single", "Married", "Divorced", "Widowed"];
 const YESNO = ["Yes", "No"];
 

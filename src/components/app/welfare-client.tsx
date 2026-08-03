@@ -558,8 +558,8 @@ function MemberDetailDialog({ member, rates, canWrite, onClose }: {
 
 /* ─────────────────── Message templates ─────────────────── */
 
-const DEFAULT_RECEIPT = "Dear {name}, your welfare dues of GHS {amount} for {months} have been received by {church}. {balance} God bless.";
-const DEFAULT_REMINDER = "Dear {name}, a friendly reminder from {church}: your welfare dues balance is GHS {owed}. Kindly settle when you can. God bless you.";
+const DEFAULT_RECEIPT = "Dear {title} {name}, your welfare dues of GHS {amount} for {months} have been received by {church}. {balance} God bless.";
+const DEFAULT_REMINDER = "Dear {title} {name}, a friendly reminder from {church}: your welfare dues balance is GHS {owed}. Kindly settle when you can. God bless you.";
 
 function TemplatesDialog({ templates, onClose }: { templates: Templates; onClose: () => void }) {
   const router = useRouter();
@@ -583,7 +583,7 @@ function TemplatesDialog({ templates, onClose }: { templates: Templates; onClose
           <button onClick={onClose} className="rounded-lg p-1 text-ink-faint hover:bg-surface-2"><X className="size-4" /></button>
         </div>
         <div className="space-y-4 p-5">
-          <p className="text-xs text-ink-muted">Shorten these to save SMS credits. Placeholders: <code className="rounded bg-surface-2 px-1">{"{name}"}</code> <code className="rounded bg-surface-2 px-1">{"{church}"}</code> <code className="rounded bg-surface-2 px-1">{"{amount}"}</code> <code className="rounded bg-surface-2 px-1">{"{months}"}</code> <code className="rounded bg-surface-2 px-1">{"{owed}"}</code> <code className="rounded bg-surface-2 px-1">{"{balance}"}</code></p>
+          <p className="text-xs text-ink-muted">Shorten these to save SMS credits. Placeholders: <code className="rounded bg-surface-2 px-1">{"{title}"}</code> <code className="rounded bg-surface-2 px-1">{"{name}"}</code> <code className="rounded bg-surface-2 px-1">{"{church}"}</code> <code className="rounded bg-surface-2 px-1">{"{amount}"}</code> <code className="rounded bg-surface-2 px-1">{"{months}"}</code> <code className="rounded bg-surface-2 px-1">{"{owed}"}</code> <code className="rounded bg-surface-2 px-1">{"{balance}"}</code>. Tip: <code className="rounded bg-surface-2 px-1">Hi {"{title}"} {"{name}"}</code> → “Hi Mr. Mensah”. Empty titles collapse cleanly.</p>
           <div>
             <div className="mb-1 flex items-center justify-between text-sm font-medium"><span>Payment receipt</span><span className="text-xs text-ink-faint">{receipt.length} chars · {seg(receipt)} SMS</span></div>
             <textarea value={receipt} onChange={(e) => setReceipt(e.target.value)} rows={3} className="w-full rounded-lg border border-line bg-surface p-2.5 text-sm outline-none focus:border-primary/50" />
