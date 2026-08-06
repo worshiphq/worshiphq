@@ -63,6 +63,12 @@ model Church {
   // Weekly digest of the week's upcoming birthdays sent to admins (off by default).
   birthdayDigestOn  Boolean @default(false)
   birthdayDigestDay Int     @default(1) // 0=Sun … 6=Sat (Monday default)
+  // ── Roster announcement (whole sheet to a group, ahead of the service) ──
+  rosterAnnounceOn       Boolean @default(false)
+  rosterAnnounceLeadDays Int     @default(2)  // send this many days before the service
+  rosterAnnounceHour     Int     @default(8)  // local hour to send
+  rosterAnnounceAudience String  @default("group") // "group" | "church"
+  rosterAnnounceGroupId  String? // which group receives it when audience = group
   memberPrefix String? // member ID prefix, e.g. "GBC" (derived from name if unset)
   memberSeq    Int     @default(0) // last issued member number
   name         String
@@ -1327,6 +1333,7 @@ model VolunteerRoster {
   startDate DateTime
   endDate   DateTime
   notes     String?  @db.Text
+  announcedAt DateTime? // when the group announcement went out (avoids duplicates)
   slots     VolunteerSlot[]
   createdAt DateTime @default(now())
 

@@ -19,6 +19,14 @@ export function localParts(now: Date, timeZone: string): { hour: number; weekday
   return { hour: isNaN(hour) ? 0 : hour, weekday: weekday < 0 ? 0 : weekday, mmdd };
 }
 
+/** YYYY-MM-DD in `timeZone` for `date` (+ optional `offsetDays`). */
+export function ymdInTz(date: Date, timeZone: string, offsetDays = 0): string {
+  const d = new Date(date.getTime() + offsetDays * 86400000);
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: safeTz(timeZone), year: "numeric", month: "2-digit", day: "2-digit" }).formatToParts(d);
+  const get = (t: string) => parts.find((p) => p.type === t)?.value ?? "";
+  return `${get("year")}-${get("month")}-${get("day")}`;
+}
+
 /** MM-DD in `timeZone` for `now` + `offsetDays`. */
 export function mmddInTz(now: Date, timeZone: string, offsetDays = 0): string {
   const d = new Date(now.getTime() + offsetDays * 86400000);

@@ -28,9 +28,20 @@ export default async function RostersPage() {
     }),
     getServiceRoles(session.churchId),
     getSmsBalance(session.churchId),
-    db.church.findUnique({ where: { id: session.churchId }, select: { messageTemplates: true } }),
+    db.church.findUnique({
+      where: { id: session.churchId },
+      select: {
+        messageTemplates: true, timezone: true, rosterAnnounceOn: true, rosterAnnounceAudience: true,
+        rosterAnnounceGroupId: true, rosterAnnounceLeadDays: true, rosterAnnounceHour: true,
+      },
+    }),
   ]);
   const messageTemplates = (church?.messageTemplates as Record<string, string> | null) ?? {};
+  const groups = await db.group.findMany({
+    where: { churchId: session.churchId },
+    select: { id: true, name: true, _count: { select: { members: true } } },
+    orderBy: { name: "asc" },
+  });
 
   return (
     <div>
@@ -57,6 +68,15 @@ export default async function RostersPage() {
         roles={roles}
         smsBalance={smsBalance}
         messageTemplates={messageTemplates}
+        groups={groups.map((g) => ({ id: g.id, name: g.name, memberCount: g._count.members }))}
+        announce={{
+          on: church?.rosterAnnounceOn ?? false,
+          audience: church?.rosterAnnounceAudience ?? "group",
+          groupId: church?.rosterAnnounceGroupId ?? null,
+          leadDays: church?.rosterAnnounceLeadDays ?? 2,
+          hour: church?.rosterAnnounceHour ?? 8,
+          timezone: church?.timezone ?? "Africa/Accra",
+        }}
         canWrite={!session.isDemo}
       />
     </div>

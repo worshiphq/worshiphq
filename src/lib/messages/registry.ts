@@ -24,6 +24,13 @@ export const MESSAGE_TEMPLATES: MessageTemplate[] = [
     default: "Hello {title} {name}, you are serving at {church}:\n{duties}\nPlease be ready. God bless.",
   },
   {
+    key: "roster_announcement",
+    label: "Roster announcement (to a group)",
+    description: "The whole service sheet, sent to a group ahead of the service (auto or manual).",
+    placeholders: ["church", "service", "date", "list"],
+    default: "{church} - {service} ({date}):\n{list}",
+  },
+  {
     key: "followup_assigned",
     label: "Follow-up assigned",
     description: "Texted to a team member when a follow-up task is assigned to them.",

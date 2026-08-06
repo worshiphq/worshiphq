@@ -206,6 +206,99 @@ async function buildRosterMessages(churchId: string, rosterId: string) {
   return { rosterName: roster?.name ?? "Roster", messages };
 }
 
+/* ── Group announcement (whole sheet to a group / the church) ── */
+
+const fmtServiceDate = (d: Date) => d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
+
+/** Build the announcement text for a sheet and resolve its recipient phones. */
+async function buildAnnouncement(churchId: string, rosterId: string) {
+  const [church, roster] = await Promise.all([
+    db.church.findUnique({
+      where: { id: churchId },
+      select: { name: true, messageTemplates: true, rosterAnnounceAudience: true, rosterAnnounceGroupId: true },
+    }),
+    db.volunteerRoster.findFirst({
+      where: { id: rosterId, churchId },
+      include: { slots: { orderBy: { createdAt: "asc" } } },
+    }),
+  ]);
+  if (!roster) return { text: "", phones: [] as string[], service: "", date: new Date() };
+
+  const lines = roster.slots.map((s) => `${s.role}: ${s.personName ?? "-"}`);
+  const { templateFor, renderTemplate } = await import("@/lib/messages/registry");
+  const text = renderTemplate(templateFor(church?.messageTemplates, "roster_announcement"), {
+    church: church?.name ?? "your church",
+    service: roster.name,
+    date: fmtServiceDate(roster.startDate),
+    list: lines.join("\n"),
+  });
+
+  // Recipients: a group's members, or the whole active church.
+  let people: { phone: string | null }[] = [];
+  if ((church?.rosterAnnounceAudience ?? "group") === "church") {
+    people = await db.person.findMany({ where: { churchId, status: { not: "inactive" }, phone: { not: null } }, select: { phone: true } });
+  } else if (church?.rosterAnnounceGroupId) {
+    const group = await db.group.findFirst({
+      where: { id: church.rosterAnnounceGroupId, churchId },
+      select: { members: { where: { phone: { not: null } }, select: { phone: true } } },
+    });
+    people = group?.members ?? [];
+  }
+  const phones = people.map((p) => p.phone!).filter(Boolean);
+  return { text, phones, service: roster.name, date: roster.startDate };
+}
+
+/** Cost preview before announcing a sheet to the group. */
+export async function previewRosterAnnounce(rosterId: string) {
+  const session = await requireModule("volunteers");
+  const { segmentsFor } = await import("@/config/sms");
+  const { getSmsBalance } = await import("@/lib/sms/credits");
+  const [{ text, phones }, balance] = await Promise.all([
+    buildAnnouncement(session.churchId, rosterId),
+    getSmsBalance(session.churchId),
+  ]);
+  const cost = segmentsFor(text) * phones.length;
+  return { ok: true as const, recipients: phones.length, cost, balance, remaining: balance - cost, enough: balance >= cost };
+}
+
+/** Send the sheet announcement to the group now (manual). */
+export async function announceRoster(rosterId: string) {
+  const session = await requireModule("volunteers");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  const { text, phones } = await buildAnnouncement(session.churchId, rosterId);
+  if (phones.length === 0) return { ok: false as const, error: "No recipients — pick a group (with phones) in Announcement settings." };
+  const { sendChurchSms } = await import("@/lib/sms/credits");
+  const res = await sendChurchSms(session.churchId, phones, text, { note: "Roster announcement" });
+  if (!res.ok && res.insufficient) return { ok: false as const, error: `Not enough SMS credits — need ${res.cost}, have ${res.balance}.` };
+  await db.volunteerRoster.update({ where: { id: rosterId }, data: { announcedAt: new Date() } });
+  await logAudit({ churchId: session.churchId, userId: session.userId, action: "send", entity: "roster", entityId: rosterId, detail: `Announced roster to ${res.sent} recipient(s)` });
+  revalidatePath("/app/rosters");
+  return { ok: true as const, sent: res.sent };
+}
+
+/** Save the roster-announcement schedule/recipient settings. */
+export async function saveRosterAnnounceSettings(formData: FormData) {
+  const session = await requireModule("volunteers");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  const audience = String(formData.get("audience") ?? "group") === "church" ? "church" : "group";
+  const groupId = String(formData.get("groupId") ?? "").trim() || null;
+  const leadDays = Math.min(30, Math.max(0, parseInt(String(formData.get("leadDays") ?? "2"), 10) || 0));
+  const hour = Math.min(23, Math.max(0, parseInt(String(formData.get("hour") ?? "8"), 10) || 8));
+  await db.church.update({
+    where: { id: session.churchId },
+    data: {
+      rosterAnnounceOn: String(formData.get("on") ?? "") === "on",
+      rosterAnnounceAudience: audience,
+      rosterAnnounceGroupId: audience === "group" ? groupId : null,
+      rosterAnnounceLeadDays: leadDays,
+      rosterAnnounceHour: hour,
+    },
+  });
+  await logAudit({ churchId: session.churchId, userId: session.userId, action: "update", entity: "settings", detail: "Updated roster announcement settings" });
+  revalidatePath("/app/rosters");
+  return { ok: true as const };
+}
+
 /** Cost preview before texting a roster's assigned members. */
 export async function previewRosterNotify(rosterId: string) {
   const session = await requireModule("volunteers");

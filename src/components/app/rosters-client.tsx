@@ -12,10 +12,16 @@ import { useFeedback } from "@/components/ui/feedback";
 import {
   saveServiceSheet, deleteRoster, addServiceRole, deleteServiceRole,
   previewRosterNotify, notifyRoster,
+  previewRosterAnnounce, announceRoster, saveRosterAnnounceSettings,
 } from "@/app/actions/rosters";
 import { SystemMessagesDialog } from "@/components/app/system-messages-dialog";
-import { MessageSquare } from "lucide-react";
+import { MessageSquare, Megaphone, Users, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+type Group = { id: string; name: string; memberCount: number };
+type Announce = { on: boolean; audience: string; groupId: string | null; leadDays: number; hour: number; timezone: string };
+
+function hourLabel(h: number) { const a = h < 12 ? "am" : "pm"; const hr = h % 12 === 0 ? 12 : h % 12; return `${hr}:00 ${a}`; }
 
 type Assignment = { id: string; role: string; personId: string | null; personName: string | null; hasPhone: boolean; notified: boolean };
 type Sheet = { id: string; service: string; date: string; assignments: Assignment[] };
@@ -27,19 +33,22 @@ const SERVICE_PRESETS = ["Sunday Service", "Wednesday Service", "Friday Service"
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 const fmtShort = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
-export function RostersClient({ sheets, members, roles, smsBalance, messageTemplates, canWrite }: {
-  sheets: Sheet[]; members: Member[]; roles: Role[]; smsBalance: number; messageTemplates: Record<string, string>; canWrite: boolean;
+export function RostersClient({ sheets, members, roles, smsBalance, messageTemplates, groups, announce, canWrite }: {
+  sheets: Sheet[]; members: Member[]; roles: Role[]; smsBalance: number; messageTemplates: Record<string, string>;
+  groups: Group[]; announce: Announce; canWrite: boolean;
 }) {
   const [editing, setEditing] = useState<Sheet | null>(null);
   const [creating, setCreating] = useState(false);
   const [showRoles, setShowRoles] = useState(false);
   const [showMessages, setShowMessages] = useState(false);
+  const [showAnnounce, setShowAnnounce] = useState(false);
 
   return (
     <div className="mt-5 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-sm text-ink-muted">{sheets.length} service sheet{sheets.length === 1 ? "" : "s"}</p>
         <div className="flex items-center gap-2">
+          {canWrite && <Button variant="secondary" size="sm" onClick={() => setShowAnnounce(true)}><Megaphone className="size-4" /> Announcement</Button>}
           {canWrite && <Button variant="secondary" size="sm" onClick={() => setShowMessages(true)}><MessageSquare className="size-4" /> Messages</Button>}
           <Button variant="secondary" size="sm" onClick={() => setShowRoles(true)}><Settings2 className="size-4" /> Manage roles</Button>
           {canWrite && <Button size="sm" onClick={() => setCreating(true)}><Plus className="size-4" /> New service sheet</Button>}
@@ -70,6 +79,7 @@ export function RostersClient({ sheets, members, roles, smsBalance, messageTempl
       )}
       {showRoles && <RolesManager roles={roles} canWrite={canWrite} onClose={() => setShowRoles(false)} />}
       {showMessages && <SystemMessagesDialog saved={messageTemplates} onClose={() => setShowMessages(false)} />}
+      {showAnnounce && <AnnounceSettingsDialog announce={announce} groups={groups} onClose={() => setShowAnnounce(false)} />}
     </div>
   );
 }
@@ -80,6 +90,7 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
   const [pending, start] = useTransition();
   const [copied, setCopied] = useState(false);
   const [notify, setNotify] = useState(false);
+  const [announce, setAnnounce] = useState(false);
 
   const withPhone = sheet.assignments.filter((a) => a.personId && a.hasPhone).length;
 
@@ -135,6 +146,9 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
         {canWrite && (
           <Button size="sm" onClick={() => setNotify(true)} disabled={withPhone === 0}><Send className="size-4" /> Text everyone</Button>
         )}
+        {canWrite && (
+          <Button variant="secondary" size="sm" onClick={() => setAnnounce(true)}><Megaphone className="size-4" /> Announce</Button>
+        )}
         <div className="flex-1" />
         {canWrite && (
           <button onClick={remove} disabled={pending} title="Delete sheet" className="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
@@ -144,7 +158,161 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
       </div>
 
       {notify && <NotifyDialog sheetId={sheet.id} label={`${sheet.service} · ${fmtShort(sheet.date)}`} smsBalance={smsBalance} onClose={() => setNotify(false)} />}
+      {announce && <AnnounceDialog sheetId={sheet.id} label={`${sheet.service} · ${fmtShort(sheet.date)}`} onClose={() => setAnnounce(false)} />}
     </Card>
+  );
+}
+
+/** Manual "announce this sheet to the group" — cost preview then send. */
+function AnnounceDialog({ sheetId, label, onClose }: { sheetId: string; label: string; onClose: () => void }) {
+  const router = useRouter();
+  const [preview, setPreview] = useState<{ recipients: number; cost: number; balance: number; remaining: number; enough: boolean } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
+
+  useMemo(() => { previewRosterAnnounce(sheetId).then((res) => { if (res.ok) setPreview(res); setLoading(false); }); }, [sheetId]);
+
+  const send = async () => {
+    setSending(true);
+    const res = await announceRoster(sheetId);
+    setSending(false);
+    if (res.ok) { setResult({ ok: true, message: `Announced to ${res.sent} recipient${res.sent === 1 ? "" : "s"}.` }); router.refresh(); }
+    else setResult({ ok: false, message: res.error });
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={sending ? undefined : onClose}>
+      <Card className="w-full max-w-md p-0" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-start justify-between gap-3 border-b border-line p-5">
+          <div>
+            <h3 className="font-display text-lg font-semibold">Announce to the group</h3>
+            <p className="text-sm text-ink-muted">{label}</p>
+          </div>
+          <button onClick={onClose} disabled={sending} className="rounded-lg p-1 text-ink-faint hover:bg-surface-2 disabled:opacity-40"><X className="size-4" /></button>
+        </div>
+        <div className="p-5">
+          {loading ? (
+            <div className="flex items-center gap-2 py-6 text-sm text-ink-muted"><Loader2 className="size-4 animate-spin" /> Working out the cost…</div>
+          ) : result ? (
+            <div className={cn("flex items-start gap-2 rounded-xl border p-4 text-sm", result.ok ? "border-success/30 bg-success/10 text-success" : "border-danger/30 bg-danger/10 text-danger")}>
+              {result.ok ? <CheckCircle2 className="mt-0.5 size-4 shrink-0" /> : <AlertTriangle className="mt-0.5 size-4 shrink-0" />}
+              <span>{result.message}</span>
+            </div>
+          ) : preview && preview.recipients > 0 ? (
+            <div className="space-y-2.5 text-sm">
+              <Row label="Recipients" value={`${preview.recipients}`} />
+              <Row label="Current balance" value={`${preview.balance.toLocaleString()} credits`} icon={<Wallet className="size-3.5" />} />
+              <Row label="This costs" value={`− ${preview.cost.toLocaleString()} credits`} strong />
+              <div className="border-t border-line-soft" />
+              <Row label="Balance after" value={`${preview.remaining.toLocaleString()} credits`} strong tone={preview.enough ? "ok" : "bad"} />
+              {!preview.enough && <div className="mt-2 flex items-start gap-2 rounded-xl border border-danger/30 bg-danger/10 p-3 text-danger"><AlertTriangle className="mt-0.5 size-4 shrink-0" /> Not enough credits.</div>}
+            </div>
+          ) : (
+            <div className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" /> No recipients. Pick a group (with phone numbers) in Announcement settings.
+            </div>
+          )}
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t border-line p-4">
+          {result?.ok ? (
+            <Button variant="secondary" size="sm" onClick={onClose}>Done</Button>
+          ) : (
+            <>
+              <Button variant="ghost" size="sm" onClick={onClose} disabled={sending}>Cancel</Button>
+              <Button size="sm" onClick={send} disabled={sending || loading || !preview || !preview.enough || preview.recipients === 0}>
+                {sending ? <><Loader2 className="size-4 animate-spin" /> Sending…</> : <><Megaphone className="size-4" /> Announce now</>}
+              </Button>
+            </>
+          )}
+        </div>
+      </Card>
+    </div>
+  );
+}
+
+/** Auto-announcement schedule + recipient settings. */
+function AnnounceSettingsDialog({ announce, groups, onClose }: { announce: Announce; groups: Group[]; onClose: () => void }) {
+  const router = useRouter();
+  const { toast } = useFeedback();
+  const [pending, start] = useTransition();
+  const [on, setOn] = useState(announce.on);
+  const [audience, setAudience] = useState(announce.audience);
+  const [groupId, setGroupId] = useState(announce.groupId ?? "");
+  const [leadDays, setLeadDays] = useState(announce.leadDays);
+  const [hour, setHour] = useState(announce.hour);
+
+  const save = () => {
+    const fd = new FormData();
+    if (on) fd.set("on", "on");
+    fd.set("audience", audience);
+    fd.set("groupId", groupId);
+    fd.set("leadDays", String(leadDays));
+    fd.set("hour", String(hour));
+    start(async () => {
+      const r = await saveRosterAnnounceSettings(fd);
+      if (r?.ok) { toast("Announcement settings saved", "success"); router.refresh(); onClose(); }
+      else toast(r?.error ?? "Failed", "error");
+    });
+  };
+
+  const sel = "h-9 rounded-lg border border-line bg-surface px-2.5 text-sm";
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
+      <Card className="w-full max-w-md p-0" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-line p-5">
+          <h3 className="font-display text-lg font-semibold">Auto-announce roster</h3>
+          <button onClick={onClose} className="rounded-lg p-1 text-ink-faint hover:bg-surface-2"><X className="size-4" /></button>
+        </div>
+        <div className="space-y-4 p-5">
+          <label className="flex items-center justify-between gap-3 rounded-xl border border-line p-3">
+            <span className="text-sm font-medium">Automatically send the sheet ahead of each service</span>
+            <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} className="size-4 accent-primary" />
+          </label>
+
+          <div>
+            <label className="mb-1 block text-xs text-ink-faint flex items-center gap-1.5"><Users className="size-3.5" /> Send to</label>
+            <div className="flex items-center gap-2">
+              <select value={audience} onChange={(e) => setAudience(e.target.value)} className={sel}>
+                <option value="group">A group</option>
+                <option value="church">The whole church</option>
+              </select>
+              {audience === "group" && (
+                <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={cn(sel, "flex-1")}>
+                  <option value="">— Pick a group —</option>
+                  {groups.map((g) => <option key={g.id} value={g.id}>{g.name} ({g.memberCount})</option>)}
+                </select>
+              )}
+            </div>
+            {audience === "group" && groups.length === 0 && (
+              <p className="mt-1 text-xs text-amber-600">Create a group first (e.g. “Pulpit Workers”) on the Groups page, then add members.</p>
+            )}
+          </div>
+
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Clock className="size-4 text-primary" />
+              <span className="text-sm">Send</span>
+              <select value={leadDays} onChange={(e) => setLeadDays(Number(e.target.value))} className={sel}>
+                {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{d === 0 ? "same day" : `${d} day${d === 1 ? "" : "s"} before`}</option>)}
+              </select>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="text-sm">at</span>
+              <select value={hour} onChange={(e) => setHour(Number(e.target.value))} className={sel}>
+                {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
+              </select>
+            </div>
+          </div>
+          <p className="text-xs text-ink-muted">Timezone: {announce.timezone} (set on the Birthdays page). You can also hit “Announce” on any sheet to send it now.</p>
+        </div>
+        <div className="flex items-center justify-end gap-2 border-t border-line p-4">
+          <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
+          <Button size="sm" onClick={save} disabled={pending}>{pending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Save</Button>
+        </div>
+      </Card>
+    </div>
   );
 }
 
