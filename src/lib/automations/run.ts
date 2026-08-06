@@ -65,6 +65,8 @@ export async function runAutomations(now = new Date()): Promise<{
     });
 
     for (const a of automations) {
+      // Birthdays are handled by the built-in, timezone-aware runBirthdays now.
+      if (a.trigger === "birthday") continue;
       const targets = await targetsFor(church.id, a.trigger, mmdd, threeDaysAgo, sevenDaysAgo);
       if (targets.length === 0) continue;
 

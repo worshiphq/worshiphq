@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { TRIGGER_CATALOG, DEFAULT_TEMPLATES, runSingleAutomation } from "@/lib/automations/run";
+import { audit } from "@/lib/audit";
 import type { Channel } from "@prisma/client";
 
 export async function toggleAutomation(id: string, active: boolean) {
@@ -88,4 +89,31 @@ export async function runAutomationNow(id: string) {
   const result = await runSingleAutomation(id, session.churchId);
   revalidatePath("/app/reminders");
   return result;
+}
+
+/** Save the built-in birthday automation settings (toggles, send hour, tz, digest day). */
+export async function saveBirthdaySettings(formData: FormData) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+
+  const hour = Math.min(23, Math.max(0, parseInt(String(formData.get("sendHour") ?? "8"), 10) || 8));
+  const digestDay = Math.min(6, Math.max(0, parseInt(String(formData.get("digestDay") ?? "1"), 10) || 0));
+  const tz = String(formData.get("timezone") ?? "").trim() || "Africa/Accra";
+
+  await db.church.update({
+    where: { id: session.churchId },
+    data: {
+      timezone: tz,
+      birthdaySendHour: hour,
+      birthdayWishOn: String(formData.get("wishOn") ?? "") === "on",
+      birthdayAdminAlertOn: String(formData.get("adminAlertOn") ?? "") === "on",
+      birthdayDigestOn: String(formData.get("digestOn") ?? "") === "on",
+      birthdayDigestDay: digestDay,
+    },
+  });
+
+  await audit(session, "update", "settings", "Updated birthday automation settings");
+  revalidatePath("/app/birthdays");
+  return { ok: true as const };
 }

@@ -55,8 +55,13 @@ model Church {
   // Notify admins (SMS + email) when a member submits a prayer request,
   // testimony or counselling request. Editable in Settings.
   notifySubmissions Boolean @default(true)
-  // Weekly digest of the week's upcoming birthdays sent to admins.
-  birthdayDigestOn  Boolean @default(true)
+  // ── Automations: timezone + birthday suite ──
+  timezone          String  @default("Africa/Accra") // IANA tz; send-hours are local to this
+  birthdaySendHour  Int     @default(8)   // local hour (0-23) birthday messages go out
+  birthdayWishOn    Boolean @default(true)  // text the member a happy-birthday on their day
+  birthdayAdminAlertOn Boolean @default(false) // text/email admins "today is X's birthday"
+  // Weekly digest of the week's upcoming birthdays sent to admins (off by default).
+  birthdayDigestOn  Boolean @default(false)
   birthdayDigestDay Int     @default(1) // 0=Sun … 6=Sat (Monday default)
   memberPrefix String? // member ID prefix, e.g. "GBC" (derived from name if unset)
   memberSeq    Int     @default(0) // last issued member number
