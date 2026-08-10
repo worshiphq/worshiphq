@@ -27,15 +27,17 @@ export async function GET(request: NextRequest) {
 
   try {
     const now = new Date();
-    // These run EVERY hour — each church self-gates to fire at its own local
-    // send-hour (timezone-aware).
-    const birthdays = await runBirthdays(now);
-    const rosterAnnouncements = await runRosterAnnouncements(now);
+    // Vercel Hobby allows a once-a-day cron, so this runs once. `ignoreHour`
+    // makes birthday/roster tasks fire on this single daily run rather than
+    // waiting for a per-church hour to match. (An hourly external trigger can
+    // call ?precise=1 to honour the exact send-hour instead — see below.)
+    const precise = new URL(request.url).searchParams.get("precise") === "1";
+    const birthdays = await runBirthdays(now, !precise);
+    const rosterAnnouncements = await runRosterAnnouncements(now, !precise);
 
-    // The once-a-day tasks only run on the 07:00 UTC invocation, so making the
-    // cron hourly doesn't fire them 24×/day.
-    if (now.getUTCHours() !== 7) {
-      return Response.json({ ok: true, hourly: true, birthdays, rosterAnnouncements });
+    // A precise (hourly) trigger only handles the timezone-gated sends above.
+    if (precise) {
+      return Response.json({ ok: true, precise: true, birthdays, rosterAnnouncements });
     }
 
     // Keep the USD→GHS rate fresh daily as a reliable backstop to the

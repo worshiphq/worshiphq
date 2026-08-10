@@ -11,7 +11,7 @@ const fmtServiceDate = (d: Date) => d.toLocaleDateString("en-GB", { weekday: "lo
  * service. Runs hourly; each church fires at its own local hour, `leadDays`
  * before a service, once per sheet (guarded by announcedAt).
  */
-export async function runRosterAnnouncements(now = new Date()) {
+export async function runRosterAnnouncements(now = new Date(), ignoreHour = false) {
   const churches = await db.church.findMany({
     where: { isDemo: false, rosterAnnounceOn: true },
     select: {
@@ -24,7 +24,7 @@ export async function runRosterAnnouncements(now = new Date()) {
   let sent = 0;
   for (const church of churches) {
     const { hour } = localParts(now, church.timezone);
-    if (hour !== church.rosterAnnounceHour) continue;
+    if (!ignoreHour && hour !== church.rosterAnnounceHour) continue;
 
     // The service date we're announcing today = today + leadDays (local).
     const targetYmd = ymdInTz(now, church.timezone, church.rosterAnnounceLeadDays);

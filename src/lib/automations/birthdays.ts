@@ -13,7 +13,7 @@ import { templateFor, renderTemplate } from "@/lib/messages/registry";
  *  - Admin same-day  (birthdayAdminAlertOn): tell admins who's celebrating today.
  *  - Weekly digest   (birthdayDigestOn):    on birthdayDigestDay, list the week.
  */
-export async function runBirthdays(now = new Date()) {
+export async function runBirthdays(now = new Date(), ignoreHour = false) {
   const churches = await db.church.findMany({
     where: {
       isDemo: false,
@@ -30,7 +30,9 @@ export async function runBirthdays(now = new Date()) {
 
   for (const church of churches) {
     const { hour, weekday } = localParts(now, church.timezone);
-    if (hour !== church.birthdaySendHour) continue; // only at the church's chosen hour
+    // With an hourly trigger, fire only at the church's chosen local hour. On a
+    // once-daily cron (ignoreHour), fire on that single run instead.
+    if (!ignoreHour && hour !== church.birthdaySendHour) continue;
 
     const todayKey = mmddInTz(now, church.timezone, 0);
 
