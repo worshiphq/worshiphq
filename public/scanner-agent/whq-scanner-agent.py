@@ -33,6 +33,20 @@ PORT = 23847
 scanner = None
 scanner_type = None
 
+_LOG = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "WorshipHQ", "Scanner", "agent.log")
+
+def log(msg):
+    """Print and append to a log file so the hidden (windowless) agent is still
+    debuggable — open agent.log in Notepad to see what happened."""
+    line = f"[{time.strftime('%Y-%m-%d %H:%M:%S')}] {msg}"
+    print(line)
+    try:
+        os.makedirs(os.path.dirname(_LOG), exist_ok=True)
+        with open(_LOG, "a", encoding="utf-8") as f:
+            f.write(line + "\n")
+    except Exception:
+        pass
+
 # ─── Auto-install as Windows startup ─────────────────────
 
 def _startup_dir():
@@ -167,19 +181,27 @@ def init_dummy():
 def capture_fingerprint():
     if scanner_type == "zkfp":
         try:
-            while True:
+            deadline = time.time() + 25  # don't hang forever if no finger
+            while time.time() < deadline:
                 capture = scanner.AcquireFingerprint()
                 if capture:
                     template, img = capture
+                    # AcquireFingerprint returns the template as a .NET Array[Byte]
+                    # (via pythonnet) — convert to Python bytes before base64.
+                    tpl = bytes(template)
+                    image = bytes(img) if img is not None else None
+                    log(f"captured template ({len(tpl)} bytes)")
                     return {
-                        "template": base64.b64encode(template).decode(),
-                        "image": base64.b64encode(img).decode() if img else None,
+                        "template": base64.b64encode(tpl).decode(),
+                        "image": base64.b64encode(image).decode() if image else None,
                         "quality": 85,
                         "format": "zkfp",
                         "scanner": "ZKTeco",
                     }
                 time.sleep(0.1)
+            return {"error": "No finger detected — place your finger firmly and try again."}
         except Exception as e:
+            log(f"capture error: {e!r}")
             return {"error": str(e)}
 
     elif scanner_type == "dpfp":
