@@ -13,14 +13,15 @@ export async function POST(req: NextRequest) {
 
   const person = await db.person.findFirst({
     where: { id: personId, churchId: session.churchId },
-    select: { id: true, firstName: true, lastName: true, status: true, dateOfBirth: true, birthday: true },
+    select: { id: true, firstName: true, lastName: true, status: true, dateOfBirth: true, birthday: true, photoUrl: true, gender: true },
   });
   if (!person) return NextResponse.json({ ok: false, message: "Member not found" }, { status: 404 });
 
   const name = `${person.firstName} ${person.lastName}`;
+  const who = { name, personId: person.id, photoUrl: person.photoUrl ?? null, gender: person.gender ?? null };
 
   if (!sessionId) {
-    return NextResponse.json({ ok: true, name, message: "Identity verified", personId: person.id });
+    return NextResponse.json({ ok: true, ...who, message: "Identity verified" });
   }
 
   const sess = await db.attendanceSession.findFirst({ where: { id: sessionId, churchId: session.churchId } });
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
 
   const dup = await db.attendanceRecord.findFirst({ where: { sessionId, personId: person.id } });
   if (dup) {
-    return NextResponse.json({ ok: true, name, message: "Already checked in", personId: person.id });
+    return NextResponse.json({ ok: true, ...who, alreadyIn: true, message: "Already checked in" });
   }
 
   let category = "adult";
@@ -61,5 +62,5 @@ export async function POST(req: NextRequest) {
     data: { [catField[category] ?? "adults"]: { increment: 1 } },
   });
 
-  return NextResponse.json({ ok: true, name, message: "Checked in via fingerprint", personId: person.id });
+  return NextResponse.json({ ok: true, ...who, category, message: "Checked in via fingerprint" });
 }

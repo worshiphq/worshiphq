@@ -1,11 +1,11 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { Search, UserPlus, X, Check, ScanLine, Loader2 } from "lucide-react";
+import { Search, UserPlus, X, Check, ScanLine, Loader2, Fingerprint } from "lucide-react";
 import { MemberAvatar } from "@/components/ui/member-avatar";
 import { QrCode } from "@/components/ui/qr-code";
 import { QrScanner } from "@/components/app/qr-scanner";
-import { BiometricCheckInButton } from "@/components/app/biometric-checkin";
+import { BiometricCheckInSession } from "@/components/app/biometric-checkin-session";
 import { Button } from "@/components/ui/button";
 import { useFeedback } from "@/components/ui/feedback";
 import { checkInMember, checkInByMemberId, undoCheckIn } from "@/app/actions/attendance";
@@ -50,6 +50,7 @@ export function CheckInPanel({
 }) {
   const [q, setQ] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
+  const [bioOpen, setBioOpen] = useState(false);
   const [scanning, start] = useTransition();
   const { toast } = useFeedback();
 
@@ -153,13 +154,9 @@ export function CheckInPanel({
           </div>
           {canWrite && (
             <div className="flex gap-2">
-              <BiometricCheckInButton
-                sessionId={sessionId}
-                onCheckedIn={(name, msg) => {
-                  toast(`${name} · ${msg}`, "success");
-                  window.location.reload();
-                }}
-              />
+              <Button size="sm" onClick={() => setBioOpen(true)}>
+                <Fingerprint className="size-4" /> Fingerprint
+              </Button>
               <Button variant="secondary" size="sm" onClick={() => setScanOpen(true)} disabled={scanning}>
                 {scanning ? <Loader2 className="size-4 animate-spin" /> : <ScanLine className="size-4" />}
                 {scanning ? "Checking in…" : "Scan QR"}
@@ -276,6 +273,7 @@ export function CheckInPanel({
       </div>
 
       {scanOpen && <QrScanner onScan={handleScan} onClose={() => setScanOpen(false)} />}
+      {bioOpen && <BiometricCheckInSession sessionId={sessionId} onClose={() => setBioOpen(false)} />}
     </div>
   );
 }
