@@ -126,7 +126,9 @@ def init_zkfp():
             print("[WARN] No ZKTeco scanner found (is it plugged in?)")
             return False
         zk.OpenDevice(0)
-        zk.Light("green")
+        # NOTE: zk.Light() spawns a background thread that can race the device
+        # startup and raise DeviceNotStartedError — it's purely cosmetic (turns
+        # the reader LED), so we skip it to keep the agent clean and reliable.
         scanner = zk
         scanner_type = "zkfp"
         print(f"[OK] ZKTeco scanner connected ({count} device(s))")
@@ -363,8 +365,11 @@ def main():
     except KeyboardInterrupt:
         print("\nShutting down...")
         if scanner_type == "zkfp" and scanner:
-            scanner.CloseDevice()
-            scanner.Terminate()
+            try:
+                scanner.CloseDevice()
+                scanner.Terminate()
+            except Exception:
+                pass
         server.server_close()
 
 if __name__ == "__main__":
