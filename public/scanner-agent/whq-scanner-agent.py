@@ -26,8 +26,14 @@ import time
 import struct
 import hashlib
 import subprocess
-from http.server import HTTPServer, BaseHTTPRequestHandler
+import atexit
+import threading
+from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse
+
+# Serialize device access so two /capture calls can't hit the reader at once,
+# while /status (which never takes the lock) stays instant even mid-scan.
+_capture_lock = threading.Lock()
 
 PORT = 23847
 scanner = None
@@ -127,6 +133,16 @@ def _register_sdk_dll_dirs():
             os.environ["PATH"] = d + os.pathsep + os.environ.get("PATH", "")
 
 
+def _close_device():
+    """Release the reader on exit so a restart doesn't hit a locked device."""
+    try:
+        if scanner_type == "zkfp" and scanner and scanner != "dummy":
+            scanner.CloseDevice()
+            scanner.Terminate()
+    except Exception:
+        pass
+
+
 def init_zkfp():
     global scanner, scanner_type
     bits = struct.calcsize("P") * 8
@@ -140,6 +156,7 @@ def init_zkfp():
             print("[WARN] No ZKTeco scanner found (is it plugged in?)")
             return False
         zk.OpenDevice(0)
+        atexit.register(_close_device)  # release the reader cleanly on exit
         # NOTE: zk.Light() spawns a background thread that can race the device
         # startup and raise DeviceNotStartedError — it's purely cosmetic (turns
         # the reader LED), so we skip it to keep the agent clean and reliable.
@@ -331,7 +348,15 @@ class AgentHandler(BaseHTTPRequestHandler):
             if not scanner:
                 self._json(503, {"error": "No scanner connected"})
                 return
-            result = capture_fingerprint()
+            # Only one capture at a time on the device. If another is already
+            # running, tell the client to retry rather than fighting the reader.
+            if not _capture_lock.acquire(blocking=False):
+                self._json(409, {"error": "A scan is already in progress."})
+                return
+            try:
+                result = capture_fingerprint()
+            finally:
+                _capture_lock.release()
             if "error" in result:
                 self._json(500, result)
             else:
@@ -381,7 +406,10 @@ def main():
     print("Press Ctrl+C to stop")
     print()
 
-    server = HTTPServer(("0.0.0.0", PORT), AgentHandler)
+    # Threaded so /status answers instantly even while a /capture is waiting for
+    # a finger — otherwise the site's status poll queues behind the scan, times
+    # out, and wrongly shows "scanner not found / download".
+    server = ThreadingHTTPServer(("0.0.0.0", PORT), AgentHandler)
     try:
         server.serve_forever()
     except KeyboardInterrupt:
