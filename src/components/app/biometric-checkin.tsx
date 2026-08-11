@@ -155,7 +155,8 @@ export function BiometricCheckInButton({
                   <li>3. Come back here and press Retry</li>
                 </ol>
                 <p className="mt-3 text-[11px] text-ink-faint">
-                  Advanced: prefer the raw <a href="/scanner-agent/whq-scanner-agent.py" download className="underline">Python script</a>.
+                  Advanced: prefer the raw <a href="/scanner-agent/whq-scanner-agent.py" download className="underline">Python script</a>. ·
+                  Remove it later with the <a href="/scanner-agent/whq-scanner-uninstall.bat" download className="underline">uninstaller</a>.
                 </p>
                 <div className="mt-4 flex gap-2 justify-center">
                   <Button size="sm" variant="secondary" onClick={() => setState("idle")}>Close</Button>
