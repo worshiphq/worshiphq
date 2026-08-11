@@ -65,16 +65,23 @@ if %errorlevel% neq 0 (
     echo         still work; plug-and-play hardware may need vendor drivers.
 )
 
-REM ---- 4. Register auto-start and launch -------------------
-echo   [4/4] Registering auto-start and launching the scanner...
-start "" /min %PY% "%AGENT_PATH%" --install
+REM ---- 4. Register auto-start and launch (hidden, no window) ----
+echo   [4/4] Registering auto-start and starting the scanner...
+set "PYW=pythonw"
+if /I "%PY%"=="py" set "PYW=pyw"
+REM Register the hidden auto-start entry (this exits immediately)...
+%PY% "%AGENT_PATH%" --install
+REM ...then start it now, hidden (pythonw = no console window).
+start "" %PYW% "%AGENT_PATH%"
 
 echo(
 echo   ============================================
-echo     Done! The scanner service is now running
-echo     and will start automatically on log in.
+echo     Done! The scanner now runs invisibly in the
+echo     background and starts automatically at log in
+echo     - no window will stay open.
 echo(
 echo     Go back to WorshipHQ and click "Retry".
+echo     You can close this window now.
 echo   ============================================
 echo(
 pause

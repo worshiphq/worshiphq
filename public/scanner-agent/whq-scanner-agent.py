@@ -34,36 +34,57 @@ scanner_type = None
 
 # ─── Auto-install as Windows startup ─────────────────────
 
+def _startup_dir():
+    return os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
+
 def install_startup():
-    """Add this script to Windows startup so it runs automatically on boot."""
+    """Register to run at login — HIDDEN (no console window) via pythonw + a
+    VBS launcher that starts it with window style 0 (invisible)."""
     if sys.platform != "win32":
         print("[INFO] Auto-start install is Windows-only. On Linux, add to systemd.")
         return
 
     script_path = os.path.abspath(__file__)
-    python_path = sys.executable
-    bat_content = f'@echo off\nstart /min "" "{python_path}" "{script_path}"\n'
+    # pythonw.exe runs without a console window (unlike python.exe).
+    pythonw = sys.executable.replace("python.exe", "pythonw.exe")
+    if not os.path.exists(pythonw):
+        pythonw = sys.executable
 
-    startup_dir = os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
-    bat_path = os.path.join(startup_dir, "WorshipHQ-Scanner.bat")
+    startup_dir = _startup_dir()
+    # Remove any old visible .bat launcher from a previous version.
+    old_bat = os.path.join(startup_dir, "WorshipHQ-Scanner.bat")
+    if os.path.exists(old_bat):
+        try: os.remove(old_bat)
+        except OSError: pass
 
-    with open(bat_path, "w") as f:
-        f.write(bat_content)
+    # A VBS launcher runs the agent fully hidden (0 = hidden window).
+    vbs_path = os.path.join(startup_dir, "WorshipHQ-Scanner.vbs")
+    vbs = (
+        'Set s = CreateObject("WScript.Shell")\r\n'
+        f's.Run """{pythonw}"" ""{script_path}""", 0, False\r\n'
+    )
+    with open(vbs_path, "w") as f:
+        f.write(vbs)
 
-    print(f"[OK] Installed to Windows startup: {bat_path}")
-    print("[OK] The scanner agent will now start automatically when you log in.")
-    print("[OK] Starting agent now...\n")
+    print(f"[OK] Installed to startup (runs hidden, no window): {vbs_path}")
+    print("[OK] The scanner will start automatically and invisibly when you log in.")
 
 def uninstall_startup():
-    """Remove from Windows startup."""
+    """Remove from Windows startup (both the old .bat and the .vbs)."""
     if sys.platform != "win32":
         return
-    startup_dir = os.path.join(os.environ.get("APPDATA", ""), "Microsoft", "Windows", "Start Menu", "Programs", "Startup")
-    bat_path = os.path.join(startup_dir, "WorshipHQ-Scanner.bat")
-    if os.path.exists(bat_path):
-        os.remove(bat_path)
-        print(f"[OK] Removed from startup: {bat_path}")
-    else:
+    startup_dir = _startup_dir()
+    removed = False
+    for name in ("WorshipHQ-Scanner.vbs", "WorshipHQ-Scanner.bat"):
+        p = os.path.join(startup_dir, name)
+        if os.path.exists(p):
+            try:
+                os.remove(p)
+                removed = True
+                print(f"[OK] Removed from startup: {p}")
+            except OSError:
+                pass
+    if not removed:
         print("[INFO] Not installed in startup.")
 
 
@@ -278,7 +299,10 @@ class AgentHandler(BaseHTTPRequestHandler):
 
 def main():
     if "--install" in sys.argv:
+        # Register hidden auto-start and EXIT — the setup launches the hidden
+        # agent separately, so no console window is left running.
         install_startup()
+        return
     elif "--uninstall" in sys.argv:
         uninstall_startup()
         return

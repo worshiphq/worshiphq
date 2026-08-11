@@ -14,15 +14,16 @@ echo(
 pause
 
 set "INSTALL_DIR=%LOCALAPPDATA%\WorshipHQ\Scanner"
-set "STARTUP=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\WorshipHQ-Scanner.bat"
+set "STARTUP_DIR=%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup"
 
 REM ---- 1. Stop the running agent (by its port, 23847) ------
 echo   [1/4] Stopping the scanner agent...
 for /f "tokens=5" %%a in ('netstat -ano ^| findstr ":23847" 2^>nul') do taskkill /f /pid %%a >nul 2>&1
 
-REM ---- 2. Remove the auto-start entry ----------------------
+REM ---- 2. Remove the auto-start entry (hidden .vbs + old .bat)
 echo   [2/4] Removing auto-start...
-if exist "%STARTUP%" del /f /q "%STARTUP%" >nul 2>&1
+if exist "%STARTUP_DIR%\WorshipHQ-Scanner.vbs" del /f /q "%STARTUP_DIR%\WorshipHQ-Scanner.vbs" >nul 2>&1
+if exist "%STARTUP_DIR%\WorshipHQ-Scanner.bat" del /f /q "%STARTUP_DIR%\WorshipHQ-Scanner.bat" >nul 2>&1
 
 REM ---- 3. Remove the pyzkfp driver (Python is left in place)
 echo   [3/4] Removing the scanner driver...
