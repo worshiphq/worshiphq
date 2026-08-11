@@ -7,6 +7,9 @@ $ErrorActionPreference = "Stop"
 Add-Type -AssemblyName System.Windows.Forms
 Add-Type -AssemblyName System.Drawing
 [System.Windows.Forms.Application]::EnableVisualStyles()
+# Never let a stray UI error pop the scary .NET "Unhandled exception" dialog.
+[System.Windows.Forms.Application]::SetUnhandledExceptionMode([System.Windows.Forms.UnhandledExceptionMode]::CatchException)
+[System.Windows.Forms.Application]::add_ThreadException({ param($s,$e) })
 
 $INSTALL_DIR = Join-Path $env:LOCALAPPDATA "WorshipHQ\Scanner"
 $AGENT_URL   = "https://worshiphq.app/scanner-agent/whq-scanner-agent.py"
@@ -114,7 +117,14 @@ $timer.Start()
 
 function Set-Step($text, $pct) {
   $status.Text = $text
-  if ($pct -ge 0) { $bar.Value = [Math]::Min(100, $pct) }
+  try {
+    if ($null -ne $pct -and [int]$pct -ge 0) {
+      $v = [int]$pct
+      if ($v -lt 0) { $v = 0 }
+      if ($v -gt 100) { $v = 100 }
+      $bar.Value = $v
+    }
+  } catch {}
   [System.Windows.Forms.Application]::DoEvents()
 }
 
@@ -189,7 +199,7 @@ $form.Add_Shown({
     $title.Text = "Setup couldn't finish"
     $title.ForeColor = $RED
     $status.ForeColor = $RED
-    Set-Step $_.Exception.Message -1
+    Set-Step $_.Exception.Message 0
     $btn.Text = "Close"
     $btn.BackColor = $CARD
     $btn.ForeColor = [System.Drawing.Color]::White
