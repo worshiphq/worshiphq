@@ -23,6 +23,7 @@ import json
 import os
 import sys
 import time
+import struct
 import hashlib
 import subprocess
 from http.server import HTTPServer, BaseHTTPRequestHandler
@@ -90,15 +91,39 @@ def uninstall_startup():
 
 # ─── Scanner backends ──────────────────────────────────────
 
+def _register_sdk_dll_dirs():
+    """ZKTeco's libzkfp.dll ships with the ZKFinger/SLK20R SDK, not the plain USB
+    driver. Add the usual SDK install folders to the DLL search path so pyzkfp
+    can find it without the user tweaking PATH."""
+    candidates = [
+        r"C:\Program Files\ZKTeco\ZKFinger SDK\lib",
+        r"C:\Program Files (x86)\ZKTeco\ZKFinger SDK\lib",
+        r"C:\Program Files\ZKFinger SDK",
+        r"C:\Program Files (x86)\ZKFinger SDK",
+        r"C:\Program Files (x86)\ZKTeco\SLK20R",
+        r"C:\Program Files\ZKTeco\SLK20R",
+        os.path.join(os.path.dirname(os.path.abspath(__file__)), "lib"),
+    ]
+    for d in candidates:
+        if os.path.isdir(d):
+            try:
+                os.add_dll_directory(d)  # Python 3.8+
+            except Exception:
+                pass
+            os.environ["PATH"] = d + os.pathsep + os.environ.get("PATH", "")
+
+
 def init_zkfp():
     global scanner, scanner_type
+    bits = struct.calcsize("P") * 8
     try:
+        _register_sdk_dll_dirs()
         from pyzkfp import ZKFP2
         zk = ZKFP2()
         zk.Init()
         count = zk.GetDeviceCount()
         if count == 0:
-            print("[WARN] No ZKTeco scanner found")
+            print("[WARN] No ZKTeco scanner found (is it plugged in?)")
             return False
         zk.OpenDevice(0)
         zk.Light("green")
@@ -110,6 +135,9 @@ def init_zkfp():
         return False
     except Exception as e:
         print(f"[WARN] ZKTeco init failed: {e}")
+        if "libzkfp" in str(e).lower() or "dll" in str(e).lower():
+            print(f"[HINT] Running {bits}-bit Python. ZKTeco's SDK DLLs are 32-bit,")
+            print("[HINT] so install the ZKFinger/SLK20R SDK AND use 32-bit Python.")
         return False
 
 def init_dpfp():
@@ -255,10 +283,16 @@ class AgentHandler(BaseHTTPRequestHandler):
     def do_GET(self):
         path = urlparse(self.path).path
         if path == "/status":
+            # If we're not on a real scanner yet, try again now — so plugging in
+            # the reader (or installing its SDK) works without restarting.
+            if scanner is None or scanner_type in (None, "dummy"):
+                if not init_zkfp():
+                    init_dpfp()
             self._json(200, {
                 "connected": scanner is not None and scanner_type != "dummy",
                 "scanner": scanner_type or "none",
-                "version": "1.0.0",
+                "python_bits": struct.calcsize("P") * 8,
+                "version": "1.1.0",
                 "agent": "WorshipHQ Scanner Agent",
             })
         else:
