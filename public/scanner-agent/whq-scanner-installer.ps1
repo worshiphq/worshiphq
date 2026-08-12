@@ -129,19 +129,29 @@ function Set-Step($text, $pct) {
 }
 
 function Find-Python {
+  # Collect candidates from PATH and known install roots, but IGNORE the Windows
+  # Store "python.exe" stub (the App Execution Alias in WindowsApps) — it isn't
+  # real Python and only opens the Store.
+  $cands = @()
   foreach ($c in @("python", "py")) {
-    $p = (& cmd /c "where $c" 2>$null | Select-Object -First 1)
-    if ($p -and (Test-Path $p)) { return $p }
+    foreach ($p in (& cmd /c "where $c" 2>$null)) {
+      if ($p -and (Test-Path $p) -and ($p -notmatch "WindowsApps")) { $cands += $p }
+    }
   }
   $roots = @(
     (Join-Path $env:LOCALAPPDATA "Programs\Python"),
-    "C:\Python312", "C:\Python311", "C:\Program Files\Python312"
+    "C:\Program Files\Python312", "C:\Program Files\Python311", "C:\Python312", "C:\Python311"
   )
   foreach ($r in $roots) {
     if (Test-Path $r) {
-      $hit = Get-ChildItem $r -Recurse -Filter "python.exe" -ErrorAction SilentlyContinue | Select-Object -First 1
-      if ($hit) { return $hit.FullName }
+      $hit = Get-ChildItem $r -Recurse -Filter "python.exe" -ErrorAction SilentlyContinue |
+             Where-Object { $_.FullName -notmatch "WindowsApps" } | Select-Object -First 1
+      if ($hit) { $cands += $hit.FullName }
     }
+  }
+  # Return the first candidate that ACTUALLY runs (filters out any stub).
+  foreach ($p in ($cands | Select-Object -Unique)) {
+    try { $out = (& $p -c "print(1)" 2>$null); if ("$out".Trim() -eq "1") { return $p } } catch {}
   }
   return $null
 }
@@ -149,17 +159,34 @@ function Find-Python {
 # ── The actual install, stepped, once the window is shown ──
 $form.Add_Shown({
   try {
+    [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12
     Set-Step "Checking for Python..." 8
     Start-Sleep -Milliseconds 400
     $py = Find-Python
 
     if (-not $py) {
+      # No real Python on this machine. Download the official python.org 64-bit
+      # installer and run it silently — no winget, no Microsoft Store, nothing
+      # for the user to click. Installs per-user so it never needs admin.
       Set-Step "Installing Python (one-time, please wait)..." 20
-      $wg = (& cmd /c "where winget" 2>$null | Select-Object -First 1)
-      if ($wg) {
-        Start-Process -FilePath "winget" -ArgumentList "install -e --id Python.Python.3.12 --silent --accept-package-agreements --accept-source-agreements" -Wait -WindowStyle Hidden
-        Start-Sleep -Seconds 2
+      $pyExe = Join-Path $env:TEMP "whq-python-3.12.8-amd64.exe"
+      try {
+        Invoke-WebRequest -Uri "https://www.python.org/ftp/python/3.12.8/python-3.12.8-amd64.exe" -OutFile $pyExe -UseBasicParsing
+        Set-Step "Installing Python (this can take a minute)..." 30
+        $pr = Start-Process -FilePath $pyExe -ArgumentList "/quiet InstallAllUsers=0 PrependPath=1 Include_pip=1 Include_launcher=1 Include_test=0" -Wait -PassThru
+        Start-Sleep -Seconds 3
         $py = Find-Python
+        # winget as a last-ditch fallback if the direct install somehow didn't land.
+        if (-not $py) {
+          $wg = (& cmd /c "where winget" 2>$null | Select-Object -First 1)
+          if ($wg -and ($wg -notmatch "WindowsApps\\winget")) {
+            Start-Process -FilePath "winget" -ArgumentList "install -e --id Python.Python.3.12 --silent --accept-package-agreements --accept-source-agreements" -Wait -WindowStyle Hidden
+            Start-Sleep -Seconds 2
+            $py = Find-Python
+          }
+        }
+      } catch {
+        throw "Couldn't download Python automatically. Please check the internet connection and run this installer again."
       }
     }
     if (-not $py) { throw "Python could not be installed automatically. Please install Python from python.org (tick 'Add to PATH'), then run this again." }
