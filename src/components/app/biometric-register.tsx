@@ -1,12 +1,27 @@
 "use client";
 
 import { useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Fingerprint, Check, Loader2, X, Download, Hand } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 const AGENT_URL = "http://localhost:23847";
+
+/** Poll the agent a few times before deciding it's missing — a single-threaded
+ *  agent can briefly block right after a scan, and one timeout shouldn't nuke
+ *  the whole flow to "download installer". */
+async function checkAgent(): Promise<{ connected: boolean } | null> {
+  for (let i = 0; i < 3; i++) {
+    try {
+      const r = await fetch(`${AGENT_URL}/status`, { signal: AbortSignal.timeout(3000) });
+      if (r.ok) return await r.json();
+    } catch { /* retry */ }
+    await new Promise((res) => setTimeout(res, 500));
+  }
+  return null;
+}
 
 const FINGERS = [
   { id: "left_thumb", label: "Thumb", hand: "Left" },
@@ -49,9 +64,8 @@ export function BiometricRegisterButton({ personId, personName, isRegistered }: 
     setState("connecting");
     setMessage("Looking for fingerprint scanner...");
     try {
-      const statusRes = await fetch(`${AGENT_URL}/status`, { signal: AbortSignal.timeout(2500) }).catch(() => null);
-      if (!statusRes || !statusRes.ok) { setState("no-agent"); return; }
-      const status = await statusRes.json();
+      const status = await checkAgent();
+      if (!status) { setState("no-agent"); return; }
       if (!status.connected) { setState("error"); setMessage("Scanner running but no reader detected. Plug it in and try again."); return; }
 
       setState("scanning");
@@ -98,7 +112,9 @@ export function BiometricRegisterButton({ personId, personName, isRegistered }: 
 
   const busy = state === "connecting" || state === "scanning" || state === "saving";
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <>
       <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm" onClick={() => { if (!busy) close(); }} />
       <div className="fixed inset-0 z-[61] flex items-center justify-center p-4">
@@ -193,6 +209,7 @@ export function BiometricRegisterButton({ personId, personName, isRegistered }: 
           )}
         </div>
       </div>
-    </>
+    </>,
+    document.body,
   );
 }

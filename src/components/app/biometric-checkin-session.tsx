@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { Fingerprint, X, Loader2, Download, CheckCircle2, UserX, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -36,11 +37,15 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
   useEffect(() => {
     running.current = true;
     (async () => {
-      // 1) Is the agent there and on a real scanner?
-      try {
-        const s = await fetch(`${AGENT_URL}/status`, { signal: AbortSignal.timeout(2500) }).then((r) => r.json());
-        if (!s.connected) { setPhase("no-agent"); return; }
-      } catch { setPhase("no-agent"); return; }
+      // 1) Is the agent there and on a real scanner? Poll a few times first —
+      // a busy single-threaded agent can miss one quick check.
+      let status: { connected?: boolean } | null = null;
+      for (let i = 0; i < 3 && !status; i++) {
+        try { const r = await fetch(`${AGENT_URL}/status`, { signal: AbortSignal.timeout(3000) }); if (r.ok) status = await r.json(); } catch { /* retry */ }
+        if (!status) await wait(500);
+      }
+      if (!status) { setPhase("no-agent"); return; }
+      if (!status.connected) { setPhase("no-agent"); return; }
 
       // 2) Load the fingerprint gallery once.
       try {
@@ -106,7 +111,9 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
     }
   }
 
-  return (
+  if (typeof document === "undefined") return null;
+
+  return createPortal(
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
       <div className="flex w-full max-w-md flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
         <div className="flex items-center justify-between border-b border-line p-4">
@@ -187,7 +194,8 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
           <Button size="sm" onClick={close}>Done</Button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 

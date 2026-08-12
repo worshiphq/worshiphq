@@ -333,7 +333,7 @@ class AgentHandler(BaseHTTPRequestHandler):
                 "connected": scanner is not None and scanner_type != "dummy",
                 "scanner": scanner_type or "none",
                 "python_bits": struct.calcsize("P") * 8,
-                "version": "1.1.0",
+                "version": "1.2.0",
                 "agent": "WorshipHQ Scanner Agent",
             })
         else:
@@ -380,6 +380,29 @@ class AgentHandler(BaseHTTPRequestHandler):
 
 # ─── Main ─────────────────────────────────────────────────
 
+def self_update():
+    """Best-effort: pull the latest agent from the site so bug fixes reach
+    already-installed machines on the next launch (e.g. after a reboot), with no
+    re-install. Re-execs if the file changed. Guarded against loops and junk."""
+    if getattr(sys, "frozen", False) or "--no-update" in sys.argv:
+        return
+    try:
+        import urllib.request
+        with urllib.request.urlopen("https://worshiphq.app/scanner-agent/whq-scanner-agent.py", timeout=6) as r:
+            latest = r.read()
+        here = os.path.abspath(__file__)
+        with open(here, "rb") as f:
+            current = f.read()
+        # Only replace if it clearly changed AND looks like our agent (not an error page).
+        if latest and latest != current and b"WorshipHQ Fingerprint Scanner Agent" in latest:
+            with open(here, "wb") as f:
+                f.write(latest)
+            log("Self-updated to the latest agent; restarting.")
+            os.execv(sys.executable, [sys.executable, here, "--no-update"])
+    except Exception as e:
+        log(f"self-update skipped: {e}")
+
+
 def main():
     if "--install" in sys.argv:
         # Register hidden auto-start and EXIT — the setup launches the hidden
@@ -390,8 +413,10 @@ def main():
         uninstall_startup()
         return
 
+    self_update()  # pull the latest before opening the device
+
     print("=" * 50)
-    print("  WorshipHQ Fingerprint Scanner Agent v1.0")
+    print("  WorshipHQ Fingerprint Scanner Agent v1.2")
     print("=" * 50)
     print()
 
