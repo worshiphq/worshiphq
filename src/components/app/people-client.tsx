@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect, useActionState } from "react";
 import {
   Search, Plus, Phone, Mail, MapPin, X, Users, Pencil, Trash2,
   Briefcase, Heart, Shield, User, Grid3X3, List, ChevronRight, Download, MessageSquare, QrCode as QrIcon, Fingerprint,
@@ -16,8 +16,8 @@ import { OnFormComplete } from "@/components/ui/form-effects";
 import { Badge } from "@/components/ui/badge";
 import { ClickableAvatar } from "@/components/ui/photo-lightbox";
 import { Label, Textarea } from "@/components/ui/input";
-import { createPerson, updatePerson, deletePerson } from "@/app/actions/people";
-import { createChild, updateChild, assignParent } from "@/app/actions/children";
+import { updatePerson, deletePerson, createPersonState } from "@/app/actions/people";
+import { updateChild, assignParent, createChildState } from "@/app/actions/children";
 import { sendSmsToPerson } from "@/app/actions/communications";
 import { BiometricRegisterButton } from "@/components/app/biometric-register";
 import { MemberFormFields, type MemberDefaults } from "@/components/app/member-form-fields";
@@ -671,6 +671,8 @@ function buildDefaults(fields: FormField[], person: PersonRow): MemberDefaults {
   return { scalars, departments: person.departments, photoUrl: person.photoUrl ?? "" };
 }
 
+type AddResult = { ok: boolean; personId?: string; name?: string } | null;
+
 function PersonForm({
   person, departments, formFields, adults, ageTab, onClose,
 }: {
@@ -685,9 +687,21 @@ function PersonForm({
   const inputBase =
     "flex h-11 w-full rounded-xl border border-line bg-surface px-3.5 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25";
 
-  const formAction = isYouth
-    ? (isEdit ? updateChild : createChild)
-    : (isEdit ? updatePerson : createPerson);
+  // Add flow uses useActionState so we can grab the new personId and offer
+  // fingerprint enrollment right after saving (admin-only — never on the public
+  // join form). Edit flow keeps the plain action + auto-close.
+  const [addResult, addAction] = useActionState<AddResult, FormData>(
+    isYouth ? createChildState : createPersonState,
+    null,
+  );
+  const [added, setAdded] = useState<{ personId: string; name: string } | null>(null);
+  useEffect(() => {
+    if (!isEdit && addResult?.ok && addResult.personId) {
+      setAdded({ personId: addResult.personId, name: addResult.name ?? "New member" });
+    }
+  }, [addResult, isEdit]);
+
+  const formAction = isEdit ? (isYouth ? updateChild : updatePerson) : addAction;
 
   const title = isYouth
     ? (isEdit ? `Edit ${personAge}` : `Add ${personAge === "child" ? "child" : "teen"}`)
@@ -699,7 +713,7 @@ function PersonForm({
       <div className="fixed left-1/2 top-1/2 z-50 w-full max-w-2xl max-h-[90vh] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-2xl border border-line bg-surface p-6 shadow-2xl animate-fade-up">
         <div className="mb-5 flex items-center justify-between">
           <div>
-            <h2 className="font-display text-xl font-bold">{title}</h2>
+            <h2 className="font-display text-xl font-bold">{added ? "Member added" : title}</h2>
             {isEdit && person?.memberId && (
               <p className="mt-0.5 text-xs text-ink-faint">
                 <span className="font-mono">{person.memberId}</span> · Joined {formatDate(person.joined)}
@@ -708,6 +722,23 @@ function PersonForm({
           </div>
           <button onClick={onClose} className="grid size-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-2"><X className="size-5" /></button>
         </div>
+        {added ? (
+          <div className="text-center">
+            <div className="mx-auto flex size-16 items-center justify-center rounded-full bg-success/10">
+              <Users className="size-8 text-success" />
+            </div>
+            <h3 className="mt-4 font-display text-lg font-bold">{added.name} is on your list</h3>
+            <p className="mx-auto mt-2 max-w-sm text-sm text-ink-muted">
+              Want to enrol a fingerprint for faster check-in? You can do it now, or skip and add it later from their profile.
+            </p>
+            <div className="mt-5 flex flex-col items-center gap-3">
+              <BiometricRegisterButton personId={added.personId} personName={added.name} isRegistered={false} />
+              <button onClick={onClose} className="text-sm font-medium text-ink-muted hover:text-ink hover:underline">
+                Skip for now
+              </button>
+            </div>
+          </div>
+        ) : (
         <form action={formAction} className="space-y-5">
           {isEdit && <input type="hidden" name="id" value={person!.id} />}
           {isYouth && !isEdit && <input type="hidden" name="ageGroup" value={personAge} />}
@@ -825,8 +856,9 @@ function PersonForm({
               {isEdit ? "Save changes" : title}
             </SubmitButton>
           </div>
-          <OnFormComplete onComplete={onClose} />
+          {isEdit && <OnFormComplete onComplete={onClose} />}
         </form>
+        )}
       </div>
     </>
   );

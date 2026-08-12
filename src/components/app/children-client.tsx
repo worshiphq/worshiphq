@@ -356,7 +356,7 @@ function ChildForm({
           <button onClick={onClose} className="grid size-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-2"><X className="size-5" /></button>
         </div>
 
-        <form action={isEdit ? updateChild : createChild} className="space-y-4">
+        <form action={isEdit ? updateChild : async (fd) => { await createChild(fd); }} className="space-y-4">
           {isEdit && <input type="hidden" name="id" value={person!.id} />}
 
           <div className="grid gap-4 sm:grid-cols-2">

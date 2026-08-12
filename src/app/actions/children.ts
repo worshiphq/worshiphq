@@ -12,7 +12,7 @@ export async function createChild(formData: FormData) {
 
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
-  if (!firstName || !lastName) return;
+  if (!firstName || !lastName) return { ok: false as const };
 
   const ageGroup = String(formData.get("ageGroup") ?? "child");
   const gender = String(formData.get("gender") ?? "").trim() || null;
@@ -54,6 +54,12 @@ export async function createChild(formData: FormData) {
   revalidatePath("/app/children");
   revalidatePath("/app/people");
   revalidatePath("/app");
+  return { ok: true as const, personId: person.id, name: `${firstName} ${lastName}` };
+}
+
+/** useActionState wrapper — see createPersonState in people.ts. */
+export async function createChildState(_prev: unknown, formData: FormData) {
+  return createChild(formData);
 }
 
 export async function updateChild(formData: FormData) {

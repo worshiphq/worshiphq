@@ -24,7 +24,7 @@ export async function createPerson(formData: FormData) {
 
   const fields = await formFields(session.churchId);
   const { data, customFields, departmentNames } = await buildPersonData(fields, formData);
-  if (!data.firstName || !data.lastName) return;
+  if (!data.firstName || !data.lastName) return { ok: false as const };
 
   const status = (String(formData.get("status") ?? "active") as PersonStatus) || "active";
   const leaderTitle = String(formData.get("leaderTitle") ?? "").trim() || null;
@@ -51,6 +51,13 @@ export async function createPerson(formData: FormData) {
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "person", entityId: person.id, detail: `Added ${data.firstName} ${data.lastName}` });
   revalidatePath("/app/people");
   revalidatePath("/app");
+  return { ok: true as const, personId: person.id, name: `${data.firstName} ${data.lastName}` };
+}
+
+/** useActionState wrapper so the admin add-member modal can grab the new
+ *  personId and offer fingerprint enrollment right after saving. */
+export async function createPersonState(_prev: unknown, formData: FormData) {
+  return createPerson(formData);
 }
 
 export async function updatePerson(formData: FormData) {
