@@ -11,6 +11,7 @@ import { Card } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { CheckInPanel } from "@/components/app/check-in-panel";
 import { EndServiceButton } from "@/components/app/end-service-dialog";
+import { EditableServiceName } from "@/components/app/editable-service-name";
 
 export const metadata = { title: "Service attendance" };
 
@@ -70,7 +71,7 @@ export default async function AttendanceSessionPage({
 
       {/* Header */}
       <div>
-        <h1 className="font-display text-2xl font-bold tracking-tight">{data.serviceName}</h1>
+        <EditableServiceName sessionId={data.id} name={data.serviceName} canWrite={!session.isDemo} />
         <p className="mt-1 text-sm text-ink-muted">
           {new Date(data.date).toLocaleDateString("en-GH", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           {data.branch ? ` · ${data.branch}` : ""}

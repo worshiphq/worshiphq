@@ -246,6 +246,25 @@ export async function endService(formData: FormData) {
   return { ok: true as const, sent, recipients: list.length, insufficient };
 }
 
+/** Rename a service (e.g. "Wednesday Service" → "Convention Day 1"). Also
+ *  updates the name stored on each check-in record so history stays consistent. */
+export async function renameService(sessionId: string, rawName: string) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  const serviceName = rawName.trim().slice(0, 120);
+  if (!serviceName) return { ok: false as const, error: "Name can't be empty" };
+
+  const sess = await db.attendanceSession.findFirst({ where: { id: sessionId, churchId: session.churchId }, select: { id: true } });
+  if (!sess) return { ok: false as const, error: "Service not found" };
+
+  await db.attendanceSession.update({ where: { id: sess.id }, data: { serviceName } });
+  await db.attendanceRecord.updateMany({ where: { sessionId: sess.id, churchId: session.churchId }, data: { serviceName } });
+
+  revalidatePath(`/app/attendance/${sess.id}`);
+  revalidatePath("/app/attendance");
+  return { ok: true as const, serviceName };
+}
+
 /** Reopen a service that was ended by mistake (keeps checking people in). */
 export async function reopenService(sessionId: string) {
   const session = await requireSession();
