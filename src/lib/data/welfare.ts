@@ -12,7 +12,14 @@ export interface WelfareMemberRow {
   startLabel: string;         // e.g. "Jan 2025" — when dues start counting, or "Not set"
   hasExplicitStart: boolean;  // true if this member has a personal welfareStart
   started: boolean;           // false when no start (personal or church) → owed not calculated
+  // Range mode (only populated when a from/to range is requested):
+  rangePaid: number;          // dues collected within the range
+  rangeOwed: number;          // owed within the range (from start, up to now)
+  rangeMonthsPaid: number;    // expected months that are fully paid in range
+  rangeMonthsTotal: number;   // expected months in range (from start, up to now)
 }
+
+export interface WelfareRange { fromY: number; fromM: number; toY: number; toM: number }
 
 export interface WelfareData {
   currentYear: number;
@@ -29,6 +36,11 @@ export interface WelfareData {
   collected: number;
   disbursed: number;
   totalOwed: number;
+  // Range mode: null unless a valid from/to range was requested.
+  range: (WelfareRange & { label: string }) | null;
+  rangeMissingYears: number[]; // years in the range with no rate set → range blocked
+  rangeCollected: number;      // total dues collected within the range
+  rangeOwed: number;           // total owed within the range
 }
 
 const MONTHS_SHORT = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
@@ -52,7 +64,36 @@ function computeOwed(
   return owed;
 }
 
-export async function getWelfareData(churchId: string, year?: number): Promise<WelfareData> {
+/** Owed for one member across an explicit month range, from their start, up to
+ *  now. `cells` maps "y-m" → amount paid for that month. */
+function computeRange(
+  ratesByYear: Map<number, number>,
+  cells: Map<string, number>,
+  start: { y: number; m: number } | null,
+  now: { y: number; m: number },
+  range: WelfareRange,
+) {
+  let paid = 0, owed = 0, monthsPaid = 0, monthsTotal = 0;
+  for (let y = range.fromY; y <= range.toY; y++) {
+    const rate = ratesByYear.get(y) ?? 0;
+    const wStart = y === range.fromY ? range.fromM : 1;
+    const wEnd = y === range.toY ? range.toM : 12;
+    for (let m = wStart; m <= wEnd; m++) {
+      const paidCell = cells.get(`${y}-${m}`) ?? 0;
+      paid += paidCell; // money collected in the period, regardless of "expected"
+      const afterStart = !!start && (y > start.y || (y === start.y && m >= start.m));
+      const beforeNow = y < now.y || (y === now.y && m <= now.m);
+      if (afterStart && beforeNow) {
+        monthsTotal++;
+        if (paidCell >= rate && rate > 0) monthsPaid++;
+        owed += Math.max(0, rate - paidCell);
+      }
+    }
+  }
+  return { paid, owed, monthsPaid, monthsTotal };
+}
+
+export async function getWelfareData(churchId: string, year?: number, range?: WelfareRange): Promise<WelfareData> {
   const now = new Date();
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
@@ -78,15 +119,26 @@ export async function getWelfareData(churchId: string, year?: number): Promise<W
 
   const rates = rateRows.map((r) => ({ year: r.year, amount: Number(r.amount) }));
 
-  const byPerson = new Map<string, { total: number; perYear: Map<number, number>; monthsInYear: number[] }>();
+  const ratesByYear = new Map(rates.map((r) => [r.year, r.amount]));
+
+  const byPerson = new Map<string, { total: number; perYear: Map<number, number>; monthsInYear: number[]; cells: Map<string, number> }>();
   for (const d of dues) {
-    const e = byPerson.get(d.personId) ?? { total: 0, perYear: new Map<number, number>(), monthsInYear: [] as number[] };
+    const e = byPerson.get(d.personId) ?? { total: 0, perYear: new Map<number, number>(), monthsInYear: [] as number[], cells: new Map<string, number>() };
     const amt = Number(d.amount);
     e.total += amt;
     e.perYear.set(d.year, (e.perYear.get(d.year) ?? 0) + amt);
+    e.cells.set(`${d.year}-${d.month}`, (e.cells.get(`${d.year}-${d.month}`) ?? 0) + amt);
     if (d.year === selectedYear) e.monthsInYear.push(d.month);
     byPerson.set(d.personId, e);
   }
+
+  // Which years in the requested range have no rate set? A range is only
+  // meaningful — and only shown — when every year involved has a rate.
+  const rangeMissingYears: number[] = [];
+  if (range) {
+    for (let y = range.fromY; y <= range.toY; y++) if (!ratesByYear.has(y)) rangeMissingYears.push(y);
+  }
+  const rangeUsable = !!range && rangeMissingYears.length === 0;
 
   const memberRows: WelfareMemberRow[] = members.map((m) => {
     const e = byPerson.get(m.id);
@@ -95,6 +147,9 @@ export async function getWelfareData(churchId: string, year?: number): Promise<W
     const startDate = m.welfareStart ?? churchStart ?? null;
     const start = startDate ? { y: startDate.getFullYear(), m: startDate.getMonth() + 1 } : null;
     const owed = start ? computeOwed(rates, e?.perYear ?? new Map(), start, { y: currentYear, m: currentMonth }) : 0;
+    const rangeStats = rangeUsable
+      ? computeRange(ratesByYear, e?.cells ?? new Map(), start, { y: currentYear, m: currentMonth }, range!)
+      : { paid: 0, owed: 0, monthsPaid: 0, monthsTotal: 0 };
     return {
       id: m.id,
       name: `${m.firstName} ${m.lastName}`.trim(),
@@ -105,6 +160,10 @@ export async function getWelfareData(churchId: string, year?: number): Promise<W
       startLabel: start ? `${MONTHS_SHORT[start.m - 1]} ${start.y}` : "Not set",
       hasExplicitStart: !!m.welfareStart,
       started: !!start,
+      rangePaid: rangeStats.paid,
+      rangeOwed: rangeStats.owed,
+      rangeMonthsPaid: rangeStats.monthsPaid,
+      rangeMonthsTotal: rangeStats.monthsTotal,
     };
   });
 
@@ -127,6 +186,12 @@ export async function getWelfareData(churchId: string, year?: number): Promise<W
     collected: dues.reduce((s, d) => s + Number(d.amount), 0),
     disbursed: aidRows.reduce((s, r) => s + Number(r.amount ?? 0), 0),
     totalOwed: memberRows.reduce((s, m) => s + m.owed, 0),
+    range: range
+      ? { ...range, label: `${MONTHS_SHORT[range.fromM - 1]} ${range.fromY} – ${MONTHS_SHORT[range.toM - 1]} ${range.toY}` }
+      : null,
+    rangeMissingYears,
+    rangeCollected: rangeUsable ? memberRows.reduce((s, m) => s + m.rangePaid, 0) : 0,
+    rangeOwed: rangeUsable ? memberRows.reduce((s, m) => s + m.rangeOwed, 0) : 0,
   };
 }
 

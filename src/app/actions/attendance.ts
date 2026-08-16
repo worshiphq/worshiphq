@@ -5,6 +5,9 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 import { categoryForPerson, type AttendanceCategory } from "@/lib/data/attendance";
+import { sendChurchSms } from "@/lib/sms/credits";
+import { can, granted } from "@/lib/permissions";
+import { DEFAULT_ATTENDANCE_REPORT, renderAttendanceReport } from "@/lib/attendance/report";
 
 const CATEGORY_FIELD: Record<AttendanceCategory, "adults" | "teens" | "children" | "visitors"> = {
   adult: "adults",
@@ -164,6 +167,97 @@ export async function undoCheckIn(recordId: string) {
   return { ok: true as const, personId: rec.personId };
 }
 
+/**
+ * End a service: mark it closed and text a headcount summary to the chosen
+ * recipients. Recipients can be admins, everyone with attendance access, and/or
+ * a free list of phone numbers (for helpers who have no login). The template
+ * and recipient choices are remembered on the church for next time.
+ */
+export async function endService(formData: FormData) {
+  const session = await requireSession();
+  assertCanWrite(session);
+
+  const sessionId = String(formData.get("sessionId") ?? "");
+  const toAdmins = truthy(formData.get("toAdmins"));
+  const toLeaders = truthy(formData.get("toLeaders"));
+  const extraNumbers = String(formData.get("numbers") ?? "");
+  const template = String(formData.get("template") ?? "").trim() || DEFAULT_ATTENDANCE_REPORT;
+
+  const sess = await db.attendanceSession.findFirst({ where: { id: sessionId, churchId: session.churchId } });
+  if (!sess) return { ok: false as const, error: "Service not found" };
+
+  // Gather recipient phone numbers.
+  const phones = new Set<string>();
+  if (toAdmins || toLeaders) {
+    const users = await db.user.findMany({
+      where: { churchId: session.churchId, phone: { not: null } },
+      select: { phone: true, role: true, customRole: { select: { sections: true } } },
+    });
+    for (const u of users) {
+      const phone = u.phone?.trim();
+      if (!phone) continue;
+      const isAdmin = u.role === "Owner" || u.role === "Admin";
+      const seesAttendance = u.customRole
+        ? granted(u.customRole.sections, "attendance", true)
+        : can(u.role, "attendance");
+      if ((toAdmins && isAdmin) || (toLeaders && seesAttendance)) phones.add(phone);
+    }
+  }
+  for (const n of extraNumbers.split(/[\n,;]+/)) {
+    const t = n.trim();
+    if (t) phones.add(t);
+  }
+
+  const total = sess.adults + sess.teens + sess.children + sess.visitors;
+  const church = await db.church.findUnique({ where: { id: session.churchId }, select: { name: true } });
+  const message = renderAttendanceReport(template, {
+    church: church?.name ?? "Church",
+    service: sess.serviceName,
+    date: new Date(sess.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }),
+    total, adults: sess.adults, teens: sess.teens, children: sess.children, visitors: sess.visitors,
+  });
+
+  const list = [...phones];
+  let sent = 0;
+  let insufficient = false;
+  if (list.length && !session.isDemo) {
+    const res = await sendChurchSms(session.churchId, list, message, { note: "Attendance report" });
+    sent = res.sent;
+    insufficient = res.insufficient ?? false;
+  }
+
+  await db.attendanceSession.update({
+    where: { id: sess.id },
+    data: { endedAt: new Date(), reportSentTo: sent },
+  });
+  // Remember the choices for next time.
+  await db.church.update({
+    where: { id: session.churchId },
+    data: {
+      attendanceReportTemplate: template,
+      attendanceReportNumbers: extraNumbers,
+      attendanceReportToAdmins: toAdmins,
+      attendanceReportToLeaders: toLeaders,
+    },
+  });
+
+  revalidatePath(`/app/attendance/${sess.id}`);
+  revalidatePath("/app/attendance");
+  return { ok: true as const, sent, recipients: list.length, insufficient };
+}
+
+/** Reopen a service that was ended by mistake (keeps checking people in). */
+export async function reopenService(sessionId: string) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  await db.attendanceSession.updateMany({
+    where: { id: sessionId, churchId: session.churchId },
+    data: { endedAt: null },
+  });
+  revalidatePath(`/app/attendance/${sessionId}`);
+  return { ok: true as const };
+}
+
 export async function deleteSession(sessionId: string) {
   const session = await requireSession();
   assertCanWrite(session);
@@ -231,6 +325,10 @@ export async function selfCheckIn(formData: FormData) {
   });
 
   redirect(`/checkin/${sessionId}/done`);
+}
+
+function truthy(v: FormDataEntryValue | null): boolean {
+  return v === "on" || v === "true" || v === "1";
 }
 
 function clamp(v: FormDataEntryValue | null): number {

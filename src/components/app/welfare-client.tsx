@@ -103,6 +103,18 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
   const owingCount = data.members.filter((m) => m.owed > 0).length;
   const isCurrentYear = data.selectedYear === data.currentYear;
 
+  // Range mode — driven by the ?from/?to URL params resolved server-side.
+  const rangeMode = !!data.range;
+  const rangeBlocked = rangeMode && data.rangeMissingYears.length > 0;
+  const [pickMode, setPickMode] = useState<"year" | "range">(rangeMode ? "range" : "year");
+  const [rFromY, setRFromY] = useState(data.range?.fromY ?? data.currentYear);
+  const [rFromM, setRFromM] = useState(data.range?.fromM ?? 1);
+  const [rToY, setRToY] = useState(data.range?.toY ?? data.currentYear);
+  const [rToM, setRToM] = useState(data.range?.toM ?? data.currentMonth);
+  const years = wideYears();
+  const applyRange = () =>
+    router.push(`/app/welfare?from=${rFromY}-${String(rFromM).padStart(2, "0")}&to=${rToY}-${String(rToM).padStart(2, "0")}`);
+
   return (
     <div className="space-y-4">
       {canWrite && <RatesPanel rates={data.rates} currentYear={data.currentYear} />}
@@ -111,15 +123,46 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
 
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             <h3 className="font-display text-lg font-semibold">Member dues</h3>
-            <select
-              value={data.selectedYear}
-              onChange={(e) => router.push(`/app/welfare?year=${e.target.value}`)}
-              className="h-9 rounded-lg border border-line bg-surface px-2.5 text-sm font-medium"
-            >
-              {data.years.map((y) => <option key={y} value={y}>{y}</option>)}
-            </select>
+            {/* Year ↔ Range switch */}
+            <div className="flex items-center gap-1 rounded-lg border border-line bg-surface-2 p-0.5 text-sm">
+              <button
+                onClick={() => { setPickMode("year"); if (rangeMode) router.push(`/app/welfare?year=${data.currentYear}`); }}
+                className={cn("rounded-md px-2.5 py-1 font-medium", pickMode === "year" ? "bg-primary text-white" : "text-ink-muted")}
+              >Year</button>
+              <button
+                onClick={() => setPickMode("range")}
+                className={cn("rounded-md px-2.5 py-1 font-medium", pickMode === "range" ? "bg-primary text-white" : "text-ink-muted")}
+              >Range</button>
+            </div>
+
+            {pickMode === "year" ? (
+              <select
+                value={data.selectedYear}
+                onChange={(e) => router.push(`/app/welfare?year=${e.target.value}`)}
+                className="h-9 rounded-lg border border-line bg-surface px-2.5 text-sm font-medium"
+              >
+                {data.years.map((y) => <option key={y} value={y}>{y}</option>)}
+              </select>
+            ) : (
+              <div className="flex flex-wrap items-center gap-1.5 text-sm">
+                <select value={rFromM} onChange={(e) => setRFromM(Number(e.target.value))} className="h-9 rounded-lg border border-line bg-surface px-2 font-medium">
+                  {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                </select>
+                <select value={rFromY} onChange={(e) => setRFromY(Number(e.target.value))} className="h-9 rounded-lg border border-line bg-surface px-2 font-medium">
+                  {years.map((y) => <option key={y} value={y}>{y}</option>)}
+                </select>
+                <span className="text-ink-faint">→</span>
+                <select value={rToM} onChange={(e) => setRToM(Number(e.target.value))} className="h-9 rounded-lg border border-line bg-surface px-2 font-medium">
+                  {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+                </select>
+                <select value={rToY} onChange={(e) => setRToY(Number(e.target.value))} className="h-9 rounded-lg border border-line bg-surface px-2 font-medium">
+                  {years.map((y) => <option key={y} value={y}>{y}</option>)}
+                </select>
+                <Button size="sm" onClick={applyRange}>Apply</Button>
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             {canWrite && (
@@ -131,16 +174,48 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
           </div>
         </div>
         <div className="p-4">
-          <p className="mb-3 text-xs text-ink-muted">{owingCount} member{owingCount === 1 ? "" : "s"} owing overall (as of {MONTHS_FULL[data.currentMonth - 1]} {data.currentYear}). Green = paid in {data.selectedYear}. Click a member to see their full record.</p>
+          {rangeMode ? (
+            <p className="mb-3 text-xs text-ink-muted">
+              Showing <b>{data.range!.label}</b>. Paid = dues collected in this span; Owes = expected minus paid, from each member’s start up to now. Click a member for their full record.
+            </p>
+          ) : (
+            <p className="mb-3 text-xs text-ink-muted">{owingCount} member{owingCount === 1 ? "" : "s"} owing overall (as of {MONTHS_FULL[data.currentMonth - 1]} {data.currentYear}). Green = paid in {data.selectedYear}. Click a member to see their full record.</p>
+          )}
+
+          {/* Range summary / blocked notice */}
+          {rangeMode && rangeBlocked && (
+            <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" />
+              <span>
+                A range needs a monthly rate for <b>every</b> year it covers. Missing:{" "}
+                <b>{data.rangeMissingYears.join(", ")}</b>. Set {data.rangeMissingYears.length === 1 ? "it" : "them"} in “Monthly dues rate by year” above, then apply the range again.
+              </span>
+            </div>
+          )}
+          {rangeMode && !rangeBlocked && (
+            <div className="mb-3 grid grid-cols-2 gap-3">
+              <div className="rounded-xl border border-line bg-base p-3">
+                <div className="text-xs text-ink-faint">Collected in range</div>
+                <div className="text-lg font-bold text-success">{ghs(data.rangeCollected)}</div>
+              </div>
+              <div className="rounded-xl border border-line bg-base p-3">
+                <div className="text-xs text-ink-faint">Owed in range</div>
+                <div className={cn("text-lg font-bold", data.rangeOwed > 0 ? "text-danger" : "text-ink-faint")}>{data.rangeOwed > 0 ? ghs(data.rangeOwed) : "—"}</div>
+              </div>
+            </div>
+          )}
+
           <div className="relative mb-3">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
             <Input placeholder="Search members…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
           </div>
-          {data.rates.length === 0 && (
+          {!rangeMode && data.rates.length === 0 && (
             <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
               <AlertTriangle className="mt-0.5 size-4 shrink-0" /> Set a monthly rate above (per year) so “owed” can be calculated.
             </div>
           )}
+
+          {rangeMode && rangeBlocked ? null : (
           <div className="space-y-2">
             {filtered.map((m) => (
               <button key={m.id} onClick={() => setDetailFor({ id: m.id, name: m.name })}
@@ -150,29 +225,33 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
                     {m.name}
                     {!m.hasExplicitStart && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700" title="Using join date — set an explicit start inside">start: {m.startLabel}</span>}
                   </div>
-                  <div className="mt-1 flex gap-0.5">
-                    {MONTHS.map((mo, i) => {
-                      const paid = m.monthsPaidInYear.includes(i + 1);
-                      const past = data.selectedYear < data.currentYear || (isCurrentYear && i + 1 <= data.currentMonth);
-                      return (
-                        <span key={mo} title={`${MONTHS_FULL[i]} ${paid ? "— paid" : past ? "— unpaid" : ""}`}
-                          className={cn("grid size-4 place-items-center rounded-[3px] text-[7px] font-bold",
-                            paid ? "bg-success text-white" : past ? "bg-danger/15 text-danger" : "bg-surface-2 text-ink-faint")}>
-                          {mo[0]}
-                        </span>
-                      );
-                    })}
-                  </div>
+                  {rangeMode ? (
+                    <div className="mt-1 text-[11px] text-ink-faint">{m.rangeMonthsPaid}/{m.rangeMonthsTotal} month{m.rangeMonthsTotal === 1 ? "" : "s"} paid in range</div>
+                  ) : (
+                    <div className="mt-1 flex gap-0.5">
+                      {MONTHS.map((mo, i) => {
+                        const paid = m.monthsPaidInYear.includes(i + 1);
+                        const past = data.selectedYear < data.currentYear || (isCurrentYear && i + 1 <= data.currentMonth);
+                        return (
+                          <span key={mo} title={`${MONTHS_FULL[i]} ${paid ? "— paid" : past ? "— unpaid" : ""}`}
+                            className={cn("grid size-4 place-items-center rounded-[3px] text-[7px] font-bold",
+                              paid ? "bg-success text-white" : past ? "bg-danger/15 text-danger" : "bg-surface-2 text-ink-faint")}>
+                            {mo[0]}
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
                 </div>
                 <div className="text-right">
-                  <div className="text-xs text-ink-faint">Paid (total)</div>
-                  <div className="text-sm font-semibold text-success">{ghs(m.paidTotal)}</div>
+                  <div className="text-xs text-ink-faint">{rangeMode ? "Paid (range)" : "Paid (total)"}</div>
+                  <div className="text-sm font-semibold text-success">{ghs(rangeMode ? m.rangePaid : m.paidTotal)}</div>
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-ink-faint">Owes</div>
-                  <div className={cn("text-sm font-semibold", m.owed > 0 ? "text-danger" : "text-ink-faint")}>{m.owed > 0 ? ghs(m.owed) : "—"}</div>
+                  <div className={cn("text-sm font-semibold", (rangeMode ? m.rangeOwed : m.owed) > 0 ? "text-danger" : "text-ink-faint")}>{(rangeMode ? m.rangeOwed : m.owed) > 0 ? ghs(rangeMode ? m.rangeOwed : m.owed) : "—"}</div>
                 </div>
-                {canWrite && m.owed > 0 && m.hasPhone && (
+                {canWrite && (rangeMode ? m.rangeOwed : m.owed) > 0 && m.hasPhone && (
                   <span onClick={(e) => { e.stopPropagation(); setRemindOne({ id: m.id, name: m.name, hasPhone: m.hasPhone }); }}
                     title="Send reminder"
                     className="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-primary/10 hover:text-primary">
@@ -183,6 +262,7 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
             ))}
             {filtered.length === 0 && <p className="py-6 text-center text-sm text-ink-faint">No members found.</p>}
           </div>
+          )}
         </div>
       </Card>
 

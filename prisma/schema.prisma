@@ -110,6 +110,11 @@ model Church {
   welfareDuesReceiptTemplate  String? @db.Text
   welfareDuesReminderTemplate String? @db.Text
   welfareStart               DateTime? // optional church-wide date dues start counting (fallback when a member has no personal start)
+  // ── Attendance: end-of-service report ──
+  attendanceReportTemplate   String? @db.Text // editable summary SMS sent when a service ends
+  attendanceReportNumbers    String? @db.Text // extra phone numbers (comma/newline) for people without accounts
+  attendanceReportToAdmins   Boolean @default(true)  // send to Owners/Admins
+  attendanceReportToLeaders  Boolean @default(false) // send to everyone with attendance access
   /** Editable system-SMS overrides, keyed by template id (see src/lib/messages/registry). */
   messageTemplates           Json?
   /** Days before a pledge due date to auto-remind, e.g. [30, 7, 3]. */
@@ -454,6 +459,8 @@ model AttendanceSession {
   teens       Int      @default(0)
   children    Int      @default(0)
   visitors    Int      @default(0)
+  endedAt     DateTime? // set when the service is ended (report sent)
+  reportSentTo Int      @default(0) // how many recipients the end-of-service report reached
   createdAt   DateTime @default(now())
 
   records AttendanceRecord[]

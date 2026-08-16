@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { can, granted } from "@/lib/permissions";
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 
@@ -143,6 +144,48 @@ export async function getAttendanceSession(churchId: string, id: string) {
     total,
     breakdown,
     attendees,
+    endedAt: session.endedAt ? session.endedAt.toISOString() : null,
+    reportSentTo: session.reportSentTo,
+  };
+}
+
+/** Saved end-of-service report defaults + how many recipients each option reaches. */
+export async function getAttendanceReportConfig(churchId: string) {
+  const [church, users] = await Promise.all([
+    db.church.findUnique({
+      where: { id: churchId },
+      select: {
+        name: true,
+        attendanceReportTemplate: true,
+        attendanceReportNumbers: true,
+        attendanceReportToAdmins: true,
+        attendanceReportToLeaders: true,
+      },
+    }),
+    db.user.findMany({
+      where: { churchId, phone: { not: null } },
+      select: { role: true, customRole: { select: { sections: true } } },
+    }),
+  ]);
+
+  let admins = 0;
+  let leaders = 0;
+  for (const u of users) {
+    if (u.role === "Owner" || u.role === "Admin") admins++;
+    const seesAttendance = u.customRole
+      ? granted(u.customRole.sections, "attendance", true)
+      : can(u.role, "attendance");
+    if (seesAttendance) leaders++;
+  }
+
+  return {
+    churchName: church?.name ?? "Church",
+    template: church?.attendanceReportTemplate ?? null,
+    numbers: church?.attendanceReportNumbers ?? "",
+    toAdmins: church?.attendanceReportToAdmins ?? true,
+    toLeaders: church?.attendanceReportToLeaders ?? false,
+    adminCount: admins,
+    leaderCount: leaders,
   };
 }
 

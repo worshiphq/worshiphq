@@ -3,12 +3,14 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Trash2, Users } from "lucide-react";
 import { requireModule } from "@/lib/auth";
 import { getBaseUrl } from "@/lib/url";
-import { getAttendanceSession, getCheckInCandidates } from "@/lib/data/attendance";
+import { getAttendanceSession, getCheckInCandidates, getAttendanceReportConfig } from "@/lib/data/attendance";
+import { getSmsBalance } from "@/lib/sms/credits";
 import { deleteSession } from "@/app/actions/attendance";
 import { MembershipDonut } from "@/components/app/charts";
 import { Card } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { CheckInPanel } from "@/components/app/check-in-panel";
+import { EndServiceButton } from "@/components/app/end-service-dialog";
 
 export const metadata = { title: "Service attendance" };
 
@@ -19,9 +21,11 @@ export default async function AttendanceSessionPage({
 }) {
   const { id } = await params;
   const session = await requireModule("attendance");
-  const [data, candidates] = await Promise.all([
+  const [data, candidates, reportConfig, smsBalance] = await Promise.all([
     getAttendanceSession(session.churchId, id),
     getCheckInCandidates(session.churchId, id),
+    getAttendanceReportConfig(session.churchId),
+    getSmsBalance(session.churchId),
   ]);
   if (!data) notFound();
 
@@ -34,13 +38,34 @@ export default async function AttendanceSessionPage({
         <Link href="/app/attendance" className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
           <ArrowLeft className="size-4" /> All services
         </Link>
-        {!session.isDemo && (
-          <form action={deleteSession.bind(null, data.id)}>
-            <SubmitButton variant="ghost" size="sm" overlay={false} pendingLabel="Deleting…" className="text-danger">
-              <Trash2 className="size-4" /> Delete service
-            </SubmitButton>
-          </form>
-        )}
+        <div className="flex items-center gap-2">
+          <EndServiceButton
+            sessionId={data.id}
+            serviceName={data.serviceName}
+            date={data.date}
+            churchName={reportConfig.churchName}
+            counts={data.counts}
+            endedAt={data.endedAt}
+            reportSentTo={data.reportSentTo}
+            config={{
+              template: reportConfig.template,
+              numbers: reportConfig.numbers,
+              toAdmins: reportConfig.toAdmins,
+              toLeaders: reportConfig.toLeaders,
+              adminCount: reportConfig.adminCount,
+              leaderCount: reportConfig.leaderCount,
+            }}
+            smsBalance={smsBalance}
+            isDemo={session.isDemo}
+          />
+          {!session.isDemo && (
+            <form action={deleteSession.bind(null, data.id)}>
+              <SubmitButton variant="ghost" size="sm" overlay={false} pendingLabel="Deleting…" className="text-danger">
+                <Trash2 className="size-4" /> Delete service
+              </SubmitButton>
+            </form>
+          )}
+        </div>
       </div>
 
       {/* Header */}
