@@ -12,14 +12,15 @@ import { useFeedback } from "@/components/ui/feedback";
 import {
   saveServiceSheet, deleteRoster, addServiceRole, deleteServiceRole,
   previewRosterNotify, notifyRoster,
-  previewRosterAnnounce, announceRoster, saveRosterAnnounceSettings,
+  previewRosterAnnounce, announceRoster, saveRosterAnnounceSettings, saveRosterReminderSettings,
 } from "@/app/actions/rosters";
 import { SystemMessagesDialog } from "@/components/app/system-messages-dialog";
-import { MessageSquare, Megaphone, Users, Clock } from "lucide-react";
+import { MessageSquare, Megaphone, Users, Clock, Bell } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 type Group = { id: string; name: string; memberCount: number };
 type Announce = { on: boolean; audience: string; groupId: string | null; leadDays: number; hour: number; timezone: string };
+type Remind = { on: boolean; leadDays: number; hour: number };
 
 function hourLabel(h: number) { const a = h < 12 ? "am" : "pm"; const hr = h % 12 === 0 ? 12 : h % 12; return `${hr}:00 ${a}`; }
 
@@ -33,9 +34,9 @@ const SERVICE_PRESETS = ["Sunday Service", "Wednesday Service", "Friday Service"
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 const fmtShort = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
-export function RostersClient({ sheets, members, roles, smsBalance, messageTemplates, groups, announce, canWrite }: {
+export function RostersClient({ sheets, members, roles, smsBalance, messageTemplates, groups, announce, remind, canWrite }: {
   sheets: Sheet[]; members: Member[]; roles: Role[]; smsBalance: number; messageTemplates: Record<string, string>;
-  groups: Group[]; announce: Announce; canWrite: boolean;
+  groups: Group[]; announce: Announce; remind: Remind; canWrite: boolean;
 }) {
   const [editing, setEditing] = useState<Sheet | null>(null);
   const [creating, setCreating] = useState(false);
@@ -79,7 +80,7 @@ export function RostersClient({ sheets, members, roles, smsBalance, messageTempl
       )}
       {showRoles && <RolesManager roles={roles} canWrite={canWrite} onClose={() => setShowRoles(false)} />}
       {showMessages && <SystemMessagesDialog saved={messageTemplates} onClose={() => setShowMessages(false)} />}
-      {showAnnounce && <AnnounceSettingsDialog announce={announce} groups={groups} onClose={() => setShowAnnounce(false)} />}
+      {showAnnounce && <AnnounceSettingsDialog announce={announce} remind={remind} groups={groups} onClose={() => setShowAnnounce(false)} />}
     </div>
   );
 }
@@ -232,7 +233,7 @@ function AnnounceDialog({ sheetId, label, onClose }: { sheetId: string; label: s
 }
 
 /** Auto-announcement schedule + recipient settings. */
-function AnnounceSettingsDialog({ announce, groups, onClose }: { announce: Announce; groups: Group[]; onClose: () => void }) {
+function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announce: Announce; remind: Remind; groups: Group[]; onClose: () => void }) {
   const router = useRouter();
   const { toast } = useFeedback();
   const [pending, start] = useTransition();
@@ -241,6 +242,10 @@ function AnnounceSettingsDialog({ announce, groups, onClose }: { announce: Annou
   const [groupId, setGroupId] = useState(announce.groupId ?? "");
   const [leadDays, setLeadDays] = useState(announce.leadDays);
   const [hour, setHour] = useState(announce.hour);
+  // Personal reminder settings
+  const [remOn, setRemOn] = useState(remind.on);
+  const [remLead, setRemLead] = useState(remind.leadDays);
+  const [remHour, setRemHour] = useState(remind.hour);
 
   const save = () => {
     const fd = new FormData();
@@ -249,23 +254,28 @@ function AnnounceSettingsDialog({ announce, groups, onClose }: { announce: Annou
     fd.set("groupId", groupId);
     fd.set("leadDays", String(leadDays));
     fd.set("hour", String(hour));
+    const rfd = new FormData();
+    if (remOn) rfd.set("on", "on");
+    rfd.set("leadDays", String(remLead));
+    rfd.set("hour", String(remHour));
     start(async () => {
-      const r = await saveRosterAnnounceSettings(fd);
-      if (r?.ok) { toast("Announcement settings saved", "success"); router.refresh(); onClose(); }
-      else toast(r?.error ?? "Failed", "error");
+      const [a, r] = await Promise.all([saveRosterAnnounceSettings(fd), saveRosterReminderSettings(rfd)]);
+      if (a?.ok && r?.ok) { toast("Roster message settings saved", "success"); router.refresh(); onClose(); }
+      else toast(a?.error ?? r?.error ?? "Failed", "error");
     });
   };
 
   const sel = "h-9 rounded-lg border border-line bg-surface px-2.5 text-sm";
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
-      <Card className="w-full max-w-md p-0" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/40 p-4" onClick={onClose}>
+      <Card className="my-8 w-full max-w-md p-0" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line p-5">
-          <h3 className="font-display text-lg font-semibold">Auto-announce roster</h3>
+          <h3 className="font-display text-lg font-semibold">Roster messages</h3>
           <button onClick={onClose} className="rounded-lg p-1 text-ink-faint hover:bg-surface-2"><X className="size-4" /></button>
         </div>
         <div className="space-y-4 p-5">
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint"><Megaphone className="size-3.5" /> Group announcement</div>
           <label className="flex items-center justify-between gap-3 rounded-xl border border-line p-3">
             <span className="text-sm font-medium">Automatically send the sheet ahead of each service</span>
             <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} className="size-4 accent-primary" />
@@ -306,6 +316,31 @@ function AnnounceSettingsDialog({ announce, groups, onClose }: { announce: Annou
             </div>
           </div>
           <p className="text-xs text-ink-muted">Timezone: {announce.timezone} (set on the Birthdays page). You can also hit “Announce” on any sheet to send it now.</p>
+
+          {/* Personal reminders */}
+          <div className="border-t border-line pt-4">
+            <div className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint"><Bell className="size-3.5" /> Personal reminders</div>
+            <label className="flex items-center justify-between gap-3 rounded-xl border border-line p-3">
+              <span className="text-sm font-medium">Text each rostered member their own duty before the service</span>
+              <input type="checkbox" checked={remOn} onChange={(e) => setRemOn(e.target.checked)} className="size-4 accent-primary" />
+            </label>
+            <div className="mt-3 flex flex-wrap items-center gap-3">
+              <div className="flex items-center gap-2">
+                <Clock className="size-4 text-primary" />
+                <span className="text-sm">Remind</span>
+                <select value={remLead} onChange={(e) => setRemLead(Number(e.target.value))} className={sel}>
+                  {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{d === 0 ? "same day" : `${d} day${d === 1 ? "" : "s"} before`}</option>)}
+                </select>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm">at</span>
+                <select value={remHour} onChange={(e) => setRemHour(Number(e.target.value))} className={sel}>
+                  {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
+                </select>
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-ink-muted">Goes only to the people assigned on that day — e.g. “your duty tomorrow: Praise &amp; Worship”. Edit the wording under “Messages”.</p>
+          </div>
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-line p-4">
           <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>

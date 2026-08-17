@@ -26,14 +26,30 @@ interface Attendee {
   photoUrl?: string | null;
   category: string;
   method: string;
+  time?: string; // ISO — when they checked in
 }
 
-const CATEGORY_LABEL: Record<string, string> = {
-  adult: "Adult",
-  teen: "Teen",
-  child: "Child",
-  visitor: "Visitor",
+// Present list is split into these groups, in this order.
+const CATEGORY_SECTIONS: { key: string; label: string }[] = [
+  { key: "adult", label: "Adults" },
+  { key: "teen", label: "Teens" },
+  { key: "child", label: "Children" },
+  { key: "visitor", label: "Visitors" },
+];
+
+const METHOD_NOTE: Record<string, string> = {
+  self: "self check-in",
+  qr: "QR",
+  biometric: "fingerprint",
+  scanner: "fingerprint",
 };
+
+function checkInTime(iso?: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return "";
+  return d.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" });
+}
 
 export function CheckInPanel({
   sessionId,
@@ -96,7 +112,7 @@ export function CheckInPanel({
     // Show them in Present immediately.
     const tempId = `optimistic-${c.id}`;
     setExtraAttendees((prev) => [
-      { id: tempId, name: c.name, gender: c.gender, photoUrl: c.photoUrl, category: "adult", method: "manual" },
+      { id: tempId, name: c.name, gender: c.gender, photoUrl: c.photoUrl, category: "adult", method: "manual", time: new Date().toISOString() },
       ...prev,
     ]);
 
@@ -226,25 +242,43 @@ export function CheckInPanel({
               No-one checked in by name yet. Use the search above or the QR code.
             </p>
           ) : (
-            <ul className="grid gap-2 sm:grid-cols-2">
-              {visibleAttendees.map((a) => (
-                <li key={a.id} className="flex items-center gap-3 rounded-xl border border-line bg-base px-3 py-2">
-                  <MemberAvatar name={a.name} photoUrl={a.photoUrl} gender={a.gender} size="sm" />
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-sm font-medium">{a.name}</div>
-                    <div className="text-[11px] text-ink-faint">
-                      {CATEGORY_LABEL[a.category] ?? a.category}
-                      {a.method === "self" ? " · self check-in" : ""}
+            <div className="space-y-4">
+              {CATEGORY_SECTIONS.map(({ key, label }) => {
+                const group = visibleAttendees.filter((a) => (a.category || "adult") === key);
+                if (group.length === 0) return null;
+                return (
+                  <div key={key}>
+                    <div className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">
+                      {label}
+                      <span className="rounded-full bg-surface-2 px-1.5 py-0.5 text-[10px] font-bold text-ink-muted">{group.length}</span>
                     </div>
+                    <ul className="grid gap-2 sm:grid-cols-2">
+                      {group.map((a) => {
+                        const note = METHOD_NOTE[a.method];
+                        const time = checkInTime(a.time);
+                        return (
+                          <li key={a.id} className="flex items-center gap-3 rounded-xl border border-line bg-base px-3 py-2">
+                            <MemberAvatar name={a.name} photoUrl={a.photoUrl} gender={a.gender} size="sm" />
+                            <div className="min-w-0 flex-1">
+                              <div className="truncate text-sm font-medium">{a.name}</div>
+                              <div className="text-[11px] text-ink-faint">
+                                {time && <span className="font-medium text-ink-muted">{time}</span>}
+                                {time && note ? " · " : ""}{note ?? ""}
+                              </div>
+                            </div>
+                            {canWrite && (
+                              <button onClick={() => undo(a)} disabled={busyIds.has(a.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger disabled:pointer-events-none">
+                                {busyIds.has(a.id) ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
+                              </button>
+                            )}
+                          </li>
+                        );
+                      })}
+                    </ul>
                   </div>
-                  {canWrite && (
-                    <button onClick={() => undo(a)} disabled={busyIds.has(a.id)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger disabled:pointer-events-none">
-                      {busyIds.has(a.id) ? <Loader2 className="size-4 animate-spin" /> : <X className="size-4" />}
-                    </button>
-                  )}
-                </li>
-              ))}
-            </ul>
+                );
+              })}
+            </div>
           )}
         </div>
       </div>

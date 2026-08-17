@@ -299,6 +299,25 @@ export async function saveRosterAnnounceSettings(formData: FormData) {
   return { ok: true as const };
 }
 
+/** Save the personal roster-reminder schedule (day-before "your duty" texts). */
+export async function saveRosterReminderSettings(formData: FormData) {
+  const session = await requireModule("volunteers");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  const leadDays = Math.min(14, Math.max(0, parseInt(String(formData.get("leadDays") ?? "1"), 10) || 0));
+  const hour = Math.min(23, Math.max(0, parseInt(String(formData.get("hour") ?? "18"), 10) || 18));
+  await db.church.update({
+    where: { id: session.churchId },
+    data: {
+      rosterRemindOn: String(formData.get("on") ?? "") === "on",
+      rosterRemindLeadDays: leadDays,
+      rosterRemindHour: hour,
+    },
+  });
+  await logAudit({ churchId: session.churchId, userId: session.userId, action: "update", entity: "settings", detail: "Updated roster reminder settings" });
+  revalidatePath("/app/rosters");
+  return { ok: true as const };
+}
+
 /** Cost preview before texting a roster's assigned members. */
 export async function previewRosterNotify(rosterId: string) {
   const session = await requireModule("volunteers");

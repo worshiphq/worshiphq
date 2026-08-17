@@ -69,6 +69,10 @@ model Church {
   rosterAnnounceHour     Int     @default(8)  // local hour to send
   rosterAnnounceAudience String  @default("group") // "group" | "church"
   rosterAnnounceGroupId  String? // which group receives it when audience = group
+  // ── Roster reminder (personal "your duty tomorrow" to each rostered member) ──
+  rosterRemindOn       Boolean @default(false)
+  rosterRemindLeadDays Int     @default(1)  // remind this many days before the duty
+  rosterRemindHour     Int     @default(18) // local hour to send
   memberPrefix String? // member ID prefix, e.g. "GBC" (derived from name if unset)
   memberSeq    Int     @default(0) // last issued member number
   name         String
@@ -1361,7 +1365,8 @@ model VolunteerSlot {
   date      DateTime
   shift     String   @default("morning") // morning, afternoon, evening, full-day
   status    String   @default("assigned") // assigned, confirmed, swapped, absent
-  notifiedAt DateTime? // set when this person was SMS'd about the assignment
+  notifiedAt DateTime? // set when this person was SMS'd about the assignment (manual)
+  remindedAt DateTime? // set when the automated day-before reminder went out
   createdAt DateTime @default(now())
 
   @@index([rosterId])

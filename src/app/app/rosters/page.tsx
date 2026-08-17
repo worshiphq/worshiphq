@@ -33,6 +33,7 @@ export default async function RostersPage() {
       select: {
         messageTemplates: true, timezone: true, rosterAnnounceOn: true, rosterAnnounceAudience: true,
         rosterAnnounceGroupId: true, rosterAnnounceLeadDays: true, rosterAnnounceHour: true,
+        rosterRemindOn: true, rosterRemindLeadDays: true, rosterRemindHour: true,
       },
     }),
   ]);
@@ -76,6 +77,11 @@ export default async function RostersPage() {
           leadDays: church?.rosterAnnounceLeadDays ?? 2,
           hour: church?.rosterAnnounceHour ?? 8,
           timezone: church?.timezone ?? "Africa/Accra",
+        }}
+        remind={{
+          on: church?.rosterRemindOn ?? false,
+          leadDays: church?.rosterRemindLeadDays ?? 1,
+          hour: church?.rosterRemindHour ?? 18,
         }}
         canWrite={!session.isDemo}
       />

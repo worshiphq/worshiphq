@@ -27,7 +27,7 @@ const methodIcon: Record<string, typeof Smartphone> = {
   "MTN MoMo": Smartphone, "Telecel Cash": Smartphone, AirtelTigo: Smartphone, Card: CreditCard, Cash: Banknote,
 };
 
-type LocalEntry = { personId: string; name: string; amount: string; method: string; phone: string | null };
+type LocalEntry = { personId: string; name: string; amount: string; method: string; phone: string | null; photoUrl: string | null };
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
@@ -279,6 +279,7 @@ function BatchRecorder({ members, fundType, activeFundName, accounts }: { member
       amount: "",
       method,
       phone: member.phone,
+      photoUrl: member.photoUrl ?? null,
     }]);
     setSearch("");
     setShowList(false);
@@ -429,7 +430,7 @@ function BatchRecorder({ members, fundType, activeFundName, accounts }: { member
             const Icon = methodIcon[entry.method] ?? Banknote;
             return (
               <div key={entry.personId} className="flex items-center gap-3 rounded-xl border border-line bg-surface-2/50 px-4 py-3">
-                <Avatar name={entry.name} size="sm" />
+                <Avatar name={entry.name} src={entry.photoUrl ?? undefined} size="sm" />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">{entry.name}</div>
                   {entry.phone && <div className="text-xs text-ink-faint">{entry.phone}</div>}
