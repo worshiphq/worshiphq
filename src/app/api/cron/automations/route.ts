@@ -7,6 +7,7 @@ import { runBillingCycle } from "@/lib/billing/renewals";
 import { runBirthdays } from "@/lib/automations/birthdays";
 import { runRosterAnnouncements } from "@/lib/automations/roster-announce";
 import { runRosterReminders } from "@/lib/automations/roster-reminders";
+import { runGroupMeetingReminders } from "@/lib/automations/group-meetings";
 
 export const dynamic = "force-dynamic";
 // Allow longer execution for churches with many members.
@@ -36,10 +37,11 @@ export async function GET(request: NextRequest) {
     const birthdays = await runBirthdays(now, !precise);
     const rosterAnnouncements = await runRosterAnnouncements(now, !precise);
     const rosterReminders = await runRosterReminders(now, !precise);
+    const groupMeetings = await runGroupMeetingReminders(now, !precise);
 
     // A precise (hourly) trigger only handles the timezone-gated sends above.
     if (precise) {
-      return Response.json({ ok: true, precise: true, birthdays, rosterAnnouncements, rosterReminders });
+      return Response.json({ ok: true, precise: true, birthdays, rosterAnnouncements, rosterReminders, groupMeetings });
     }
 
     // Keep the USD→GHS rate fresh daily as a reliable backstop to the
@@ -50,7 +52,7 @@ export async function GET(request: NextRequest) {
     const pledgeReminders = await runPledgeReminders();
     // Apply scheduled downgrades, send renewal reminders, lapse unpaid plans.
     const billing = await runBillingCycle();
-    return Response.json({ ok: true, fxRate, pledgeReminders, billing, birthdays, rosterAnnouncements, rosterReminders, ...result });
+    return Response.json({ ok: true, fxRate, pledgeReminders, billing, birthdays, rosterAnnouncements, rosterReminders, groupMeetings, ...result });
   } catch (e) {
     console.error("[cron/automations] failed:", e);
     return new Response("Automation run failed", { status: 500 });

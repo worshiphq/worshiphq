@@ -43,7 +43,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
         name: group.name,
         type: group.type,
         description: group.description,
-        meetingDay: group.meetingDay,
+        meetingDays: group.meetingDays.length ? group.meetingDays : group.meetingDay ? [group.meetingDay] : [],
         meetingTime: group.meetingTime,
         location: group.location,
         isActive: group.isActive,

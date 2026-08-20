@@ -432,9 +432,17 @@ model Group {
   description String?
   leaderId    String?
   leader      Person?  @relation("GroupLeader", fields: [leaderId], references: [id], onDelete: SetNull)
-  meetingDay  String?  // "Monday", "Tuesday", etc.
+  meetingDay  String?  // legacy single day — kept for back-compat, superseded by meetingDays
+  meetingDays String[] @default([]) // e.g. ["Monday","Thursday"] — a group can meet on several days
   meetingTime String?  // "18:00"
   location    String?
+  // ── Meeting reminder (optional; only when meeting days are set) ──
+  meetingReminderOn       Boolean @default(false) // remind the group of its meeting
+  meetingReminderAuto     Boolean @default(true)  // true = auto-scheduled, false = manual-only
+  meetingReminderLeadDays Int     @default(0)     // days before the meeting to send (0 = same day)
+  meetingReminderHour     Int     @default(8)     // local hour to auto-send
+  meetingReminderText     String? @db.Text        // editable message (else a sensible default)
+  meetingReminderLastSent String? // local YYYY-MM-DD guard so auto-send never doubles up in a day
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   members     Person[] @relation("GroupMembers")

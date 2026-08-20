@@ -1,15 +1,19 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useFeedback } from "@/components/ui/feedback";
 import {
-  Search, Users2, MapPin, Calendar, User, Trash2, ChevronRight, Pencil,
+  Search, Users2, MapPin, Calendar, User, Trash2, ChevronRight, Pencil, Bell, Loader2,
 } from "lucide-react";
-import { deleteGroup, updateGroup } from "@/app/actions/groups";
-import { ActionDialog, Field } from "@/components/app/action-dialog";
+import { deleteGroup, updateGroup, sendGroupMeetingReminder } from "@/app/actions/groups";
+import { ActionDialog } from "@/components/app/action-dialog";
+import { GroupFields } from "@/components/app/group-fields";
+import { formatDays, formatTime } from "@/lib/groups/meeting-reminder";
 import Link from "next/link";
 
 type GroupRow = {
@@ -17,17 +21,21 @@ type GroupRow = {
   name: string;
   type: string;
   description: string | null;
-  meetingDay: string | null;
+  meetingDays: string[];
   meetingTime: string | null;
   location: string | null;
   isActive: boolean;
   leaderId: string | null;
   leaderName: string | null;
   memberCount: number;
+  meetingReminderOn: boolean;
+  meetingReminderAuto: boolean;
+  meetingReminderLeadDays: number;
+  meetingReminderHour: number;
+  meetingReminderText: string | null;
 };
 
 type PersonOpt = { id: string; name: string };
-type DayOpt = { label: string; value: string };
 
 const TYPE_LABELS: Record<string, string> = {
   small_group: "Small group",
@@ -36,11 +44,10 @@ const TYPE_LABELS: Record<string, string> = {
   fellowship: "Fellowship",
 };
 
-export function GroupsClient({ items, people, typeSuggestions, dayOptions, canWrite }: {
+export function GroupsClient({ items, people, typeSuggestions, canWrite }: {
   items: GroupRow[];
   people: PersonOpt[];
   typeSuggestions: string[];
-  dayOptions: DayOpt[];
   canWrite: boolean;
 }) {
   const [search, setSearch] = useState("");
@@ -122,7 +129,7 @@ export function GroupsClient({ items, people, typeSuggestions, dayOptions, canWr
                 </div>
                 {canWrite && (
                   <div className="flex shrink-0 items-center gap-1">
-                    <EditGroupDialog g={g} people={people} typeSuggestions={typeSuggestions} dayOptions={dayOptions} />
+                    <EditGroupDialog g={g} people={people} typeSuggestions={typeSuggestions} />
                     <button
                       onClick={() => handleDelete(g.id)}
                       className="rounded-lg p-1.5 text-ink-faint hover:bg-danger/10 hover:text-danger"
@@ -147,10 +154,10 @@ export function GroupsClient({ items, people, typeSuggestions, dayOptions, canWr
                     <User className="size-3" /> {g.leaderName}
                   </span>
                 )}
-                {g.meetingDay && (
+                {g.meetingDays.length > 0 && (
                   <span className="flex items-center gap-1">
-                    <Calendar className="size-3" /> {g.meetingDay}
-                    {g.meetingTime && ` at ${g.meetingTime}`}
+                    <Calendar className="size-3" /> {formatDays(g.meetingDays)}
+                    {g.meetingTime && ` at ${formatTime(g.meetingTime)}`}
                   </span>
                 )}
                 {g.location && (
@@ -159,6 +166,17 @@ export function GroupsClient({ items, people, typeSuggestions, dayOptions, canWr
                   </span>
                 )}
               </div>
+
+              {canWrite && g.meetingReminderOn && g.meetingDays.length > 0 && (
+                <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
+                  <span className="text-[11px] text-ink-faint">
+                    {g.meetingReminderAuto
+                      ? `Auto reminder · ${g.meetingReminderLeadDays === 0 ? "on the day" : `${g.meetingReminderLeadDays}d before`}`
+                      : "Manual reminder"}
+                  </span>
+                  <RemindButton groupId={g.id} />
+                </div>
+              )}
             </Card>
           ))}
         </div>
@@ -167,8 +185,8 @@ export function GroupsClient({ items, people, typeSuggestions, dayOptions, canWr
   );
 }
 
-function EditGroupDialog({ g, people, typeSuggestions, dayOptions }: {
-  g: GroupRow; people: PersonOpt[]; typeSuggestions: string[]; dayOptions: DayOpt[];
+function EditGroupDialog({ g, people, typeSuggestions }: {
+  g: GroupRow; people: PersonOpt[]; typeSuggestions: string[];
 }) {
   return (
     <ActionDialog
@@ -182,18 +200,31 @@ function EditGroupDialog({ g, people, typeSuggestions, dayOptions }: {
       successMessage="Group updated"
     >
       <input type="hidden" name="id" value={g.id} />
-      <Field label="Name" name="name" defaultValue={g.name} required />
-      <Field label="Type" name="type" suggestions={typeSuggestions} defaultValue={g.type} hint="Pick one or type your own" />
-      <Field label="Description" name="description" defaultValue={g.description ?? ""} />
-      <Field label="Meeting day" name="meetingDay" options={dayOptions} defaultValue={g.meetingDay ?? ""} />
-      <Field label="Meeting time" name="meetingTime" type="time" defaultValue={g.meetingTime ?? ""} />
-      <Field label="Location" name="location" defaultValue={g.location ?? ""} />
-      <Field
-        label="Leader"
-        name="leaderId"
-        options={[{ label: "— No leader —", value: "" }, ...people.map((p) => ({ label: p.name, value: p.id }))]}
-        defaultValue={g.leaderId ?? ""}
-      />
+      <GroupFields group={g} people={people} typeSuggestions={typeSuggestions} />
     </ActionDialog>
+  );
+}
+
+/** Manual "send the meeting reminder now" button. */
+function RemindButton({ groupId }: { groupId: string }) {
+  const { toast } = useFeedback();
+  const [pending, start] = useTransition();
+  const router = useRouter();
+  return (
+    <Button
+      size="sm"
+      variant="secondary"
+      disabled={pending}
+      onClick={() =>
+        start(async () => {
+          const res = await sendGroupMeetingReminder(groupId);
+          if (res?.ok) { toast(`Reminder sent to ${res.sent} member${res.sent === 1 ? "" : "s"}.`, "success"); router.refresh(); }
+          else toast(res?.error ?? "Couldn’t send", "error");
+        })
+      }
+    >
+      {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Bell className="size-3.5" />}
+      Remind
+    </Button>
   );
 }

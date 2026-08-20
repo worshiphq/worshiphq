@@ -1,0 +1,143 @@
+"use client";
+
+import { useState } from "react";
+import { Bell } from "lucide-react";
+import { Field } from "@/components/app/action-dialog";
+import { DAYS_FULL, DEFAULT_MEETING_REMINDER } from "@/lib/groups/meeting-reminder";
+import { cn } from "@/lib/utils";
+
+export type GroupFormValues = {
+  name: string;
+  type: string;
+  description: string | null;
+  meetingDays: string[];
+  meetingDay: string | null;
+  meetingTime: string | null;
+  location: string | null;
+  leaderId: string | null;
+  meetingReminderOn: boolean;
+  meetingReminderAuto: boolean;
+  meetingReminderLeadDays: number;
+  meetingReminderHour: number;
+  meetingReminderText: string | null;
+};
+
+const hourLabel = (h: number) => { const a = h < 12 ? "am" : "pm"; const hr = h % 12 === 0 ? 12 : h % 12; return `${hr}:00 ${a}`; };
+
+/** All group form inputs (shared by create + edit), with client state for the
+ *  multi-day picker and the reminder settings. Rendered inside an ActionDialog
+ *  <form>, so every input serialises straight into the server action. */
+export function GroupFields({
+  group,
+  people,
+  typeSuggestions,
+}: {
+  group?: Partial<GroupFormValues> | null;
+  people: { id: string; name: string }[];
+  typeSuggestions: string[];
+}) {
+  const initialDays = group?.meetingDays?.length ? group.meetingDays : group?.meetingDay ? [group.meetingDay] : [];
+  const [days, setDays] = useState<string[]>(initialDays);
+  const [reminderOn, setReminderOn] = useState(group?.meetingReminderOn ?? false);
+  const [mode, setMode] = useState<"auto" | "manual">(group?.meetingReminderAuto === false ? "manual" : "auto");
+
+  const toggleDay = (d: string) =>
+    setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
+
+  return (
+    <>
+      <Field label="Name" name="name" placeholder="e.g. Youth Fellowship" defaultValue={group?.name} required />
+      <Field label="Type" name="type" suggestions={typeSuggestions} defaultValue={group?.type} hint="Pick one or type your own" />
+      <Field label="Description" name="description" placeholder="Brief description..." defaultValue={group?.description ?? ""} />
+
+      {/* Meeting days — pick any number */}
+      <div>
+        <label className="mb-1.5 block text-sm font-medium text-ink-muted">Meeting days</label>
+        <div className="flex flex-wrap gap-1.5">
+          {DAYS_FULL.map((d) => {
+            const on = days.includes(d);
+            return (
+              <label
+                key={d}
+                className={cn(
+                  "cursor-pointer select-none rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors",
+                  on ? "border-primary bg-primary/10 text-primary-bright" : "border-line text-ink-muted hover:bg-surface-2",
+                )}
+              >
+                <input type="checkbox" name="meetingDays" value={d} checked={on} onChange={() => toggleDay(d)} className="sr-only" />
+                {d.slice(0, 3)}
+              </label>
+            );
+          })}
+        </div>
+        <p className="mt-1 text-[11px] text-ink-faint">Optional — a group can meet on several days, or none.</p>
+      </div>
+
+      <Field label="Meeting time" name="meetingTime" type="time" defaultValue={group?.meetingTime ?? ""} />
+      <Field label="Location" name="location" placeholder="e.g. Church hall room 3" defaultValue={group?.location ?? ""} />
+      <Field
+        label="Leader"
+        name="leaderId"
+        options={[{ label: "— No leader —", value: "" }, ...people.map((p) => ({ label: p.name, value: p.id }))]}
+        defaultValue={group?.leaderId ?? ""}
+        hint="Optional — some groups don’t have a leader"
+      />
+
+      {/* Meeting reminder */}
+      <div className="rounded-xl border border-line p-3">
+        <label className="flex cursor-pointer items-center justify-between gap-3">
+          <span className="flex items-center gap-2 text-sm font-medium"><Bell className="size-4 text-primary" /> Remind the group of meetings</span>
+          <input type="checkbox" name="meetingReminderOn" checked={reminderOn} onChange={(e) => setReminderOn(e.target.checked)} className="size-4 accent-primary" />
+        </label>
+
+        {reminderOn && days.length === 0 && (
+          <p className="mt-2 text-xs text-amber-600">Pick at least one meeting day above to send reminders.</p>
+        )}
+
+        {reminderOn && (
+          <div className="mt-3 space-y-3">
+            {/* Auto vs manual */}
+            <input type="hidden" name="meetingReminderMode" value={mode} />
+            <div className="flex gap-1 rounded-lg border border-line bg-surface-2 p-0.5 text-sm">
+              {(["auto", "manual"] as const).map((m) => (
+                <button key={m} type="button" onClick={() => setMode(m)}
+                  className={cn("flex-1 rounded-md px-2.5 py-1 font-medium", mode === m ? "bg-primary text-white" : "text-ink-muted")}>
+                  {m === "auto" ? "Send automatically" : "Send manually"}
+                </button>
+              ))}
+            </div>
+
+            {mode === "auto" ? (
+              <div className="flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-ink-muted">Send</span>
+                <select name="meetingReminderLeadDays" defaultValue={String(group?.meetingReminderLeadDays ?? 0)}
+                  className="h-9 rounded-lg border border-line bg-surface px-2 text-sm">
+                  {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{d === 0 ? "on the day" : `${d} day${d === 1 ? "" : "s"} before`}</option>)}
+                </select>
+                <span className="text-ink-muted">at</span>
+                <select name="meetingReminderHour" defaultValue={String(group?.meetingReminderHour ?? 8)}
+                  className="h-9 rounded-lg border border-line bg-surface px-2 text-sm">
+                  {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
+                </select>
+              </div>
+            ) : (
+              <p className="text-xs text-ink-muted">You’ll send it yourself with the <b>Remind</b> button on the group.</p>
+            )}
+
+            <div>
+              <label className="mb-1 block text-xs font-medium text-ink-muted">Message</label>
+              <textarea
+                name="meetingReminderText"
+                rows={3}
+                defaultValue={group?.meetingReminderText ?? ""}
+                placeholder={DEFAULT_MEETING_REMINDER}
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
+              />
+              <p className="mt-1 text-[11px] text-ink-faint">Placeholders: {"{church}"} {"{group}"} {"{when}"} {"{days}"} {"{time}"}</p>
+            </div>
+          </div>
+        )}
+      </div>
+    </>
+  );
+}
