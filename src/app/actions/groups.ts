@@ -12,7 +12,7 @@ export async function createGroup(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
 
-  const type = String(formData.get("type") ?? "small_group");
+  const type = String(formData.get("type") ?? "").trim() || "small_group";
   const description = String(formData.get("description") ?? "").trim() || null;
   const meetingDay = String(formData.get("meetingDay") ?? "").trim() || null;
   const meetingTime = String(formData.get("meetingTime") ?? "").trim() || null;
@@ -44,7 +44,7 @@ export async function updateGroup(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
 
-  const type = String(formData.get("type") ?? "small_group");
+  const type = String(formData.get("type") ?? "").trim() || "small_group";
   const description = String(formData.get("description") ?? "").trim() || null;
   const meetingDay = String(formData.get("meetingDay") ?? "").trim() || null;
   const meetingTime = String(formData.get("meetingTime") ?? "").trim() || null;

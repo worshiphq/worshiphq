@@ -24,8 +24,8 @@ type GroupInfo = {
   leader: { id: string; name: string; phone: string | null } | null;
 };
 
-type MemberInfo = { id: string; name: string; phone: string | null; photoUrl: string | null };
-type AvailablePerson = { id: string; name: string };
+type MemberInfo = { id: string; name: string; phone: string | null; photoUrl: string | null; gender: string | null };
+type AvailablePerson = { id: string; name: string; photoUrl: string | null; gender: string | null };
 
 const TYPE_LABELS: Record<string, string> = {
   small_group: "Small group",
@@ -153,10 +153,11 @@ export function GroupDetailClient({
                 <button
                   key={p.id}
                   onClick={() => handleAdd(p.id)}
-                  className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-surface-2"
+                  className="flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm hover:bg-surface-2"
                 >
+                  <MemberAvatar name={p.name} photoUrl={p.photoUrl} gender={p.gender} size="xs" />
+                  <span className="flex-1 text-left">{p.name}</span>
                   <UserPlus className="size-3.5 text-brand" />
-                  {p.name}
                 </button>
               ))}
             </div>
@@ -189,7 +190,7 @@ export function GroupDetailClient({
                 key={m.id}
                 className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-surface-2"
               >
-                <MemberAvatar name={m.name} photoUrl={m.photoUrl} size="sm" />
+                <MemberAvatar name={m.name} photoUrl={m.photoUrl} gender={m.gender} size="sm" />
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">{m.name}</p>
                   {m.phone && <p className="text-xs text-ink-muted">{m.phone}</p>}

@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useFormStatus } from "react-dom";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Modal } from "@/components/ui/modal";
@@ -59,17 +60,21 @@ export function ActionDialog({
   );
 }
 
-/** Closes the dialog once the bound server action finishes. */
+/** Closes the dialog once the bound server action finishes, and refreshes the
+ *  route so a newly created/edited row shows immediately (belt-and-braces on top
+ *  of the action's own revalidatePath). */
 function CloseOnComplete({ onDone }: { onDone: () => void }) {
   const { pending } = useFormStatus();
+  const router = useRouter();
   const was = useRef(false);
   useEffect(() => {
     if (pending) was.current = true;
     else if (was.current) {
       was.current = false;
       onDone();
+      router.refresh();
     }
-  }, [pending, onDone]);
+  }, [pending, onDone, router]);
   return null;
 }
 
@@ -82,6 +87,7 @@ export function Field({
   defaultValue,
   required,
   options,
+  suggestions,
   step,
   hint,
   rows,
@@ -93,6 +99,8 @@ export function Field({
   defaultValue?: string | number;
   required?: boolean;
   options?: string[] | { label: string; value: string }[];
+  /** Free-text input with a dropdown of suggested values (type your own too). */
+  suggestions?: string[];
   step?: string;
   hint?: string;
   rows?: number;
@@ -115,6 +123,21 @@ export function Field({
             );
           })}
         </select>
+      ) : suggestions ? (
+        <>
+          <input
+            name={name}
+            type="text"
+            list={`${name}-suggestions`}
+            placeholder={placeholder}
+            defaultValue={defaultValue}
+            required={required}
+            className={base}
+          />
+          <datalist id={`${name}-suggestions`}>
+            {suggestions.map((s) => <option key={s} value={s} />)}
+          </datalist>
+        </>
       ) : type === "textarea" ? (
         <textarea
           name={name}

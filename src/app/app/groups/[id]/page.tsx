@@ -18,7 +18,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
     include: {
       leader: { select: { id: true, firstName: true, lastName: true, phone: true } },
       members: {
-        select: { id: true, firstName: true, lastName: true, phone: true, photoUrl: true },
+        select: { id: true, firstName: true, lastName: true, phone: true, photoUrl: true, gender: true },
         orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
       },
     },
@@ -28,7 +28,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
 
   const allPeople = await db.person.findMany({
     where: { churchId: session.churchId },
-    select: { id: true, firstName: true, lastName: true },
+    select: { id: true, firstName: true, lastName: true, photoUrl: true, gender: true },
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     take: 500,
   });
@@ -56,10 +56,13 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
         name: `${m.firstName} ${m.lastName}`,
         phone: m.phone,
         photoUrl: m.photoUrl,
+        gender: m.gender,
       }))}
       available={available.map((p) => ({
         id: p.id,
         name: `${p.firstName} ${p.lastName}`,
+        photoUrl: p.photoUrl,
+        gender: p.gender,
       }))}
       isDemo={session.isDemo}
     />

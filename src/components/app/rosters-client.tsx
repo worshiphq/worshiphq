@@ -418,15 +418,15 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
           <div className="space-y-2">
             <div className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Who serves</div>
             {rows.map((r, i) => (
-              <div key={r.role} className="grid grid-cols-[1fr_1.4fr] items-center gap-2">
-                <span className="text-sm text-ink-muted">{r.role}</span>
-                <div className="flex items-center gap-1">
+              <div key={r.role} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] items-center gap-2">
+                <span className="min-w-0 break-words text-sm text-ink-muted">{r.role}</span>
+                <div className="flex min-w-0 items-center gap-1">
                   <select value={r.personId} onChange={(e) => setRow(i, { personId: e.target.value, typed: e.target.value ? "" : r.typed })} className={cn(inputCls, "min-w-0 flex-1")}>
                     <option value="">— Member —</option>
                     {members.map((m) => <option key={m.id} value={m.id}>{m.name}{m.hasPhone ? "" : " (no phone)"}</option>)}
                   </select>
                   <input value={r.typed} onChange={(e) => setRow(i, { typed: e.target.value, personId: e.target.value ? "" : r.personId })}
-                    placeholder="or type" className={cn(inputCls, "w-24")} />
+                    placeholder="or type" className={cn(inputCls, "w-20 shrink-0")} />
                 </div>
               </div>
             ))}
