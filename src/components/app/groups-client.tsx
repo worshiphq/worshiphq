@@ -33,6 +33,7 @@ type GroupRow = {
   meetingReminderLeadDays: number;
   meetingReminderHour: number;
   meetingReminderText: string | null;
+  nextReminderLabel: string | null;
 };
 
 type PersonOpt = { id: string; name: string };
@@ -168,10 +169,13 @@ export function GroupsClient({ items, people, typeSuggestions, canWrite }: {
               </div>
 
               {canWrite && g.meetingReminderOn && g.meetingDays.length > 0 && (
-                <div className="mt-3 flex items-center justify-between border-t border-line pt-3">
-                  <span className="text-[11px] text-ink-faint">
+                <div className="mt-3 flex items-center justify-between gap-2 border-t border-line pt-3">
+                  <span className="flex items-center gap-1 text-[11px] text-ink-faint">
+                    <Bell className="size-3" />
                     {g.meetingReminderAuto
-                      ? `Auto reminder · ${g.meetingReminderLeadDays === 0 ? "on the day" : `${g.meetingReminderLeadDays}d before`}`
+                      ? g.nextReminderLabel
+                        ? <>Next: <span className="font-medium text-ink-muted">{g.nextReminderLabel}</span></>
+                        : "Auto reminder on"
                       : "Manual reminder"}
                   </span>
                   <RemindButton groupId={g.id} />

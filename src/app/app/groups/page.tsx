@@ -5,6 +5,7 @@ import { createGroup } from "@/app/actions/groups";
 import { GroupFields } from "@/components/app/group-fields";
 import { PageHeader } from "@/components/app/page-header";
 import { ActionDialog } from "@/components/app/action-dialog";
+import { nextGroupReminderLabel } from "@/lib/groups/meeting-reminder";
 import { Plus } from "lucide-react";
 
 export const metadata = { title: "Groups" };
@@ -15,7 +16,7 @@ const GROUP_TYPE_SUGGESTIONS = ["Small group", "Ministry", "Committee", "Fellows
 export default async function GroupsPage() {
   const session = await requireModule("groups");
 
-  const [groups, people] = await Promise.all([
+  const [groups, people, church] = await Promise.all([
     db.group.findMany({
       where: { churchId: session.churchId },
       include: {
@@ -30,9 +31,12 @@ export default async function GroupsPage() {
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
       take: 500,
     }),
+    db.church.findUnique({ where: { id: session.churchId }, select: { timezone: true } }),
   ]);
 
   const peopleOpts = people.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`.trim() }));
+  const tz = church?.timezone ?? "Africa/Accra";
+  const now = new Date();
 
   return (
     <div>
@@ -54,24 +58,31 @@ export default async function GroupsPage() {
         canWrite={!session.isDemo}
         people={peopleOpts}
         typeSuggestions={GROUP_TYPE_SUGGESTIONS}
-        items={groups.map((g) => ({
-          id: g.id,
-          name: g.name,
-          type: g.type,
-          description: g.description,
-          meetingDays: g.meetingDays.length ? g.meetingDays : g.meetingDay ? [g.meetingDay] : [],
-          meetingTime: g.meetingTime,
-          location: g.location,
-          isActive: g.isActive,
-          leaderId: g.leaderId,
-          leaderName: g.leader ? `${g.leader.firstName} ${g.leader.lastName}` : null,
-          memberCount: g._count.members,
-          meetingReminderOn: g.meetingReminderOn,
-          meetingReminderAuto: g.meetingReminderAuto,
-          meetingReminderLeadDays: g.meetingReminderLeadDays,
-          meetingReminderHour: g.meetingReminderHour,
-          meetingReminderText: g.meetingReminderText,
-        }))}
+        items={groups.map((g) => {
+          const days = g.meetingDays.length ? g.meetingDays : g.meetingDay ? [g.meetingDay] : [];
+          return {
+            id: g.id,
+            name: g.name,
+            type: g.type,
+            description: g.description,
+            meetingDays: days,
+            meetingTime: g.meetingTime,
+            location: g.location,
+            isActive: g.isActive,
+            leaderId: g.leaderId,
+            leaderName: g.leader ? `${g.leader.firstName} ${g.leader.lastName}` : null,
+            memberCount: g._count.members,
+            meetingReminderOn: g.meetingReminderOn,
+            meetingReminderAuto: g.meetingReminderAuto,
+            meetingReminderLeadDays: g.meetingReminderLeadDays,
+            meetingReminderHour: g.meetingReminderHour,
+            meetingReminderText: g.meetingReminderText,
+            nextReminderLabel:
+              g.meetingReminderOn && g.meetingReminderAuto
+                ? nextGroupReminderLabel({ meetingDays: days, leadDays: g.meetingReminderLeadDays, hour: g.meetingReminderHour, timezone: tz, now })
+                : null,
+          };
+        })}
       />
     </div>
   );
