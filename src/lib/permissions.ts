@@ -134,6 +134,8 @@ export interface Session {
   impersonating?: boolean;
   /** Whether this user has completed phone verification (admins must). */
   phoneVerified?: boolean;
+  /** Whether this user has verified via an email OTP. */
+  emailVerified?: boolean;
 }
 
 export const ROLE_PERMISSIONS: Record<Role, string[]> = {

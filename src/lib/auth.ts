@@ -197,6 +197,7 @@ async function _getSession(): Promise<Session | null> {
       avatarUrl: user.photoUrl,
       isDemo: user.church.isDemo,
       phoneVerified: user.phoneVerified,
+      emailVerified: user.emailVerified,
     };
   }
 
@@ -233,6 +234,7 @@ async function _getSession(): Promise<Session | null> {
     avatarUrl: user.photoUrl,
     isDemo: user.church.isDemo,
     phoneVerified: user.phoneVerified,
+    emailVerified: user.emailVerified,
   };
 }
 export const getSession = cache(_getSession);

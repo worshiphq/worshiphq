@@ -46,12 +46,17 @@ export async function signUp(formData: FormData) {
   const email = String(formData.get("email") ?? "").toLowerCase().trim();
   const password = String(formData.get("password") ?? "");
   const phone = String(formData.get("phone") ?? "").trim();
+  const channel = String(formData.get("channel") ?? "phone") === "email" ? "email" : "phone";
   const plan = String(formData.get("plan") ?? "free").trim();
   const validPlans = ["free", "starter", "pro", "max"];
   const chosenPlan = validPlans.includes(plan) ? plan : "free";
 
   const { passwordMeetsPolicy } = await import("@/lib/password-policy");
-  if (!churchName || !name || !email || !phone || !passwordMeetsPolicy(password)) {
+  // Email is always required (it's the login identity). A phone is required only
+  // when the member chose to verify by phone.
+  const emailOk = /^\S+@\S+\.\S+$/.test(email);
+  const phoneOk = phone.replace(/\D/g, "").length >= 9;
+  if (!churchName || !name || !emailOk || !passwordMeetsPolicy(password) || (channel === "phone" && !phoneOk)) {
     redirect("/sign-up?error=invalid");
   }
   if (await db.user.findUnique({ where: { email } })) {
@@ -59,11 +64,15 @@ export async function signUp(formData: FormData) {
   }
 
   const passwordHash = await hashPassword(password);
-  const result = await sendOtp({
-    phone,
-    purpose: "signup",
-    payload: { churchName, name, email, passwordHash, phone: normalisePhone(phone), plan: chosenPlan },
-  });
+  const payload = {
+    churchName, name, email, passwordHash,
+    phone: phone ? normalisePhone(phone) : "",
+    plan: chosenPlan,
+    channel,
+  };
+  const result = channel === "email"
+    ? await sendOtp({ channel: "email", email, purpose: "signup", payload })
+    : await sendOtp({ channel: "sms", phone, purpose: "signup", payload });
 
   if (!result.ok || !result.verificationId) {
     redirect("/sign-up?error=sms");
@@ -78,8 +87,9 @@ export async function signUp(formData: FormData) {
     maxAge: 60 * 15,
   });
 
-  // In stub mode (no SMS keys) surface the code so testing can proceed.
-  redirect(result.devCode ? `/sign-up/verify?dev=${result.devCode}` : "/sign-up/verify");
+  // In stub mode (no provider keys) surface the code so testing can proceed.
+  const via = channel === "email" ? "&via=email" : "";
+  redirect(result.devCode ? `/sign-up/verify?dev=${result.devCode}${via}` : `/sign-up/verify?1=1${via}`);
 }
 
 /** Step 2 of signup: confirm the code, create the church + Owner, sign in. */
@@ -101,7 +111,9 @@ export async function completeSignup(formData: FormData) {
     passwordHash: string;
     phone: string;
     plan?: string;
+    channel?: string;
   };
+  const verifiedByEmail = p.channel === "email";
 
   // Guard against a race where the email was taken between steps.
   if (await db.user.findUnique({ where: { email: p.email } })) {
@@ -137,8 +149,10 @@ export async function completeSignup(formData: FormData) {
       email: p.email,
       name: p.name,
       passwordHash: p.passwordHash,
-      phone: p.phone,
-      phoneVerified: true,
+      phone: p.phone || null,
+      // Mark exactly the channel that was verified.
+      phoneVerified: !verifiedByEmail && !!p.phone,
+      emailVerified: verifiedByEmail,
       role: "Owner",
     },
   });
@@ -156,8 +170,11 @@ export async function resendSignupOtp() {
   const existing = await db.phoneVerification.findUnique({ where: { id: vid } });
   if (!existing) redirect("/sign-up?error=expired");
 
+  const viaEmail = existing.channel === "email";
   const result = await sendOtp({
-    phone: existing.phone,
+    channel: viaEmail ? "email" : "sms",
+    email: viaEmail ? existing.phone : undefined,
+    phone: viaEmail ? undefined : existing.phone,
     purpose: "signup",
     payload: existing.payload as Record<string, unknown>,
   });
@@ -170,7 +187,8 @@ export async function resendSignupOtp() {
       maxAge: 60 * 15,
     });
   }
-  redirect(result.devCode ? `/sign-up/verify?dev=${result.devCode}` : "/sign-up/verify?resent=1");
+  const via = viaEmail ? "&via=email" : "";
+  redirect(result.devCode ? `/sign-up/verify?dev=${result.devCode}${via}` : `/sign-up/verify?resent=1${via}`);
 }
 export async function startPasswordReset(formData: FormData) {
   const identifier = String(formData.get("identifier") ?? "").trim();
@@ -293,17 +311,92 @@ export async function completePasswordReset(formData: FormData) {
   redirect("/sign-in?reset=success");
 }
 
-/** Sign in an existing user. */
-export async function signIn(formData: FormData) {
-  const email = String(formData.get("email") ?? "").toLowerCase().trim();
-  const password = String(formData.get("password") ?? "");
+const LOGIN_2FA_VID = "whq_login_vid";
 
-  const user = await db.user.findUnique({ where: { email } });
+/**
+ * Step 1 of login: check the identifier (email OR phone) + password, then send a
+ * one-time code to whichever channel they used. The session is only created once
+ * that code is confirmed (completeSignIn) — so every login is two-factor.
+ */
+export async function signIn(formData: FormData) {
+  const identifier = String(formData.get("identifier") ?? formData.get("email") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  if (!identifier || !password) redirect("/sign-in?error=invalid");
+
+  const usingEmail = identifier.includes("@");
+  const user = usingEmail
+    ? await db.user.findUnique({ where: { email: identifier.toLowerCase() } })
+    : await db.user.findFirst({ where: { phone: normalisePhone(identifier) } });
+
   if (!user || !user.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
     redirect("/sign-in?error=invalid");
   }
-  await startUserSession(user.id);
+
+  // Send the code to the same channel they signed in with.
+  const result = usingEmail
+    ? await sendOtp({ channel: "email", email: user.email, purpose: "login", userId: user.id })
+    : await sendOtp({ channel: "sms", phone: user.phone ?? normalisePhone(identifier), purpose: "login", userId: user.id });
+
+  if (!result.ok || !result.verificationId) {
+    redirect(`/sign-in?error=${usingEmail ? "email-send" : "sms"}`);
+  }
+
+  const store = await cookies();
+  store.set(LOGIN_2FA_VID, result.verificationId, {
+    httpOnly: true, sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/", maxAge: 60 * 15,
+  });
+
+  const via = usingEmail ? "email" : "phone";
+  const dev = result.devCode ? `&dev=${result.devCode}` : "";
+  redirect(`/sign-in?login=verify&via=${via}${dev}`);
+}
+
+/** Step 2 of login: confirm the code → create the session. */
+export async function completeSignIn(formData: FormData) {
+  const code = String(formData.get("code") ?? "").trim();
+  const via = String(formData.get("via") ?? "phone") === "email" ? "email" : "phone";
+  const store = await cookies();
+  const vid = store.get(LOGIN_2FA_VID)?.value;
+  if (!vid) redirect("/sign-in?error=expired");
+
+  const result = await verifyOtp(vid, code);
+  if (!result.ok || !result.userId) {
+    redirect(`/sign-in?login=verify&via=${via}&error=invalid-code`);
+  }
+
+  store.delete(LOGIN_2FA_VID);
+  await startUserSession(result.userId);
   redirect("/app");
+}
+
+/** Resend the login verification code on the same channel. */
+export async function resendLoginOtp() {
+  const store = await cookies();
+  const vid = store.get(LOGIN_2FA_VID)?.value;
+  if (!vid) redirect("/sign-in?error=expired");
+  const existing = await db.phoneVerification.findUnique({ where: { id: vid } });
+  if (!existing || !existing.userId) redirect("/sign-in?error=expired");
+
+  const viaEmail = existing.channel === "email";
+  const result = await sendOtp({
+    channel: viaEmail ? "email" : "sms",
+    email: viaEmail ? existing.phone : undefined,
+    phone: viaEmail ? undefined : existing.phone,
+    purpose: "login",
+    userId: existing.userId,
+  });
+  if (result.ok && result.verificationId) {
+    store.set(LOGIN_2FA_VID, result.verificationId, {
+      httpOnly: true, sameSite: "lax",
+      secure: process.env.NODE_ENV === "production",
+      path: "/", maxAge: 60 * 15,
+    });
+  }
+  const via = viaEmail ? "email" : "phone";
+  const dev = result.devCode ? `&dev=${result.devCode}` : "";
+  redirect(`/sign-in?login=verify&via=${via}${dev}&resent=1`);
 }
 
 /** Enter the read-only demo church (no account needed). */

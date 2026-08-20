@@ -4,23 +4,24 @@ import { completeSignup, resendSignupOtp } from "@/app/actions/auth";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { OtpInput } from "@/components/ui/otp-input";
 
-export const metadata: Metadata = { title: "Verify your phone" };
+export const metadata: Metadata = { title: "Verify your account" };
 
 export default async function SignupVerifyPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; dev?: string; resent?: string }>;
+  searchParams: Promise<{ error?: string; dev?: string; resent?: string; via?: string }>;
 }) {
-  const { error, dev, resent } = await searchParams;
+  const { error, dev, resent, via } = await searchParams;
+  const viaEmail = via === "email";
 
   return (
     <div>
       <div className="mb-4 grid size-12 place-items-center rounded-2xl bg-primary/10 text-primary-bright">
         <ShieldCheck className="size-6" />
       </div>
-      <h1 className="font-display text-2xl font-bold">Verify your phone</h1>
+      <h1 className="font-display text-2xl font-bold">Verify your {viaEmail ? "email" : "phone"}</h1>
       <p className="mt-2 text-sm text-ink-muted">
-        We sent a 6-digit code by SMS. Enter it below to finish creating your church.
+        We sent a 6-digit code by {viaEmail ? "email" : "SMS"}. Enter it below to finish creating your church.
       </p>
 
       {resent && (
@@ -30,7 +31,7 @@ export default async function SignupVerifyPage({
       )}
       {dev && (
         <div className="mt-5 rounded-xl border border-gold/30 bg-gold/10 px-4 py-3 text-sm text-gold">
-          Demo mode (no SMS provider configured): your code is <strong>{dev}</strong>
+          Demo mode (no {viaEmail ? "email" : "SMS"} provider configured): your code is <strong>{dev}</strong>
         </div>
       )}
       {error && (

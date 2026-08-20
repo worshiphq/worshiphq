@@ -56,6 +56,7 @@ export function SignupWizard({
     phone: "",
     password: "",
     plan: initialPlan,
+    channel: "phone" as "phone" | "email",
   });
 
   const set = (key: keyof typeof data) => (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -71,7 +72,8 @@ export function SignupWizard({
         return data.name.trim().length >= 2 ? null : "Please enter your name.";
       case "contact": {
         if (!/^\S+@\S+\.\S+$/.test(data.email.trim())) return "Please enter a valid email address.";
-        if (data.phone.trim().replace(/\D/g, "").length < 9) return "Please enter a valid phone number.";
+        if (data.channel === "phone" && data.phone.trim().replace(/\D/g, "").length < 9)
+          return "Please enter a valid phone number to receive your code.";
         return null;
       }
       case "password": {
@@ -155,6 +157,7 @@ export function SignupWizard({
         <input type="hidden" name="phone" value={data.phone} />
         <input type="hidden" name="password" value={data.password} />
         <input type="hidden" name="plan" value={data.plan} />
+        <input type="hidden" name="channel" value={data.channel} />
 
         <div className="relative overflow-hidden">
           <AnimatePresence mode="wait" custom={dir} initial={false}>
@@ -192,8 +195,38 @@ export function SignupWizard({
                     <Input id="w-email" type="email" value={data.email} onChange={set("email")} placeholder="you@church.org" autoFocus />
                   </div>
                   <div>
-                    <Label htmlFor="w-phone">Phone (for verification)</Label>
+                    <Label htmlFor="w-phone">Phone {data.channel === "email" ? "(optional)" : "(for verification)"}</Label>
                     <Input id="w-phone" type="tel" value={data.phone} onChange={set("phone")} placeholder="024 000 0000" />
+                  </div>
+
+                  {/* Where should the verification code go? */}
+                  <div>
+                    <Label>Send my verification code by</Label>
+                    <div className="mt-1.5 grid grid-cols-2 gap-2">
+                      {([
+                        { key: "phone", label: "Text (SMS)", hint: "to your phone" },
+                        { key: "email", label: "Email", hint: "to your inbox" },
+                      ] as const).map((c) => {
+                        const active = data.channel === c.key;
+                        return (
+                          <button
+                            type="button"
+                            key={c.key}
+                            onClick={() => setData((d) => ({ ...d, channel: c.key }))}
+                            className={cn(
+                              "rounded-xl border p-3 text-left transition-all",
+                              active ? "border-primary bg-primary/5 ring-2 ring-primary/30" : "border-line hover:border-primary/30",
+                            )}
+                          >
+                            <div className="flex items-center gap-2 text-sm font-semibold">
+                              {c.key === "email" ? <AtSign className="size-4" /> : <User className="size-4" />}
+                              {c.label}
+                            </div>
+                            <div className="mt-0.5 text-[11px] text-ink-faint">{c.hint}</div>
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
                 </div>
               )}
@@ -304,7 +337,8 @@ export function SignupWizard({
                     { label: "Church", value: data.church },
                     { label: "Your name", value: data.name },
                     { label: "Email", value: data.email },
-                    { label: "Phone", value: data.phone },
+                    { label: "Phone", value: data.phone || "—" },
+                    { label: "Verify by", value: data.channel === "email" ? "Email code" : "SMS code" },
                     {
                       label: "Plan",
                       value: `${selectedPlan.name}${selectedPlan.monthly > 0 ? ` · ${currencySymbol}${selectedPlan.monthly}/mo` : " · Free forever"}`,
@@ -359,7 +393,7 @@ export function SignupWizard({
               className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-bright disabled:opacity-60"
             >
               {submitting && <Loader2 className="size-4 whq-spin" />}
-              {submitting ? "Sending code…" : "Create account — verify phone"}
+              {submitting ? "Sending code…" : `Create account — verify ${data.channel === "email" ? "email" : "phone"}`}
             </button>
           )}
         </div>

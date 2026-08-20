@@ -3,6 +3,8 @@ import Link from "next/link";
 import { AlertCircle, Eye, KeyRound, ArrowLeft, ShieldCheck, CheckCircle2, Mail } from "lucide-react";
 import {
   signIn,
+  completeSignIn,
+  resendLoginOtp,
   enterDemo,
   startPasswordReset,
   verifyResetCode,
@@ -22,9 +24,61 @@ export default async function SignInPage({
     error?: string;
     reset?: string;
     via?: string;
+    login?: string;
+    dev?: string;
+    resent?: string;
   }>;
 }) {
-  const { error, reset, via } = await searchParams;
+  const { error, reset, via, login, dev, resent } = await searchParams;
+
+  // ── Login step 2: two-factor code entry ──
+  if (login === "verify") {
+    const viaEmail = via === "email";
+    return (
+      <div>
+        <div className="mb-5 grid size-12 place-items-center rounded-2xl bg-primary/10 text-primary-bright">
+          <ShieldCheck className="size-6" />
+        </div>
+        <h1 className="font-display text-2xl font-bold">Verify it&rsquo;s you</h1>
+        <p className="mt-2 text-sm text-ink-muted">
+          We sent a 6-digit code to your {viaEmail ? "email" : "phone"}. Enter it to finish logging in.
+        </p>
+
+        {resent && (
+          <div className="mt-5 flex items-center gap-2 rounded-xl border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
+            <CheckCircle2 className="size-4 shrink-0" /> A new code is on its way.
+          </div>
+        )}
+        {error === "invalid-code" && (
+          <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+            <AlertCircle className="size-4 shrink-0" /> Incorrect or expired code. Please try again.
+          </div>
+        )}
+        {dev && (
+          <div className="mt-5 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm text-primary-bright">
+            Test mode code: <span className="font-mono font-bold">{dev}</span>
+          </div>
+        )}
+
+        <form action={completeSignIn} className="mt-7 space-y-6">
+          <input type="hidden" name="via" value={viaEmail ? "email" : "phone"} />
+          <OtpInput />
+          <SubmitButton size="lg" className="w-full" pendingLabel="Verifying...">
+            Verify &amp; log in
+          </SubmitButton>
+        </form>
+
+        <div className="mt-5 flex items-center justify-center gap-4 text-sm">
+          <form action={resendLoginOtp}>
+            <button type="submit" className="text-ink-muted hover:text-ink hover:underline">Resend code</button>
+          </form>
+          <Link href="/sign-in" className="flex items-center gap-1.5 text-ink-muted hover:text-ink">
+            <ArrowLeft className="size-3.5" /> Back to login
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   if (reset === "1") {
     return (
@@ -185,17 +239,24 @@ export default async function SignInPage({
       <h1 className="font-display text-3xl font-bold">Welcome back</h1>
       <p className="mt-2 text-sm text-ink-muted">Log in to your church&rsquo;s command center.</p>
 
-      {error && (
+      {error && error !== "expired" && (
         <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
           <AlertCircle className="size-4 shrink-0" />
-          Incorrect email or password. Please try again.
+          {error === "sms" || error === "email-send"
+            ? "We couldn't send your verification code. Please try again."
+            : "Incorrect email/phone or password. Please try again."}
+        </div>
+      )}
+      {error === "expired" && (
+        <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+          <AlertCircle className="size-4 shrink-0" /> Your session expired. Please log in again.
         </div>
       )}
 
       <form action={signIn} className="mt-6 space-y-4">
         <div>
-          <Label htmlFor="email">Email</Label>
-          <Input id="email" name="email" type="email" placeholder="you@church.org" required />
+          <Label htmlFor="identifier">Email or phone number</Label>
+          <Input id="identifier" name="identifier" type="text" placeholder="you@church.org or 024 000 0000" required />
         </div>
         <div>
           <div className="flex items-center justify-between">
@@ -209,8 +270,11 @@ export default async function SignInPage({
           </div>
           <PasswordInput id="password" name="password" placeholder="••••••••" required />
         </div>
-        <SubmitButton size="lg" className="w-full" pendingLabel="Logging in…">
-          Log in
+        <p className="flex items-center gap-1.5 text-xs text-ink-faint">
+          <ShieldCheck className="size-3.5" /> We&rsquo;ll text or email you a one-time code to confirm it&rsquo;s you.
+        </p>
+        <SubmitButton size="lg" className="w-full" pendingLabel="Sending code…">
+          Continue
         </SubmitButton>
       </form>
 

@@ -16,8 +16,9 @@ export const metadata: Metadata = {
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const session = await requireSession();
 
-  // Admins/teammates must verify their phone before using the app (real users only).
-  if (!session.isDemo && !session.impersonating && session.phoneVerified === false) {
+  // Real users must have verified at least one channel (phone or email) before
+  // using the app. Teammates invited by SMS still get gated to phone verify.
+  if (!session.isDemo && !session.impersonating && !session.phoneVerified && !session.emailVerified) {
     redirect("/verify-phone");
   }
 
