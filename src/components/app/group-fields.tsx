@@ -3,13 +3,14 @@
 import { useState } from "react";
 import { Bell } from "lucide-react";
 import { Field } from "@/components/app/action-dialog";
-import { DAYS_FULL, DEFAULT_MEETING_REMINDER } from "@/lib/groups/meeting-reminder";
+import { DAYS_FULL, DEFAULT_MEETING_REMINDER, type ScheduleEntry } from "@/lib/groups/meeting-reminder";
 import { cn } from "@/lib/utils";
 
 export type GroupFormValues = {
   name: string;
   type: string;
   description: string | null;
+  schedule: ScheduleEntry[];
   meetingDays: string[];
   meetingDay: string | null;
   meetingTime: string | null;
@@ -36,44 +37,72 @@ export function GroupFields({
   people: { id: string; name: string }[];
   typeSuggestions: string[];
 }) {
-  const initialDays = group?.meetingDays?.length ? group.meetingDays : group?.meetingDay ? [group.meetingDay] : [];
-  const [days, setDays] = useState<string[]>(initialDays);
+  // Per-day schedule: initialise from meetingSchedule, else legacy days/day+time.
+  const initialSchedule: ScheduleEntry[] =
+    group?.schedule?.length
+      ? group.schedule
+      : group?.meetingDays?.length
+        ? group.meetingDays.map((d) => ({ day: d, time: group?.meetingTime ?? null }))
+        : group?.meetingDay
+          ? [{ day: group.meetingDay, time: group?.meetingTime ?? null }]
+          : [];
+  const [schedule, setSchedule] = useState<ScheduleEntry[]>(initialSchedule);
   const [reminderOn, setReminderOn] = useState(group?.meetingReminderOn ?? false);
   const [mode, setMode] = useState<"auto" | "manual">(group?.meetingReminderAuto === false ? "manual" : "auto");
 
+  const timeFor = (d: string) => schedule.find((s) => s.day === d)?.time ?? "";
   const toggleDay = (d: string) =>
-    setDays((prev) => (prev.includes(d) ? prev.filter((x) => x !== d) : [...prev, d]));
+    setSchedule((prev) => (prev.some((s) => s.day === d) ? prev.filter((s) => s.day !== d) : [...prev, { day: d, time: null }]));
+  const setTime = (d: string, t: string) =>
+    setSchedule((prev) => prev.map((s) => (s.day === d ? { ...s, time: t || null } : s)));
+
+  // Serialise for the server action, ordered Sun→Sat.
+  const scheduleJson = JSON.stringify(
+    DAYS_FULL.map((d) => schedule.find((s) => s.day === d)).filter(Boolean).map((s) => ({ day: s!.day, time: s!.time })),
+  );
 
   return (
     <>
+      <input type="hidden" name="meetingSchedule" value={scheduleJson} />
       <Field label="Name" name="name" placeholder="e.g. Youth Fellowship" defaultValue={group?.name} required />
       <Field label="Type" name="type" suggestions={typeSuggestions} defaultValue={group?.type} hint="Pick one or type your own" />
       <Field label="Description" name="description" placeholder="Brief description..." defaultValue={group?.description ?? ""} />
 
-      {/* Meeting days — pick any number */}
+      {/* Meeting days — pick any number, each with its own time */}
       <div>
-        <label className="mb-1.5 block text-sm font-medium text-ink-muted">Meeting days</label>
-        <div className="flex flex-wrap gap-1.5">
+        <label className="mb-1.5 block text-sm font-medium text-ink-muted">Meeting days &amp; times</label>
+        <div className="space-y-1.5">
           {DAYS_FULL.map((d) => {
-            const on = days.includes(d);
+            const on = schedule.some((s) => s.day === d);
             return (
-              <label
-                key={d}
-                className={cn(
-                  "cursor-pointer select-none rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors",
-                  on ? "border-primary bg-primary/10 text-primary-bright" : "border-line text-ink-muted hover:bg-surface-2",
+              <div key={d} className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => toggleDay(d)}
+                  className={cn(
+                    "w-20 shrink-0 rounded-lg border px-2.5 py-1.5 text-left text-xs font-medium transition-colors",
+                    on ? "border-primary bg-primary/10 text-primary-bright" : "border-line text-ink-muted hover:bg-surface-2",
+                  )}
+                >
+                  {d.slice(0, 3)}
+                </button>
+                {on ? (
+                  <input
+                    type="time"
+                    value={timeFor(d)}
+                    onChange={(e) => setTime(d, e.target.value)}
+                    className="h-9 flex-1 rounded-lg border border-line bg-surface px-2.5 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25"
+                  />
+                ) : (
+                  <span className="flex-1 text-xs text-ink-faint">Tap to add this day</span>
                 )}
-              >
-                <input type="checkbox" name="meetingDays" value={d} checked={on} onChange={() => toggleDay(d)} className="sr-only" />
-                {d.slice(0, 3)}
-              </label>
+              </div>
             );
           })}
         </div>
-        <p className="mt-1 text-[11px] text-ink-faint">Optional — a group can meet on several days, or none.</p>
+        <p className="mt-1 text-[11px] text-ink-faint">Optional — pick each day the group meets and set its own time (leave a time blank if it varies).</p>
       </div>
 
-      <Field label="Meeting time" name="meetingTime" type="time" defaultValue={group?.meetingTime ?? ""} />
       <Field label="Location" name="location" placeholder="e.g. Church hall room 3" defaultValue={group?.location ?? ""} />
       <Field
         label="Leader"
@@ -90,7 +119,7 @@ export function GroupFields({
           <input type="checkbox" name="meetingReminderOn" checked={reminderOn} onChange={(e) => setReminderOn(e.target.checked)} className="size-4 accent-primary" />
         </label>
 
-        {reminderOn && days.length === 0 && (
+        {reminderOn && schedule.length === 0 && (
           <p className="mt-2 text-xs text-amber-600">Pick at least one meeting day above to send reminders.</p>
         )}
 

@@ -432,9 +432,10 @@ model Group {
   description String?
   leaderId    String?
   leader      Person?  @relation("GroupLeader", fields: [leaderId], references: [id], onDelete: SetNull)
-  meetingDay  String?  // legacy single day — kept for back-compat, superseded by meetingDays
-  meetingDays String[] @default([]) // e.g. ["Monday","Thursday"] — a group can meet on several days
-  meetingTime String?  // "18:00"
+  meetingDay  String?  // legacy single day — kept for back-compat, superseded by meetingSchedule
+  meetingDays String[] @default([]) // just the days (derived from schedule) — for quick day matching
+  meetingTime String?  // legacy single time — kept for back-compat
+  meetingSchedule Json? // [{ day: "Monday", time: "18:00" }] — each day can have its own time
   location    String?
   // ── Meeting reminder (optional; only when meeting days are set) ──
   meetingReminderOn       Boolean @default(false) // remind the group of its meeting

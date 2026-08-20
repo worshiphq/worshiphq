@@ -13,7 +13,7 @@ import {
 import { deleteGroup, updateGroup, sendGroupMeetingReminder } from "@/app/actions/groups";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { GroupFields } from "@/components/app/group-fields";
-import { formatDays, formatTime } from "@/lib/groups/meeting-reminder";
+import { formatSchedule, type ScheduleEntry } from "@/lib/groups/meeting-reminder";
 import Link from "next/link";
 
 type GroupRow = {
@@ -21,8 +21,8 @@ type GroupRow = {
   name: string;
   type: string;
   description: string | null;
+  schedule: ScheduleEntry[];
   meetingDays: string[];
-  meetingTime: string | null;
   location: string | null;
   isActive: boolean;
   leaderId: string | null;
@@ -155,10 +155,9 @@ export function GroupsClient({ items, people, typeSuggestions, canWrite }: {
                     <User className="size-3" /> {g.leaderName}
                   </span>
                 )}
-                {g.meetingDays.length > 0 && (
+                {g.schedule.length > 0 && (
                   <span className="flex items-center gap-1">
-                    <Calendar className="size-3" /> {formatDays(g.meetingDays)}
-                    {g.meetingTime && ` at ${formatTime(g.meetingTime)}`}
+                    <Calendar className="size-3" /> {formatSchedule(g.schedule)}
                   </span>
                 )}
                 {g.location && (

@@ -10,7 +10,7 @@ import {
   Users2, MapPin, Calendar, Clock, User, UserPlus, X, ArrowLeft, Search,
 } from "lucide-react";
 import { addGroupMember, removeGroupMember } from "@/app/actions/groups";
-import { formatDays, formatTime } from "@/lib/groups/meeting-reminder";
+import { formatSchedule, type ScheduleEntry } from "@/lib/groups/meeting-reminder";
 import Link from "next/link";
 
 type GroupInfo = {
@@ -18,7 +18,7 @@ type GroupInfo = {
   name: string;
   type: string;
   description: string | null;
-  meetingDays: string[];
+  schedule: ScheduleEntry[];
   meetingTime: string | null;
   location: string | null;
   isActive: boolean;
@@ -100,14 +100,12 @@ export function GroupDetailClient({
             </div>
           </Card>
         )}
-        {group.meetingDays.length > 0 && (
+        {group.schedule.length > 0 && (
           <Card className="flex items-center gap-3 p-3">
             <Calendar className="size-4 text-brand" />
             <div>
               <p className="text-xs text-ink-muted">Meets</p>
-              <p className="text-sm font-medium">
-                {formatDays(group.meetingDays)}{group.meetingTime ? ` at ${formatTime(group.meetingTime)}` : ""}
-              </p>
+              <p className="text-sm font-medium">{formatSchedule(group.schedule)}</p>
             </div>
           </Card>
         )}

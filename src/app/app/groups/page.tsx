@@ -5,7 +5,7 @@ import { createGroup } from "@/app/actions/groups";
 import { GroupFields } from "@/components/app/group-fields";
 import { PageHeader } from "@/components/app/page-header";
 import { ActionDialog } from "@/components/app/action-dialog";
-import { nextGroupReminderLabel } from "@/lib/groups/meeting-reminder";
+import { nextGroupReminderLabel, parseSchedule } from "@/lib/groups/meeting-reminder";
 import { Plus } from "lucide-react";
 
 export const metadata = { title: "Groups" };
@@ -59,14 +59,16 @@ export default async function GroupsPage() {
         people={peopleOpts}
         typeSuggestions={GROUP_TYPE_SUGGESTIONS}
         items={groups.map((g) => {
-          const days = g.meetingDays.length ? g.meetingDays : g.meetingDay ? [g.meetingDay] : [];
+          let schedule = parseSchedule(g.meetingSchedule);
+          if (schedule.length === 0 && g.meetingDay) schedule = [{ day: g.meetingDay, time: g.meetingTime }];
+          const days = schedule.map((s) => s.day);
           return {
             id: g.id,
             name: g.name,
             type: g.type,
             description: g.description,
+            schedule,
             meetingDays: days,
-            meetingTime: g.meetingTime,
             location: g.location,
             isActive: g.isActive,
             leaderId: g.leaderId,

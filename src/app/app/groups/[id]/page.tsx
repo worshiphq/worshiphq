@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { GroupDetailClient } from "@/components/app/group-detail-client";
+import { parseSchedule } from "@/lib/groups/meeting-reminder";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -43,7 +44,10 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
         name: group.name,
         type: group.type,
         description: group.description,
-        meetingDays: group.meetingDays.length ? group.meetingDays : group.meetingDay ? [group.meetingDay] : [],
+        schedule: (() => {
+          const s = parseSchedule(group.meetingSchedule);
+          return s.length ? s : group.meetingDay ? [{ day: group.meetingDay, time: group.meetingTime }] : [];
+        })(),
         meetingTime: group.meetingTime,
         location: group.location,
         isActive: group.isActive,

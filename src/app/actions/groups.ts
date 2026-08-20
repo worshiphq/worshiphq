@@ -1,23 +1,29 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { Prisma } from "@prisma/client";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
-import { DAYS_FULL, DEFAULT_MEETING_REMINDER, renderMeetingReminder } from "@/lib/groups/meeting-reminder";
+import { DEFAULT_MEETING_REMINDER, renderMeetingReminder, parseSchedule } from "@/lib/groups/meeting-reminder";
 
 /** Parse the shared group fields (create + edit) from the form. */
 function readGroupFields(formData: FormData) {
-  const days = formData.getAll("meetingDays").map((d) => String(d).trim()).filter((d) => DAYS_FULL.includes(d));
-  const meetingDays = [...new Set(days)];
+  // meetingSchedule is a hidden JSON field: [{ day, time }]
+  let scheduleRaw: unknown = [];
+  try { scheduleRaw = JSON.parse(String(formData.get("meetingSchedule") ?? "[]")); } catch { scheduleRaw = []; }
+  const schedule = parseSchedule(scheduleRaw);
+  const meetingDays = schedule.map((s) => s.day);
+
   return {
     name: String(formData.get("name") ?? "").trim(),
     type: String(formData.get("type") ?? "").trim() || "small_group",
     description: String(formData.get("description") ?? "").trim() || null,
     meetingDays,
-    // Keep the legacy single-day column in sync (first day) for anything still reading it.
-    meetingDay: meetingDays[0] ?? null,
-    meetingTime: String(formData.get("meetingTime") ?? "").trim() || null,
+    meetingSchedule: schedule,
+    // Keep the legacy single columns in sync (first entry) for anything still reading them.
+    meetingDay: schedule[0]?.day ?? null,
+    meetingTime: schedule[0]?.time ?? null,
     location: String(formData.get("location") ?? "").trim() || null,
     leaderId: String(formData.get("leaderId") ?? "").trim() || null,
     meetingReminderOn: formData.get("meetingReminderOn") === "on" && meetingDays.length > 0,
@@ -36,7 +42,7 @@ export async function createGroup(formData: FormData) {
   if (!f.name) return;
 
   const group = await db.group.create({
-    data: { churchId: session.churchId, ...f },
+    data: { churchId: session.churchId, ...f, meetingSchedule: f.meetingSchedule as unknown as Prisma.InputJsonValue },
   });
 
   await audit(session, "create", "group", `Created group "${f.name}"`, group.id);
@@ -53,7 +59,7 @@ export async function updateGroup(formData: FormData) {
 
   await db.group.updateMany({
     where: { id, churchId: session.churchId },
-    data: { ...f },
+    data: { ...f, meetingSchedule: f.meetingSchedule as unknown as Prisma.InputJsonValue },
   });
 
   await audit(session, "update", "group", `Updated group "${f.name}"`, id);
@@ -70,7 +76,7 @@ export async function sendGroupMeetingReminder(groupId: string) {
     db.group.findFirst({
       where: { id: groupId, churchId: session.churchId },
       select: {
-        name: true, meetingDays: true, meetingDay: true, meetingTime: true, meetingReminderText: true,
+        name: true, meetingSchedule: true, meetingDay: true, meetingTime: true, meetingReminderText: true,
         members: { where: { phone: { not: null } }, select: { phone: true } },
       },
     }),
@@ -81,9 +87,11 @@ export async function sendGroupMeetingReminder(groupId: string) {
   const phones = group.members.map((m) => m.phone!).filter(Boolean);
   if (phones.length === 0) return { ok: false as const, error: "No members with a phone number in this group." };
 
-  const days = group.meetingDays.length ? group.meetingDays : group.meetingDay ? [group.meetingDay] : [];
+  // Manual send covers the whole schedule (all meeting days + their times).
+  let schedule = parseSchedule(group.meetingSchedule);
+  if (schedule.length === 0 && group.meetingDay) schedule = [{ day: group.meetingDay, time: group.meetingTime }];
   const message = renderMeetingReminder(group.meetingReminderText ?? DEFAULT_MEETING_REMINDER, {
-    church: church?.name ?? "your church", group: group.name, days, time: group.meetingTime,
+    church: church?.name ?? "your church", group: group.name, schedule,
   });
 
   const { sendChurchSms } = await import("@/lib/sms/credits");
