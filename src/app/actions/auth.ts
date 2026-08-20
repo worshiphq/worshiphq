@@ -11,6 +11,9 @@ import {
   clearSession,
   hashPassword,
   verifyPassword,
+  mintLoginChallenge,
+  getLoginChallengeUserId,
+  LOGIN_CHALLENGE_COOKIE,
 } from "@/lib/auth";
 import { sendOtp, verifyOtp, normalisePhone } from "@/lib/auth/otp";
 import { sendEmail } from "@/lib/integrations/email";
@@ -314,9 +317,10 @@ export async function completePasswordReset(formData: FormData) {
 const LOGIN_2FA_VID = "whq_login_vid";
 
 /**
- * Step 1 of login: check the identifier (email OR phone) + password, then send a
- * one-time code to whichever channel they used. The session is only created once
- * that code is confirmed (completeSignIn) — so every login is two-factor.
+ * Step 1 of login: check the identifier (email OR phone) + password. On success
+ * we DON'T send a code yet — we hand off to a channel picker so the user chooses
+ * where the code goes (email or their verified phone). This never dead-ends on a
+ * single flaky channel. The session is only created once a code is confirmed.
  */
 export async function signIn(formData: FormData) {
   const identifier = String(formData.get("identifier") ?? formData.get("email") ?? "").trim();
@@ -332,13 +336,35 @@ export async function signIn(formData: FormData) {
     redirect("/sign-in?error=invalid");
   }
 
-  // Send the code to the same channel they signed in with.
-  const result = usingEmail
+  // Password OK → mint a short-lived challenge and let them pick a channel.
+  const store = await cookies();
+  store.set(LOGIN_CHALLENGE_COOKIE, mintLoginChallenge(user.id), {
+    httpOnly: true, sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/", maxAge: 60 * 15,
+  });
+  redirect("/sign-in?login=choose");
+}
+
+/** Step 2 of login: send the code to the chosen channel (email or phone). */
+export async function sendLoginCode(formData: FormData) {
+  const channel = String(formData.get("channel") ?? "email") === "email" ? "email" : "sms";
+  const uid = await getLoginChallengeUserId();
+  if (!uid) redirect("/sign-in?error=expired");
+
+  const user = await db.user.findUnique({ where: { id: uid }, select: { id: true, email: true, phone: true, phoneVerified: true } });
+  if (!user) redirect("/sign-in?error=expired");
+
+  if (channel === "sms" && !(user.phone && user.phoneVerified)) {
+    redirect("/sign-in?login=choose&error=no-phone");
+  }
+
+  const result = channel === "email"
     ? await sendOtp({ channel: "email", email: user.email, purpose: "login", userId: user.id })
-    : await sendOtp({ channel: "sms", phone: user.phone ?? normalisePhone(identifier), purpose: "login", userId: user.id });
+    : await sendOtp({ channel: "sms", phone: user.phone!, purpose: "login", userId: user.id });
 
   if (!result.ok || !result.verificationId) {
-    redirect(`/sign-in?error=${usingEmail ? "email-send" : "sms"}`);
+    redirect("/sign-in?login=choose&error=send");
   }
 
   const store = await cookies();
@@ -347,16 +373,15 @@ export async function signIn(formData: FormData) {
     secure: process.env.NODE_ENV === "production",
     path: "/", maxAge: 60 * 15,
   });
-
-  const via = usingEmail ? "email" : "phone";
+  const via = channel === "email" ? "email" : "phone";
   const dev = result.devCode ? `&dev=${result.devCode}` : "";
   redirect(`/sign-in?login=verify&via=${via}${dev}`);
 }
 
-/** Step 2 of login: confirm the code → create the session. */
+/** Step 3 of login: confirm the code → create the session. */
 export async function completeSignIn(formData: FormData) {
   const code = String(formData.get("code") ?? "").trim();
-  const via = String(formData.get("via") ?? "phone") === "email" ? "email" : "phone";
+  const via = String(formData.get("via") ?? "email") === "email" ? "email" : "phone";
   const store = await cookies();
   const vid = store.get(LOGIN_2FA_VID)?.value;
   if (!vid) redirect("/sign-in?error=expired");
@@ -367,6 +392,7 @@ export async function completeSignIn(formData: FormData) {
   }
 
   store.delete(LOGIN_2FA_VID);
+  store.delete(LOGIN_CHALLENGE_COOKIE);
   await startUserSession(result.userId);
   redirect("/app");
 }

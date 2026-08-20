@@ -42,6 +42,59 @@ function verify(token: string): Payload | null {
   }
 }
 
+// ── Login challenge (interstitial between password and the 2FA code) ──
+// A short-lived signed token that proves "the password was verified for this
+// user" while they choose a channel and enter the code. No DB row needed.
+const LOGIN_CHALLENGE_COOKIE = "whq_login_challenge";
+const LOGIN_CHALLENGE_TTL = 15 * 60 * 1000;
+
+export function mintLoginChallenge(userId: string): string {
+  const body = Buffer.from(JSON.stringify({ lc: userId, exp: Date.now() + LOGIN_CHALLENGE_TTL })).toString("base64url");
+  const mac = crypto.createHmac("sha256", SECRET).update(body).digest("base64url");
+  return `${body}.${mac}`;
+}
+
+function readLoginChallenge(token: string | undefined): string | null {
+  if (!token) return null;
+  const [body, mac] = token.split(".");
+  if (!body || !mac) return null;
+  const expected = crypto.createHmac("sha256", SECRET).update(body).digest("base64url");
+  try {
+    if (!crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(expected))) return null;
+    const data = JSON.parse(Buffer.from(body, "base64url").toString()) as { lc?: string; exp?: number };
+    if (!data.lc || !data.exp || data.exp < Date.now()) return null;
+    return data.lc;
+  } catch {
+    return null;
+  }
+}
+
+/** userId of the pending login (password verified, code not yet confirmed), or null. */
+export async function getLoginChallengeUserId(): Promise<string | null> {
+  const store = await cookies();
+  return readLoginChallenge(store.get(LOGIN_CHALLENGE_COOKIE)?.value);
+}
+
+const maskEmail = (email: string) => {
+  const [u, d] = email.split("@");
+  return d ? `${u.slice(0, 1)}${"•".repeat(Math.max(1, u.length - 1))}@${d}` : email;
+};
+const maskPhone = (phone: string) => (phone.length <= 4 ? phone : `•••• ${phone.slice(-4)}`);
+
+/** The channels a pending login may receive its code on (masked for display). */
+export async function getLoginChoices(): Promise<{ email: string; phone: string | null } | null> {
+  const uid = await getLoginChallengeUserId();
+  if (!uid) return null;
+  const user = await db.user.findUnique({ where: { id: uid }, select: { email: true, phone: true, phoneVerified: true } });
+  if (!user) return null;
+  return {
+    email: maskEmail(user.email),
+    phone: user.phoneVerified && user.phone ? maskPhone(user.phone) : null,
+  };
+}
+
+export { LOGIN_CHALLENGE_COOKIE };
+
 async function setCookie(payload: Payload) {
   const store = await cookies();
   store.set(COOKIE, sign(payload), {

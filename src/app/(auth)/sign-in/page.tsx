@@ -1,14 +1,17 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertCircle, Eye, KeyRound, ArrowLeft, ShieldCheck, CheckCircle2, Mail } from "lucide-react";
+import { redirect } from "next/navigation";
+import { AlertCircle, Eye, KeyRound, ArrowLeft, ShieldCheck, CheckCircle2, Mail, Smartphone } from "lucide-react";
 import {
   signIn,
+  sendLoginCode,
   completeSignIn,
   resendLoginOtp,
   enterDemo,
   startPasswordReset,
   verifyResetCode,
 } from "@/app/actions/auth";
+import { getLoginChoices } from "@/lib/auth";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -31,7 +34,56 @@ export default async function SignInPage({
 }) {
   const { error, reset, via, login, dev, resent } = await searchParams;
 
-  // ── Login step 2: two-factor code entry ──
+  // ── Login step 2a: choose where the code is sent ──
+  if (login === "choose") {
+    const choices = await getLoginChoices();
+    if (!choices) redirect("/sign-in?error=expired");
+    return (
+      <div>
+        <div className="mb-5 grid size-12 place-items-center rounded-2xl bg-primary/10 text-primary-bright">
+          <ShieldCheck className="size-6" />
+        </div>
+        <h1 className="font-display text-2xl font-bold">Where should we send your code?</h1>
+        <p className="mt-2 text-sm text-ink-muted">Pick how you&rsquo;d like to receive your one-time login code.</p>
+
+        {error === "send" && (
+          <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+            <AlertCircle className="size-4 shrink-0" /> We couldn&rsquo;t send it there. Try the other option.
+          </div>
+        )}
+        {error === "no-phone" && (
+          <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+            <AlertCircle className="size-4 shrink-0" /> No verified phone on this account — use email.
+          </div>
+        )}
+
+        <div className="mt-6 space-y-3">
+          <form action={sendLoginCode}>
+            <input type="hidden" name="channel" value="email" />
+            <SubmitButton variant="secondary" size="lg" className="w-full !justify-start gap-3" pendingLabel="Sending…">
+              <Mail className="size-5 text-primary-bright" />
+              <span className="flex-1 text-left">Email me a code<span className="block text-xs font-normal text-ink-faint">{choices.email}</span></span>
+            </SubmitButton>
+          </form>
+          {choices.phone && (
+            <form action={sendLoginCode}>
+              <input type="hidden" name="channel" value="sms" />
+              <SubmitButton variant="secondary" size="lg" className="w-full !justify-start gap-3" pendingLabel="Sending…">
+                <Smartphone className="size-5 text-primary-bright" />
+                <span className="flex-1 text-left">Text me a code<span className="block text-xs font-normal text-ink-faint">{choices.phone}</span></span>
+              </SubmitButton>
+            </form>
+          )}
+        </div>
+
+        <Link href="/sign-in" className="mt-5 flex items-center justify-center gap-1.5 text-sm text-ink-muted hover:text-ink">
+          <ArrowLeft className="size-3.5" /> Back to login
+        </Link>
+      </div>
+    );
+  }
+
+  // ── Login step 2b: two-factor code entry ──
   if (login === "verify") {
     const viaEmail = via === "email";
     return (
@@ -72,6 +124,9 @@ export default async function SignInPage({
           <form action={resendLoginOtp}>
             <button type="submit" className="text-ink-muted hover:text-ink hover:underline">Resend code</button>
           </form>
+          <Link href="/sign-in?login=choose" className="text-ink-muted hover:text-ink hover:underline">
+            Use a different method
+          </Link>
           <Link href="/sign-in" className="flex items-center gap-1.5 text-ink-muted hover:text-ink">
             <ArrowLeft className="size-3.5" /> Back to login
           </Link>
