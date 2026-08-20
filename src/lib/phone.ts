@@ -15,3 +15,25 @@ export function normalisePhone(raw: string): string {
 export function isValidPhone(raw: string): boolean {
   return normalisePhone(raw).length >= 11;
 }
+
+/**
+ * Every stored form a phone number might legitimately be saved as, so a lookup
+ * matches accounts whose phone was saved un-normalised by an older path
+ * (e.g. "0247258161" vs "233247258161" vs "+233247258161"). Use with
+ * `where: { phone: { in: phoneVariants(input) } }`.
+ */
+export function phoneVariants(raw: string): string[] {
+  const set = new Set<string>();
+  const norm = normalisePhone(raw); // 233XXXXXXXXX
+  if (norm) {
+    set.add(norm);
+    set.add("+" + norm);
+    if (norm.startsWith("233") && norm.length === 12) {
+      set.add("0" + norm.slice(3)); // local 0XXXXXXXXX
+      set.add(norm.slice(3));       // 9-digit XXXXXXXXX
+    }
+  }
+  const rawDigits = (raw ?? "").replace(/[^\d+]/g, "");
+  if (rawDigits) set.add(rawDigits);
+  return [...set].filter(Boolean);
+}

@@ -120,14 +120,16 @@ export default async function SignInPage({
           </SubmitButton>
         </form>
 
-        <div className="mt-5 flex items-center justify-center gap-4 text-sm">
-          <form action={resendLoginOtp}>
-            <button type="submit" className="text-ink-muted hover:text-ink hover:underline">Resend code</button>
-          </form>
-          <Link href="/sign-in?login=choose" className="text-ink-muted hover:text-ink hover:underline">
-            Use a different method
-          </Link>
-          <Link href="/sign-in" className="flex items-center gap-1.5 text-ink-muted hover:text-ink">
+        <div className="mt-6 flex flex-col items-center gap-3">
+          <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-sm text-ink-muted">
+            <span>Didn&rsquo;t get it?</span>
+            <form action={resendLoginOtp}>
+              <button type="submit" className="font-medium text-primary-bright hover:underline">Resend</button>
+            </form>
+            <span className="text-ink-faint">·</span>
+            <Link href="/sign-in?login=choose" className="font-medium text-primary-bright hover:underline">Try another way</Link>
+          </div>
+          <Link href="/sign-in" className="inline-flex items-center gap-1.5 text-sm text-ink-faint hover:text-ink">
             <ArrowLeft className="size-3.5" /> Back to login
           </Link>
         </div>

@@ -66,6 +66,11 @@ export async function sendOtp(opts: {
   email?: string;
   payload?: Record<string, unknown>;
   userId?: string;
+  /** Approved SMS sender ID to send under (e.g. the church's "TheophanyGB").
+   *  Falls back to the platform default when omitted — but that default may not
+   *  be a registered Hubtel sender, so passing an approved one is far more
+   *  reliable for real delivery. */
+  senderId?: string | null;
 }): Promise<SendOtpResult> {
   // Explicit channel wins; otherwise infer from what was supplied (an email
   // address → email, a phone number → SMS). Existing SMS callers pass `phone`.
@@ -113,7 +118,7 @@ export async function sendOtp(opts: {
     const sms = await sendSms(
       destination,
       `Your WorshipHQ verification code is ${code}. It expires in ${CODE_TTL_MIN} minutes.`,
-      { heading: null },
+      { heading: null, senderId: opts.senderId ?? null },
     );
     ok = sms.ok;
     stubbed = !features.sms;

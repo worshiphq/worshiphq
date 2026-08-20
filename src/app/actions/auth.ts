@@ -16,6 +16,7 @@ import {
   LOGIN_CHALLENGE_COOKIE,
 } from "@/lib/auth";
 import { sendOtp, verifyOtp, normalisePhone } from "@/lib/auth/otp";
+import { phoneVariants } from "@/lib/phone";
 import { sendEmail } from "@/lib/integrations/email";
 
 const SIGNUP_VID = "whq_signup_vid";
@@ -202,7 +203,7 @@ export async function startPasswordReset(formData: FormData) {
     user = await db.user.findUnique({ where: { email: identifier.toLowerCase() } });
   } else {
     user = await db.user.findFirst({
-      where: { phone: normalisePhone(identifier), phoneVerified: true },
+      where: { phone: { in: phoneVariants(identifier) }, phoneVerified: true },
     });
   }
 
@@ -212,10 +213,13 @@ export async function startPasswordReset(formData: FormData) {
 
   // If user has a verified phone, send OTP via SMS
   if (user.phone && user.phoneVerified) {
+    const church = await db.church.findUnique({ where: { id: user.churchId }, select: { smsSenderId: true, smsSenderIdStatus: true } });
+    const senderId = church?.smsSenderIdStatus === "approved" ? church.smsSenderId : null;
     const result = await sendOtp({
       phone: user.phone,
       purpose: "reset-password",
       userId: user.id,
+      senderId,
     });
     if (!result.ok || !result.verificationId) {
       redirect("/sign-in?reset=1&error=sms");
@@ -330,7 +334,7 @@ export async function signIn(formData: FormData) {
   const usingEmail = identifier.includes("@");
   const user = usingEmail
     ? await db.user.findUnique({ where: { email: identifier.toLowerCase() } })
-    : await db.user.findFirst({ where: { phone: normalisePhone(identifier) } });
+    : await db.user.findFirst({ where: { phone: { in: phoneVariants(identifier) } } });
 
   if (!user || !user.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
     redirect("/sign-in?error=invalid");
@@ -352,16 +356,26 @@ export async function sendLoginCode(formData: FormData) {
   const uid = await getLoginChallengeUserId();
   if (!uid) redirect("/sign-in?error=expired");
 
-  const user = await db.user.findUnique({ where: { id: uid }, select: { id: true, email: true, phone: true, phoneVerified: true } });
+  const user = await db.user.findUnique({
+    where: { id: uid },
+    select: {
+      id: true, email: true, phone: true, phoneVerified: true,
+      church: { select: { smsSenderId: true, smsSenderIdStatus: true } },
+    },
+  });
   if (!user) redirect("/sign-in?error=expired");
 
   if (channel === "sms" && !(user.phone && user.phoneVerified)) {
     redirect("/sign-in?login=choose&error=no-phone");
   }
 
+  // Send SMS under the church's APPROVED sender ID (the platform default may not
+  // be a registered Hubtel sender, so a code sent under it silently never lands).
+  const senderId = user.church?.smsSenderIdStatus === "approved" ? user.church.smsSenderId : null;
+
   const result = channel === "email"
     ? await sendOtp({ channel: "email", email: user.email, purpose: "login", userId: user.id })
-    : await sendOtp({ channel: "sms", phone: user.phone!, purpose: "login", userId: user.id });
+    : await sendOtp({ channel: "sms", phone: user.phone!, purpose: "login", userId: user.id, senderId });
 
   if (!result.ok || !result.verificationId) {
     redirect("/sign-in?login=choose&error=send");
@@ -406,12 +420,18 @@ export async function resendLoginOtp() {
   if (!existing || !existing.userId) redirect("/sign-in?error=expired");
 
   const viaEmail = existing.channel === "email";
+  let senderId: string | null = null;
+  if (!viaEmail) {
+    const u = await db.user.findUnique({ where: { id: existing.userId }, select: { church: { select: { smsSenderId: true, smsSenderIdStatus: true } } } });
+    senderId = u?.church?.smsSenderIdStatus === "approved" ? u.church.smsSenderId : null;
+  }
   const result = await sendOtp({
     channel: viaEmail ? "email" : "sms",
     email: viaEmail ? existing.phone : undefined,
     phone: viaEmail ? undefined : existing.phone,
     purpose: "login",
     userId: existing.userId,
+    senderId,
   });
   if (result.ok && result.verificationId) {
     store.set(LOGIN_2FA_VID, result.verificationId, {
