@@ -8,7 +8,8 @@ import { getFormDefinition } from "@/lib/forms/registration";
 
 export const metadata = { title: "People" };
 
-export default async function PeoplePage() {
+export default async function PeoplePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
+  const { q } = await searchParams;
   const session = await requireModule("people");
   const [allPeople, stats, departments, church, adults] = await Promise.all([
     getPeople(session.churchId),
@@ -55,6 +56,7 @@ export default async function PeoplePage() {
           departments={departments}
           formFields={formFields}
           adults={adults}
+          initialQuery={q ?? ""}
         />
       </div>
     </div>

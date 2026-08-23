@@ -50,12 +50,12 @@ type Dept = { id: string; name: string };
 type Adult = { id: string; firstName: string; lastName: string };
 
 export function PeopleClient({
-  people, stats, canWrite, departments, formFields, adults,
+  people, stats, canWrite, departments, formFields, adults, initialQuery = "",
 }: {
-  people: PersonRow[]; stats: AllStats; canWrite: boolean; departments: Dept[]; formFields: FormField[]; adults: Adult[];
+  people: PersonRow[]; stats: AllStats; canWrite: boolean; departments: Dept[]; formFields: FormField[]; adults: Adult[]; initialQuery?: string;
 }) {
   const [ageTab, setAgeTab] = useState<AgeTab>("adult");
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState(initialQuery);
   const [segment, setSegment] = useState<(typeof segments)[number]["key"]>("all");
   const [selected, setSelected] = useState<PersonRow | null>(null);
   const [editing, setEditing] = useState<PersonRow | null>(null);

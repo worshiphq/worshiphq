@@ -6,6 +6,7 @@ export type AppNotification = {
   text: string;
   time: string;
   type: "member" | "visitor" | "gift" | "attendance" | "prayer";
+  href: string;
 };
 
 async function _getRecentNotifications(churchId: string): Promise<AppNotification[]> {
@@ -53,6 +54,7 @@ async function _getRecentNotifications(churchId: string): Promise<AppNotificatio
       text: `${m.firstName} ${m.lastName} registered as a new member`,
       time: m.joinedAt.toISOString(),
       type: "member",
+      href: "/app/people",
     });
   }
 
@@ -62,6 +64,7 @@ async function _getRecentNotifications(churchId: string): Promise<AppNotificatio
       text: `${v.firstName} ${v.lastName} submitted a visitor form`,
       time: v.createdAt.toISOString(),
       type: "visitor",
+      href: "/app/visitors",
     });
   }
 
@@ -72,6 +75,7 @@ async function _getRecentNotifications(churchId: string): Promise<AppNotificatio
       text: `${amt} ${g.method ?? "gift"} received`,
       time: g.date.toISOString(),
       type: "gift",
+      href: "/app/giving",
     });
   }
 
@@ -82,6 +86,7 @@ async function _getRecentNotifications(churchId: string): Promise<AppNotificatio
       text: `${s.serviceName}: ${total} attendee${total !== 1 ? "s" : ""} recorded`,
       time: s.date.toISOString(),
       type: "attendance",
+      href: `/app/attendance/${s.id}`,
     });
   }
 
@@ -91,6 +96,7 @@ async function _getRecentNotifications(churchId: string): Promise<AppNotificatio
       text: `${p.isAnonymous ? "Anonymous" : p.name} submitted a prayer request`,
       time: p.createdAt.toISOString(),
       type: "prayer",
+      href: "/app/prayer-requests",
     });
   }
 
