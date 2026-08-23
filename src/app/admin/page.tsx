@@ -3,6 +3,7 @@ import { requireSuperAdmin } from "@/lib/auth";
 import { getAllChurches, getPlatformStats } from "@/lib/data/admin";
 import { AdminShell, AdminCard } from "@/components/admin/admin-shell";
 import { ChurchTable } from "@/components/admin/church-table";
+import { RunAutomationsButton } from "@/components/admin/run-automations-button";
 
 export default async function AdminOverviewPage() {
   const sa = await requireSuperAdmin();
@@ -31,6 +32,18 @@ export default async function AdminOverviewPage() {
           </AdminCard>
         ))}
       </div>
+
+      {/* Automations control */}
+      <AdminCard className="mb-6 p-5">
+        <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-200">
+          <Activity className="size-4 text-teal-400" /> Automations
+        </div>
+        <p className="mb-3 text-xs text-slate-400">
+          Scheduled sends (birthdays, roster & group reminders, pledge reminders) run on the daily cron.
+          Fire them all now to test or catch up.
+        </p>
+        <RunAutomationsButton />
+      </AdminCard>
 
       {/* Signup trend */}
       <AdminCard className="mb-8 p-5">

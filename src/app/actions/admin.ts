@@ -16,6 +16,18 @@ import { sendSms } from "@/lib/integrations/sms";
 import { addCredits } from "@/lib/sms/credits";
 import { isSmsTier } from "@/config/sms";
 
+/**
+ * Manually run all scheduled automations now (platform owner only). Useful to
+ * verify sends without waiting for the daily cron. Fires every timezone-gated
+ * task regardless of the hour (same as the daily batch).
+ */
+export async function runAutomationsNow() {
+  await requireSuperAdmin();
+  const { runDailyAutomations } = await import("@/lib/automations/dispatch");
+  const summary = await runDailyAutomations(new Date(), false);
+  return { ok: true as const, summary };
+}
+
 // ── Auth ──
 export async function superAdminSignIn(formData: FormData) {
   const email = String(formData.get("email") ?? "");
