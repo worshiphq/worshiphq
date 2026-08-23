@@ -52,19 +52,37 @@ export default async function RostersPage() {
       />
 
       <RostersClient
-        sheets={sheets.map((s) => ({
-          id: s.id,
-          service: s.name,
-          date: s.startDate.toISOString(),
-          assignments: s.slots.map((sl) => ({
-            id: sl.id,
-            role: sl.role,
-            personId: sl.personId,
-            personName: sl.personName ?? (sl.person ? `${sl.person.firstName} ${sl.person.lastName}` : null),
-            hasPhone: !!sl.person?.phone,
-            notified: !!sl.notifiedAt,
-          })),
-        }))}
+        sheets={sheets.map((s) => {
+          // Group this roster's slots by service + day.
+          const groups = new Map<string, {
+            service: string; date: string; time: string;
+            assignments: { id: string; role: string; personId: string | null; personName: string | null; hasPhone: boolean; notified: boolean }[];
+          }>();
+          for (const sl of s.slots) {
+            const dayKey = sl.date.toISOString().slice(0, 10);
+            const key = `${sl.service ?? ""}|${dayKey}`;
+            const hh = sl.date.getUTCHours();
+            const mm = sl.date.getUTCMinutes();
+            const time = hh === 0 && mm === 0 ? "" : `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
+            if (!groups.has(key)) groups.set(key, { service: sl.service ?? "Service", date: sl.date.toISOString(), time, assignments: [] });
+            groups.get(key)!.assignments.push({
+              id: sl.id,
+              role: sl.role,
+              personId: sl.personId,
+              personName: sl.personName ?? (sl.person ? `${sl.person.firstName} ${sl.person.lastName}` : null),
+              hasPhone: !!sl.person?.phone,
+              notified: !!sl.notifiedAt,
+            });
+          }
+          const services = [...groups.values()].sort((a, b) => a.date.localeCompare(b.date));
+          return {
+            id: s.id,
+            name: s.name,
+            announceLeadDays: s.announceLeadDays,
+            announceHour: s.announceHour,
+            services,
+          };
+        })}
         members={members.map((m) => ({ id: m.id, name: `${m.firstName} ${m.lastName}`.trim(), hasPhone: !!m.phone }))}
         roles={roles}
         smsBalance={smsBalance}

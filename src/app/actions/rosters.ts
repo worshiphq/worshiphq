@@ -74,57 +74,91 @@ export async function addSlot(formData: FormData) {
  * VolunteerRoster (name = service, startDate/endDate = the date) with a slot per
  * filled role. Creates a new sheet or replaces an existing one (sheetId).
  */
+type SheetService = {
+  service: string;
+  date: string;   // "YYYY-MM-DD"
+  time?: string;  // "HH:MM" (optional)
+  assignments: { role: string; personId?: string | null; personName?: string | null }[];
+};
+
+/** Save a roster sheet that can cover one OR several services (each with its own
+ *  date/time + assignments), plus an optional per-roster announcement schedule. */
 export async function saveServiceSheet(formData: FormData) {
   const session = await requireModule("volunteers");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
 
   const sheetId = String(formData.get("sheetId") ?? "").trim() || null;
-  const service = String(formData.get("service") ?? "").trim();
-  const dateStr = String(formData.get("date") ?? "").trim();
-  if (!service || !dateStr) return { ok: false as const, error: "Pick a date and a service." };
-  const date = new Date(dateStr);
+  const name = String(formData.get("name") ?? "").trim();
 
-  type Assign = { role: string; personId?: string | null; personName?: string | null };
-  let assignments: Assign[] = [];
-  try { assignments = JSON.parse(String(formData.get("assignments") ?? "[]")); } catch { /* ignore */ }
-  assignments = assignments.filter((a) => a.role && (a.personId || (a.personName && a.personName.trim())));
-  if (assignments.length === 0) return { ok: false as const, error: "Assign at least one person." };
+  const numOrNull = (v: FormDataEntryValue | null) => {
+    const s = String(v ?? "").trim();
+    if (s === "") return null;
+    const n = parseInt(s, 10);
+    return Number.isFinite(n) ? n : null;
+  };
+  const announceLeadDays = numOrNull(formData.get("announceLeadDays"));
+  const announceHour = numOrNull(formData.get("announceHour"));
 
-  // Resolve member names for any personIds in one query.
-  const ids = assignments.map((a) => a.personId).filter((x): x is string => !!x);
+  let services: SheetService[] = [];
+  try { services = JSON.parse(String(formData.get("services") ?? "[]")); } catch { /* ignore */ }
+  // Clean each service block.
+  services = (services ?? [])
+    .filter((s) => s && s.service?.trim() && s.date)
+    .map((s) => ({
+      service: s.service.trim(),
+      date: s.date,
+      time: s.time?.trim() || "",
+      assignments: (s.assignments ?? []).filter((a) => a.role && (a.personId || (a.personName && String(a.personName).trim()))),
+    }))
+    .filter((s) => s.assignments.length > 0);
+
+  if (services.length === 0) return { ok: false as const, error: "Add at least one service with a date and someone assigned." };
+
+  // Resolve member names for all personIds in one query.
+  const ids = services.flatMap((s) => s.assignments.map((a) => a.personId)).filter((x): x is string => !!x);
   const members = ids.length
     ? await db.person.findMany({ where: { id: { in: ids }, churchId: session.churchId }, select: { id: true, firstName: true, lastName: true } })
     : [];
   const nameById = new Map(members.map((m) => [m.id, `${m.firstName} ${m.lastName}`.trim()]));
+
+  const toDate = (d: string, t?: string) => new Date(`${d}T${t && /^\d{1,2}:\d{2}$/.test(t) ? t : "00:00"}:00`);
+  const dates = services.map((s) => toDate(s.date, s.time));
+  const startDate = new Date(Math.min(...dates.map((d) => d.getTime())));
+  const endDate = new Date(Math.max(...dates.map((d) => d.getTime())));
+  const rosterName = name || (services.length === 1 ? services[0].service : `${services.length} services`);
 
   // Get or create the sheet container.
   let rosterId = sheetId;
   if (rosterId) {
     const owned = await db.volunteerRoster.findFirst({ where: { id: rosterId, churchId: session.churchId }, select: { id: true } });
     if (!owned) return { ok: false as const, error: "Sheet not found." };
-    await db.volunteerRoster.update({ where: { id: rosterId }, data: { name: service, startDate: date, endDate: date } });
+    await db.volunteerRoster.update({
+      where: { id: rosterId },
+      data: { name: rosterName, startDate, endDate, announceLeadDays, announceHour, announcedAt: null },
+    });
     await db.volunteerSlot.deleteMany({ where: { rosterId, churchId: session.churchId } });
   } else {
     const roster = await db.volunteerRoster.create({
-      data: { churchId: session.churchId, name: service, startDate: date, endDate: date },
+      data: { churchId: session.churchId, name: rosterName, startDate, endDate, announceLeadDays, announceHour },
       select: { id: true },
     });
     rosterId = roster.id;
   }
 
-  await db.volunteerSlot.createMany({
-    data: assignments.map((a) => ({
+  const slots = services.flatMap((s) =>
+    s.assignments.map((a) => ({
       churchId: session.churchId,
       rosterId: rosterId!,
       role: a.role,
-      service,
-      date,
+      service: s.service,
+      date: toDate(s.date, s.time),
       personId: a.personId || null,
-      personName: a.personId ? (nameById.get(a.personId) ?? null) : (a.personName?.trim() || null),
+      personName: a.personId ? (nameById.get(a.personId) ?? null) : (String(a.personName ?? "").trim() || null),
     })),
-  });
+  );
+  await db.volunteerSlot.createMany({ data: slots });
 
-  await logAudit({ churchId: session.churchId, userId: session.userId, action: sheetId ? "update" : "create", entity: "roster", entityId: rosterId, detail: `${sheetId ? "Updated" : "Created"} ${service} sheet (${assignments.length} role(s))` });
+  await logAudit({ churchId: session.churchId, userId: session.userId, action: sheetId ? "update" : "create", entity: "roster", entityId: rosterId, detail: `${sheetId ? "Updated" : "Created"} roster "${rosterName}" (${services.length} service(s), ${slots.length} slot(s))` });
   revalidatePath("/app/rosters");
   return { ok: true as const };
 }
@@ -224,13 +258,14 @@ async function buildAnnouncement(churchId: string, rosterId: string) {
   ]);
   if (!roster) return { text: "", phones: [] as string[], service: "", date: new Date() };
 
-  const lines = roster.slots.map((s) => `${s.role}: ${s.personName ?? "-"}`);
+  const { buildRosterBody } = await import("@/lib/rosters/message");
+  const body = buildRosterBody(roster.slots);
   const { templateFor, renderTemplate } = await import("@/lib/messages/registry");
   const text = renderTemplate(templateFor(church?.messageTemplates, "roster_announcement"), {
     church: church?.name ?? "your church",
     service: roster.name,
     date: fmtServiceDate(roster.startDate),
-    list: lines.join("\n"),
+    list: body,
   });
 
   // Recipients: a group's members, or the whole active church.
@@ -257,8 +292,19 @@ export async function previewRosterAnnounce(rosterId: string) {
     buildAnnouncement(session.churchId, rosterId),
     getSmsBalance(session.churchId),
   ]);
-  const cost = segmentsFor(text) * phones.length;
-  return { ok: true as const, recipients: phones.length, cost, balance, remaining: balance - cost, enough: balance >= cost };
+  const segments = segmentsFor(text);
+  const cost = segments * phones.length;
+  return {
+    ok: true as const,
+    recipients: phones.length,
+    chars: text.length,
+    segments,
+    cost,
+    balance,
+    remaining: balance - cost,
+    enough: balance >= cost,
+    preview: text,
+  };
 }
 
 /** Send the sheet announcement to the group now (manual). */

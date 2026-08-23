@@ -25,14 +25,16 @@ type Remind = { on: boolean; leadDays: number; hour: number };
 function hourLabel(h: number) { const a = h < 12 ? "am" : "pm"; const hr = h % 12 === 0 ? 12 : h % 12; return `${hr}:00 ${a}`; }
 
 type Assignment = { id: string; role: string; personId: string | null; personName: string | null; hasPhone: boolean; notified: boolean };
-type Sheet = { id: string; service: string; date: string; assignments: Assignment[] };
+type ServiceBlock = { service: string; date: string; time: string; assignments: Assignment[] };
+type Sheet = { id: string; name: string; announceLeadDays: number | null; announceHour: number | null; services: ServiceBlock[] };
 type Member = { id: string; name: string; hasPhone: boolean };
 type Role = { id: string; name: string };
 
 const SERVICE_PRESETS = ["Sunday Service", "Wednesday Service", "Friday Service", "Prayer Meeting"];
 
-const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
-const fmtShort = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric", timeZone: "UTC" });
+const fmtShort = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
+const fmtTime = (t: string) => { const m = /^(\d{1,2}):(\d{2})$/.exec(t); if (!m) return ""; let h = +m[1]; const ap = h < 12 ? "am" : "pm"; h = h % 12 === 0 ? 12 : h % 12; return `${h}:${m[2]} ${ap}`; };
 
 export function RostersClient({ sheets, members, roles, smsBalance, messageTemplates, groups, announce, remind, canWrite }: {
   sheets: Sheet[]; members: Member[]; roles: Role[]; smsBalance: number; messageTemplates: Record<string, string>;
@@ -93,12 +95,20 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
   const [notify, setNotify] = useState(false);
   const [announce, setAnnounce] = useState(false);
 
-  const withPhone = sheet.assignments.filter((a) => a.personId && a.hasPhone).length;
+  const allAssignments = sheet.services.flatMap((s) => s.assignments);
+  const withPhone = allAssignments.filter((a) => a.personId && a.hasPhone).length;
+  const dateRange = sheet.services.length
+    ? sheet.services.length === 1
+      ? fmtDate(sheet.services[0].date)
+      : `${fmtShort(sheet.services[0].date)} – ${fmtShort(sheet.services[sheet.services.length - 1].date)} · ${sheet.services.length} services`
+    : "";
 
   const shareText = useMemo(() => {
-    const lines = [`${sheet.service.toUpperCase()} — ${fmtShort(sheet.date)}`, ""];
-    for (const a of sheet.assignments) lines.push(`${a.role}: ${a.personName ?? "—"}`);
-    return lines.join("\n").trim();
+    const blocks = sheet.services.map((s) => {
+      const head = `${s.service.toUpperCase()} — ${fmtShort(s.date)}${s.time ? ` ${fmtTime(s.time)}` : ""}`;
+      return [head, ...s.assignments.map((a) => `${a.role}: ${a.personName ?? "—"}`)].join("\n");
+    });
+    return blocks.join("\n\n").trim();
   }, [sheet]);
 
   const copy = async () => {
@@ -107,17 +117,22 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
   };
 
   const remove = () => {
-    if (!confirm(`Delete the ${sheet.service} sheet for ${fmtShort(sheet.date)}?`)) return;
+    if (!confirm(`Delete the roster "${sheet.name}"?`)) return;
     const fd = new FormData(); fd.set("id", sheet.id);
-    start(async () => { await deleteRoster(fd); toast("Sheet deleted", "success"); router.refresh(); });
+    start(async () => { await deleteRoster(fd); toast("Roster deleted", "success"); router.refresh(); });
   };
+
+  const overrideNote = sheet.announceLeadDays != null || sheet.announceHour != null
+    ? `Own send time${sheet.announceHour != null ? ` · ${hourLabel(sheet.announceHour)}` : ""}${sheet.announceLeadDays != null ? ` · ${sheet.announceLeadDays === 0 ? "same day" : `${sheet.announceLeadDays}d before`}` : ""}`
+    : null;
 
   return (
     <Card className="flex flex-col p-0">
       <div className="flex items-start justify-between gap-3 border-b border-line p-4">
         <div>
-          <h3 className="font-display text-lg font-semibold">{sheet.service}</h3>
-          <p className="text-xs text-ink-muted">{fmtDate(sheet.date)}</p>
+          <h3 className="font-display text-lg font-semibold">{sheet.name}</h3>
+          <p className="text-xs text-ink-muted">{dateRange}</p>
+          {overrideNote && <p className="mt-0.5 text-[11px] text-primary-bright">{overrideNote}</p>}
         </div>
         {canWrite && (
           <button onClick={onEdit} title="Edit" className="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-primary/10 hover:text-primary">
@@ -126,16 +141,25 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
         )}
       </div>
 
-      <div className="flex-1 space-y-1 p-4">
-        {sheet.assignments.length === 0 ? (
-          <p className="text-sm text-ink-faint">No roles filled.</p>
-        ) : sheet.assignments.map((a) => (
-          <div key={a.id} className="flex items-center gap-2 text-sm">
-            <span className="min-w-40 text-ink-muted">{a.role}:</span>
-            <span className="flex-1 font-medium">{a.personName ?? "—"}</span>
-            {a.personId && (a.hasPhone
-              ? <Phone className={cn("size-3", a.notified ? "text-success" : "text-ink-faint")} />
-              : <PhoneOff className="size-3 text-ink-faint" />)}
+      <div className="flex-1 space-y-3 p-4">
+        {sheet.services.length === 0 ? (
+          <p className="text-sm text-ink-faint">No services yet.</p>
+        ) : sheet.services.map((svc, i) => (
+          <div key={i}>
+            <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">
+              {svc.service} · {fmtShort(svc.date)}{svc.time ? ` ${fmtTime(svc.time)}` : ""}
+            </div>
+            <div className="space-y-1">
+              {svc.assignments.map((a) => (
+                <div key={a.id} className="flex items-center gap-2 text-sm">
+                  <span className="min-w-32 text-ink-muted">{a.role}:</span>
+                  <span className="flex-1 font-medium">{a.personName ?? "—"}</span>
+                  {a.personId && (a.hasPhone
+                    ? <Phone className={cn("size-3", a.notified ? "text-success" : "text-ink-faint")} />
+                    : <PhoneOff className="size-3 text-ink-faint" />)}
+                </div>
+              ))}
+            </div>
           </div>
         ))}
       </div>
@@ -152,14 +176,14 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
         )}
         <div className="flex-1" />
         {canWrite && (
-          <button onClick={remove} disabled={pending} title="Delete sheet" className="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
+          <button onClick={remove} disabled={pending} title="Delete roster" className="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
             <Trash2 className="size-4" />
           </button>
         )}
       </div>
 
-      {notify && <NotifyDialog sheetId={sheet.id} label={`${sheet.service} · ${fmtShort(sheet.date)}`} smsBalance={smsBalance} onClose={() => setNotify(false)} />}
-      {announce && <AnnounceDialog sheetId={sheet.id} label={`${sheet.service} · ${fmtShort(sheet.date)}`} onClose={() => setAnnounce(false)} />}
+      {notify && <NotifyDialog sheetId={sheet.id} label={sheet.name} smsBalance={smsBalance} onClose={() => setNotify(false)} />}
+      {announce && <AnnounceDialog sheetId={sheet.id} label={sheet.name} onClose={() => setAnnounce(false)} />}
     </Card>
   );
 }
@@ -167,7 +191,7 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
 /** Manual "announce this sheet to the group" — cost preview then send. */
 function AnnounceDialog({ sheetId, label, onClose }: { sheetId: string; label: string; onClose: () => void }) {
   const router = useRouter();
-  const [preview, setPreview] = useState<{ recipients: number; cost: number; balance: number; remaining: number; enough: boolean } | null>(null);
+  const [preview, setPreview] = useState<{ recipients: number; cost: number; balance: number; remaining: number; enough: boolean; chars?: number; segments?: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [result, setResult] = useState<{ ok: boolean; message: string } | null>(null);
@@ -203,6 +227,9 @@ function AnnounceDialog({ sheetId, label, onClose }: { sheetId: string; label: s
           ) : preview && preview.recipients > 0 ? (
             <div className="space-y-2.5 text-sm">
               <Row label="Recipients" value={`${preview.recipients}`} />
+              {preview.chars != null && preview.segments != null && (
+                <Row label="Message" value={`${preview.chars} chars · ${preview.segments} SMS each`} />
+              )}
               <Row label="Current balance" value={`${preview.balance.toLocaleString()} credits`} icon={<Wallet className="size-3.5" />} />
               <Row label="This costs" value={`− ${preview.cost.toLocaleString()} credits`} strong />
               <div className="border-t border-line-soft" />
@@ -351,93 +378,168 @@ function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announc
   );
 }
 
+type DialogRow = { role: string; personId: string; typed: string };
+type DialogService = { service: string; date: string; time: string; rows: DialogRow[] };
+
 function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; members: Member[]; roles: Role[]; onClose: () => void }) {
   const router = useRouter();
   const { toast } = useFeedback();
   const [pending, start] = useTransition();
-  const [date, setDate] = useState(sheet ? sheet.date.slice(0, 10) : "");
-  const [service, setService] = useState(sheet?.service ?? "Sunday Service");
 
-  // One editable line per role. Prefill from the sheet's assignments by role.
-  const initial = useMemo(() => {
-    const byRole = new Map(sheet?.assignments.map((a) => [a.role, a]) ?? []);
-    // Include every church role, plus any extra roles already on the sheet.
+  const memberName = useMemo(() => new Map(members.map((m) => [m.id, m.name])), [members]);
+
+  const makeRows = useMemo(() => (assignments: Assignment[]): DialogRow[] => {
+    const byRole = new Map(assignments.map((a) => [a.role, a]));
     const names = [...roles.map((r) => r.name)];
-    for (const a of sheet?.assignments ?? []) if (!names.includes(a.role)) names.push(a.role);
+    for (const a of assignments) if (!names.includes(a.role)) names.push(a.role);
     return names.map((role) => {
       const a = byRole.get(role);
       return { role, personId: a?.personId ?? "", typed: a?.personId ? "" : (a?.personName ?? "") };
     });
-  }, [sheet, roles]);
-  const [rows, setRows] = useState(initial);
+  }, [roles]);
 
-  const setRow = (i: number, patch: Partial<{ personId: string; typed: string }>) =>
-    setRows((prev) => prev.map((r, idx) => idx === i ? { ...r, ...patch } : r));
+  const [name, setName] = useState(sheet?.name ?? "");
+  const [leadDays, setLeadDays] = useState(sheet?.announceLeadDays != null ? String(sheet.announceLeadDays) : "");
+  const [hour, setHour] = useState(sheet?.announceHour != null ? String(sheet.announceHour) : "");
+  const [services, setServices] = useState<DialogService[]>(
+    sheet?.services?.length
+      ? sheet.services.map((s) => ({ service: s.service, date: s.date.slice(0, 10), time: s.time, rows: makeRows(s.assignments) }))
+      : [{ service: "Sunday Service", date: "", time: "", rows: makeRows([]) }],
+  );
+
+  const setSvc = (i: number, patch: Partial<DialogService>) => setServices((p) => p.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
+  const setRow = (si: number, ri: number, patch: Partial<DialogRow>) =>
+    setServices((p) => p.map((s, idx) => (idx === si ? { ...s, rows: s.rows.map((r, j) => (j === ri ? { ...r, ...patch } : r)) } : s)));
+  const addService = () => setServices((p) => [...p, { service: "", date: "", time: "", rows: makeRows([]) }]);
+  const removeService = (i: number) => setServices((p) => p.filter((_, idx) => idx !== i));
 
   const inputCls = "h-9 rounded-lg border border-line bg-surface px-2.5 text-sm outline-none focus:border-primary/50";
 
+  // Live message-size estimate (the exact credit cost is shown at Announce time).
+  const nameOf = (r: DialogRow) => (r.personId ? memberName.get(r.personId) ?? "" : r.typed.trim());
+  const bodyText = services
+    .map((s) => {
+      const head = `${s.service || "Service"} — ${s.date}${s.time ? ` ${s.time}` : ""}`;
+      const lines = s.rows.filter((r) => r.personId || r.typed.trim()).map((r) => `${r.role}: ${nameOf(r) || "-"}`);
+      return [head, ...lines].join("\n");
+    })
+    .join("\n\n");
+  const chars = bodyText.length;
+  const segments = Math.max(1, Math.ceil(chars / 160));
+
   const submit = () => {
-    if (!date) return toast("Pick a date", "error");
-    if (!service.trim()) return toast("Enter a service", "error");
-    const assignments = rows
-      .filter((r) => r.personId || r.typed.trim())
-      .map((r) => ({ role: r.role, personId: r.personId || null, personName: r.personId ? null : r.typed.trim() }));
-    if (assignments.length === 0) return toast("Assign at least one person", "error");
+    const payload = services
+      .map((s) => ({
+        service: s.service.trim(),
+        date: s.date,
+        time: s.time,
+        assignments: s.rows
+          .filter((r) => r.personId || r.typed.trim())
+          .map((r) => ({ role: r.role, personId: r.personId || null, personName: r.personId ? null : r.typed.trim() })),
+      }))
+      .filter((s) => s.service && s.date && s.assignments.length > 0);
+    if (payload.length === 0) return toast("Add at least one service with a date and someone assigned", "error");
+
     const fd = new FormData();
     if (sheet) fd.set("sheetId", sheet.id);
-    fd.set("date", date); fd.set("service", service.trim());
-    fd.set("assignments", JSON.stringify(assignments));
+    fd.set("name", name.trim());
+    fd.set("services", JSON.stringify(payload));
+    fd.set("announceLeadDays", leadDays);
+    fd.set("announceHour", hour);
     start(async () => {
       const res = await saveServiceSheet(fd);
-      if (res?.ok) { toast(sheet ? "Sheet updated" : "Sheet created", "success"); router.refresh(); onClose(); }
+      if (res?.ok) { toast(sheet ? "Roster updated" : "Roster created", "success"); router.refresh(); onClose(); }
       else toast(res?.error ?? "Failed", "error");
     });
   };
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
-      <Card className="max-h-[88vh] w-full max-w-lg overflow-y-auto p-0" onClick={(e) => e.stopPropagation()}>
-        <div className="sticky top-0 flex items-center justify-between border-b border-line bg-surface p-5">
-          <h3 className="font-display text-lg font-semibold">{sheet ? "Edit service sheet" : "New service sheet"}</h3>
+      <Card className="max-h-[90vh] w-full max-w-lg overflow-y-auto p-0" onClick={(e) => e.stopPropagation()}>
+        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface p-5">
+          <h3 className="font-display text-lg font-semibold">{sheet ? "Edit roster" : "New roster"}</h3>
           <button onClick={onClose} className="rounded-lg p-1 text-ink-faint hover:bg-surface-2"><X className="size-4" /></button>
         </div>
 
+        <datalist id="svc-presets">{SERVICE_PRESETS.map((s) => <option key={s} value={s} />)}</datalist>
+
         <div className="space-y-4 p-5">
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div>
-              <label className="mb-1 block text-xs text-ink-faint">Date</label>
-              <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className={cn(inputCls, "w-full")} />
-            </div>
-            <div>
-              <label className="mb-1 block text-xs text-ink-faint">Service</label>
-              <input list="svc-presets" value={service} onChange={(e) => setService(e.target.value)} className={cn(inputCls, "w-full")} />
-              <datalist id="svc-presets">{SERVICE_PRESETS.map((s) => <option key={s} value={s} />)}</datalist>
-            </div>
+          <div>
+            <label className="mb-1 block text-xs text-ink-faint">Roster name (shown as the message heading)</label>
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Pulpit Workers — this week" className={cn(inputCls, "w-full")} />
           </div>
 
-          <div className="space-y-2">
-            <div className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Who serves</div>
-            {rows.map((r, i) => (
-              <div key={r.role} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] items-center gap-2">
-                <span className="min-w-0 break-words text-sm text-ink-muted">{r.role}</span>
-                <div className="flex min-w-0 items-center gap-1">
-                  <select value={r.personId} onChange={(e) => setRow(i, { personId: e.target.value, typed: e.target.value ? "" : r.typed })} className={cn(inputCls, "min-w-0 flex-1")}>
-                    <option value="">— Member —</option>
-                    {members.map((m) => <option key={m.id} value={m.id}>{m.name}{m.hasPhone ? "" : " (no phone)"}</option>)}
-                  </select>
-                  <input value={r.typed} onChange={(e) => setRow(i, { typed: e.target.value, personId: e.target.value ? "" : r.personId })}
-                    placeholder="or type" className={cn(inputCls, "w-20 shrink-0")} />
+          {services.map((svc, si) => (
+            <div key={si} className="rounded-xl border border-line p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Service {services.length > 1 ? si + 1 : ""}</span>
+                {services.length > 1 && (
+                  <button onClick={() => removeService(si)} className="text-xs text-danger hover:underline">Remove</button>
+                )}
+              </div>
+              <div className="grid gap-2 sm:grid-cols-3">
+                <div className="sm:col-span-1">
+                  <label className="mb-1 block text-xs text-ink-faint">Service</label>
+                  <input list="svc-presets" value={svc.service} onChange={(e) => setSvc(si, { service: e.target.value })} className={cn(inputCls, "w-full")} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-ink-faint">Date</label>
+                  <input type="date" value={svc.date} onChange={(e) => setSvc(si, { date: e.target.value })} className={cn(inputCls, "w-full")} />
+                </div>
+                <div>
+                  <label className="mb-1 block text-xs text-ink-faint">Time</label>
+                  <input type="time" value={svc.time} onChange={(e) => setSvc(si, { time: e.target.value })} className={cn(inputCls, "w-full")} />
                 </div>
               </div>
-            ))}
-            {rows.length === 0 && <p className="text-xs text-ink-faint">No roles yet — add some via “Manage roles”.</p>}
+
+              <div className="mt-3 space-y-1.5">
+                {svc.rows.map((r, ri) => (
+                  <div key={r.role} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] items-center gap-2">
+                    <span className="min-w-0 break-words text-sm text-ink-muted">{r.role}</span>
+                    <div className="flex min-w-0 items-center gap-1">
+                      <select value={r.personId} onChange={(e) => setRow(si, ri, { personId: e.target.value, typed: e.target.value ? "" : r.typed })} className={cn(inputCls, "min-w-0 flex-1")}>
+                        <option value="">— Member —</option>
+                        {members.map((m) => <option key={m.id} value={m.id}>{m.name}{m.hasPhone ? "" : " (no phone)"}</option>)}
+                      </select>
+                      <input value={r.typed} onChange={(e) => setRow(si, ri, { typed: e.target.value, personId: e.target.value ? "" : r.personId })}
+                        placeholder="or type" className={cn(inputCls, "w-20 shrink-0")} />
+                    </div>
+                  </div>
+                ))}
+                {svc.rows.length === 0 && <p className="text-xs text-ink-faint">No roles yet — add some via “Manage roles”.</p>}
+              </div>
+            </div>
+          ))}
+
+          <button onClick={addService} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-line py-2.5 text-sm font-medium text-ink-muted hover:border-primary/40 hover:text-primary">
+            <Plus className="size-4" /> Add another service
+          </button>
+
+          {/* Per-roster send time (falls back to the general Announcement settings) */}
+          <div className="rounded-xl border border-line p-3">
+            <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint"><Clock className="size-3.5" /> Auto-announce time for this roster</div>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <span className="text-ink-muted">Send</span>
+              <select value={leadDays} onChange={(e) => setLeadDays(e.target.value)} className={inputCls}>
+                <option value="">use general</option>
+                {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{d === 0 ? "same day" : `${d} day${d === 1 ? "" : "s"} before`}</option>)}
+              </select>
+              <span className="text-ink-muted">at</span>
+              <select value={hour} onChange={(e) => setHour(e.target.value)} className={inputCls}>
+                <option value="">use general</option>
+                {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
+              </select>
+            </div>
+            <p className="mt-1.5 text-[11px] text-ink-faint">Leave on “use general” to follow the church-wide Announcement schedule.</p>
           </div>
+
+          <p className="text-[11px] text-ink-faint">Message size: ≈ {chars} characters · {segments} SMS per recipient. Exact credits are shown when you tap Announce.</p>
         </div>
 
         <div className="sticky bottom-0 flex items-center justify-end gap-2 border-t border-line bg-surface p-4">
           <Button variant="ghost" size="sm" onClick={onClose}>Cancel</Button>
           <Button size="sm" onClick={submit} disabled={pending}>
-            {pending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} {sheet ? "Save changes" : "Create sheet"}
+            {pending ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} {sheet ? "Save changes" : "Create roster"}
           </Button>
         </div>
       </Card>

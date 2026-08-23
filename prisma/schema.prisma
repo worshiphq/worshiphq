@@ -1356,6 +1356,9 @@ model VolunteerRoster {
   endDate   DateTime
   notes     String?  @db.Text
   announcedAt DateTime? // when the group announcement went out (avoids duplicates)
+  // Per-roster announcement timing — overrides the church-wide default when set.
+  announceLeadDays Int? // days before the first service to auto-announce
+  announceHour     Int? // local hour to auto-announce
   slots     VolunteerSlot[]
   createdAt DateTime @default(now())
 
