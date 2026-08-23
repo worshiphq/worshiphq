@@ -17,16 +17,18 @@ export async function runRosterAnnouncements(now = new Date(), ignoreHour = fals
     where: { isDemo: false, rosterAnnounceOn: true },
     select: {
       id: true, name: true, timezone: true, messageTemplates: true,
-      rosterAnnounceHour: true, rosterAnnounceLeadDays: true,
+      rosterAnnounceHour: true, rosterAnnounceLeadDays: true, rosterAnnounceWeekday: true,
       rosterAnnounceAudience: true, rosterAnnounceGroupId: true,
     },
   });
 
   let sent = 0;
   for (const church of churches) {
-    const { hour } = localParts(now, church.timezone);
+    const { hour, weekday: todayWeekday } = localParts(now, church.timezone);
+    const todayYmd = ymdInTz(now, church.timezone);
+    const plus7Ymd = ymdInTz(now, church.timezone, 7);
 
-    // Wide window; each sheet's own lead-days decides whether today is the day.
+    // Wide window; each sheet's own schedule decides whether today is the day.
     const from = new Date(now.getTime() - 2 * 86400000);
     const to = new Date(now.getTime() + 33 * 86400000);
     const sheets = await db.volunteerRoster.findMany({
@@ -52,11 +54,24 @@ export async function runRosterAnnouncements(now = new Date(), ignoreHour = fals
     const tpl = templateFor(church.messageTemplates, "roster_announcement");
     for (const sheet of sheets) {
       if (sheet.slots.length === 0) continue;
-      const lead = sheet.announceLeadDays ?? church.rosterAnnounceLeadDays;
-      const sendHour = sheet.announceHour ?? church.rosterAnnounceHour;
+
+      // A roster that sets ANY timing field fully overrides the church schedule;
+      // otherwise it inherits the church's mode + values.
+      const override = sheet.announceHour != null || sheet.announceWeekday != null || sheet.announceLeadDays != null;
+      const sendHour = override ? (sheet.announceHour ?? church.rosterAnnounceHour) : church.rosterAnnounceHour;
+      const weekday = override ? sheet.announceWeekday : church.rosterAnnounceWeekday;
+      const lead = override ? (sheet.announceLeadDays ?? 0) : church.rosterAnnounceLeadDays;
       if (!ignoreHour && hour !== sendHour) continue;
-      // Announce `lead` days before the first service.
-      if (ymdInTz(sheet.startDate, church.timezone) !== ymdInTz(now, church.timezone, lead)) continue;
+
+      const startYmd = ymdInTz(sheet.startDate, church.timezone);
+      if (weekday != null) {
+        // Absolute: send on the chosen weekday, for services within the next 7 days.
+        if (todayWeekday !== weekday) continue;
+        if (!(startYmd >= todayYmd && startYmd <= plus7Ymd)) continue;
+      } else {
+        // Relative: send `leadDays` before the first service.
+        if (startYmd !== ymdInTz(now, church.timezone, lead)) continue;
+      }
 
       const text = renderTemplate(tpl, {
         church: church.name, service: sheet.name, date: fmtServiceDate(sheet.startDate), list: buildRosterBody(sheet.slots),

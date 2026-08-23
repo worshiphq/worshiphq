@@ -16,17 +16,58 @@ import {
 } from "@/app/actions/rosters";
 import { SystemMessagesDialog } from "@/components/app/system-messages-dialog";
 import { MessageSquare, Megaphone, Users, Clock, Bell } from "lucide-react";
+import { WEEKDAY_OPTIONS } from "@/lib/automations/weekdays";
 import { cn } from "@/lib/utils";
 
+/** Shared "Days before / On a day" schedule picker used by the roster settings. */
+function ScheduleControl({ verb, mode, setMode, leadDays, setLeadDays, weekday, setWeekday, hour, setHour }: {
+  verb: string;
+  mode: "relative" | "weekday"; setMode: (m: "relative" | "weekday") => void;
+  leadDays: number; setLeadDays: (n: number) => void;
+  weekday: number; setWeekday: (n: number) => void;
+  hour: number; setHour: (n: number) => void;
+}) {
+  const sel = "h-9 rounded-lg border border-line bg-surface px-2.5 text-sm";
+  return (
+    <div className="space-y-2">
+      <div className="flex w-fit gap-1 rounded-lg border border-line bg-surface-2 p-0.5 text-sm">
+        {(["relative", "weekday"] as const).map((m) => (
+          <button key={m} type="button" onClick={() => setMode(m)}
+            className={cn("rounded-md px-2.5 py-1 font-medium", mode === m ? "bg-primary text-white" : "text-ink-muted")}>
+            {m === "relative" ? "Days before" : "On a day"}
+          </button>
+        ))}
+      </div>
+      <div className="flex flex-wrap items-center gap-2">
+        <Clock className="size-4 text-primary" />
+        <span className="text-sm">{verb}</span>
+        {mode === "relative" ? (
+          <select value={leadDays} onChange={(e) => setLeadDays(Number(e.target.value))} className={sel}>
+            {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{d === 0 ? "same day" : `${d} day${d === 1 ? "" : "s"} before`}</option>)}
+          </select>
+        ) : (
+          <select value={weekday} onChange={(e) => setWeekday(Number(e.target.value))} className={sel}>
+            {WEEKDAY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}s</option>)}
+          </select>
+        )}
+        <span className="text-sm">at</span>
+        <select value={hour} onChange={(e) => setHour(Number(e.target.value))} className={sel}>
+          {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
+        </select>
+      </div>
+    </div>
+  );
+}
+
 type Group = { id: string; name: string; memberCount: number };
-type Announce = { on: boolean; audience: string; groupId: string | null; leadDays: number; hour: number; timezone: string };
-type Remind = { on: boolean; leadDays: number; hour: number };
+type Announce = { on: boolean; audience: string; groupId: string | null; leadDays: number; hour: number; weekday: number | null; timezone: string };
+type Remind = { on: boolean; leadDays: number; hour: number; weekday: number | null };
 
 function hourLabel(h: number) { const a = h < 12 ? "am" : "pm"; const hr = h % 12 === 0 ? 12 : h % 12; return `${hr}:00 ${a}`; }
 
 type Assignment = { id: string; role: string; personId: string | null; personName: string | null; hasPhone: boolean; notified: boolean };
 type ServiceBlock = { service: string; date: string; time: string; assignments: Assignment[] };
-type Sheet = { id: string; name: string; announceLeadDays: number | null; announceHour: number | null; services: ServiceBlock[] };
+type Sheet = { id: string; name: string; announceLeadDays: number | null; announceHour: number | null; announceWeekday: number | null; services: ServiceBlock[] };
 type Member = { id: string; name: string; hasPhone: boolean };
 type Role = { id: string; name: string };
 
@@ -269,10 +310,14 @@ function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announc
   const [groupId, setGroupId] = useState(announce.groupId ?? "");
   const [leadDays, setLeadDays] = useState(announce.leadDays);
   const [hour, setHour] = useState(announce.hour);
+  const [mode, setMode] = useState<"relative" | "weekday">(announce.weekday != null ? "weekday" : "relative");
+  const [weekday, setWeekday] = useState(announce.weekday ?? 1);
   // Personal reminder settings
   const [remOn, setRemOn] = useState(remind.on);
   const [remLead, setRemLead] = useState(remind.leadDays);
   const [remHour, setRemHour] = useState(remind.hour);
+  const [remMode, setRemMode] = useState<"relative" | "weekday">(remind.weekday != null ? "weekday" : "relative");
+  const [remWeekday, setRemWeekday] = useState(remind.weekday ?? 1);
 
   const save = () => {
     const fd = new FormData();
@@ -281,10 +326,12 @@ function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announc
     fd.set("groupId", groupId);
     fd.set("leadDays", String(leadDays));
     fd.set("hour", String(hour));
+    fd.set("weekday", mode === "weekday" ? String(weekday) : "");
     const rfd = new FormData();
     if (remOn) rfd.set("on", "on");
     rfd.set("leadDays", String(remLead));
     rfd.set("hour", String(remHour));
+    rfd.set("weekday", remMode === "weekday" ? String(remWeekday) : "");
     start(async () => {
       const [a, r] = await Promise.all([saveRosterAnnounceSettings(fd), saveRosterReminderSettings(rfd)]);
       if (a?.ok && r?.ok) { toast("Roster message settings saved", "success"); router.refresh(); onClose(); }
@@ -327,21 +374,7 @@ function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announc
             )}
           </div>
 
-          <div className="flex flex-wrap items-center gap-3">
-            <div className="flex items-center gap-2">
-              <Clock className="size-4 text-primary" />
-              <span className="text-sm">Send</span>
-              <select value={leadDays} onChange={(e) => setLeadDays(Number(e.target.value))} className={sel}>
-                {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{d === 0 ? "same day" : `${d} day${d === 1 ? "" : "s"} before`}</option>)}
-              </select>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm">at</span>
-              <select value={hour} onChange={(e) => setHour(Number(e.target.value))} className={sel}>
-                {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
-              </select>
-            </div>
-          </div>
+          <ScheduleControl verb="Send" mode={mode} setMode={setMode} leadDays={leadDays} setLeadDays={setLeadDays} weekday={weekday} setWeekday={setWeekday} hour={hour} setHour={setHour} />
           <p className="text-xs text-ink-muted">Timezone: {announce.timezone} (set on the Birthdays page). You can also hit “Announce” on any sheet to send it now.</p>
 
           {/* Personal reminders */}
@@ -351,22 +384,10 @@ function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announc
               <span className="text-sm font-medium">Text each rostered member their own duty before the service</span>
               <input type="checkbox" checked={remOn} onChange={(e) => setRemOn(e.target.checked)} className="size-4 accent-primary" />
             </label>
-            <div className="mt-3 flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2">
-                <Clock className="size-4 text-primary" />
-                <span className="text-sm">Remind</span>
-                <select value={remLead} onChange={(e) => setRemLead(Number(e.target.value))} className={sel}>
-                  {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{d === 0 ? "same day" : `${d} day${d === 1 ? "" : "s"} before`}</option>)}
-                </select>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm">at</span>
-                <select value={remHour} onChange={(e) => setRemHour(Number(e.target.value))} className={sel}>
-                  {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
-                </select>
-              </div>
+            <div className="mt-3">
+              <ScheduleControl verb="Remind" mode={remMode} setMode={setRemMode} leadDays={remLead} setLeadDays={setRemLead} weekday={remWeekday} setWeekday={setRemWeekday} hour={remHour} setHour={setRemHour} />
             </div>
-            <p className="mt-2 text-xs text-ink-muted">Goes only to the people assigned on that day — e.g. “your duty tomorrow: Praise &amp; Worship”. Edit the wording under “Messages”.</p>
+            <p className="mt-2 text-xs text-ink-muted">On “Days before” it goes to the people serving that day; on “On a day” it lists everyone’s duties for the coming week. Edit the wording under “Messages”.</p>
           </div>
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-line p-4">
@@ -399,8 +420,12 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
   }, [roles]);
 
   const [name, setName] = useState(sheet?.name ?? "");
-  const [leadDays, setLeadDays] = useState(sheet?.announceLeadDays != null ? String(sheet.announceLeadDays) : "");
-  const [hour, setHour] = useState(sheet?.announceHour != null ? String(sheet.announceHour) : "");
+  const [ovMode, setOvMode] = useState<"general" | "relative" | "weekday">(
+    sheet?.announceWeekday != null ? "weekday" : (sheet?.announceLeadDays != null || sheet?.announceHour != null) ? "relative" : "general",
+  );
+  const [ovLead, setOvLead] = useState(sheet?.announceLeadDays ?? 2);
+  const [ovHour, setOvHour] = useState(sheet?.announceHour ?? 8);
+  const [ovWeekday, setOvWeekday] = useState(sheet?.announceWeekday ?? 1);
   const [services, setServices] = useState<DialogService[]>(
     sheet?.services?.length
       ? sheet.services.map((s) => ({ service: s.service, date: s.date.slice(0, 10), time: s.time, rows: makeRows(s.assignments) }))
@@ -444,8 +469,10 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
     if (sheet) fd.set("sheetId", sheet.id);
     fd.set("name", name.trim());
     fd.set("services", JSON.stringify(payload));
-    fd.set("announceLeadDays", leadDays);
-    fd.set("announceHour", hour);
+    // Per-roster send-time override (empty = follow the general schedule).
+    fd.set("announceLeadDays", ovMode === "relative" ? String(ovLead) : "");
+    fd.set("announceHour", ovMode === "general" ? "" : String(ovHour));
+    fd.set("announceWeekday", ovMode === "weekday" ? String(ovWeekday) : "");
     start(async () => {
       const res = await saveServiceSheet(fd);
       if (res?.ok) { toast(sheet ? "Roster updated" : "Roster created", "success"); router.refresh(); onClose(); }
@@ -518,19 +545,33 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
           {/* Per-roster send time (falls back to the general Announcement settings) */}
           <div className="rounded-xl border border-line p-3">
             <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint"><Clock className="size-3.5" /> Auto-announce time for this roster</div>
-            <div className="flex flex-wrap items-center gap-2 text-sm">
-              <span className="text-ink-muted">Send</span>
-              <select value={leadDays} onChange={(e) => setLeadDays(e.target.value)} className={inputCls}>
-                <option value="">use general</option>
-                {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{d === 0 ? "same day" : `${d} day${d === 1 ? "" : "s"} before`}</option>)}
-              </select>
-              <span className="text-ink-muted">at</span>
-              <select value={hour} onChange={(e) => setHour(e.target.value)} className={inputCls}>
-                <option value="">use general</option>
-                {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
-              </select>
+            <div className="flex w-fit flex-wrap gap-1 rounded-lg border border-line bg-surface-2 p-0.5 text-sm">
+              {([["general", "Use general"], ["relative", "Days before"], ["weekday", "On a day"]] as const).map(([m, label]) => (
+                <button key={m} type="button" onClick={() => setOvMode(m)}
+                  className={cn("rounded-md px-2.5 py-1 font-medium", ovMode === m ? "bg-primary text-white" : "text-ink-muted")}>
+                  {label}
+                </button>
+              ))}
             </div>
-            <p className="mt-1.5 text-[11px] text-ink-faint">Leave on “use general” to follow the church-wide Announcement schedule.</p>
+            {ovMode !== "general" && (
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+                <span className="text-ink-muted">Send</span>
+                {ovMode === "relative" ? (
+                  <select value={ovLead} onChange={(e) => setOvLead(Number(e.target.value))} className={inputCls}>
+                    {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{d === 0 ? "same day" : `${d} day${d === 1 ? "" : "s"} before`}</option>)}
+                  </select>
+                ) : (
+                  <select value={ovWeekday} onChange={(e) => setOvWeekday(Number(e.target.value))} className={inputCls}>
+                    {WEEKDAY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}s</option>)}
+                  </select>
+                )}
+                <span className="text-ink-muted">at</span>
+                <select value={ovHour} onChange={(e) => setOvHour(Number(e.target.value))} className={inputCls}>
+                  {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
+                </select>
+              </div>
+            )}
+            <p className="mt-1.5 text-[11px] text-ink-faint">“Use general” follows the church-wide Announcement schedule. “On a day” sends every chosen weekday for services in the coming week.</p>
           </div>
 
           <p className="text-[11px] text-ink-faint">Message size: ≈ {chars} characters · {segments} SMS per recipient. Exact credits are shown when you tap Announce.</p>

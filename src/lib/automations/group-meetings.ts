@@ -18,14 +18,14 @@ export async function runGroupMeetingReminders(now = new Date(), ignoreHour = fa
 
   let sent = 0;
   for (const church of churches) {
-    const { hour } = localParts(now, church.timezone);
+    const { hour, weekday: todayWeekday } = localParts(now, church.timezone);
     const todayYmd = ymdInTz(now, church.timezone);
 
     const groups = await db.group.findMany({
       where: { churchId: church.id, meetingReminderOn: true, meetingReminderAuto: true },
       select: {
         id: true, name: true, meetingSchedule: true, meetingDays: true, meetingDay: true, meetingTime: true,
-        meetingReminderText: true, meetingReminderLeadDays: true, meetingReminderHour: true,
+        meetingReminderText: true, meetingReminderLeadDays: true, meetingReminderHour: true, meetingReminderWeekday: true,
         meetingReminderLastSent: true,
         members: { where: { phone: { not: null } }, select: { phone: true } },
       },
@@ -39,18 +39,25 @@ export async function runGroupMeetingReminders(now = new Date(), ignoreHour = fa
       if (schedule.length === 0 && g.meetingDay) schedule = [{ day: g.meetingDay, time: g.meetingTime }];
       if (schedule.length === 0) continue;
 
-      // Is the meeting `leadDays` from now (in the church's timezone) one of the days?
-      const target = new Date(now.getTime() + g.meetingReminderLeadDays * 86400000);
-      const targetDayName = DAYS_FULL[localParts(target, church.timezone).weekday];
-      const entry = schedule.find((s) => s.day === targetDayName);
-      if (!entry) continue;
+      let toRemind: typeof schedule;
+      if (g.meetingReminderWeekday != null) {
+        // Absolute: send on the chosen weekday about ALL the group's meetings.
+        if (todayWeekday !== g.meetingReminderWeekday) continue;
+        toRemind = schedule;
+      } else {
+        // Relative: only the meeting `leadDays` from now (its own day + time).
+        const target = new Date(now.getTime() + g.meetingReminderLeadDays * 86400000);
+        const targetDayName = DAYS_FULL[localParts(target, church.timezone).weekday];
+        const entry = schedule.find((s) => s.day === targetDayName);
+        if (!entry) continue;
+        toRemind = [entry];
+      }
 
       const phones = g.members.map((m) => m.phone!).filter(Boolean);
       if (phones.length === 0) continue;
 
-      // Remind only for the specific meeting coming up (its own day + time).
       const text = renderMeetingReminder(g.meetingReminderText ?? DEFAULT_MEETING_REMINDER, {
-        church: church.name, group: g.name, schedule: [entry],
+        church: church.name, group: g.name, schedule: toRemind,
       });
       const res = await sendChurchSms(church.id, phones, text, { note: `Meeting reminder: ${g.name}` });
       if (!res.ok && res.insufficient) break; // out of credits; retry next hour

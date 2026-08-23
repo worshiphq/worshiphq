@@ -32,6 +32,7 @@ type GroupRow = {
   meetingReminderAuto: boolean;
   meetingReminderLeadDays: number;
   meetingReminderHour: number;
+  meetingReminderWeekday: number | null;
   meetingReminderText: string | null;
   nextReminderLabel: string | null;
 };

@@ -30,6 +30,7 @@ function readGroupFields(formData: FormData) {
     meetingReminderAuto: String(formData.get("meetingReminderMode") ?? "auto") !== "manual",
     meetingReminderLeadDays: Math.min(14, Math.max(0, parseInt(String(formData.get("meetingReminderLeadDays") ?? "0"), 10) || 0)),
     meetingReminderHour: Math.min(23, Math.max(0, parseInt(String(formData.get("meetingReminderHour") ?? "8"), 10) || 8)),
+    meetingReminderWeekday: (() => { const s = String(formData.get("meetingReminderWeekday") ?? "").trim(); if (s === "") return null; const n = parseInt(s, 10); return Number.isFinite(n) && n >= 0 && n <= 6 ? n : null; })(),
     meetingReminderText: String(formData.get("meetingReminderText") ?? "").trim() || null,
   };
 }

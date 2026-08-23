@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Bell } from "lucide-react";
 import { Field } from "@/components/app/action-dialog";
 import { DAYS_FULL, DEFAULT_MEETING_REMINDER, type ScheduleEntry } from "@/lib/groups/meeting-reminder";
+import { WEEKDAY_OPTIONS } from "@/lib/automations/weekdays";
 import { cn } from "@/lib/utils";
 
 export type GroupFormValues = {
@@ -20,6 +21,7 @@ export type GroupFormValues = {
   meetingReminderAuto: boolean;
   meetingReminderLeadDays: number;
   meetingReminderHour: number;
+  meetingReminderWeekday: number | null;
   meetingReminderText: string | null;
 };
 
@@ -49,6 +51,11 @@ export function GroupFields({
   const [schedule, setSchedule] = useState<ScheduleEntry[]>(initialSchedule);
   const [reminderOn, setReminderOn] = useState(group?.meetingReminderOn ?? false);
   const [mode, setMode] = useState<"auto" | "manual">(group?.meetingReminderAuto === false ? "manual" : "auto");
+  // Auto timing: relative ("days before") vs absolute weekday ("on a day").
+  const [whenMode, setWhenMode] = useState<"relative" | "weekday">(group?.meetingReminderWeekday != null ? "weekday" : "relative");
+  const [leadDays, setLeadDays] = useState(group?.meetingReminderLeadDays ?? 0);
+  const [remHour, setRemHour] = useState(group?.meetingReminderHour ?? 8);
+  const [remWeekday, setRemWeekday] = useState(group?.meetingReminderWeekday ?? 1);
 
   const timeFor = (d: string) => schedule.find((s) => s.day === d)?.time ?? "";
   const toggleDay = (d: string) =>
@@ -137,17 +144,35 @@ export function GroupFields({
             </div>
 
             {mode === "auto" ? (
-              <div className="flex flex-wrap items-center gap-2 text-sm">
-                <span className="text-ink-muted">Send</span>
-                <select name="meetingReminderLeadDays" defaultValue={String(group?.meetingReminderLeadDays ?? 0)}
-                  className="h-9 rounded-lg border border-line bg-surface px-2 text-sm">
-                  {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{d === 0 ? "on the day" : `${d} day${d === 1 ? "" : "s"} before`}</option>)}
-                </select>
-                <span className="text-ink-muted">at</span>
-                <select name="meetingReminderHour" defaultValue={String(group?.meetingReminderHour ?? 8)}
-                  className="h-9 rounded-lg border border-line bg-surface px-2 text-sm">
-                  {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
-                </select>
+              <div className="space-y-2">
+                {/* Days-before vs specific weekday */}
+                <input type="hidden" name="meetingReminderLeadDays" value={leadDays} />
+                <input type="hidden" name="meetingReminderHour" value={remHour} />
+                <input type="hidden" name="meetingReminderWeekday" value={whenMode === "weekday" ? remWeekday : ""} />
+                <div className="flex w-fit gap-1 rounded-lg border border-line bg-surface-2 p-0.5 text-sm">
+                  {(["relative", "weekday"] as const).map((wm) => (
+                    <button key={wm} type="button" onClick={() => setWhenMode(wm)}
+                      className={cn("rounded-md px-2.5 py-1 font-medium", whenMode === wm ? "bg-primary text-white" : "text-ink-muted")}>
+                      {wm === "relative" ? "Days before" : "On a day"}
+                    </button>
+                  ))}
+                </div>
+                <div className="flex flex-wrap items-center gap-2 text-sm">
+                  <span className="text-ink-muted">Send</span>
+                  {whenMode === "relative" ? (
+                    <select value={leadDays} onChange={(e) => setLeadDays(Number(e.target.value))} className="h-9 rounded-lg border border-line bg-surface px-2 text-sm">
+                      {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{d === 0 ? "on the day" : `${d} day${d === 1 ? "" : "s"} before`}</option>)}
+                    </select>
+                  ) : (
+                    <select value={remWeekday} onChange={(e) => setRemWeekday(Number(e.target.value))} className="h-9 rounded-lg border border-line bg-surface px-2 text-sm">
+                      {WEEKDAY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}s</option>)}
+                    </select>
+                  )}
+                  <span className="text-ink-muted">at</span>
+                  <select value={remHour} onChange={(e) => setRemHour(Number(e.target.value))} className="h-9 rounded-lg border border-line bg-surface px-2 text-sm">
+                    {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
+                  </select>
+                </div>
               </div>
             ) : (
               <p className="text-xs text-ink-muted">You’ll send it yourself with the <b>Remind</b> button on the group.</p>

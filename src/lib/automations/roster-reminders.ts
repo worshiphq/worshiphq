@@ -13,33 +13,37 @@ import { sendChurchSms } from "@/lib/sms/credits";
 export async function runRosterReminders(now = new Date(), ignoreHour = false) {
   const churches = await db.church.findMany({
     where: { isDemo: false, rosterRemindOn: true },
-    select: { id: true, name: true, timezone: true, messageTemplates: true, rosterRemindHour: true, rosterRemindLeadDays: true },
+    select: { id: true, name: true, timezone: true, messageTemplates: true, rosterRemindHour: true, rosterRemindLeadDays: true, rosterRemindWeekday: true },
   });
+
+  const shortDate = (d: Date, tz: string) => new Date(d).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: tz });
 
   let sent = 0;
   for (const church of churches) {
-    const { hour } = localParts(now, church.timezone);
+    const { hour, weekday: todayWeekday } = localParts(now, church.timezone);
     if (!ignoreHour && hour !== church.rosterRemindHour) continue;
 
-    // The duty date we're reminding about today = today + leadDays (local).
-    const targetYmd = ymdInTz(now, church.timezone, church.rosterRemindLeadDays);
+    const weekdayMode = church.rosterRemindWeekday != null;
+    if (weekdayMode && todayWeekday !== church.rosterRemindWeekday) continue;
 
-    // Candidate slots in a window around the target, not yet reminded.
+    // Candidate slots — a window wide enough for both modes — not yet reminded.
     const from = new Date(now.getTime() - 2 * 86400000);
-    const to = new Date(now.getTime() + (church.rosterRemindLeadDays + 3) * 86400000);
+    const to = new Date(now.getTime() + (church.rosterRemindLeadDays + 9) * 86400000);
     const slots = await db.volunteerSlot.findMany({
-      where: {
-        churchId: church.id,
-        remindedAt: null,
-        personId: { not: null },
-        date: { gte: from, lte: to },
-      },
+      where: { churchId: church.id, remindedAt: null, personId: { not: null }, date: { gte: from, lte: to } },
       include: { person: { select: { firstName: true, phone: true, title: true } } },
       orderBy: { date: "asc" },
     });
 
-    // Keep only the slots whose local duty date is the target, and that have a phone.
-    const due = slots.filter((s) => s.person?.phone && ymdInTz(s.date, church.timezone) === targetYmd);
+    // Which slots are due today?
+    const todayYmd = ymdInTz(now, church.timezone);
+    const targetYmd = ymdInTz(now, church.timezone, church.rosterRemindLeadDays);
+    const plus7Ymd = ymdInTz(now, church.timezone, 7);
+    const due = slots.filter((s) => {
+      if (!s.person?.phone) return false;
+      const ymd = ymdInTz(s.date, church.timezone);
+      return weekdayMode ? ymd >= todayYmd && ymd <= plus7Ymd : ymd === targetYmd;
+    });
     if (due.length === 0) continue;
 
     // Group duties per person for a single tidy message.
@@ -48,7 +52,9 @@ export async function runRosterReminders(now = new Date(), ignoreHour = false) {
       const key = s.personId!;
       const e = byPerson.get(key) ?? { phone: s.person!.phone!, firstName: s.person!.firstName, title: s.person!.title ?? "", slotIds: [], lines: [] };
       e.slotIds.push(s.id);
-      e.lines.push(`- ${s.service ? `${s.service}: ` : ""}${s.role}`);
+      // In weekday mode duties span several days, so include the date.
+      const prefix = weekdayMode ? `${shortDate(s.date, church.timezone)} — ` : "";
+      e.lines.push(`- ${prefix}${s.service ? `${s.service}: ` : ""}${s.role}`);
       byPerson.set(key, e);
     }
 

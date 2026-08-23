@@ -85,6 +85,7 @@ export function nextGroupReminderLabel(opts: {
   meetingDays: string[];
   leadDays: number;
   hour: number;
+  weekday?: number | null; // when set, absolute weekday mode
   timezone: string;
   now?: Date;
 }): string | null {
@@ -92,17 +93,31 @@ export function nextGroupReminderLabel(opts: {
   const now = opts.now ?? new Date();
   const nowHour = localParts(now, opts.timezone).hour;
 
-  for (let offset = 0; offset < 14; offset++) {
-    // The meeting this send would be for is `leadDays` after the send day.
-    const meetingWeekday = localParts(new Date(now.getTime() + (offset + opts.leadDays) * 86400000), opts.timezone).weekday;
-    if (!opts.meetingDays.includes(DAYS_FULL[meetingWeekday])) continue;
-    if (offset === 0 && opts.hour <= nowHour) continue; // today's send-hour already passed
-
-    const sendYmd = ymdInTz(now, opts.timezone, offset); // "YYYY-MM-DD"
+  const label = (offset: number) => {
+    const sendYmd = ymdInTz(now, opts.timezone, offset);
     const sendWeekday = localParts(new Date(now.getTime() + offset * 86400000), opts.timezone).weekday;
     const mon = MONTHS_SHORT[parseInt(sendYmd.slice(5, 7), 10) - 1];
     const day = parseInt(sendYmd.slice(8, 10), 10);
     return `${DAYS_SHORT[sendWeekday]} ${day} ${mon} · ${hour12(opts.hour)}`;
+  };
+
+  // Absolute weekday: the next occurrence of that weekday at the chosen hour.
+  if (opts.weekday != null) {
+    for (let offset = 0; offset < 8; offset++) {
+      const wd = localParts(new Date(now.getTime() + offset * 86400000), opts.timezone).weekday;
+      if (wd !== opts.weekday) continue;
+      if (offset === 0 && opts.hour <= nowHour) continue;
+      return label(offset);
+    }
+    return null;
+  }
+
+  // Relative: send `leadDays` before a meeting day.
+  for (let offset = 0; offset < 14; offset++) {
+    const meetingWeekday = localParts(new Date(now.getTime() + (offset + opts.leadDays) * 86400000), opts.timezone).weekday;
+    if (!opts.meetingDays.includes(DAYS_FULL[meetingWeekday])) continue;
+    if (offset === 0 && opts.hour <= nowHour) continue;
+    return label(offset);
   }
   return null;
 }

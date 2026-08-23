@@ -78,10 +78,11 @@ export default async function GroupsPage() {
             meetingReminderAuto: g.meetingReminderAuto,
             meetingReminderLeadDays: g.meetingReminderLeadDays,
             meetingReminderHour: g.meetingReminderHour,
+            meetingReminderWeekday: g.meetingReminderWeekday,
             meetingReminderText: g.meetingReminderText,
             nextReminderLabel:
               g.meetingReminderOn && g.meetingReminderAuto
-                ? nextGroupReminderLabel({ meetingDays: days, leadDays: g.meetingReminderLeadDays, hour: g.meetingReminderHour, timezone: tz, now })
+                ? nextGroupReminderLabel({ meetingDays: days, leadDays: g.meetingReminderLeadDays, hour: g.meetingReminderHour, weekday: g.meetingReminderWeekday, timezone: tz, now })
                 : null,
           };
         })}
