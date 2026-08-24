@@ -107,49 +107,71 @@ export async function recordWelfareDues(formData: FormData) {
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
 
   const personId = String(formData.get("personId") ?? "").trim();
-  const year = parseInt(String(formData.get("year") ?? ""), 10);
+  // Range: fromYear/fromMonth → toYear/toMonth. `year` is the legacy single-year
+  // field — fall back to it for both ends when the range fields aren't sent.
+  const legacyYear = parseInt(String(formData.get("year") ?? ""), 10);
+  const fromYear = parseInt(String(formData.get("fromYear") ?? ""), 10) || legacyYear;
+  const toYear = parseInt(String(formData.get("toYear") ?? ""), 10) || legacyYear;
   const fromMonth = parseInt(String(formData.get("fromMonth") ?? "1"), 10);
   const toMonth = parseInt(String(formData.get("toMonth") ?? "12"), 10);
-  const amountPerMonth = parseFloat(String(formData.get("amountPerMonth") ?? "0"));
+  const overrideAmount = parseFloat(String(formData.get("amountPerMonth") ?? "0")) || 0;
   const notify = String(formData.get("notify") ?? "") === "on";
 
   if (!personId) return { ok: false as const, error: "Choose a member." };
-  if (!year) return { ok: false as const, error: "Choose a year." };
-  if (fromMonth < 1 || toMonth > 12 || fromMonth > toMonth) return { ok: false as const, error: "Choose a valid month range." };
-  if (!amountPerMonth || amountPerMonth <= 0) return { ok: false as const, error: "Enter the amount per month." };
+  if (!fromYear || !toYear) return { ok: false as const, error: "Choose a year." };
+  if (fromMonth < 1 || fromMonth > 12 || toMonth < 1 || toMonth > 12) return { ok: false as const, error: "Choose valid months." };
+  if (fromYear > toYear || (fromYear === toYear && fromMonth > toMonth)) return { ok: false as const, error: "The start must be on or before the end." };
 
   const member = await db.person.findFirst({ where: { id: personId, churchId: session.churchId }, select: { firstName: true, lastName: true, welfareStart: true } });
   if (!member) return { ok: false as const, error: "Member not found." };
 
-  const months: number[] = [];
-  for (let m = fromMonth; m <= toMonth; m++) months.push(m);
+  // Build every (year, month) cell in the range, chronologically.
+  const cells: { year: number; month: number }[] = [];
+  let cy = fromYear, cm = fromMonth;
+  while (cy < toYear || (cy === toYear && cm <= toMonth)) {
+    cells.push({ year: cy, month: cm });
+    cm++; if (cm > 12) { cm = 1; cy++; }
+    if (cells.length > 1200) break; // safety cap (~100 years)
+  }
+
+  // Amount per cell: an explicit override applies to every month; otherwise use
+  // that year's set rate. Any year in the range without a rate (and no override)
+  // can't be priced — tell the admin which years need a rate.
+  const rateRows = await db.welfareRate.findMany({ where: { churchId: session.churchId }, select: { year: true, amount: true } });
+  const rateByYear = new Map(rateRows.map((r) => [r.year, Number(r.amount)]));
+  const amountFor = (y: number) => (overrideAmount > 0 ? overrideAmount : (rateByYear.get(y) ?? 0));
+
+  if (overrideAmount <= 0) {
+    const missing = [...new Set(cells.map((c) => c.year))].filter((y) => !rateByYear.get(y));
+    if (missing.length) return { ok: false as const, error: `Set a monthly rate for ${missing.join(", ")} first, or enter an amount to use for all months.` };
+  }
 
   await db.$transaction(
-    months.map((m) =>
+    cells.map((c) =>
       db.welfareDue.upsert({
-        where: { churchId_personId_year_month: { churchId: session.churchId, personId, year, month: m } },
-        create: { churchId: session.churchId, personId, year, month: m, amount: amountPerMonth },
-        update: { amount: amountPerMonth },
+        where: { churchId_personId_year_month: { churchId: session.churchId, personId, year: c.year, month: c.month } },
+        create: { churchId: session.churchId, personId, year: c.year, month: c.month, amount: amountFor(c.year) },
+        update: { amount: amountFor(c.year) },
       }),
     ),
   );
 
   // First time we record dues for this member, capture their start (the earliest
-  // month of this record) so "owed" counts from when they actually began — no
-  // more everyone-owes-from-nowhere. Only if they don't already have one.
+  // month of this record) so "owed" counts from when they actually began.
   if (!member.welfareStart) {
     await db.person.update({
       where: { id: personId },
-      data: { welfareStart: new Date(year, fromMonth - 1, 1) },
+      data: { welfareStart: new Date(fromYear, fromMonth - 1, 1) },
     });
   }
 
-  const total = amountPerMonth * months.length;
+  const total = cells.reduce((s, c) => s + amountFor(c.year), 0);
+  const rangeLabel = `${MONTHS[fromMonth - 1]} ${fromYear} – ${MONTHS[toMonth - 1]} ${toYear}`;
 
   // Post the collected dues as income into the chosen account.
   const { postLedgerToAccount } = await import("@/lib/data/accounts");
   await postLedgerToAccount(session.churchId, {
-    description: `Welfare dues — ${member.firstName} ${member.lastName} (${MONTHS[fromMonth - 1]}–${MONTHS[toMonth - 1]} ${year})`,
+    description: `Welfare dues — ${member.firstName} ${member.lastName} (${rangeLabel})`,
     category: "Welfare Dues",
     fund: "Welfare",
     amount: total,
@@ -169,7 +191,7 @@ export async function recordWelfareDues(formData: FormData) {
         title: summary.title,
         name: summary.firstName,
         amount: total.toLocaleString(),
-        months: `${MONTHS[fromMonth - 1]}-${MONTHS[toMonth - 1]} ${year}`,
+        months: rangeLabel,
         church: summary.churchName,
         owed: summary.owed.toLocaleString(),
         balance,
@@ -182,10 +204,10 @@ export async function recordWelfareDues(formData: FormData) {
     }
   }
 
-  await audit(session, "create", "welfare-dues", `Recorded ${months.length} month(s) welfare dues (${total}) for ${member.firstName} ${member.lastName}`);
+  await audit(session, "create", "welfare-dues", `Recorded ${cells.length} month(s) welfare dues (${total}) for ${member.firstName} ${member.lastName}`);
   revalidatePath("/app/welfare");
   revalidatePath("/app/accounting");
-  return { ok: true as const, months: months.length, total, texted };
+  return { ok: true as const, months: cells.length, total, texted };
 }
 
 export async function deleteWelfareDue(formData: FormData) {

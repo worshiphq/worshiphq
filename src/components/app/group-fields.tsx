@@ -5,6 +5,7 @@ import { Bell } from "lucide-react";
 import { Field } from "@/components/app/action-dialog";
 import { DAYS_FULL, DEFAULT_MEETING_REMINDER, type ScheduleEntry } from "@/lib/groups/meeting-reminder";
 import { WEEKDAY_OPTIONS } from "@/lib/automations/weekdays";
+import { Segmented } from "@/components/ui/segmented";
 import { cn } from "@/lib/utils";
 
 export type GroupFormValues = {
@@ -135,14 +136,11 @@ export function GroupFields({
           <div className="mt-3 space-y-3">
             {/* Auto vs manual */}
             <input type="hidden" name="meetingReminderMode" value={mode} />
-            <div className="flex gap-1 rounded-lg border border-line bg-surface-2 p-0.5 text-sm">
-              {(["auto", "manual"] as const).map((m) => (
-                <button key={m} type="button" onClick={() => setMode(m)}
-                  className={cn("flex-1 rounded-md px-2.5 py-1 font-medium", mode === m ? "bg-primary text-white" : "text-ink-muted")}>
-                  {m === "auto" ? "Send automatically" : "Send manually"}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              value={mode}
+              onChange={setMode}
+              options={[{ value: "auto", label: "Send automatically" }, { value: "manual", label: "Send manually" }]}
+            />
 
             {mode === "auto" ? (
               <div className="space-y-2">
@@ -151,14 +149,11 @@ export function GroupFields({
                 <input type="hidden" name="meetingReminderHour" value={remHour} />
                 <input type="hidden" name="meetingReminderMinute" value={remMinute} />
                 <input type="hidden" name="meetingReminderWeekday" value={whenMode === "weekday" ? remWeekday : ""} />
-                <div className="flex w-fit gap-1 rounded-lg border border-line bg-surface-2 p-0.5 text-sm">
-                  {(["relative", "weekday"] as const).map((wm) => (
-                    <button key={wm} type="button" onClick={() => setWhenMode(wm)}
-                      className={cn("rounded-md px-2.5 py-1 font-medium", whenMode === wm ? "bg-primary text-white" : "text-ink-muted")}>
-                      {wm === "relative" ? "Days before" : "On a day"}
-                    </button>
-                  ))}
-                </div>
+                <Segmented
+                  value={whenMode}
+                  onChange={setWhenMode}
+                  options={[{ value: "relative", label: "Days before" }, { value: "weekday", label: "On a day" }]}
+                />
                 <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="text-ink-muted">Send</span>
                   {whenMode === "relative" ? (

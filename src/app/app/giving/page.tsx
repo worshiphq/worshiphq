@@ -22,12 +22,15 @@ export default async function GivingPage({
   const rawMonth = params.titheMonth != null ? Number(params.titheMonth) : NaN;
   const validMonth = rawMonth >= 0 && rawMonth <= 11 ? rawMonth : now.getMonth();
 
-  const [data, church, titheData, accounts] = await Promise.all([
+  const [data, church, titheData, accounts, funds] = await Promise.all([
     getGiving(session.churchId),
     db.church.findUnique({ where: { id: session.churchId }, select: { slug: true, isDemo: true, titheReceiptTemplate: true } }),
     getTitheData(session.churchId, titheYear, validMonth),
     getAccountOptions(session.churchId),
+    db.fund.findMany({ where: { churchId: session.churchId }, select: { name: true }, orderBy: { name: "asc" } }),
   ]);
+  // Custom funds already used (excluding the built-in Tithes/Offertory) — for reuse.
+  const customFunds = [...new Set(funds.map((f) => f.name).filter((n) => !/^(tithes?|offertory)$/i.test(n.trim())))];
 
   const tab = params.tab;
 
@@ -55,6 +58,7 @@ export default async function GivingPage({
           accounts={accounts}
           canWrite={!session.isDemo}
           titheTemplate={church?.titheReceiptTemplate ?? null}
+          customFunds={customFunds}
         />
       </div>
     </div>

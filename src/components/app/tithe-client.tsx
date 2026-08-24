@@ -49,6 +49,7 @@ export function TitheClient({
   accounts = [],
   canWrite,
   titheTemplate,
+  customFunds = [],
 }: {
   members: TitheMember[];
   weeks: WeekGroup[];
@@ -59,6 +60,7 @@ export function TitheClient({
   accounts?: AccountOption[];
   canWrite: boolean;
   titheTemplate?: string | null;
+  customFunds?: string[];
 }) {
   const [tab, setTab] = useState<"record" | "records" | "report">("records");
   const [selectedYear, setSelectedYear] = useState(year);
@@ -186,15 +188,39 @@ export function TitheClient({
             ))}
           </div>
           {fundType === "custom" && (
-            <div className="flex items-center gap-2">
-              <Label htmlFor="customFund" className="text-sm whitespace-nowrap">Fund name:</Label>
-              <Input
-                id="customFund"
-                value={customFund}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomFund(e.target.value)}
-                placeholder="e.g. Building Fund, Missions…"
-                className="max-w-xs"
-              />
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="customFund" className="text-sm whitespace-nowrap">Fund name:</Label>
+                <Input
+                  id="customFund"
+                  list="custom-fund-list"
+                  value={customFund}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => setCustomFund(e.target.value)}
+                  placeholder="e.g. Building Fund, Missions…"
+                  className="max-w-xs"
+                />
+                <datalist id="custom-fund-list">
+                  {customFunds.map((f) => <option key={f} value={f} />)}
+                </datalist>
+              </div>
+              {customFunds.length > 0 && (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <span className="text-xs text-ink-faint">Reuse:</span>
+                  {customFunds.map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setCustomFund(f)}
+                      className={cn(
+                        "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors",
+                        customFund === f ? "border-primary bg-primary/10 text-primary-bright" : "border-line text-ink-muted hover:bg-surface-2",
+                      )}
+                    >
+                      {f}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
           )}
         </div>

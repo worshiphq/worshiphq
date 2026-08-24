@@ -8,7 +8,7 @@ import { Plus } from "lucide-react";
 
 export const metadata = { title: "Expenses" };
 
-const CATEGORIES = ["general", "utilities", "rent", "transport", "maintenance", "supplies", "salaries", "missions", "welfare", "events", "other"];
+const CATEGORIES = ["General", "Utilities", "Rent", "Transport", "Maintenance", "Supplies", "Salaries", "Missions", "Welfare", "Events", "Instruments", "Honorarium"];
 
 export default async function ExpensesPage() {
   const session = await requireModule("expenses");
@@ -32,6 +32,10 @@ export default async function ExpensesPage() {
   ];
 
   const totalAmount = expenses.reduce((s, e) => s + e.amount, 0);
+  // Suggested categories: the presets plus any the church has already used, so
+  // custom ones (e.g. "Instruments") are reusable next time.
+  const usedCategories = [...new Set(expenses.map((e) => e.category).filter(Boolean))];
+  const categorySuggestions = [...new Set([...CATEGORIES, ...usedCategories])];
 
   return (
     <div>
@@ -53,8 +57,7 @@ export default async function ExpensesPage() {
           {accounts.length > 0 && (
             <Field label="Deduct from account" name="accountId" type="select" options={accountOptions} hint="Which account this payment comes out of" />
           )}
-          <Field label="Category" name="category" options={CATEGORIES} />
-          <Field label="If “Other”, type the category" name="categoryOther" placeholder="e.g. Guest speaker honorarium" />
+          <Field label="Category" name="category" suggestions={categorySuggestions} placeholder="Pick one or type your own (e.g. Instruments)" hint="Type any category — it’s remembered for next time." />
           <Field label="Vendor / payee" name="vendor" placeholder="Who was paid" />
           <Field label="Receipt reference" name="receiptRef" placeholder="Receipt or invoice number" />
           <Field label="Approved by" name="approvedBy" placeholder="Name of approving officer" />

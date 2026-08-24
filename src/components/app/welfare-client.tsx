@@ -366,29 +366,40 @@ function RecordDuesForm({ members, accounts, rates, currentYear }: {
   const router = useRouter();
   const { toast } = useFeedback();
   const [pending, start] = useTransition();
+  const now = new Date();
   const [personId, setPersonId] = useState("");
-  const [year, setYear] = useState(currentYear);
+  const [fromYear, setFromYear] = useState(currentYear);
   const [fromMonth, setFromMonth] = useState(1);
-  const [toMonth, setToMonth] = useState(currentYear === new Date().getFullYear() ? new Date().getMonth() + 1 : 12);
-  const rateForYear = rates.find((r) => r.year === year)?.amount;
+  const [toYear, setToYear] = useState(currentYear);
+  const [toMonth, setToMonth] = useState(currentYear === now.getFullYear() ? now.getMonth() + 1 : 12);
   const [amount, setAmount] = useState("");
   const [accountId, setAccountId] = useState(accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "");
   const [notify, setNotify] = useState(true);
 
-  const effAmount = Number(amount) || rateForYear || 0;
-  const monthCount = Math.max(0, toMonth - fromMonth + 1);
-  const total = effAmount * monthCount;
-
   const years = wideYears();
+  const rateFor = (y: number) => rates.find((r) => r.year === y)?.amount ?? 0;
+  const override = Number(amount) || 0;
+
+  // Every (year, month) in the chosen range.
+  const cells: { y: number; m: number }[] = [];
+  { let cy = fromYear, cm = fromMonth; while (cy < toYear || (cy === toYear && cm <= toMonth)) { cells.push({ y: cy, m: cm }); cm++; if (cm > 12) { cm = 1; cy++; } if (cells.length > 1200) break; } }
+  const validRange = fromYear < toYear || (fromYear === toYear && fromMonth <= toMonth);
+  const missingYears = override > 0 ? [] : [...new Set(cells.map((c) => c.y))].filter((y) => !rateFor(y));
+  const monthCount = cells.length;
+  const total = cells.reduce((s, c) => s + (override > 0 ? override : rateFor(c.y)), 0);
+  const canSubmit = !!personId && validRange && monthCount > 0 && missingYears.length === 0;
+
   const inputCls = "h-9 rounded-lg border border-line bg-surface px-2.5 text-sm outline-none focus:border-primary/50";
 
   const submit = () => {
     if (!personId) return toast("Choose a member", "error");
-    if (!effAmount) return toast("Enter the amount per month (or set the year rate)", "error");
+    if (!validRange) return toast("The start must be on or before the end", "error");
+    if (missingYears.length) return toast(`Set a rate for ${missingYears.join(", ")}, or enter an amount for all months`, "error");
     const fd = new FormData();
-    fd.set("personId", personId); fd.set("year", String(year));
-    fd.set("fromMonth", String(fromMonth)); fd.set("toMonth", String(toMonth));
-    fd.set("amountPerMonth", String(effAmount));
+    fd.set("personId", personId);
+    fd.set("fromYear", String(fromYear)); fd.set("fromMonth", String(fromMonth));
+    fd.set("toYear", String(toYear)); fd.set("toMonth", String(toMonth));
+    if (override > 0) fd.set("amountPerMonth", String(override));
     if (accountId) fd.set("accountId", accountId);
     if (notify) fd.set("notify", "on");
     start(async () => {
@@ -403,27 +414,37 @@ function RecordDuesForm({ members, accounts, rates, currentYear }: {
 
   return (
     <Card className="p-4">
-      <div className="mb-3 flex items-center gap-2 text-sm font-semibold"><HandCoins className="size-4 text-success" /> Record dues (across months)</div>
-      <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-1 flex items-center gap-2 text-sm font-semibold"><HandCoins className="size-4 text-success" /> Record dues (across months & years)</div>
+      <p className="mb-3 text-xs text-ink-muted">Backfill any span — e.g. Jan 2021 → this month — and each year uses its own rate (or set one amount for all months below).</p>
+      <div className="grid gap-2 sm:grid-cols-2">
         <select value={personId} onChange={(e) => setPersonId(e.target.value)} className={inputCls}>
           <option value="">— Member —</option>
           {members.map((m) => <option key={m.id} value={m.id}>{m.name}{m.hasPhone ? "" : " (no phone)"}</option>)}
         </select>
-        <select value={year} onChange={(e) => setYear(Number(e.target.value))} className={inputCls}>
-          {years.map((y) => <option key={y} value={y}>{y}{rates.find((r) => r.year === y) ? ` · ${ghs(rates.find((r) => r.year === y)!.amount)}/mo` : ""}</option>)}
-        </select>
-        <div className="flex items-center gap-1">
-          <select value={fromMonth} onChange={(e) => setFromMonth(Number(e.target.value))} className={cn(inputCls, "flex-1")}>
-            {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-          </select>
-          <span className="text-xs text-ink-faint">to</span>
-          <select value={toMonth} onChange={(e) => setToMonth(Number(e.target.value))} className={cn(inputCls, "flex-1")}>
-            {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
-          </select>
-        </div>
         <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)}
-          placeholder={rateForYear ? `${rateForYear} (year rate)` : "Amount / month"} className={inputCls} />
+          placeholder="Amount / month (optional — else uses each year's rate)" className={inputCls} />
       </div>
+      <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+        <span className="text-xs font-medium text-ink-faint">From</span>
+        <select value={fromMonth} onChange={(e) => setFromMonth(Number(e.target.value))} className={inputCls}>
+          {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+        </select>
+        <select value={fromYear} onChange={(e) => setFromYear(Number(e.target.value))} className={inputCls}>
+          {years.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <span className="text-xs font-medium text-ink-faint">to</span>
+        <select value={toMonth} onChange={(e) => setToMonth(Number(e.target.value))} className={inputCls}>
+          {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+        </select>
+        <select value={toYear} onChange={(e) => setToYear(Number(e.target.value))} className={inputCls}>
+          {years.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+      </div>
+      {missingYears.length > 0 && (
+        <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-600">
+          <AlertTriangle className="size-3.5" /> No rate set for {missingYears.join(", ")} — set it above, or enter one amount for all months.
+        </p>
+      )}
       <div className="mt-2 flex flex-wrap items-center gap-3">
         {accounts.length > 1 && (
           <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className={inputCls}>
@@ -435,10 +456,10 @@ function RecordDuesForm({ members, accounts, rates, currentYear }: {
           Text the member a receipt
         </label>
         <div className="flex-1" />
-        {monthCount > 0 && effAmount > 0 && (
-          <span className="text-sm text-ink-muted">{monthCount} month{monthCount === 1 ? "" : "s"} × {ghs(effAmount)} = <b className="text-ink">{ghs(total)}</b></span>
+        {monthCount > 0 && total > 0 && (
+          <span className="text-sm text-ink-muted">{monthCount} month{monthCount === 1 ? "" : "s"} = <b className="text-ink">{ghs(total)}</b></span>
         )}
-        <Button size="sm" onClick={submit} disabled={pending || monthCount <= 0}>
+        <Button size="sm" onClick={submit} disabled={pending || !canSubmit}>
           {pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} Record dues
         </Button>
       </div>

@@ -17,6 +17,7 @@ import {
 import { SystemMessagesDialog } from "@/components/app/system-messages-dialog";
 import { MessageSquare, Megaphone, Users, Clock, Bell } from "lucide-react";
 import { WEEKDAY_OPTIONS, WEEKDAY_LABELS } from "@/lib/automations/weekdays";
+import { Segmented } from "@/components/ui/segmented";
 import { cn } from "@/lib/utils";
 
 const hhmm = (h: number, m: number) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
@@ -33,14 +34,11 @@ function ScheduleControl({ verb, mode, setMode, leadDays, setLeadDays, weekday, 
   const sel = "h-9 rounded-lg border border-line bg-surface px-2.5 text-sm";
   return (
     <div className="space-y-2">
-      <div className="flex w-fit gap-1 rounded-lg border border-line bg-surface-2 p-0.5 text-sm">
-        {(["relative", "weekday"] as const).map((m) => (
-          <button key={m} type="button" onClick={() => setMode(m)}
-            className={cn("rounded-md px-2.5 py-1 font-medium", mode === m ? "bg-primary text-white" : "text-ink-muted")}>
-            {m === "relative" ? "Days before" : "On a day"}
-          </button>
-        ))}
-      </div>
+      <Segmented
+        value={mode}
+        onChange={setMode}
+        options={[{ value: "relative", label: "Days before" }, { value: "weekday", label: "On a day" }]}
+      />
       <div className="flex flex-wrap items-center gap-2">
         <Clock className="size-4 text-primary" />
         <span className="text-sm">{verb}</span>
@@ -615,14 +613,16 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
           {/* Per-roster send time (falls back to the general Announcement settings) */}
           <div className="rounded-xl border border-line p-3">
             <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint"><Clock className="size-3.5" /> Auto-announce time for this roster</div>
-            <div className="flex w-fit flex-wrap gap-1 rounded-lg border border-line bg-surface-2 p-0.5 text-sm">
-              {([["general", "Use general"], ["relative", "Days before"], ["weekday", "On a day"], ["date", "On a date"]] as const).map(([m, label]) => (
-                <button key={m} type="button" onClick={() => setOvMode(m)}
-                  className={cn("rounded-md px-2.5 py-1 font-medium", ovMode === m ? "bg-primary text-white" : "text-ink-muted")}>
-                  {label}
-                </button>
-              ))}
-            </div>
+            <Segmented
+              value={ovMode}
+              onChange={setOvMode}
+              options={[
+                { value: "general", label: "Use general" },
+                { value: "relative", label: "Days before" },
+                { value: "weekday", label: "On a day" },
+                { value: "date", label: "On a date" },
+              ]}
+            />
             {ovMode !== "general" && (
               <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                 <span className="text-ink-muted">Send</span>
