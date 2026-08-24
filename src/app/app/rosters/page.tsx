@@ -32,8 +32,8 @@ export default async function RostersPage() {
       where: { id: session.churchId },
       select: {
         messageTemplates: true, timezone: true, rosterAnnounceOn: true, rosterAnnounceAudience: true,
-        rosterAnnounceGroupId: true, rosterAnnounceLeadDays: true, rosterAnnounceHour: true, rosterAnnounceWeekday: true,
-        rosterRemindOn: true, rosterRemindLeadDays: true, rosterRemindHour: true, rosterRemindWeekday: true,
+        rosterAnnounceGroupId: true, rosterAnnounceLeadDays: true, rosterAnnounceHour: true, rosterAnnounceMinute: true, rosterAnnounceWeekday: true,
+        rosterRemindOn: true, rosterRemindLeadDays: true, rosterRemindHour: true, rosterRemindMinute: true, rosterRemindWeekday: true,
       },
     }),
   ]);
@@ -80,6 +80,7 @@ export default async function RostersPage() {
             name: s.name,
             announceLeadDays: s.announceLeadDays,
             announceHour: s.announceHour,
+            announceMinute: s.announceMinute,
             announceWeekday: s.announceWeekday,
             services,
           };
@@ -95,6 +96,7 @@ export default async function RostersPage() {
           groupId: church?.rosterAnnounceGroupId ?? null,
           leadDays: church?.rosterAnnounceLeadDays ?? 2,
           hour: church?.rosterAnnounceHour ?? 8,
+          minute: church?.rosterAnnounceMinute ?? 0,
           weekday: church?.rosterAnnounceWeekday ?? null,
           timezone: church?.timezone ?? "Africa/Accra",
         }}
@@ -102,6 +104,7 @@ export default async function RostersPage() {
           on: church?.rosterRemindOn ?? false,
           leadDays: church?.rosterRemindLeadDays ?? 1,
           hour: church?.rosterRemindHour ?? 18,
+          minute: church?.rosterRemindMinute ?? 0,
           weekday: church?.rosterRemindWeekday ?? null,
         }}
         canWrite={!session.isDemo}

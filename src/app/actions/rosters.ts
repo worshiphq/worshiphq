@@ -106,6 +106,7 @@ export async function saveServiceSheet(formData: FormData) {
   };
   const announceLeadDays = numOrNull(formData.get("announceLeadDays"));
   const announceHour = numOrNull(formData.get("announceHour"));
+  const announceMinute = numOrNull(formData.get("announceMinute"));
   const announceWeekday = parseWeekday(formData.get("announceWeekday"));
 
   let services: SheetService[] = [];
@@ -143,12 +144,12 @@ export async function saveServiceSheet(formData: FormData) {
     if (!owned) return { ok: false as const, error: "Sheet not found." };
     await db.volunteerRoster.update({
       where: { id: rosterId },
-      data: { name: rosterName, startDate, endDate, announceLeadDays, announceHour, announceWeekday, announcedAt: null },
+      data: { name: rosterName, startDate, endDate, announceLeadDays, announceHour, announceMinute, announceWeekday, announcedAt: null },
     });
     await db.volunteerSlot.deleteMany({ where: { rosterId, churchId: session.churchId } });
   } else {
     const roster = await db.volunteerRoster.create({
-      data: { churchId: session.churchId, name: rosterName, startDate, endDate, announceLeadDays, announceHour, announceWeekday },
+      data: { churchId: session.churchId, name: rosterName, startDate, endDate, announceLeadDays, announceHour, announceMinute, announceWeekday },
       select: { id: true },
     });
     rosterId = roster.id;
@@ -339,6 +340,7 @@ export async function saveRosterAnnounceSettings(formData: FormData) {
   const groupId = String(formData.get("groupId") ?? "").trim() || null;
   const leadDays = Math.min(30, Math.max(0, parseInt(String(formData.get("leadDays") ?? "2"), 10) || 0));
   const hour = Math.min(23, Math.max(0, parseInt(String(formData.get("hour") ?? "8"), 10) || 8));
+  const minute = Math.min(59, Math.max(0, parseInt(String(formData.get("minute") ?? "0"), 10) || 0));
   const weekday = parseWeekday(formData.get("weekday"));
   await db.church.update({
     where: { id: session.churchId },
@@ -348,6 +350,7 @@ export async function saveRosterAnnounceSettings(formData: FormData) {
       rosterAnnounceGroupId: audience === "group" ? groupId : null,
       rosterAnnounceLeadDays: leadDays,
       rosterAnnounceHour: hour,
+      rosterAnnounceMinute: minute,
       rosterAnnounceWeekday: weekday,
     },
   });
@@ -362,6 +365,7 @@ export async function saveRosterReminderSettings(formData: FormData) {
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const leadDays = Math.min(14, Math.max(0, parseInt(String(formData.get("leadDays") ?? "1"), 10) || 0));
   const hour = Math.min(23, Math.max(0, parseInt(String(formData.get("hour") ?? "18"), 10) || 18));
+  const minute = Math.min(59, Math.max(0, parseInt(String(formData.get("minute") ?? "0"), 10) || 0));
   const weekday = parseWeekday(formData.get("weekday"));
   await db.church.update({
     where: { id: session.churchId },
@@ -369,6 +373,7 @@ export async function saveRosterReminderSettings(formData: FormData) {
       rosterRemindOn: String(formData.get("on") ?? "") === "on",
       rosterRemindLeadDays: leadDays,
       rosterRemindHour: hour,
+      rosterRemindMinute: minute,
       rosterRemindWeekday: weekday,
     },
   });

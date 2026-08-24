@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { localParts, ymdInTz } from "@/lib/time/tz";
+import { localParts, ymdInTz, timeReached } from "@/lib/time/tz";
 import { templateFor, renderTemplate } from "@/lib/messages/registry";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { buildRosterBody } from "@/lib/rosters/message";
@@ -17,14 +17,14 @@ export async function runRosterAnnouncements(now = new Date(), ignoreHour = fals
     where: { isDemo: false, rosterAnnounceOn: true },
     select: {
       id: true, name: true, timezone: true, messageTemplates: true,
-      rosterAnnounceHour: true, rosterAnnounceLeadDays: true, rosterAnnounceWeekday: true,
+      rosterAnnounceHour: true, rosterAnnounceMinute: true, rosterAnnounceLeadDays: true, rosterAnnounceWeekday: true,
       rosterAnnounceAudience: true, rosterAnnounceGroupId: true,
     },
   });
 
   let sent = 0;
   for (const church of churches) {
-    const { hour, weekday: todayWeekday } = localParts(now, church.timezone);
+    const { weekday: todayWeekday } = localParts(now, church.timezone);
     const todayYmd = ymdInTz(now, church.timezone);
     const plus7Ymd = ymdInTz(now, church.timezone, 7);
 
@@ -59,9 +59,10 @@ export async function runRosterAnnouncements(now = new Date(), ignoreHour = fals
       // otherwise it inherits the church's mode + values.
       const override = sheet.announceHour != null || sheet.announceWeekday != null || sheet.announceLeadDays != null;
       const sendHour = override ? (sheet.announceHour ?? church.rosterAnnounceHour) : church.rosterAnnounceHour;
+      const sendMinute = override ? (sheet.announceMinute ?? church.rosterAnnounceMinute) : church.rosterAnnounceMinute;
       const weekday = override ? sheet.announceWeekday : church.rosterAnnounceWeekday;
       const lead = override ? (sheet.announceLeadDays ?? 0) : church.rosterAnnounceLeadDays;
-      if (!ignoreHour && hour !== sendHour) continue;
+      if (!ignoreHour && !timeReached(now, church.timezone, sendHour, sendMinute)) continue;
 
       const startYmd = ymdInTz(sheet.startDate, church.timezone);
       if (weekday != null) {

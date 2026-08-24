@@ -74,7 +74,7 @@ export function meetingWhen(schedule: ScheduleEntry[]): string {
   return s ? `on ${s}` : "";
 }
 
-const hour12 = (h: number) => { const ap = h < 12 ? "am" : "pm"; const hr = h % 12 === 0 ? 12 : h % 12; return `${hr}:00 ${ap}`; };
+const hour12 = (h: number, m = 0) => { const ap = h < 12 ? "am" : "pm"; const hr = h % 12 === 0 ? 12 : h % 12; return `${hr}:${String(m).padStart(2, "0")} ${ap}`; };
 
 /**
  * When the next automatic reminder for a group will fire, as a short label like
@@ -85,28 +85,31 @@ export function nextGroupReminderLabel(opts: {
   meetingDays: string[];
   leadDays: number;
   hour: number;
+  minute?: number;
   weekday?: number | null; // when set, absolute weekday mode
   timezone: string;
   now?: Date;
 }): string | null {
   if (opts.meetingDays.length === 0) return null;
   const now = opts.now ?? new Date();
-  const nowHour = localParts(now, opts.timezone).hour;
+  const minute = opts.minute ?? 0;
+  const { hour: nowHour, minute: nowMinute } = localParts(now, opts.timezone);
+  const passedToday = opts.hour < nowHour || (opts.hour === nowHour && minute <= nowMinute);
 
   const label = (offset: number) => {
     const sendYmd = ymdInTz(now, opts.timezone, offset);
     const sendWeekday = localParts(new Date(now.getTime() + offset * 86400000), opts.timezone).weekday;
     const mon = MONTHS_SHORT[parseInt(sendYmd.slice(5, 7), 10) - 1];
     const day = parseInt(sendYmd.slice(8, 10), 10);
-    return `${DAYS_SHORT[sendWeekday]} ${day} ${mon} · ${hour12(opts.hour)}`;
+    return `${DAYS_SHORT[sendWeekday]} ${day} ${mon} · ${hour12(opts.hour, minute)}`;
   };
 
-  // Absolute weekday: the next occurrence of that weekday at the chosen hour.
+  // Absolute weekday: the next occurrence of that weekday at the chosen time.
   if (opts.weekday != null) {
     for (let offset = 0; offset < 8; offset++) {
       const wd = localParts(new Date(now.getTime() + offset * 86400000), opts.timezone).weekday;
       if (wd !== opts.weekday) continue;
-      if (offset === 0 && opts.hour <= nowHour) continue;
+      if (offset === 0 && passedToday) continue;
       return label(offset);
     }
     return null;
@@ -116,7 +119,7 @@ export function nextGroupReminderLabel(opts: {
   for (let offset = 0; offset < 14; offset++) {
     const meetingWeekday = localParts(new Date(now.getTime() + (offset + opts.leadDays) * 86400000), opts.timezone).weekday;
     if (!opts.meetingDays.includes(DAYS_FULL[meetingWeekday])) continue;
-    if (offset === 0 && opts.hour <= nowHour) continue;
+    if (offset === 0 && passedToday) continue;
     return label(offset);
   }
   return null;

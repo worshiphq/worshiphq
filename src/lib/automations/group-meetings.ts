@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { localParts, ymdInTz } from "@/lib/time/tz";
+import { localParts, ymdInTz, timeReached } from "@/lib/time/tz";
 import { DAYS_FULL, DEFAULT_MEETING_REMINDER, renderMeetingReminder, parseSchedule } from "@/lib/groups/meeting-reminder";
 import { sendChurchSms } from "@/lib/sms/credits";
 
@@ -18,21 +18,21 @@ export async function runGroupMeetingReminders(now = new Date(), ignoreHour = fa
 
   let sent = 0;
   for (const church of churches) {
-    const { hour, weekday: todayWeekday } = localParts(now, church.timezone);
+    const { weekday: todayWeekday } = localParts(now, church.timezone);
     const todayYmd = ymdInTz(now, church.timezone);
 
     const groups = await db.group.findMany({
       where: { churchId: church.id, meetingReminderOn: true, meetingReminderAuto: true },
       select: {
         id: true, name: true, meetingSchedule: true, meetingDays: true, meetingDay: true, meetingTime: true,
-        meetingReminderText: true, meetingReminderLeadDays: true, meetingReminderHour: true, meetingReminderWeekday: true,
+        meetingReminderText: true, meetingReminderLeadDays: true, meetingReminderHour: true, meetingReminderMinute: true, meetingReminderWeekday: true,
         meetingReminderLastSent: true,
         members: { where: { phone: { not: null } }, select: { phone: true } },
       },
     });
 
     for (const g of groups) {
-      if (!ignoreHour && hour !== g.meetingReminderHour) continue;
+      if (!ignoreHour && !timeReached(now, church.timezone, g.meetingReminderHour, g.meetingReminderMinute)) continue;
       if (g.meetingReminderLastSent === todayYmd) continue; // already sent today
 
       let schedule = parseSchedule(g.meetingSchedule);

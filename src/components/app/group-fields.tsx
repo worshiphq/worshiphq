@@ -21,11 +21,10 @@ export type GroupFormValues = {
   meetingReminderAuto: boolean;
   meetingReminderLeadDays: number;
   meetingReminderHour: number;
+  meetingReminderMinute: number;
   meetingReminderWeekday: number | null;
   meetingReminderText: string | null;
 };
-
-const hourLabel = (h: number) => { const a = h < 12 ? "am" : "pm"; const hr = h % 12 === 0 ? 12 : h % 12; return `${hr}:00 ${a}`; };
 
 /** All group form inputs (shared by create + edit), with client state for the
  *  multi-day picker and the reminder settings. Rendered inside an ActionDialog
@@ -55,7 +54,9 @@ export function GroupFields({
   const [whenMode, setWhenMode] = useState<"relative" | "weekday">(group?.meetingReminderWeekday != null ? "weekday" : "relative");
   const [leadDays, setLeadDays] = useState(group?.meetingReminderLeadDays ?? 0);
   const [remHour, setRemHour] = useState(group?.meetingReminderHour ?? 8);
+  const [remMinute, setRemMinute] = useState(group?.meetingReminderMinute ?? 0);
   const [remWeekday, setRemWeekday] = useState(group?.meetingReminderWeekday ?? 1);
+  const hhmm = (h: number, m: number) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 
   const timeFor = (d: string) => schedule.find((s) => s.day === d)?.time ?? "";
   const toggleDay = (d: string) =>
@@ -148,6 +149,7 @@ export function GroupFields({
                 {/* Days-before vs specific weekday */}
                 <input type="hidden" name="meetingReminderLeadDays" value={leadDays} />
                 <input type="hidden" name="meetingReminderHour" value={remHour} />
+                <input type="hidden" name="meetingReminderMinute" value={remMinute} />
                 <input type="hidden" name="meetingReminderWeekday" value={whenMode === "weekday" ? remWeekday : ""} />
                 <div className="flex w-fit gap-1 rounded-lg border border-line bg-surface-2 p-0.5 text-sm">
                   {(["relative", "weekday"] as const).map((wm) => (
@@ -169,9 +171,9 @@ export function GroupFields({
                     </select>
                   )}
                   <span className="text-ink-muted">at</span>
-                  <select value={remHour} onChange={(e) => setRemHour(Number(e.target.value))} className="h-9 rounded-lg border border-line bg-surface px-2 text-sm">
-                    {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
-                  </select>
+                  <input type="time" value={hhmm(remHour, remMinute)}
+                    onChange={(e) => { const m = /^(\d{1,2}):(\d{2})$/.exec(e.target.value); if (m) { setRemHour(Math.min(23, +m[1])); setRemMinute(Math.min(59, +m[2])); } }}
+                    className="h-9 rounded-lg border border-line bg-surface px-2 text-sm" />
                 </div>
               </div>
             ) : (

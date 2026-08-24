@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { localParts, ymdInTz } from "@/lib/time/tz";
+import { localParts, ymdInTz, timeReached } from "@/lib/time/tz";
 import { templateFor, renderTemplate } from "@/lib/messages/registry";
 import { sendChurchSms } from "@/lib/sms/credits";
 
@@ -13,15 +13,15 @@ import { sendChurchSms } from "@/lib/sms/credits";
 export async function runRosterReminders(now = new Date(), ignoreHour = false) {
   const churches = await db.church.findMany({
     where: { isDemo: false, rosterRemindOn: true },
-    select: { id: true, name: true, timezone: true, messageTemplates: true, rosterRemindHour: true, rosterRemindLeadDays: true, rosterRemindWeekday: true },
+    select: { id: true, name: true, timezone: true, messageTemplates: true, rosterRemindHour: true, rosterRemindMinute: true, rosterRemindLeadDays: true, rosterRemindWeekday: true },
   });
 
   const shortDate = (d: Date, tz: string) => new Date(d).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: tz });
 
   let sent = 0;
   for (const church of churches) {
-    const { hour, weekday: todayWeekday } = localParts(now, church.timezone);
-    if (!ignoreHour && hour !== church.rosterRemindHour) continue;
+    const { weekday: todayWeekday } = localParts(now, church.timezone);
+    if (!ignoreHour && !timeReached(now, church.timezone, church.rosterRemindHour, church.rosterRemindMinute)) continue;
 
     const weekdayMode = church.rosterRemindWeekday != null;
     if (weekdayMode && todayWeekday !== church.rosterRemindWeekday) continue;

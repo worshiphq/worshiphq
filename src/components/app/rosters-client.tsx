@@ -19,13 +19,16 @@ import { MessageSquare, Megaphone, Users, Clock, Bell } from "lucide-react";
 import { WEEKDAY_OPTIONS } from "@/lib/automations/weekdays";
 import { cn } from "@/lib/utils";
 
+const hhmm = (h: number, m: number) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+const parseHhmm = (v: string): [number, number] => { const m = /^(\d{1,2}):(\d{2})$/.exec(v); return m ? [Math.min(23, +m[1]), Math.min(59, +m[2])] : [8, 0]; };
+
 /** Shared "Days before / On a day" schedule picker used by the roster settings. */
-function ScheduleControl({ verb, mode, setMode, leadDays, setLeadDays, weekday, setWeekday, hour, setHour }: {
+function ScheduleControl({ verb, mode, setMode, leadDays, setLeadDays, weekday, setWeekday, hour, minute, setTime }: {
   verb: string;
   mode: "relative" | "weekday"; setMode: (m: "relative" | "weekday") => void;
   leadDays: number; setLeadDays: (n: number) => void;
   weekday: number; setWeekday: (n: number) => void;
-  hour: number; setHour: (n: number) => void;
+  hour: number; minute: number; setTime: (h: number, m: number) => void;
 }) {
   const sel = "h-9 rounded-lg border border-line bg-surface px-2.5 text-sm";
   return (
@@ -51,23 +54,21 @@ function ScheduleControl({ verb, mode, setMode, leadDays, setLeadDays, weekday, 
           </select>
         )}
         <span className="text-sm">at</span>
-        <select value={hour} onChange={(e) => setHour(Number(e.target.value))} className={sel}>
-          {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
-        </select>
+        <input type="time" value={hhmm(hour, minute)} onChange={(e) => { const [h, m] = parseHhmm(e.target.value); setTime(h, m); }} className={sel} />
       </div>
     </div>
   );
 }
 
 type Group = { id: string; name: string; memberCount: number };
-type Announce = { on: boolean; audience: string; groupId: string | null; leadDays: number; hour: number; weekday: number | null; timezone: string };
-type Remind = { on: boolean; leadDays: number; hour: number; weekday: number | null };
+type Announce = { on: boolean; audience: string; groupId: string | null; leadDays: number; hour: number; minute: number; weekday: number | null; timezone: string };
+type Remind = { on: boolean; leadDays: number; hour: number; minute: number; weekday: number | null };
 
 function hourLabel(h: number) { const a = h < 12 ? "am" : "pm"; const hr = h % 12 === 0 ? 12 : h % 12; return `${hr}:00 ${a}`; }
 
 type Assignment = { id: string; role: string; personId: string | null; personName: string | null; hasPhone: boolean; notified: boolean };
 type ServiceBlock = { service: string; date: string; time: string; assignments: Assignment[] };
-type Sheet = { id: string; name: string; announceLeadDays: number | null; announceHour: number | null; announceWeekday: number | null; services: ServiceBlock[] };
+type Sheet = { id: string; name: string; announceLeadDays: number | null; announceHour: number | null; announceMinute: number | null; announceWeekday: number | null; services: ServiceBlock[] };
 type Member = { id: string; name: string; hasPhone: boolean };
 type Role = { id: string; name: string };
 
@@ -310,12 +311,14 @@ function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announc
   const [groupId, setGroupId] = useState(announce.groupId ?? "");
   const [leadDays, setLeadDays] = useState(announce.leadDays);
   const [hour, setHour] = useState(announce.hour);
+  const [minute, setMinute] = useState(announce.minute);
   const [mode, setMode] = useState<"relative" | "weekday">(announce.weekday != null ? "weekday" : "relative");
   const [weekday, setWeekday] = useState(announce.weekday ?? 1);
   // Personal reminder settings
   const [remOn, setRemOn] = useState(remind.on);
   const [remLead, setRemLead] = useState(remind.leadDays);
   const [remHour, setRemHour] = useState(remind.hour);
+  const [remMinute, setRemMinute] = useState(remind.minute);
   const [remMode, setRemMode] = useState<"relative" | "weekday">(remind.weekday != null ? "weekday" : "relative");
   const [remWeekday, setRemWeekday] = useState(remind.weekday ?? 1);
 
@@ -326,11 +329,13 @@ function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announc
     fd.set("groupId", groupId);
     fd.set("leadDays", String(leadDays));
     fd.set("hour", String(hour));
+    fd.set("minute", String(minute));
     fd.set("weekday", mode === "weekday" ? String(weekday) : "");
     const rfd = new FormData();
     if (remOn) rfd.set("on", "on");
     rfd.set("leadDays", String(remLead));
     rfd.set("hour", String(remHour));
+    rfd.set("minute", String(remMinute));
     rfd.set("weekday", remMode === "weekday" ? String(remWeekday) : "");
     start(async () => {
       const [a, r] = await Promise.all([saveRosterAnnounceSettings(fd), saveRosterReminderSettings(rfd)]);
@@ -374,7 +379,7 @@ function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announc
             )}
           </div>
 
-          <ScheduleControl verb="Send" mode={mode} setMode={setMode} leadDays={leadDays} setLeadDays={setLeadDays} weekday={weekday} setWeekday={setWeekday} hour={hour} setHour={setHour} />
+          <ScheduleControl verb="Send" mode={mode} setMode={setMode} leadDays={leadDays} setLeadDays={setLeadDays} weekday={weekday} setWeekday={setWeekday} hour={hour} minute={minute} setTime={(h, m) => { setHour(h); setMinute(m); }} />
           <p className="text-xs text-ink-muted">Timezone: {announce.timezone} (set on the Birthdays page). You can also hit “Announce” on any sheet to send it now.</p>
 
           {/* Personal reminders */}
@@ -385,7 +390,7 @@ function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announc
               <input type="checkbox" checked={remOn} onChange={(e) => setRemOn(e.target.checked)} className="size-4 accent-primary" />
             </label>
             <div className="mt-3">
-              <ScheduleControl verb="Remind" mode={remMode} setMode={setRemMode} leadDays={remLead} setLeadDays={setRemLead} weekday={remWeekday} setWeekday={setRemWeekday} hour={remHour} setHour={setRemHour} />
+              <ScheduleControl verb="Remind" mode={remMode} setMode={setRemMode} leadDays={remLead} setLeadDays={setRemLead} weekday={remWeekday} setWeekday={setRemWeekday} hour={remHour} minute={remMinute} setTime={(h, m) => { setRemHour(h); setRemMinute(m); }} />
             </div>
             <p className="mt-2 text-xs text-ink-muted">On “Days before” it goes to the people serving that day; on “On a day” it lists everyone’s duties for the coming week. Edit the wording under “Messages”.</p>
           </div>
@@ -425,6 +430,7 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
   );
   const [ovLead, setOvLead] = useState(sheet?.announceLeadDays ?? 2);
   const [ovHour, setOvHour] = useState(sheet?.announceHour ?? 8);
+  const [ovMinute, setOvMinute] = useState(sheet?.announceMinute ?? 0);
   const [ovWeekday, setOvWeekday] = useState(sheet?.announceWeekday ?? 1);
   const [services, setServices] = useState<DialogService[]>(
     sheet?.services?.length
@@ -472,6 +478,7 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
     // Per-roster send-time override (empty = follow the general schedule).
     fd.set("announceLeadDays", ovMode === "relative" ? String(ovLead) : "");
     fd.set("announceHour", ovMode === "general" ? "" : String(ovHour));
+    fd.set("announceMinute", ovMode === "general" ? "" : String(ovMinute));
     fd.set("announceWeekday", ovMode === "weekday" ? String(ovWeekday) : "");
     start(async () => {
       const res = await saveServiceSheet(fd);
@@ -566,9 +573,7 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
                   </select>
                 )}
                 <span className="text-ink-muted">at</span>
-                <select value={ovHour} onChange={(e) => setOvHour(Number(e.target.value))} className={inputCls}>
-                  {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
-                </select>
+                <input type="time" value={hhmm(ovHour, ovMinute)} onChange={(e) => { const [h, m] = parseHhmm(e.target.value); setOvHour(h); setOvMinute(m); }} className={inputCls} />
               </div>
             )}
             <p className="mt-1.5 text-[11px] text-ink-faint">“Use general” follows the church-wide Announcement schedule. “On a day” sends every chosen weekday for services in the coming week.</p>
