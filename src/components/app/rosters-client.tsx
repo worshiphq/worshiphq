@@ -16,7 +16,7 @@ import {
 } from "@/app/actions/rosters";
 import { SystemMessagesDialog } from "@/components/app/system-messages-dialog";
 import { MessageSquare, Megaphone, Users, Clock, Bell } from "lucide-react";
-import { WEEKDAY_OPTIONS } from "@/lib/automations/weekdays";
+import { WEEKDAY_OPTIONS, WEEKDAY_LABELS } from "@/lib/automations/weekdays";
 import { cn } from "@/lib/utils";
 
 const hhmm = (h: number, m: number) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
@@ -64,11 +64,10 @@ type Group = { id: string; name: string; memberCount: number };
 type Announce = { on: boolean; audience: string; groupId: string | null; leadDays: number; hour: number; minute: number; weekday: number | null; timezone: string };
 type Remind = { on: boolean; leadDays: number; hour: number; minute: number; weekday: number | null };
 
-function hourLabel(h: number) { const a = h < 12 ? "am" : "pm"; const hr = h % 12 === 0 ? 12 : h % 12; return `${hr}:00 ${a}`; }
 
 type Assignment = { id: string; role: string; personId: string | null; personName: string | null; hasPhone: boolean; notified: boolean };
 type ServiceBlock = { service: string; date: string; time: string; assignments: Assignment[] };
-type Sheet = { id: string; name: string; announceLeadDays: number | null; announceHour: number | null; announceMinute: number | null; announceWeekday: number | null; services: ServiceBlock[] };
+type Sheet = { id: string; name: string; announceLeadDays: number | null; announceHour: number | null; announceMinute: number | null; announceWeekday: number | null; announcedAt: string | null; services: ServiceBlock[] };
 type Member = { id: string; name: string; hasPhone: boolean };
 type Role = { id: string; name: string };
 
@@ -214,9 +213,13 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
     start(async () => { await deleteRoster(fd); toast("Roster deleted — restore it from Recently deleted", "info"); router.refresh(); });
   };
 
-  const overrideNote = sheet.announceLeadDays != null || sheet.announceHour != null
-    ? `Own send time${sheet.announceHour != null ? ` · ${hourLabel(sheet.announceHour)}` : ""}${sheet.announceLeadDays != null ? ` · ${sheet.announceLeadDays === 0 ? "same day" : `${sheet.announceLeadDays}d before`}` : ""}`
-    : null;
+  // Human schedule for the auto-announcement (per-roster override).
+  const schedTime = sheet.announceHour != null ? fmtTime(`${String(sheet.announceHour).padStart(2, "0")}:${String(sheet.announceMinute ?? 0).padStart(2, "0")}`) : null;
+  const overrideNote = sheet.announceWeekday != null
+    ? `Announces ${WEEKDAY_LABELS[sheet.announceWeekday]}s${schedTime ? ` · ${schedTime}` : ""}`
+    : sheet.announceLeadDays != null
+      ? `Announces ${sheet.announceLeadDays === 0 ? "same day" : `${sheet.announceLeadDays}d before`}${schedTime ? ` · ${schedTime}` : ""}`
+      : null;
 
   return (
     <Card className="flex flex-col p-0">
@@ -225,6 +228,9 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
           <h3 className="font-display text-lg font-semibold">{sheet.name}</h3>
           <p className="text-xs text-ink-muted">{dateRange}</p>
           {overrideNote && <p className="mt-0.5 text-[11px] text-primary-bright">{overrideNote}</p>}
+          {sheet.announcedAt
+            ? <p className="mt-0.5 text-[11px] text-success">✓ Announced {fmtShort(sheet.announcedAt)} · edit or “Announce” to send again</p>
+            : overrideNote && <p className="mt-0.5 text-[11px] text-ink-faint">Not announced yet</p>}
         </div>
         {canWrite && (
           <button onClick={onEdit} title="Edit" className="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-primary/10 hover:text-primary">

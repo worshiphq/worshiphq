@@ -62,9 +62,9 @@ export async function runRosterReminders(now = new Date(), ignoreHour = false) {
     for (const p of byPerson.values()) {
       const text = renderTemplate(tpl, { title: p.title, name: p.firstName, church: church.name, duties: p.lines.join("\n") });
       const res = await sendChurchSms(church.id, p.phone, text, { note: "Roster reminder" });
-      if (!res.ok && res.insufficient) break; // out of credits; try again next hour
+      if (!res.ok) { if (res.insufficient) break; continue; } // don't mark reminded on failure
       await db.volunteerSlot.updateMany({ where: { id: { in: p.slotIds } }, data: { remindedAt: new Date() } });
-      if (res.ok) sent += res.sent;
+      sent += res.sent;
     }
   }
 

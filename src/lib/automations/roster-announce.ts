@@ -78,9 +78,9 @@ export async function runRosterAnnouncements(now = new Date(), ignoreHour = fals
         church: church.name, service: sheet.name, date: fmtServiceDate(sheet.startDate), list: buildRosterBody(sheet.slots),
       });
       const res = await sendChurchSms(church.id, phones, text, { note: "Roster announcement" });
-      if (!res.ok && res.insufficient) break; // out of credits; try next church next hour
+      if (!res.ok) { if (res.insufficient) break; continue; } // don't mark sent on failure — retry next run
       await db.volunteerRoster.update({ where: { id: sheet.id }, data: { announcedAt: new Date() } });
-      if (res.ok) sent += res.sent;
+      sent += res.sent;
     }
   }
 

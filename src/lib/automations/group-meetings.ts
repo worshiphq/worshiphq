@@ -60,9 +60,9 @@ export async function runGroupMeetingReminders(now = new Date(), ignoreHour = fa
         church: church.name, group: g.name, schedule: toRemind,
       });
       const res = await sendChurchSms(church.id, phones, text, { note: `Meeting reminder: ${g.name}` });
-      if (!res.ok && res.insufficient) break; // out of credits; retry next hour
+      if (!res.ok) { if (res.insufficient) break; continue; } // don't mark sent on failure
       await db.group.update({ where: { id: g.id }, data: { meetingReminderLastSent: todayYmd } });
-      if (res.ok) sent += res.sent;
+      sent += res.sent;
     }
   }
 
