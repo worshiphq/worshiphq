@@ -142,9 +142,12 @@ export async function saveServiceSheet(formData: FormData) {
   if (rosterId) {
     const owned = await db.volunteerRoster.findFirst({ where: { id: rosterId, churchId: session.churchId }, select: { id: true } });
     if (!owned) return { ok: false as const, error: "Sheet not found." };
+    // NOTE: we deliberately do NOT reset announcedAt here. Editing a sheet must
+    // not silently re-blast the group on the next cron tick — a sheet auto-
+    // announces once; use the "Announce" button to send again on purpose.
     await db.volunteerRoster.update({
       where: { id: rosterId },
-      data: { name: rosterName, startDate, endDate, announceLeadDays, announceHour, announceMinute, announceWeekday, announcedAt: null },
+      data: { name: rosterName, startDate, endDate, announceLeadDays, announceHour, announceMinute, announceWeekday },
     });
     await db.volunteerSlot.deleteMany({ where: { rosterId, churchId: session.churchId } });
   } else {

@@ -229,7 +229,7 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
           <p className="text-xs text-ink-muted">{dateRange}</p>
           {overrideNote && <p className="mt-0.5 text-[11px] text-primary-bright">{overrideNote}</p>}
           {sheet.announcedAt
-            ? <p className="mt-0.5 text-[11px] text-success">✓ Announced {fmtShort(sheet.announcedAt)} · edit or “Announce” to send again</p>
+            ? <p className="mt-0.5 text-[11px] text-success">✓ Announced {fmtShort(sheet.announcedAt)} · tap “Announce” to send again</p>
             : overrideNote && <p className="mt-0.5 text-[11px] text-ink-faint">Not announced yet</p>}
         </div>
         {canWrite && (
