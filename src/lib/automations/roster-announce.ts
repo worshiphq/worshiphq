@@ -57,7 +57,7 @@ export async function runRosterAnnouncements(now = new Date(), ignoreHour = fals
 
       // A roster that sets ANY timing field fully overrides the church schedule;
       // otherwise it inherits the church's mode + values.
-      const override = sheet.announceHour != null || sheet.announceWeekday != null || sheet.announceLeadDays != null;
+      const override = sheet.announceHour != null || sheet.announceWeekday != null || sheet.announceLeadDays != null || sheet.announceDate != null;
       const sendHour = override ? (sheet.announceHour ?? church.rosterAnnounceHour) : church.rosterAnnounceHour;
       const sendMinute = override ? (sheet.announceMinute ?? church.rosterAnnounceMinute) : church.rosterAnnounceMinute;
       const weekday = override ? sheet.announceWeekday : church.rosterAnnounceWeekday;
@@ -65,8 +65,11 @@ export async function runRosterAnnouncements(now = new Date(), ignoreHour = fals
       if (!ignoreHour && !timeReached(now, church.timezone, sendHour, sendMinute)) continue;
 
       const startYmd = ymdInTz(sheet.startDate, church.timezone);
-      if (weekday != null) {
-        // Absolute: send on the chosen weekday, for services within the next 7 days.
+      if (sheet.announceDate != null) {
+        // Exact date: send only on that calendar day.
+        if (ymdInTz(now, church.timezone) !== ymdInTz(sheet.announceDate, church.timezone)) continue;
+      } else if (weekday != null) {
+        // Absolute weekday: send on that weekday, for services within the next 7 days.
         if (todayWeekday !== weekday) continue;
         if (!(startYmd >= todayYmd && startYmd <= plus7Ymd)) continue;
       } else {

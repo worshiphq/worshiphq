@@ -67,7 +67,7 @@ type Remind = { on: boolean; leadDays: number; hour: number; minute: number; wee
 
 type Assignment = { id: string; role: string; personId: string | null; personName: string | null; hasPhone: boolean; notified: boolean };
 type ServiceBlock = { service: string; date: string; time: string; assignments: Assignment[] };
-type Sheet = { id: string; name: string; announceLeadDays: number | null; announceHour: number | null; announceMinute: number | null; announceWeekday: number | null; announcedAt: string | null; services: ServiceBlock[] };
+type Sheet = { id: string; name: string; announceLeadDays: number | null; announceHour: number | null; announceMinute: number | null; announceWeekday: number | null; announceDate: string | null; announcedAt: string | null; services: ServiceBlock[] };
 type Member = { id: string; name: string; hasPhone: boolean };
 type Role = { id: string; name: string };
 
@@ -215,11 +215,13 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
 
   // Human schedule for the auto-announcement (per-roster override).
   const schedTime = sheet.announceHour != null ? fmtTime(`${String(sheet.announceHour).padStart(2, "0")}:${String(sheet.announceMinute ?? 0).padStart(2, "0")}`) : null;
-  const overrideNote = sheet.announceWeekday != null
-    ? `Announces ${WEEKDAY_LABELS[sheet.announceWeekday]}s${schedTime ? ` · ${schedTime}` : ""}`
-    : sheet.announceLeadDays != null
-      ? `Announces ${sheet.announceLeadDays === 0 ? "same day" : `${sheet.announceLeadDays}d before`}${schedTime ? ` · ${schedTime}` : ""}`
-      : null;
+  const overrideNote = sheet.announceDate != null
+    ? `Announces ${fmtShort(sheet.announceDate)}${schedTime ? ` · ${schedTime}` : ""}`
+    : sheet.announceWeekday != null
+      ? `Announces ${WEEKDAY_LABELS[sheet.announceWeekday]}s${schedTime ? ` · ${schedTime}` : ""}`
+      : sheet.announceLeadDays != null
+        ? `Announces ${sheet.announceLeadDays === 0 ? "same day" : `${sheet.announceLeadDays}d before`}${schedTime ? ` · ${schedTime}` : ""}`
+        : null;
 
   return (
     <Card className="flex flex-col p-0">
@@ -481,13 +483,17 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
   }, [roles]);
 
   const [name, setName] = useState(sheet?.name ?? "");
-  const [ovMode, setOvMode] = useState<"general" | "relative" | "weekday">(
-    sheet?.announceWeekday != null ? "weekday" : (sheet?.announceLeadDays != null || sheet?.announceHour != null) ? "relative" : "general",
+  const [ovMode, setOvMode] = useState<"general" | "relative" | "weekday" | "date">(
+    sheet?.announceDate != null ? "date"
+      : sheet?.announceWeekday != null ? "weekday"
+      : (sheet?.announceLeadDays != null || sheet?.announceHour != null) ? "relative"
+      : "general",
   );
   const [ovLead, setOvLead] = useState(sheet?.announceLeadDays ?? 2);
   const [ovHour, setOvHour] = useState(sheet?.announceHour ?? 8);
   const [ovMinute, setOvMinute] = useState(sheet?.announceMinute ?? 0);
   const [ovWeekday, setOvWeekday] = useState(sheet?.announceWeekday ?? 1);
+  const [ovDate, setOvDate] = useState(sheet?.announceDate ? sheet.announceDate.slice(0, 10) : "");
   const [services, setServices] = useState<DialogService[]>(
     sheet?.services?.length
       ? sheet.services.map((s) => ({ service: s.service, date: s.date.slice(0, 10), time: s.time, rows: makeRows(s.assignments) }))
@@ -536,6 +542,7 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
     fd.set("announceHour", ovMode === "general" ? "" : String(ovHour));
     fd.set("announceMinute", ovMode === "general" ? "" : String(ovMinute));
     fd.set("announceWeekday", ovMode === "weekday" ? String(ovWeekday) : "");
+    fd.set("announceDate", ovMode === "date" ? ovDate : "");
     start(async () => {
       const res = await saveServiceSheet(fd);
       if (res?.ok) { toast(sheet ? "Roster updated" : "Roster created", "success"); router.refresh(); onClose(); }
@@ -609,7 +616,7 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
           <div className="rounded-xl border border-line p-3">
             <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint"><Clock className="size-3.5" /> Auto-announce time for this roster</div>
             <div className="flex w-fit flex-wrap gap-1 rounded-lg border border-line bg-surface-2 p-0.5 text-sm">
-              {([["general", "Use general"], ["relative", "Days before"], ["weekday", "On a day"]] as const).map(([m, label]) => (
+              {([["general", "Use general"], ["relative", "Days before"], ["weekday", "On a day"], ["date", "On a date"]] as const).map(([m, label]) => (
                 <button key={m} type="button" onClick={() => setOvMode(m)}
                   className={cn("rounded-md px-2.5 py-1 font-medium", ovMode === m ? "bg-primary text-white" : "text-ink-muted")}>
                   {label}
@@ -619,20 +626,24 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
             {ovMode !== "general" && (
               <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
                 <span className="text-ink-muted">Send</span>
-                {ovMode === "relative" ? (
+                {ovMode === "relative" && (
                   <select value={ovLead} onChange={(e) => setOvLead(Number(e.target.value))} className={inputCls}>
                     {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{d === 0 ? "same day" : `${d} day${d === 1 ? "" : "s"} before`}</option>)}
                   </select>
-                ) : (
+                )}
+                {ovMode === "weekday" && (
                   <select value={ovWeekday} onChange={(e) => setOvWeekday(Number(e.target.value))} className={inputCls}>
                     {WEEKDAY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}s</option>)}
                   </select>
+                )}
+                {ovMode === "date" && (
+                  <input type="date" value={ovDate} onChange={(e) => setOvDate(e.target.value)} className={inputCls} />
                 )}
                 <span className="text-ink-muted">at</span>
                 <input type="time" value={hhmm(ovHour, ovMinute)} onChange={(e) => { const [h, m] = parseHhmm(e.target.value); setOvHour(h); setOvMinute(m); }} className={inputCls} />
               </div>
             )}
-            <p className="mt-1.5 text-[11px] text-ink-faint">“Use general” follows the church-wide Announcement schedule. “On a day” sends every chosen weekday for services in the coming week.</p>
+            <p className="mt-1.5 text-[11px] text-ink-faint">“Use general” follows the church-wide schedule. “On a day” = a weekday. “On a date” = one exact day. Either way it sends once.</p>
           </div>
 
           <p className="text-[11px] text-ink-faint">Message size: ≈ {chars} characters · {segments} SMS per recipient. Exact credits are shown when you tap Announce.</p>

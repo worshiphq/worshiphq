@@ -108,6 +108,8 @@ export async function saveServiceSheet(formData: FormData) {
   const announceHour = numOrNull(formData.get("announceHour"));
   const announceMinute = numOrNull(formData.get("announceMinute"));
   const announceWeekday = parseWeekday(formData.get("announceWeekday"));
+  const announceDateStr = String(formData.get("announceDate") ?? "").trim();
+  const announceDate = /^\d{4}-\d{2}-\d{2}$/.test(announceDateStr) ? new Date(`${announceDateStr}T00:00:00`) : null;
 
   let services: SheetService[] = [];
   try { services = JSON.parse(String(formData.get("services") ?? "[]")); } catch { /* ignore */ }
@@ -147,12 +149,12 @@ export async function saveServiceSheet(formData: FormData) {
     // announces once; use the "Announce" button to send again on purpose.
     await db.volunteerRoster.update({
       where: { id: rosterId },
-      data: { name: rosterName, startDate, endDate, announceLeadDays, announceHour, announceMinute, announceWeekday },
+      data: { name: rosterName, startDate, endDate, announceLeadDays, announceHour, announceMinute, announceWeekday, announceDate },
     });
     await db.volunteerSlot.deleteMany({ where: { rosterId, churchId: session.churchId } });
   } else {
     const roster = await db.volunteerRoster.create({
-      data: { churchId: session.churchId, name: rosterName, startDate, endDate, announceLeadDays, announceHour, announceMinute, announceWeekday },
+      data: { churchId: session.churchId, name: rosterName, startDate, endDate, announceLeadDays, announceHour, announceMinute, announceWeekday, announceDate },
       select: { id: true },
     });
     rosterId = roster.id;
