@@ -10,7 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useFeedback } from "@/components/ui/feedback";
 import {
-  saveServiceSheet, deleteRoster, addServiceRole, deleteServiceRole,
+  saveServiceSheet, deleteRoster, restoreRoster, purgeRoster, addServiceRole, deleteServiceRole,
   previewRosterNotify, notifyRoster,
   previewRosterAnnounce, announceRoster, saveRosterAnnounceSettings, saveRosterReminderSettings,
 } from "@/app/actions/rosters";
@@ -78,9 +78,11 @@ const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { wee
 const fmtShort = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "UTC" });
 const fmtTime = (t: string) => { const m = /^(\d{1,2}):(\d{2})$/.exec(t); if (!m) return ""; let h = +m[1]; const ap = h < 12 ? "am" : "pm"; h = h % 12 === 0 ? 12 : h % 12; return `${h}:${m[2]} ${ap}`; };
 
-export function RostersClient({ sheets, members, roles, smsBalance, messageTemplates, groups, announce, remind, canWrite }: {
+type DeletedSheet = { id: string; name: string; date: string; deletedAt: string };
+
+export function RostersClient({ sheets, members, roles, smsBalance, messageTemplates, groups, announce, remind, deletedSheets, canWrite }: {
   sheets: Sheet[]; members: Member[]; roles: Role[]; smsBalance: number; messageTemplates: Record<string, string>;
-  groups: Group[]; announce: Announce; remind: Remind; canWrite: boolean;
+  groups: Group[]; announce: Announce; remind: Remind; deletedSheets: DeletedSheet[]; canWrite: boolean;
 }) {
   const [editing, setEditing] = useState<Sheet | null>(null);
   const [creating, setCreating] = useState(false);
@@ -114,6 +116,8 @@ export function RostersClient({ sheets, members, roles, smsBalance, messageTempl
         </div>
       )}
 
+      {canWrite && deletedSheets.length > 0 && <RecentlyDeleted sheets={deletedSheets} />}
+
       {(creating || editing) && (
         <SheetDialog
           sheet={editing}
@@ -126,6 +130,52 @@ export function RostersClient({ sheets, members, roles, smsBalance, messageTempl
       {showMessages && <SystemMessagesDialog saved={messageTemplates} onClose={() => setShowMessages(false)} />}
       {showAnnounce && <AnnounceSettingsDialog announce={announce} remind={remind} groups={groups} onClose={() => setShowAnnounce(false)} />}
     </div>
+  );
+}
+
+/** Restorable list of recently soft-deleted sheets. */
+function RecentlyDeleted({ sheets }: { sheets: DeletedSheet[] }) {
+  const router = useRouter();
+  const { toast } = useFeedback();
+  const [open, setOpen] = useState(false);
+  const [busy, start] = useTransition();
+
+  const restore = (id: string) => {
+    const fd = new FormData(); fd.set("id", id);
+    start(async () => { const r = await restoreRoster(fd); if (r?.ok) { toast("Roster restored", "success"); router.refresh(); } });
+  };
+  const purge = (id: string, name: string) => {
+    if (!confirm(`Permanently delete "${name}"? This can't be undone.`)) return;
+    const fd = new FormData(); fd.set("id", id);
+    start(async () => { await purgeRoster(fd); toast("Permanently deleted", "info"); router.refresh(); });
+  };
+
+  return (
+    <Card className="p-0">
+      <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between p-4 text-left">
+        <span className="flex items-center gap-2 text-sm font-medium text-ink-muted">
+          <Trash2 className="size-4" /> Recently deleted ({sheets.length})
+        </span>
+        <span className="text-xs text-ink-faint">{open ? "Hide" : "Show"}</span>
+      </button>
+      {open && (
+        <div className="space-y-2 border-t border-line p-4">
+          <p className="text-xs text-ink-faint">Deleted sheets are kept for 30 days. Restore one, or remove it for good.</p>
+          {sheets.map((s) => (
+            <div key={s.id} className="flex items-center gap-2 rounded-xl border border-line px-3 py-2">
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{s.name}</div>
+                <div className="text-[11px] text-ink-faint">Deleted {fmtShort(s.deletedAt)}</div>
+              </div>
+              <Button size="sm" variant="secondary" disabled={busy} onClick={() => restore(s.id)}>Restore</Button>
+              <button onClick={() => purge(s.id, s.name)} disabled={busy} title="Delete permanently" className="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
+                <Trash2 className="size-4" />
+              </button>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -159,9 +209,9 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
   };
 
   const remove = () => {
-    if (!confirm(`Delete the roster "${sheet.name}"?`)) return;
+    if (!confirm(`Delete the roster "${sheet.name}"? You can restore it from “Recently deleted” for 30 days.`)) return;
     const fd = new FormData(); fd.set("id", sheet.id);
-    start(async () => { await deleteRoster(fd); toast("Roster deleted", "success"); router.refresh(); });
+    start(async () => { await deleteRoster(fd); toast("Roster deleted — restore it from Recently deleted", "info"); router.refresh(); });
   };
 
   const overrideNote = sheet.announceLeadDays != null || sheet.announceHour != null

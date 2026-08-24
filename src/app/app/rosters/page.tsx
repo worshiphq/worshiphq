@@ -12,7 +12,7 @@ export default async function RostersPage() {
 
   const [sheets, members, roles, smsBalance, church] = await Promise.all([
     db.volunteerRoster.findMany({
-      where: { churchId: session.churchId },
+      where: { churchId: session.churchId, deletedAt: null },
       orderBy: { startDate: "desc" },
       include: {
         slots: {
@@ -38,6 +38,12 @@ export default async function RostersPage() {
     }),
   ]);
   const messageTemplates = (church?.messageTemplates as Record<string, string> | null) ?? {};
+  // Recently deleted sheets (last 30 days) — restorable.
+  const deletedSheets = await db.volunteerRoster.findMany({
+    where: { churchId: session.churchId, deletedAt: { gte: new Date(Date.now() - 30 * 86400000) } },
+    orderBy: { deletedAt: "desc" },
+    select: { id: true, name: true, startDate: true, deletedAt: true },
+  });
   const groups = await db.group.findMany({
     where: { churchId: session.churchId },
     select: { id: true, name: true, _count: { select: { members: true } } },
@@ -90,6 +96,7 @@ export default async function RostersPage() {
         smsBalance={smsBalance}
         messageTemplates={messageTemplates}
         groups={groups.map((g) => ({ id: g.id, name: g.name, memberCount: g._count.members }))}
+        deletedSheets={deletedSheets.map((d) => ({ id: d.id, name: d.name, date: d.startDate.toISOString(), deletedAt: d.deletedAt!.toISOString() }))}
         announce={{
           on: church?.rosterAnnounceOn ?? false,
           audience: church?.rosterAnnounceAudience ?? "group",

@@ -32,7 +32,7 @@ export async function runRosterAnnouncements(now = new Date(), ignoreHour = fals
     const from = new Date(now.getTime() - 2 * 86400000);
     const to = new Date(now.getTime() + 33 * 86400000);
     const sheets = await db.volunteerRoster.findMany({
-      where: { churchId: church.id, announcedAt: null, startDate: { gte: from, lte: to } },
+      where: { churchId: church.id, announcedAt: null, deletedAt: null, startDate: { gte: from, lte: to } },
       include: { slots: { orderBy: { date: "asc" } } },
     });
     if (sheets.length === 0) continue;

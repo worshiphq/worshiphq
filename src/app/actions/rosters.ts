@@ -179,9 +179,32 @@ export async function deleteRoster(formData: FormData) {
 
   const id = String(formData.get("id"));
   const r = await db.volunteerRoster.findFirst({ where: { id, churchId: session.churchId }, select: { name: true } });
-  await db.volunteerRoster.deleteMany({ where: { id, churchId: session.churchId } });
+  // Soft delete — hidden from lists but restorable from "Recently deleted".
+  await db.volunteerRoster.updateMany({ where: { id, churchId: session.churchId }, data: { deletedAt: new Date() } });
   if (r) await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: "roster", entityId: id, detail: `Deleted roster "${r.name}"` });
   revalidatePath("/app/rosters");
+}
+
+/** Restore a soft-deleted roster sheet. */
+export async function restoreRoster(formData: FormData) {
+  const session = await requireModule("volunteers");
+  if (session.isDemo) return { ok: false as const };
+  const id = String(formData.get("id"));
+  await db.volunteerRoster.updateMany({ where: { id, churchId: session.churchId }, data: { deletedAt: null } });
+  await logAudit({ churchId: session.churchId, userId: session.userId, action: "update", entity: "roster", entityId: id, detail: "Restored roster" });
+  revalidatePath("/app/rosters");
+  return { ok: true as const };
+}
+
+/** Permanently delete a soft-deleted roster sheet (and its slots). */
+export async function purgeRoster(formData: FormData) {
+  const session = await requireModule("volunteers");
+  if (session.isDemo) return { ok: false as const };
+  const id = String(formData.get("id"));
+  await db.volunteerRoster.deleteMany({ where: { id, churchId: session.churchId, deletedAt: { not: null } } });
+  await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: "roster", entityId: id, detail: "Permanently deleted roster" });
+  revalidatePath("/app/rosters");
+  return { ok: true as const };
 }
 
 export async function deleteSlot(formData: FormData) {

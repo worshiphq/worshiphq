@@ -1367,6 +1367,7 @@ model VolunteerRoster {
   announceHour     Int? // local hour to auto-announce
   announceMinute   Int? // local minute to auto-announce
   announceWeekday  Int? // 0=Sun..6=Sat — when set, send on this weekday instead of "leadDays before"
+  deletedAt DateTime? // soft delete — hidden from lists but restorable for 30 days
   slots     VolunteerSlot[]
   createdAt DateTime @default(now())
 
