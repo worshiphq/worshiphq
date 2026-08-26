@@ -63,6 +63,7 @@ model Church {
   // Weekly digest of the week's upcoming birthdays sent to admins (off by default).
   birthdayDigestOn  Boolean @default(false)
   birthdayDigestDay Int     @default(1) // 0=Sun … 6=Sat (Monday default)
+  birthdayLastSent  String? // local YYYY-MM-DD guard so the daily birthday batch runs once per day
   // ── Roster announcement (whole sheet to a group, ahead of the service) ──
   rosterAnnounceOn       Boolean @default(false)
   rosterAnnounceLeadDays Int     @default(2)  // send this many days before the service

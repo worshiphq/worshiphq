@@ -1,7 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { notifyChurchAdmins } from "@/lib/notify/admins";
-import { localParts, mmddInTz } from "@/lib/time/tz";
+import { localParts, mmddInTz, ymdInTz, timeReached } from "@/lib/time/tz";
 import { templateFor, renderTemplate } from "@/lib/messages/registry";
 
 /**
@@ -20,7 +20,7 @@ export async function runBirthdays(now = new Date(), ignoreHour = false) {
       OR: [{ birthdayWishOn: true }, { birthdayAdminAlertOn: true }, { birthdayDigestOn: true }],
     },
     select: {
-      id: true, name: true, timezone: true, birthdaySendHour: true,
+      id: true, name: true, timezone: true, birthdaySendHour: true, birthdayLastSent: true,
       birthdayWishOn: true, birthdayAdminAlertOn: true, birthdayDigestOn: true, birthdayDigestDay: true,
       messageTemplates: true,
     },
@@ -29,10 +29,19 @@ export async function runBirthdays(now = new Date(), ignoreHour = false) {
   let wishes = 0, adminAlerts = 0, digests = 0;
 
   for (const church of churches) {
-    const { hour, weekday } = localParts(now, church.timezone);
-    // With an hourly trigger, fire only at the church's chosen local hour. On a
-    // once-daily cron (ignoreHour), fire on that single run instead.
-    if (!ignoreHour && hour !== church.birthdaySendHour) continue;
+    const { weekday } = localParts(now, church.timezone);
+    // Fire once the church's local clock reaches its send time (a precise trigger
+    // may run many times an hour). On the daily cron (ignoreHour) always try.
+    if (!ignoreHour && !timeReached(now, church.timezone, church.birthdaySendHour, 0)) continue;
+
+    // Claim today atomically so the birthday batch runs ONCE per day no matter
+    // how often the cron ticks — this is what stops the repeated texts.
+    const todayYmd = ymdInTz(now, church.timezone);
+    const claim = await db.church.updateMany({
+      where: { id: church.id, NOT: { birthdayLastSent: todayYmd } },
+      data: { birthdayLastSent: todayYmd },
+    });
+    if (claim.count === 0) continue; // already ran today
 
     const todayKey = mmddInTz(now, church.timezone, 0);
 
