@@ -281,14 +281,15 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
       </div>
 
       {notify && <NotifyDialog sheetId={sheet.id} label={sheet.name} smsBalance={smsBalance} onClose={() => setNotify(false)} />}
-      {announce && <AnnounceDialog sheetId={sheet.id} label={sheet.name} onClose={() => setAnnounce(false)} />}
+      {announce && <AnnounceDialog sheetId={sheet.id} label={sheet.name} announcedAt={sheet.announcedAt} onClose={() => setAnnounce(false)} />}
     </Card>
   );
 }
 
 /** Manual "announce this sheet to the group" — cost preview then send. */
-function AnnounceDialog({ sheetId, label, onClose }: { sheetId: string; label: string; onClose: () => void }) {
+function AnnounceDialog({ sheetId, label, announcedAt, onClose }: { sheetId: string; label: string; announcedAt?: string | null; onClose: () => void }) {
   const router = useRouter();
+  const alreadyToday = !!announcedAt && new Date(announcedAt).toDateString() === new Date().toDateString();
   const [preview, setPreview] = useState<{ recipients: number; cost: number; balance: number; remaining: number; enough: boolean; chars?: number; segments?: number } | null>(null);
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
@@ -315,6 +316,11 @@ function AnnounceDialog({ sheetId, label, onClose }: { sheetId: string; label: s
           <button onClick={onClose} disabled={sending} className="rounded-lg p-1 text-ink-faint hover:bg-surface-2 disabled:opacity-40"><X className="size-4" /></button>
         </div>
         <div className="p-5">
+          {alreadyToday && !result && (
+            <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" /> You already announced this today — sending again re-texts the whole group.
+            </div>
+          )}
           {loading ? (
             <div className="flex items-center gap-2 py-6 text-sm text-ink-muted"><Loader2 className="size-4 animate-spin" /> Working out the cost…</div>
           ) : result ? (
@@ -347,7 +353,7 @@ function AnnounceDialog({ sheetId, label, onClose }: { sheetId: string; label: s
             <>
               <Button variant="ghost" size="sm" onClick={onClose} disabled={sending}>Cancel</Button>
               <Button size="sm" onClick={send} disabled={sending || loading || !preview || !preview.enough || preview.recipients === 0}>
-                {sending ? <><Loader2 className="size-4 animate-spin" /> Sending…</> : <><Megaphone className="size-4" /> Announce now</>}
+                {sending ? <><Loader2 className="size-4 animate-spin" /> Sending…</> : <><Megaphone className="size-4" /> {alreadyToday ? "Send again" : "Announce now"}</>}
               </Button>
             </>
           )}
