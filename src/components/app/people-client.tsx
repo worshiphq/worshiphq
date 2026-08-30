@@ -785,7 +785,7 @@ function PersonForm({
                 </div>
                 <div>
                   <Label htmlFor="guardianPhone">Guardian phone</Label>
-                  <input id="guardianPhone" name="guardianPhone" defaultValue={person?.guardianPhone ?? ""} placeholder="e.g. 0244123456" className={inputBase} />
+                  <input id="guardianPhone" name="guardianPhone" type="tel" inputMode="tel" defaultValue={person?.guardianPhone ?? ""} placeholder="e.g. 0244123456" className={inputBase} />
                 </div>
               </div>
             </div>

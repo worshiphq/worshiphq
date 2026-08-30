@@ -76,7 +76,7 @@ export function MemberFormFields({
                 Yes
               </label>
             ) : (
-              <input name={f.id} type={f.type} required={f.required} placeholder={f.placeholder} value={values[f.id] ?? ""} onChange={(e) => setValue(f.id, e.target.value)} className={input} />
+              <input name={f.id} type={f.type} inputMode={f.type === "tel" ? "tel" : undefined} required={f.required} placeholder={f.placeholder} value={values[f.id] ?? ""} onChange={(e) => setValue(f.id, e.target.value)} className={input} />
             )}
           </div>
         );
