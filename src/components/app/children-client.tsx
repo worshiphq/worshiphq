@@ -164,8 +164,8 @@ export function ChildrenClient({
           ))}
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-line bg-surface shadow-sm">
-          <table className="w-full text-sm">
+        <div className="overflow-x-auto rounded-2xl border border-line bg-surface shadow-sm">
+          <table className="w-full min-w-[42rem] text-sm">
             <thead className="border-b border-line bg-surface-2/50 text-left text-xs uppercase tracking-wide text-ink-faint">
               <tr>
                 <th className="p-4 font-medium">Name</th>

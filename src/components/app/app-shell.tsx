@@ -145,7 +145,7 @@ export function AppShell({
         {announcements.map((a) => (
           <AnnouncementBanner key={a.id} announcement={a} />
         ))}
-        <main className="flex-1">
+        <main className="flex-1 overflow-x-hidden">
           <motion.div
             key={pathname}
             initial={{ opacity: 0 }}
