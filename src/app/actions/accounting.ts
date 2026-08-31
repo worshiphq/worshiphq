@@ -5,6 +5,15 @@ import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 
+/** Running-balance history for one account (for the accounting History tab). */
+export async function loadAccountHistory(accountId: string) {
+  const session = await requireSession();
+  const { getAccountHistory } = await import("@/lib/data/accounts");
+  const history = await getAccountHistory(session.churchId, accountId);
+  if (!history) return { ok: false as const, error: "Account not found." };
+  return { ok: true as const, history };
+}
+
 export async function createTransaction(formData: FormData) {
   const session = await requireSession();
   assertCanWrite(session);

@@ -135,3 +135,55 @@ export async function getAccountOptions(churchId: string) {
     select: { id: true, name: true, isDefault: true, type: true },
   });
 }
+
+export interface AccountHistoryRow {
+  id: string;
+  date: string;
+  description: string;
+  source: "manual" | "giving" | "expense";
+  amount: number;        // signed: + income, − expense
+  balanceBefore: number;
+  balanceAfter: number;
+}
+
+export interface AccountHistory {
+  account: { id: string; name: string; openingBalance: number };
+  current: number;
+  rows: AccountHistoryRow[]; // newest first
+}
+
+/**
+ * A bank-statement style running-balance history for ONE account: every entry
+ * (transactions, gifts banked here, expenses paid from here) in date order with
+ * the balance before and after it. Starts from the account's opening balance.
+ */
+export async function getAccountHistory(churchId: string, accountId: string): Promise<AccountHistory | null> {
+  const account = await db.churchAccount.findFirst({
+    where: { id: accountId, churchId },
+    select: { id: true, name: true, openingBalance: true },
+  });
+  if (!account) return null;
+
+  const [txns, gifts, expenses] = await Promise.all([
+    db.transaction.findMany({ where: { churchId, accountId }, select: { id: true, description: true, amount: true, date: true } }),
+    db.gift.findMany({ where: { churchId, accountId }, select: { id: true, donorName: true, amount: true, date: true, fund: { select: { name: true } } } }),
+    db.expense.findMany({ where: { churchId, accountId }, select: { id: true, description: true, amount: true, date: true, vendor: true } }),
+  ]);
+
+  type E = { id: string; date: Date; description: string; source: "manual" | "giving" | "expense"; amount: number };
+  const entries: E[] = [
+    ...txns.map((t) => ({ id: t.id, date: t.date, description: t.description, source: "manual" as const, amount: Number(t.amount) })),
+    ...gifts.map((g) => ({ id: g.id, date: g.date, description: `${g.donorName ?? "Anonymous"} — ${g.fund?.name ?? "Gift"}`, source: "giving" as const, amount: Number(g.amount) })),
+    ...expenses.map((e) => ({ id: e.id, date: e.date, description: `${e.description}${e.vendor ? ` (${e.vendor})` : ""}`, source: "expense" as const, amount: -Number(e.amount) })),
+  ].sort((a, b) => a.date.getTime() - b.date.getTime());
+
+  let bal = account.openingBalance;
+  const rows: AccountHistoryRow[] = entries.map((e) => {
+    const before = bal;
+    bal += e.amount;
+    return { id: e.id, date: e.date.toISOString(), description: e.description, source: e.source, amount: e.amount, balanceBefore: before, balanceAfter: bal };
+  });
+  rows.reverse(); // newest first
+
+  return { account: { id: account.id, name: account.name, openingBalance: account.openingBalance }, current: bal, rows };
+}

@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useState, useTransition } from "react";
+import { createContext, useContext, useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   ChevronDown, ChevronRight, Download, Calendar,
@@ -13,7 +13,8 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/app/stat-card";
 import { useFeedback } from "@/components/ui/feedback";
-import { deleteTransaction, editTransaction, moveLedgerEntryAccount } from "@/app/actions/accounting";
+import { deleteTransaction, editTransaction, moveLedgerEntryAccount, loadAccountHistory } from "@/app/actions/accounting";
+import type { AccountHistory } from "@/lib/data/accounts";
 import { formatCurrency } from "@/config/brand";
 import { formatDate, cn } from "@/lib/utils";
 import type { AccountingWeek, AccountingRow } from "@/lib/data/modules";
@@ -39,7 +40,7 @@ interface Props {
 }
 
 export function AccountingClient({ transactions, income, expenses, fundBalances, weeks, monthLabel, year, month, accounts = [], canWrite }: Props) {
-  const [tab, setTab] = useState<"weekly" | "all" | "report">("weekly");
+  const [tab, setTab] = useState<"weekly" | "all" | "report" | "history">("weekly");
   const [selectedYear, setSelectedYear] = useState(year);
   const [selectedMonth, setSelectedMonth] = useState(month);
   const [allTime, setAllTime] = useState(year === 0);
@@ -105,28 +106,30 @@ export function AccountingClient({ transactions, income, expenses, fundBalances,
         <StatCard label="Funds" value={fundBalances.length} icon={Wallet} />
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-1 rounded-xl bg-surface-2 p-1">
+      {/* Tabs — 2×2 on phones, a row on wider screens */}
+      <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1 sm:grid-cols-4">
         {[
-          { id: "weekly" as const, label: "Weekly view", icon: Calendar },
-          { id: "all" as const, label: "All transactions", icon: Banknote },
-          { id: "report" as const, label: "Monthly report", icon: Download },
+          { id: "weekly" as const, label: "Weekly", icon: Calendar },
+          { id: "all" as const, label: "All entries", icon: Banknote },
+          { id: "history" as const, label: "History", icon: Scale },
+          { id: "report" as const, label: "Report", icon: Download },
         ].map((t) => (
           <button
             key={t.id}
             onClick={() => setTab(t.id)}
             className={cn(
-              "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors",
+              "flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
               tab === t.id ? "bg-surface text-ink shadow-sm" : "text-ink-muted hover:text-ink",
             )}
           >
-            <t.icon className="size-4" /> {t.label}
+            <t.icon className="size-4 shrink-0" /> {t.label}
           </button>
         ))}
       </div>
 
       {tab === "weekly" && <WeeklyView weeks={visibleWeeks} canWrite={canWrite} onDelete={onDeleteOptimistic} />}
       {tab === "all" && <AllTransactions rows={visibleTransactions} canWrite={canWrite} onDelete={onDeleteOptimistic} />}
+      {tab === "history" && <AccountHistoryView accounts={accounts} />}
       {tab === "report" && <MonthlyReport weeks={visibleWeeks} income={visibleIncome} expenses={visibleExpenses} fundBalances={fundBalances} monthLabel={monthLabel} year={year} month={month} />}
     </div>
     </AccountsContext.Provider>
@@ -634,5 +637,79 @@ function MonthlyReport({
         </div>
       </Card>
     </div>
+  );
+}
+
+/* ────── Account History (running balance, per account) ────── */
+
+function AccountHistoryView({ accounts }: { accounts: LedgerAccount[] }) {
+  const [accountId, setAccountId] = useState(accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "");
+  const [history, setHistory] = useState<AccountHistory | null>(null);
+  const [loading, start] = useTransition();
+
+  useEffect(() => {
+    if (!accountId) return;
+    start(async () => {
+      const res = await loadAccountHistory(accountId);
+      setHistory(res.ok ? res.history : null);
+    });
+  }, [accountId]);
+
+  if (accounts.length === 0) {
+    return <Card className="p-8 text-center text-sm text-ink-muted">Add a bank account first, then its running-balance history shows here.</Card>;
+  }
+
+  return (
+    <Card className="p-0">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0 text-sm font-medium text-ink-muted">Account</span>
+          <select value={accountId} onChange={(e) => setAccountId(e.target.value)} className="h-9 min-w-0 rounded-lg border border-line bg-surface px-2.5 text-sm">
+            {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}{a.isDefault ? " (default)" : ""}</option>)}
+          </select>
+        </div>
+        {history && (
+          <div className="text-right">
+            <div className="text-xs text-ink-faint">Current balance</div>
+            <div className={cn("font-display text-lg font-bold", history.current >= 0 ? "text-ink" : "text-danger")}>{formatCurrency(history.current)}</div>
+          </div>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="flex items-center justify-center gap-2 p-10 text-sm text-ink-muted">
+          <span className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> Loading…
+        </div>
+      ) : !history ? (
+        <div className="p-10 text-center text-sm text-ink-muted">Couldn&rsquo;t load this account&rsquo;s history.</div>
+      ) : (
+        <div className="divide-y divide-line-soft">
+          {history.rows.length === 0 && (
+            <div className="px-4 py-6 text-center text-sm text-ink-faint">No entries yet — just the opening balance below.</div>
+          )}
+          {history.rows.map((r) => (
+            <div key={r.id} className="flex items-start gap-3 px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <span className="truncate text-sm font-medium">{r.description}</span>
+                  {r.source === "giving" && <Badge variant="success" className="shrink-0 text-[10px]">Giving</Badge>}
+                  {r.source === "expense" && <Badge variant="danger" className="shrink-0 text-[10px]">Expense</Badge>}
+                </div>
+                <div className="mt-0.5 text-xs text-ink-faint">
+                  {formatDate(r.date)} · {formatCurrency(r.balanceBefore)} <span className="text-ink-faint">→</span> <span className="font-medium text-ink-muted">{formatCurrency(r.balanceAfter)}</span>
+                </div>
+              </div>
+              <div className={cn("whitespace-nowrap text-right text-sm font-semibold", r.amount >= 0 ? "text-success" : "text-danger")}>
+                {r.amount >= 0 ? "+" : "−"}{formatCurrency(Math.abs(r.amount))}
+              </div>
+            </div>
+          ))}
+          <div className="flex items-center justify-between bg-surface-2/40 px-4 py-3 text-sm">
+            <span className="font-medium text-ink-muted">Opening balance</span>
+            <span className="font-semibold">{formatCurrency(history.account.openingBalance)}</span>
+          </div>
+        </div>
+      )}
+    </Card>
   );
 }
