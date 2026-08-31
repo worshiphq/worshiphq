@@ -26,7 +26,7 @@ export default async function AccountingPage({
   const rawMonth = params.month != null ? Number(params.month) : NaN;
   const month = rawMonth >= 0 && rawMonth <= 11 ? rawMonth : now.getMonth();
 
-  const [data, accounts, funds] = await Promise.all([
+  const [data, accounts, funds, unTx, unGift, unExp] = await Promise.all([
     getAccounting(session.churchId, year, month, isAllTime),
     getAccountsWithBalances(session.churchId),
     db.fund.findMany({
@@ -34,7 +34,16 @@ export default async function AccountingPage({
       orderBy: { name: "asc" },
       select: { id: true, name: true, color: true, gifts: { select: { amount: true } } },
     }),
+    db.transaction.aggregate({ where: { churchId: session.churchId, accountId: null }, _sum: { amount: true }, _count: true }),
+    db.gift.aggregate({ where: { churchId: session.churchId, accountId: null }, _sum: { amount: true }, _count: true }),
+    db.expense.aggregate({ where: { churchId: session.churchId, accountId: null }, _sum: { amount: true }, _count: true }),
   ]);
+  // All-time money with no account attached (folded into the default account).
+  const unassigned = {
+    count: unTx._count + unGift._count + unExp._count,
+    net: Number(unTx._sum.amount ?? 0) + Number(unGift._sum.amount ?? 0) - Number(unExp._sum.amount ?? 0),
+    defaultAccount: accounts.find((a) => a.isDefault)?.name ?? accounts[0]?.name ?? "the default account",
+  };
   const fundRows = funds.map((f) => ({
     id: f.id,
     name: f.name,
@@ -82,6 +91,7 @@ export default async function AccountingPage({
       <AccountingClient
         {...data}
         accounts={accounts.map((a) => ({ id: a.id, name: a.name, isDefault: a.isDefault }))}
+        unassigned={unassigned}
         canWrite={!session.isDemo}
       />
     </div>

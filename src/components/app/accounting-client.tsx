@@ -6,14 +6,14 @@ import {
   ChevronDown, ChevronRight, Download, Calendar,
   TrendingUp, TrendingDown, Scale, Wallet,
   HandCoins, Banknote, Trash2, Pencil, Check, X,
-  Infinity, Landmark,
+  Infinity, Landmark, AlertTriangle,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { StatCard } from "@/components/app/stat-card";
 import { useFeedback } from "@/components/ui/feedback";
-import { deleteTransaction, editTransaction, moveLedgerEntryAccount, loadAccountHistory } from "@/app/actions/accounting";
+import { deleteTransaction, editTransaction, moveLedgerEntryAccount, loadAccountHistory, loadUnassignedEntries } from "@/app/actions/accounting";
 import type { AccountHistory } from "@/lib/data/accounts";
 import { formatCurrency } from "@/config/brand";
 import { formatDate, cn } from "@/lib/utils";
@@ -36,11 +36,13 @@ interface Props {
   year: number;
   month: number;
   accounts?: LedgerAccount[];
+  unassigned?: { count: number; net: number; defaultAccount: string };
   canWrite: boolean;
 }
 
-export function AccountingClient({ transactions, income, expenses, fundBalances, weeks, monthLabel, year, month, accounts = [], canWrite }: Props) {
+export function AccountingClient({ transactions, income, expenses, fundBalances, weeks, monthLabel, year, month, accounts = [], unassigned, canWrite }: Props) {
   const [tab, setTab] = useState<"weekly" | "all" | "report" | "history">("weekly");
+  const [showUnassigned, setShowUnassigned] = useState(false);
   const [selectedYear, setSelectedYear] = useState(year);
   const [selectedMonth, setSelectedMonth] = useState(month);
   const [allTime, setAllTime] = useState(year === 0);
@@ -106,6 +108,19 @@ export function AccountingClient({ transactions, income, expenses, fundBalances,
         <StatCard label="Funds" value={fundBalances.length} icon={Wallet} />
       </div>
 
+      {/* Unassigned-money warning — only meaningful when there are ≥2 accounts. */}
+      {canWrite && unassigned && unassigned.count > 0 && accounts.length >= 2 && (
+        <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+          <AlertTriangle className="size-4 shrink-0" />
+          <span className="min-w-0 flex-1">
+            <b>{unassigned.count} {unassigned.count === 1 ? "entry" : "entries"}</b> ({formatCurrency(Math.abs(unassigned.net))}) {unassigned.net < 0 ? "out" : "in"} have no bank account — currently counted under <b>{unassigned.defaultAccount}</b>.
+          </span>
+          <button onClick={() => setShowUnassigned(true)} className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700">
+            Review &amp; assign
+          </button>
+        </div>
+      )}
+
       {/* Tabs — 2×2 on phones, a row on wider screens */}
       <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1 sm:grid-cols-4">
         {[
@@ -131,6 +146,8 @@ export function AccountingClient({ transactions, income, expenses, fundBalances,
       {tab === "all" && <AllTransactions rows={visibleTransactions} canWrite={canWrite} onDelete={onDeleteOptimistic} />}
       {tab === "history" && <AccountHistoryView accounts={accounts} />}
       {tab === "report" && <MonthlyReport weeks={visibleWeeks} income={visibleIncome} expenses={visibleExpenses} fundBalances={fundBalances} monthLabel={monthLabel} year={year} month={month} />}
+
+      {showUnassigned && <UnassignedModal onClose={() => setShowUnassigned(false)} />}
     </div>
     </AccountsContext.Provider>
   );
@@ -138,7 +155,7 @@ export function AccountingClient({ transactions, income, expenses, fundBalances,
 
 /* ────── Move-between-accounts control ────── */
 
-function MoveAccountControl({ row }: { row: AccountingRow }) {
+function MoveAccountControl({ row, onMoved }: { row: AccountingRow; onMoved?: () => void }) {
   const accounts = useContext(AccountsContext);
   const [pending, startTransition] = useTransition();
   const { toast } = useFeedback();
@@ -154,7 +171,7 @@ function MoveAccountControl({ row }: { row: AccountingRow }) {
     if (accountId === currentId) return;
     startTransition(async () => {
       const res = await moveLedgerEntryAccount(row.source, row.id, accountId);
-      if (res?.ok) { toast(`Moved to ${res.accountName}`, "success"); router.refresh(); }
+      if (res?.ok) { toast(`Moved to ${res.accountName}`, "success"); onMoved ? onMoved() : router.refresh(); }
       else toast(res?.error ?? "Couldn't move", "error");
     });
   };
@@ -711,5 +728,65 @@ function AccountHistoryView({ accounts }: { accounts: LedgerAccount[] }) {
         </div>
       )}
     </Card>
+  );
+}
+
+/* ────── Assign unassigned entries to an account ────── */
+
+function UnassignedModal({ onClose }: { onClose: () => void }) {
+  const [rows, setRows] = useState<AccountingRow[] | null>(null);
+  const [loading, start] = useTransition();
+  const router = useRouter();
+
+  useEffect(() => {
+    start(async () => {
+      const res = await loadUnassignedEntries();
+      setRows(res.ok ? (res.rows as AccountingRow[]) : []);
+    });
+  }, []);
+
+  // Drop rows from the list as they get assigned (their card disappears).
+  const [assigned, setAssigned] = useState<Set<string>>(new Set());
+  const visible = (rows ?? []).filter((r) => !assigned.has(r.id));
+
+  return (
+    <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
+      <Card className="flex max-h-[85vh] w-full max-w-lg flex-col p-0" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between border-b border-line p-5">
+          <div>
+            <h3 className="font-display text-lg font-semibold">Assign to an account</h3>
+            <p className="text-sm text-ink-muted">Money recorded without a bank account. Pick where each belongs.</p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1 text-ink-faint hover:bg-surface-2"><X className="size-4" /></button>
+        </div>
+        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+          {loading && rows === null ? (
+            <div className="flex items-center justify-center gap-2 p-8 text-sm text-ink-muted">
+              <span className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> Loading…
+            </div>
+          ) : visible.length === 0 ? (
+            <div className="p-8 text-center text-sm text-ink-muted">🎉 Everything is assigned to an account.</div>
+          ) : (
+            <div className="space-y-2">
+              {visible.map((r) => (
+                <div key={r.id} className="flex items-center gap-3 rounded-xl border border-line px-3 py-2.5">
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-sm font-medium">{r.description}</div>
+                    <div className="text-xs text-ink-faint">{formatDate(r.date)} · {r.category}</div>
+                  </div>
+                  <span className={cn("shrink-0 whitespace-nowrap text-sm font-semibold", r.amount >= 0 ? "text-success" : "text-danger")}>
+                    {r.amount >= 0 ? "+" : "−"}{formatCurrency(Math.abs(r.amount))}
+                  </span>
+                  <MoveAccountControl row={r} onMoved={() => { setAssigned((prev) => new Set(prev).add(r.id)); router.refresh(); }} />
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div className="flex justify-end border-t border-line p-4">
+          <Button size="sm" variant="secondary" onClick={onClose}>Done</Button>
+        </div>
+      </Card>
+    </div>
   );
 }

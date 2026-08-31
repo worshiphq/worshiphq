@@ -5,6 +5,23 @@ import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 
+/** Every ledger entry (all-time) with NO bank account attached, so the admin can
+ *  assign each one. Newest first. */
+export async function loadUnassignedEntries() {
+  const session = await requireSession();
+  const [txns, gifts, expenses] = await Promise.all([
+    db.transaction.findMany({ where: { churchId: session.churchId, accountId: null }, select: { id: true, description: true, category: true, fund: true, amount: true, date: true } }),
+    db.gift.findMany({ where: { churchId: session.churchId, accountId: null }, select: { id: true, donorName: true, amount: true, date: true, fund: { select: { name: true } } } }),
+    db.expense.findMany({ where: { churchId: session.churchId, accountId: null }, select: { id: true, description: true, category: true, amount: true, date: true, vendor: true } }),
+  ]);
+  const rows = [
+    ...txns.map((t) => ({ id: t.id, description: t.description, category: t.category, fund: t.fund ?? "General", amount: Number(t.amount), date: t.date.toISOString(), source: "manual" as const, accountId: null })),
+    ...gifts.map((g) => ({ id: g.id, description: `${g.donorName ?? "Anonymous"} — ${g.fund?.name ?? "Gift"}`, category: g.fund?.name ?? "Giving", fund: g.fund?.name ?? "General", amount: Number(g.amount), date: g.date.toISOString(), source: "giving" as const, accountId: null })),
+    ...expenses.map((e) => ({ id: e.id, description: `${e.description}${e.vendor ? ` (${e.vendor})` : ""}`, category: e.category, fund: "General", amount: -Number(e.amount), date: e.date.toISOString(), source: "expense" as const, accountId: null })),
+  ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  return { ok: true as const, rows };
+}
+
 /** Running-balance history for one account (for the accounting History tab). */
 export async function loadAccountHistory(accountId: string) {
   const session = await requireSession();
