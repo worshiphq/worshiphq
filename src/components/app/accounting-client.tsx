@@ -309,13 +309,14 @@ function TransactionRow({ row, canWrite, onDelete }: { row: AccountingRow; canWr
   return (
     <div className="flex items-center gap-3 px-5 py-3">
       <div className="min-w-0 flex-1">
-        <div className="text-sm font-medium">{row.description}</div>
-        <div className="text-xs text-ink-faint">{row.category} · {formatDate(row.date)}</div>
+        <div className="truncate text-sm font-medium">{row.description}</div>
+        <div className="truncate text-xs text-ink-faint">{row.category} · {formatDate(row.date)}</div>
       </div>
-      <div className="flex items-center gap-2">
+      <div className="flex shrink-0 items-center gap-2">
         {row.source === "giving" && <Badge variant="success" className="text-[10px]">Giving</Badge>}
+        {row.source === "expense" && <Badge variant="danger" className="text-[10px]">Expense</Badge>}
         {canWrite && mode !== "delete" && <MoveAccountControl row={row} />}
-        <span className={cn("font-display text-sm font-semibold", row.amount >= 0 ? "text-success" : "text-ink")}>
+        <span className={cn("whitespace-nowrap font-display text-sm font-semibold", row.amount >= 0 ? "text-success" : "text-danger")}>
           {row.amount >= 0 ? "+" : "−"}{formatCurrency(Math.abs(row.amount))}
         </span>
         {canWrite && row.source === "manual" && mode !== "delete" && (
@@ -456,16 +457,25 @@ function AllTransactionsRow({ row: r, canWrite, onDelete }: { row: AccountingRow
 
   return (
     <tr className="border-b border-line-soft last:border-0">
-      <td className="p-4 font-medium">{r.description}</td>
+      <td className="p-4 font-medium">
+        <div className="break-words">{r.description}</div>
+        {/* On small screens the Category/Fund/Date columns are hidden, so surface
+            them here to keep each row readable. */}
+        <div className="mt-0.5 text-xs font-normal text-ink-faint lg:hidden">
+          {formatDate(r.date)}{r.category ? ` · ${r.category}` : ""}
+        </div>
+      </td>
       <td className="hidden p-4 text-ink-muted sm:table-cell">{r.category}</td>
       <td className="hidden p-4 text-ink-muted md:table-cell">{r.fund}</td>
       <td className="hidden p-4 text-ink-muted lg:table-cell">{formatDate(r.date)}</td>
       <td className="p-4">
         {r.source === "giving"
           ? <Badge variant="success" className="text-[10px]">Giving</Badge>
-          : <Badge variant="outline" className="text-[10px]">Manual</Badge>}
+          : r.source === "expense"
+            ? <Badge variant="danger" className="text-[10px]">Expense</Badge>
+            : <Badge variant="outline" className="text-[10px]">Manual</Badge>}
       </td>
-      <td className={cn("p-4 text-right font-semibold", r.amount >= 0 ? "text-success" : "text-ink")}>
+      <td className={cn("whitespace-nowrap p-4 text-right font-semibold", r.amount >= 0 ? "text-success" : "text-danger")}>
         {r.amount >= 0 ? "+" : "−"}{formatCurrency(Math.abs(r.amount))}
       </td>
       {canWrite && (
