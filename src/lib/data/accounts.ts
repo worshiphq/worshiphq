@@ -164,10 +164,19 @@ export async function getAccountHistory(churchId: string, accountId: string): Pr
   });
   if (!account) return null;
 
+  // The default account (same ordering as getAccountsWithBalance) absorbs any
+  // money recorded without an account, so its history must include those too —
+  // otherwise its running balance wouldn't match the account's shown balance.
+  const accountsOrdered = await db.churchAccount.findMany({
+    where: { churchId }, orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }], select: { id: true },
+  });
+  const isDefault = accountsOrdered[0]?.id === accountId;
+  const acctFilter = isDefault ? { OR: [{ accountId }, { accountId: null }] } : { accountId };
+
   const [txns, gifts, expenses] = await Promise.all([
-    db.transaction.findMany({ where: { churchId, accountId }, select: { id: true, description: true, amount: true, date: true } }),
-    db.gift.findMany({ where: { churchId, accountId }, select: { id: true, donorName: true, amount: true, date: true, fund: { select: { name: true } } } }),
-    db.expense.findMany({ where: { churchId, accountId }, select: { id: true, description: true, amount: true, date: true, vendor: true } }),
+    db.transaction.findMany({ where: { churchId, ...acctFilter }, select: { id: true, description: true, amount: true, date: true } }),
+    db.gift.findMany({ where: { churchId, ...acctFilter }, select: { id: true, donorName: true, amount: true, date: true, fund: { select: { name: true } } } }),
+    db.expense.findMany({ where: { churchId, ...acctFilter }, select: { id: true, description: true, amount: true, date: true, vendor: true } }),
   ]);
 
   type E = { id: string; date: Date; description: string; source: "manual" | "giving" | "expense"; amount: number };
