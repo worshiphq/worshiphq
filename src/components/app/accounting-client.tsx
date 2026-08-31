@@ -162,13 +162,14 @@ function MoveAccountControl({ row, onMoved }: { row: AccountingRow; onMoved?: ()
   const router = useRouter();
 
   if (accounts.length < 2) return null; // nothing to move between
-  const currentId =
-    accounts.find((a) => a.id === row.accountId)?.id ??
-    accounts.find((a) => a.isDefault)?.id ??
-    accounts[0].id;
+  // An entry with no account isn't "in" the default — it's just folded into it
+  // for the totals. Show it as unassigned so EVERY account (Main included) is a
+  // real, selectable target instead of Main appearing pre-selected.
+  const matched = accounts.find((a) => a.id === row.accountId);
+  const currentId = matched?.id ?? "";
 
   const move = (accountId: string) => {
-    if (accountId === currentId) return;
+    if (!accountId || accountId === currentId) return;
     startTransition(async () => {
       const res = await moveLedgerEntryAccount(row.source, row.id, accountId);
       if (res?.ok) { toast(`Moved to ${res.accountName}`, "success"); onMoved ? onMoved() : router.refresh(); }
@@ -188,6 +189,7 @@ function MoveAccountControl({ row, onMoved }: { row: AccountingRow; onMoved?: ()
         disabled={pending}
         className="max-w-[10rem] truncate rounded-lg border border-line bg-surface px-1.5 py-1 text-[11px] text-ink-muted outline-none hover:border-primary/40 focus:border-primary/50"
       >
+        {currentId === "" && <option value="">— Assign to account —</option>}
         {accounts.map((a) => (
           <option key={a.id} value={a.id}>{a.name}{a.isDefault ? " (default)" : ""}</option>
         ))}
