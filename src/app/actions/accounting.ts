@@ -48,7 +48,7 @@ export async function deleteTransaction(id: string) {
  * was banked into the wrong account. Works for both manual transactions
  * (Day Born / harvest / pledge / welfare postings) and gifts (giving / tithe).
  */
-export async function moveLedgerEntryAccount(source: "manual" | "giving", id: string, accountId: string) {
+export async function moveLedgerEntryAccount(source: "manual" | "giving" | "expense", id: string, accountId: string) {
   const session = await requireSession();
   assertCanWrite(session);
   if (session.isDemo) return { ok: false, error: "Read-only demo." };
@@ -65,6 +65,11 @@ export async function moveLedgerEntryAccount(source: "manual" | "giving", id: st
     if (!tx) return { ok: false, error: "Entry not found." };
     await db.transaction.update({ where: { id }, data: { accountId } });
     await audit(session, "update", "transaction", `Moved "${tx.description}" to ${account.name}`, id);
+  } else if (source === "expense") {
+    const exp = await db.expense.findFirst({ where: { id, churchId: session.churchId }, select: { id: true, description: true } });
+    if (!exp) return { ok: false, error: "Entry not found." };
+    await db.expense.update({ where: { id }, data: { accountId } });
+    await audit(session, "update", "expense", `Moved "${exp.description}" to ${account.name}`, id);
   } else {
     const gift = await db.gift.findFirst({ where: { id, churchId: session.churchId }, select: { id: true, donorName: true } });
     if (!gift) return { ok: false, error: "Entry not found." };

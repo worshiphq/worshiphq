@@ -84,7 +84,7 @@ export interface AccountingRow {
   fund: string;
   amount: number;
   date: string;
-  source: "manual" | "giving";
+  source: "manual" | "giving" | "expense";
   /** Account this entry is currently banked in (null = default account). */
   accountId: string | null;
 }
@@ -120,7 +120,7 @@ export async function getAccounting(churchId: string, year?: number, month?: num
 
   const dateFilter = allTime ? {} : { date: { gte: startOfMonth, lte: endOfMonth } };
 
-  const [txns, gifts] = await Promise.all([
+  const [txns, gifts, expenseRowsRaw] = await Promise.all([
     db.transaction.findMany({
       where: { churchId, ...dateFilter },
       orderBy: { date: "desc" },
@@ -130,18 +130,37 @@ export async function getAccounting(churchId: string, year?: number, month?: num
       orderBy: { date: "desc" },
       include: { fund: { select: { name: true } } },
     }),
+    db.expense.findMany({
+      where: { churchId, ...dateFilter },
+      orderBy: { date: "desc" },
+    }),
   ]);
 
-  const manualRows: AccountingRow[] = txns.map((t) => ({
-    id: t.id,
-    description: t.description,
-    category: t.category,
-    fund: t.fund ?? "General",
-    amount: Number(t.amount),
-    date: t.date.toISOString(),
-    source: "manual",
-    accountId: t.accountId ?? null,
-  }));
+  const manualRows: AccountingRow[] = [
+    ...txns.map((t) => ({
+      id: t.id,
+      description: t.description,
+      category: t.category,
+      fund: t.fund ?? "General",
+      amount: Number(t.amount),
+      date: t.date.toISOString(),
+      source: "manual" as const,
+      accountId: t.accountId ?? null,
+    })),
+    // Expenses live in their own table (the single source of truth) — surface
+    // them here as negative ledger rows so the accounting view shows them
+    // without a mirror Transaction that would double-count.
+    ...expenseRowsRaw.map((e) => ({
+      id: e.id,
+      description: `${e.description}${e.vendor ? ` (${e.vendor})` : ""}`,
+      category: e.category,
+      fund: "General",
+      amount: -Number(e.amount),
+      date: e.date.toISOString(),
+      source: "expense" as const,
+      accountId: e.accountId ?? null,
+    })),
+  ];
 
   const givingRows: AccountingRow[] = gifts.map((g) => ({
     id: g.id,

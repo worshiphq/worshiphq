@@ -45,16 +45,9 @@ export async function createExpense(formData: FormData) {
     },
   });
 
-  await db.transaction.create({
-    data: {
-      churchId: session.churchId,
-      description: `${description}${vendor ? ` (${vendor})` : ""}`,
-      category,
-      fund: "General",
-      amount: -amount,
-      date: expenseDate,
-    },
-  });
+  // NOTE: no mirror Transaction — the Expense row is the single source of truth.
+  // Account balances subtract expenses (getAccountOptions) and the accounting
+  // ledger surfaces them (getAccounting). A mirror here double-counted expenses.
 
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "expense", entityId: expense.id, detail: `Recorded GHS ${amount} expense: ${description}` });
   revalidatePath("/app/expenses");
@@ -71,9 +64,10 @@ export async function deleteExpense(formData: FormData) {
 
   await db.expense.deleteMany({ where: { id, churchId: session.churchId } });
 
+  // Clean up any legacy mirror Transaction from before expenses were single-sourced.
   const txDesc = `${expense.description}${expense.vendor ? ` (${expense.vendor})` : ""}`;
   await db.transaction.deleteMany({
-    where: { churchId: session.churchId, description: txDesc, amount: -expense.amount },
+    where: { churchId: session.churchId, description: txDesc, amount: -expense.amount, accountId: null, fund: "General" },
   });
 
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: "expense", entityId: id, detail: `Deleted GHS ${expense.amount} expense: ${expense.description}` });
