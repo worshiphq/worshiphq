@@ -1,6 +1,6 @@
 import type { Role } from "@/lib/demo/data";
 
-/** Coarse parent groups — kept for backward compatibility. Built-in roles and
+/** Coarse parent groups - kept for backward compatibility. Built-in roles and
  *  legacy custom roles are expressed in these; holding a parent grants every
  *  fine section beneath it (see SECTION_PARENT / hasSection). */
 export const ALL_MODULES = [
@@ -100,7 +100,7 @@ export const MODULE_LABELS: Record<string, string> = {
   communications: "Communications", reminders: "Reminders", settings: "Settings",
 };
 
-/** Session shape — client-safe (no server imports). Backed by a real DB user. */
+/** Session shape - client-safe (no server imports). Backed by a real DB user. */
 export interface Session {
   userId: string;
   name: string;
@@ -119,13 +119,13 @@ export interface Session {
   canDelete: boolean;
   churchId: string;
   churchName: string;
-  /** When set, this is a scoped department-budget leader — they only see their
+  /** When set, this is a scoped department-budget leader - they only see their
    *  department's budget, expenses and income. */
   budgetDepartmentId?: string | null;
   budgetDepartmentName?: string | null;
-  /** @deprecated Branch feature removed — kept for data compatibility. */
+  /** @deprecated Branch feature removed - kept for data compatibility. */
   branch: string;
-  /** @deprecated Branch feature removed — kept for data compatibility. */
+  /** @deprecated Branch feature removed - kept for data compatibility. */
   branchId?: string | null;
   avatarName: string;
   avatarUrl?: string | null;
@@ -163,7 +163,7 @@ export function can(role: Role, module: string): boolean {
  * Does this set of granted keys cover `module`?
  *
  * `exact` matters: custom roles store the precise sections an admin ticked, so
- * they must match exactly — ticking "People" must NOT also hand over Visitors,
+ * they must match exactly - ticking "People" must NOT also hand over Visitors,
  * Groups or Leaders just because those sit under the same parent. Built-in
  * roles (and church-level overrides) store coarse group keys and DO expand to
  * everything beneath them, which is what makes "Admin" broad by default.

@@ -58,7 +58,7 @@ export async function getDashboard(churchId: string) {
     .map((p, i) => ({
       id: String(i),
       person: `${p.firstName} ${p.lastName}`,
-      reason: p.status === "visitor" ? "First-time visitor — welcome & connect" : "Hasn't attended recently — check in",
+      reason: p.status === "visitor" ? "First-time visitor - welcome & connect" : "Hasn't attended recently - check in",
       due: i === 0 ? "Today" : i === 1 ? "Today" : "This week",
       priority: (p.status === "visitor" ? "high" : "medium") as "high" | "medium" | "low",
     }));

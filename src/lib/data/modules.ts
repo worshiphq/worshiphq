@@ -147,7 +147,7 @@ export async function getAccounting(churchId: string, year?: number, month?: num
       source: "manual" as const,
       accountId: t.accountId ?? null,
     })),
-    // Expenses live in their own table (the single source of truth) — surface
+    // Expenses live in their own table (the single source of truth) - surface
     // them here as negative ledger rows so the accounting view shows them
     // without a mirror Transaction that would double-count.
     ...expenseRowsRaw.map((e) => ({
@@ -164,7 +164,7 @@ export async function getAccounting(churchId: string, year?: number, month?: num
 
   const givingRows: AccountingRow[] = gifts.map((g) => ({
     id: g.id,
-    description: `${g.donorName ?? "Anonymous"} — ${g.fund?.name ?? "Gift"}`,
+    description: `${g.donorName ?? "Anonymous"} - ${g.fund?.name ?? "Gift"}`,
     category: g.fund?.name ?? "Giving",
     fund: g.fund?.name ?? "General",
     amount: Number(g.amount),

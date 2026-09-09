@@ -175,7 +175,7 @@ export function VisitorsClient({
         </div>
       )}
 
-      {/* Add visitor drawer — for people who signed a paper sheet in person */}
+      {/* Add visitor drawer - for people who signed a paper sheet in person */}
       {adding && (
         <>
           <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setAdding(false)} />
@@ -226,7 +226,7 @@ export function VisitorsClient({
                   defaultValue=""
                   className="h-10 w-full rounded-xl border border-line bg-base px-3 text-sm"
                 >
-                  <option value="">— Select —</option>
+                  <option value="">- Select -</option>
                   {PURPOSES.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>
@@ -290,7 +290,7 @@ export function VisitorsClient({
                   defaultValue={editing.purpose ?? ""}
                   className="h-10 w-full rounded-xl border border-line bg-base px-3 text-sm"
                 >
-                  <option value="">— Select —</option>
+                  <option value="">- Select -</option>
                   {PURPOSES.map((p) => <option key={p} value={p}>{p}</option>)}
                 </select>
               </div>

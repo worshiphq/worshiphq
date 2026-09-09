@@ -103,7 +103,7 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
   const owingCount = data.members.filter((m) => m.owed > 0).length;
   const isCurrentYear = data.selectedYear === data.currentYear;
 
-  // Range mode — driven by the ?from/?to URL params resolved server-side.
+  // Range mode - driven by the ?from/?to URL params resolved server-side.
   const rangeMode = !!data.range;
   const rangeBlocked = rangeMode && data.rangeMissingYears.length > 0;
   const [pickMode, setPickMode] = useState<"year" | "range">(rangeMode ? "range" : "year");
@@ -200,7 +200,7 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
               </div>
               <div className="rounded-xl border border-line bg-base p-3">
                 <div className="text-xs text-ink-faint">Owed in range</div>
-                <div className={cn("text-lg font-bold", data.rangeOwed > 0 ? "text-danger" : "text-ink-faint")}>{data.rangeOwed > 0 ? ghs(data.rangeOwed) : "—"}</div>
+                <div className={cn("text-lg font-bold", data.rangeOwed > 0 ? "text-danger" : "text-ink-faint")}>{data.rangeOwed > 0 ? ghs(data.rangeOwed) : "-"}</div>
               </div>
             </div>
           )}
@@ -223,7 +223,7 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
                 <div className="min-w-40 flex-1">
                   <div className="flex items-center gap-2 text-sm font-medium">
                     {m.name}
-                    {!m.hasExplicitStart && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700" title="Using join date — set an explicit start inside">start: {m.startLabel}</span>}
+                    {!m.hasExplicitStart && <span className="rounded bg-amber-100 px-1.5 py-0.5 text-[9px] font-medium text-amber-700" title="Using join date - set an explicit start inside">start: {m.startLabel}</span>}
                   </div>
                   {rangeMode ? (
                     <div className="mt-1 text-[11px] text-ink-faint">{m.rangeMonthsPaid}/{m.rangeMonthsTotal} month{m.rangeMonthsTotal === 1 ? "" : "s"} paid in range</div>
@@ -233,7 +233,7 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
                         const paid = m.monthsPaidInYear.includes(i + 1);
                         const past = data.selectedYear < data.currentYear || (isCurrentYear && i + 1 <= data.currentMonth);
                         return (
-                          <span key={mo} title={`${MONTHS_FULL[i]} ${paid ? "— paid" : past ? "— unpaid" : ""}`}
+                          <span key={mo} title={`${MONTHS_FULL[i]} ${paid ? "- paid" : past ? "- unpaid" : ""}`}
                             className={cn("grid size-4 place-items-center rounded-[3px] text-[7px] font-bold",
                               paid ? "bg-success text-white" : past ? "bg-danger/15 text-danger" : "bg-surface-2 text-ink-faint")}>
                             {mo[0]}
@@ -249,7 +249,7 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
                 </div>
                 <div className="text-right">
                   <div className="text-xs text-ink-faint">Owes</div>
-                  <div className={cn("text-sm font-semibold", (rangeMode ? m.rangeOwed : m.owed) > 0 ? "text-danger" : "text-ink-faint")}>{(rangeMode ? m.rangeOwed : m.owed) > 0 ? ghs(rangeMode ? m.rangeOwed : m.owed) : "—"}</div>
+                  <div className={cn("text-sm font-semibold", (rangeMode ? m.rangeOwed : m.owed) > 0 ? "text-danger" : "text-ink-faint")}>{(rangeMode ? m.rangeOwed : m.owed) > 0 ? ghs(rangeMode ? m.rangeOwed : m.owed) : "-"}</div>
                 </div>
                 {canWrite && (rangeMode ? m.rangeOwed : m.owed) > 0 && m.hasPhone && (
                   <span onClick={(e) => { e.stopPropagation(); setRemindOne({ id: m.id, name: m.name, hasPhone: m.hasPhone }); }}
@@ -295,7 +295,7 @@ function ChurchStartCard({ churchStart }: { churchStart: string | null }) {
       <div className="mb-1 flex items-center gap-2 text-sm font-semibold"><Calendar className="size-4 text-primary" /> Dues start (church-wide)</div>
       <p className="mb-2 text-xs text-ink-muted">
         Optional. Owed is only counted from here for members who don’t have their own start date.
-        Leave empty and nobody accrues “owed” until each member gets a start — set on their record, or captured automatically the first time you record their dues.
+        Leave empty and nobody accrues “owed” until each member gets a start - set on their record, or captured automatically the first time you record their dues.
       </p>
       <div className="flex flex-wrap items-center gap-2">
         <input type="date" value={date} onChange={(e) => setDate(e.target.value)} className="h-9 rounded-lg border border-line bg-surface px-2.5 text-sm" />
@@ -333,7 +333,7 @@ function RatesPanel({ rates, currentYear }: { rates: { year: number; amount: num
       </button>
       {open && (
         <div className="mt-3 border-t border-line pt-3">
-          <p className="mb-2 text-xs text-ink-muted">The dues amount per month changes year to year. Set each year’s rate — “owed” is calculated from these.</p>
+          <p className="mb-2 text-xs text-ink-muted">The dues amount per month changes year to year. Set each year’s rate - “owed” is calculated from these.</p>
           <div className="flex flex-wrap items-end gap-2">
             <div>
               <label className="mb-1 block text-xs text-ink-faint">Year</label>
@@ -405,7 +405,7 @@ function RecordDuesForm({ members, accounts, rates, currentYear }: {
     start(async () => {
       const res = await recordWelfareDues(fd);
       if (res?.ok) {
-        toast(`Recorded ${res.months} month(s) — ${ghs(res.total)}${res.texted ? " · member texted" : ""}`, "success");
+        toast(`Recorded ${res.months} month(s) - ${ghs(res.total)}${res.texted ? " · member texted" : ""}`, "success");
         setPersonId(""); setAmount("");
         router.refresh();
       } else toast(res?.error ?? "Failed", "error");
@@ -415,14 +415,14 @@ function RecordDuesForm({ members, accounts, rates, currentYear }: {
   return (
     <Card className="p-4">
       <div className="mb-1 flex items-center gap-2 text-sm font-semibold"><HandCoins className="size-4 text-success" /> Record dues (across months & years)</div>
-      <p className="mb-3 text-xs text-ink-muted">Backfill any span — e.g. Jan 2021 → this month — and each year uses its own rate (or set one amount for all months below).</p>
+      <p className="mb-3 text-xs text-ink-muted">Backfill any span - e.g. Jan 2021 → this month - and each year uses its own rate (or set one amount for all months below).</p>
       <div className="grid gap-2 sm:grid-cols-2">
         <select value={personId} onChange={(e) => setPersonId(e.target.value)} className={inputCls}>
-          <option value="">— Member —</option>
+          <option value="">- Member -</option>
           {members.map((m) => <option key={m.id} value={m.id}>{m.name}{m.hasPhone ? "" : " (no phone)"}</option>)}
         </select>
         <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)}
-          placeholder="Amount / month (optional — else uses each year's rate)" className={inputCls} />
+          placeholder="Amount / month (optional - else uses each year's rate)" className={inputCls} />
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
         <span className="text-xs font-medium text-ink-faint">From</span>
@@ -442,7 +442,7 @@ function RecordDuesForm({ members, accounts, rates, currentYear }: {
       </div>
       {missingYears.length > 0 && (
         <p className="mt-2 flex items-center gap-1.5 text-xs text-amber-600">
-          <AlertTriangle className="size-3.5" /> No rate set for {missingYears.join(", ")} — set it above, or enter one amount for all months.
+          <AlertTriangle className="size-3.5" /> No rate set for {missingYears.join(", ")} - set it above, or enter one amount for all months.
         </p>
       )}
       <div className="mt-2 flex flex-wrap items-center gap-3">
@@ -600,7 +600,7 @@ function MemberDetailDialog({ member, rates, canWrite, onClose }: {
             <div className="rounded-xl border border-line p-3">
               <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">Dues start from</div>
               <p className="mb-2 text-xs text-ink-muted">
-                Owed is counted from this date. {detail.welfareStart ? "" : detail.churchStart ? `Currently using the church-wide start (${detail.churchStart}).` : "No start set — this member won’t accrue “owed” until you set one here or record their first dues."}
+                Owed is counted from this date. {detail.welfareStart ? "" : detail.churchStart ? `Currently using the church-wide start (${detail.churchStart}).` : "No start set - this member won’t accrue “owed” until you set one here or record their first dues."}
               </p>
               <div className="flex items-center gap-2">
                 <input type="date" value={start} onChange={(e) => setStart(e.target.value)} disabled={!canWrite}

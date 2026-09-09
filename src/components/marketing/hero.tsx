@@ -14,7 +14,7 @@ const ease = [0.22, 1, 0.36, 1] as const;
 const SLIDE_MS = 8000;
 
 const DEFAULT_SUBHEAD =
-  "Members, giving, attendance, events, messaging — one calm headquarters for everything your church runs.";
+  "Members, giving, attendance, events, messaging - one calm headquarters for everything your church runs.";
 
 const SLIDES = [
   {
@@ -167,7 +167,7 @@ export function Hero({ subhead = DEFAULT_SUBHEAD }: { subhead?: string }) {
               </h2>
               <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-parchment/80 sm:text-lg xl:text-xl">
                 Accept Mobile Money and card giving, check members in with a QR
-                scan, and reach your whole congregation by SMS — from one place.
+                scan, and reach your whole congregation by SMS - from one place.
               </p>
               <div className="mx-auto mt-10 grid max-w-3xl grid-cols-2 gap-3.5 sm:grid-cols-4">
                 {FEATURE_PILLS.map((f, i) => (
@@ -209,7 +209,7 @@ export function Hero({ subhead = DEFAULT_SUBHEAD }: { subhead?: string }) {
                 Welcome home.
               </h2>
               <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-parchment/80 sm:text-lg xl:text-xl">
-                From a 30-member fellowship to a multi-campus ministry — churches
+                From a 30-member fellowship to a multi-campus ministry - churches
                 around the world run their week on WorshipHQ. Yours can too,
                 starting today.
               </p>

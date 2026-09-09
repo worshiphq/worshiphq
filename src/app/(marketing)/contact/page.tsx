@@ -21,7 +21,7 @@ export default function ContactPage() {
             <span className="text-primary">own eyes.</span>
           </>
         }
-        subtitle="Tell us about your church and we'll set up a personalised walkthrough — usually within one working day."
+        subtitle="Tell us about your church and we'll set up a personalised walkthrough - usually within one working day."
       />
 
       <section className="pb-24 pt-8">
@@ -47,7 +47,7 @@ export default function ContactPage() {
               ))}
             </div>
             <p className="mt-8 text-sm leading-relaxed text-ink-faint">
-              We usually reply the same day — and always within one working day.
+              We usually reply the same day - and always within one working day.
             </p>
           </div>
 

@@ -135,7 +135,7 @@ function RequestCard({ request: req, expanded, onToggle }: {
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1">Meeting Type</label>
               <select name="meetingType" defaultValue={req.meetingType || ""} className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200">
-                <option value="">—</option>
+                <option value="">-</option>
                 {MEETING_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
               </select>
             </div>

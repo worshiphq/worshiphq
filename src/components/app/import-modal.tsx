@@ -121,7 +121,7 @@ export function ImportModal({ onImported }: { onImported?: () => void }) {
                   <FileSpreadsheet className="size-10 text-primary-bright" />
                   <div className="font-medium">{file.name}</div>
                   <div className="text-xs text-ink-faint">
-                    {(file.size / 1024).toFixed(1)} KB — click to change
+                    {(file.size / 1024).toFixed(1)} KB - click to change
                   </div>
                 </div>
               ) : (

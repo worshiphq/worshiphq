@@ -21,7 +21,7 @@ export function JoinLinkCard({ slug }: { slug: string }) {
         <div className="min-w-0 flex-1">
           <h3 className="text-sm font-semibold text-ink">Member registration link</h3>
           <p className="mt-0.5 text-xs text-ink-faint">
-            Share this so members register themselves — they appear here automatically.
+            Share this so members register themselves - they appear here automatically.
           </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Input value={url} readOnly className="min-w-0 flex-1 font-mono text-xs" />

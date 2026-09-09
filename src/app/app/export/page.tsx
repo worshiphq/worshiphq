@@ -22,7 +22,7 @@ export default async function ExportPage() {
     <div>
       <PageHeader
         title="Download data"
-        description="Export your church's records — a single tab, or everything at once."
+        description="Export your church's records - a single tab, or everything at once."
       />
       <ExportClient datasets={datasets} canBundle={canBundle} plan={plan} />
     </div>

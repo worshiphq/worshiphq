@@ -21,7 +21,7 @@ export function localParts(now: Date, timeZone: string): { hour: number; minute:
 }
 
 /** Has the church's local clock reached `sendHour:sendMinute` today? (fires at or
- *  after the target — guards elsewhere prevent duplicate sends). */
+ *  after the target - guards elsewhere prevent duplicate sends). */
 export function timeReached(now: Date, timeZone: string, sendHour: number, sendMinute: number): boolean {
   const { hour, minute } = localParts(now, timeZone);
   return hour > sendHour || (hour === sendHour && minute >= sendMinute);

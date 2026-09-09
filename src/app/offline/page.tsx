@@ -14,7 +14,7 @@ export default function OfflinePage() {
         <Logo className="mx-auto mb-6 justify-center" />
         <h1 className="text-3xl font-bold">You&rsquo;re offline</h1>
         <p className="mt-3 text-ink-muted">
-          No internet right now — but WorshipHQ keeps your recently viewed data cached on this device.
+          No internet right now - but WorshipHQ keeps your recently viewed data cached on this device.
           Reconnect to sync any changes you&rsquo;ve made.
         </p>
         <Link

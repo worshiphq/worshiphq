@@ -50,7 +50,7 @@ export function RemindersClient({
 
   return (
     <div>
-      <PageHeader title="Reminders & automations" description="Care that never forgets — birthdays, anniversaries and follow-ups, on autopilot.">
+      <PageHeader title="Reminders & automations" description="Care that never forgets - birthdays, anniversaries and follow-ups, on autopilot.">
         <ActionDialog
           triggerLabel="New automation"
           triggerIcon={<Plus />}
@@ -65,13 +65,13 @@ export function RemindersClient({
           <div>
             <label className="mb-1.5 block text-sm font-medium text-ink-muted">When</label>
             <select name="trigger" className={SELECT} value={trigger} onChange={(e) => setTrigger(e.target.value)}>
-              <option value="birthday">Birthday — wish the member on their birthday</option>
-              <option value="anniversary">Anniversary — celebrate their anniversary</option>
-              <option value="visitor_followup">New visitor — welcome them after they register</option>
-              <option value="lapsed">Lapsed member — gently check in if inactive</option>
-              <option value="new_member">New member — welcome newly registered members</option>
-              <option value="giving_thanks">Giving thanks — thank members who gave recently</option>
-              <option value="custom">Custom reminder — set your own date &amp; schedule</option>
+              <option value="birthday">Birthday - wish the member on their birthday</option>
+              <option value="anniversary">Anniversary - celebrate their anniversary</option>
+              <option value="visitor_followup">New visitor - welcome them after they register</option>
+              <option value="lapsed">Lapsed member - gently check in if inactive</option>
+              <option value="new_member">New member - welcome newly registered members</option>
+              <option value="giving_thanks">Giving thanks - thank members who gave recently</option>
+              <option value="custom">Custom reminder - set your own date &amp; schedule</option>
             </select>
           </div>
           {trigger === "custom" && (
@@ -124,7 +124,7 @@ export function RemindersClient({
           <h3 className="font-display text-xl font-semibold">Every member feels seen</h3>
           <p className="mt-2 text-sm text-ink-muted">
             WorshipHQ automatically sends warm birthday and anniversary blessings, welcomes first-time visitors, and
-            gently checks in on members who&rsquo;ve been away — all in your church&rsquo;s voice.
+            gently checks in on members who&rsquo;ve been away - all in your church&rsquo;s voice.
           </p>
         </div>
       </Card>

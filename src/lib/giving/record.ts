@@ -37,7 +37,7 @@ export interface OnlineGiftInput {
  * Record an online gift, idempotently keyed on its Paystack `reference`.
  * Resolves the fund (creating it if new), tries to match an existing member by
  * name, creates the Gift, and sends an SMS + email receipt. Safe to call twice
- * for the same reference (e.g. webhook retries) — it will only create once.
+ * for the same reference (e.g. webhook retries) - it will only create once.
  */
 export async function recordOnlineGift(
   input: OnlineGiftInput,
@@ -107,7 +107,7 @@ export async function recordOnlineGift(
   if (input.email) {
     const email = await sendEmail({
       to: input.email,
-      subject: `Your giving receipt — ${churchName}`,
+      subject: `Your giving receipt - ${churchName}`,
       html: receiptHtml({ churchName, donorName, amountStr, fundName, reference }),
     });
     receiptSent = receiptSent || email.ok;
@@ -136,6 +136,6 @@ function receiptHtml(o: {
       ${o.fundName ? `<tr><td style="padding:8px 0;color:#6b6560">Fund</td><td style="padding:8px 0;text-align:right">${o.fundName}</td></tr>` : ""}
       <tr><td style="padding:8px 0;color:#6b6560">Reference</td><td style="padding:8px 0;text-align:right;font-family:monospace">${o.reference}</td></tr>
     </table>
-    <p style="margin:16px 0 0;font-size:13px;color:#a09888">"Each of you should give what you have decided in your heart to give." — 2 Corinthians 9:7</p>
+    <p style="margin:16px 0 0;font-size:13px;color:#a09888">"Each of you should give what you have decided in your heart to give." - 2 Corinthians 9:7</p>
   </div>`;
 }

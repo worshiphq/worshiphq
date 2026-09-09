@@ -61,7 +61,7 @@ export async function buildPersonData(fields: FormField[], formData: FormData): 
   data.location = (data.town as string) || (data.region as string) || (data.location as string) || null;
 
   // Move an uploaded photo out of the DB into Storage (returns a URL). No-op
-  // when Storage isn't configured — the data URL is kept as before.
+  // when Storage isn't configured - the data URL is kept as before.
   if (typeof data.photoUrl === "string" && data.photoUrl.startsWith("data:image/")) {
     const { storeImage } = await import("@/lib/storage");
     data.photoUrl = await storeImage(data.photoUrl, "members");

@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 /**
  * One exportable table. Every tab in the app maps to a dataset here, so the
  * per-tab export, the combined workbook and the zip bundle all read from the
- * same definitions — no drift between them.
+ * same definitions - no drift between them.
  */
 export interface Dataset {
   key: string;

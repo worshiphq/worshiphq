@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 const AGENT_URL = "http://localhost:23847";
 
-/** Poll the agent a few times before deciding it's missing — a single-threaded
+/** Poll the agent a few times before deciding it's missing - a single-threaded
  *  agent can briefly block right after a scan, and one timeout shouldn't nuke
  *  the whole flow to "download installer". */
 async function checkAgent(): Promise<{ connected: boolean } | null> {
@@ -92,7 +92,7 @@ export function BiometricRegisterButton({ personId, personName, isRegistered }: 
       setRegistered((prev) => [...new Set([...prev, fingerId])]);
       setState("success");
       setMessage(`${fingerLabel(fingerId)} saved for ${personName}.`);
-      // NOTE: no router.refresh() here — it re-renders the person panel and
+      // NOTE: no router.refresh() here - it re-renders the person panel and
       // closes this modal. We stay put so more fingers can be added; the data
       // syncs when the modal is closed.
     } catch (err: unknown) {

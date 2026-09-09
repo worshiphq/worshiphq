@@ -7,7 +7,7 @@ import { Spinner } from "./spinner";
 import { useFeedback } from "./feedback";
 
 interface ActionButtonProps extends Omit<ButtonProps, "onClick"> {
-  /** The async server action (must NOT redirect — use a form for those). */
+  /** The async server action (must NOT redirect - use a form for those). */
   action: () => void | Promise<unknown>;
   pendingLabel?: string;
   successMessage?: string;

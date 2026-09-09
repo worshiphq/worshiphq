@@ -161,7 +161,7 @@ function coerceValue(field: FieldMeta, value: any): any {
     case "Json": {
       // SQLite holds Json columns as TEXT. Writing that raw string into a
       // Prisma Json column stores a JSON *string scalar* rather than the
-      // object/array — which silently breaks every reader (this corrupted
+      // object/array - which silently breaks every reader (this corrupted
       // the church form-builder definitions once). Always parse first.
       if (typeof value !== "string") return value;
       const s = value.trim();
@@ -217,7 +217,7 @@ function mapColumns(table: string, model: string, data: Record<string, any>): Re
     const mapped = mapping[renamed] || toCamelCase(renamed);
     if (protectedFields.has(mapped)) continue;
     const field = fields?.get(mapped);
-    if (!field) continue; // unknown to Prisma — desktop-only column, drop it
+    if (!field) continue; // unknown to Prisma - desktop-only column, drop it
     result[mapped] = coerceValue(field, value);
   }
   return result;

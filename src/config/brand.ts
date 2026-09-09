@@ -1,9 +1,9 @@
 /**
- * WorshipHQ — central brand configuration.
+ * WorshipHQ - central brand configuration.
  *
  * This is the single source of truth for every brand string in the product.
  * To rebrand, change values here and the whole app (marketing site, app shell,
- * metadata, footer, emails) updates. Keep secrets OUT of this file — they live
+ * metadata, footer, emails) updates. Keep secrets OUT of this file - they live
  * in environment variables (see src/lib/env.ts).
  */
 
@@ -12,18 +12,18 @@ export const brand = {
   name: "WorshipHQ",
   nameParts: { lead: "Worship", accent: "HQ" },
 
-  /** Full product name — used in <title>, meta description, footer, app listings. */
-  productName: "WorshipHQ — Church Management System",
-  productNameShort: "WorshipHQ — Church MS",
+  /** Full product name - used in <title>, meta description, footer, app listings. */
+  productName: "WorshipHQ - Church Management System",
+  productNameShort: "WorshipHQ - Church MS",
 
   /** Spoken / everyday brand. */
   shortName: "WorshipHQ",
 
   tagline: "Your Complete Church Management System.",
   supportingLine:
-    "Everything your church needs to manage, connect, and grow — in one beautiful place.",
+    "Everything your church needs to manage, connect, and grow - in one beautiful place.",
   description:
-    "WorshipHQ is the all-in-one church management system built for churches everywhere. Manage people, giving, events, communications and more — beautifully.",
+    "WorshipHQ is the all-in-one church management system built for churches everywhere. Manage people, giving, events, communications and more - beautifully.",
 
   domain: "worshiphq.org",
   url: "https://worshiphq.app",

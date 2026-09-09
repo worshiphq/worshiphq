@@ -108,12 +108,12 @@ export function AccountingClient({ transactions, income, expenses, fundBalances,
         <StatCard label="Funds" value={fundBalances.length} icon={Wallet} />
       </div>
 
-      {/* Unassigned-money warning — only meaningful when there are ≥2 accounts. */}
+      {/* Unassigned-money warning - only meaningful when there are ≥2 accounts. */}
       {canWrite && unassigned && unassigned.count > 0 && accounts.length >= 2 && (
         <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
           <AlertTriangle className="size-4 shrink-0" />
           <span className="min-w-0 flex-1">
-            <b>{unassigned.count} {unassigned.count === 1 ? "entry" : "entries"}</b> ({formatCurrency(Math.abs(unassigned.net))}) {unassigned.net < 0 ? "out" : "in"} have no bank account — currently counted under <b>{unassigned.defaultAccount}</b>.
+            <b>{unassigned.count} {unassigned.count === 1 ? "entry" : "entries"}</b> ({formatCurrency(Math.abs(unassigned.net))}) {unassigned.net < 0 ? "out" : "in"} have no bank account - currently counted under <b>{unassigned.defaultAccount}</b>.
           </span>
           <button onClick={() => setShowUnassigned(true)} className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700">
             Review &amp; assign
@@ -121,7 +121,7 @@ export function AccountingClient({ transactions, income, expenses, fundBalances,
         </div>
       )}
 
-      {/* Tabs — 2×2 on phones, a row on wider screens */}
+      {/* Tabs - 2×2 on phones, a row on wider screens */}
       <div className="grid grid-cols-2 gap-1 rounded-xl bg-surface-2 p-1 sm:grid-cols-4">
         {[
           { id: "weekly" as const, label: "Weekly", icon: Calendar },
@@ -162,7 +162,7 @@ function MoveAccountControl({ row, onMoved }: { row: AccountingRow; onMoved?: ()
   const router = useRouter();
 
   if (accounts.length < 2) return null; // nothing to move between
-  // An entry with no account isn't "in" the default — it's just folded into it
+  // An entry with no account isn't "in" the default - it's just folded into it
   // for the totals. Show it as unassigned so EVERY account (Main included) is a
   // real, selectable target instead of Main appearing pre-selected.
   const matched = accounts.find((a) => a.id === row.accountId);
@@ -189,7 +189,7 @@ function MoveAccountControl({ row, onMoved }: { row: AccountingRow; onMoved?: ()
         disabled={pending}
         className="max-w-[10rem] truncate rounded-lg border border-line bg-surface px-1.5 py-1 text-[11px] text-ink-muted outline-none hover:border-primary/40 focus:border-primary/50"
       >
-        {currentId === "" && <option value="">— Assign to account —</option>}
+        {currentId === "" && <option value="">- Assign to account -</option>}
         {accounts.map((a) => (
           <option key={a.id} value={a.id}>{a.name}{a.isDefault ? " (default)" : ""}</option>
         ))}
@@ -223,7 +223,7 @@ function WeeklyView({ weeks, canWrite, onDelete }: { weeks: AccountingWeek[]; ca
                 {expanded.has(week.label) ? <ChevronDown className="size-4 text-ink-faint" /> : <ChevronRight className="size-4 text-ink-faint" />}
                 <div>
                   <span className="font-display text-sm font-semibold">{week.label}</span>
-                  <span className="ml-2 text-xs text-ink-faint">{formatDate(week.startDate)} — {formatDate(week.endDate)}</span>
+                  <span className="ml-2 text-xs text-ink-faint">{formatDate(week.startDate)} - {formatDate(week.endDate)}</span>
                 </div>
               </div>
               <div className="flex items-center gap-4">
@@ -562,7 +562,7 @@ function MonthlyReport({
       <Card className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="font-display text-lg font-semibold">Financial report — {monthLabel}</h3>
+            <h3 className="font-display text-lg font-semibold">Financial report - {monthLabel}</h3>
             <p className="text-sm text-ink-muted">{allGiving.length + allManual.length} total transactions</p>
           </div>
           <a href={`/api/export/transactions?year=${year}&month=${month}`}>
@@ -602,11 +602,11 @@ function MonthlyReport({
               <div key={w.label} className="flex items-center justify-between px-5 py-3">
                 <div>
                   <span className="text-sm font-medium">{w.label}</span>
-                  <span className="ml-2 text-xs text-ink-faint">{formatDate(w.startDate)} — {formatDate(w.endDate)}</span>
+                  <span className="ml-2 text-xs text-ink-faint">{formatDate(w.startDate)} - {formatDate(w.endDate)}</span>
                 </div>
                 <div className="flex items-center gap-6">
                   <span className="text-xs text-success">+{formatCurrency(w.income)}</span>
-                  <span className="text-xs text-ink">{w.expenses > 0 ? `−${formatCurrency(w.expenses)}` : "—"}</span>
+                  <span className="text-xs text-ink">{w.expenses > 0 ? `−${formatCurrency(w.expenses)}` : "-"}</span>
                   <span className={cn("font-display font-semibold", wNet >= 0 ? "text-success" : "text-danger")}>
                     {wNet >= 0 ? "+" : "−"}{formatCurrency(Math.abs(wNet))}
                   </span>
@@ -704,7 +704,7 @@ function AccountHistoryView({ accounts }: { accounts: LedgerAccount[] }) {
       ) : (
         <div className="divide-y divide-line-soft">
           {history.rows.length === 0 && (
-            <div className="px-4 py-6 text-center text-sm text-ink-faint">No entries yet — just the opening balance below.</div>
+            <div className="px-4 py-6 text-center text-sm text-ink-faint">No entries yet - just the opening balance below.</div>
           )}
           {history.rows.map((r) => (
             <div key={r.id} className="flex items-start gap-3 px-4 py-3">

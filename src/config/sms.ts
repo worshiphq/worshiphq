@@ -3,7 +3,7 @@
  * Churches buy bundles via Paystack; the platform fulfils sends through its own
  * Hubtel account. The gap between the bundle price and the provider cost is margin.
  *
- * Edit these freely — they're the single source of truth for the buy page.
+ * Edit these freely - they're the single source of truth for the buy page.
  */
 export interface SmsBundle {
   id: string;
@@ -17,21 +17,21 @@ export interface SmsBundle {
  *  profitable. "D" is the site default. */
 export type SmsTier = "B" | "C" | "D";
 export const SMS_TIERS: Record<SmsTier, SmsBundle[]> = {
-  // Balanced — ~2.5–3× cost
+  // Balanced - ~2.5–3× cost
   B: [
     { id: "starter", credits: 500, priceGhs: 65 },
     { id: "growth", credits: 2000, priceGhs: 240, popular: true },
     { id: "church", credits: 5000, priceGhs: 550 },
     { id: "campus", credits: 10000, priceGhs: 1000 },
   ],
-  // Premium — ~3–4× cost
+  // Premium - ~3–4× cost
   C: [
     { id: "starter", credits: 500, priceGhs: 80 },
     { id: "growth", credits: 2000, priceGhs: 300, popular: true },
     { id: "church", credits: 5000, priceGhs: 700 },
     { id: "campus", credits: 10000, priceGhs: 1250 },
   ],
-  // Top-tier — ~4–5× cost (default)
+  // Top-tier - ~4–5× cost (default)
   D: [
     { id: "starter", credits: 500, priceGhs: 100 },
     { id: "growth", credits: 2000, priceGhs: 360, popular: true },

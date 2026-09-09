@@ -35,7 +35,7 @@ export function SmsTierControl({ current }: { current: string }) {
         {saved && <span className="flex items-center gap-1 text-xs text-teal-300"><Check className="size-3" /> Saved</span>}
       </div>
       <p className="mt-1 text-sm text-white/50">
-        The site-wide default that applies to every church without an override. Change it any time — the buy page updates instantly.
+        The site-wide default that applies to every church without an override. Change it any time - the buy page updates instantly.
       </p>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">

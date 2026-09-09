@@ -107,7 +107,7 @@ export function PledgeRecorder({
                         <div className="text-sm font-semibold">{picked.name}</div>
                         <div className="flex items-center gap-1 text-xs text-ink-muted">
                           <Phone className="size-3" />
-                          {picked.phone ?? "No phone on file — no SMS will be sent"}
+                          {picked.phone ?? "No phone on file - no SMS will be sent"}
                         </div>
                       </div>
                       <button type="button" onClick={() => setPicked(null)} className="text-xs font-medium text-primary hover:underline">
@@ -171,14 +171,14 @@ export function PledgeRecorder({
                 <div>
                   <Label>Campaign</Label>
                   <select name="campaignId" defaultValue="" className="h-10 w-full rounded-xl border border-line bg-base px-2 text-sm">
-                    <option value="">— None —</option>
+                    <option value="">- None -</option>
                     {campaigns.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                   </select>
                 </div>
                 <div>
                   <Label>Harvest</Label>
                   <select name="harvestId" defaultValue="" className="h-10 w-full rounded-xl border border-line bg-base px-2 text-sm">
-                    <option value="">— None —</option>
+                    <option value="">- None -</option>
                     {harvests.map((h) => <option key={h.id} value={h.id}>{h.label}</option>)}
                   </select>
                 </div>

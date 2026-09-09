@@ -74,7 +74,7 @@ export default async function CalendarPage() {
 
   return (
     <div>
-      <PageHeader title="Calendar" description="Your church calendar — click any day to add an event." />
+      <PageHeader title="Calendar" description="Your church calendar - click any day to add an event." />
       <CalendarClient events={calendarEvents} canWrite={!session.isDemo} />
     </div>
   );

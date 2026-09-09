@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { PageHero } from "@/components/marketing/page-hero";
 
-/** Shared shell for Terms / Privacy / Refund pages — a readable prose column. */
+/** Shared shell for Terms / Privacy / Refund pages - a readable prose column. */
 export function LegalPage({
   eyebrow,
   title,

@@ -5,7 +5,7 @@ const DAY_MS = 86_400_000;
 
 export interface RefundEligibility {
   eligible: boolean;
-  /** Why they can't request — shown verbatim in the UI. */
+  /** Why they can't request - shown verbatim in the UI. */
   reason?: string;
   /** Last day they could have requested. */
   deadline?: Date;
@@ -47,7 +47,7 @@ export async function refundEligibility(paymentId: string, churchId: string): Pr
   if (!payment) return { eligible: false, reason: "We couldn't find that payment." };
   if (payment.status === "refunded") return { eligible: false, reason: "This payment has already been refunded." };
   if (payment.amountGhs <= 0) {
-    return { eligible: false, reason: "There's nothing to refund — this didn't cost anything." };
+    return { eligible: false, reason: "There's nothing to refund - this didn't cost anything." };
   }
 
   // An open request already exists?
@@ -55,7 +55,7 @@ export async function refundEligibility(paymentId: string, churchId: string): Pr
     where: { paymentId: payment.id, status: { in: ["pending", "approved", "processing"] } },
     select: { id: true },
   });
-  if (open) return { eligible: false, reason: "You've already requested a refund for this payment — we're reviewing it." };
+  if (open) return { eligible: false, reason: "You've already requested a refund for this payment - we're reviewing it." };
 
   const policy = await getRefundPolicy();
   const earlier = await db.planPayment.count({
@@ -69,7 +69,7 @@ export async function refundEligibility(paymentId: string, churchId: string): Pr
     const daysAgo = Math.floor((Date.now() - payment.paidAt.getTime()) / DAY_MS);
     return {
       eligible: false,
-      reason: `The ${windowDays}-day refund window for this payment has passed (charged ${daysAgo} days ago). You can still schedule a downgrade — it takes effect at the end of the period you've paid for.`,
+      reason: `The ${windowDays}-day refund window for this payment has passed (charged ${daysAgo} days ago). You can still schedule a downgrade - it takes effect at the end of the period you've paid for.`,
       deadline,
       windowDays,
       isFirstPayment: isFirst,

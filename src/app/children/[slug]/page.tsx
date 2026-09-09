@@ -14,7 +14,7 @@ export async function generateMetadata({
   const church = await db.church.findUnique({ where: { slug }, select: { name: true } });
   if (!church) return { title: "Church not found" };
   return {
-    title: `Children's Registration — ${church.name}`,
+    title: `Children's Registration - ${church.name}`,
     description: `Register your child at ${church.name}.`,
   };
 }

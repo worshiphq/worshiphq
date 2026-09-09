@@ -1,5 +1,5 @@
 /**
- * Demo / seed data for WorshipHQ — realistic Ghanaian names, churches, ₵ amounts
+ * Demo / seed data for WorshipHQ - realistic Ghanaian names, churches, ₵ amounts
  * and Accra/Kumasi locations so every screen looks full and alive in stub mode.
  * In production these come from the database (Prisma); the shapes mirror the schema.
  */
@@ -191,7 +191,7 @@ export const campaigns = [
   { id: "c1", name: "Sunday Service Reminder", channel: "SMS", sent: 1240, delivered: 1218, opened: 0, date: "2026-06-04", status: "Sent" },
   { id: "c2", name: "June Newsletter", channel: "Email", sent: 980, delivered: 962, opened: 611, date: "2026-06-01", status: "Sent" },
   { id: "c3", name: "Worship Nights Invite", channel: "SMS", sent: 1240, delivered: 1230, opened: 0, date: "2026-05-30", status: "Sent" },
-  { id: "c4", name: "Welcome — First-time Visitors", channel: "Email", sent: 0, delivered: 0, opened: 0, date: "2026-06-08", status: "Scheduled" },
+  { id: "c4", name: "Welcome - First-time Visitors", channel: "Email", sent: 0, delivered: 0, opened: 0, date: "2026-06-08", status: "Scheduled" },
 ];
 
 // ── Automations ─────────────────────────────────────────
@@ -215,10 +215,10 @@ export const volunteerTeams = [
 export const accounts = [
   { id: "t1", date: "2026-06-04", description: "Sunday Offering deposit", category: "Income", fund: "Offering", amount: 12800 },
   { id: "t2", date: "2026-06-03", description: "Generator fuel & maintenance", category: "Operations", fund: "General", amount: -1450 },
-  { id: "t3", date: "2026-06-02", description: "Tithes — Mobile Money settlement", category: "Income", fund: "Tithes", amount: 31200 },
+  { id: "t3", date: "2026-06-02", description: "Tithes - Mobile Money settlement", category: "Income", fund: "Tithes", amount: 31200 },
   { id: "t4", date: "2026-06-01", description: "Media equipment (mixer)", category: "Equipment", fund: "Building", amount: -6800 },
   { id: "t5", date: "2026-05-30", description: "Pastoral welfare support", category: "Welfare", fund: "Welfare", amount: -2400 },
-  { id: "t6", date: "2026-05-29", description: "Missions remittance — Northern outreach", category: "Missions", fund: "Missions", amount: -3400 },
+  { id: "t6", date: "2026-05-29", description: "Missions remittance - Northern outreach", category: "Missions", fund: "Missions", amount: -3400 },
   { id: "t7", date: "2026-05-28", description: "Building fund deposit", category: "Income", fund: "Building", amount: 8600 },
 ];
 
@@ -232,10 +232,10 @@ export const budgets = [
 
 // ── Tasks / care follow-ups ─────────────────────────────
 export const careTasks = [
-  { id: "k1", person: "Ama Owusu", reason: "First-time visitor — call to welcome", due: "Today", priority: "high" as const },
-  { id: "k2", person: "Kwabena Adjei", reason: "Missed 3 Sundays — check in", due: "Today", priority: "high" as const },
-  { id: "k3", person: "Esi Quaye", reason: "Hospital visit — recovering", due: "Tomorrow", priority: "medium" as const },
-  { id: "k4", person: "Yaw Frimpong", reason: "New believer — connect to small group", due: "Fri", priority: "medium" as const },
+  { id: "k1", person: "Ama Owusu", reason: "First-time visitor - call to welcome", due: "Today", priority: "high" as const },
+  { id: "k2", person: "Kwabena Adjei", reason: "Missed 3 Sundays - check in", due: "Today", priority: "high" as const },
+  { id: "k3", person: "Esi Quaye", reason: "Hospital visit - recovering", due: "Tomorrow", priority: "medium" as const },
+  { id: "k4", person: "Yaw Frimpong", reason: "New believer - connect to small group", due: "Fri", priority: "medium" as const },
   { id: "k5", person: "Adwoa Darko", reason: "Baby dedication request", due: "Next week", priority: "low" as const },
 ];
 

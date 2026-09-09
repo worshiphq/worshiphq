@@ -23,7 +23,7 @@ export default async function HarvestPage({
       where: { id: session.churchId },
       select: { harvestReceiptTemplate: true },
     }),
-    // Pledges is the single engine — Harvest just reads the ones tagged to it.
+    // Pledges is the single engine - Harvest just reads the ones tagged to it.
     db.pledge.findMany({
       where: { churchId: session.churchId, harvest: { year } },
       select: { id: true, donorName: true, amount: true, fulfilled: true, dueAt: true },

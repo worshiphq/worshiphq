@@ -33,7 +33,7 @@ export function SmsCreditsPanel({
       const init = await buySmsCredits(bundleId);
       await start(init, {
         onSuccess: () => {
-          toast("Payment received — your credits are on the way.", "success");
+          toast("Payment received - your credits are on the way.", "success");
           router.refresh();
         },
         onError: (m) => toast(m, "error"),

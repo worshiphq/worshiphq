@@ -62,7 +62,7 @@ export const MESSAGE_TEMPLATES: MessageTemplate[] = [
 
 /** Replace {placeholders} in a template. Unknown placeholders become "".
  *  Collapses runs of spaces (so an empty {title} doesn't leave a double space)
- *  and trims spaces before punctuation — newlines are preserved. */
+ *  and trims spaces before punctuation - newlines are preserved. */
 export function renderTemplate(text: string, vars: Record<string, string>): string {
   return text
     .replace(/\{(\w+)\}/g, (_, k) => vars[k] ?? "")

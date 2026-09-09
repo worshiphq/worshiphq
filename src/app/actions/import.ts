@@ -6,7 +6,7 @@ import { requireSession, assertCanWrite } from "@/lib/auth";
 import { churchInitials } from "@/lib/members/helpers";
 
 /**
- * Column aliases — maps common CSV header names to our Person field names.
+ * Column aliases - maps common CSV header names to our Person field names.
  * All keys are lowercased, trimmed, and stripped of spaces/underscores/hyphens.
  */
 const COLUMN_MAP: Record<string, string> = {
@@ -275,7 +275,7 @@ export async function importCSV(formData: FormData): Promise<ImportResult> {
       if (col && row[j]?.trim()) {
         fields[col] = row[j].trim();
       }
-      // Handle "name" / "full name" column — split into first/last
+      // Handle "name" / "full name" column - split into first/last
       const headerNorm = j < headers.length ? normalizeHeader(headers[j]) : "";
       if ((headerNorm === "name" || headerNorm === "fullname" || headerNorm === "full name") && row[j]?.trim()) {
         const parts = row[j].trim().split(/\s+/);
@@ -305,7 +305,7 @@ export async function importCSV(formData: FormData): Promise<ImportResult> {
           departmentId = newDept.id;
           deptMap.set(fields.department.toLowerCase(), newDept.id);
         } catch {
-          // Unique constraint — another row created it, fetch it
+          // Unique constraint - another row created it, fetch it
           const existing = await db.department.findUnique({
             where: { churchId_name: { churchId: session.churchId, name: fields.department } },
           });

@@ -29,7 +29,7 @@ export interface EditablePlan {
   cta: string;
   /** Bullet list shown on marketing / sign-up cards. */
   marketingFeatures: string[];
-  /** Feature keys this plan unlocks — drives gating everywhere. */
+  /** Feature keys this plan unlocks - drives gating everywhere. */
   features: string[];
 }
 
@@ -110,7 +110,7 @@ export const getPlatformConfig = cache(async () => {
   const prices = (config.planPrices as PlanPrices) ?? DEFAULT_PRICES;
   const planDefs = resolvePlans(config.planDefs, prices);
 
-  // Runtime gating table — what every feature check across the app reads.
+  // Runtime gating table - what every feature check across the app reads.
   const planTable = PLAN_IDS.reduce((acc, id) => {
     acc[id] = {
       members: toRuntime(planDefs[id].memberLimit),

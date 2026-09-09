@@ -46,7 +46,7 @@ export async function sendBroadcast(formData: FormData) {
     recipients = pick(people);
     segmentLabel = "Church leaders";
   } else if (target === "group-leaders") {
-    // The leader of every group/ministry (deduped — one person may lead several).
+    // The leader of every group/ministry (deduped - one person may lead several).
     const groups = await db.group.findMany({
       where: { churchId: session.churchId, leaderId: { not: null } },
       select: { leader: { select: { id: true, phone: true, email: true } } },

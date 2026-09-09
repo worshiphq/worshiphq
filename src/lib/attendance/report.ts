@@ -3,7 +3,7 @@
 // shows a live preview). No server-only imports here.
 
 export const DEFAULT_ATTENDANCE_REPORT =
-  "{church}: {service} on {date} has ended. Total present: {total} — {adults} adults, {teens} teens, {children} children, {visitors} visitors.";
+  "{church}: {service} on {date} has ended. Total present: {total} - {adults} adults, {teens} teens, {children} children, {visitors} visitors.";
 
 export interface AttendanceReportVars {
   church: string;

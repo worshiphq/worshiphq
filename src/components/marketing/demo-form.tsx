@@ -12,7 +12,7 @@ export function DemoForm() {
   function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setState("loading");
-    // Stubbed submit — wire to /api/contact (email integration) when keys are added.
+    // Stubbed submit - wire to /api/contact (email integration) when keys are added.
     setTimeout(() => setState("done"), 1100);
   }
 
@@ -31,7 +31,7 @@ export function DemoForm() {
             </div>
             <h3 className="font-display text-xl font-semibold">Request received!</h3>
             <p className="mt-2 max-w-sm text-sm text-ink-muted">
-              Thank you — our team will reach out within one working day to schedule your demo.
+              Thank you - our team will reach out within one working day to schedule your demo.
             </p>
           </motion.div>
         ) : (

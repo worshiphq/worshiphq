@@ -28,7 +28,7 @@ const quickActions = [
 
 export default async function DashboardPage() {
   const session = await requireSession();
-  // Scoped budget leaders have no dashboard — send them to their budget.
+  // Scoped budget leaders have no dashboard - send them to their budget.
   if (session.budgetDepartmentId) redirect("/app/budgets");
   const { kpis, trend, todaysBirthdays, events, careTasks, recentMembers, departmentBreakdown, leaders, totalLeaders, featuredLeaderCount } = await getDashboard(session.churchId);
   const has = (m: string) => session.sections.includes(m);
@@ -42,7 +42,7 @@ export default async function DashboardPage() {
         tourId="dashboard"
         steps={[
           { target: "quick-add", title: "Quick add", body: "Jump straight to adding a member, recording a gift, taking attendance or sending an SMS." },
-          { target: "dash-kpis", title: "Your church at a glance", body: "Live totals for members, weekly attendance, giving and message reach — updated as you work." },
+          { target: "dash-kpis", title: "Your church at a glance", body: "Live totals for members, weekly attendance, giving and message reach - updated as you work." },
           { target: "dash-quick-actions", title: "Common tasks", body: "One-tap shortcuts to the things you do most often." },
         ]}
       />

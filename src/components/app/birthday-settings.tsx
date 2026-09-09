@@ -63,7 +63,7 @@ export function BirthdaySettings({ settings, membersWithPhone, adminCount, canWr
           <div className="flex size-9 items-center justify-center rounded-xl bg-primary/10"><Cake className="size-5 text-primary" /></div>
           <div>
             <h3 className="font-display text-lg font-semibold">Birthday reminders</h3>
-            <p className="text-xs text-ink-muted">Automatic — sent at your chosen hour, wherever your church is.</p>
+            <p className="text-xs text-ink-muted">Automatic - sent at your chosen hour, wherever your church is.</p>
           </div>
         </div>
         {canWrite && (

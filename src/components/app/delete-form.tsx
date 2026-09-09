@@ -5,7 +5,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 
 /**
  * Reusable delete control: a form bound to a (server) delete action with an
- * optional confirm() prompt. Safe to drop into server components — the bound
+ * optional confirm() prompt. Safe to drop into server components - the bound
  * action is passed as a prop.
  */
 export function DeleteForm({

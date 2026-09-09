@@ -109,7 +109,7 @@ export function previewPlanChange(opts: {
       renewsAt: periodEnd,
       daysLeft,
       unusedCreditUsd: unusedCredit,
-      summary: `You keep your current plan until ${fmt(periodEnd)}, then move down. No charge, and no refund — you've already paid for this period.`,
+      summary: `You keep your current plan until ${fmt(periodEnd)}, then move down. No charge, and no refund - you've already paid for this period.`,
     };
   }
 

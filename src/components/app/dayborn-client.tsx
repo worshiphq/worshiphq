@@ -111,7 +111,7 @@ export function DayBornClient({
   const defaultAccountId = accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "";
   const [postAccountId, setPostAccountId] = useState(defaultAccountId);
 
-  // Optimistic deletion — items vanish instantly
+  // Optimistic deletion - items vanish instantly
   const [deletedIds, setDeletedIds] = useState<Set<string>>(new Set());
   const [deletedEntryIds, setDeletedEntryIds] = useState<Set<string>>(new Set());
   const visibleWeeks = weeks.filter((w) => !deletedIds.has(w.id));
@@ -252,12 +252,12 @@ export function DayBornClient({
             {dateBackdated && isSunday(selectedSunday) && (
               <div className="flex items-center gap-2 mt-2 text-xs text-amber-600">
                 <AlertTriangle className="h-3.5 w-3.5" />
-                Backdated record — this is a previous Sunday
+                Backdated record - this is a previous Sunday
               </div>
             )}
           </Card>
 
-          {/* Cash amounts per day — with live totals */}
+          {/* Cash amounts per day - with live totals */}
           <Card className="p-4">
             <div className="flex items-center justify-between mb-3">
               <h3 className="font-semibold">Cash Collections by Day</h3>
@@ -459,7 +459,7 @@ function MomoForm({
           >
             {DAYS.map((d) => (
               <option key={d} value={d}>
-                {DAY_LABELS[d]} — {DAY_AKAN[d]}
+                {DAY_LABELS[d]} - {DAY_AKAN[d]}
               </option>
             ))}
           </select>
@@ -618,7 +618,7 @@ function HistoryTab({
                 <div key={day} className="text-center">
                   <p className="text-[10px] text-muted-fg">{DAY_LABELS[day].slice(0, 3)}</p>
                   <p className={cn("text-xs font-medium", week[day] > 0 ? "text-foreground" : "text-muted-fg/40")}>
-                    {week[day] > 0 ? formatCurrency(week[day]) : "—"}
+                    {week[day] > 0 ? formatCurrency(week[day]) : "-"}
                   </p>
                 </div>
               ))}

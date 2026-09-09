@@ -26,7 +26,7 @@ export function periodEndFor(interval: string, from: Date = new Date()): Date {
 /**
  * Record a completed subscription payment.
  *
- * The same charge can arrive twice — once from verifyPlanUpgrade() when the
+ * The same charge can arrive twice - once from verifyPlanUpgrade() when the
  * popup returns, and again from the Paystack webhook. `reference` is unique and
  * we no-op on conflict, so whichever lands first wins and the second is
  * harmless. Returns true only when this call actually created the row.
@@ -54,7 +54,7 @@ export async function recordPlanPayment(input: RecordPlanPaymentInput): Promise<
     });
     return true;
   } catch {
-    // Unique violation on `reference` — already recorded by the other path.
+    // Unique violation on `reference` - already recorded by the other path.
     return false;
   }
 }

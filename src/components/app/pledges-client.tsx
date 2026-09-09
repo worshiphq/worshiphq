@@ -134,7 +134,7 @@ export function PledgesClient({
                   </label>
                 ))}
               </div>
-              <p className="mt-1 text-xs text-ink-faint">Each person gets one text per milestone — never duplicated.</p>
+              <p className="mt-1 text-xs text-ink-faint">Each person gets one text per milestone - never duplicated.</p>
             </div>
             <div>
               <Label>Pledge confirmation message</Label>

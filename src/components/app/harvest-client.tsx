@@ -70,7 +70,7 @@ export function HarvestClient({
             <Button size="sm" variant="secondary">Load {selectedYear}</Button>
           </a>
         )}
-        {harvest && <span className="text-sm text-ink-muted">{harvest.title} — {harvest.date ? formatDate(harvest.date) : "Date not set"}</span>}
+        {harvest && <span className="text-sm text-ink-muted">{harvest.title} - {harvest.date ? formatDate(harvest.date) : "Date not set"}</span>}
       </div>
 
       {/* Stats */}
@@ -687,7 +687,7 @@ function HarvestReport({
       <Card className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="font-display text-lg font-semibold">{harvest?.title ?? "Harvest"} Report — {year}</h3>
+            <h3 className="font-display text-lg font-semibold">{harvest?.title ?? "Harvest"} Report - {year}</h3>
             <p className="text-sm text-ink-muted">{contributorCount} contributors · {formatCurrency(totalRaised)} raised</p>
           </div>
           <a href={`/api/export/harvest?year=${year}`}>

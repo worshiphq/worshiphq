@@ -1,4 +1,4 @@
-/** Shared password policy — used by the sign-up wizard UI and the signUp server action. */
+/** Shared password policy - used by the sign-up wizard UI and the signUp server action. */
 
 export const PASSWORD_RULES = [
   { key: "length", label: "At least 8 characters", test: (p: string) => p.length >= 8 },

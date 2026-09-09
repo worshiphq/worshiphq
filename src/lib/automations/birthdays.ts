@@ -35,7 +35,7 @@ export async function runBirthdays(now = new Date(), ignoreHour = false) {
     if (!ignoreHour && !timeReached(now, church.timezone, church.birthdaySendHour, 0)) continue;
 
     // Claim today atomically so the birthday batch runs ONCE per day no matter
-    // how often the cron ticks — this is what stops the repeated texts.
+    // how often the cron ticks - this is what stops the repeated texts.
     const todayYmd = ymdInTz(now, church.timezone);
     const claim = await db.church.updateMany({
       where: { id: church.id, NOT: { birthdayLastSent: todayYmd } },
@@ -72,7 +72,7 @@ export async function runBirthdays(now = new Date(), ignoreHour = false) {
       await notifyChurchAdmins(church.id, {
         subject: "Today's birthdays",
         sms,
-        emailHtml: `<h2>Birthdays today — ${church.name}</h2><ul>${names.map((n) => `<li>${n}</li>`).join("")}</ul>`,
+        emailHtml: `<h2>Birthdays today - ${church.name}</h2><ul>${names.map((n) => `<li>${n}</li>`).join("")}</ul>`,
       });
       adminAlerts++;
     }
@@ -100,7 +100,7 @@ export async function runBirthdays(now = new Date(), ignoreHour = false) {
         await notifyChurchAdmins(church.id, {
           subject: "This week's birthdays",
           sms,
-          emailHtml: `<h2>Birthdays this week — ${church.name}</h2><ul>${people.map((p) => `<li>${p.firstName} ${p.lastName} — ${labelByKey.get(p.birthday!) ?? ""}</li>`).join("")}</ul>`,
+          emailHtml: `<h2>Birthdays this week - ${church.name}</h2><ul>${people.map((p) => `<li>${p.firstName} ${p.lastName} - ${labelByKey.get(p.birthday!) ?? ""}</li>`).join("")}</ul>`,
         });
         digests++;
       }

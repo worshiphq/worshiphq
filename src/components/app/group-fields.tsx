@@ -77,7 +77,7 @@ export function GroupFields({
       <Field label="Type" name="type" suggestions={typeSuggestions} defaultValue={group?.type} hint="Pick one or type your own" />
       <Field label="Description" name="description" placeholder="Brief description..." defaultValue={group?.description ?? ""} />
 
-      {/* Meeting days — pick any number, each with its own time */}
+      {/* Meeting days - pick any number, each with its own time */}
       <div>
         <label className="mb-1.5 block text-sm font-medium text-ink-muted">Meeting days &amp; times</label>
         <div className="space-y-1.5">
@@ -109,16 +109,16 @@ export function GroupFields({
             );
           })}
         </div>
-        <p className="mt-1 text-[11px] text-ink-faint">Optional — pick each day the group meets and set its own time (leave a time blank if it varies).</p>
+        <p className="mt-1 text-[11px] text-ink-faint">Optional - pick each day the group meets and set its own time (leave a time blank if it varies).</p>
       </div>
 
       <Field label="Location" name="location" placeholder="e.g. Church hall room 3" defaultValue={group?.location ?? ""} />
       <Field
         label="Leader"
         name="leaderId"
-        options={[{ label: "— No leader —", value: "" }, ...people.map((p) => ({ label: p.name, value: p.id }))]}
+        options={[{ label: "- No leader -", value: "" }, ...people.map((p) => ({ label: p.name, value: p.id }))]}
         defaultValue={group?.leaderId ?? ""}
-        hint="Optional — some groups don’t have a leader"
+        hint="Optional - some groups don’t have a leader"
       />
 
       {/* Meeting reminder */}

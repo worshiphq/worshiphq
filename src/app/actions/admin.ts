@@ -191,7 +191,7 @@ export async function grantPlanBypass(churchId: string, plan: string) {
     const planNames: Record<string, string> = { starter: "Starter", pro: "Pro", max: "Max" };
     await sendSms(
       owner.phone,
-      `WorshipHQ: You've been granted a free upgrade to the ${planNames[plan]} plan! Go to Settings → Billing and enter code: ${code} to activate. — WorshipHQ Team`,
+      `WorshipHQ: You've been granted a free upgrade to the ${planNames[plan]} plan! Go to Settings → Billing and enter code: ${code} to activate. - WorshipHQ Team`,
       { heading: null },
     );
   }
@@ -235,7 +235,7 @@ export async function updatePlatformPricing(
 }
 
 /**
- * Save the full plan definitions — names, taglines, limits, marketing bullets
+ * Save the full plan definitions - names, taglines, limits, marketing bullets
  * AND which features each plan unlocks. Prices are written alongside so one
  * save updates the marketing site, sign-up, billing and feature gating together.
  */

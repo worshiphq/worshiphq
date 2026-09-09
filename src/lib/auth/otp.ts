@@ -110,7 +110,7 @@ export async function sendOtp(opts: {
     ok = res.ok;
     stubbed = res.stubbed;
   } else {
-    // OTP is always a PLATFORM message — it goes out under the platform's own
+    // OTP is always a PLATFORM message - it goes out under the platform's own
     // approved Hubtel sender (env.HUBTEL_SENDER_ID, e.g. "WorshipHQs"), never a
     // church's custom sender ID.
     const sms = await sendSms(
@@ -161,7 +161,7 @@ export async function verifyOtp(verificationId: string, code: string): Promise<V
     return { ok: false, error: "Incorrect code. Please try again." };
   }
 
-  // Success — consume the record.
+  // Success - consume the record.
   await db.phoneVerification.delete({ where: { id: record.id } });
   return {
     ok: true,

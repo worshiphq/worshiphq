@@ -18,9 +18,9 @@ export interface Feature {
 }
 
 export const featureCards: Feature[] = [
-  { icon: Users, title: "People & profiles", blurb: "Rich member profiles with photos, IDs, departments, custom fields and smart search — your whole congregation, organised." },
+  { icon: Users, title: "People & profiles", blurb: "Rich member profiles with photos, IDs, departments, custom fields and smart search - your whole congregation, organised." },
   { icon: HandCoins, title: "Giving & online payments", blurb: "Record tithes and offerings. Accept online giving via Mobile Money and cards with Paystack. Receipts sent automatically." },
-  { icon: Bell, title: "Birthday & anniversary reminders", blurb: "Never miss a birthday or anniversary — automatic SMS blessings sent on the day, in your church's voice." },
+  { icon: Bell, title: "Birthday & anniversary reminders", blurb: "Never miss a birthday or anniversary - automatic SMS blessings sent on the day, in your church's voice." },
   { icon: CalendarDays, title: "Attendance & QR check-in", blurb: "Create attendance sessions, mark members present by name or scan their QR code for lightning-fast check-in." },
   { icon: MessageSquare, title: "SMS broadcasts", blurb: "Reach your entire church, a department, or hand-picked members by SMS. Targeted messaging with custom sender ID." },
   { icon: QrCode, title: "Member IDs & QR codes", blurb: "Every member gets a unique ID and QR code. Scan to check in, view profiles, or verify membership instantly." },
@@ -41,7 +41,7 @@ export const spotlights: Spotlight[] = [
   {
     eyebrow: "People",
     title: "Know every member by name",
-    body: "Build a living picture of your congregation — profiles with photos, departments, attendance history and custom fields. Import from CSV or let members register themselves.",
+    body: "Build a living picture of your congregation - profiles with photos, departments, attendance history and custom fields. Import from CSV or let members register themselves.",
     points: ["Rich profiles with photos & member IDs", "Departments & custom fields", "CSV import & export", "Self-registration via shared link"],
     image: "https://images.unsplash.com/photo-1609234656388-0ff363383899?auto=format&fit=crop&w=1200&q=80",
   },
@@ -55,14 +55,14 @@ export const spotlights: Spotlight[] = [
   {
     eyebrow: "Reminders & automations",
     title: "Care that never forgets",
-    body: "Birthdays, anniversaries and custom reminders — all sent automatically via SMS, so no one slips through the cracks.",
+    body: "Birthdays, anniversaries and custom reminders - all sent automatically via SMS, so no one slips through the cracks.",
     points: ["Automatic birthday & anniversary SMS", "Custom recurring reminders", "Targeted messaging", "Custom sender ID"],
     image: "https://images.unsplash.com/photo-1478147427282-58a87a120781?auto=format&fit=crop&w=1200&q=80",
   },
   {
     eyebrow: "Communications",
     title: "One message, your whole church",
-    body: "Send a Sunday reminder by SMS, a targeted note to your worship team, or a message to individual members — with delivery tracking.",
+    body: "Send a Sunday reminder by SMS, a targeted note to your worship team, or a message to individual members - with delivery tracking.",
     points: ["SMS broadcasts", "Department & individual targeting", "Custom sender ID", "Delivery tracking"],
     image: "https://images.unsplash.com/photo-1507692049790-de58290a4334?auto=format&fit=crop&w=1200&q=80",
   },
@@ -75,9 +75,9 @@ export interface Step {
 }
 
 export const steps: Step[] = [
-  { n: "01", title: "Set up your church", body: "Add your departments, funds and branding in minutes. Import members from a spreadsheet — we'll handle duplicates." },
+  { n: "01", title: "Set up your church", body: "Add your departments, funds and branding in minutes. Import members from a spreadsheet - we'll handle duplicates." },
   { n: "02", title: "Invite your team", body: "Bring in pastors, finance officers and ministry leaders with role-based access. Everyone sees exactly what they should." },
-  { n: "03", title: "Engage your congregation", body: "Start giving, check-in, reminders and broadcasts. Watch attendance and giving grow — beautifully, on every device." },
+  { n: "03", title: "Engage your congregation", body: "Start giving, check-in, reminders and broadcasts. Watch attendance and giving grow - beautifully, on every device." },
 ];
 
 export interface Testimonial {
@@ -105,9 +105,9 @@ export interface Faq {
 
 export const faqs: Faq[] = [
   { q: "Is my church's data secure?", a: "Yes. Every church's data is fully isolated (multi-tenant), encrypted in transit and at rest, and backed up regularly. You control who on your team can see what through role-based permissions." },
-  { q: "Does it support Mobile Money?", a: "Absolutely. WorshipHQ supports Mobile Money wallets, debit/credit cards and bank transfers — powered by Paystack." },
+  { q: "Does it support Mobile Money?", a: "Absolutely. WorshipHQ supports Mobile Money wallets, debit/credit cards and bank transfers - powered by Paystack." },
   { q: "Can you help us migrate from our current system?", a: "Yes. Import your members, giving history and groups from a spreadsheet with our guided importer. On paid plans, free assisted migration is included." },
   { q: "Does it work when the internet is slow or down?", a: "Yes. WorshipHQ is a Progressive Web App that caches your recent data on your device, so it loads instantly and keeps working offline, then syncs when you're back online." },
-  { q: "Can we install it like an app?", a: "Yes — install it on any phone, tablet or computer straight from the browser. No app store needed. It feels and behaves like a native app." },
+  { q: "Can we install it like an app?", a: "Yes - install it on any phone, tablet or computer straight from the browser. No app store needed. It feels and behaves like a native app." },
   { q: "How much does it cost?", a: "There's a free plan forever for up to 50 members. Paid plans start at {PRICE}/month, with about two months free when you pay yearly. Billing is handled securely by Paystack." },
 ];

@@ -46,7 +46,7 @@ export function FundsManager({ funds, canWrite }: { funds: FundRow[]; canWrite: 
           <PiggyBank className="size-5 text-primary" />
           <div>
             <h3 className="font-display text-lg font-semibold">Funds</h3>
-            <p className="text-xs text-ink-muted">Pots of money you track separately — every gift is tagged to one.</p>
+            <p className="text-xs text-ink-muted">Pots of money you track separately - every gift is tagged to one.</p>
           </div>
         </div>
         {canWrite && !adding && (
@@ -103,7 +103,7 @@ export function FundsManager({ funds, canWrite }: { funds: FundRow[]; canWrite: 
                     </button>
                     <button
                       onClick={() => {
-                        if (f.giftCount > 0) { toast(`“${f.name}” has giving recorded — move it to another fund first.`, "error"); return; }
+                        if (f.giftCount > 0) { toast(`“${f.name}” has giving recorded - move it to another fund first.`, "error"); return; }
                         if (!confirm(`Delete the “${f.name}” fund? This cannot be undone.`)) return;
                         const fd = new FormData(); fd.set("id", f.id);
                         submit(fd, deleteFund, "Fund deleted", () => {});

@@ -18,7 +18,7 @@ export default async function RefundPolicyPage() {
         <p>
           We want you to feel confident subscribing to {brand.name}. If something goes wrong with a charge,
           you can ask us for a refund within the windows below. To simply move to a cheaper plan, you don&rsquo;t need a
-          refund at all — you <strong>downgrade</strong>, and it takes effect at the end of the period you&rsquo;ve already paid for.
+          refund at all - you <strong>downgrade</strong>, and it takes effect at the end of the period you&rsquo;ve already paid for.
         </p>
       </LegalSection>
 
@@ -28,7 +28,7 @@ export default async function RefundPolicyPage() {
             <strong>Your first paid subscription:</strong> within <strong>{policy.firstDays} days</strong> of the charge.
           </li>
           <li>
-            <strong>A renewal or later charge:</strong> within <strong>{policy.renewalDays} days</strong> — this exists to
+            <strong>A renewal or later charge:</strong> within <strong>{policy.renewalDays} days</strong> - this exists to
             reverse accidental or duplicate charges, not as a way to leave a plan mid-period.
           </li>
         </ul>
@@ -51,7 +51,7 @@ export default async function RefundPolicyPage() {
           <li>We review every request within <strong>{policy.slaHours} hours</strong> (small amounts may be faster).</li>
           <li>
             If approved, we issue the refund through our payment processor (Paystack) right away. Your bank or mobile-money
-            provider then settles it — typically <strong>5–10 working days</strong>. That last step is outside our control.
+            provider then settles it - typically <strong>5–10 working days</strong>. That last step is outside our control.
           </li>
           <li>You&rsquo;ll get an SMS when your request is approved or declined.</li>
         </ul>
@@ -60,7 +60,7 @@ export default async function RefundPolicyPage() {
       <LegalSection heading="Downgrades &amp; upgrades (no refund needed)">
         <p>
           <strong>Upgrading</strong> mid-period only charges the difference for the days remaining, and your renewal date
-          doesn&rsquo;t change. <strong>Downgrading</strong> costs nothing and refunds nothing — you keep your current plan
+          doesn&rsquo;t change. <strong>Downgrading</strong> costs nothing and refunds nothing - you keep your current plan
           until the end of the period you paid for, then move to the lower plan automatically.
         </p>
       </LegalSection>

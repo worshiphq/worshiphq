@@ -20,7 +20,7 @@ export default async function LeadersPage() {
     <div>
       <PageHeader
         title="Church Leadership"
-        description="Pastors, elders, shepherds, and department heads — everyone who leads your church."
+        description="Pastors, elders, shepherds, and department heads - everyone who leads your church."
       />
       <LeadersClient
         churchLeaders={data.churchLeaders}

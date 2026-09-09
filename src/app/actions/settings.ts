@@ -376,7 +376,7 @@ function parseRoleValue(value: string): { role: Role; customRoleId: string | nul
   return { role, customRoleId: null };
 }
 
-/** Invite a teammate — creates a User in this church with a temporary password. */
+/** Invite a teammate - creates a User in this church with a temporary password. */
 export async function inviteTeammate(formData: FormData) {
   const session = await requireSession();
   assertCanWrite(session);
@@ -388,7 +388,7 @@ export async function inviteTeammate(formData: FormData) {
   const { role, customRoleId } = parseRoleValue(String(formData.get("role") ?? "Volunteer"));
   if (!name || phone.length < 10) return;
 
-  // Email is the login identifier but optional to type — synthesize a stable
+  // Email is the login identifier but optional to type - synthesize a stable
   // placeholder from the phone when the admin doesn't provide one.
   const email = emailRaw || `p${phone.replace(/\D/g, "")}@invite.worshiphq.app`;
 
@@ -442,7 +442,7 @@ export async function inviteTeammate(formData: FormData) {
   revalidatePath("/app/settings");
 }
 
-/** Invite a department budget leader — a scoped account that only ever sees its
+/** Invite a department budget leader - a scoped account that only ever sees its
  *  own department's budget, income and expenses. Uses the same SMS accept flow. */
 export async function inviteBudgetLeader(formData: FormData) {
   const session = await requireSession();
@@ -523,7 +523,7 @@ export async function createCustomRole(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
   const sections = formData.getAll("sections").map(String);
-  // A section can only be managed if it's also viewable — keep them consistent.
+  // A section can only be managed if it's also viewable - keep them consistent.
   const manageSections = formData.getAll("manageSections").map(String).filter((s) => sections.includes(s));
   const canDelete = formData.get("canDelete") === "on" || formData.get("canDelete") === "yes";
 
@@ -636,7 +636,7 @@ async function sendUpgradeReceipt(churchId: string, planName: string, amount: st
   if (admin.email) {
     await sendEmail({
       to: admin.email,
-      subject: `WorshipHQ — Upgraded to ${planName}!`,
+      subject: `WorshipHQ - Upgraded to ${planName}!`,
       html: `
         <div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto">
           <h2 style="color:#0d7377">🚀 You're on the ${planName} plan!</h2>
@@ -776,7 +776,7 @@ export async function changePlan(
   const platformConfig = await getPlatformConfig();
 
   // ── Work out whether this is an upgrade (pay the difference) or a downgrade
-  //    (schedule it for period end — no money moves either way). ──
+  //    (schedule it for period end - no money moves either way). ──
   const { previewPlanChange } = await import("@/lib/billing/periods");
   const lastPayment = await db.planPayment.findFirst({
     where: { churchId: session.churchId, status: "paid" },
@@ -824,7 +824,7 @@ export async function changePlan(
         summary: preview.summary,
       };
     }
-    // No paid time left — apply straight away.
+    // No paid time left - apply straight away.
     await db.subscription.upsert({
       where: { churchId: session.churchId },
       create: { churchId: session.churchId, plan, interval: "monthly", status: "active" },
@@ -862,7 +862,7 @@ export async function changePlan(
   // Prices are displayed in USD; Paystack (Ghana) charges the GHS equivalent.
   const chargeAmountGhs = Math.round(amount * platformConfig.usdToGhsRate);
 
-  // A 100%-off coupon means nothing to charge — activate straight away.
+  // A 100%-off coupon means nothing to charge - activate straight away.
   if (couponId && chargeAmountGhs <= 0) {
     const { redeemCoupon } = await import("@/lib/billing/coupons");
     if (!(await redeemCoupon(couponId, session.churchId))) {
@@ -985,14 +985,14 @@ export async function verifyPlanUpgrade(
     }
   }
 
-  // Payment confirmed — burn the coupon now (atomic, so it can never be reused).
+  // Payment confirmed - burn the coupon now (atomic, so it can never be reused).
   if (couponId) {
     const { redeemCoupon } = await import("@/lib/billing/coupons");
     await redeemCoupon(couponId, session.churchId);
   }
 
   const billingInterval = interval === "yearly" ? "yearly" : "monthly";
-  // If they were mid-way through a paid period, this was a prorated upgrade —
+  // If they were mid-way through a paid period, this was a prorated upgrade -
   // they bought the remainder, so the renewal date must not move.
   const wasMidPaidPeriod = !!sub && sub.plan !== "free" && !!sub.renewsAt && sub.renewsAt.getTime() > Date.now();
   const periodStart = wasMidPaidPeriod ? (sub!.periodStart ?? new Date()) : new Date();

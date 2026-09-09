@@ -54,7 +54,7 @@ export default async function CounselingPage() {
             { label: "Addiction", value: "addiction" },
             { label: "Other", value: "other" },
           ]} />
-          <Field label="Member (optional)" name="personId" type="select" options={[{ label: "— None / not a member —", value: "" }, ...memberOptions]} />
+          <Field label="Member (optional)" name="personId" type="select" options={[{ label: "- None / not a member -", value: "" }, ...memberOptions]} />
           <Field label="Or type a name (for a visitor / non-member)" name="counseleeName" placeholder="e.g. Kofi Mensah" hint="Use this when the person isn't in your members list." />
           <Field label="Date" name="date" type="date" />
           <Field label="Follow-up date" name="followUpDate" type="date" />

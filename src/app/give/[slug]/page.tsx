@@ -65,7 +65,7 @@ export default async function GivePage({
             Give to {church.name}
           </h1>
           <p className="mt-2 text-sm text-[#6b6560]">
-            "Bring the whole tithe into the storehouse." — Malachi 3:10. Give securely with Mobile Money or card.
+            "Bring the whole tithe into the storehouse." - Malachi 3:10. Give securely with Mobile Money or card.
           </p>
         </div>
 

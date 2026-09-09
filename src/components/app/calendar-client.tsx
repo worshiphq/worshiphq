@@ -180,7 +180,7 @@ export function CalendarClient({ events, canWrite }: { events: CalEvent[]; canWr
           )}
 
           {selectedEvents.length === 0 ? (
-            <p className="mt-2 text-sm text-ink-muted">Nothing on this day{canWrite ? " yet — add something above." : "."}</p>
+            <p className="mt-2 text-sm text-ink-muted">Nothing on this day{canWrite ? " yet - add something above." : "."}</p>
           ) : (
             <div className="mt-3 space-y-2">
               {selectedEvents.map((e) => {

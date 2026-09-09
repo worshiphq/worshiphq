@@ -84,7 +84,7 @@ export async function addDayBornEntry(formData: FormData) {
     },
   });
 
-  // NOTE: individual MoMo/bank entries are NOT posted to the ledger here — the
+  // NOTE: individual MoMo/bank entries are NOT posted to the ledger here - the
   // whole week (cash + MoMo) is posted once, into a chosen account, when the
   // user hits "Post to Accounting". Posting here too would double-count MoMo.
 
@@ -145,7 +145,7 @@ export async function postDayBornToAccounting(weekId: string, accountId?: string
   // Post the whole week into the chosen account (or the church default).
   const { postLedgerToAccount } = await import("@/lib/data/accounts");
   await postLedgerToAccount(session.churchId, {
-    description: `Day Born — week of ${weekDate}`,
+    description: `Day Born - week of ${weekDate}`,
     category: "Income",
     fund: "Day Born",
     amount: grandTotal,

@@ -14,31 +14,31 @@ export interface PlanLimits {
  *  override it in the database and the server passes the result down. */
 export type PlanTable = Record<PlanId, PlanLimits>;
 
-// ── Feature ladder — each tier inherits the ones below it. ──
+// ── Feature ladder - each tier inherits the ones below it. ──
 // Rebalanced so every step is a clear jump, and Max is a big leap over Pro
 // (intelligence + full finance + integration), not just accounting.
 
-/** Core — every plan, always on. The essentials a church needs to start. */
+/** Core - every plan, always on. The essentials a church needs to start. */
 const FREE_FEATURES = [
   "dashboard", "people", "attendance", "events", "giving", "reports",
   "directory", "calendar", "birthdays", "departments", "leaders", "notices",
   "groups", "households", "visitors", "prayer-requests", "children-forms", "teens-forms",
 ];
 
-/** Starter adds — reach & self-service for a growing church. */
+/** Starter adds - reach & self-service for a growing church. */
 const STARTER_ADDS = [
   "sms", "reminders", "member-ids", "qr-codes",
   "form-builder", "import-export", "auto-receipts", "follow-ups",
 ];
 
-/** Pro adds — teams, deeper giving, content and facilities. */
+/** Pro adds - teams, deeper giving, content and facilities. */
 const PRO_ADDS = [
   "custom-roles", "harvest", "pledges", "recurring-giving", "data-migration",
   "volunteers", "rosters", "volunteer-scheduling", "bookings",
   "sermons", "devotionals", "testimonies", "welfare",
 ];
 
-/** Max adds — intelligence, automation, full finance, integration & scale.
+/** Max adds - intelligence, automation, full finance, integration & scale.
  *  `fingerprint` unlocks biometric check-in in the desktop app; the USB
  *  scanner is a separate one-time hardware purchase (~$130+/unit). */
 const MAX_ADDS = [
@@ -51,7 +51,7 @@ const STARTER_FEATURES = [...FREE_FEATURES, ...STARTER_ADDS];
 const PRO_FEATURES = [...STARTER_FEATURES, ...PRO_ADDS];
 const MAX_FEATURES = [...PRO_FEATURES, ...MAX_ADDS];
 
-/** Feature keys grouped by the tier they unlock at — used by the plan editor
+/** Feature keys grouped by the tier they unlock at - used by the plan editor
  *  matrix so it reads as a clean staircase, and re-usable elsewhere. */
 export const FEATURE_TIERS = {
   core: FREE_FEATURES,
@@ -67,10 +67,10 @@ export const DEFAULT_PLAN_TABLE: PlanTable = {
   max:     { members: Infinity, teamUsers: Infinity, features: MAX_FEATURES },
 };
 
-/** Every feature key the product knows about — drives the plan editor's checkbox grid. */
+/** Every feature key the product knows about - drives the plan editor's checkbox grid. */
 export const ALL_FEATURES: string[] = [...MAX_FEATURES];
 
-/** Base features every plan always includes — shown as "CORE" and not toggleable,
+/** Base features every plan always includes - shown as "CORE" and not toggleable,
  *  so a plan can never lose the essentials (dashboard, people, etc.). */
 export const CORE_FEATURES: string[] = [...FREE_FEATURES];
 

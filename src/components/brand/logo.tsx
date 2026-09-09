@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 
-/** WorshipHQ horizontal wordmark (logo2.png) — ideal for navbars and headers. */
+/** WorshipHQ horizontal wordmark (logo2.png) - ideal for navbars and headers. */
 export function Logo({
   className,
   href = "/",
@@ -34,7 +34,7 @@ export function Logo({
   );
 }
 
-/** The WorshipHQ square shield mark (icon2.png) — for collapsed sidebar, avatars. */
+/** The WorshipHQ square shield mark (icon2.png) - for collapsed sidebar, avatars. */
 export function LogoMark({ className }: { className?: string }) {
   return (
     // eslint-disable-next-line @next/next/no-img-element

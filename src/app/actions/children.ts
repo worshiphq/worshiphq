@@ -57,7 +57,7 @@ export async function createChild(formData: FormData) {
   return { ok: true as const, personId: person.id, name: `${firstName} ${lastName}` };
 }
 
-/** useActionState wrapper — see createPersonState in people.ts. */
+/** useActionState wrapper - see createPersonState in people.ts. */
 export async function createChildState(_prev: unknown, formData: FormData) {
   return createChild(formData);
 }

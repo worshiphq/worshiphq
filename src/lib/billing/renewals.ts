@@ -14,7 +14,7 @@ const REMINDER_DAYS = [7, 3, 1];
  *   2. Remind churches their renewal is coming (we don't auto-charge).
  *   3. Mark unpaid periods past_due, then drop to Free after the grace window.
  *
- * `status === "grace"` means *Gift of Grace* (a permanent free gift) — those
+ * `status === "grace"` means *Gift of Grace* (a permanent free gift) - those
  * subscriptions are skipped entirely and must never be downgraded.
  */
 export async function runBillingCycle() {
@@ -109,7 +109,7 @@ function titleCase(s: string): string {
   return s.charAt(0).toUpperCase() + s.slice(1);
 }
 
-/** Text the church owner. Best-effort — never blocks the cycle. */
+/** Text the church owner. Best-effort - never blocks the cycle. */
 async function notify(churchId: string, message: string) {
   try {
     const owner = await db.user.findFirst({

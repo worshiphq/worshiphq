@@ -26,7 +26,7 @@ export async function runRosterReminders(now = new Date(), ignoreHour = false) {
     const weekdayMode = church.rosterRemindWeekday != null;
     if (weekdayMode && todayWeekday !== church.rosterRemindWeekday) continue;
 
-    // Candidate slots — a window wide enough for both modes — not yet reminded.
+    // Candidate slots - a window wide enough for both modes - not yet reminded.
     const from = new Date(now.getTime() - 2 * 86400000);
     const to = new Date(now.getTime() + (church.rosterRemindLeadDays + 9) * 86400000);
     const slots = await db.volunteerSlot.findMany({
@@ -53,7 +53,7 @@ export async function runRosterReminders(now = new Date(), ignoreHour = false) {
       const e = byPerson.get(key) ?? { phone: s.person!.phone!, firstName: s.person!.firstName, title: s.person!.title ?? "", slotIds: [], lines: [] };
       e.slotIds.push(s.id);
       // In weekday mode duties span several days, so include the date.
-      const prefix = weekdayMode ? `${shortDate(s.date, church.timezone)} — ` : "";
+      const prefix = weekdayMode ? `${shortDate(s.date, church.timezone)} - ` : "";
       e.lines.push(`- ${prefix}${s.service ? `${s.service}: ` : ""}${s.role}`);
       byPerson.set(key, e);
     }

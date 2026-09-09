@@ -53,7 +53,7 @@ export default async function SignInPage({
         )}
         {error === "no-phone" && (
           <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
-            <AlertCircle className="size-4 shrink-0" /> No verified phone on this account — use email.
+            <AlertCircle className="size-4 shrink-0" /> No verified phone on this account - use email.
           </div>
         )}
 

@@ -579,7 +579,7 @@ function LumpSumRecorder({
       <div className="mb-5 flex items-center justify-between">
         <div>
           <h3 className="font-display text-lg font-semibold">Record {fundName}</h3>
-          <p className="text-sm text-ink-muted">Collected together and banked as one deposit — just enter the total.</p>
+          <p className="text-sm text-ink-muted">Collected together and banked as one deposit - just enter the total.</p>
         </div>
         <button type="button" onClick={onSwitchToMembers}
           className="rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-2">
@@ -651,7 +651,7 @@ function WeeklyRecords({ weeks }: { weeks: WeekGroup[] }) {
               <div>
                 <span className="font-display text-sm font-semibold">{week.label}</span>
                 <span className="ml-2 text-xs text-ink-faint">
-                  {formatDate(week.startDate)} — {formatDate(week.endDate)}
+                  {formatDate(week.startDate)} - {formatDate(week.endDate)}
                 </span>
               </div>
             </div>
@@ -742,7 +742,7 @@ function MonthlyReport({
       <Card className="p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="font-display text-lg font-semibold">Tithe report — {monthLabel}</h3>
+            <h3 className="font-display text-lg font-semibold">Tithe report - {monthLabel}</h3>
             <p className="text-sm text-ink-muted">{uniquePayers.size} unique payers · {allRecords.length} transactions · {withReceipt} receipts sent</p>
           </div>
           <a href={`/api/export/tithes?year=${year}&month=${month}`}>
@@ -778,7 +778,7 @@ function MonthlyReport({
             <div key={w.label} className="flex items-center justify-between px-5 py-3">
               <div>
                 <span className="text-sm font-medium">{w.label}</span>
-                <span className="ml-2 text-xs text-ink-faint">{formatDate(w.startDate)} — {formatDate(w.endDate)}</span>
+                <span className="ml-2 text-xs text-ink-faint">{formatDate(w.startDate)} - {formatDate(w.endDate)}</span>
               </div>
               <div className="flex items-center gap-4">
                 <span className="text-xs text-ink-faint">{w.records.length} payers</span>

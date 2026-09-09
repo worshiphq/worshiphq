@@ -381,7 +381,7 @@ function ChildForm({
             <div>
               <Label htmlFor="gender">Gender</Label>
               <select id="gender" name="gender" defaultValue={person?.gender ?? ""} className={selectBase}>
-                <option value="">—</option>
+                <option value="">-</option>
                 <option value="Male">Male</option>
                 <option value="Female">Female</option>
               </select>
@@ -415,7 +415,7 @@ function ChildForm({
             <div>
               <Label htmlFor="parentId">Assign parent (church member)</Label>
               <select id="parentId" name="parentId" defaultValue={person?.parentId ?? ""} className={selectBase}>
-                <option value="">— Select a member —</option>
+                <option value="">- Select a member -</option>
                 {adults.map((a) => (
                   <option key={a.id} value={a.id}>{a.firstName} {a.lastName}</option>
                 ))}

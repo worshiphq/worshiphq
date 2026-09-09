@@ -41,7 +41,7 @@ export function TestimonyForm({ churchSlug, accentColor }: { churchSlug: string;
       )}
       <div>
         <label className="mb-1 block text-sm font-medium text-[#1c1a16]">Your testimony *</label>
-        <textarea name="body" required rows={6} placeholder="Share the full story — take as much space as you need…" className={field} style={{ "--tw-ring-color": accent } as React.CSSProperties} />
+        <textarea name="body" required rows={6} placeholder="Share the full story - take as much space as you need…" className={field} style={{ "--tw-ring-color": accent } as React.CSSProperties} />
       </div>
       <label className="flex items-center gap-2 text-sm text-[#6b6560]">
         <input type="checkbox" checked={anonymous} onChange={(e) => setAnonymous(e.target.checked)} className="size-4 rounded border-[#e5e0db]" />

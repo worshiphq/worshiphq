@@ -29,7 +29,7 @@ export default async function GivingPage({
     getAccountOptions(session.churchId),
     db.fund.findMany({ where: { churchId: session.churchId }, select: { name: true }, orderBy: { name: "asc" } }),
   ]);
-  // Custom funds already used (excluding the built-in Tithes/Offertory) — for reuse.
+  // Custom funds already used (excluding the built-in Tithes/Offertory) - for reuse.
   const customFunds = [...new Set(funds.map((f) => f.name).filter((n) => !/^(tithes?|offertory)$/i.test(n.trim())))];
 
   const tab = params.tab;
@@ -39,9 +39,9 @@ export default async function GivingPage({
       <PageTips
         tourId="giving"
         steps={[
-          { target: "giving-link", title: "Online & Mobile Money giving", body: "Share this link or QR so members give from their phones — gifts and receipts are recorded automatically." },
+          { target: "giving-link", title: "Online & Mobile Money giving", body: "Share this link or QR so members give from their phones - gifts and receipts are recorded automatically." },
           { target: "giving-body", title: "Track every gift", body: "Record offerings, see giving by fund, and watch your monthly trend. Add a Paystack key to take live MoMo." },
-          { target: "tithe-body", title: "Tithe recording", body: "Select members after service, enter tithe amounts, and send SMS receipts — all in one batch. View weekly & monthly records." },
+          { target: "tithe-body", title: "Tithe recording", body: "Select members after service, enter tithe amounts, and send SMS receipts - all in one batch. View weekly & monthly records." },
         ]}
       />
       {church && !church.isDemo && (

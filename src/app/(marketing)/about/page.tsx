@@ -7,12 +7,12 @@ import { brand } from "@/config/brand";
 
 export const metadata: Metadata = {
   title: "About",
-  description: "Why we built WorshipHQ — a command center for your church.",
+  description: "Why we built WorshipHQ - a command center for your church.",
 };
 
 const values = [
   { icon: Heart, title: "Ministry first", body: "Technology should serve the mission, never complicate it. Every feature earns its place by helping you shepherd people." },
-  { icon: Globe2, title: "Built for every church", body: "Mobile Money, SMS broadcasts, online giving and offline-ready design — built around how churches actually operate, wherever they are." },
+  { icon: Globe2, title: "Built for every church", body: "Mobile Money, SMS broadcasts, online giving and offline-ready design - built around how churches actually operate, wherever they are." },
   { icon: ShieldCheck, title: "Trust & stewardship", body: "Your data and your offerings are sacred. Bank-grade security, full audit trails and strict tenant isolation." },
   { icon: Zap, title: "Delightfully simple", body: "Powerful doesn't have to mean complicated. WorshipHQ is fast, beautiful and a joy to use on any device." },
 ];
@@ -29,7 +29,7 @@ export default function AboutPage() {
             <span className="text-primary">your church.</span>
           </>
         }
-        subtitle="We're on a mission to give every church — from the smallest fellowship to the largest ministry — the tools to manage, connect and grow."
+        subtitle="We're on a mission to give every church - from the smallest fellowship to the largest ministry - the tools to manage, connect and grow."
       />
 
       {/* ── Manifesto ── */}
@@ -37,7 +37,7 @@ export default function AboutPage() {
         <div className="mx-auto max-w-2xl px-5">
           <Reveal>
             <p className="dropcap text-lg leading-[1.9] text-ink-muted">
-              Churches everywhere do extraordinary work — often with spreadsheets,
+              Churches everywhere do extraordinary work - often with spreadsheets,
               notebooks and a dozen WhatsApp groups. We believe ministry leaders
               deserve better tools: software as thoughtful and excellent as the
               work they do.
@@ -45,7 +45,7 @@ export default function AboutPage() {
             <div className="ornament-divider mx-auto my-8 max-w-[12rem] text-xs">✦</div>
             <p className="text-lg leading-[1.9] text-ink-muted">
               {brand.name} brings people, giving, events and communications into
-              one calm, beautiful headquarters — designed from the ground up for
+              one calm, beautiful headquarters - designed from the ground up for
               Mobile Money, online giving and the realities of church life.
             </p>
           </Reveal>

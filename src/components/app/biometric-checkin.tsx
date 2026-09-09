@@ -140,7 +140,7 @@ export function BiometricCheckInButton({
                 </div>
                 <h3 className="mt-4 font-display text-xl font-bold">One-time scanner setup</h3>
                 <p className="mt-2 text-sm text-ink-muted">
-                  Download and double-click the installer. It sets everything up for you — Python, the driver, and auto-start — then the scanner just works.
+                  Download and double-click the installer. It sets everything up for you - Python, the driver, and auto-start - then the scanner just works.
                 </p>
                 <a
                   href="/scanner-agent/whq-scanner-setup.bat"

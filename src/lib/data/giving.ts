@@ -166,7 +166,7 @@ export async function getGiving(churchId: string) {
     recurring: g.recurring,
   }));
 
-  // Fund breakdown + stats (this month) — computed from monthGifts, no extra queries
+  // Fund breakdown + stats (this month) - computed from monthGifts, no extra queries
   const byFund = new Map<string, number>();
   let momoCount = 0;
   let monthTotal = 0;

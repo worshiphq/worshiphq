@@ -22,7 +22,7 @@ export async function createBudget(formData: FormData) {
   const quarter = quarterStr ? parseInt(quarterStr) : null;
   const notes = String(formData.get("notes") ?? "").trim() || null;
   const departmentId = String(formData.get("departmentId") ?? "").trim() || null;
-  // The allocated amount — what this budget is funded with. Income/expense
+  // The allocated amount - what this budget is funded with. Income/expense
   // entries are tracked live against it (allocated + income − spent = balance).
   const amount = Math.max(0, parseFloat(String(formData.get("amount") ?? "0")) || 0);
 
@@ -54,7 +54,7 @@ export async function addBudgetItem(formData: FormData) {
   await db.budgetItem.create({
     data: { churchId: session.churchId, budgetId, category, description, amount },
   });
-  // Line items are a planned breakdown only — they never override the budget's
+  // Line items are a planned breakdown only - they never override the budget's
   // allocated amount (Budget.total), which the admin sets directly.
 
   revalidatePath("/app/budgets");
@@ -116,14 +116,14 @@ export async function addBudgetEntry(formData: FormData) {
   // expense subtracts, banked into the chosen account (or the default).
   const { postLedgerToAccount } = await import("@/lib/data/accounts");
   await postLedgerToAccount(session.churchId, {
-    description: `Budget ${type} — ${description}`,
+    description: `Budget ${type} - ${description}`,
     category: category ?? "Budget",
     amount: type === "income" ? amount : -amount,
     fund: "Budget",
     accountId: String(formData.get("accountId") ?? "").trim() || null,
   });
 
-  await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "budget-entry", entityId: budgetId, detail: `${type === "income" ? "Income" : "Expense"} ${amount} — ${description}` });
+  await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "budget-entry", entityId: budgetId, detail: `${type === "income" ? "Income" : "Expense"} ${amount} - ${description}` });
   revalidatePath("/app/budgets");
   revalidatePath("/app/accounting");
   return { ok: true };

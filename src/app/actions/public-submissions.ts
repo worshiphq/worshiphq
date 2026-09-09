@@ -29,7 +29,7 @@ export async function submitPublicTestimony(formData: FormData) {
     data: {
       churchId: church.id,
       title,
-      body: anonymous || !name ? body : `${body}\n\n— ${name}`,
+      body: anonymous || !name ? body : `${body}\n\n- ${name}`,
       category,
       anonymous: anonymous || !name,
       status: "pending", // admin reviews before it's shared publicly

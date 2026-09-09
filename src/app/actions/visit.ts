@@ -59,7 +59,7 @@ export async function submitVisitorForm(formData: FormData) {
   redirect(`/visit/${churchSlug}/thank-you`);
 }
 
-/** Admin-side manual visitor entry — for when people signed a paper sheet
+/** Admin-side manual visitor entry - for when people signed a paper sheet
  *  in person rather than using the share link. */
 export async function addVisitor(formData: FormData) {
   const { requireSession, assertCanWrite } = await import("@/lib/auth");

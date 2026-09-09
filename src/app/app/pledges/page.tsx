@@ -50,7 +50,7 @@ export default async function PledgesPage() {
 
   return (
     <div>
-      <PageHeader title="Pledges & campaigns" description="Track campaigns, pledges, payments and fulfilment — with automatic reminders.">
+      <PageHeader title="Pledges & campaigns" description="Track campaigns, pledges, payments and fulfilment - with automatic reminders.">
         <div className="flex gap-2">
           <ActionDialog
             triggerLabel="New campaign"

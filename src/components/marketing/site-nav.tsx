@@ -26,7 +26,7 @@ export function SiteNav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // The homepage opens on a dark full-screen slider — use light text until scrolled.
+  // The homepage opens on a dark full-screen slider - use light text until scrolled.
   const overDark = pathname === "/" && !scrolled && !open;
 
   return (

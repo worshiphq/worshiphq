@@ -221,7 +221,7 @@ export function LeadersClient({
           <p className="border-t border-line-soft px-5 py-3 text-xs text-ink-faint">
             {reordering
               ? "Drag cards or use arrows to reorder. Pastors show first by default."
-              : "Church-level titles are assigned from the People section — edit a person and set their leadership label."}
+              : "Church-level titles are assigned from the People section - edit a person and set their leadership label."}
           </p>
         </Card>
       )}

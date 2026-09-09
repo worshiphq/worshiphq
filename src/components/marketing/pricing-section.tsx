@@ -53,7 +53,7 @@ export function PricingSection({ showComparison = true, platformPricing }: {
               </p>
             </div>
 
-            {/* Toggle — set like a ballot */}
+            {/* Toggle - set like a ballot */}
             <div className="flex items-center gap-3">
               <span className={cn("text-sm transition-colors", !yearly ? "font-semibold text-evergreen-deep" : "text-ink-faint")}>
                 Monthly

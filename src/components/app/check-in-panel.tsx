@@ -26,7 +26,7 @@ interface Attendee {
   photoUrl?: string | null;
   category: string;
   method: string;
-  time?: string; // ISO — when they checked in
+  time?: string; // ISO - when they checked in
 }
 
 // Present list is split into these groups, in this order.
@@ -98,7 +98,7 @@ export function CheckInPanel({
 
   /**
    * Optimistic check-in: the row turns green instantly and only that row
-   * spins. The operator can keep typing the next name straight away — the
+   * spins. The operator can keep typing the next name straight away - the
    * server call finishes in the background.
    */
   async function check(c: Candidate) {
@@ -130,7 +130,7 @@ export function CheckInPanel({
     } catch {
       removeFrom(setOptimisticIn, c.id);
       setExtraAttendees((prev) => prev.filter((a) => a.id !== tempId));
-      toast(`Couldn't check in ${c.name} — please try again`, "error");
+      toast(`Couldn't check in ${c.name} - please try again`, "error");
     } finally {
       removeFrom(setBusyIds, c.id);
     }
@@ -229,7 +229,7 @@ export function CheckInPanel({
             )}
           </div>
         ) : (
-          <p className="mt-4 rounded-xl border border-dashed border-line p-4 text-sm text-ink-faint">Read-only demo — check-in disabled.</p>
+          <p className="mt-4 rounded-xl border border-dashed border-line p-4 text-sm text-ink-faint">Read-only demo - check-in disabled.</p>
         )}
 
         {/* Present list */}

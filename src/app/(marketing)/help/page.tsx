@@ -9,7 +9,7 @@ import {
 
 export const metadata: Metadata = {
   title: "Help center",
-  description: "Learn how to use every feature in WorshipHQ — your church management headquarters.",
+  description: "Learn how to use every feature in WorshipHQ - your church management headquarters.",
 };
 
 const sections = [
@@ -101,7 +101,7 @@ const sections = [
       },
       {
         name: "Targeted SMS",
-        desc: "Send messages to specific groups — all active members, a department, birthday celebrants this month, or hand-picked individuals.",
+        desc: "Send messages to specific groups - all active members, a department, birthday celebrants this month, or hand-picked individuals.",
       },
       {
         name: "Custom sender ID",
@@ -123,7 +123,7 @@ const sections = [
       },
       {
         name: "Custom reminders",
-        desc: "Create your own recurring reminders — weekly prayer night notices, monthly meetings, annual events. Set the date, recurrence (once/weekly/monthly/yearly), audience and message.",
+        desc: "Create your own recurring reminders - weekly prayer night notices, monthly meetings, annual events. Set the date, recurrence (once/weekly/monthly/yearly), audience and message.",
       },
     ],
   },
@@ -133,7 +133,7 @@ const sections = [
     features: [
       {
         name: "Member registration link",
-        desc: "Share your /join link so new members can register themselves. The form is fully customisable — add or remove fields, reorder them, set conditions and make fields required.",
+        desc: "Share your /join link so new members can register themselves. The form is fully customisable - add or remove fields, reorder them, set conditions and make fields required.",
       },
       {
         name: "Visitor form",
@@ -185,7 +185,7 @@ const sections = [
       },
       {
         name: "Upgrade tips",
-        desc: "When you upgrade, you'll see exactly what new features your plan unlocks — so you know what to explore first.",
+        desc: "When you upgrade, you'll see exactly what new features your plan unlocks - so you know what to explore first.",
       },
     ],
   },
@@ -195,11 +195,11 @@ const sections = [
     features: [
       {
         name: "Progressive Web App",
-        desc: "WorshipHQ works as a PWA — install it on any phone or tablet from the browser. It works like a native app with offline support.",
+        desc: "WorshipHQ works as a PWA - install it on any phone or tablet from the browser. It works like a native app with offline support.",
       },
       {
         name: "Responsive design",
-        desc: "Every page is fully responsive. Use WorshipHQ on desktop, tablet or phone — the layout adapts automatically.",
+        desc: "Every page is fully responsive. Use WorshipHQ on desktop, tablet or phone - the layout adapts automatically.",
       },
     ],
   },

@@ -39,7 +39,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
       <PageTips
         tourId="people"
         steps={[
-          { target: "people-invite", title: "Let members register themselves", body: "Share this link (or its QR) so members fill in their own details — they appear in your list automatically." },
+          { target: "people-invite", title: "Let members register themselves", body: "Share this link (or its QR) so members fill in their own details - they appear in your list automatically." },
           { target: "people-list", title: "Your whole congregation", body: "Search, filter and switch between grid and list. Click anyone to open their full profile, or add a member manually." },
         ]}
       />

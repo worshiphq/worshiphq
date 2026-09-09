@@ -101,7 +101,7 @@ export async function recordHarvestContributions(year: number, entries: HarvestE
   if (batchTotal > 0) {
     const { postLedgerToAccount } = await import("@/lib/data/accounts");
     await postLedgerToAccount(session.churchId, {
-      description: `Harvest ${year} — ${recorded} contribution(s)`,
+      description: `Harvest ${year} - ${recorded} contribution(s)`,
       category: "Harvest",
       amount: batchTotal,
       fund: "Harvest",

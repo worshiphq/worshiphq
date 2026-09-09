@@ -14,7 +14,7 @@ export async function logAudit(opts: {
   try {
     await db.auditLog.create({ data: opts });
   } catch {
-    // non-critical — never block the primary action
+    // non-critical - never block the primary action
   }
 }
 

@@ -106,8 +106,8 @@ export async function transferBetweenAccounts(formData: FormData) {
 
   await db.transaction.createMany({
     data: [
-      { churchId: session.churchId, accountId: fromId, description: `Transfer to ${nameOf(toId)}${note ? ` — ${note}` : ""}`, category: "Transfer", amount: -amount },
-      { churchId: session.churchId, accountId: toId, description: `Transfer from ${nameOf(fromId)}${note ? ` — ${note}` : ""}`, category: "Transfer", amount: amount },
+      { churchId: session.churchId, accountId: fromId, description: `Transfer to ${nameOf(toId)}${note ? ` - ${note}` : ""}`, category: "Transfer", amount: -amount },
+      { churchId: session.churchId, accountId: toId, description: `Transfer from ${nameOf(fromId)}${note ? ` - ${note}` : ""}`, category: "Transfer", amount: amount },
     ],
   });
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "transfer", detail: `Transferred ${amount} from ${nameOf(fromId)} to ${nameOf(toId)}` });

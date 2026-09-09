@@ -27,7 +27,7 @@ export default async function ExpensesPage() {
     }),
   ]);
   const accountOptions = [
-    { label: "— No account —", value: "" },
+    { label: "- No account -", value: "" },
     ...accounts.map((a) => ({ label: a.isDefault ? `${a.name} (default)` : a.name, value: a.id })),
   ];
 
@@ -57,7 +57,7 @@ export default async function ExpensesPage() {
           {accounts.length > 0 && (
             <Field label="Deduct from account" name="accountId" type="select" options={accountOptions} hint="Which account this payment comes out of" />
           )}
-          <Field label="Category" name="category" suggestions={categorySuggestions} placeholder="Pick one or type your own (e.g. Instruments)" hint="Type any category — it’s remembered for next time." />
+          <Field label="Category" name="category" suggestions={categorySuggestions} placeholder="Pick one or type your own (e.g. Instruments)" hint="Type any category - it’s remembered for next time." />
           <Field label="Vendor / payee" name="vendor" placeholder="Who was paid" />
           <Field label="Receipt reference" name="receiptRef" placeholder="Receipt or invoice number" />
           <Field label="Approved by" name="approvedBy" placeholder="Name of approving officer" />

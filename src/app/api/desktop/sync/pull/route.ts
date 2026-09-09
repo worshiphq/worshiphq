@@ -38,7 +38,7 @@ function toSnakeCase(obj: Record<string, any>): Record<string, any> {
     } else if (typeof value === "bigint") {
       result[snakeKey] = Number(value);
     } else if (typeof value === "object" && value !== null && typeof (value as any).toNumber === "function") {
-      // Prisma Decimal — JSON.stringify would produce a quoted string that
+      // Prisma Decimal - JSON.stringify would produce a quoted string that
       // poisons SQLite numeric columns.
       result[snakeKey] = (value as any).toNumber();
     } else if (typeof value === "object" && value !== null && !Array.isArray(value)) {
@@ -85,7 +85,7 @@ export async function GET(req: Request) {
   try {
     const changes: Array<{ table: string; recordId: string; action: string; data: any }> = [];
 
-    // Always pull the church record (no date filter — settings can change anytime)
+    // Always pull the church record (no date filter - settings can change anytime)
     const church = await db.church.findUnique({ where: { id: churchId } });
     if (church) {
       changes.push({ table: "church", recordId: church.id, action: "upsert", data: toSnakeCase(church as any) });
@@ -152,7 +152,7 @@ export async function GET(req: Request) {
       changes.push({ table: "user", recordId: u.id, action: "upsert", data: toSnakeCase(u as any) });
     }
 
-    // Pull junction tables (no churchId filter — filter via parent)
+    // Pull junction tables (no churchId filter - filter via parent)
     const personIds = changes.filter(c => c.table === "person").map(c => c.recordId);
     if (personIds.length > 0) {
       const personDepts = await db.person.findMany({
@@ -187,7 +187,7 @@ export async function GET(req: Request) {
       }
     }
 
-    // Child tables — always pulled in full so items added under old parents sync.
+    // Child tables - always pulled in full so items added under old parents sync.
     const items = await db.budgetItem.findMany({ where: { churchId } });
     for (const i of items) {
       changes.push({ table: "budget_item", recordId: i.id, action: "upsert", data: toSnakeCase(i as any) });
@@ -205,7 +205,7 @@ export async function GET(req: Request) {
 
     // Every table listed here was pulled as a COMPLETE snapshot: the client
     // may delete local rows that are absent from this pull (unless they have
-    // pending unsynced changes). Junction tables are excluded — their rows
+    // pending unsynced changes). Junction tables are excluded - their rows
     // use synthetic ids.
     const fullTables = [
       "church", "person", "department", "department_position", "custom_role",

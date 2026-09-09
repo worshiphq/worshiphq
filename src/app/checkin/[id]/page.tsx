@@ -12,7 +12,7 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { id } = await params;
   const s = await getPublicSession(id);
-  return { title: s ? `Check in — ${s.church.name}` : "Check in" };
+  return { title: s ? `Check in - ${s.church.name}` : "Check in" };
 }
 
 export default async function CheckInPage({
@@ -67,7 +67,7 @@ export default async function CheckInPage({
             className="w-full rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
             style={{ backgroundColor: accent }}
           >
-            I&apos;m here — check me in
+            I&apos;m here - check me in
           </SubmitButton>
           <p className="text-center text-xs text-[#a09888]">Helps {s.church.name} know you were present today.</p>
         </form>

@@ -104,7 +104,7 @@ export function TestimoniesClient({ testimonies }: { testimonies: Testimony[] })
                 <h3 className="mt-2 font-semibold">{t.title}</h3>
                 <p className="mt-1 line-clamp-3 text-sm text-ink-muted">{t.body}</p>
                 <div className="mt-3 flex items-center justify-between text-xs text-ink-faint">
-                  <span>{t.anonymous ? "Anonymous" : t.memberName ?? "—"}</span>
+                  <span>{t.anonymous ? "Anonymous" : t.memberName ?? "-"}</span>
                   <span>{formatDate(t.date)}</span>
                 </div>
               </div>

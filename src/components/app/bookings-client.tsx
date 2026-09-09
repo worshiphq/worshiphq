@@ -119,7 +119,7 @@ export function BookingsClient({
                         <div className="mt-1.5 flex flex-wrap gap-x-4 text-xs text-ink-faint">
                           <span className="flex items-center gap-1">
                             <Clock className="size-3" />
-                            {formatDateTime(b.startTime)} — {formatDateTime(b.endTime)}
+                            {formatDateTime(b.startTime)} - {formatDateTime(b.endTime)}
                           </span>
                           <span className="flex items-center gap-1">
                             <User className="size-3" /> {b.bookedBy}

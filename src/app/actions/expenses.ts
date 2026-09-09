@@ -15,7 +15,7 @@ export async function createExpense(formData: FormData) {
   const amount = parseFloat(String(formData.get("amount") ?? "0"));
   if (!amount || amount <= 0) return;
 
-  // Free-text category (with suggestions in the UI) — any value is allowed.
+  // Free-text category (with suggestions in the UI) - any value is allowed.
   const category = String(formData.get("category") ?? "").trim() || "General";
   const vendor = String(formData.get("vendor") ?? "").trim() || null;
   const receiptRef = String(formData.get("receiptRef") ?? "").trim() || null;
@@ -45,7 +45,7 @@ export async function createExpense(formData: FormData) {
     },
   });
 
-  // NOTE: no mirror Transaction — the Expense row is the single source of truth.
+  // NOTE: no mirror Transaction - the Expense row is the single source of truth.
   // Account balances subtract expenses (getAccountOptions) and the accounting
   // ledger surfaces them (getAccounting). A mirror here double-counted expenses.
 

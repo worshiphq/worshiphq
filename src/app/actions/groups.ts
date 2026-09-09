@@ -98,7 +98,7 @@ export async function sendGroupMeetingReminder(groupId: string) {
 
   const { sendChurchSms } = await import("@/lib/sms/credits");
   const res = await sendChurchSms(session.churchId, phones, message, { note: `Meeting reminder: ${group.name}` });
-  if (!res.ok && res.insufficient) return { ok: false as const, error: `Not enough SMS credits — need ${res.cost}, have ${res.balance}.` };
+  if (!res.ok && res.insufficient) return { ok: false as const, error: `Not enough SMS credits - need ${res.cost}, have ${res.balance}.` };
   if (!res.ok) return { ok: false as const, error: "Couldn't send the reminder." };
 
   await audit(session, "send", "group", `Sent meeting reminder to ${res.sent} member(s) of "${group.name}"`, groupId);

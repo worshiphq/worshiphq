@@ -22,7 +22,7 @@ export default async function AdminLoginPage({
             <ShieldCheck className="size-7" />
           </div>
           <h1 className="text-xl font-bold tracking-tight">WorshipHQ Platform Admin</h1>
-          <p className="mt-1 text-sm text-slate-400">Restricted area — owner access only.</p>
+          <p className="mt-1 text-sm text-slate-400">Restricted area - owner access only.</p>
         </div>
 
         <form

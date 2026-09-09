@@ -9,7 +9,7 @@ import { env } from "@/lib/env";
  * URL to save instead. When it's NOT configured (e.g. local dev without keys),
  * it returns the input unchanged so uploads still work as before.
  *
- * Uses Supabase's REST API with the service-role key — no SDK dependency, and
+ * Uses Supabase's REST API with the service-role key - no SDK dependency, and
  * no anon client (so table RLS exposure isn't reintroduced).
  */
 
@@ -27,7 +27,7 @@ function authHeaders(extra?: Record<string, string>) {
   return { Authorization: `Bearer ${env.SUPABASE_SERVICE_ROLE_KEY}`, ...(extra ?? {}) };
 }
 
-/** Create the public bucket once (idempotent — "already exists" is fine). */
+/** Create the public bucket once (idempotent - "already exists" is fine). */
 async function ensureBucket() {
   if (bucketReady) return;
   try {
@@ -37,7 +37,7 @@ async function ensureBucket() {
       body: JSON.stringify({ id: BUCKET, name: BUCKET, public: true, file_size_limit: 5_242_880 }),
     });
   } catch {
-    /* ignore — upload will surface a real failure */
+    /* ignore - upload will surface a real failure */
   }
   bucketReady = true;
 }

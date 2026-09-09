@@ -93,7 +93,7 @@ function DepartmentChecks({
   onChange: (v: string[]) => void;
 }) {
   if (departments.length === 0) {
-    return <p className="text-xs text-ink-faint">No departments yet — add them in Settings.</p>;
+    return <p className="text-xs text-ink-faint">No departments yet - add them in Settings.</p>;
   }
   const toggle = (name: string) =>
     onChange(selected.includes(name) ? selected.filter((n) => n !== name) : [...selected, name]);

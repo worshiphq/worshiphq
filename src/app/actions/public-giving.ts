@@ -56,7 +56,7 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
   const init = await initializePayment({
     email: payerEmail,
     // Gifts are entered in local currency (₵) and charged in the merchant's
-    // settlement currency — never the display currency (which may be USD).
+    // settlement currency - never the display currency (which may be USD).
     amount,
     currency: SETTLEMENT_CURRENCY,
     reference,

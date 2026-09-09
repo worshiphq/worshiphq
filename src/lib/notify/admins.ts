@@ -4,7 +4,7 @@ import { sendChurchSms } from "@/lib/sms/credits";
 import { sendEmail } from "@/lib/integrations/email";
 
 /**
- * Notify a church's admins (SMS + email) that a member submitted something —
+ * Notify a church's admins (SMS + email) that a member submitted something -
  * a prayer request, testimony or counselling request. Respects the church's
  * notifySubmissions toggle and never throws (notifications must not block the
  * submission itself).
@@ -37,7 +37,7 @@ export async function notifyChurchAdmins(
     if (emails.length) {
       await sendEmail({
         to: emails,
-        subject: `${opts.subject} — ${church.name}`,
+        subject: `${opts.subject} - ${church.name}`,
         html: opts.emailHtml ?? `<p>${opts.sms}</p>`,
       });
     }

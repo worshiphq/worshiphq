@@ -2,7 +2,7 @@
  * Typed, validated environment loader for WorshipHQ.
  *
  * Philosophy: the app must run fully with ZERO real keys. Every integration is
- * optional — when its key is missing, the related feature drops into a safe
+ * optional - when its key is missing, the related feature drops into a safe
  * "demo/stub" mode (SMS/email/push log to console, payments use test mode, AI
  * returns canned responses). Only a tiny core is ever required.
  *

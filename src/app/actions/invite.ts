@@ -20,7 +20,7 @@ export async function sendInviteCode(token: string) {
 }
 
 /**
- * Public: accept an invite — verify the phone code, set name/password/photo,
+ * Public: accept an invite - verify the phone code, set name/password/photo,
  * then start the session and drop the invitee straight into the app.
  */
 export async function acceptInvite(formData: FormData) {

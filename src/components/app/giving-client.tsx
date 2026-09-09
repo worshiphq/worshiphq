@@ -39,7 +39,7 @@ export function GivingClient({ rows, funds, stats, fundBreakdown, accounts = [],
 
   return (
     <div>
-      <PageHeader title="Giving & donations" description="Tithes, offerings and Mobile Money giving — all in ₵.">
+      <PageHeader title="Giving & donations" description="Tithes, offerings and Mobile Money giving - all in ₵.">
         <a href="/api/export/giving"><Button variant="secondary" size="sm"><Download /> Export CSV</Button></a>
         <Button size="sm" onClick={() => setRecording(true)} disabled={!canWrite}><Plus /> Record gift</Button>
       </PageHeader>

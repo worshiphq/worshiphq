@@ -84,7 +84,7 @@ export async function sendSms(
     }
 
     // mnotify / twilio implementations follow the same shape.
-    console.warn(`[SMS] provider "${provider}" not yet implemented — logging instead`);
+    console.warn(`[SMS] provider "${provider}" not yet implemented - logging instead`);
     return { ok: true, provider, stubbed: true };
   } catch (e) {
     return { ok: false, provider, stubbed: false, error: (e as Error).message };

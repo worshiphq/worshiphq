@@ -46,7 +46,7 @@ export function CampaignHistory({ campaigns }: { campaigns: CampaignRow[] }) {
                   <tr key={c.id} className="border-b border-line-soft last:border-0">
                     <td className="p-4 font-medium">{c.name}</td>
                     <td className="p-4"><Badge variant={c.channel === "SMS" ? "primary" : "info"}>{c.channel}</Badge></td>
-                    <td className="p-4 text-ink-muted">{c.sent > 0 ? `${c.delivered}/${c.sent}` : "—"}{c.channel === "Email" && c.opened > 0 && <span className="ml-1 text-xs text-ink-faint">({c.opened} opened)</span>}</td>
+                    <td className="p-4 text-ink-muted">{c.sent > 0 ? `${c.delivered}/${c.sent}` : "-"}{c.channel === "Email" && c.opened > 0 && <span className="ml-1 text-xs text-ink-faint">({c.opened} opened)</span>}</td>
                     <td className="hidden p-4 text-ink-muted sm:table-cell">{formatDate(c.date)}</td>
                     <td className="p-4"><Badge variant={c.status === "Sent" ? "success" : "warning"}>{c.status}</Badge></td>
                   </tr>

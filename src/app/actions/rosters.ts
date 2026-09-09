@@ -77,7 +77,7 @@ export async function addSlot(formData: FormData) {
 }
 
 /**
- * Save a whole "service sheet" at once — one service on one date with a person
+ * Save a whole "service sheet" at once - one service on one date with a person
  * for each role (the Pulpit Workers bulletin). Each sheet is stored as a
  * VolunteerRoster (name = service, startDate/endDate = the date) with a slot per
  * filled role. Creates a new sheet or replaces an existing one (sheetId).
@@ -145,7 +145,7 @@ export async function saveServiceSheet(formData: FormData) {
     const owned = await db.volunteerRoster.findFirst({ where: { id: rosterId, churchId: session.churchId }, select: { id: true } });
     if (!owned) return { ok: false as const, error: "Sheet not found." };
     // NOTE: we deliberately do NOT reset announcedAt here. Editing a sheet must
-    // not silently re-blast the group on the next cron tick — a sheet auto-
+    // not silently re-blast the group on the next cron tick - a sheet auto-
     // announces once; use the "Announce" button to send again on purpose.
     await db.volunteerRoster.update({
       where: { id: rosterId },
@@ -184,7 +184,7 @@ export async function deleteRoster(formData: FormData) {
 
   const id = String(formData.get("id"));
   const r = await db.volunteerRoster.findFirst({ where: { id, churchId: session.churchId }, select: { name: true } });
-  // Soft delete — hidden from lists but restorable from "Recently deleted".
+  // Soft delete - hidden from lists but restorable from "Recently deleted".
   await db.volunteerRoster.updateMany({ where: { id, churchId: session.churchId }, data: { deletedAt: new Date() } });
   if (r) await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: "roster", entityId: id, detail: `Deleted roster "${r.name}"` });
   revalidatePath("/app/rosters");
@@ -350,10 +350,10 @@ export async function announceRoster(rosterId: string) {
   const session = await requireModule("volunteers");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const { text, phones } = await buildAnnouncement(session.churchId, rosterId);
-  if (phones.length === 0) return { ok: false as const, error: "No recipients — pick a group (with phones) in Announcement settings." };
+  if (phones.length === 0) return { ok: false as const, error: "No recipients - pick a group (with phones) in Announcement settings." };
   const { sendChurchSms } = await import("@/lib/sms/credits");
   const res = await sendChurchSms(session.churchId, phones, text, { note: "Roster announcement" });
-  if (!res.ok && res.insufficient) return { ok: false as const, error: `Not enough SMS credits — need ${res.cost}, have ${res.balance}.` };
+  if (!res.ok && res.insufficient) return { ok: false as const, error: `Not enough SMS credits - need ${res.cost}, have ${res.balance}.` };
   await db.volunteerRoster.update({ where: { id: rosterId }, data: { announcedAt: new Date() } });
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "send", entity: "roster", entityId: rosterId, detail: `Announced roster to ${res.sent} recipient(s)` });
   revalidatePath("/app/rosters");
@@ -443,7 +443,7 @@ export async function notifyRoster(rosterId: string) {
   for (const m of messages) {
     const res = await sendChurchSms(session.churchId, m.phone, m.text, { note: `Roster: ${rosterName}` });
     if (!res.ok && res.insufficient) {
-      if (sent === 0) return { ok: false as const, error: `Not enough SMS credits — need ${res.cost}, have ${res.balance}.` };
+      if (sent === 0) return { ok: false as const, error: `Not enough SMS credits - need ${res.cost}, have ${res.balance}.` };
       break; // ran out partway through
     }
     if (res.ok) sent += res.sent;

@@ -11,7 +11,7 @@ export async function generateMetadata({
   const { slug } = await params;
   const church = await db.church.findUnique({ where: { slug }, select: { name: true } });
   if (!church) return { title: "Thank you" };
-  return { title: `Thank you — ${church.name}` };
+  return { title: `Thank you - ${church.name}` };
 }
 
 export default async function GiveThankYouPage({

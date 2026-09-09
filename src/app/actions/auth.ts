@@ -135,7 +135,7 @@ export async function completeSignup(formData: FormData) {
     include: { branches: true },
   });
 
-  // Create subscription — Grace Baptist gets max plan as an offering
+  // Create subscription - Grace Baptist gets max plan as an offering
   const isGraceBaptist = p.email.toLowerCase() === "theophanyhouse@gmail.com";
   const chosenPlan = isGraceBaptist ? "max" : (p.plan ?? "free");
   await db.subscription.create({
@@ -319,7 +319,7 @@ const LOGIN_2FA_VID = "whq_login_vid";
 
 /**
  * Step 1 of login: check the identifier (email OR phone) + password. On success
- * we DON'T send a code yet — we hand off to a channel picker so the user chooses
+ * we DON'T send a code yet - we hand off to a channel picker so the user chooses
  * where the code goes (email or their verified phone). This never dead-ends on a
  * single flaky channel. The session is only created once a code is confirmed.
  */

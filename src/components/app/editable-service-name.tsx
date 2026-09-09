@@ -6,7 +6,7 @@ import { Pencil, Check, X, Loader2 } from "lucide-react";
 import { useFeedback } from "@/components/ui/feedback";
 import { renameService } from "@/app/actions/attendance";
 
-/** Inline-editable service title. Click the pencil to rename a session — handy
+/** Inline-editable service title. Click the pencil to rename a session - handy
  *  for turning "Wednesday Service" into "Convention Day 1" after check-in has
  *  already started. */
 export function EditableServiceName({

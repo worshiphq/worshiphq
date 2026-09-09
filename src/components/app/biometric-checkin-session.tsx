@@ -16,7 +16,7 @@ type Welcome = Person & { alreadyIn?: boolean; category?: string };
  * Hands-free biometric check-in. Opens once, then keeps scanning: each finger
  * → match → record → a big welcoming photo → added to the live list, then it
  * automatically waits for the next person. No page reloads, no per-person
- * button — every check-in is persisted server-side before moving on.
+ * button - every check-in is persisted server-side before moving on.
  */
 export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: string; onClose: () => void }) {
   const router = useRouter();
@@ -37,7 +37,7 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
   useEffect(() => {
     running.current = true;
     (async () => {
-      // 1) Is the agent there and on a real scanner? Poll a few times first —
+      // 1) Is the agent there and on a real scanner? Poll a few times first -
       // a busy single-threaded agent can miss one quick check.
       let status: { connected?: boolean } | null = null;
       for (let i = 0; i < 3 && !status; i++) {
@@ -84,7 +84,7 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
         if (!running.current) return;
 
         if (!match.matched) {
-          setPhase("unknown"); setHint("Fingerprint not recognized — try again.");
+          setPhase("unknown"); setHint("Fingerprint not recognized - try again.");
           await wait(1600);
           continue;
         }
@@ -101,11 +101,11 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
           if (!res.alreadyIn) setList((prev) => [res, ...prev]);
           await wait(2600); // let them see the welcome
         } else {
-          setPhase("unknown"); setHint(res.message || "Check-in failed — try again.");
+          setPhase("unknown"); setHint(res.message || "Check-in failed - try again.");
           await wait(1600);
         }
       } catch {
-        // capture timed out or agent hiccuped — just loop again
+        // capture timed out or agent hiccuped - just loop again
         if (!running.current) return;
       }
     }
@@ -177,7 +177,7 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
             <Users className="size-3.5" /> Checked in this session ({list.length})
           </div>
           {list.length === 0 ? (
-            <p className="text-xs text-ink-faint">No-one yet — start scanning.</p>
+            <p className="text-xs text-ink-faint">No-one yet - start scanning.</p>
           ) : (
             <ul className="flex max-h-32 flex-wrap gap-2 overflow-y-auto">
               {list.map((p, i) => (

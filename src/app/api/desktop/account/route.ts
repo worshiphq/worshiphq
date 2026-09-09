@@ -27,7 +27,7 @@ function verifyToken(authHeader: string | null): { uid: string; cid: string } | 
 }
 
 /**
- * Account security bridge for the desktop app — mirrors the web account
+ * Account security bridge for the desktop app - mirrors the web account
  * actions (change password / phone / email with password + OTP checks).
  * Body: { action, ...fields }.
  */

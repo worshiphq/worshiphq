@@ -148,7 +148,7 @@ export function FormBuilder({
           </div>
         )}
 
-        <SubmitButton className="mt-5" disabled={readOnly} successMessage="Form saved — live now">
+        <SubmitButton className="mt-5" disabled={readOnly} successMessage="Form saved - live now">
           Save form
         </SubmitButton>
       </form>

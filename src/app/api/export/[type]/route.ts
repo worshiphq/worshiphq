@@ -170,7 +170,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
     headers = ["Date", "Description", "Category", "Fund", "Amount", "Source"];
     rows = [
       ...txns.map((t) => [fmtDate(t.date), t.description, t.category, t.fund ?? "General", Number(t.amount).toFixed(2), "Manual"]),
-      ...txGifts.map((g) => [fmtDate(g.date), `${g.donorName ?? "Anonymous"} — ${g.fund?.name ?? "Gift"}`, g.fund?.name ?? "Giving", g.fund?.name ?? "General", Number(g.amount).toFixed(2), "Giving"]),
+      ...txGifts.map((g) => [fmtDate(g.date), `${g.donorName ?? "Anonymous"} - ${g.fund?.name ?? "Gift"}`, g.fund?.name ?? "Giving", g.fund?.name ?? "General", Number(g.amount).toFixed(2), "Giving"]),
     ];
   } else if (type === "harvest") {
     if (!session.sections.includes("harvest") && !session.sections.includes("giving"))

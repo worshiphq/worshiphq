@@ -194,8 +194,8 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
 
   const shareText = useMemo(() => {
     const blocks = sheet.services.map((s) => {
-      const head = `${s.service.toUpperCase()} — ${fmtShort(s.date)}${s.time ? ` ${fmtTime(s.time)}` : ""}`;
-      return [head, ...s.assignments.map((a) => `${a.role}: ${a.personName ?? "—"}`)].join("\n");
+      const head = `${s.service.toUpperCase()} - ${fmtShort(s.date)}${s.time ? ` ${fmtTime(s.time)}` : ""}`;
+      return [head, ...s.assignments.map((a) => `${a.role}: ${a.personName ?? "-"}`)].join("\n");
     });
     return blocks.join("\n\n").trim();
   }, [sheet]);
@@ -208,7 +208,7 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
   const remove = () => {
     if (!confirm(`Delete the roster "${sheet.name}"? You can restore it from “Recently deleted” for 30 days.`)) return;
     const fd = new FormData(); fd.set("id", sheet.id);
-    start(async () => { await deleteRoster(fd); toast("Roster deleted — restore it from Recently deleted", "info"); router.refresh(); });
+    start(async () => { await deleteRoster(fd); toast("Roster deleted - restore it from Recently deleted", "info"); router.refresh(); });
   };
 
   // Human schedule for the auto-announcement (per-roster override).
@@ -251,7 +251,7 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
               {svc.assignments.map((a) => (
                 <div key={a.id} className="flex items-center gap-2 text-sm">
                   <span className="min-w-32 text-ink-muted">{a.role}:</span>
-                  <span className="flex-1 font-medium">{a.personName ?? "—"}</span>
+                  <span className="flex-1 font-medium">{a.personName ?? "-"}</span>
                   {a.personId && (a.hasPhone
                     ? <Phone className={cn("size-3", a.notified ? "text-success" : "text-ink-faint")} />
                     : <PhoneOff className="size-3 text-ink-faint" />)}
@@ -286,7 +286,7 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
   );
 }
 
-/** Manual "announce this sheet to the group" — cost preview then send. */
+/** Manual "announce this sheet to the group" - cost preview then send. */
 function AnnounceDialog({ sheetId, label, announcedAt, onClose }: { sheetId: string; label: string; announcedAt?: string | null; onClose: () => void }) {
   const router = useRouter();
   const alreadyToday = !!announcedAt && new Date(announcedAt).toDateString() === new Date().toDateString();
@@ -318,7 +318,7 @@ function AnnounceDialog({ sheetId, label, announcedAt, onClose }: { sheetId: str
         <div className="p-5">
           {alreadyToday && !result && (
             <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0" /> You already announced this today — sending again re-texts the whole group.
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" /> You already announced this today - sending again re-texts the whole group.
             </div>
           )}
           {loading ? (
@@ -431,7 +431,7 @@ function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announc
               </select>
               {audience === "group" && (
                 <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={cn(sel, "flex-1")}>
-                  <option value="">— Pick a group —</option>
+                  <option value="">- Pick a group -</option>
                   {groups.map((g) => <option key={g.id} value={g.id}>{g.name} ({g.memberCount})</option>)}
                 </select>
               )}
@@ -516,7 +516,7 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
   const nameOf = (r: DialogRow) => (r.personId ? memberName.get(r.personId) ?? "" : r.typed.trim());
   const bodyText = services
     .map((s) => {
-      const head = `${s.service || "Service"} — ${s.date}${s.time ? ` ${s.time}` : ""}`;
+      const head = `${s.service || "Service"} - ${s.date}${s.time ? ` ${s.time}` : ""}`;
       const lines = s.rows.filter((r) => r.personId || r.typed.trim()).map((r) => `${r.role}: ${nameOf(r) || "-"}`);
       return [head, ...lines].join("\n");
     })
@@ -567,7 +567,7 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
         <div className="space-y-4 p-5">
           <div>
             <label className="mb-1 block text-xs text-ink-faint">Roster name (shown as the message heading)</label>
-            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Pulpit Workers — this week" className={cn(inputCls, "w-full")} />
+            <input value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Pulpit Workers - this week" className={cn(inputCls, "w-full")} />
           </div>
 
           {services.map((svc, si) => (
@@ -599,7 +599,7 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
                     <span className="min-w-0 break-words text-sm text-ink-muted">{r.role}</span>
                     <div className="flex min-w-0 items-center gap-1">
                       <select value={r.personId} onChange={(e) => setRow(si, ri, { personId: e.target.value, typed: e.target.value ? "" : r.typed })} className={cn(inputCls, "min-w-0 flex-1")}>
-                        <option value="">— Member —</option>
+                        <option value="">- Member -</option>
                         {members.map((m) => <option key={m.id} value={m.id}>{m.name}{m.hasPhone ? "" : " (no phone)"}</option>)}
                       </select>
                       <input value={r.typed} onChange={(e) => setRow(si, ri, { typed: e.target.value, personId: e.target.value ? "" : r.personId })}
@@ -607,7 +607,7 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
                     </div>
                   </div>
                 ))}
-                {svc.rows.length === 0 && <p className="text-xs text-ink-faint">No roles yet — add some via “Manage roles”.</p>}
+                {svc.rows.length === 0 && <p className="text-xs text-ink-faint">No roles yet - add some via “Manage roles”.</p>}
               </div>
             </div>
           ))}

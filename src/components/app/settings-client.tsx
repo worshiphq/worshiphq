@@ -185,7 +185,7 @@ export function SettingsClient({
               <label className="mt-4 flex items-start gap-2 rounded-xl border border-line bg-surface-2/40 p-3 text-sm text-ink-muted">
                 <input type="checkbox" name="notifySubmissions" defaultChecked={church?.notifySubmissions ?? true} disabled={ro} className="mt-0.5 size-4 rounded border-line accent-primary" />
                 <span>
-                  <span className="font-medium text-ink">Notify admins of new submissions</span> — text &amp; email your admins when a member sends a
+                  <span className="font-medium text-ink">Notify admins of new submissions</span> - text &amp; email your admins when a member sends a
                   prayer request, testimony or counselling request.
                 </span>
               </label>
@@ -193,7 +193,7 @@ export function SettingsClient({
                 <label className="flex items-start gap-2">
                   <input type="checkbox" name="birthdayDigestOn" defaultChecked={church?.birthdayDigestOn ?? true} disabled={ro} className="mt-0.5 size-4 rounded border-line accent-primary" />
                   <span>
-                    <span className="font-medium text-ink">Weekly birthday digest</span> — text &amp; email admins the week&rsquo;s upcoming birthdays.
+                    <span className="font-medium text-ink">Weekly birthday digest</span> - text &amp; email admins the week&rsquo;s upcoming birthdays.
                   </span>
                 </label>
                 <div className="mt-2 flex items-center gap-2 pl-6">
@@ -302,7 +302,7 @@ export function SettingsClient({
                   <SubmitButton className="sm:col-span-2" disabled={ro} pendingLabel="Sending invite…" successMessage="Invite sent">Send SMS invite</SubmitButton>
                 </form>
                 <p className="mt-2 text-xs text-ink-faint">
-                  They get a text with a link to accept, verify their number, set a password and add a photo — like a Discord invite. A temp password is optional.
+                  They get a text with a link to accept, verify their number, set a password and add a photo - like a Discord invite. A temp password is optional.
                 </p>
               </Card>
             )}
@@ -314,7 +314,7 @@ export function SettingsClient({
                   <Wallet className="size-4" /> Department budget leaders
                 </h3>
                 <p className="mt-1 text-sm text-ink-muted">
-                  Give a ministry leader a scoped login to record their own income &amp; expenses. They see <b>only</b> their department&rsquo;s budget — nothing else.
+                  Give a ministry leader a scoped login to record their own income &amp; expenses. They see <b>only</b> their department&rsquo;s budget - nothing else.
                 </p>
                 {departments.length === 0 ? (
                   <p className="mt-3 rounded-lg bg-surface-2 px-3 py-2 text-xs text-ink-faint">
@@ -348,7 +348,7 @@ export function SettingsClient({
                   <Shield className="size-4" /> Custom roles
                 </h3>
                 <p className="mt-1 text-sm text-ink-muted">
-                  Create a role that can only see certain sections — e.g. an &ldquo;Attendance&rdquo; role that sees only attendance. Choose whether they can delete records or only add.
+                  Create a role that can only see certain sections - e.g. an &ldquo;Attendance&rdquo; role that sees only attendance. Choose whether they can delete records or only add.
                 </p>
 
                 {customRoles.length > 0 && (
@@ -378,7 +378,7 @@ export function SettingsClient({
                 )}
 
                 <form action={createCustomRole} className="mt-4 space-y-4">
-                  <Input name="name" placeholder="Role name (e.g. Finance — Day Born)" required disabled={ro} />
+                  <Input name="name" placeholder="Role name (e.g. Finance - Day Born)" required disabled={ro} />
                   <div>
                     <Label>What can this role do?</Label>
                     <RoleMatrix idPrefix="new-role" />
@@ -961,7 +961,7 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
 
   const previousPlan = (subscription?.plan ?? "free") as PlanId;
 
-  // Detect ?upgraded= param (from Paystack redirect) — verify payment and activate
+  // Detect ?upgraded= param (from Paystack redirect) - verify payment and activate
   useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.search);
@@ -1014,7 +1014,7 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
   }, [router, previousPlan]);
 
   const currentPlanId = subscription?.plan ?? "free";
-  // Downgrades never charge and never refund — they're scheduled for period end.
+  // Downgrades never charge and never refund - they're scheduled for period end.
   const isDowngrade = changePreview?.direction === "downgrade";
 
   // Refund request drawer state.
@@ -1040,7 +1040,7 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
           onDone={handleCelebrationDone}
         />
       )}
-      {/* A queued downgrade — they keep what they paid for until period end. */}
+      {/* A queued downgrade - they keep what they paid for until period end. */}
       {(subscription?.scheduledPlan || subscription?.cancelAtPeriodEnd) && (
         <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-info/30 bg-info/10 px-4 py-3">
           <p className="text-sm text-info">
@@ -1048,7 +1048,7 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
             Scheduled: you move to{" "}
             <b className="capitalize">{subscription.cancelAtPeriodEnd ? "Free" : subscription.scheduledPlan}</b>
             {subscription.renewsAt && <> on {new Date(subscription.renewsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</>}.
-            You keep your current plan until then — nothing more to pay.
+            You keep your current plan until then - nothing more to pay.
           </p>
           <Button
             size="sm"
@@ -1141,7 +1141,7 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
 
         {!features.payments && (
           <p className="mt-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-xs text-warning">
-            Paystack is in stub mode — add PAYSTACK_SECRET_KEY to enable live billing & giving.
+            Paystack is in stub mode - add PAYSTACK_SECRET_KEY to enable live billing & giving.
           </p>
         )}
       </Card>
@@ -1340,7 +1340,7 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
                 >
                   <div className="rounded-xl border border-info/30 bg-info/10 p-3 text-xs text-info">
                     Refunds are reviewed within <b>{refundElig.slaHours ?? 24} hours</b>. If approved, Paystack sends it to your
-                    bank — usually <b>5–10 working days</b>. This window closes{" "}
+                    bank - usually <b>5–10 working days</b>. This window closes{" "}
                     {refundElig.deadline && <b>{new Date(refundElig.deadline).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</b>}.
                     To simply move to a cheaper plan, use a <b>downgrade</b> instead.
                   </div>
@@ -1461,7 +1461,7 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
               {couponError && <p className="mt-1 text-xs text-danger">{couponError}</p>}
               {couponInfo && (
                 <p className="mt-1 text-xs font-medium text-success">
-                  {couponInfo.label} applied — you pay {couponInfo.symbol}
+                  {couponInfo.label} applied - you pay {couponInfo.symbol}
                   {couponInfo.newAmount.toLocaleString()} instead of {couponInfo.symbol}
                   {couponInfo.listAmount.toLocaleString()} (save {couponInfo.symbol}
                   {couponInfo.saved.toLocaleString()}).
@@ -1471,7 +1471,7 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
 
             {!features.payments && !isDowngrade && (
               <p className="mt-4 rounded-lg border border-warning/30 bg-warning/10 px-3 py-2 text-xs text-warning">
-                Payment gateway is in stub mode — upgrade will be applied instantly without payment. Enable Paystack to collect payments.
+                Payment gateway is in stub mode - upgrade will be applied instantly without payment. Enable Paystack to collect payments.
               </p>
             )}
 
@@ -1572,7 +1572,7 @@ function SlugEditor({ slug, ro, isAdmin }: { slug: string; ro: boolean; isAdmin:
     <Card className="p-6">
       <h3 className="font-display text-lg font-semibold">Your church link</h3>
       <p className="text-sm text-ink-muted">
-        This slug is used in all your shared links — membership, visitor form and prayer requests.
+        This slug is used in all your shared links - membership, visitor form and prayer requests.
         Changing it updates every link at once.
       </p>
       <div className="mt-4 flex items-center gap-2">
@@ -1727,7 +1727,7 @@ function OnlinePaymentsTab({ churchId }: { churchId: string }) {
           <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400">
             <Clock className="size-5" />
             <span className="font-semibold">
-              {status.status === "pending" && "Request submitted — waiting for admin review"}
+              {status.status === "pending" && "Request submitted - waiting for admin review"}
               {status.status === "scheduled" && "Meeting scheduled"}
               {status.status === "in_progress" && "Setup in progress"}
             </span>
@@ -1760,7 +1760,7 @@ function OnlinePaymentsTab({ churchId }: { churchId: string }) {
           </div>
           <div>
             <Label>What do you need?</Label>
-            <textarea name="needs" rows={3} placeholder="Tell us what payment options you'd like — mobile money, card payments, USSD, QR codes, etc."
+            <textarea name="needs" rows={3} placeholder="Tell us what payment options you'd like - mobile money, card payments, USSD, QR codes, etc."
               className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}

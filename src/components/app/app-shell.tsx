@@ -177,7 +177,7 @@ function ImpersonationBanner({ churchName }: { churchName: string }) {
     <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-teal-500/30 bg-teal-500/10 px-4 py-2 text-center text-xs text-teal-700">
       <span className="flex items-center gap-1.5 font-medium">
         <ShieldCheck className="size-3.5" />
-        Support mode — viewing {churchName}. The church cannot see you.
+        Support mode - viewing {churchName}. The church cannot see you.
       </span>
       <form action={exitImpersonation}>
         <SubmitButton

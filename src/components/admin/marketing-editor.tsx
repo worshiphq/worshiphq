@@ -81,7 +81,7 @@ export function MarketingEditor({
 
       <SubmitButton
         pendingLabel="Saving…"
-        successMessage="Content saved — live now"
+        successMessage="Content saved - live now"
         className="rounded-xl bg-teal-500 px-5 py-2.5 text-sm font-semibold text-white shadow-none hover:bg-teal-400"
       >
         <Save className="size-4" /> Save changes

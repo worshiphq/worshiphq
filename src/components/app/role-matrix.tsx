@@ -111,7 +111,7 @@ export function RoleMatrix({
                             className="size-4 rounded border-line accent-primary"
                           />
                         ) : (
-                          <span className="text-ink-faint/40">—</span>
+                          <span className="text-ink-faint/40">-</span>
                         )}
                       </span>
                     </div>
@@ -125,7 +125,7 @@ export function RoleMatrix({
 
       <p className="mt-2 text-xs text-ink-faint">
         {view.size === 0
-          ? "Nothing ticked — this role would see nothing."
+          ? "Nothing ticked - this role would see nothing."
           : `${view.size} section${view.size !== 1 ? "s" : ""} visible, ${manage.size} manageable. They see only what's ticked.`}
       </p>
       <input type="hidden" name="_prefix" value={idPrefix} />

@@ -50,7 +50,7 @@ const joinList = (parts: string[]): string => {
   return `${parts.slice(0, -1).join(", ")} & ${parts[parts.length - 1]}`;
 };
 
-/** "Monday at 6:00 PM & Thursday at 5:30 PM" — each day with its own time. */
+/** "Monday at 6:00 PM & Thursday at 5:30 PM" - each day with its own time. */
 export function formatSchedule(schedule: ScheduleEntry[]): string {
   const ordered = DAYS_FULL.map((d) => schedule.find((s) => s.day === d)).filter(Boolean) as ScheduleEntry[];
   return joinList(ordered.map((s) => (s.time ? `${s.day} at ${formatTime(s.time)}` : s.day)));
@@ -78,7 +78,7 @@ const hour12 = (h: number, m = 0) => { const ap = h < 12 ? "am" : "pm"; const hr
 
 /**
  * When the next automatic reminder for a group will fire, as a short label like
- * "Sun 24 Aug · 8:00 am" — or null if no meeting day is within the next 2 weeks.
+ * "Sun 24 Aug · 8:00 am" - or null if no meeting day is within the next 2 weeks.
  * Uses the church's timezone so it matches when the cron actually sends.
  */
 export function nextGroupReminderLabel(opts: {
@@ -130,7 +130,7 @@ export function renderMeetingReminder(
   vars: { church: string; group: string; schedule: ScheduleEntry[] },
 ): string {
   const days = vars.schedule.map((s) => s.day);
-  // {time} is only meaningful when there's a single time — else use {when}.
+  // {time} is only meaningful when there's a single time - else use {when}.
   const singleTime = vars.schedule.length === 1 ? formatTime(vars.schedule[0].time) : "";
   const map: Record<string, string> = {
     church: vars.church,

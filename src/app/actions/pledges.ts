@@ -177,7 +177,7 @@ export async function recordPledgePayment(formData: FormData) {
 
   const { postLedgerToAccount } = await import("@/lib/data/accounts");
   await postLedgerToAccount(session.churchId, {
-    description: `Pledge payment — ${pledge.donorName}`,
+    description: `Pledge payment - ${pledge.donorName}`,
     category: "Pledge",
     amount: payment,
     fund: "Pledges",
@@ -254,5 +254,5 @@ export async function sendPledgeReminder(formData: FormData) {
     days: String(days),
   });
   const res = await sendChurchSms(session.churchId, pledge.donorPhone, msg, { note: "Pledge reminder" });
-  return res.ok ? { ok: true } : { ok: false, error: "Couldn't send — check your SMS credits." };
+  return res.ok ? { ok: true } : { ok: false, error: "Couldn't send - check your SMS credits." };
 }

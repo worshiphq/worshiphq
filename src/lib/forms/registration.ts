@@ -1,5 +1,5 @@
 /**
- * Registration form definition — shared by the settings form builder and the
+ * Registration form definition - shared by the settings form builder and the
  * public join form. Stored as JSON in Church.registrationFields.
  *
  * A field is either a "system" field (id maps to a Person column) or a custom
@@ -168,7 +168,7 @@ function coerceField(raw: unknown): FormField | null {
  * Unwrap a definition that was stored as a JSON *string* rather than a JSON
  * array/object. A Prisma Json column can legitimately hold a string scalar,
  * and when that happens every resolver below would otherwise fall through to
- * its DEFAULT_ form — making a church's saved layout look wiped, and risking
+ * its DEFAULT_ form - making a church's saved layout look wiped, and risking
  * the builder overwriting the real definition on the next save.
  */
 function unwrapStored(raw: unknown): unknown {

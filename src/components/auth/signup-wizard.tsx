@@ -28,7 +28,7 @@ const STEPS = [
   { key: "you", label: "You", icon: User, title: "And what's your name?", sub: "You'll be the owner of this church account." },
   { key: "contact", label: "Contact", icon: AtSign, title: "How do we reach you?", sub: "We'll send a one-time code to verify your phone." },
   { key: "password", label: "Security", icon: Lock, title: "Set a password", sub: "At least 8 characters, with a capital letter, a number and a symbol." },
-  { key: "plan", label: "Plan", icon: Sparkles, title: "Choose your plan", sub: "Start free and upgrade any time — or jump straight in." },
+  { key: "plan", label: "Plan", icon: Sparkles, title: "Choose your plan", sub: "Start free and upgrade any time - or jump straight in." },
   { key: "review", label: "Review", icon: ClipboardCheck, title: "Everything look right?", sub: "One tap and we'll send your verification code." },
 ] as const;
 
@@ -242,7 +242,7 @@ export function SignupWizard({
                     autoFocus
                   />
 
-                  {/* Strength bar — one segment per rule met */}
+                  {/* Strength bar - one segment per rule met */}
                   <div className="mt-3 flex gap-1">
                     {PASSWORD_RULES.map((r, i) => {
                       const met = PASSWORD_RULES.filter((x) => x.test(data.password)).length;
@@ -337,7 +337,7 @@ export function SignupWizard({
                     { label: "Church", value: data.church },
                     { label: "Your name", value: data.name },
                     { label: "Email", value: data.email },
-                    { label: "Phone", value: data.phone || "—" },
+                    { label: "Phone", value: data.phone || "-" },
                     { label: "Verify by", value: data.channel === "email" ? "Email code" : "SMS code" },
                     {
                       label: "Plan",
@@ -393,7 +393,7 @@ export function SignupWizard({
               className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-bright disabled:opacity-60"
             >
               {submitting && <Loader2 className="size-4 whq-spin" />}
-              {submitting ? "Sending code…" : `Create account — verify ${data.channel === "email" ? "email" : "phone"}`}
+              {submitting ? "Sending code…" : `Create account - verify ${data.channel === "email" ? "email" : "phone"}`}
             </button>
           )}
         </div>

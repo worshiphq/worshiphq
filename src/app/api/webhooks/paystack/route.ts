@@ -114,7 +114,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // Ledger entry — de-dupes on reference against verifyPlanUpgrade().
+      // Ledger entry - de-dupes on reference against verifyPlanUpgrade().
       // Paystack sends the charged amount in subunits (pesewas).
       const amountGhs = typeof data.amount === "number" ? data.amount / 100 : 0;
       const rate = Number(meta.usdToGhsRate) || 0;

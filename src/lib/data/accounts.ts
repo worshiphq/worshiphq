@@ -32,7 +32,7 @@ export async function getAccountsWithBalances(churchId: string): Promise<Account
   ]);
 
   // The default account (first by the ordering above) absorbs any money that was
-  // recorded without an explicit account — e.g. giving entered before accounts
+  // recorded without an explicit account - e.g. giving entered before accounts
   // existed, or any path that didn't tag one. This keeps account balances
   // reconciled with the income/expense totals instead of silently dropping it.
   const defaultId = accounts[0]?.id ?? null;
@@ -165,7 +165,7 @@ export async function getAccountHistory(churchId: string, accountId: string): Pr
   if (!account) return null;
 
   // The default account (same ordering as getAccountsWithBalance) absorbs any
-  // money recorded without an account, so its history must include those too —
+  // money recorded without an account, so its history must include those too -
   // otherwise its running balance wouldn't match the account's shown balance.
   const accountsOrdered = await db.churchAccount.findMany({
     where: { churchId }, orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }], select: { id: true },
@@ -182,7 +182,7 @@ export async function getAccountHistory(churchId: string, accountId: string): Pr
   type E = { id: string; date: Date; description: string; source: "manual" | "giving" | "expense"; amount: number };
   const entries: E[] = [
     ...txns.map((t) => ({ id: t.id, date: t.date, description: t.description, source: "manual" as const, amount: Number(t.amount) })),
-    ...gifts.map((g) => ({ id: g.id, date: g.date, description: `${g.donorName ?? "Anonymous"} — ${g.fund?.name ?? "Gift"}`, source: "giving" as const, amount: Number(g.amount) })),
+    ...gifts.map((g) => ({ id: g.id, date: g.date, description: `${g.donorName ?? "Anonymous"} - ${g.fund?.name ?? "Gift"}`, source: "giving" as const, amount: Number(g.amount) })),
     ...expenses.map((e) => ({ id: e.id, date: e.date, description: `${e.description}${e.vendor ? ` (${e.vendor})` : ""}`, source: "expense" as const, amount: -Number(e.amount) })),
   ].sort((a, b) => a.date.getTime() - b.date.getTime());
 

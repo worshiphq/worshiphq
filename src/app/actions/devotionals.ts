@@ -10,7 +10,7 @@ import { sendChurchSms } from "@/lib/sms/credits";
 function devotionalSms(d: { title: string; scripture: string | null; body: string }, churchName: string): string {
   const head = `📖 ${d.title}${d.scripture ? ` (${d.scripture})` : ""}`;
   const body = d.body.length > 600 ? `${d.body.slice(0, 597)}…` : d.body;
-  return `${head}\n\n${body}\n\n— ${churchName}`;
+  return `${head}\n\n${body}\n\n- ${churchName}`;
 }
 
 /** Preview what a devotional SMS blast will cost before sending. */
@@ -55,7 +55,7 @@ export async function blastDevotional(id: string) {
   const text = devotionalSms(dev, church?.name ?? "your church");
   const res = await sendChurchSms(session.churchId, phones, text, { note: `Devotional: ${dev.title}` });
   if (!res.ok && res.insufficient) {
-    return { ok: false as const, error: `Not enough SMS credits — need ${res.cost}, have ${res.balance}. Top up and try again.` };
+    return { ok: false as const, error: `Not enough SMS credits - need ${res.cost}, have ${res.balance}. Top up and try again.` };
   }
   const { audit } = await import("@/lib/audit");
   await audit(session, "send", "devotional", `Sent devotional "${dev.title}" to ${res.sent} member(s)`);

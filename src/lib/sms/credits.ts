@@ -57,7 +57,7 @@ export interface ChurchSmsResult {
  * Send a billable, church-branded SMS to one or more recipients, deducting
  * credits from the church's wallet. Use this for ALL church-facing SMS
  * (broadcasts, birthday wishes, welcome messages). Platform auth SMS (signup /
- * teammate OTP) should call sendSms directly — those are on the platform's dime.
+ * teammate OTP) should call sendSms directly - those are on the platform's dime.
  */
 export async function sendChurchSms(
   churchId: string,

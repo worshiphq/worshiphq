@@ -51,14 +51,14 @@ export function MemberAvatar({
         aria-hidden
       >
         {isFemale ? (
-          /* Female silhouette — longer hair, softer shoulders */
+          /* Female silhouette - longer hair, softer shoulders */
           <>
             <circle cx="18" cy="13" r="6" fill="currentColor" />
             <ellipse cx="18" cy="14" rx="7.5" ry="4" fill="currentColor" opacity="0.3" />
             <path d="M8 32 C8 24 12 20 18 20 C24 20 28 24 28 32" fill="currentColor" />
           </>
         ) : (
-          /* Male silhouette — shorter hair, broader shoulders */
+          /* Male silhouette - shorter hair, broader shoulders */
           <>
             <circle cx="18" cy="13" r="5.5" fill="currentColor" />
             <path d="M7 32 C7 23 11 20 18 20 C25 20 29 23 29 32" fill="currentColor" />

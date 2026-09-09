@@ -67,7 +67,7 @@ export async function sendEmail(opts: {
     }
 
     console.warn(
-      `[Email] provider "${provider}" not yet implemented — logging instead`
+      `[Email] provider "${provider}" not yet implemented - logging instead`
     );
 
     return { ok: true, provider, stubbed: true };

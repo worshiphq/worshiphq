@@ -61,14 +61,14 @@ export default async function WelfarePage({
     <div>
       <PageHeader
         title="Welfare & benevolence"
-        description="Track members’ monthly welfare dues — who has paid, who owes — and the aid your church gives out."
+        description="Track members’ monthly welfare dues - who has paid, who owes - and the aid your church gives out."
       >
         <ActionDialog
           triggerLabel="Record aid"
           triggerIcon={<Plus />}
           variant="secondary"
           title="Record welfare aid"
-          description="Support given out — financial, food, medical, etc. Deducts from the account."
+          description="Support given out - financial, food, medical, etc. Deducts from the account."
           submitLabel="Record aid"
           action={createWelfareRecord}
           disabled={session.isDemo}
@@ -84,7 +84,7 @@ export default async function WelfarePage({
           <Field label="Description" name="description" placeholder="Details of aid given..." />
           <Field label="Date" name="date" type="date" />
           <Field label="Link to member (optional)" name="personId"
-            options={[{ label: "— None —", value: "" }, ...memberOptions]} />
+            options={[{ label: "- None -", value: "" }, ...memberOptions]} />
         </ActionDialog>
       </PageHeader>
 

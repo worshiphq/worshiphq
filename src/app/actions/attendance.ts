@@ -98,8 +98,8 @@ export async function checkInMember(sessionId: string, personId: string) {
   });
 
   // Deliberately NOT calling revalidatePath here: this is the check-in queue
-  // hot path, and re-rendering the page re-sends every candidate — including
-  // megabytes of base64 member photos — on every single check-in. The client
+  // hot path, and re-rendering the page re-sends every candidate - including
+  // megabytes of base64 member photos - on every single check-in. The client
   // updates optimistically from the record returned below, so a queue stays
   // instant. Counts re-sync naturally on the next navigation/refresh.
   return { ok: true as const, recordId: record.id, category };
@@ -162,7 +162,7 @@ export async function undoCheckIn(recordId: string) {
     where: { id: rec.sessionId },
     data: { [CATEGORY_FIELD[(rec.category as AttendanceCategory) ?? "adult"]]: { decrement: 1 } },
   });
-  // No revalidatePath — same reason as checkInMember: it would re-send every
+  // No revalidatePath - same reason as checkInMember: it would re-send every
   // candidate photo. The client removes the row optimistically.
   return { ok: true as const, personId: rec.personId };
 }

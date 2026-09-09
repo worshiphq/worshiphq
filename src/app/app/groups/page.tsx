@@ -10,7 +10,7 @@ import { Plus } from "lucide-react";
 
 export const metadata = { title: "Groups" };
 
-// Suggested types — but any custom text is allowed too.
+// Suggested types - but any custom text is allowed too.
 const GROUP_TYPE_SUGGESTIONS = ["Small group", "Ministry", "Committee", "Fellowship", "Workers", "Choir", "Ushers", "Department"];
 
 export default async function GroupsPage() {

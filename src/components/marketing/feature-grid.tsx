@@ -24,8 +24,8 @@ export function FeatureGrid() {
             </h2>
             <p className="dropcap max-w-md self-end text-[15px] leading-[1.8] text-ink-muted">
               Stop juggling spreadsheets, WhatsApp groups and paper notebooks.
-              WorshipHQ gathers the whole life of your church — the people, the
-              giving, the services, the messages — into one calm, well-kept book.
+              WorshipHQ gathers the whole life of your church - the people, the
+              giving, the services, the messages - into one calm, well-kept book.
             </p>
           </div>
         </Reveal>
@@ -70,7 +70,7 @@ export function FeatureGrid() {
             </ol>
           </Reveal>
 
-          {/* Reading pane — the selected entry, set like a hymn page */}
+          {/* Reading pane - the selected entry, set like a hymn page */}
           <Reveal delay={0.12}>
             <div className="paper-panel sticky top-24 overflow-hidden border border-ink/12 p-8 shadow-[0_18px_44px_-30px_rgba(28,26,22,0.4)] sm:p-10">
               {/* corner ticks */}

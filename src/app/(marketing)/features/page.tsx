@@ -6,7 +6,7 @@ import { FinalCTA } from "@/components/marketing/final-cta";
 
 export const metadata: Metadata = {
   title: "Features",
-  description: "Every tool your church needs — people, giving, events, communications and more.",
+  description: "Every tool your church needs - people, giving, events, communications and more.",
 };
 
 export default function FeaturesPage() {
@@ -21,7 +21,7 @@ export default function FeaturesPage() {
             <span className="text-primary">whole ministry.</span>
           </>
         }
-        subtitle="From the first-time visitor to the year-end statement — WorshipHQ handles it all, beautifully."
+        subtitle="From the first-time visitor to the year-end statement - WorshipHQ handles it all, beautifully."
       />
       <FeatureGrid />
       <Spotlights />

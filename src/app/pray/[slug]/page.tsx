@@ -12,7 +12,7 @@ export async function generateMetadata({
   const church = await db.church.findUnique({ where: { slug }, select: { name: true } });
   if (!church) return { title: "Church not found" };
   return {
-    title: `Prayer Requests — ${church.name}`,
+    title: `Prayer Requests - ${church.name}`,
     description: `Submit a prayer request to ${church.name}.`,
   };
 }
@@ -46,7 +46,7 @@ export default async function PrayPage({
             Prayer Requests
           </h1>
           <p className="mt-2 text-sm text-[#6b6560]">
-            {church.name} — share your prayer need and our community will lift you up.
+            {church.name} - share your prayer need and our community will lift you up.
           </p>
         </div>
 

@@ -4,7 +4,7 @@ import { CloudOff, Wifi } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useOnline } from "@/hooks/use-online";
 
-/** Shows an "offline — changes will sync" pill when the connection drops. */
+/** Shows an "offline - changes will sync" pill when the connection drops. */
 export function OfflineIndicator() {
   const online = useOnline();
   return (

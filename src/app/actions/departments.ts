@@ -13,7 +13,7 @@ export async function createDepartment(formData: FormData) {
   const description = String(formData.get("description") ?? "").trim() || null;
   if (!name) return;
 
-  // Upsert — if it already exists by name for this church, ignore
+  // Upsert - if it already exists by name for this church, ignore
   const existing = await db.department.findUnique({
     where: { churchId_name: { churchId: session.churchId, name } },
   });

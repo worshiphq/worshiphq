@@ -106,7 +106,7 @@ export function PeopleClient({
 
   return (
     <div>
-      <PageHeader title="People" description="Your whole congregation — members, families, teens and children.">
+      <PageHeader title="People" description="Your whole congregation - members, families, teens and children.">
         {canWrite && isAdultTab && <ImportModal />}
         {isAdultTab && (
           <>
@@ -270,7 +270,7 @@ export function PeopleClient({
                   <h3 className="mt-3 font-display text-sm font-semibold">{p.fullName}</h3>
                   {isAdultTab && p.leaderTitle && <p className="mt-0.5 text-xs font-medium text-gold">{p.leaderTitle}</p>}
                   {isAdultTab && !p.leaderTitle && p.positions.length > 0 && (
-                    <p className="mt-0.5 text-xs font-medium text-primary-bright">{p.positions[0].position} — {p.positions[0].departmentName}</p>
+                    <p className="mt-0.5 text-xs font-medium text-primary-bright">{p.positions[0].position} - {p.positions[0].departmentName}</p>
                   )}
                   <p className="mt-0.5 text-xs text-ink-faint">{p.memberId ?? p.email ?? p.phone ?? "---"}</p>
                   <div className="mt-3 flex flex-wrap justify-center gap-1.5">
@@ -533,7 +533,7 @@ function PersonDrawer({ person, canWrite, adults, onClose, onEdit }: { person: P
                   <div key={pos.id} className="flex items-center gap-2 rounded-lg bg-gold/5 px-3 py-2">
                     <Crown className="size-3.5 text-gold" />
                     <span className="text-sm font-medium text-ink">{pos.position}</span>
-                    <span className="text-xs text-ink-faint">— {pos.departmentName}</span>
+                    <span className="text-xs text-ink-faint">- {pos.departmentName}</span>
                   </div>
                 ))}
               </div>
@@ -688,7 +688,7 @@ function PersonForm({
     "flex h-11 w-full rounded-xl border border-line bg-surface px-3.5 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/25";
 
   // Add flow uses useActionState so we can grab the new personId and offer
-  // fingerprint enrollment right after saving (admin-only — never on the public
+  // fingerprint enrollment right after saving (admin-only - never on the public
   // join form). Edit flow keeps the plain action + auto-close.
   const [addResult, addAction] = useActionState<AddResult, FormData>(
     isYouth ? createChildState : createPersonState,
@@ -743,7 +743,7 @@ function PersonForm({
           {isEdit && <input type="hidden" name="id" value={person!.id} />}
           {isYouth && !isEdit && <input type="hidden" name="ageGroup" value={personAge} />}
 
-          {/* Full form fields — same as adults: photo, biometric fields, all profile fields */}
+          {/* Full form fields - same as adults: photo, biometric fields, all profile fields */}
           <MemberFormFields fields={formFields} departments={departments} defaults={defaults} />
 
           {/* Youth-specific: age group selector + school + parent */}
@@ -771,7 +771,7 @@ function PersonForm({
                 <div>
                   <Label htmlFor="parentId">Assign parent (church member)</Label>
                   <select id="parentId" name="parentId" defaultValue={person?.parentId ?? ""} className={selectBase}>
-                    <option value="">— Select a member —</option>
+                    <option value="">- Select a member -</option>
                     {adults.map((a) => (
                       <option key={a.id} value={a.id}>{a.firstName} {a.lastName}</option>
                     ))}
@@ -805,7 +805,7 @@ function PersonForm({
             </div>
           )}
 
-          {/* Leadership label — adults only */}
+          {/* Leadership label - adults only */}
           {!isYouth && (
             <>
               <div className="grid gap-4 sm:grid-cols-2">

@@ -30,7 +30,7 @@ export function couponLabel(discountType: string, discountValue: number): string
 
 /**
  * Validate a coupon for a given church/plan/interval and compute the new price.
- * Does NOT consume it — call redeemCoupon() once payment actually succeeds.
+ * Does NOT consume it - call redeemCoupon() once payment actually succeeds.
  */
 export async function checkCoupon(opts: {
   code: string;
@@ -73,7 +73,7 @@ export async function checkCoupon(opts: {
 }
 
 /**
- * Consume a coupon. The conditional update makes this atomic — if two requests
+ * Consume a coupon. The conditional update makes this atomic - if two requests
  * race, only the first sets usedAt and the second gets `false`.
  */
 export async function redeemCoupon(couponId: string, churchId: string): Promise<boolean> {

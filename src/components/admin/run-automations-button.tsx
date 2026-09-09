@@ -15,7 +15,7 @@ export function RunAutomationsButton() {
       const v = s[key] as { sent?: number } | undefined;
       if (v && typeof v.sent === "number") parts.push(`${key}: ${v.sent}`);
     }
-    return parts.length ? `Sent — ${parts.join(", ")}` : "Ran. Nothing was due right now.";
+    return parts.length ? `Sent - ${parts.join(", ")}` : "Ran. Nothing was due right now.";
   };
 
   return (

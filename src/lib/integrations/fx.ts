@@ -7,7 +7,7 @@ import { db } from "@/lib/db";
  * Prices are shown in USD but charged in GHS at Paystack, so we need an
  * up-to-date conversion. We pull it from a free, key-less FX API, cache it in
  * memory, and mirror it into PlatformConfig.usdToGhsRate so cold instances and
- * the DB fallback stay recent. `getUsdToGhsRate()` never blocks a render — it
+ * the DB fallback stay recent. `getUsdToGhsRate()` never blocks a render - it
  * returns the freshest value it has and refreshes in the background.
  */
 

@@ -84,7 +84,7 @@ export function AccountForm({
     );
   }
 
-  // Forgot password: step 1 — send OTP
+  // Forgot password: step 1 - send OTP
   function startForgotPassword() {
     setForgotMode("sending");
     run(
@@ -98,12 +98,12 @@ export function AccountForm({
     );
   }
 
-  // Forgot password: step 2 — verify OTP only
+  // Forgot password: step 2 - verify OTP only
   function verifyForgotCode() {
     if (forgotCode.length < 6) return;
     run(
       async () => {
-        // Just verify the code is correct — don't reset password yet
+        // Just verify the code is correct - don't reset password yet
         const fd = new FormData();
         fd.set("verificationId", forgotVid);
         fd.set("code", forgotCode);
@@ -116,7 +116,7 @@ export function AccountForm({
     );
   }
 
-  // Forgot password: step 3 — set new password with verified code
+  // Forgot password: step 3 - set new password with verified code
   function submitForgotReset() {
     if (forgotNewPw.length < 6) return;
     run(
@@ -135,7 +135,7 @@ export function AccountForm({
     );
   }
 
-  // Phone change: step 1 — verify password + send OTP to new number
+  // Phone change: step 1 - verify password + send OTP to new number
   function submitPhonePassword(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const fd = new FormData(e.currentTarget);
@@ -151,7 +151,7 @@ export function AccountForm({
     );
   }
 
-  // Phone change: step 2 — verify OTP
+  // Phone change: step 2 - verify OTP
   function submitPhoneOtp(fd: FormData) {
     fd.set("verificationId", phoneVid);
     fd.set("newPhone", phoneNewNumber);

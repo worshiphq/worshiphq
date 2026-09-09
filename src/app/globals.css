@@ -1,7 +1,7 @@
 @import "tailwindcss";
 
 /* ════════════════════════════════════════════════════════════════
-   WorshipHQ design system — warm "sanctuary" light
+   WorshipHQ design system - warm "sanctuary" light
    Premium, light and approachable: warm ivory surfaces, soft shadows,
    a grounded teal accent and sacred gold. Built for the
    everyday church admin, not a dev tool.
@@ -21,7 +21,7 @@
   --color-ink-muted: #6b6456;
   --color-ink-faint: #9a9384;
 
-  /* ── Primary: warm teal — trustworthy, spiritual, unique ── */
+  /* ── Primary: warm teal - trustworthy, spiritual, unique ── */
   --color-primary: #0d7377;
   --color-primary-bright: #0d9488;
   --color-primary-soft: #e6f7f5;
@@ -75,7 +75,7 @@
   --animate-slide-down: slide-down 0.4s cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-scale-in: scale-in 0.3s cubic-bezier(0.22, 1, 0.36, 1) both;
   --animate-blur-in: blur-in 0.6s cubic-bezier(0.22, 1, 0.36, 1) both;
-  /* loading animation tokens removed — now using inline style animation properties */
+  /* loading animation tokens removed - now using inline style animation properties */
 }
 
 @keyframes aurora {
@@ -130,7 +130,7 @@
   100% { transform: rotate(0deg); }
 }
 
-/* Loading animation keyframes — names match inline style animation properties */
+/* Loading animation keyframes - names match inline style animation properties */
 @keyframes wave-bar {
   0%, 100% { transform: scaleY(0.4); opacity: 0.5; }
   50% { transform: scaleY(1); opacity: 1; }
@@ -270,7 +270,7 @@
 }
 
 /* ════════════════════════════════════════════════════════════════
-   Cathedral Press — liturgical print utilities (marketing pages)
+   Cathedral Press - liturgical print utilities (marketing pages)
    ════════════════════════════════════════════════════════════════ */
 
 /* Small-caps letterspaced eyebrow, like an engraved rubric */
@@ -283,7 +283,7 @@
   color: var(--color-brass);
 }
 
-/* Dotted leader row — order-of-service / hymnal index style */
+/* Dotted leader row - order-of-service / hymnal index style */
 .leaders {
   display: flex;
   align-items: baseline;
@@ -320,7 +320,7 @@
     inset 0 -3px 0 -2px color-mix(in oklab, var(--color-ink) 8%, transparent);
 }
 
-/* Display headline — professional grotesque, tight leading */
+/* Display headline - professional grotesque, tight leading */
 @utility press-display {
   font-family: var(--font-display);
   font-weight: 700;
@@ -329,7 +329,7 @@
   color: var(--color-evergreen-deep);
 }
 
-/* Paper texture — slightly stronger grain + vignette for hero panels */
+/* Paper texture - slightly stronger grain + vignette for hero panels */
 .paper-panel {
   position: relative;
   background:

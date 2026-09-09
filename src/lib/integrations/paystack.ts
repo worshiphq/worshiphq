@@ -4,7 +4,7 @@ import { env, features } from "@/lib/env";
 
 /** The currency the Paystack merchant account actually settles in. Prices may be
  *  DISPLAYED in another currency (e.g. USD), but every charge is sent to Paystack
- *  in this currency — sending an unsupported one fails with "currency not
+ *  in this currency - sending an unsupported one fails with "currency not
  *  supported by merchant". Ghana merchants settle in GHS. */
 export const SETTLEMENT_CURRENCY = env.PAYSTACK_CURRENCY || "GHS";
 
@@ -25,7 +25,7 @@ export function newPaymentReference(): string {
 
 /**
  * Initialize a Paystack transaction. Supports Mobile Money (MTN MoMo,
- * Telecel Cash, AirtelTigo Money) and cards. Currency is dynamic — set by
+ * Telecel Cash, AirtelTigo Money) and cards. Currency is dynamic - set by
  * the platform config (defaults to GHS). In stub mode it returns a fake
  * reference + local callback URL so the flow is fully demoable without keys.
  */
@@ -98,7 +98,7 @@ export type RefundResult = {
 /**
  * Refund a transaction. `amountGhs` refunds only part of it; omit for a full
  * refund. Paystack processes it and then sends refund.processed / refund.failed
- * webhooks — money typically reaches the customer's bank in 5–10 working days.
+ * webhooks - money typically reaches the customer's bank in 5–10 working days.
  */
 export async function refundTransaction(opts: {
   reference: string;

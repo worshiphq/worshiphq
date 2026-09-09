@@ -1,4 +1,4 @@
-/** Pricing plans — edit here to change every pricing surface. Prices are in USD ($);
+/** Pricing plans - edit here to change every pricing surface. Prices are in USD ($);
  * Paystack charges the GHS equivalent at checkout using PlatformConfig.usdToGhsRate. */
 
 export interface Plan {
@@ -55,7 +55,7 @@ export const plans: Plan[] = [
       "Members get automatic birthday & anniversary messages",
       "Give every member an ID card with a scannable QR code",
       "Build your own registration forms and import your data",
-      "Up to 250 members — room to grow",
+      "Up to 250 members - room to grow",
     ],
   },
   {
@@ -80,7 +80,7 @@ export const plans: Plan[] = [
       "Run harvest campaigns, pledges and recurring giving",
       "Publish a sermon library and share devotionals",
       "Take facility bookings and track welfare support",
-      "Up to 1,000 members — built for established churches",
+      "Up to 1,000 members - built for established churches",
     ],
   },
   {
@@ -102,8 +102,8 @@ export const plans: Plan[] = [
       "API access, unlimited members & priority support",
     ],
     upgradeTips: [
-      "Check members in by fingerprint — no queues, no double check-ins",
-      "Automate follow-ups, welcomes and reminders — hands-off",
+      "Check members in by fingerprint - no queues, no double check-ins",
+      "Automate follow-ups, welcomes and reminders - hands-off",
       "See who's active, cooling off or at risk of leaving",
       "Deep analytics across giving, attendance and engagement",
       "Run full church finances: funds, budgets, expenses, assets",
@@ -113,7 +113,7 @@ export const plans: Plan[] = [
 ];
 
 /** Full feature-comparison matrix shown below the cards.
- *  Columns: Free, Starter, Pro, Max — kept in sync with the plan-gate ladder. */
+ *  Columns: Free, Starter, Pro, Max - kept in sync with the plan-gate ladder. */
 export const comparison: { group: string; rows: { label: string; values: (boolean | string)[] }[] }[] = [
   {
     group: "People & engagement",

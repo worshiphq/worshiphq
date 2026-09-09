@@ -148,7 +148,7 @@ export function AccountsManager({ accounts, canWrite }: { accounts: AccountRow[]
                 <div>
                   <Label>From</Label>
                   <select name="fromId" required className={inputCls} defaultValue={accounts.find((a) => a.isDefault)?.id ?? ""}>
-                    {accounts.map((a) => <option key={a.id} value={a.id}>{a.name} — {fmt(a.balance)}</option>)}
+                    {accounts.map((a) => <option key={a.id} value={a.id}>{a.name} - {fmt(a.balance)}</option>)}
                   </select>
                 </div>
                 <div>

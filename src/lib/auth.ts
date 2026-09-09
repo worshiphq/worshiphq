@@ -225,9 +225,9 @@ async function _getSession(): Promise<Session | null> {
   if (!user) return null;
 
   // A scoped department-budget leader only ever sees their department's budget,
-  // expenses and income — regardless of role.
+  // expenses and income - regardless of role.
   if (user.budgetDepartmentId) {
-    // Scoped to just their department budget (income/expenses live inside it) —
+    // Scoped to just their department budget (income/expenses live inside it) -
     // never the church-wide Expenses/Accounting tabs.
     const scoped = ["budgets"];
     return {
@@ -276,7 +276,7 @@ async function _getSession(): Promise<Session | null> {
     customRole: user.customRole?.name ?? null,
     sections,
     manageSections,
-    // Custom roles mean exactly what was ticked — no sibling expansion.
+    // Custom roles mean exactly what was ticked - no sibling expansion.
     exactSections: !!user.customRole,
     canDelete,
     churchId: user.churchId,
@@ -299,7 +299,7 @@ export async function requireSession(): Promise<Session> {
   return session;
 }
 
-/** Guard for write actions — demo church is read-only. */
+/** Guard for write actions - demo church is read-only. */
 export class DemoReadOnlyError extends Error {
   constructor() {
     super("This is the read-only demo. Create a free account to make changes.");
@@ -309,7 +309,7 @@ export function assertCanWrite(session: Session) {
   if (session.isDemo) throw new DemoReadOnlyError();
 }
 
-/** Guard for delete actions — blocked for demo and for roles without delete rights. */
+/** Guard for delete actions - blocked for demo and for roles without delete rights. */
 export function assertCanDelete(session: Session) {
   if (session.isDemo) throw new DemoReadOnlyError();
   if (!session.canDelete) throw new Error("Your role doesn't have permission to delete records.");

@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { testimonials as defaultTestimonials, type Testimonial } from "@/config/marketing";
 
 export const DEFAULT_HERO_SUBHEAD =
-  "Members, giving, attendance, events, messaging — one calm headquarters for everything your church runs.";
+  "Members, giving, attendance, events, messaging - one calm headquarters for everything your church runs.";
 
 export interface MarketingContent {
   heroSubhead: string;
@@ -37,7 +37,7 @@ export async function getMarketingContent(): Promise<MarketingContent> {
   }
 }
 
-/** Save edited marketing content (SuperAdmin only — caller must authorize). */
+/** Save edited marketing content (SuperAdmin only - caller must authorize). */
 export async function saveMarketingContent(content: MarketingContent): Promise<void> {
   await db.siteContent.upsert({
     where: { key: "marketing" },

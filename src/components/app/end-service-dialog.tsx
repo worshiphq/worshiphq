@@ -203,7 +203,7 @@ function EndServiceDialog({
               <Textarea
                 value={numbers}
                 onChange={(e) => setNumbers(e.target.value)}
-                placeholder="0244000000, 0201234567 — one per line or comma-separated"
+                placeholder="0244000000, 0201234567 - one per line or comma-separated"
                 className="h-16 text-sm"
               />
             </div>
@@ -238,7 +238,7 @@ function EndServiceDialog({
             <span className={cn(lowBalance ? "font-medium text-danger" : "text-ink-faint")}>Balance: {smsBalance}</span>
           </div>
           {lowBalance && (
-            <p className="mt-1 text-xs text-danger">Not enough credits for everyone — some messages may not send.</p>
+            <p className="mt-1 text-xs text-danger">Not enough credits for everyone - some messages may not send.</p>
           )}
 
           <div className="mt-4 flex gap-2">

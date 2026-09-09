@@ -8,7 +8,7 @@ const DAY_MS = 86_400_000;
 /**
  * Send due-date reminders for outstanding pledges, honouring each church's
  * configured schedule (e.g. 30 / 7 / 3 days before). Each milestone fires at
- * most once per pledge — already-passed milestones are consumed together so a
+ * most once per pledge - already-passed milestones are consumed together so a
  * late run doesn't blast several texts at the same person.
  */
 export async function runPledgeReminders() {
@@ -39,7 +39,7 @@ export async function runPledgeReminders() {
     for (const p of pledges) {
       if (!p.dueAt || !p.donorPhone) continue;
       const balance = Number(p.amount) - Number(p.fulfilled);
-      if (balance <= 0) continue; // fully paid — nothing to chase
+      if (balance <= 0) continue; // fully paid - nothing to chase
 
       const daysUntil = Math.ceil((p.dueAt.getTime() - Date.now()) / DAY_MS);
       if (daysUntil < 0) continue; // past due; don't nag automatically

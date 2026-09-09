@@ -32,7 +32,7 @@ export default async function CommunicationsPage({
 
   return (
     <div>
-      <PageHeader title="Communications" description="Reach your whole church — or a smart segment — by SMS and email.">
+      <PageHeader title="Communications" description="Reach your whole church - or a smart segment - by SMS and email.">
         <Link href="/app/communications/credits">
           <Button variant="secondary" size="sm"><Wallet className="size-4" /> {smsBalance.toLocaleString()} credits · Buy</Button>
         </Link>

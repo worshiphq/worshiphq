@@ -54,7 +54,7 @@ export function BrandingForm({
         const dominant = dominantColor(ctx, w, h);
         if (dominant) {
           setAccent(dominant);
-          toast("Logo added — theme auto-branded from its colours.", "success");
+          toast("Logo added - theme auto-branded from its colours.", "success");
         } else {
           toast("Logo added.", "success");
         }
@@ -67,7 +67,7 @@ export function BrandingForm({
   return (
     <Card className="p-6">
       <h3 className="font-display text-lg font-semibold">Branding</h3>
-      <p className="text-sm text-ink-muted">Add your church logo and theme — it shows across your dashboard and forms.</p>
+      <p className="text-sm text-ink-muted">Add your church logo and theme - it shows across your dashboard and forms.</p>
 
       <form action={updateBranding} className="mt-5 space-y-6">
         <input type="hidden" name="accentColor" value={accent} />
@@ -106,7 +106,7 @@ export function BrandingForm({
                 <span className="grid size-12 place-items-center rounded-xl bg-primary-soft text-primary"><UploadCloud className="size-6" /></span>
                 <div>
                   <p className="text-sm font-medium text-ink">Drag &amp; drop your logo here</p>
-                  <p className="text-xs text-ink-faint">or click to browse — PNG, JPG or SVG</p>
+                  <p className="text-xs text-ink-faint">or click to browse - PNG, JPG or SVG</p>
                 </div>
               </>
             )}
@@ -146,7 +146,7 @@ export function BrandingForm({
           </div>
           <div className="mt-3 flex items-center gap-2 rounded-xl border border-line bg-surface-2 px-3 py-2 text-xs text-ink-muted">
             <Wand2 className="size-3.5 text-primary-bright" />
-            Uploading a logo auto-themes your dashboard from its colours — you can still pick any colour above.
+            Uploading a logo auto-themes your dashboard from its colours - you can still pick any colour above.
           </div>
         </div>
 
@@ -174,6 +174,6 @@ function dominantColor(ctx: CanvasRenderingContext2D, w: number, h: number): str
     if (n === 0) return null;
     return rgbToHex(r / n, g / n, b / n);
   } catch {
-    return null; // tainted canvas (e.g. SVG) — skip auto-brand
+    return null; // tainted canvas (e.g. SVG) - skip auto-brand
   }
 }

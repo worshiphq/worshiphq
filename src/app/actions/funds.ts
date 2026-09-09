@@ -6,7 +6,7 @@ import { requireModule } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 
 /**
- * Funds are the "pots of money" a church tracks separately — General, Building,
+ * Funds are the "pots of money" a church tracks separately - General, Building,
  * Missions, Youth, etc. Every gift and pledge is tagged to a fund so you can see
  * how much each purpose has raised. These actions let admins manage the list.
  */
@@ -47,7 +47,7 @@ export async function renameFund(formData: FormData) {
 }
 
 /**
- * Delete a fund. Blocked while gifts or pledges are still tagged to it — those
+ * Delete a fund. Blocked while gifts or pledges are still tagged to it - those
  * must be moved to another fund first, so no giving history is orphaned.
  */
 export async function deleteFund(formData: FormData) {

@@ -33,7 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     getPlatformConfig(),
   ]);
 
-  // Suspended churches are locked out — but SuperAdmin support can still enter.
+  // Suspended churches are locked out - but SuperAdmin support can still enter.
   if (church?.suspended && !session.impersonating) {
     return (
       <div className="grid min-h-dvh place-items-center bg-base px-4">

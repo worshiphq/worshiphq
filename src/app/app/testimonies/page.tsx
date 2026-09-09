@@ -52,9 +52,9 @@ export default async function TestimoniesPage() {
             { label: "Other", value: "other" },
           ]} />
           <Field label="If “Other”, type the category" name="categoryOther" placeholder="e.g. Restored relationship" />
-          <Field label="Member (optional)" name="personId" type="select" options={[{ label: "— None —", value: "" }, ...memberOptions]} />
+          <Field label="Member (optional)" name="personId" type="select" options={[{ label: "- None -", value: "" }, ...memberOptions]} />
           <Field label="Date" name="date" type="date" />
-          <Field label="Testimony" name="body" type="textarea" rows={6} placeholder="Share the full testimony — take as much space as you need…" required />
+          <Field label="Testimony" name="body" type="textarea" rows={6} placeholder="Share the full testimony - take as much space as you need…" required />
         </ActionDialog>
       </PageHeader>
 

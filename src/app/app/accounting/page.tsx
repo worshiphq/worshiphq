@@ -52,13 +52,13 @@ export default async function AccountingPage({
     total: f.gifts.reduce((s, g) => s + Number(g.amount), 0),
   }));
   const accountOptions = [
-    { label: "— No account —", value: "" },
+    { label: "- No account -", value: "" },
     ...accounts.map((a) => ({ label: a.isDefault ? `${a.name} (default)` : a.name, value: a.id })),
   ];
 
   return (
     <div>
-      <PageHeader title="Accounting" description="Income, expenses, fund balances — weekly and monthly records in ₵. Categories classify the type (Offering, Tithe, Rent). Funds track which pot of money (General, Building, Missions).">
+      <PageHeader title="Accounting" description="Income, expenses, fund balances - weekly and monthly records in ₵. Categories classify the type (Offering, Tithe, Rent). Funds track which pot of money (General, Building, Missions).">
         <a href="/api/export/transactions"><Button variant="secondary" size="sm"><Download /> Export CSV</Button></a>
         <ActionDialog
           triggerLabel="New transaction"
@@ -75,8 +75,8 @@ export default async function AccountingPage({
             <Field label="Amount (₵)" name="amount" type="number" step="0.01" placeholder="0.00" required />
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Field label="Category" name="category" placeholder="Offering / Operations" defaultValue="General" hint="What type of income or expense — e.g. Offering, Tithe, Utilities, Salaries" />
-            <Field label="Fund" name="fund" placeholder="General" defaultValue="General" hint="Which pot of money — e.g. General, Building, Missions, Youth" />
+            <Field label="Category" name="category" placeholder="Offering / Operations" defaultValue="General" hint="What type of income or expense - e.g. Offering, Tithe, Utilities, Salaries" />
+            <Field label="Fund" name="fund" placeholder="General" defaultValue="General" hint="Which pot of money - e.g. General, Building, Missions, Youth" />
           </div>
           {accounts.length > 0 && (
             <Field label="Account" name="accountId" type="select" options={accountOptions} hint="Which account the money moves through" />

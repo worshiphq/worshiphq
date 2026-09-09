@@ -9,7 +9,7 @@ export default function CounselThankYou() {
         <div className="mx-auto mb-5 grid size-16 place-items-center rounded-2xl bg-[#0d7377]/10 text-3xl">🤝</div>
         <h1 className="font-display text-2xl font-bold text-[#1c1a16]">Your request has been received</h1>
         <p className="mt-2 text-sm text-[#6b6560]">
-          A pastor will reach out to you privately and soon. You&rsquo;re not alone — God bless you.
+          A pastor will reach out to you privately and soon. You&rsquo;re not alone - God bless you.
         </p>
         <Link href="/" className="mt-6 inline-block text-sm font-semibold text-[#0d7377] hover:underline">← Back to WorshipHQ</Link>
       </div>

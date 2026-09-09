@@ -98,7 +98,7 @@ export async function setWelfareRate(formData: FormData) {
 }
 
 /**
- * Record a member's welfare dues across a range of months in a year — e.g.
+ * Record a member's welfare dues across a range of months in a year - e.g.
  * Jan–Oct 2025 at GHS 5/month creates a due for each month. Posts the batch
  * total as income into an account, and optionally texts the member.
  */
@@ -108,7 +108,7 @@ export async function recordWelfareDues(formData: FormData) {
 
   const personId = String(formData.get("personId") ?? "").trim();
   // Range: fromYear/fromMonth → toYear/toMonth. `year` is the legacy single-year
-  // field — fall back to it for both ends when the range fields aren't sent.
+  // field - fall back to it for both ends when the range fields aren't sent.
   const legacyYear = parseInt(String(formData.get("year") ?? ""), 10);
   const fromYear = parseInt(String(formData.get("fromYear") ?? ""), 10) || legacyYear;
   const toYear = parseInt(String(formData.get("toYear") ?? ""), 10) || legacyYear;
@@ -136,7 +136,7 @@ export async function recordWelfareDues(formData: FormData) {
 
   // Amount per cell: an explicit override applies to every month; otherwise use
   // that year's set rate. Any year in the range without a rate (and no override)
-  // can't be priced — tell the admin which years need a rate.
+  // can't be priced - tell the admin which years need a rate.
   const rateRows = await db.welfareRate.findMany({ where: { churchId: session.churchId }, select: { year: true, amount: true } });
   const rateByYear = new Map(rateRows.map((r) => [r.year, Number(r.amount)]));
   const amountFor = (y: number) => (overrideAmount > 0 ? overrideAmount : (rateByYear.get(y) ?? 0));
@@ -171,7 +171,7 @@ export async function recordWelfareDues(formData: FormData) {
   // Post the collected dues as income into the chosen account.
   const { postLedgerToAccount } = await import("@/lib/data/accounts");
   await postLedgerToAccount(session.churchId, {
-    description: `Welfare dues — ${member.firstName} ${member.lastName} (${rangeLabel})`,
+    description: `Welfare dues - ${member.firstName} ${member.lastName} (${rangeLabel})`,
     category: "Welfare Dues",
     fund: "Welfare",
     amount: total,
@@ -274,7 +274,7 @@ export async function sendOwingReminders(onlyPersonId?: string) {
   for (const m of messages) {
     const res = await sendChurchSms(session.churchId, m.phone, m.text, { note: "Welfare dues reminder" });
     if (!res.ok && res.insufficient) {
-      if (sent === 0) return { ok: false as const, error: `Not enough SMS credits — need ${res.cost}, have ${res.balance}.` };
+      if (sent === 0) return { ok: false as const, error: `Not enough SMS credits - need ${res.cost}, have ${res.balance}.` };
       break;
     }
     if (res.ok) sent += res.sent;
@@ -295,7 +295,7 @@ export async function createWelfareRecord(formData: FormData) {
   const dateStr = String(formData.get("date") ?? "").trim();
   const personId = String(formData.get("personId") ?? "").trim() || null;
 
-  // Dues are welfare income — only members pay them, so a member is required and
+  // Dues are welfare income - only members pay them, so a member is required and
   // the name comes from that member. Aid is money out to any recipient (member,
   // visitor, or a typed name).
   let recipientName = String(formData.get("recipientName") ?? "").trim();
@@ -324,7 +324,7 @@ export async function createWelfareRecord(formData: FormData) {
   if (amount && amount > 0) {
     const { postLedgerToAccount } = await import("@/lib/data/accounts");
     await postLedgerToAccount(session.churchId, {
-      description: kind === "dues" ? `Welfare dues — ${recipientName}` : `Welfare aid — ${recipientName}`,
+      description: kind === "dues" ? `Welfare dues - ${recipientName}` : `Welfare aid - ${recipientName}`,
       category: kind === "dues" ? "Welfare Dues" : "Welfare",
       fund: "Welfare",
       amount: kind === "dues" ? amount : -amount,

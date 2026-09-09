@@ -9,7 +9,7 @@ export interface WelfareMemberRow {
   monthsPaidInYear: number[]; // 1-12, for the selected year
   paidTotal: number;          // all-time dues paid
   owed: number;               // computed against yearly rates, from member's start, up to current month
-  startLabel: string;         // e.g. "Jan 2025" — when dues start counting, or "Not set"
+  startLabel: string;         // e.g. "Jan 2025" - when dues start counting, or "Not set"
   hasExplicitStart: boolean;  // true if this member has a personal welfareStart
   started: boolean;           // false when no start (personal or church) → owed not calculated
   // Range mode (only populated when a from/to range is requested):
@@ -133,7 +133,7 @@ export async function getWelfareData(churchId: string, year?: number, range?: We
   }
 
   // Which years in the requested range have no rate set? A range is only
-  // meaningful — and only shown — when every year involved has a rate.
+  // meaningful - and only shown - when every year involved has a rate.
   const rangeMissingYears: number[] = [];
   if (range) {
     for (let y = range.fromY; y <= range.toY; y++) if (!ratesByYear.has(y)) rangeMissingYears.push(y);
@@ -195,7 +195,7 @@ export async function getWelfareData(churchId: string, year?: number, range?: We
   };
 }
 
-/** Full welfare history for one member — every paid month, plus start & owed. */
+/** Full welfare history for one member - every paid month, plus start & owed. */
 export async function getMemberDuesDetail(churchId: string, personId: string) {
   const now = new Date();
   const currentYear = now.getFullYear();

@@ -38,7 +38,7 @@ export default async function RostersPage() {
     }),
   ]);
   const messageTemplates = (church?.messageTemplates as Record<string, string> | null) ?? {};
-  // Recently deleted sheets (last 30 days) — restorable.
+  // Recently deleted sheets (last 30 days) - restorable.
   const deletedSheets = await db.volunteerRoster.findMany({
     where: { churchId: session.churchId, deletedAt: { gte: new Date(Date.now() - 30 * 86400000) } },
     orderBy: { deletedAt: "desc" },
@@ -54,7 +54,7 @@ export default async function RostersPage() {
     <div>
       <PageHeader
         title="Rosters"
-        description="Set who serves at each service — Word, prayer, praise & worship — then share it or text everyone their duty."
+        description="Set who serves at each service - Word, prayer, praise & worship - then share it or text everyone their duty."
       />
 
       <RostersClient

@@ -189,7 +189,7 @@ export async function getAttendanceReportConfig(churchId: string) {
   };
 }
 
-/** Members not yet checked in to this session — for the staff check-in picker. */
+/** Members not yet checked in to this session - for the staff check-in picker. */
 export async function getCheckInCandidates(churchId: string, sessionId: string) {
   const [people, records] = await Promise.all([
     db.person.findMany({
@@ -200,7 +200,7 @@ export async function getCheckInCandidates(churchId: string, sessionId: string) 
     db.attendanceRecord.findMany({ where: { sessionId }, select: { personId: true } }),
   ]);
   const checkedIn = new Set(records.map((r) => r.personId).filter(Boolean));
-  // Everyone stays searchable — already-checked-in people are flagged rather
+  // Everyone stays searchable - already-checked-in people are flagged rather
   // than hidden, so searching a name never comes back empty and it's obvious
   // they're already in (prevents confused double check-in attempts).
   return people.map((p) => ({

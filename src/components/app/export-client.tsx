@@ -33,7 +33,7 @@ export function ExportClient({
           <Package className="size-4" /> Download everything
         </h2>
         <p className="mt-1 text-sm text-ink-muted">
-          One file containing every table you have access to — each on its own sheet.
+          One file containing every table you have access to - each on its own sheet.
         </p>
 
         <div className="mt-4 flex flex-wrap gap-2">

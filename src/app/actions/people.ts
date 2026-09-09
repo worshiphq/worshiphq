@@ -95,7 +95,7 @@ export async function updatePerson(formData: FormData) {
       },
     });
   } catch {
-    // Likely a duplicate member ID — retry without changing it.
+    // Likely a duplicate member ID - retry without changing it.
     await db.person.update({
       where: { id },
       data: {

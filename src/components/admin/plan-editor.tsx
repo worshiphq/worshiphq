@@ -23,7 +23,7 @@ const CURRENCIES = [
 /** Matrix sections mirror the tier ladder, so the grid reads as a staircase:
  *  Core lit across all plans, then each block lighting up one column further right. */
 const FEATURE_GROUPS: { label: string; keys: readonly string[] }[] = [
-  { label: "Core — every plan", keys: FEATURE_TIERS.core },
+  { label: "Core - every plan", keys: FEATURE_TIERS.core },
   { label: "Communication & self-service", keys: FEATURE_TIERS.starter },
   { label: "Teams, giving & content", keys: FEATURE_TIERS.pro },
   { label: "Intelligence, finance & scale", keys: FEATURE_TIERS.max },
@@ -192,7 +192,7 @@ export function PlanEditor({
           >
             {CURRENCIES.map((c) => (
               <option key={c.code} value={c.code} className="bg-slate-800">
-                {c.symbol} — {c.name}
+                {c.symbol} - {c.name}
               </option>
             ))}
           </select>
@@ -365,7 +365,7 @@ export function PlanEditor({
       </div>
 
       <p className="mt-4 text-xs text-slate-500">
-        Turning a feature off immediately locks that section for churches on the plan — existing data is
+        Turning a feature off immediately locks that section for churches on the plan - existing data is
         never deleted. Member and admin limits are enforced across the app.
       </p>
     </div>

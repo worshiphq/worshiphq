@@ -1,10 +1,10 @@
 // Shared roster-announcement body builder. Groups a roster's slots by service
 // (ordered by date) so a combined sheet reads:
-//   Sunday Service — Sun 12 Jan
+//   Sunday Service - Sun 12 Jan
 //   Word: John
 //   Prayer: Mary
 //
-//   Wednesday Service — Wed 15 Jan
+//   Wednesday Service - Wed 15 Jan
 //   Word: Paul
 
 export type RosterSlotLite = { service: string | null; date: Date; role: string; personName: string | null };
@@ -26,7 +26,7 @@ export function buildRosterBody(slots: RosterSlotLite[]): string {
     const key = `${s.service ?? ""}|${s.date.toISOString().slice(0, 10)}`;
     if (!groups.has(key)) {
       const dateLabel = fmtServiceDate(s.date) + (hasTime(s.date) ? ` at ${fmtTime(s.date)}` : "");
-      groups.set(key, { title: `${s.service || "Service"} — ${dateLabel}`, lines: [] });
+      groups.set(key, { title: `${s.service || "Service"} - ${dateLabel}`, lines: [] });
     }
     groups.get(key)!.lines.push(`${s.role}: ${s.personName ?? "-"}`);
   }

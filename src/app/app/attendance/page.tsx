@@ -24,9 +24,9 @@ export default async function AttendancePage() {
       <PageTips
         tourId="attendance"
         steps={[
-          { target: "att-checkin", title: "Live check-in & QR", body: "Start a check-in session — tap members present or let them scan a QR code to check themselves in." },
+          { target: "att-checkin", title: "Live check-in & QR", body: "Start a check-in session - tap members present or let them scan a QR code to check themselves in." },
           { target: "att-record", title: "Quick headcount", body: "In a hurry? Record a service with just the number of adults, teens, children and visitors." },
-          { target: "att-recent", title: "Most recent service", body: "Your latest service appears here. Click it to open its own dashboard — who attended and the breakdown." },
+          { target: "att-recent", title: "Most recent service", body: "Your latest service appears here. Click it to open its own dashboard - who attended and the breakdown." },
           { target: "att-history", title: "Full history", body: "Every past service is saved here. Click any to see who was present and the demographics." },
         ]}
       />

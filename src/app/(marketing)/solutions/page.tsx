@@ -17,15 +17,15 @@ export const metadata: Metadata = {
 };
 
 const audiences = [
-  { icon: Sprout, title: "Small fellowships", body: "Just getting started? Manage your first members, take offerings and check people in — free, forever, up to 50 members." },
+  { icon: Sprout, title: "Small fellowships", body: "Just getting started? Manage your first members, take offerings and check people in - free, forever, up to 50 members." },
   { icon: Building2, title: "Growing churches", body: "Scale your operations with SMS broadcasts, automations, recurring giving and reports as your congregation grows." },
   { icon: Network, title: "Large ministries", body: "Unlimited members, advanced analytics, API access and a dedicated success manager for your leadership team." },
 ];
 
 const roles = [
-  { icon: UserCog, title: "For Pastors", body: "See the health of your church at a glance — attendance, giving and the people who need a shepherd's care this week." },
+  { icon: UserCog, title: "For Pastors", body: "See the health of your church at a glance - attendance, giving and the people who need a shepherd's care this week." },
   { icon: Wallet, title: "For Finance Officers", body: "Fund accounting, automated receipts and an audit trail you can trust. Reports in minutes, not days." },
-  { icon: HeartHandshake, title: "For Ministry Leaders", body: "Schedule volunteers, message your team and track engagement — without waiting on the church office." },
+  { icon: HeartHandshake, title: "For Ministry Leaders", body: "Schedule volunteers, message your team and track engagement - without waiting on the church office." },
 ];
 
 function PressCardRow({ heading, items }: { heading: string; items: typeof audiences }) {

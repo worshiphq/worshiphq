@@ -2,7 +2,7 @@
 
 import { cn } from "@/lib/utils";
 
-/** A segmented tab control — a bordered track with a raised active pill and
+/** A segmented tab control - a bordered track with a raised active pill and
  *  clearly separated inactive tabs. Used for mode/period switches. */
 export function Segmented<T extends string | number>({
   options,

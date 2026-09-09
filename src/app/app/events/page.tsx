@@ -23,7 +23,7 @@ export default async function EventsPage() {
 
   return (
     <div>
-      <PageHeader title="Events & calendar" description="Services, seminars and camps — with registration and QR check-in.">
+      <PageHeader title="Events & calendar" description="Services, seminars and camps - with registration and QR check-in.">
         <Link href="/app/calendar"><Button variant="secondary" size="sm"><CalendarDays /> Open calendar</Button></Link>
         <ActionDialog
           triggerLabel="Create event"

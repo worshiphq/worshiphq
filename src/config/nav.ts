@@ -38,7 +38,7 @@ import {
 } from "lucide-react";
 
 export interface NavItem {
-  /** Coarse group (legacy). Gating now uses the fine section — see navSection(). */
+  /** Coarse group (legacy). Gating now uses the fine section - see navSection(). */
   key: string;
   label: string;
   href: string;

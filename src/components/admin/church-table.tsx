@@ -82,7 +82,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                     {c.isDemo && <span className="ml-2 text-xs text-amber-400">demo</span>}
                   </div>
                   <div className="truncate text-xs text-slate-500">
-                    {[c.city, c.country].filter(Boolean).join(", ") || "—"} · /{c.slug}
+                    {[c.city, c.country].filter(Boolean).join(", ") || "-"} · /{c.slug}
                   </div>
                 </div>
               </div>
@@ -170,7 +170,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                     async () => {
                       const res = await grantPlanBypass(c.id, plan.trim().toLowerCase());
                       if (res && "error" in res) throw new Error(res.error);
-                      if (res && "code" in res) alert(`Code: ${res.code}\n${res.phone ? `SMS sent to ${res.phone}` : "No phone on file — share code manually."}`);
+                      if (res && "code" in res) alert(`Code: ${res.code}\n${res.phone ? `SMS sent to ${res.phone}` : "No phone on file - share code manually."}`);
                     },
                     { pending: "Sending bypass…", success: "Bypass granted" },
                   );
@@ -248,7 +248,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                         {c.isDemo && <span className="ml-2 text-xs text-amber-400">demo</span>}
                       </div>
                       <div className="truncate text-xs text-slate-500">
-                        {[c.city, c.country].filter(Boolean).join(", ") || "—"} · /{c.slug}
+                        {[c.city, c.country].filter(Boolean).join(", ") || "-"} · /{c.slug}
                       </div>
                     </div>
                   </div>
@@ -272,7 +272,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                       </div>
                     </div>
                   ) : (
-                    <span className="text-slate-500">—</span>
+                    <span className="text-slate-500">-</span>
                   )}
                 </td>
                 <td className="px-4 py-3 text-slate-300">{c.members}</td>
@@ -356,7 +356,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                           async () => {
                             const res = await grantPlanBypass(c.id, plan.trim().toLowerCase());
                             if (res && "error" in res) throw new Error(res.error);
-                            if (res && "code" in res) alert(`Code: ${res.code}\n${res.phone ? `SMS sent to ${res.phone}` : "No phone on file — share code manually."}`);
+                            if (res && "code" in res) alert(`Code: ${res.code}\n${res.phone ? `SMS sent to ${res.phone}` : "No phone on file - share code manually."}`);
                           },
                           { pending: "Sending bypass…", success: "Bypass granted" },
                         );
