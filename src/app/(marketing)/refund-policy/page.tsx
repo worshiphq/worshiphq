@@ -40,8 +40,8 @@ export default async function RefundPolicyPage() {
 
       <LegalSection heading="How to request one">
         <p>
-          Sign in, go to <strong>Settings → Billing</strong>, find the payment in your billing history and choose
-          <strong> “Request refund”</strong>. Tell us briefly what happened and confirm you&rsquo;ve read this policy.
+          Sign in, go to <strong>Settings → Billing</strong>, find the payment in your billing history and choose{" "}
+          <strong>&ldquo;Request refund&rdquo;</strong>. Tell us briefly what happened and confirm you&rsquo;ve read this policy.
           Only the church owner can request a refund.
         </p>
       </LegalSection>
@@ -59,7 +59,7 @@ export default async function RefundPolicyPage() {
 
       <LegalSection heading="Downgrades &amp; upgrades (no refund needed)">
         <p>
-          <strong>Upgrading</strong> mid-period only charges the difference for the days remaining, and your renewal date
+          <strong>Upgrading</strong>{" "}mid-period only charges the difference for the days remaining, and your renewal date
           doesn&rsquo;t change. <strong>Downgrading</strong> costs nothing and refunds nothing - you keep your current plan
           until the end of the period you paid for, then move to the lower plan automatically.
         </p>
@@ -67,7 +67,7 @@ export default async function RefundPolicyPage() {
 
       <LegalSection heading="Questions">
         <p>
-          Email <a href={`mailto:${support}`} className="font-medium text-primary hover:underline">{support}</a> and we&rsquo;ll help.
+          Email <a href={`mailto:${support}`} className="font-medium text-primary hover:underline">{support}</a>{" "}and we&rsquo;ll help.
           This policy may change; the version shown here always reflects our current terms.
         </p>
       </LegalSection>
