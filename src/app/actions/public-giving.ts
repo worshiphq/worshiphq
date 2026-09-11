@@ -3,7 +3,7 @@
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { initializePayment, newPaymentReference, SETTLEMENT_CURRENCY } from "@/lib/integrations/paystack";
-import { recordOnlineGift, GIFT_METHOD_FROM_LABEL } from "@/lib/giving/record";
+import { recordOnlineGift } from "@/lib/giving/record";
 
 /**
  * Public online giving: a member/visitor gives via the church's shareable link.
@@ -43,8 +43,8 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
   const email = String(formData.get("email") ?? "").trim() || null;
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const fundName = String(formData.get("fund") ?? "").trim() || "General";
-  const methodLabel = String(formData.get("method") ?? "MTN MoMo").trim();
-  const method = GIFT_METHOD_FROM_LABEL[methodLabel] ?? "MTN_MoMo";
+  // No payment-method picker on the form - Paystack's own checkout lets the
+  // donor choose Mobile Money or card.
 
   const reference = newPaymentReference();
   const appUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
@@ -73,7 +73,6 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
       email,
       phone,
       fundName,
-      method: methodLabel,
     },
   });
 
@@ -87,7 +86,6 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
       email,
       phone,
       fundName,
-      method,
     });
   }
 

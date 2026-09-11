@@ -145,15 +145,19 @@ export async function POST(request: NextRequest) {
   }
 
   try {
+    // Prefer the phone the donor typed on our form; for a card payment (or if
+    // they left it blank) fall back to whatever Paystack captured itself -
+    // e.g. the Mobile Money number used to complete the charge.
+    const phone = meta.phone || data.customer?.phone || data.authorization?.mobile_money_number || null;
     const result = await recordOnlineGift({
       churchId: meta.churchId,
       reference: data.reference,
       amountGhs: (data.amount ?? 0) / 100, // pesewas → cedis
       donorName: meta.donorName ?? "Anonymous",
       email: data.customer?.email ?? meta.email ?? null,
-      phone: meta.phone ?? null,
+      phone,
       fundName: meta.fundName ?? null,
-      method: methodFromPaystackChannel(data.channel, meta.method),
+      method: methodFromPaystackChannel(data.channel, data.authorization?.bank),
     });
     return Response.json({ received: true, created: result.created });
   } catch (e) {
@@ -170,7 +174,6 @@ interface GiftMetadata {
   email?: string;
   phone?: string;
   fundName?: string;
-  method?: string;
   credits?: number | string;
   bundleId?: string;
   plan?: string;
@@ -187,7 +190,8 @@ interface PaystackEvent {
     reference?: string;
     amount?: number;
     channel?: string;
-    customer?: { email?: string };
+    customer?: { email?: string; phone?: string };
+    authorization?: { mobile_money_number?: string; bank?: string };
     metadata?: GiftMetadata;
   };
 }

@@ -1,12 +1,12 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { startOnlineGift } from "@/app/actions/public-giving";
 import { usePaystack } from "@/components/payments/use-paystack";
 
-const PRESETS = [20, 50, 100, 200, 500];
-const IS_PRESET = (v: string) => PRESETS.some((p) => String(p) === v);
-const METHODS = ["MTN MoMo", "Telecel Cash", "AirtelTigo", "Card"];
+// Always offered, whether or not the church has set these up as Funds yet.
+const COMMON_FUNDS = ["Offertory", "Tithes", "Church Blessing", "Pledge", "Harvest"];
+const CUSTOM = "Custom";
 
 export function GiveForm({
   churchSlug,
@@ -19,19 +19,26 @@ export function GiveForm({
   accentColor: string;
   funds: string[];
 }) {
-  const [amount, setAmount] = useState<string>("100");
-  const [method, setMethod] = useState<string>("MTN MoMo");
+  const [amount, setAmount] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { start } = usePaystack();
-  const amountInputRef = useRef<HTMLInputElement>(null);
-  const isCustom = !IS_PRESET(amount);
 
-  function chooseCustom() {
-    setAmount("");
-    // Give the input focus so it's obvious you can type - matches clicking any other pill.
-    amountInputRef.current?.focus();
-  }
+  const fundOptions = useMemo(() => {
+    const merged = [...funds];
+    for (const f of COMMON_FUNDS) if (!merged.includes(f)) merged.push(f);
+    return merged;
+  }, [funds]);
+  const [fundChoice, setFundChoice] = useState<string>(fundOptions[0] ?? "General");
+  const [customFund, setCustomFund] = useState("");
+  const [pledgeFor, setPledgeFor] = useState("");
+
+  const finalFund =
+    fundChoice === CUSTOM
+      ? customFund.trim() || "General"
+      : fundChoice === "Pledge" && pledgeFor.trim()
+        ? `Pledge - ${pledgeFor.trim()}`
+        : fundChoice;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -63,48 +70,18 @@ export function GiveForm({
       className="space-y-6 rounded-2xl border border-[#e8e2d6] bg-white p-6 shadow-sm sm:p-8"
     >
       <input type="hidden" name="churchSlug" value={churchSlug} />
-      <input type="hidden" name="method" value={method} />
 
       {/* ── Amount ── */}
       <div>
         <label className="mb-2 block text-sm font-medium text-[#6b6560]">
           Amount (₵) <span className="text-red-500">*</span>
         </label>
-        <div className="mb-3 flex flex-wrap gap-2">
-          {PRESETS.map((p) => (
-            <button
-              key={p}
-              type="button"
-              onClick={() => setAmount(String(p))}
-              className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
-              style={
-                amount === String(p)
-                  ? { backgroundColor: accentColor, borderColor: accentColor, color: "white" }
-                  : { borderColor: "#e8e2d6", color: "#6b6560" }
-              }
-            >
-              ₵{p}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={chooseCustom}
-            className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
-            style={
-              isCustom
-                ? { backgroundColor: accentColor, borderColor: accentColor, color: "white" }
-                : { borderColor: "#e8e2d6", color: "#6b6560" }
-            }
-          >
-            Custom
-          </button>
-        </div>
         <div className="relative">
           <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-[#6b6560]">
             ₵
           </span>
           <input
-            ref={amountInputRef}
+            autoFocus
             name="amount"
             type="number"
             min="1"
@@ -113,42 +90,44 @@ export function GiveForm({
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             className={`${base} pl-8 text-base font-semibold`}
-            placeholder="Enter any amount"
+            placeholder="Enter amount"
           />
         </div>
-        <p className="mt-1.5 text-xs text-[#a09888]">Tap a quick amount above, or type any amount you like.</p>
       </div>
 
       {/* ── Fund ── */}
       <div>
         <label className="mb-1.5 block text-sm font-medium text-[#6b6560]">Give towards</label>
-        <select name="fund" defaultValue={funds[0] ?? "General"} className={base}>
-          {funds.map((f) => (
+        <input type="hidden" name="fund" value={finalFund} />
+        <select
+          value={fundChoice}
+          onChange={(e) => setFundChoice(e.target.value)}
+          className={base}
+        >
+          {fundOptions.map((f) => (
             <option key={f} value={f}>{f}</option>
           ))}
+          <option value={CUSTOM}>Other (type your own)</option>
         </select>
-      </div>
 
-      {/* ── Payment method ── */}
-      <div>
-        <label className="mb-2 block text-sm font-medium text-[#6b6560]">Payment method</label>
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          {METHODS.map((m) => (
-            <button
-              key={m}
-              type="button"
-              onClick={() => setMethod(m)}
-              className="rounded-xl border px-3 py-2.5 text-xs font-medium transition-colors"
-              style={
-                method === m
-                  ? { backgroundColor: `${accentColor}12`, borderColor: accentColor, color: accentColor }
-                  : { borderColor: "#e8e2d6", color: "#6b6560" }
-              }
-            >
-              {m}
-            </button>
-          ))}
-        </div>
+        {fundChoice === CUSTOM && (
+          <input
+            value={customFund}
+            onChange={(e) => setCustomFund(e.target.value)}
+            className={`${base} mt-2`}
+            placeholder="What are you giving towards?"
+            required
+          />
+        )}
+
+        {fundChoice === "Pledge" && (
+          <input
+            value={pledgeFor}
+            onChange={(e) => setPledgeFor(e.target.value)}
+            className={`${base} mt-2`}
+            placeholder="What program is this pledge for? (e.g. Building Project 2026)"
+          />
+        )}
       </div>
 
       {/* ── Donor info ── */}
@@ -159,17 +138,13 @@ export function GiveForm({
             <label className="mb-1.5 block text-sm font-medium text-[#6b6560]">Full name</label>
             <input name="donor" className={base} placeholder="Kwame Mensah" />
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-[#6b6560]">
-                Phone (for receipt)
-              </label>
-              <input name="phone" className={base} placeholder="+233 24 000 0000" />
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium text-[#6b6560]">Email</label>
-              <input name="email" type="email" className={base} placeholder="you@example.com" />
-            </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-[#6b6560]">Phone number</label>
+            <input name="phone" type="tel" inputMode="tel" className={base} placeholder="+233 24 000 0000" />
+          </div>
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-[#6b6560]">Email</label>
+            <input name="email" type="email" className={base} placeholder="you@example.com" />
           </div>
         </div>
       </fieldset>
@@ -185,7 +160,7 @@ export function GiveForm({
           {submitting ? "Opening secure checkout…" : `Give ₵${amount || "0"} now`}
         </button>
         <p className="mt-3 text-center text-xs text-[#a09888]">
-          Secure giving to {churchName} via Paystack. You'll receive a receipt by SMS or email.
+          Secure giving to {churchName} via Paystack - choose Mobile Money or card at checkout. You'll receive a receipt by SMS and/or email.
         </p>
       </div>
     </form>
