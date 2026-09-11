@@ -61,8 +61,9 @@ export function GiveForm({
     }
   }
 
-  const base =
-    "flex h-11 w-full rounded-xl border border-[#e8e2d6] bg-white px-3.5 text-sm text-[#1c1a16] placeholder:text-[#a09888] focus-visible:border-[#0d7377]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0d7377]/20";
+  const baseCore =
+    "h-11 w-full rounded-xl border border-[#e8e2d6] bg-white text-sm text-[#1c1a16] placeholder:text-[#a09888] focus-visible:border-[#0d7377]/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0d7377]/20";
+  const base = `${baseCore} px-3.5`;
 
   return (
     <form
@@ -109,7 +110,7 @@ export function GiveForm({
             required
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className={`${base} pl-8 text-base font-semibold`}
+            className={`${baseCore} pl-8 pr-3.5 text-base font-semibold`}
             placeholder="Enter amount"
           />
         </div>
