@@ -380,7 +380,7 @@ export async function updatePaymentRequest(id: string, formData: FormData) {
   const portalUrl = String(formData.get("portalUrl") ?? "").trim();
   const paystackSubId = String(formData.get("paystackSubId") ?? "").trim();
 
-  await db.paymentRequest.update({
+  const updated = await db.paymentRequest.update({
     where: { id },
     data: {
       status: status || undefined,
@@ -391,7 +391,17 @@ export async function updatePaymentRequest(id: string, formData: FormData) {
       portalUrl: portalUrl || null,
       paystackSubId: paystackSubId || null,
     },
+    select: { churchId: true },
   });
+
+  // This code is what actually routes the church's online giving to their own
+  // Paystack account (see initializePayment) - keep the Church record in sync
+  // so saving it here takes effect immediately, not just as a note on file.
+  await db.church.update({
+    where: { id: updated.churchId },
+    data: { paystackSubaccountCode: paystackSubId || null },
+  });
+
   revalidatePath("/admin/payments");
 }
 
@@ -399,7 +409,7 @@ export async function getAllPaymentRequests() {
   await requireSuperAdmin();
   return db.paymentRequest.findMany({
     orderBy: { createdAt: "desc" },
-    include: { church: { select: { name: true, slug: true } } },
+    include: { church: { select: { name: true, slug: true, paystackSubaccountCode: true } } },
   });
 }
 

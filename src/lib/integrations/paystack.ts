@@ -42,6 +42,13 @@ export async function initializePayment(opts: {
   stubReturnUrl?: string;
   /** @deprecated Use `amount` instead */
   amountGhs?: number;
+  /**
+   * A church's Paystack subaccount code (ACCT_xxx) to split this charge to -
+   * used for online giving so the money settles to the church's own account
+   * instead of the platform's. Leave unset for WorshipHQ's own revenue
+   * (subscriptions, SMS credits).
+   */
+  subaccount?: string | null;
 }): Promise<InitResult> {
   const reference = opts.reference ?? newPaymentReference();
   const amount = opts.amount ?? opts.amountGhs ?? 0;
@@ -49,7 +56,7 @@ export async function initializePayment(opts: {
   const subunit = Math.round(amount * 100);
 
   if (!features.payments) {
-    console.info(`[Paystack:stub] init ${currency} ${amount} for ${opts.email} (ref ${reference})`);
+    console.info(`[Paystack:stub] init ${currency} ${amount} for ${opts.email} (ref ${reference})${opts.subaccount ? ` -> subaccount ${opts.subaccount}` : ""}`);
     return {
       ok: true,
       stubbed: true,
@@ -70,6 +77,7 @@ export async function initializePayment(opts: {
         callback_url: opts.callbackUrl ?? env.PAYSTACK_CALLBACK_URL,
         metadata: opts.metadata,
         reference,
+        ...(opts.subaccount ? { subaccount: opts.subaccount } : {}),
       }),
     });
     const data = await res.json();

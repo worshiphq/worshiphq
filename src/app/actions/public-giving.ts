@@ -32,7 +32,7 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
 
   const church = await db.church.findUnique({
     where: { slug: churchSlug },
-    select: { id: true, isDemo: true },
+    select: { id: true, isDemo: true, paystackSubaccountCode: true },
   });
   if (!church || church.isDemo) return giftError("This church can't receive gifts right now.");
 
@@ -62,6 +62,10 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
     reference,
     callbackUrl: thankYouUrl,
     stubReturnUrl: thankYouUrl,
+    // Route the gift to the church's own Paystack subaccount when one is
+    // configured (SuperAdmin → Payment Requests), so giving settles to the
+    // church instead of WorshipHQ's platform account.
+    subaccount: church.paystackSubaccountCode,
     metadata: {
       kind: "online_gift",
       churchId: church.id,

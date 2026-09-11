@@ -49,6 +49,10 @@ model Church {
   slug         String   @unique
   isDemo       Boolean  @default(false)
   suspended    Boolean  @default(false)
+  // Paystack subaccount code (ACCT_xxx) this church's own online giving is split
+  // to - set once by SuperAdmin in the Payment Requests panel. Subscription/SMS
+  // credit charges (WorshipHQ's own revenue) never use this; only public giving does.
+  paystackSubaccountCode String?
   smsCredits       Int     @default(50) // prepaid SMS units (50 free on signup)
   smsWelcomeMember Boolean @default(true) // SMS a welcome to members who self-register
   smsTier          String? // per-church SMS price tier override (null = use site default)

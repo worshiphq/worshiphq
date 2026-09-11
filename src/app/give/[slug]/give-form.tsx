@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { startOnlineGift } from "@/app/actions/public-giving";
 import { usePaystack } from "@/components/payments/use-paystack";
 
 const PRESETS = [20, 50, 100, 200, 500];
+const IS_PRESET = (v: string) => PRESETS.some((p) => String(p) === v);
 const METHODS = ["MTN MoMo", "Telecel Cash", "AirtelTigo", "Card"];
 
 export function GiveForm({
@@ -23,6 +24,14 @@ export function GiveForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { start } = usePaystack();
+  const amountInputRef = useRef<HTMLInputElement>(null);
+  const isCustom = !IS_PRESET(amount);
+
+  function chooseCustom() {
+    setAmount("");
+    // Give the input focus so it's obvious you can type - matches clicking any other pill.
+    amountInputRef.current?.focus();
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -69,7 +78,7 @@ export function GiveForm({
               onClick={() => setAmount(String(p))}
               className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
               style={
-                Number(amount) === p
+                amount === String(p)
                   ? { backgroundColor: accentColor, borderColor: accentColor, color: "white" }
                   : { borderColor: "#e8e2d6", color: "#6b6560" }
               }
@@ -77,12 +86,25 @@ export function GiveForm({
               ₵{p}
             </button>
           ))}
+          <button
+            type="button"
+            onClick={chooseCustom}
+            className="rounded-full border px-4 py-1.5 text-sm font-medium transition-colors"
+            style={
+              isCustom
+                ? { backgroundColor: accentColor, borderColor: accentColor, color: "white" }
+                : { borderColor: "#e8e2d6", color: "#6b6560" }
+            }
+          >
+            Custom
+          </button>
         </div>
         <div className="relative">
           <span className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-sm font-semibold text-[#6b6560]">
             ₵
           </span>
           <input
+            ref={amountInputRef}
             name="amount"
             type="number"
             min="1"
@@ -91,9 +113,10 @@ export function GiveForm({
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
             className={`${base} pl-8 text-base font-semibold`}
-            placeholder="0.00"
+            placeholder="Enter any amount"
           />
         </div>
+        <p className="mt-1.5 text-xs text-[#a09888]">Tap a quick amount above, or type any amount you like.</p>
       </div>
 
       {/* ── Fund ── */}

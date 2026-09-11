@@ -154,6 +154,13 @@ function RequestCard({ request: req, expanded, onToggle }: {
               <label className="block text-xs font-medium text-slate-400 mb-1">Paystack Sub-account ID</label>
               <input name="paystackSubId" defaultValue={req.paystackSubId || ""} placeholder="ACCT_xxx"
                 className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200" />
+              <p className="mt-1 text-[11px]">
+                {req.church?.paystackSubaccountCode ? (
+                  <span className="text-emerald-400">✓ Live - this church&apos;s giving currently splits to {req.church.paystackSubaccountCode}</span>
+                ) : (
+                  <span className="text-amber-400">Not live yet - giving still goes to the main WorshipHQ account. Save to activate.</span>
+                )}
+              </p>
             </div>
           </div>
 
