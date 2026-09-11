@@ -71,8 +71,29 @@ export function GiveForm({
     >
       <input type="hidden" name="churchSlug" value={churchSlug} />
 
+      {/* ── Donor info ── */}
+      <fieldset>
+        <legend className="sr-only">Your details</legend>
+        <div className="space-y-4">
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-[#6b6560]">Full name</label>
+            <input autoFocus name="donor" className={base} placeholder="Kwame Mensah" />
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-[#6b6560]">Phone number</label>
+              <input name="phone" type="tel" inputMode="tel" className={base} placeholder="+233 24 000 0000" />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-sm font-medium text-[#6b6560]">Email</label>
+              <input name="email" type="email" className={base} placeholder="you@example.com" />
+            </div>
+          </div>
+        </div>
+      </fieldset>
+
       {/* ── Amount ── */}
-      <div>
+      <div className="border-t border-[#e8e2d6] pt-6">
         <label className="mb-2 block text-sm font-medium text-[#6b6560]">
           Amount (₵) <span className="text-red-500">*</span>
         </label>
@@ -81,7 +102,6 @@ export function GiveForm({
             ₵
           </span>
           <input
-            autoFocus
             name="amount"
             type="number"
             min="1"
@@ -129,25 +149,6 @@ export function GiveForm({
           />
         )}
       </div>
-
-      {/* ── Donor info ── */}
-      <fieldset className="border-t border-[#e8e2d6] pt-6">
-        <legend className="mb-4 text-base font-semibold text-[#1c1a16]">Your details</legend>
-        <div className="space-y-4">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[#6b6560]">Full name</label>
-            <input name="donor" className={base} placeholder="Kwame Mensah" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[#6b6560]">Phone number</label>
-            <input name="phone" type="tel" inputMode="tel" className={base} placeholder="+233 24 000 0000" />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[#6b6560]">Email</label>
-            <input name="email" type="email" className={base} placeholder="you@example.com" />
-          </div>
-        </div>
-      </fieldset>
 
       <div className="border-t border-[#e8e2d6] pt-6">
         {error && <p className="mb-3 text-center text-sm text-red-600">{error}</p>}
