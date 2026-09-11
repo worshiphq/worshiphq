@@ -405,14 +405,6 @@ export async function updatePaymentRequest(id: string, formData: FormData) {
   revalidatePath("/admin/payments");
 }
 
-export async function getAllPaymentRequests() {
-  await requireSuperAdmin();
-  return db.paymentRequest.findMany({
-    orderBy: { createdAt: "desc" },
-    include: { church: { select: { name: true, slug: true, paystackSubaccountCode: true } } },
-  });
-}
-
 // ── SMS pricing tiers ──
 
 /** Set the site-wide SMS pricing tier (applies to every church without an override). */

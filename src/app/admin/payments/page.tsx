@@ -7,7 +7,7 @@ export default async function AdminPaymentsPage() {
   const sa = await requireSuperAdmin();
   const requests = await db.paymentRequest.findMany({
     orderBy: { createdAt: "desc" },
-    include: { church: { select: { name: true, slug: true } } },
+    include: { church: { select: { name: true, slug: true, paystackSubaccountCode: true } } },
   });
 
   return (
