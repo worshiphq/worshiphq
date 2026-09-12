@@ -110,7 +110,8 @@ export function GiveForm({
             required
             value={amount}
             onChange={(e) => setAmount(e.target.value)}
-            className={`${baseCore} pl-8 pr-3.5 text-base font-semibold text-[#1c1a16]`}
+            className={`${baseCore} pl-8 pr-3.5 font-semibold`}
+            style={{ fontSize: "1rem", color: "#1c1a16" }}
             placeholder="Enter amount"
           />
         </div>
