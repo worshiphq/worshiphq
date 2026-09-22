@@ -55,6 +55,9 @@ const schema = z.object({
   TWILIO_ACCOUNT_SID: str,
   TWILIO_AUTH_TOKEN: str,
   TWILIO_PHONE_NUMBER: str,
+  // Shared Hubtel account with HostHub (camp-registry) - after every real
+  // Hubtel send we report usage so HostHub's balance tracker stays accurate.
+  HUBTEL_USAGE_SECRET: str,
 
   // ── EMAIL ────────────────────────────────────────────
   EMAIL_PROVIDER: z.enum(["resend", "sendgrid", "smtp"]).default("resend"),

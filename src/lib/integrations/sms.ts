@@ -14,6 +14,23 @@ function withHeading(message: string, heading: string | null): string {
   return message.startsWith(heading) ? message : `${heading}\n${message}`;
 }
 
+const HUBTEL_USAGE_URL = "https://camp-registry-zqm3.vercel.app/api/hubtel-usage";
+
+/**
+ * We share one Hubtel account with HostHub (camp-registry), which tracks the
+ * shared balance. Report segments sent so its balance stays accurate. Never
+ * awaited by the caller and never throws - a reporting outage must not affect
+ * our own SMS sending.
+ */
+function reportHubtelUsage(segments: number) {
+  if (!segments || !env.HUBTEL_USAGE_SECRET) return;
+  fetch(HUBTEL_USAGE_URL, {
+    method: "POST",
+    headers: { "content-type": "application/json", "x-usage-key": env.HUBTEL_USAGE_SECRET },
+    body: JSON.stringify({ segments, source: "worshiphq" }),
+  }).catch(() => {});
+}
+
 /**
  * Send an SMS. In stub mode (no provider key) it logs to the console and
  * succeeds, so the whole app works without real credentials. Drop in a key
@@ -65,6 +82,7 @@ export async function sendSms(
     if (provider === "hubtel") {
       let lastId: string | undefined;
       let allOk = true;
+      let sentCount = 0;
       for (const recipient of recipients) {
         const url = new URL("https://sms.hubtel.com/v1/messages/send");
         url.searchParams.set("clientsecret", env.HUBTEL_CLIENT_SECRET!);
@@ -76,10 +94,14 @@ export async function sendSms(
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           console.error(`[SMS:hubtel] ${res.status} → ${recipient}:`, data);
+        } else {
+          sentCount++;
         }
         allOk = allOk && res.ok;
         lastId = data?.messageId ?? data?.MessageId ?? lastId;
       }
+      // One usage report for the whole batch, not per recipient.
+      reportHubtelUsage(sentCount);
       return { ok: allOk, provider, stubbed: false, id: lastId };
     }
 
