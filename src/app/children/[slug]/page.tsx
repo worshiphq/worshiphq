@@ -72,6 +72,7 @@ export default async function ChildrenPage({
           fields={fields}
           action={registerChild}
           submitLabel="Register child"
+          requireGuardianConsent
         />
       </div>
     </div>

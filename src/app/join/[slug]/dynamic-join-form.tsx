@@ -13,6 +13,7 @@ export function DynamicJoinForm({
   departments = [],
   action,
   submitLabel = "Submit registration",
+  requireGuardianConsent = false,
 }: {
   churchSlug: string;
   churchName: string;
@@ -21,6 +22,9 @@ export function DynamicJoinForm({
   departments?: { id: string; name: string }[];
   action?: (formData: FormData) => Promise<void>;
   submitLabel?: string;
+  /** This registers a minor - require an affirmative parent/guardian consent
+   *  checkbox before the browser will let the form submit. */
+  requireGuardianConsent?: boolean;
 }) {
   return (
     <form
@@ -30,6 +34,21 @@ export function DynamicJoinForm({
       <input type="hidden" name="churchSlug" value={churchSlug} />
 
       <MemberFormFields fields={fields} departments={departments} />
+
+      {requireGuardianConsent && (
+        <label className="flex items-start gap-2 rounded-lg border border-line bg-surface-2/50 p-3 text-xs text-ink-muted">
+          <input
+            type="checkbox"
+            name="guardianConsent"
+            required
+            className="mt-0.5 size-4 shrink-0 rounded border-line accent-primary"
+          />
+          <span>
+            I am this child&apos;s parent or guardian, and I consent to {churchName} collecting and storing this
+            information.
+          </span>
+        </label>
+      )}
 
       <div className="border-t border-line pt-6">
         <SubmitButton

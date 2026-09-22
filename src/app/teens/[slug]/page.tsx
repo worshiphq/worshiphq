@@ -74,6 +74,7 @@ export default async function TeensPage({
           departments={church.departments}
           action={registerTeen}
           submitLabel="Register teen"
+          requireGuardianConsent
         />
       </div>
     </div>

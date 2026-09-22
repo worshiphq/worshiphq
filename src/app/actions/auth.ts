@@ -54,13 +54,16 @@ export async function signUp(formData: FormData) {
   const plan = String(formData.get("plan") ?? "free").trim();
   const validPlans = ["free", "starter", "pro", "max"];
   const chosenPlan = validPlans.includes(plan) ? plan : "free";
+  const acceptedTerms = formData.get("acceptedTerms") === "true";
 
   const { passwordMeetsPolicy } = await import("@/lib/password-policy");
   // Email is always required (it's the login identity). A phone is required only
-  // when the member chose to verify by phone.
+  // when the member chose to verify by phone. Terms/Privacy acceptance is
+  // required from every account, not just paid plans - this is the only point
+  // where every church (free tier included) explicitly agrees to them.
   const emailOk = /^\S+@\S+\.\S+$/.test(email);
   const phoneOk = phone.replace(/\D/g, "").length >= 9;
-  if (!churchName || !name || !emailOk || !passwordMeetsPolicy(password) || (channel === "phone" && !phoneOk)) {
+  if (!churchName || !name || !emailOk || !passwordMeetsPolicy(password) || (channel === "phone" && !phoneOk) || !acceptedTerms) {
     redirect("/sign-up?error=invalid");
   }
   if (await db.user.findUnique({ where: { email } })) {
@@ -130,6 +133,7 @@ export async function completeSignup(formData: FormData) {
       slug,
       name: p.churchName,
       country: "Ghana",
+      termsAcceptedAt: new Date(),
       branches: { create: { name: "Main Branch", isHQ: true } },
     },
     include: { branches: true },

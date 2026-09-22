@@ -49,6 +49,10 @@ model Church {
   slug         String   @unique
   isDemo       Boolean  @default(false)
   suspended    Boolean  @default(false)
+  // When the owner checked "I agree to Terms/Privacy" at signup - proof of
+  // click-wrap acceptance, not just a UI gate. Null for churches created
+  // before this was enforced.
+  termsAcceptedAt DateTime?
   // Paystack subaccount code (ACCT_xxx) this church's own online giving is split
   // to - set once by SuperAdmin in the Payment Requests panel. Subscription/SMS
   // credit charges (WorshipHQ's own revenue) never use this; only public giving does.

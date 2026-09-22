@@ -62,6 +62,9 @@ export async function selfRegister(formData: FormData) {
 export async function registerChild(formData: FormData) {
   const churchSlug = String(formData.get("churchSlug") ?? "").trim();
   if (!churchSlug) return;
+  // Defense in depth: the form's checkbox is `required`, but a direct POST
+  // could skip it - a minor's record must never be created without it.
+  if (formData.get("guardianConsent") !== "on") return;
 
   const church = await db.church.findUnique({
     where: { slug: churchSlug },
@@ -92,6 +95,9 @@ export async function registerChild(formData: FormData) {
 export async function registerTeen(formData: FormData) {
   const churchSlug = String(formData.get("churchSlug") ?? "").trim();
   if (!churchSlug) return;
+  // Defense in depth: the form's checkbox is `required`, but a direct POST
+  // could skip it - a minor's record must never be created without it.
+  if (formData.get("guardianConsent") !== "on") return;
 
   const church = await db.church.findUnique({
     where: { slug: churchSlug },

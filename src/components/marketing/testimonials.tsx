@@ -6,6 +6,10 @@ import { testimonials as defaultTestimonials, type Testimonial } from "@/config/
 
 export function Testimonials({ items }: { items?: Testimonial[] }) {
   const list = items && items.length ? items : defaultTestimonials;
+  // Whether we're showing the placeholder set (config/marketing.ts) vs. real
+  // testimonials the SuperAdmin has saved via /admin/content - only the
+  // placeholders need the "illustrative" disclaimer, never a real customer's words.
+  const usingDefaults = list === defaultTestimonials;
   // Two rows that scroll automatically and continuously in opposite directions.
   const rowA = [...list, ...list];
   const rowBBase = [...list.slice(3), ...list.slice(0, 3)];
@@ -21,17 +25,19 @@ export function Testimonials({ items }: { items?: Testimonial[] }) {
               In their own
               <span className="text-primary"> words.</span>
             </h2>
-            <p className="max-w-[16rem] text-xs leading-relaxed text-ink-faint">
-              Names and churches are illustrative placeholders.
-            </p>
+            {usingDefaults && (
+              <p className="max-w-[16rem] rounded-lg border border-brass/30 bg-brass/5 px-3 py-2 text-xs font-medium leading-relaxed text-ink">
+                Illustrative examples - names and churches shown here are placeholders, not real customers.
+              </p>
+            )}
           </div>
         </Reveal>
       </div>
 
       {/* ── Auto-scrolling letter rows ── */}
       <div className="relative mt-14 flex flex-col gap-5">
-        <Marquee items={rowA} direction="left" duration={48} />
-        <Marquee items={rowB} direction="right" duration={58} />
+        <Marquee items={rowA} direction="left" duration={48} illustrative={usingDefaults} />
+        <Marquee items={rowB} direction="right" duration={58} illustrative={usingDefaults} />
 
         {/* Fade edges */}
         <div className="pointer-events-none absolute inset-y-0 left-0 w-20 bg-gradient-to-r from-base to-transparent sm:w-28" />
@@ -45,10 +51,12 @@ function Marquee({
   items,
   direction,
   duration,
+  illustrative,
 }: {
   items: Testimonial[];
   direction: "left" | "right";
   duration: number;
+  illustrative: boolean;
 }) {
   // The list is doubled, so animating across exactly half its width loops seamlessly.
   const from = direction === "left" ? "0%" : "-50%";
@@ -63,14 +71,14 @@ function Marquee({
         transition={{ duration, ease: "linear", repeat: Infinity }}
       >
         {items.map((t, i) => (
-          <TestimonialCard key={`${direction}-${i}`} t={t} />
+          <TestimonialCard key={`${direction}-${i}`} t={t} illustrative={illustrative} />
         ))}
       </motion.div>
     </div>
   );
 }
 
-function TestimonialCard({ t }: { t: Testimonial }) {
+function TestimonialCard({ t, illustrative }: { t: Testimonial; illustrative: boolean }) {
   return (
     <figure className="relative w-[400px] shrink-0 border border-ink/12 bg-surface p-7 transition-colors duration-300 hover:border-brass/40">
       {/* Gilt top edge */}
@@ -88,7 +96,10 @@ function TestimonialCard({ t }: { t: Testimonial }) {
             {t.role}
           </div>
         </div>
-        <div className="text-right text-[11px] text-ink-faint">{t.church}</div>
+        <div className="text-right">
+          <div className="text-[11px] text-ink-faint">{t.church}</div>
+          {illustrative && <div className="mt-0.5 text-[9px] uppercase tracking-[0.1em] text-brass">Illustrative</div>}
+        </div>
       </figcaption>
     </figure>
   );

@@ -58,6 +58,7 @@ export function SignupWizard({
     plan: initialPlan,
     channel: "phone" as "phone" | "email",
   });
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
 
   const set = (key: keyof typeof data) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setData((d) => ({ ...d, [key]: e.target.value }));
@@ -158,6 +159,7 @@ export function SignupWizard({
         <input type="hidden" name="password" value={data.password} />
         <input type="hidden" name="plan" value={data.plan} />
         <input type="hidden" name="channel" value={data.channel} />
+        <input type="hidden" name="acceptedTerms" value={String(acceptedTerms)} />
 
         <div className="relative overflow-hidden">
           <AnimatePresence mode="wait" custom={dir} initial={false}>
@@ -351,6 +353,23 @@ export function SignupWizard({
                   ))}
                 </div>
               )}
+
+              {STEPS[step].key === "review" && (
+                <label className="mt-4 flex items-start gap-2 rounded-lg border border-line bg-surface-2/50 p-3 text-xs text-ink-muted">
+                  <input
+                    type="checkbox"
+                    checked={acceptedTerms}
+                    onChange={(e) => setAcceptedTerms(e.target.checked)}
+                    className="mt-0.5 size-4 shrink-0 rounded border-line accent-primary"
+                  />
+                  <span>
+                    I agree to the{" "}
+                    <a href="/terms" target="_blank" className="font-semibold text-primary hover:underline">Terms of Service</a>{" "}
+                    and{" "}
+                    <a href="/privacy" target="_blank" className="font-semibold text-primary hover:underline">Privacy Policy</a>.
+                  </span>
+                </label>
+              )}
             </motion.div>
           </AnimatePresence>
         </div>
@@ -389,7 +408,7 @@ export function SignupWizard({
           ) : (
             <button
               type="submit"
-              disabled={submitting}
+              disabled={submitting || !acceptedTerms}
               className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-bright disabled:opacity-60"
             >
               {submitting && <Loader2 className="size-4 whq-spin" />}
