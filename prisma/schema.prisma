@@ -410,6 +410,7 @@ model Person {
   counselingSessions CounselingSession[]
   volunteerSlots VolunteerSlot[]
   user           User?
+  communicationRecipients CommunicationRecipient[]
 
   @@unique([churchId, memberId])
   @@index([churchId])
@@ -718,8 +719,26 @@ model Communication {
   status     String   @default("draft") // draft | scheduled | sent
   scheduledAt DateTime?
   createdAt  DateTime @default(now())
+  recipients CommunicationRecipient[]
 
   @@index([churchId])
+}
+
+/** Per-recipient send record for a campaign, so a campaign's audit can show
+ *  exactly who it went to and whether each one actually went through. */
+model CommunicationRecipient {
+  id              String        @id @default(cuid())
+  communicationId String
+  communication   Communication @relation(fields: [communicationId], references: [id], onDelete: Cascade)
+  personId        String?
+  person          Person?       @relation(fields: [personId], references: [id], onDelete: SetNull)
+  name            String? // snapshot at send time, survives the person being edited/removed later
+  contact         String  // the phone number or email actually targeted
+  status          String  @default("sent") // sent | failed
+  createdAt       DateTime @default(now())
+
+  @@index([communicationId])
+  @@index([personId])
 }
 
 // ── Reminders & automations ───────────────────────────────

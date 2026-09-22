@@ -9,6 +9,22 @@ import { sendChurchSms } from "@/lib/sms/credits";
 import { audit } from "@/lib/audit";
 import type { Channel } from "@prisma/client";
 
+interface Recipient {
+  id: string | null;
+  name: string;
+  contact: string;
+}
+
+/** Adults (ageGroup null/adult, matching the rest of the app's "adult" filter)
+ *  who have no Ghana Card / National ID on file - useful for a data-completeness
+ *  drive campaign. */
+const MISSING_NATIONAL_ID_ADULTS = {
+  AND: [
+    { OR: [{ ageGroup: null }, { ageGroup: "adult" }] },
+    { OR: [{ nationalId: null }, { nationalId: "" }] },
+  ],
+};
+
 /** Send (or stub-send) a broadcast and log it as a campaign. */
 export async function sendBroadcast(formData: FormData) {
   const session = await requireSession();
@@ -20,47 +36,65 @@ export async function sendBroadcast(formData: FormData) {
   if (!message) return;
 
   // ── Resolve recipients by target ──
-  // target: "all" | "active" | "visitor" | "leaders" | "group-leaders" | "dept:<id>" | "custom"
+  // target: "all" | "active" | "visitor" | "leaders" | "group-leaders" |
+  //         "missing-national-id" | "dept:<id>" | "custom"
   const target = String(formData.get("target") ?? "all");
-  let recipients: string[] = [];
+  let recipientObjs: Recipient[] = [];
   let segmentLabel = "All members";
 
-  const pick = (people: { phone: string | null; email: string | null }[]) =>
-    channel === "Email"
-      ? people.map((p) => p.email).filter((e): e is string => !!e)
-      : people.map((p) => p.phone).filter((p): p is string => !!p);
+  const pick = (
+    people: { id: string; firstName: string; lastName: string; phone: string | null; email: string | null }[],
+  ): Recipient[] =>
+    people
+      .map((p) => ({
+        id: p.id,
+        name: `${p.firstName} ${p.lastName}`.trim(),
+        contact: channel === "Email" ? p.email : p.phone,
+      }))
+      .filter((r): r is { id: string; name: string; contact: string } => !!r.contact);
+
+  const PERSON_SELECT = { id: true, firstName: true, lastName: true, phone: true, email: true } as const;
 
   if (target === "custom") {
     // Free-typed numbers/emails, separated by comma / space / newline.
-    recipients = String(formData.get("contacts") ?? "")
+    recipientObjs = String(formData.get("contacts") ?? "")
       .split(/[\s,;]+/)
       .map((s) => s.trim())
-      .filter(Boolean);
-    segmentLabel = `${recipients.length} custom recipient(s)`;
+      .filter(Boolean)
+      .map((contact) => ({ id: null, name: "", contact }));
+    segmentLabel = `${recipientObjs.length} custom recipient(s)`;
   } else if (target === "leaders") {
     // Church leadership team: anyone with a leadership title.
     const people = await db.person.findMany({
       where: { churchId: session.churchId, leaderTitle: { not: null } },
-      select: { phone: true, email: true },
+      select: PERSON_SELECT,
     });
-    recipients = pick(people);
+    recipientObjs = pick(people);
     segmentLabel = "Church leaders";
   } else if (target === "group-leaders") {
     // The leader of every group/ministry (deduped - one person may lead several).
     const groups = await db.group.findMany({
       where: { churchId: session.churchId, leaderId: { not: null } },
-      select: { leader: { select: { id: true, phone: true, email: true } } },
+      select: { leader: { select: PERSON_SELECT } },
     });
     const seen = new Set<string>();
     const leaders = groups
       .map((g) => g.leader)
-      .filter((l): l is { id: string; phone: string | null; email: string | null } => {
+      .filter((l): l is NonNullable<typeof l> => {
         if (!l || seen.has(l.id)) return false;
         seen.add(l.id);
         return true;
       });
-    recipients = pick(leaders);
+    recipientObjs = pick(leaders);
     segmentLabel = "Group / ministry leaders";
+  } else if (target === "missing-national-id") {
+    // Adults with no Ghana Card on file - a data-completeness drive.
+    const people = await db.person.findMany({
+      where: { churchId: session.churchId, ...MISSING_NATIONAL_ID_ADULTS },
+      select: PERSON_SELECT,
+    });
+    recipientObjs = pick(people);
+    segmentLabel = "Adults missing Ghana Card";
   } else {
     const where: { churchId: string; status?: "active" | "visitor"; departments?: { some: { id: string } } } = {
       churchId: session.churchId,
@@ -73,15 +107,21 @@ export async function sendBroadcast(formData: FormData) {
       const dept = await db.department.findFirst({ where: { id, churchId: session.churchId }, select: { name: true } });
       segmentLabel = dept ? `${dept.name} department` : "Department";
     }
-    const people = await db.person.findMany({ where, select: { phone: true, email: true } });
-    recipients = pick(people);
+    const people = await db.person.findMany({ where, select: PERSON_SELECT });
+    recipientObjs = pick(people);
   }
 
+  const recipients = recipientObjs.map((r) => r.contact);
   let sent = recipients.length;
+  // Per-recipient outcome for the audit log - defaults to "all succeeded"
+  // (email / stub mode has no finer granularity than the whole-batch result).
+  let statusByIndex: boolean[] = recipients.map(() => true);
 
   if (recipients.length) {
     if (channel === "Email") {
-      await sendEmail({ to: recipients, subject: name, html: `<p>${message}</p>` });
+      const result = await sendEmail({ to: recipients, subject: name, html: `<p>${message}</p>` });
+      statusByIndex = recipients.map(() => result.ok);
+      sent = result.ok ? recipients.length : 0;
     } else {
       // SMS is billed against the church's prepaid credits.
       const result = await sendChurchSms(session.churchId, recipients, message, { note: name });
@@ -89,10 +129,11 @@ export async function sendBroadcast(formData: FormData) {
         redirect("/app/communications?error=credits");
       }
       sent = result.sent;
+      statusByIndex = result.results ? result.results.map((r) => r.ok) : recipients.map(() => result.ok);
     }
   }
 
-  await db.communication.create({
+  const comm = await db.communication.create({
     data: {
       churchId: session.churchId,
       name,
@@ -105,9 +146,39 @@ export async function sendBroadcast(formData: FormData) {
     },
   });
 
+  if (recipientObjs.length) {
+    await db.communicationRecipient.createMany({
+      data: recipientObjs.map((r, i) => ({
+        communicationId: comm.id,
+        personId: r.id,
+        name: r.name || null,
+        contact: r.contact,
+        status: statusByIndex[i] ? "sent" : "failed",
+      })),
+    });
+  }
+
   await audit(session, "send", "broadcast", `Sent "${name}" to ${sent} recipient(s)`);
   revalidatePath("/app/communications");
   revalidatePath("/app");
+}
+
+/** Full per-recipient send audit for one campaign (who it went to, and whether
+ *  each one actually went through). Scoped to the caller's own church. */
+export async function getCampaignRecipients(communicationId: string) {
+  const session = await requireSession();
+  const comm = await db.communication.findFirst({
+    where: { id: communicationId, churchId: session.churchId },
+    select: { id: true },
+  });
+  if (!comm) return [];
+
+  const rows = await db.communicationRecipient.findMany({
+    where: { communicationId },
+    orderBy: { createdAt: "asc" },
+    select: { name: true, contact: true, status: true },
+  });
+  return rows;
 }
 
 /** Send an SMS to a single member from their profile. Billed to credits. */

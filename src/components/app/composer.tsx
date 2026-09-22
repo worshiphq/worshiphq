@@ -60,6 +60,7 @@ export function Composer({
             <option value="visitor">Visitors</option>
             <option value="leaders">Church leaders</option>
             <option value="group-leaders">Group / ministry leaders</option>
+            <option value="missing-national-id">Adults missing Ghana Card</option>
             {departments.length > 0 && (
               <optgroup label="By department">
                 {departments.map((d) => <option key={d.id} value={`dept:${d.id}`}>{d.name}</option>)}

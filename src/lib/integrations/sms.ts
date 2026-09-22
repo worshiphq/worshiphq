@@ -13,6 +13,9 @@ export type SmsResult = {
    *  other 80 that went through. Callers that bill per-recipient (sendChurchSms)
    *  must charge against this, not against the size of the recipient list. */
   sentCount: number;
+  /** Per-recipient outcome (normalised phone/email actually dialled), in the
+   *  same order as the input list, so callers can log a detailed send audit. */
+  results: { to: string; ok: boolean }[];
 };
 
 // Approved sender IDs (e.g. Hubtel "HostHub") aren't our brand name, so we brand
@@ -58,21 +61,45 @@ export async function sendSms(
   },
 ): Promise<SmsResult> {
   // Normalise to the digits-only format providers require (Hubtel rejects "024…").
-  const recipients = (Array.isArray(to) ? to : [to]).map(normalisePhone).filter((p) => p.length >= 11);
+  // Keep this in the SAME order/length as the caller's list (even entries that
+  // turn out invalid) so `results` below can be matched back to callers'
+  // original recipients 1:1 for an accurate send audit.
+  const rawList = Array.isArray(to) ? to : [to];
+  const normalised = rawList.map(normalisePhone);
+  const validIdx: number[] = [];
+  const recipients: string[] = [];
+  normalised.forEach((p, i) => {
+    if (p.length >= 11) { validIdx.push(i); recipients.push(p); }
+  });
+  /** Expand per-valid-recipient outcomes back out to the full original list,
+   *  marking anything that was filtered out as invalid as failed. */
+  const toFullResults = (perValidOk: boolean[]): { to: string; ok: boolean }[] => {
+    const out = normalised.map((p) => ({ to: p, ok: false }));
+    validIdx.forEach((origIdx, i) => { out[origIdx].ok = perValidOk[i]; });
+    return out;
+  };
+
   const provider = env.SMS_PROVIDER;
   const heading = opts?.heading === undefined ? DEFAULT_HEADING : opts.heading;
   const senderId = opts?.senderId ?? null;
   const message = withHeading(rawMessage, heading);
 
   if (recipients.length === 0) {
-    return { ok: false, provider, stubbed: false, error: "No valid phone numbers", sentCount: 0 };
+    return {
+      ok: false, provider, stubbed: false, error: "No valid phone numbers",
+      sentCount: 0, results: toFullResults([]),
+    };
   }
 
   if (!features.sms) {
     console.info(
       `[SMS:stub] (${provider}) → ${recipients.join(", ")}\n  "${message}"\n  (set the provider key in .env.local to send for real)`,
     );
-    return { ok: true, provider, stubbed: true, id: `stub_${Date.now()}`, sentCount: recipients.length };
+    return {
+      ok: true, provider, stubbed: true, id: `stub_${Date.now()}`,
+      sentCount: recipients.length,
+      results: toFullResults(recipients.map(() => true)),
+    };
   }
 
   try {
@@ -87,12 +114,19 @@ export async function sendSms(
         }),
       });
       const data = await res.json();
-      return { ok: res.ok, provider, stubbed: false, id: data?.data?.[0]?.id, sentCount: res.ok ? recipients.length : 0 };
+      // Arkesel's batch endpoint doesn't return per-recipient status - the whole
+      // batch shares one outcome here.
+      return {
+        ok: res.ok, provider, stubbed: false, id: data?.data?.[0]?.id,
+        sentCount: res.ok ? recipients.length : 0,
+        results: toFullResults(recipients.map(() => res.ok)),
+      };
     }
 
     if (provider === "hubtel") {
       let lastId: string | undefined;
       let sentCount = 0;
+      const perValidOk: boolean[] = [];
       for (const recipient of recipients) {
         const url = new URL("https://sms.hubtel.com/v1/messages/send");
         url.searchParams.set("clientsecret", env.HUBTEL_CLIENT_SECRET!);
@@ -107,19 +141,27 @@ export async function sendSms(
         } else {
           sentCount++;
         }
+        perValidOk.push(res.ok);
         lastId = data?.messageId ?? data?.MessageId ?? lastId;
       }
       // One usage report for the whole batch, not per recipient.
       reportHubtelUsage(sentCount);
       // A batch is never all-or-nothing: one bad number among 80 good ones must
       // still count as (and bill for) 79 delivered, not zero.
-      return { ok: sentCount > 0, provider, stubbed: false, id: lastId, sentCount };
+      return { ok: sentCount > 0, provider, stubbed: false, id: lastId, sentCount, results: toFullResults(perValidOk) };
     }
 
     // mnotify / twilio implementations follow the same shape.
     console.warn(`[SMS] provider "${provider}" not yet implemented - logging instead`);
-    return { ok: true, provider, stubbed: true, sentCount: recipients.length };
+    return {
+      ok: true, provider, stubbed: true,
+      sentCount: recipients.length,
+      results: toFullResults(recipients.map(() => true)),
+    };
   } catch (e) {
-    return { ok: false, provider, stubbed: false, error: (e as Error).message, sentCount: 0 };
+    return {
+      ok: false, provider, stubbed: false, error: (e as Error).message,
+      sentCount: 0, results: toFullResults(recipients.map(() => false)),
+    };
   }
 }

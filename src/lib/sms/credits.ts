@@ -51,6 +51,9 @@ export interface ChurchSmsResult {
   cost: number;
   balance: number;
   insufficient?: boolean;
+  /** Per-recipient outcome, same order as the `to` list passed in, so the
+   *  caller can log a detailed send audit (who got it, who didn't). */
+  results?: { to: string; ok: boolean }[];
 }
 
 /**
@@ -103,7 +106,7 @@ export async function sendChurchSms(
   });
   // A batch is never all-or-nothing (e.g. one bad number among 80 good ones) -
   // bill and log only what actually went out, never the full requested list.
-  if (res.sentCount === 0) return { ok: false, sent: 0, cost: estimatedCost, balance };
+  if (res.sentCount === 0) return { ok: false, sent: 0, cost: estimatedCost, balance, results: res.results };
 
   const cost = segments * res.sentCount;
   const updated = await db.church.update({
@@ -125,5 +128,5 @@ export async function sendChurchSms(
     },
   });
 
-  return { ok: true, sent: res.sentCount, cost, balance: updated.smsCredits };
+  return { ok: true, sent: res.sentCount, cost, balance: updated.smsCredits, results: res.results };
 }
