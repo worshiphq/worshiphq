@@ -2,7 +2,18 @@ import "server-only";
 import { env, features } from "@/lib/env";
 import { normalisePhone } from "@/lib/phone";
 
-export type SmsResult = { ok: boolean; provider: string; stubbed: boolean; id?: string; error?: string };
+export type SmsResult = {
+  ok: boolean;
+  provider: string;
+  stubbed: boolean;
+  id?: string;
+  error?: string;
+  /** How many of the requested recipients actually got the message. A batch is
+   *  never all-or-nothing - e.g. one bad phone number shouldn't zero out the
+   *  other 80 that went through. Callers that bill per-recipient (sendChurchSms)
+   *  must charge against this, not against the size of the recipient list. */
+  sentCount: number;
+};
 
 // Approved sender IDs (e.g. Hubtel "HostHub") aren't our brand name, so we brand
 // every message body with a heading (default "WorshipHQ"; church messages pass
@@ -54,14 +65,14 @@ export async function sendSms(
   const message = withHeading(rawMessage, heading);
 
   if (recipients.length === 0) {
-    return { ok: false, provider, stubbed: false, error: "No valid phone numbers" };
+    return { ok: false, provider, stubbed: false, error: "No valid phone numbers", sentCount: 0 };
   }
 
   if (!features.sms) {
     console.info(
       `[SMS:stub] (${provider}) → ${recipients.join(", ")}\n  "${message}"\n  (set the provider key in .env.local to send for real)`,
     );
-    return { ok: true, provider, stubbed: true, id: `stub_${Date.now()}` };
+    return { ok: true, provider, stubbed: true, id: `stub_${Date.now()}`, sentCount: recipients.length };
   }
 
   try {
@@ -76,12 +87,11 @@ export async function sendSms(
         }),
       });
       const data = await res.json();
-      return { ok: res.ok, provider, stubbed: false, id: data?.data?.[0]?.id };
+      return { ok: res.ok, provider, stubbed: false, id: data?.data?.[0]?.id, sentCount: res.ok ? recipients.length : 0 };
     }
 
     if (provider === "hubtel") {
       let lastId: string | undefined;
-      let allOk = true;
       let sentCount = 0;
       for (const recipient of recipients) {
         const url = new URL("https://sms.hubtel.com/v1/messages/send");
@@ -97,18 +107,19 @@ export async function sendSms(
         } else {
           sentCount++;
         }
-        allOk = allOk && res.ok;
         lastId = data?.messageId ?? data?.MessageId ?? lastId;
       }
       // One usage report for the whole batch, not per recipient.
       reportHubtelUsage(sentCount);
-      return { ok: allOk, provider, stubbed: false, id: lastId };
+      // A batch is never all-or-nothing: one bad number among 80 good ones must
+      // still count as (and bill for) 79 delivered, not zero.
+      return { ok: sentCount > 0, provider, stubbed: false, id: lastId, sentCount };
     }
 
     // mnotify / twilio implementations follow the same shape.
     console.warn(`[SMS] provider "${provider}" not yet implemented - logging instead`);
-    return { ok: true, provider, stubbed: true };
+    return { ok: true, provider, stubbed: true, sentCount: recipients.length };
   } catch (e) {
-    return { ok: false, provider, stubbed: false, error: (e as Error).message };
+    return { ok: false, provider, stubbed: false, error: (e as Error).message, sentCount: 0 };
   }
 }

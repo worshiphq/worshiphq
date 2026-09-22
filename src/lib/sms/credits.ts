@@ -84,12 +84,14 @@ export async function sendChurchSms(
       : church?.name ?? "WorshipHQ";
   const smsText = heading ? `${heading}\n${message}` : message;
 
-  const cost = segmentsFor(smsText) * recipients.length;
+  const segments = segmentsFor(smsText);
+  // Worst-case cost, used only to gate whether we attempt the send at all.
+  const estimatedCost = segments * recipients.length;
 
   const balance = await getSmsBalance(churchId);
   if (recipients.length === 0) return { ok: true, sent: 0, cost: 0, balance };
-  if (balance < cost) {
-    return { ok: false, sent: 0, cost, balance, insufficient: true };
+  if (balance < estimatedCost) {
+    return { ok: false, sent: 0, cost: estimatedCost, balance, insufficient: true };
   }
 
   const res = await sendSms(recipients, message, {
@@ -99,22 +101,29 @@ export async function sendChurchSms(
         ? church.smsSenderId
         : null,
   });
-  if (!res.ok) return { ok: false, sent: 0, cost, balance };
+  // A batch is never all-or-nothing (e.g. one bad number among 80 good ones) -
+  // bill and log only what actually went out, never the full requested list.
+  if (res.sentCount === 0) return { ok: false, sent: 0, cost: estimatedCost, balance };
 
+  const cost = segments * res.sentCount;
   const updated = await db.church.update({
     where: { id: churchId },
     data: { smsCredits: { decrement: cost } },
     select: { smsCredits: true },
   });
+  const note =
+    res.sentCount < recipients.length
+      ? `${opts?.note ?? "Broadcast"} (${res.sentCount}/${recipients.length} delivered)`
+      : opts?.note ?? `${recipients.length} recipient(s)`;
   await db.smsTransaction.create({
     data: {
       churchId,
       kind: "usage",
       credits: -cost,
       balanceAfter: updated.smsCredits,
-      note: opts?.note ?? `${recipients.length} recipient(s)`,
+      note,
     },
   });
 
-  return { ok: true, sent: recipients.length, cost, balance: updated.smsCredits };
+  return { ok: true, sent: res.sentCount, cost, balance: updated.smsCredits };
 }
