@@ -27,7 +27,7 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
 
   const running = useRef(true);
   const galleryLoaded = useRef(false);
-  const galleryCount = useRef(0);
+  const galleryRef = useRef<{ personId: string; personName: string; templateData: string }[]>([]);
 
   const close = () => {
     running.current = false;
@@ -53,13 +53,13 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
           setPhase("unknown"); setHint("No fingerprints registered yet. Register members first.");
           return;
         }
-        galleryCount.current = templates.length;
-        await fetch(`${AGENT_URL}/gallery`, {
+        galleryRef.current = templates;
+        const galRes = await fetch(`${AGENT_URL}/gallery`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ templates }),
-        });
-        galleryLoaded.current = true;
+        }).catch(() => null);
+        galleryLoaded.current = galRes?.ok === true;
       } catch { setPhase("no-agent"); return; }
 
       loop();
@@ -81,10 +81,10 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
         if (!running.current) return;
         if (cap.error || !cap.template) { continue; } // no finger yet → keep waiting
 
-        const matchUrl = galleryLoaded.current ? `${AGENT_URL}/match-probe` : `${AGENT_URL}/match`;
         const matchBody = galleryLoaded.current
           ? { probe: cap.template }
-          : { probe: cap.template, gallery: [] };
+          : { probe: cap.template, gallery: galleryRef.current };
+        const matchUrl = galleryLoaded.current ? `${AGENT_URL}/match-probe` : `${AGENT_URL}/match`;
         const match = await fetch(matchUrl, {
           method: "POST", headers: { "Content-Type": "application/json" },
           body: JSON.stringify(matchBody),

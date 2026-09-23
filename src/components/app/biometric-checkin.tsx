@@ -57,12 +57,12 @@ export function BiometricCheckInButton({
     if (!res.ok) throw new Error("Failed to load fingerprint data");
     const data = await res.json();
     cacheRef.current = { templates: data.templates, count: data.count };
-    await fetch(`${AGENT_URL}/gallery`, {
+    const galRes = await fetch(`${AGENT_URL}/gallery`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ templates: data.templates }),
-    });
-    agentGalleryLoaded.current = true;
+    }).catch(() => null);
+    agentGalleryLoaded.current = galRes?.ok === true;
     return data.count;
   }
 
@@ -108,10 +108,14 @@ export function BiometricCheckInButton({
         throw new Error("No fingerprints registered yet. Register members first from the People page.");
       }
 
-      const matchRes = await fetch(`${AGENT_URL}/match-probe`, {
+      const matchUrl = agentGalleryLoaded.current ? `${AGENT_URL}/match-probe` : `${AGENT_URL}/match`;
+      const matchBody = agentGalleryLoaded.current
+        ? { probe: capture.template }
+        : { probe: capture.template, gallery: cacheRef.current?.templates ?? [] };
+      const matchRes = await fetch(matchUrl, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ probe: capture.template }),
+        body: JSON.stringify(matchBody),
         signal: AbortSignal.timeout(15000),
       });
 
