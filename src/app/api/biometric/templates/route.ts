@@ -4,9 +4,18 @@ import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
-export async function GET(_req: NextRequest) {
+export async function GET(req: NextRequest) {
   const session = await getSession();
   if (!session || session.isDemo) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const countOnly = req.nextUrl.searchParams.get("countOnly") === "true";
+
+  if (countOnly) {
+    const count = await db.biometricCredential.count({
+      where: { churchId: session.churchId, type: "scanner", templateData: { not: null } },
+    });
+    return NextResponse.json({ count });
+  }
 
   const templates = await db.biometricCredential.findMany({
     where: { churchId: session.churchId, type: "scanner", templateData: { not: null } },

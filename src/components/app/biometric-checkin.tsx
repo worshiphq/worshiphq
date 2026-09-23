@@ -1,10 +1,26 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Fingerprint, Loader2, X, UserCheck, Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 const AGENT_URL = "http://localhost:23847";
+
+interface TemplateEntry {
+  id: string;
+  personId: string;
+  personName: string;
+  memberId: string | null;
+  templateData: string;
+  finger: string | null;
+  quality: number;
+  format: string;
+}
+
+interface TemplateCache {
+  templates: TemplateEntry[];
+  count: number;
+}
 
 export function BiometricCheckInButton({
   sessionId,
@@ -16,6 +32,32 @@ export function BiometricCheckInButton({
   const [state, setState] = useState<"idle" | "connecting" | "scanning" | "matching" | "success" | "error" | "no-agent">("idle");
   const [message, setMessage] = useState("");
   const [memberName, setMemberName] = useState("");
+  const cacheRef = useRef<TemplateCache | null>(null);
+
+  useEffect(() => {
+    fetch("/api/biometric/templates")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data?.templates) cacheRef.current = { templates: data.templates, count: data.count };
+      })
+      .catch(() => {});
+  }, []);
+
+  async function getTemplates(): Promise<TemplateEntry[]> {
+    const cached = cacheRef.current;
+    if (cached) {
+      const countRes = await fetch("/api/biometric/templates?countOnly=true").catch(() => null);
+      if (countRes?.ok) {
+        const { count } = await countRes.json();
+        if (count === cached.count) return cached.templates;
+      }
+    }
+    const res = await fetch("/api/biometric/templates");
+    if (!res.ok) throw new Error("Failed to load fingerprint data");
+    const data = await res.json();
+    cacheRef.current = { templates: data.templates, count: data.count };
+    return data.templates;
+  }
 
   async function handleScan() {
     setState("connecting");
@@ -53,10 +95,7 @@ export function BiometricCheckInButton({
       setState("matching");
       setMessage("Identifying member...");
 
-      // Download all templates and match locally via agent
-      const templatesRes = await fetch("/api/biometric/templates");
-      if (!templatesRes.ok) throw new Error("Failed to load fingerprint data");
-      const { templates } = await templatesRes.json();
+      const templates = await getTemplates();
 
       if (templates.length === 0) {
         throw new Error("No fingerprints registered yet. Register members first from the People page.");
