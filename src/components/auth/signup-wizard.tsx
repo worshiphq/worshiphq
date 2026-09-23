@@ -240,7 +240,7 @@ export function SignupWizard({
                     id="w-password"
                     value={data.password}
                     onChange={set("password")}
-                    placeholder="e.g. Sunday@2026"
+                    placeholder="Enter a password"
                     autoFocus
                   />
 
