@@ -17,7 +17,9 @@ function csvCell(v: unknown): string {
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 function toCsv(headers: string[], rows: unknown[][]): string {
-  return [headers, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n");
+  // Leading UTF-8 BOM so Excel renders accented names, the cedi sign, etc.
+  // correctly instead of mojibake (it otherwise guesses the system codepage).
+  return "﻿" + [headers, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n");
 }
 
 function styleHeader(ws: ExcelJS.Worksheet, headers: string[]) {

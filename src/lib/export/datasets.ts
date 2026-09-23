@@ -251,6 +251,296 @@ export const DATASETS: Dataset[] = [
       };
     },
   },
+  {
+    key: "communications",
+    label: "Communications history",
+    section: "communications",
+    async fetch(churchId) {
+      const rows = await db.communication.findMany({ where: { churchId }, orderBy: { createdAt: "desc" } });
+      return {
+        headers: ["Date", "Campaign", "Channel", "Segment", "Sent", "Delivered", "Opened", "Status"],
+        rows: rows.map((c) => [d(c.createdAt), c.name, c.channel, c.segment ?? "", c.sent, c.delivered, c.opened, c.status]),
+      };
+    },
+  },
+  {
+    key: "communication-recipients",
+    label: "Communications - recipients",
+    section: "communications",
+    async fetch(churchId) {
+      const rows = await db.communicationRecipient.findMany({
+        where: { communication: { churchId } },
+        orderBy: { createdAt: "desc" },
+        include: { communication: { select: { name: true } } },
+      });
+      return {
+        headers: ["Date", "Campaign", "Recipient", "Contact", "Status"],
+        rows: rows.map((r) => [d(r.createdAt), r.communication.name, r.name ?? "", r.contact, r.status]),
+      };
+    },
+  },
+  {
+    key: "transactions",
+    label: "Accounting transactions",
+    section: "accounting",
+    async fetch(churchId) {
+      const rows = await db.transaction.findMany({ where: { churchId }, orderBy: { date: "desc" } });
+      return {
+        headers: ["Date", "Description", "Category", "Fund", "Amount"],
+        rows: rows.map((t) => [d(t.date), t.description, t.category, t.fund ?? "", n(t.amount)]),
+      };
+    },
+  },
+  {
+    key: "sms-credits",
+    label: "SMS credit ledger",
+    section: "communications",
+    async fetch(churchId) {
+      const rows = await db.smsTransaction.findMany({ where: { churchId }, orderBy: { createdAt: "desc" } });
+      return {
+        headers: ["Date", "Kind", "Credits", "Balance after", "Note"],
+        rows: rows.map((t) => [d(t.createdAt), t.kind, t.credits, t.balanceAfter, t.note ?? ""]),
+      };
+    },
+  },
+  {
+    key: "welfare-records",
+    label: "Welfare (dues & aid)",
+    section: "welfare",
+    async fetch(churchId) {
+      const rows = await db.welfareRecord.findMany({
+        where: { churchId },
+        orderBy: { date: "desc" },
+      });
+      return {
+        headers: ["Date", "Kind", "Recipient", "Type", "Amount", "Description"],
+        rows: rows.map((r) => [d(r.date), r.kind, r.recipientName, r.type, n(r.amount), r.description ?? ""]),
+      };
+    },
+  },
+  {
+    key: "welfare-dues",
+    label: "Welfare dues paid",
+    section: "welfare",
+    async fetch(churchId) {
+      const rows = await db.welfareDue.findMany({
+        where: { churchId },
+        orderBy: [{ year: "desc" }, { month: "desc" }],
+        include: { person: { select: { firstName: true, lastName: true } } },
+      });
+      return {
+        headers: ["Member", "Year", "Month", "Amount", "Recorded"],
+        rows: rows.map((w) => [`${w.person.firstName} ${w.person.lastName}`, w.year, w.month, n(w.amount), d(w.createdAt)]),
+      };
+    },
+  },
+  {
+    key: "dayborn",
+    label: "Day Born collections",
+    section: "dayborn",
+    async fetch(churchId) {
+      const rows = await db.dayBornEntry.findMany({
+        where: { week: { churchId } },
+        orderBy: { createdAt: "desc" },
+        include: { week: { select: { weekOf: true } } },
+      });
+      return {
+        headers: ["Week of", "Day", "Person", "Method", "Amount", "Reference"],
+        rows: rows.map((e) => [d(e.week.weekOf), e.day, e.personName ?? "", String(e.method).replace(/_/g, " "), n(e.amount), e.reference ?? ""]),
+      };
+    },
+  },
+  {
+    key: "follow-ups",
+    label: "Follow-ups",
+    section: "follow-ups",
+    async fetch(churchId) {
+      const rows = await db.followUp.findMany({
+        where: { churchId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          person: { select: { firstName: true, lastName: true } },
+          visitor: { select: { firstName: true, lastName: true } },
+          assignee: { select: { name: true } },
+        },
+      });
+      return {
+        headers: ["Date", "Type", "Title", "For", "Assigned to", "Status", "Due date"],
+        rows: rows.map((f) => [
+          d(f.createdAt), f.type, f.title,
+          f.person ? `${f.person.firstName} ${f.person.lastName}` : f.visitor ? `${f.visitor.firstName} ${f.visitor.lastName}` : "",
+          f.assignee?.name ?? "", f.status, d(f.dueDate),
+        ]),
+      };
+    },
+  },
+  {
+    key: "sermons",
+    label: "Sermons",
+    section: "sermons",
+    async fetch(churchId) {
+      const rows = await db.sermon.findMany({ where: { churchId }, orderBy: { date: "desc" } });
+      return {
+        headers: ["Date", "Title", "Preacher", "Series", "Scripture", "Published"],
+        rows: rows.map((s) => [d(s.date), s.title, s.preacher ?? "", s.series ?? "", s.scripture ?? "", s.published ? "Yes" : "No"]),
+      };
+    },
+  },
+  {
+    key: "devotionals",
+    label: "Devotionals",
+    section: "devotionals",
+    async fetch(churchId) {
+      const rows = await db.devotional.findMany({ where: { churchId }, orderBy: { date: "desc" } });
+      return {
+        headers: ["Date", "Title", "Scripture", "Author", "Published"],
+        rows: rows.map((v) => [d(v.date), v.title, v.scripture ?? "", v.author ?? "", v.published ? "Yes" : "No"]),
+      };
+    },
+  },
+  {
+    key: "testimonies",
+    label: "Testimonies",
+    section: "testimonies",
+    async fetch(churchId) {
+      const rows = await db.testimony.findMany({
+        where: { churchId },
+        orderBy: { date: "desc" },
+        include: { person: { select: { firstName: true, lastName: true } } },
+      });
+      return {
+        headers: ["Date", "Title", "Person", "Category", "Status"],
+        rows: rows.map((t) => [
+          d(t.date), t.title, t.anonymous ? "Anonymous" : t.person ? `${t.person.firstName} ${t.person.lastName}` : "",
+          t.category, t.status,
+        ]),
+      };
+    },
+  },
+  {
+    key: "counseling",
+    label: "Counseling sessions",
+    section: "counseling",
+    async fetch(churchId) {
+      const rows = await db.counselingSession.findMany({
+        where: { churchId },
+        orderBy: { date: "desc" },
+        include: { person: { select: { firstName: true, lastName: true } }, counselor: { select: { name: true } } },
+      });
+      return {
+        headers: ["Date", "Person", "Counselor", "Type", "Status", "Summary"],
+        rows: rows.map((c) => [
+          d(c.date), c.person ? `${c.person.firstName} ${c.person.lastName}` : "", c.counselor?.name ?? "",
+          c.type, c.status, c.summary,
+        ]),
+      };
+    },
+  },
+  {
+    key: "assets",
+    label: "Assets",
+    section: "assets",
+    async fetch(churchId) {
+      const rows = await db.asset.findMany({ where: { churchId }, orderBy: { name: "asc" } });
+      return {
+        headers: ["Name", "Category", "Location", "Condition", "Serial No", "Purchase date", "Purchase price"],
+        rows: rows.map((a) => [a.name, a.category, a.location ?? "", a.condition, a.serialNo ?? "", d(a.purchaseDate), a.purchasePrice ?? ""]),
+      };
+    },
+  },
+  {
+    key: "bookings",
+    label: "Bookings",
+    section: "bookings",
+    async fetch(churchId) {
+      const rows = await db.booking.findMany({
+        where: { churchId },
+        orderBy: { startTime: "desc" },
+        include: { facility: { select: { name: true } } },
+      });
+      return {
+        headers: ["Facility", "Title", "Booked by", "Start", "End", "Status"],
+        rows: rows.map((b) => [b.facility.name, b.title, b.bookedBy, d(b.startTime), d(b.endTime), b.status]),
+      };
+    },
+  },
+  {
+    key: "volunteers",
+    label: "Volunteer assignments",
+    section: "volunteers",
+    async fetch(churchId) {
+      const rows = await db.volunteerAssignment.findMany({ where: { churchId }, orderBy: { serviceDate: "desc" } });
+      return {
+        headers: ["Service date", "Team", "Role", "Person", "Confirmed"],
+        rows: rows.map((v) => [d(v.serviceDate), v.team, v.role, v.personName, v.confirmed ? "Yes" : "No"]),
+      };
+    },
+  },
+  {
+    key: "rosters",
+    label: "Volunteer rosters",
+    section: "rosters",
+    async fetch(churchId) {
+      const rows = await db.volunteerSlot.findMany({
+        where: { churchId },
+        orderBy: { date: "desc" },
+        include: { roster: { select: { name: true } }, person: { select: { firstName: true, lastName: true } } },
+      });
+      return {
+        headers: ["Roster", "Date", "Service", "Role", "Person", "Shift", "Status"],
+        rows: rows.map((s) => [
+          s.roster.name, d(s.date), s.service ?? "", s.role,
+          s.person ? `${s.person.firstName} ${s.person.lastName}` : (s.personName ?? ""),
+          s.shift, s.status,
+        ]),
+      };
+    },
+  },
+  {
+    key: "notices",
+    label: "Notices",
+    section: "notices",
+    async fetch(churchId) {
+      const rows = await db.churchNotice.findMany({ where: { churchId }, orderBy: { createdAt: "desc" } });
+      return {
+        headers: ["Date", "Title", "Body", "Pinned"],
+        rows: rows.map((n2) => [d(n2.createdAt), n2.title, n2.body, n2.pinned ? "Yes" : "No"]),
+      };
+    },
+  },
+  {
+    key: "registrations",
+    label: "Event registrations",
+    section: "events",
+    async fetch(churchId) {
+      const rows = await db.registration.findMany({
+        where: { event: { churchId } },
+        orderBy: { createdAt: "desc" },
+        include: { event: { select: { title: true } } },
+      });
+      return {
+        headers: ["Date", "Event", "Name", "Email", "Phone", "Checked in"],
+        rows: rows.map((r) => [d(r.createdAt), r.event.title, r.name, r.email ?? "", r.phone ?? "", r.checkedIn ? "Yes" : "No"]),
+      };
+    },
+  },
+  {
+    key: "audit-log",
+    label: "Audit log",
+    section: "audit-log",
+    async fetch(churchId) {
+      const rows = await db.auditLog.findMany({
+        where: { churchId },
+        orderBy: { createdAt: "desc" },
+        take: 20000,
+        include: { user: { select: { name: true, email: true } } },
+      });
+      return {
+        headers: ["Date", "User", "Action", "Entity", "Detail"],
+        rows: rows.map((a) => [d(a.createdAt), a.user?.name ?? a.user?.email ?? "", a.action, a.entity, a.detail ?? ""]),
+      };
+    },
+  },
 ];
 
 /** Datasets this session is allowed to export, given their visible sections. */

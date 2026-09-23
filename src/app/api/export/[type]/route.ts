@@ -15,7 +15,9 @@ function cell(v: unknown): string {
 }
 
 function toCsv(headers: string[], rows: unknown[][]): string {
-  return [headers, ...rows].map((r) => r.map(cell).join(",")).join("\r\n");
+  // Leading UTF-8 BOM so Excel (which otherwise guesses the system codepage)
+  // renders accented names, the cedi sign, etc. correctly instead of mojibake.
+  return "﻿" + [headers, ...rows].map((r) => r.map(cell).join(",")).join("\r\n");
 }
 
 function fmtDate(d: Date): string {
