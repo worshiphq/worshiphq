@@ -62,10 +62,10 @@ export default async function BudgetsPage() {
             <Field label="Year" name="year" type="number" placeholder={String(currentYear)} required />
             <Field label="Quarter (optional)" name="quarter" type="select" options={[
               { label: "Annual (full year)", value: "" },
-              { label: "Q1 (Jan–Mar)", value: "1" },
-              { label: "Q2 (Apr–Jun)", value: "2" },
-              { label: "Q3 (Jul–Sep)", value: "3" },
-              { label: "Q4 (Oct–Dec)", value: "4" },
+              { label: "Q1 (Jan-Mar)", value: "1" },
+              { label: "Q2 (Apr-Jun)", value: "2" },
+              { label: "Q3 (Jul-Sep)", value: "3" },
+              { label: "Q4 (Oct-Dec)", value: "4" },
             ]} />
             <Field label="Notes" name="notes" type="textarea" placeholder="Budget notes..." />
           </ActionDialog>

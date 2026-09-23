@@ -1340,7 +1340,7 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
                 >
                   <div className="rounded-xl border border-info/30 bg-info/10 p-3 text-xs text-info">
                     Refunds are reviewed within <b>{refundElig.slaHours ?? 24} hours</b>. If approved, Paystack sends it to your
-                    bank - usually <b>5–10 working days</b>. This window closes{" "}
+                    bank - usually <b>5-10 working days</b>. This window closes{" "}
                     {refundElig.deadline && <b>{new Date(refundElig.deadline).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}</b>}.
                     To simply move to a cheaper plan, use a <b>downgrade</b> instead.
                   </div>
@@ -1359,7 +1359,7 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
                     <input type="checkbox" name="accepted" className="mt-0.5 size-4 rounded border-line accent-primary" />
                     <span>
                       I&rsquo;ve read the <a href="/refund-policy" target="_blank" className="font-semibold text-primary hover:underline">Refund Policy</a> and
-                      understand a refund can take 5–10 working days to reach my bank after approval.
+                      understand a refund can take 5-10 working days to reach my bank after approval.
                     </span>
                   </label>
                   <SubmitButton className="w-full" pendingLabel="Submitting…" successMessage="Request submitted">

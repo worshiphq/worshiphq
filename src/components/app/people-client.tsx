@@ -755,7 +755,7 @@ function PersonForm({
                   <Label htmlFor="ageGroup">Age group *</Label>
                   <select id="ageGroup" name="ageGroup" defaultValue={person?.ageGroup ?? personAge} className={selectBase}>
                     <option value="child">Child (under 13)</option>
-                    <option value="teen">Teen (13–17)</option>
+                    <option value="teen">Teen (13-17)</option>
                   </select>
                 </div>
                 <div>

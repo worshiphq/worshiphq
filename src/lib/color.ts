@@ -15,7 +15,7 @@ export function rgbToHex(r: number, g: number, b: number): string {
   return "#" + [r, g, b].map((v) => clamp(v).toString(16).padStart(2, "0")).join("");
 }
 
-/** Mix a hex colour with white by `amount` (0–1). */
+/** Mix a hex colour with white by `amount` (0-1). */
 export function mixWithWhite(hex: string, amount: number): string {
   const rgb = hexToRgb(hex);
   if (!rgb) return hex;
@@ -23,7 +23,7 @@ export function mixWithWhite(hex: string, amount: number): string {
   return rgbToHex(r + (255 - r) * amount, g + (255 - g) * amount, b + (255 - b) * amount);
 }
 
-/** Mix a hex colour with black by `amount` (0–1). */
+/** Mix a hex colour with black by `amount` (0-1). */
 export function mixWithBlack(hex: string, amount: number): string {
   const rgb = hexToRgb(hex);
   if (!rgb) return hex;

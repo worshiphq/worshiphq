@@ -167,7 +167,7 @@ export async function getWelfareData(churchId: string, year?: number, range?: We
     };
   });
 
-  // Wide year range for record-keeping (1980–2050).
+  // Wide year range for record-keeping (1980-2050).
   const years = wideYears();
 
   return {
@@ -187,7 +187,7 @@ export async function getWelfareData(churchId: string, year?: number, range?: We
     disbursed: aidRows.reduce((s, r) => s + Number(r.amount ?? 0), 0),
     totalOwed: memberRows.reduce((s, m) => s + m.owed, 0),
     range: range
-      ? { ...range, label: `${MONTHS_SHORT[range.fromM - 1]} ${range.fromY} – ${MONTHS_SHORT[range.toM - 1]} ${range.toY}` }
+      ? { ...range, label: `${MONTHS_SHORT[range.fromM - 1]} ${range.fromY} - ${MONTHS_SHORT[range.toM - 1]} ${range.toY}` }
       : null,
     rangeMissingYears,
     rangeCollected: rangeUsable ? memberRows.reduce((s, m) => s + m.rangePaid, 0) : 0,

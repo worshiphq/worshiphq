@@ -51,7 +51,7 @@ export default async function RefundPolicyPage() {
           <li>We review every request within <strong>{policy.slaHours} hours</strong> (small amounts may be faster).</li>
           <li>
             If approved, we issue the refund through our payment processor (Paystack) right away. Your bank or mobile-money
-            provider then settles it - typically <strong>5–10 working days</strong>. That last step is outside our control.
+            provider then settles it - typically <strong>5-10 working days</strong>. That last step is outside our control.
           </li>
           <li>You&rsquo;ll get an SMS when your request is approved or declined.</li>
         </ul>

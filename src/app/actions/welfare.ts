@@ -99,7 +99,7 @@ export async function setWelfareRate(formData: FormData) {
 
 /**
  * Record a member's welfare dues across a range of months in a year - e.g.
- * Jan–Oct 2025 at GHS 5/month creates a due for each month. Posts the batch
+ * Jan-Oct 2025 at GHS 5/month creates a due for each month. Posts the batch
  * total as income into an account, and optionally texts the member.
  */
 export async function recordWelfareDues(formData: FormData) {
@@ -166,7 +166,7 @@ export async function recordWelfareDues(formData: FormData) {
   }
 
   const total = cells.reduce((s, c) => s + amountFor(c.year), 0);
-  const rangeLabel = `${MONTHS[fromMonth - 1]} ${fromYear} – ${MONTHS[toMonth - 1]} ${toYear}`;
+  const rangeLabel = `${MONTHS[fromMonth - 1]} ${fromYear} - ${MONTHS[toMonth - 1]} ${toYear}`;
 
   // Post the collected dues as income into the chosen account.
   const { postLedgerToAccount } = await import("@/lib/data/accounts");

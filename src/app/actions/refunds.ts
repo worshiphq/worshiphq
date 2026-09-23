@@ -57,7 +57,7 @@ export async function requestRefund(formData: FormData) {
   revalidatePath("/app/settings");
   return {
     ok: true as const,
-    message: `Request received. We review refunds within ${policy.slaHours} hours; if approved, your bank typically receives it in 5–10 working days.`,
+    message: `Request received. We review refunds within ${policy.slaHours} hours; if approved, your bank typically receives it in 5-10 working days.`,
   };
 }
 

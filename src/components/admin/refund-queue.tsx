@@ -71,7 +71,7 @@ export function RefundQueue({ requests }: { requests: RefundRow[] }) {
         )}
       </div>
       <p className="mt-1 text-sm text-white/50">
-        Approving issues the refund through Paystack immediately; the bank typically settles it in 5–10 working days.
+        Approving issues the refund through Paystack immediately; the bank typically settles it in 5-10 working days.
       </p>
 
       {requests.length === 0 ? (

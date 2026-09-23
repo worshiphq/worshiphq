@@ -117,7 +117,7 @@ export function CampaignHistory({ campaigns }: { campaigns: CampaignRow[] }) {
           {pages > 1 && (
             <div className="flex items-center justify-between border-t border-line px-5 py-3 text-sm">
               <span className="text-ink-faint">
-                {clamped * PER_PAGE + 1}–{Math.min((clamped + 1) * PER_PAGE, campaigns.length)} of {campaigns.length}
+                {clamped * PER_PAGE + 1}-{Math.min((clamped + 1) * PER_PAGE, campaigns.length)} of {campaigns.length}
               </span>
               <div className="flex items-center gap-1">
                 <button onClick={() => setPage(clamped - 1)} disabled={clamped === 0}

@@ -13,25 +13,25 @@ export interface SmsBundle {
 }
 
 /** Pricing tiers the SuperAdmin can switch between (per-SMS profit rises B→D).
- *  Provider cost is ~₵0.03–0.04/SMS, so every tier here stays comfortably
+ *  Provider cost is ~₵0.03-0.04/SMS, so every tier here stays comfortably
  *  profitable. "D" is the site default. */
 export type SmsTier = "B" | "C" | "D";
 export const SMS_TIERS: Record<SmsTier, SmsBundle[]> = {
-  // Balanced - ~2.5–3× cost
+  // Balanced - ~2.5-3× cost
   B: [
     { id: "starter", credits: 500, priceGhs: 65 },
     { id: "growth", credits: 2000, priceGhs: 240, popular: true },
     { id: "church", credits: 5000, priceGhs: 550 },
     { id: "campus", credits: 10000, priceGhs: 1000 },
   ],
-  // Premium - ~3–4× cost
+  // Premium - ~3-4× cost
   C: [
     { id: "starter", credits: 500, priceGhs: 80 },
     { id: "growth", credits: 2000, priceGhs: 300, popular: true },
     { id: "church", credits: 5000, priceGhs: 700 },
     { id: "campus", credits: 10000, priceGhs: 1250 },
   ],
-  // Top-tier - ~4–5× cost (default)
+  // Top-tier - ~4-5× cost (default)
   D: [
     { id: "starter", credits: 500, priceGhs: 100 },
     { id: "growth", credits: 2000, priceGhs: 360, popular: true },
@@ -41,9 +41,9 @@ export const SMS_TIERS: Record<SmsTier, SmsBundle[]> = {
 };
 
 export const SMS_TIER_META: Record<SmsTier, { label: string; note: string }> = {
-  B: { label: "Balanced", note: "Lowest prices · ~2.5–3× cost" },
-  C: { label: "Premium", note: "Higher margin · ~3–4× cost" },
-  D: { label: "Top-tier", note: "Highest margin · ~4–5× cost" },
+  B: { label: "Balanced", note: "Lowest prices · ~2.5-3× cost" },
+  C: { label: "Premium", note: "Higher margin · ~3-4× cost" },
+  D: { label: "Top-tier", note: "Highest margin · ~4-5× cost" },
 };
 
 export const DEFAULT_SMS_TIER: SmsTier = "D";

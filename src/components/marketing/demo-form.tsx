@@ -70,8 +70,8 @@ export function DemoForm() {
                 className="flex h-11 w-full rounded-xl border border-line bg-surface px-3.5 text-sm text-ink focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
               >
                 <option>Under 50</option>
-                <option>50 – 250</option>
-                <option>250 – 1,000</option>
+                <option>50 - 250</option>
+                <option>250 - 1,000</option>
                 <option>Over 1,000</option>
                 <option>Multi-branch</option>
               </select>

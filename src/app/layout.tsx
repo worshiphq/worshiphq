@@ -1,17 +1,28 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter, Fraunces, JetBrains_Mono } from "next/font/google";
 import { brand } from "@/config/brand";
 import { ServiceWorker } from "@/components/pwa/service-worker";
 import { FeedbackProvider } from "@/components/ui/feedback";
 import { NavProgress } from "@/components/ui/nav-progress";
 import "./globals.css";
 
-// Clean, professional sans - one typeface for both headings and body text.
+// Clean, professional sans - the workhorse typeface for UI, body text and
+// every app-dashboard heading (font-display utility).
 const sans = Inter({
   subsets: ["latin"],
   variable: "--ff-sans",
   weight: ["400", "500", "600", "700", "800"],
+  display: "swap",
+});
+
+// A restrained serif accent reserved for the marketing site's big headline
+// moments only (the press-display utility) - never used in the app dashboard.
+const accent = Fraunces({
+  subsets: ["latin"],
+  variable: "--ff-accent",
+  weight: ["500", "600"],
+  style: ["normal"],
   display: "swap",
 });
 
@@ -69,7 +80,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${sans.variable} ${mono.variable}`}
+      className={`${sans.variable} ${accent.variable} ${mono.variable}`}
     >
       <body className="antialiased">
         <Suspense fallback={null}>

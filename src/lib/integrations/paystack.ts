@@ -106,7 +106,7 @@ export type RefundResult = {
 /**
  * Refund a transaction. `amountGhs` refunds only part of it; omit for a full
  * refund. Paystack processes it and then sends refund.processed / refund.failed
- * webhooks - money typically reaches the customer's bank in 5–10 working days.
+ * webhooks - money typically reaches the customer's bank in 5-10 working days.
  */
 export async function refundTransaction(opts: {
   reference: string;

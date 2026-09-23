@@ -10,10 +10,10 @@ function ageBucket(dob: Date, now: Date): string {
   const m = now.getMonth() - dob.getMonth();
   if (m < 0 || (m === 0 && now.getDate() < dob.getDate())) age--;
   if (age < 0 || age > 120) return "Unknown";
-  if (age <= 12) return "Children (0–12)";
-  if (age <= 19) return "Teens (13–19)";
-  if (age <= 35) return "Young adults (20–35)";
-  if (age <= 59) return "Adults (36–59)";
+  if (age <= 12) return "Children (0-12)";
+  if (age <= 19) return "Teens (13-19)";
+  if (age <= 35) return "Young adults (20-35)";
+  if (age <= 59) return "Adults (36-59)";
   return "Seniors (60+)";
 }
 
@@ -125,7 +125,7 @@ export default async function ReportsPage({
     if (b === "Unknown") continue;
     ageMap.set(b, (ageMap.get(b) ?? 0) + 1);
   }
-  const ageOrder = ["Children (0–12)", "Teens (13–19)", "Young adults (20–35)", "Adults (36–59)", "Seniors (60+)"];
+  const ageOrder = ["Children (0-12)", "Teens (13-19)", "Young adults (20-35)", "Adults (36-59)", "Seniors (60+)"];
   const ageGroups = ageOrder.filter((k) => ageMap.has(k)).map((k) => ({ name: k, count: ageMap.get(k)! }));
 
   // Giving by fund (top 6).

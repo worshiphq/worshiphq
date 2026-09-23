@@ -68,7 +68,7 @@ function formatWeekRange(sundayIso: string) {
   const mon = new Date(sun);
   mon.setDate(mon.getDate() - 6);
   const fmt = (dt: Date) => dt.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
-  return `${fmt(mon)} – ${fmt(sun)}, ${sun.getFullYear()}`;
+  return `${fmt(mon)} - ${fmt(sun)}, ${sun.getFullYear()}`;
 }
 
 function isSunday(iso: string): boolean {

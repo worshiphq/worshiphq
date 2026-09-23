@@ -189,7 +189,7 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
   const dateRange = sheet.services.length
     ? sheet.services.length === 1
       ? fmtDate(sheet.services[0].date)
-      : `${fmtShort(sheet.services[0].date)} – ${fmtShort(sheet.services[sheet.services.length - 1].date)} · ${sheet.services.length} services`
+      : `${fmtShort(sheet.services[0].date)} - ${fmtShort(sheet.services[sheet.services.length - 1].date)} · ${sheet.services.length} services`
     : "";
 
   const shareText = useMemo(() => {
