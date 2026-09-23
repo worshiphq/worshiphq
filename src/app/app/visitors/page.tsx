@@ -12,6 +12,13 @@ export default async function VisitorsPage() {
       where: { churchId: session.churchId },
       orderBy: { visitDate: "desc" },
       take: 200,
+      include: {
+        person: {
+          select: {
+            biometrics: { where: { type: "scanner" }, select: { id: true }, take: 1 },
+          },
+        },
+      },
     }),
     db.church.findUnique({
       where: { id: session.churchId },
@@ -35,7 +42,12 @@ export default async function VisitorsPage() {
         email: v.email,
         purpose: v.purpose,
         notes: v.notes,
+        photoUrl: v.photoUrl,
+        isRegular: v.isRegular,
+        visitCount: v.visitCount,
+        lastVisit: v.lastVisit.toISOString(),
         visitDate: v.visitDate.toISOString(),
+        hasFingerprint: (v.person?.biometrics?.length ?? 0) > 0,
       }))}
       visitUrl={visitUrl}
       canWrite={canWrite}

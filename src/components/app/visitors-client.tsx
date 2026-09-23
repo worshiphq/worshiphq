@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,9 +8,10 @@ import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { OnFormComplete } from "@/components/ui/form-effects";
-import { Search, Link2, UserRoundPlus, Mail, Phone, Calendar, Pencil, Trash2, UserPlus, X } from "lucide-react";
-import { updateVisitor, deleteVisitor, convertVisitorToMember, addVisitor } from "@/app/actions/visit";
+import { Search, Link2, UserRoundPlus, Mail, Phone, Calendar, Pencil, Trash2, UserPlus, X, Star, UploadCloud, Fingerprint } from "lucide-react";
+import { updateVisitor, deleteVisitor, convertVisitorToMember, addVisitor, toggleRegular } from "@/app/actions/visit";
 import { phoneValidityMessage } from "@/lib/phone";
+import { ImageCropper } from "@/components/ui/image-cropper";
 
 type VisitorRow = {
   id: string;
@@ -20,7 +21,12 @@ type VisitorRow = {
   email: string | null;
   purpose: string | null;
   notes: string | null;
+  photoUrl: string | null;
+  isRegular: boolean;
+  visitCount: number;
+  lastVisit: string;
   visitDate: string;
+  hasFingerprint: boolean;
 };
 
 const PURPOSES = ["Sunday Service", "Midweek Service", "Special Event", "Counselling", "Other"];
@@ -39,8 +45,16 @@ export function VisitorsClient({
   const [editing, setEditing] = useState<VisitorRow | null>(null);
   const [adding, setAdding] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [filter, setFilter] = useState<"all" | "regular">("all");
+  const [addPhoto, setAddPhoto] = useState("");
+  const [addEditing, setAddEditing] = useState<string | null>(null);
+  const addFileRef = useRef<HTMLInputElement>(null);
+  const [editPhoto, setEditPhoto] = useState("");
+  const [editCropping, setEditCropping] = useState<string | null>(null);
+  const editFileRef = useRef<HTMLInputElement>(null);
 
   const filtered = visitors.filter((v) => {
+    if (filter === "regular" && !v.isRegular) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -51,6 +65,8 @@ export function VisitorsClient({
       v.purpose?.toLowerCase().includes(q)
     );
   });
+
+  const regularCount = visitors.filter((v) => v.isRegular).length;
 
   function handleDelete(v: VisitorRow) {
     if (!confirm(`Delete visitor ${v.firstName} ${v.lastName}?`)) return;
@@ -69,6 +85,22 @@ export function VisitorsClient({
     });
   }
 
+  function handleAddPhoto(files: FileList | null) {
+    const file = files?.[0];
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => setAddEditing(reader.result as string);
+    reader.readAsDataURL(file);
+  }
+
+  function handleEditPhoto(files: FileList | null) {
+    const file = files?.[0];
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => setEditCropping(reader.result as string);
+    reader.readAsDataURL(file);
+  }
+
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -76,12 +108,13 @@ export function VisitorsClient({
           <h1 className="font-display text-2xl font-bold">Visitors</h1>
           <p className="text-sm text-ink-muted">
             {visitors.length} visitor{visitors.length !== 1 ? "s" : ""} recorded
+            {regularCount > 0 && <> &middot; <Star className="mb-0.5 inline size-3 text-gold" /> {regularCount} regular</>}
           </p>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
           {canWrite && (
-            <Button onClick={() => setAdding(true)}>
+            <Button onClick={() => { setAdding(true); setAddPhoto(""); }}>
               <UserRoundPlus className="size-4" /> Add visitor
             </Button>
           )}
@@ -98,6 +131,15 @@ export function VisitorsClient({
             </Button>
           )}
         </div>
+      </div>
+
+      <div className="flex items-center gap-2">
+        <button onClick={() => setFilter("all")} className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${filter === "all" ? "bg-primary text-white" : "bg-surface-2 text-ink-muted hover:bg-surface-2/80"}`}>
+          All ({visitors.length})
+        </button>
+        <button onClick={() => setFilter("regular")} className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${filter === "regular" ? "bg-gold/90 text-white" : "bg-surface-2 text-ink-muted hover:bg-surface-2/80"}`}>
+          <Star className="size-3" /> Regular ({regularCount})
+        </button>
       </div>
 
       <div className="relative">
@@ -123,23 +165,30 @@ export function VisitorsClient({
             <Card
               key={v.id}
               className="group cursor-pointer p-4 space-y-2 transition-colors hover:border-primary/30"
-              onClick={() => setEditing(v)}
+              onClick={() => { setEditing(v); setEditPhoto(v.photoUrl ?? ""); }}
             >
               <div className="flex items-start justify-between gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="grid size-9 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-bold text-primary">
-                    {v.firstName[0]}{v.lastName[0]}
-                  </div>
+                <div className="flex items-center gap-2.5">
+                  {v.photoUrl ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img src={v.photoUrl} alt="" className="size-10 shrink-0 rounded-full object-cover ring-1 ring-line" />
+                  ) : (
+                    <div className="grid size-10 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-bold text-primary">
+                      {v.firstName[0]}{v.lastName?.[0] ?? ""}
+                    </div>
+                  )}
                   <div>
                     <p className="text-sm font-semibold">{v.firstName} {v.lastName}</p>
-                    {v.purpose && (
-                      <Badge variant="default" className="mt-0.5 text-[10px]">{v.purpose}</Badge>
-                    )}
+                    <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                      {v.isRegular && <Badge variant="default" className="text-[10px] bg-gold/15 text-gold border-gold/30"><Star className="mr-0.5 size-2.5" /> Regular</Badge>}
+                      {v.purpose && <Badge variant="default" className="text-[10px]">{v.purpose}</Badge>}
+                      {v.hasFingerprint && <Badge variant="default" className="text-[10px] bg-primary/10 text-primary border-primary/30"><Fingerprint className="mr-0.5 size-2.5" /></Badge>}
+                    </div>
                   </div>
                 </div>
                 {canWrite && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); setEditing(v); }}
+                    onClick={(e) => { e.stopPropagation(); setEditing(v); setEditPhoto(v.photoUrl ?? ""); }}
                     className="opacity-0 group-hover:opacity-100 transition-opacity grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-surface-2"
                   >
                     <Pencil className="size-3.5" />
@@ -158,11 +207,16 @@ export function VisitorsClient({
                     <Mail className="size-3" /> {v.email}
                   </div>
                 )}
-                <div className="flex items-center gap-1.5">
-                  <Calendar className="size-3" />
-                  {new Date(v.visitDate).toLocaleDateString("en-GB", {
-                    day: "numeric", month: "short", year: "numeric",
-                  })}
+                <div className="flex items-center gap-3">
+                  <span className="flex items-center gap-1.5">
+                    <Calendar className="size-3" />
+                    {new Date(v.visitDate).toLocaleDateString("en-GB", {
+                      day: "numeric", month: "short", year: "numeric",
+                    })}
+                  </span>
+                  {v.visitCount > 1 && (
+                    <span className="font-medium text-primary">{v.visitCount} visits</span>
+                  )}
                 </div>
               </div>
 
@@ -190,9 +244,27 @@ export function VisitorsClient({
 
             <form action={addVisitor} className="space-y-4 p-5">
               <OnFormComplete onComplete={() => setAdding(false)} />
+              <input type="hidden" name="photoUrl" value={addPhoto} />
               <p className="rounded-lg bg-surface-2 px-3 py-2 text-xs text-ink-muted">
-                Use this to enter someone who filled a paper sheet in person.
+                Add a new visitor. They can also be checked in by name or fingerprint.
               </p>
+
+              <div className="flex items-center gap-4">
+                {addPhoto ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={addPhoto} alt="" className="size-14 rounded-full object-cover ring-1 ring-line" />
+                ) : (
+                  <div className="grid size-14 place-items-center rounded-full bg-surface-2 text-ink-faint"><UploadCloud className="size-6" /></div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="secondary" size="sm" onClick={() => addFileRef.current?.click()}>
+                    {addPhoto ? "Replace" : "Add photo"}
+                  </Button>
+                  {addPhoto && <button type="button" onClick={() => setAddPhoto("")} className="text-xs text-danger hover:underline">Remove</button>}
+                </div>
+                <input ref={addFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { handleAddPhoto(e.target.files); e.target.value = ""; }} />
+              </div>
+              {addEditing && <ImageCropper src={addEditing} onCancel={() => setAddEditing(null)} onConfirm={(d) => { setAddPhoto(d); setAddEditing(null); }} />}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -262,6 +334,41 @@ export function VisitorsClient({
             <form action={updateVisitor} className="space-y-4 p-5">
               <OnFormComplete onComplete={() => setEditing(null)} />
               <input type="hidden" name="id" value={editing.id} />
+              <input type="hidden" name="photoUrl" value={editPhoto} />
+
+              <div className="flex items-center gap-4">
+                {editPhoto ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={editPhoto} alt="" className="size-14 rounded-full object-cover ring-1 ring-line" />
+                ) : (
+                  <div className="grid size-14 place-items-center rounded-full bg-surface-2 text-ink-faint"><UploadCloud className="size-6" /></div>
+                )}
+                <div className="flex items-center gap-2">
+                  <Button type="button" variant="secondary" size="sm" onClick={() => editFileRef.current?.click()}>
+                    {editPhoto ? "Replace" : "Add photo"}
+                  </Button>
+                  {editPhoto && <button type="button" onClick={() => setEditPhoto("")} className="text-xs text-danger hover:underline">Remove</button>}
+                </div>
+                <input ref={editFileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { handleEditPhoto(e.target.files); e.target.value = ""; }} />
+              </div>
+              {editCropping && <ImageCropper src={editCropping} onCancel={() => setEditCropping(null)} onConfirm={(d) => { setEditPhoto(d); setEditCropping(null); }} />}
+
+              <div className="flex items-center justify-between rounded-xl border border-line px-4 py-3">
+                <div>
+                  <div className="text-sm font-medium">Regular visitor</div>
+                  <div className="text-xs text-ink-muted">{editing.visitCount} visit{editing.visitCount !== 1 ? "s" : ""} recorded</div>
+                </div>
+                <label className="flex items-center gap-2">
+                  <input type="checkbox" name="isRegular" defaultChecked={editing.isRegular} className="size-4 rounded border-line accent-gold" />
+                  <Star className={`size-4 ${editing.isRegular ? "text-gold" : "text-ink-faint"}`} />
+                </label>
+              </div>
+
+              {editing.hasFingerprint && (
+                <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 py-2 text-sm text-primary">
+                  <Fingerprint className="size-4" /> Fingerprint registered
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-3">
                 <div>

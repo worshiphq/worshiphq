@@ -44,8 +44,8 @@ export const DATASETS: Dataset[] = [
     async fetch(churchId) {
       const rows = await db.visitor.findMany({ where: { churchId }, orderBy: { visitDate: "desc" } });
       return {
-        headers: ["First name", "Last name", "Phone", "Email", "Purpose", "Notes", "Visit date"],
-        rows: rows.map((v) => [v.firstName, v.lastName, v.phone ?? "", v.email ?? "", v.purpose ?? "", v.notes ?? "", d(v.visitDate)]),
+        headers: ["First name", "Last name", "Phone", "Email", "Purpose", "Notes", "Regular", "Visit count", "Last visit", "First visit"],
+        rows: rows.map((v) => [v.firstName, v.lastName, v.phone ?? "", v.email ?? "", v.purpose ?? "", v.notes ?? "", v.isRegular ? "Yes" : "No", String(v.visitCount), d(v.lastVisit), d(v.visitDate)]),
       };
     },
   },
