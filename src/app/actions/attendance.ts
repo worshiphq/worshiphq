@@ -97,11 +97,11 @@ export async function checkInMember(sessionId: string, personId: string) {
     data: { [CATEGORY_FIELD[category]]: { increment: 1 } },
   });
 
-  // Deliberately NOT calling revalidatePath here: this is the check-in queue
-  // hot path, and re-rendering the page re-sends every candidate - including
-  // megabytes of base64 member photos - on every single check-in. The client
-  // updates optimistically from the record returned below, so a queue stays
-  // instant. Counts re-sync naturally on the next navigation/refresh.
+  if (person.status === "visitor") {
+    const { recordVisitorCheckin } = await import("@/app/actions/visit");
+    await recordVisitorCheckin(personId, session.churchId).catch(() => {});
+  }
+
   return { ok: true as const, recordId: record.id, category };
 }
 

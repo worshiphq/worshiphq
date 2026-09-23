@@ -32,9 +32,21 @@ export async function submitVisitorForm(formData: FormData) {
     if (val) customFields[f.id] = val;
   }
 
+  const person = await db.person.create({
+    data: {
+      churchId: church.id,
+      firstName,
+      lastName,
+      phone,
+      email,
+      status: "visitor",
+    },
+  });
+
   const visitor = await db.visitor.create({
     data: {
       church: { connect: { id: church.id } },
+      personId: person.id,
       firstName,
       lastName,
       phone,
@@ -72,13 +84,31 @@ export async function addVisitor(formData: FormData) {
 
   const visitDateStr = String(formData.get("visitDate") ?? "").trim();
 
-  const v = await db.visitor.create({
+  const phone = String(formData.get("phone") ?? "").trim() || null;
+  const email = String(formData.get("email") ?? "").trim() || null;
+  const photoUrl = String(formData.get("photoUrl") ?? "").trim() || null;
+
+  const person = await db.person.create({
     data: {
       churchId: session.churchId,
       firstName,
-      lastName,
-      phone: String(formData.get("phone") ?? "").trim() || null,
-      email: String(formData.get("email") ?? "").trim() || null,
+      lastName: lastName || "",
+      phone,
+      email,
+      status: "visitor",
+      photoUrl,
+    },
+  });
+
+  const v = await db.visitor.create({
+    data: {
+      churchId: session.churchId,
+      personId: person.id,
+      firstName,
+      lastName: lastName || "",
+      phone,
+      email,
+      photoUrl,
       purpose: String(formData.get("purpose") ?? "").trim() || null,
       notes: String(formData.get("notes") ?? "").trim() || null,
       visitDate: visitDateStr ? new Date(visitDateStr) : new Date(),
@@ -89,6 +119,7 @@ export async function addVisitor(formData: FormData) {
   await audit(session, "create", "visitor", `Added visitor ${firstName} ${lastName}`.trim(), v.id);
   const { revalidatePath } = await import("next/cache");
   revalidatePath("/app/visitors");
+  revalidatePath("/app/people");
 }
 
 export async function updateVisitor(formData: FormData) {
@@ -102,20 +133,37 @@ export async function updateVisitor(formData: FormData) {
   const visitor = await db.visitor.findFirst({ where: { id, churchId: session.churchId } });
   if (!visitor) return;
 
+  const firstName = String(formData.get("firstName") ?? visitor.firstName).trim();
+  const lastName = String(formData.get("lastName") ?? visitor.lastName).trim();
+  const phone = String(formData.get("phone") ?? "").trim() || null;
+  const email = String(formData.get("email") ?? "").trim() || null;
+  const photoUrl = String(formData.get("photoUrl") ?? "").trim() || null;
+  const isRegular = formData.get("isRegular") === "on";
+
   await db.visitor.update({
     where: { id },
     data: {
-      firstName: String(formData.get("firstName") ?? visitor.firstName).trim(),
-      lastName: String(formData.get("lastName") ?? visitor.lastName).trim(),
-      phone: String(formData.get("phone") ?? "").trim() || null,
-      email: String(formData.get("email") ?? "").trim() || null,
+      firstName,
+      lastName,
+      phone,
+      email,
+      photoUrl,
+      isRegular,
       purpose: String(formData.get("purpose") ?? "").trim() || null,
       notes: String(formData.get("notes") ?? "").trim() || null,
     },
   });
 
+  if (visitor.personId) {
+    await db.person.update({
+      where: { id: visitor.personId },
+      data: { firstName, lastName, phone, email, photoUrl },
+    });
+  }
+
   const { revalidatePath } = await import("next/cache");
   revalidatePath("/app/visitors");
+  revalidatePath("/app/people");
 }
 
 export async function deleteVisitor(id: string) {
@@ -123,13 +171,17 @@ export async function deleteVisitor(id: string) {
   const session = await requireSession();
   assertCanWrite(session);
 
-  const v = await db.visitor.findFirst({ where: { id, churchId: session.churchId }, select: { firstName: true, lastName: true } });
+  const v = await db.visitor.findFirst({ where: { id, churchId: session.churchId }, select: { firstName: true, lastName: true, personId: true } });
   await db.visitor.deleteMany({ where: { id, churchId: session.churchId } });
+  if (v?.personId) {
+    await db.person.deleteMany({ where: { id: v.personId, churchId: session.churchId, status: "visitor" } });
+  }
 
   const { audit } = await import("@/lib/audit");
   if (v) await audit(session, "delete", "visitor", `Deleted visitor ${v.firstName} ${v.lastName}`.trim(), id);
   const { revalidatePath } = await import("next/cache");
   revalidatePath("/app/visitors");
+  revalidatePath("/app/people");
 }
 
 export async function convertVisitorToMember(id: string) {
@@ -140,22 +192,59 @@ export async function convertVisitorToMember(id: string) {
   const visitor = await db.visitor.findFirst({ where: { id, churchId: session.churchId } });
   if (!visitor) return;
 
-  const person = await db.person.create({
-    data: {
-      churchId: session.churchId,
-      firstName: visitor.firstName,
-      lastName: visitor.lastName,
-      phone: visitor.phone,
-      email: visitor.email,
-      status: "active",
-    },
-  });
+  let personId = visitor.personId;
+
+  if (personId) {
+    await db.person.update({
+      where: { id: personId },
+      data: { status: "active" },
+    });
+  } else {
+    const person = await db.person.create({
+      data: {
+        churchId: session.churchId,
+        firstName: visitor.firstName,
+        lastName: visitor.lastName,
+        phone: visitor.phone,
+        email: visitor.email,
+        photoUrl: visitor.photoUrl,
+        status: "active",
+      },
+    });
+    personId = person.id;
+  }
 
   await db.visitor.delete({ where: { id } });
 
   const { audit } = await import("@/lib/audit");
-  await audit(session, "update", "person", `Converted visitor ${visitor.firstName} ${visitor.lastName} to a member`.trim(), person.id);
+  await audit(session, "update", "person", `Converted visitor ${visitor.firstName} ${visitor.lastName} to a member`.trim(), personId);
   const { revalidatePath } = await import("next/cache");
   revalidatePath("/app/visitors");
   revalidatePath("/app/people");
+}
+
+export async function toggleRegular(id: string) {
+  const { requireSession, assertCanWrite } = await import("@/lib/auth");
+  const session = await requireSession();
+  assertCanWrite(session);
+
+  const v = await db.visitor.findFirst({ where: { id, churchId: session.churchId }, select: { isRegular: true } });
+  if (!v) return;
+  await db.visitor.update({ where: { id }, data: { isRegular: !v.isRegular } });
+  const { revalidatePath } = await import("next/cache");
+  revalidatePath("/app/visitors");
+}
+
+export async function recordVisitorCheckin(personId: string, churchId: string) {
+  const visitor = await db.visitor.findFirst({ where: { personId, churchId } });
+  if (!visitor) return;
+  const count = visitor.visitCount + 1;
+  await db.visitor.update({
+    where: { id: visitor.id },
+    data: {
+      visitCount: count,
+      lastVisit: new Date(),
+      isRegular: count >= 3 ? true : visitor.isRegular,
+    },
+  });
 }

@@ -415,6 +415,7 @@ model Person {
   volunteerSlots VolunteerSlot[]
   user           User?
   communicationRecipients CommunicationRecipient[]
+  visitor        Visitor?
 
   @@unique([churchId, memberId])
   @@index([churchId])
@@ -1143,18 +1144,25 @@ model Visitor {
   id        String   @id @default(cuid())
   churchId  String
   church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  personId  String?  @unique
+  person    Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
   firstName String
   lastName  String
   phone     String?
   email     String?
   purpose   String?
   notes     String?
+  photoUrl  String?  @db.Text
+  isRegular Boolean  @default(false)
+  visitCount Int     @default(1)
+  lastVisit DateTime @default(now())
   customFields Json?
   visitDate DateTime @default(now())
   createdAt DateTime @default(now())
   followUps FollowUp[]
 
   @@index([churchId, visitDate])
+  @@index([churchId, isRegular])
 }
 
 // ── Audit Log ─────────────────────────────────────────────

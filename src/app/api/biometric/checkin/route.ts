@@ -62,5 +62,10 @@ export async function POST(req: NextRequest) {
     data: { [catField[category] ?? "adults"]: { increment: 1 } },
   });
 
+  if (person.status === "visitor") {
+    const { recordVisitorCheckin } = await import("@/app/actions/visit");
+    await recordVisitorCheckin(person.id, session.churchId).catch(() => {});
+  }
+
   return NextResponse.json({ ok: true, ...who, category, message: "Checked in via fingerprint" });
 }
