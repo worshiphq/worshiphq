@@ -33,6 +33,7 @@ export function BiometricCheckInButton({
   const [message, setMessage] = useState("");
   const [memberName, setMemberName] = useState("");
   const cacheRef = useRef<TemplateCache | null>(null);
+  const agentGalleryLoaded = useRef(false);
 
   useEffect(() => {
     fetch("/api/biometric/templates")
@@ -43,20 +44,26 @@ export function BiometricCheckInButton({
       .catch(() => {});
   }, []);
 
-  async function getTemplates(): Promise<TemplateEntry[]> {
+  async function ensureGallery(): Promise<number> {
     const cached = cacheRef.current;
-    if (cached) {
+    if (cached && agentGalleryLoaded.current) {
       const countRes = await fetch("/api/biometric/templates?countOnly=true").catch(() => null);
       if (countRes?.ok) {
         const { count } = await countRes.json();
-        if (count === cached.count) return cached.templates;
+        if (count === cached.count) return cached.count;
       }
     }
     const res = await fetch("/api/biometric/templates");
     if (!res.ok) throw new Error("Failed to load fingerprint data");
     const data = await res.json();
     cacheRef.current = { templates: data.templates, count: data.count };
-    return data.templates;
+    await fetch(`${AGENT_URL}/gallery`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ templates: data.templates }),
+    });
+    agentGalleryLoaded.current = true;
+    return data.count;
   }
 
   async function handleScan() {
@@ -95,16 +102,16 @@ export function BiometricCheckInButton({
       setState("matching");
       setMessage("Identifying member...");
 
-      const templates = await getTemplates();
+      const count = await ensureGallery();
 
-      if (templates.length === 0) {
+      if (count === 0) {
         throw new Error("No fingerprints registered yet. Register members first from the People page.");
       }
 
-      const matchRes = await fetch(`${AGENT_URL}/match`, {
+      const matchRes = await fetch(`${AGENT_URL}/match-probe`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ probe: capture.template, gallery: templates }),
+        body: JSON.stringify({ probe: capture.template }),
         signal: AbortSignal.timeout(15000),
       });
 

@@ -39,6 +39,11 @@ PORT = 23847
 scanner = None
 scanner_type = None
 
+# Pre-decoded gallery stored in memory after POST /gallery.
+# Each entry: {"personId": str, "personName": str, "template": bytes}
+_gallery = []
+_gallery_hash = ""
+
 _LOG = os.path.join(os.environ.get("LOCALAPPDATA", os.path.expanduser("~")), "WorshipHQ", "Scanner", "agent.log")
 
 def log(msg):
@@ -299,6 +304,78 @@ def match_fingerprints(probe_b64, gallery):
     return {"matched": False, "error": "No matching engine"}
 
 
+def load_gallery(entries):
+    """Pre-decode templates and store in memory for fast probe-only matching."""
+    global _gallery, _gallery_hash
+    decoded = []
+    for e in entries:
+        try:
+            decoded.append({
+                "personId": e["personId"],
+                "personName": e.get("personName", ""),
+                "template": base64.b64decode(e["templateData"]),
+            })
+        except Exception:
+            continue
+    h = hashlib.md5(json.dumps([e.get("personId","") for e in entries], sort_keys=True).encode()).hexdigest()
+    _gallery = decoded
+    _gallery_hash = h
+    log(f"gallery loaded: {len(decoded)} templates")
+    return {"ok": True, "count": len(decoded), "hash": h}
+
+
+def match_probe_fast(probe_b64):
+    """Match a probe against the pre-loaded gallery (no base64 decoding per match)."""
+    probe = base64.b64decode(probe_b64)
+
+    if scanner_type == "zkfp":
+        best_score = 0
+        best_match = None
+        for entry in _gallery:
+            try:
+                score = scanner.DBMatch(probe, entry["template"])
+                if score > best_score:
+                    best_score = score
+                    best_match = entry
+            except Exception:
+                continue
+        if best_match and best_score >= 50:
+            return {
+                "matched": True,
+                "personId": best_match["personId"],
+                "personName": best_match["personName"],
+                "score": best_score,
+            }
+        return {"matched": False, "bestScore": best_score}
+
+    elif scanner_type == "dpfp":
+        for entry in _gallery:
+            try:
+                if scanner.compare_fmd(probe, entry["template"]):
+                    return {
+                        "matched": True,
+                        "personId": entry["personId"],
+                        "personName": entry["personName"],
+                        "score": 100,
+                    }
+            except Exception:
+                continue
+        return {"matched": False}
+
+    elif scanner_type == "dummy":
+        for entry in _gallery:
+            if probe == entry["template"]:
+                return {
+                    "matched": True,
+                    "personId": entry["personId"],
+                    "personName": entry["personName"],
+                    "score": 100,
+                }
+        return {"matched": False}
+
+    return {"matched": False, "error": "No matching engine"}
+
+
 # ─── HTTP Server ──────────────────────────────────────────
 
 class AgentHandler(BaseHTTPRequestHandler):
@@ -369,6 +446,25 @@ class AgentHandler(BaseHTTPRequestHandler):
                 self._json(400, {"error": "probe template required"})
                 return
             result = match_fingerprints(probe, gallery)
+            self._json(200, result)
+
+        elif path == "/gallery":
+            entries = body.get("templates", [])
+            if not entries:
+                self._json(400, {"error": "templates array required"})
+                return
+            result = load_gallery(entries)
+            self._json(200, result)
+
+        elif path == "/match-probe":
+            probe = body.get("probe")
+            if not probe:
+                self._json(400, {"error": "probe template required"})
+                return
+            if not _gallery:
+                self._json(400, {"error": "gallery not loaded - call /gallery first"})
+                return
+            result = match_probe_fast(probe)
             self._json(200, result)
 
         else:

@@ -26,19 +26,18 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
   const [hint, setHint] = useState("Looking for your scanner…");
 
   const running = useRef(true);
-  const gallery = useRef<{ personId: string; personName: string; templateData: string }[]>([]);
+  const galleryLoaded = useRef(false);
+  const galleryCount = useRef(0);
 
   const close = () => {
     running.current = false;
-    router.refresh(); // sync the Present list from the DB
+    router.refresh();
     onClose();
   };
 
   useEffect(() => {
     running.current = true;
     (async () => {
-      // 1) Is the agent there and on a real scanner? Poll a few times first -
-      // a busy single-threaded agent can miss one quick check.
       let status: { connected?: boolean } | null = null;
       for (let i = 0; i < 3 && !status; i++) {
         try { const r = await fetch(`${AGENT_URL}/status`, { signal: AbortSignal.timeout(3000) }); if (r.ok) status = await r.json(); } catch { /* retry */ }
@@ -47,14 +46,20 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
       if (!status) { setPhase("no-agent"); return; }
       if (!status.connected) { setPhase("no-agent"); return; }
 
-      // 2) Load the fingerprint gallery once.
       try {
         const t = await fetch("/api/biometric/templates").then((r) => r.json());
-        gallery.current = t.templates ?? [];
-        if (gallery.current.length === 0) {
+        const templates = t.templates ?? [];
+        if (templates.length === 0) {
           setPhase("unknown"); setHint("No fingerprints registered yet. Register members first.");
           return;
         }
+        galleryCount.current = templates.length;
+        await fetch(`${AGENT_URL}/gallery`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ templates }),
+        });
+        galleryLoaded.current = true;
       } catch { setPhase("no-agent"); return; }
 
       loop();
@@ -76,9 +81,13 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
         if (!running.current) return;
         if (cap.error || !cap.template) { continue; } // no finger yet → keep waiting
 
-        const match = await fetch(`${AGENT_URL}/match`, {
+        const matchUrl = galleryLoaded.current ? `${AGENT_URL}/match-probe` : `${AGENT_URL}/match`;
+        const matchBody = galleryLoaded.current
+          ? { probe: cap.template }
+          : { probe: cap.template, gallery: [] };
+        const match = await fetch(matchUrl, {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ probe: cap.template, gallery: gallery.current }),
+          body: JSON.stringify(matchBody),
           signal: AbortSignal.timeout(15000),
         }).then((r) => r.json());
         if (!running.current) return;
