@@ -35,6 +35,7 @@ import { plans as defaultPlans } from "@/config/pricing";
 import type { PlanPrices } from "@/lib/data/platform-config";
 import { getPlanLimits, type PlanId } from "@/lib/plan-gate";
 import { usePaystack } from "@/components/payments/use-paystack";
+import { phoneValidityMessage } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 
 type FeatureMap = Record<string, boolean>;
@@ -281,7 +282,7 @@ export function SettingsClient({
                 </h3>
                 <form action={inviteTeammate} className="mt-4 grid gap-3 sm:grid-cols-2">
                   <Input name="name" placeholder="Full name" required disabled={ro} />
-                  <Input name="phone" type="tel" placeholder="Mobile number (for SMS invite)" required disabled={ro} />
+                  <Input name="phone" type="tel" placeholder="Mobile number (for SMS invite)" required disabled={ro} onChange={(e) => e.target.setCustomValidity("")} onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))} />
                   <Input name="email" type="email" placeholder="Email (optional)" disabled={ro} />
                   <select
                     name="role"
@@ -323,7 +324,7 @@ export function SettingsClient({
                 ) : (
                   <form action={inviteBudgetLeader} className="mt-4 grid gap-3 sm:grid-cols-2">
                     <Input name="name" placeholder="Leader's full name" required disabled={ro} />
-                    <Input name="phone" type="tel" placeholder="Mobile number (SMS invite)" required disabled={ro} />
+                    <Input name="phone" type="tel" placeholder="Mobile number (SMS invite)" required disabled={ro} onChange={(e) => e.target.setCustomValidity("")} onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))} />
                     <Input name="email" type="email" placeholder="Email (optional)" disabled={ro} />
                     <select
                       name="departmentId"
@@ -1751,7 +1752,7 @@ function OnlinePaymentsTab({ churchId }: { churchId: string }) {
           <div className="grid grid-cols-2 gap-3">
             <div>
               <Label>Phone</Label>
-              <Input name="contactPhone" type="tel" placeholder="+233..." />
+              <Input name="contactPhone" type="tel" placeholder="+233..." onChange={(e) => e.target.setCustomValidity("")} onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))} />
             </div>
             <div>
               <Label>Email</Label>

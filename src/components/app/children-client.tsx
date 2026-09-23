@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/input";
 import { createChild, updateChild, assignParent } from "@/app/actions/children";
 import { deletePerson } from "@/app/actions/people";
 import type { PersonRow } from "@/lib/data/people";
+import { phoneValidityMessage } from "@/lib/phone";
 import { formatDate, cn } from "@/lib/utils";
 
 const segments = [
@@ -395,7 +396,13 @@ function ChildForm({
             </div>
             <div>
               <Label htmlFor="phone">Phone (optional)</Label>
-              <input id="phone" name="phone" type="tel" inputMode="tel" defaultValue={person?.phone ?? ""} placeholder="For teens" className={inputBase} />
+              <input
+                id="phone" name="phone" type="tel" inputMode="tel"
+                defaultValue={person?.phone ?? ""} placeholder="For teens"
+                onChange={(e) => e.target.setCustomValidity("")}
+                onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))}
+                className={inputBase}
+              />
             </div>
           </div>
 
@@ -429,7 +436,13 @@ function ChildForm({
               </div>
               <div>
                 <Label htmlFor="guardianPhone">Guardian phone</Label>
-                <input id="guardianPhone" name="guardianPhone" type="tel" inputMode="tel" defaultValue={person?.guardianPhone ?? ""} placeholder="e.g. 0244123456" className={inputBase} />
+                <input
+                  id="guardianPhone" name="guardianPhone" type="tel" inputMode="tel"
+                  defaultValue={person?.guardianPhone ?? ""} placeholder="e.g. 0244123456"
+                  onChange={(e) => e.target.setCustomValidity("")}
+                  onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))}
+                  className={inputBase}
+                />
               </div>
             </div>
           </div>

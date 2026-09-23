@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { UploadCloud, X } from "lucide-react";
 import { type FormField, DEPARTMENT_FIELD_ID } from "@/lib/forms/registration";
 import { ImageCropper } from "@/components/ui/image-cropper";
+import { phoneValidityMessage } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 
 export interface MemberDefaults {
@@ -75,8 +76,16 @@ export function MemberFormFields({
                 <input type="checkbox" name={f.id} value="yes" checked={values[f.id] === "yes"} onChange={(e) => setValue(f.id, e.target.checked ? "yes" : "")} className="size-4 rounded border-line accent-primary" />
                 Yes
               </label>
+            ) : f.type === "tel" ? (
+              <input
+                name={f.id} type="tel" inputMode="tel" required={f.required} placeholder={f.placeholder}
+                value={values[f.id] ?? ""}
+                onChange={(e) => { setValue(f.id, e.target.value); e.target.setCustomValidity(""); }}
+                onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))}
+                className={input}
+              />
             ) : (
-              <input name={f.id} type={f.type} inputMode={f.type === "tel" ? "tel" : undefined} required={f.required} placeholder={f.placeholder} value={values[f.id] ?? ""} onChange={(e) => setValue(f.id, e.target.value)} className={input} />
+              <input name={f.id} type={f.type} required={f.required} placeholder={f.placeholder} value={values[f.id] ?? ""} onChange={(e) => setValue(f.id, e.target.value)} className={input} />
             )}
           </div>
         );

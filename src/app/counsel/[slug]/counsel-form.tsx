@@ -2,6 +2,7 @@
 
 import { useTransition } from "react";
 import { submitCounselingRequest } from "@/app/actions/public-submissions";
+import { phoneValidityMessage } from "@/lib/phone";
 
 export function CounselForm({ churchSlug, accentColor }: { churchSlug: string; accentColor: string | null }) {
   const [pending, start] = useTransition();
@@ -16,7 +17,7 @@ export function CounselForm({ churchSlug, accentColor }: { churchSlug: string; a
       </div>
       <div>
         <label className="mb-1 block text-sm font-medium text-[#1c1a16]">Phone (so we can reach you)</label>
-        <input name="phone" type="tel" placeholder="024 000 0000" className={field} style={{ "--tw-ring-color": accent } as React.CSSProperties} />
+        <input name="phone" type="tel" placeholder="024 000 0000" className={field} style={{ "--tw-ring-color": accent } as React.CSSProperties} onChange={(e) => e.target.setCustomValidity("")} onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))} />
       </div>
       <div>
         <label className="mb-1 block text-sm font-medium text-[#1c1a16]">What is it about?</label>

@@ -23,6 +23,7 @@ import { BiometricRegisterButton } from "@/components/app/biometric-register";
 import { MemberFormFields, type MemberDefaults } from "@/components/app/member-form-fields";
 import type { PersonRow } from "@/lib/data/people";
 import type { FormField } from "@/lib/forms/registration";
+import { phoneValidityMessage } from "@/lib/phone";
 import { formatDate, cn } from "@/lib/utils";
 
 const ageGroupTabs = [
@@ -785,7 +786,13 @@ function PersonForm({
                 </div>
                 <div>
                   <Label htmlFor="guardianPhone">Guardian phone</Label>
-                  <input id="guardianPhone" name="guardianPhone" type="tel" inputMode="tel" defaultValue={person?.guardianPhone ?? ""} placeholder="e.g. 0244123456" className={inputBase} />
+                  <input
+                    id="guardianPhone" name="guardianPhone" type="tel" inputMode="tel"
+                    defaultValue={person?.guardianPhone ?? ""} placeholder="e.g. 0244123456"
+                    onChange={(e) => e.target.setCustomValidity("")}
+                    onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))}
+                    className={inputBase}
+                  />
                 </div>
               </div>
             </div>

@@ -11,6 +11,7 @@ import { signUp } from "@/app/actions/auth";
 import { Input, Label } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { PASSWORD_RULES, passwordMeetsPolicy } from "@/lib/password-policy";
+import { isValidPhone } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 
 const ease = [0.22, 1, 0.36, 1] as const;
@@ -73,8 +74,9 @@ export function SignupWizard({
         return data.name.trim().length >= 2 ? null : "Please enter your name.";
       case "contact": {
         if (!/^\S+@\S+\.\S+$/.test(data.email.trim())) return "Please enter a valid email address.";
-        if (data.channel === "phone" && data.phone.trim().replace(/\D/g, "").length < 9)
-          return "Please enter a valid phone number to receive your code.";
+        if (data.channel === "phone" && !data.phone.trim()) return "Please enter a phone number to receive your code.";
+        if (data.phone.trim() && !isValidPhone(data.phone))
+          return "Please enter a valid phone number, e.g. 024 123 4567 or +1 415 555 0100.";
         return null;
       }
       case "password": {

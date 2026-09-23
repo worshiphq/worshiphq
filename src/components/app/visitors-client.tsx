@@ -10,6 +10,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { OnFormComplete } from "@/components/ui/form-effects";
 import { Search, Link2, UserRoundPlus, Mail, Phone, Calendar, Pencil, Trash2, UserPlus, X } from "lucide-react";
 import { updateVisitor, deleteVisitor, convertVisitorToMember, addVisitor } from "@/app/actions/visit";
+import { phoneValidityMessage } from "@/lib/phone";
 
 type VisitorRow = {
   id: string;
@@ -206,7 +207,7 @@ export function VisitorsClient({
 
               <div>
                 <Label>Phone</Label>
-                <Input name="phone" type="tel" placeholder="024 000 0000" />
+                <Input name="phone" type="tel" placeholder="024 000 0000" onChange={(e) => e.target.setCustomValidity("")} onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))} />
               </div>
 
               <div>
@@ -275,7 +276,7 @@ export function VisitorsClient({
 
               <div>
                 <Label>Phone</Label>
-                <Input name="phone" type="tel" defaultValue={editing.phone ?? ""} />
+                <Input name="phone" type="tel" defaultValue={editing.phone ?? ""} onChange={(e) => e.target.setCustomValidity("")} onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))} />
               </div>
 
               <div>

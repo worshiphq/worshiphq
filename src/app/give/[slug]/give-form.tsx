@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { startOnlineGift } from "@/app/actions/public-giving";
 import { usePaystack } from "@/components/payments/use-paystack";
+import { phoneValidityMessage } from "@/lib/phone";
 
 // Always offered, whether or not the church has set these up as Funds yet.
 const COMMON_FUNDS = ["Offertory", "Tithes", "Church Blessing", "Pledge", "Harvest"];
@@ -83,7 +84,11 @@ export function GiveForm({
           <div className="grid grid-cols-2 gap-3">
             <div>
               <label className="mb-1.5 block text-sm font-medium text-[#6b6560]">Phone number</label>
-              <input name="phone" type="tel" inputMode="tel" className={base} placeholder="+233 24 000 0000" />
+              <input
+                name="phone" type="tel" inputMode="tel" className={base} placeholder="+233 24 000 0000"
+                onChange={(e) => e.target.setCustomValidity("")}
+                onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))}
+              />
             </div>
             <div>
               <label className="mb-1.5 block text-sm font-medium text-[#6b6560]">Email</label>

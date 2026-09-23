@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { useFeedback } from "@/components/ui/feedback";
 import { createPledge } from "@/app/actions/pledges";
+import { phoneValidityMessage } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 
 export interface MemberOption {
@@ -157,7 +158,7 @@ export function PledgeRecorder({
                   </div>
                   <div>
                     <Label>Phone (for the SMS confirmation)</Label>
-                    <Input name="donorPhone" type="tel" placeholder="024 000 0000" />
+                    <Input name="donorPhone" type="tel" placeholder="024 000 0000" onChange={(e) => e.target.setCustomValidity("")} onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))} />
                   </div>
                 </div>
               )}

@@ -1,19 +1,43 @@
 /**
  * Normalise a Ghana (or international) phone number to the digits-only format
- * SMS providers expect, e.g. "024 123 4567" / "+233241234567" → "233241234567".
+ * SMS providers expect, e.g. "024 123 4567" / "+233241234567" -> "233241234567".
  */
 export function normalisePhone(raw: string): string {
   let p = (raw ?? "").replace(/[^\d+]/g, "");
   if (p.startsWith("+")) p = p.slice(1);
   if (p.startsWith("00")) p = p.slice(2);
-  if (p.startsWith("0")) p = "233" + p.slice(1); // 0XXXXXXXXX → 233XXXXXXXXX
-  else if (p.length === 9) p = "233" + p; // 9-digit local → add country code
+  if (p.startsWith("0")) p = "233" + p.slice(1); // 0XXXXXXXXX -> 233XXXXXXXXX
+  else if (p.length === 9) p = "233" + p; // 9-digit local -> add country code
   return p;
 }
 
-/** True if it looks like a usable phone number after normalising. */
+/**
+ * Simple phone number format validation:
+ *  - 0XXXXXXXXX  (10 digits starting with 0 - Ghana local)
+ *  - 233XXXXXXXXX (12 digits starting with 233)
+ *  - +233XXXXXXXXX (+ then 12 digits)
+ *  - +<international> (+ then 7-15 digits per E.164)
+ */
 export function isValidPhone(raw: string): boolean {
-  return normalisePhone(raw).length >= 11;
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return false;
+  const digits = trimmed.replace(/[\s\-()]/g, "");
+  if (digits.startsWith("+")) {
+    const d = digits.slice(1).replace(/\D/g, "");
+    return d.length >= 7 && d.length <= 15;
+  }
+  const d = digits.replace(/\D/g, "");
+  if (d.startsWith("0")) return d.length === 10;
+  if (d.startsWith("233")) return d.length === 12;
+  return d.length >= 7 && d.length <= 15;
+}
+
+export function phoneValidityMessage(raw: string): string {
+  const trimmed = (raw ?? "").trim();
+  if (!trimmed) return "";
+  return isValidPhone(trimmed)
+    ? ""
+    : "Enter a valid phone number, e.g. 0241234567 or +233241234567";
 }
 
 /**
