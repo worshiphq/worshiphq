@@ -7,7 +7,7 @@ export const metadata = { title: "Visitors" };
 export default async function VisitorsPage() {
   const session = await requireModule("visitors");
 
-  const [visitors, church] = await Promise.all([
+  const [visitors, church, members] = await Promise.all([
     db.visitor.findMany({
       where: { churchId: session.churchId },
       orderBy: { visitDate: "desc" },
@@ -19,11 +19,18 @@ export default async function VisitorsPage() {
             biometrics: { where: { type: "scanner" }, select: { id: true }, take: 1 },
           },
         },
+        invitedBy: { select: { id: true, firstName: true, lastName: true } },
       },
     }),
     db.church.findUnique({
       where: { id: session.churchId },
       select: { slug: true, isDemo: true },
+    }),
+    db.person.findMany({
+      where: { churchId: session.churchId, status: { not: "inactive" } },
+      select: { id: true, firstName: true, lastName: true, phone: true },
+      orderBy: { firstName: "asc" },
+      take: 2000,
     }),
   ]);
 
@@ -50,7 +57,9 @@ export default async function VisitorsPage() {
         visitDate: v.visitDate.toISOString(),
         hasFingerprint: (v.person?.biometrics?.length ?? 0) > 0,
         personId: v.person?.id ?? null,
+        invitedBy: v.invitedBy ? { id: v.invitedBy.id, name: `${v.invitedBy.firstName} ${v.invitedBy.lastName}`.trim() } : null,
       }))}
+      members={members.map((m) => ({ id: m.id, name: `${m.firstName} ${m.lastName}`.trim(), phone: m.phone }))}
       visitUrl={visitUrl}
       canWrite={canWrite}
     />

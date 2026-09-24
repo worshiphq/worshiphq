@@ -415,7 +415,8 @@ model Person {
   volunteerSlots VolunteerSlot[]
   user           User?
   communicationRecipients CommunicationRecipient[]
-  visitor        Visitor?
+  visitor        Visitor? @relation("VisitorPerson")
+  invitedVisitors Visitor[] @relation("VisitorInvitedBy")
 
   @@unique([churchId, memberId])
   @@index([churchId])
@@ -1145,7 +1146,9 @@ model Visitor {
   churchId  String
   church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
   personId  String?  @unique
-  person    Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  person    Person?  @relation("VisitorPerson", fields: [personId], references: [id], onDelete: SetNull)
+  invitedById String?
+  invitedBy   Person? @relation("VisitorInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
   firstName String
   lastName  String
   phone     String?
@@ -1163,6 +1166,7 @@ model Visitor {
 
   @@index([churchId, visitDate])
   @@index([churchId, isRegular])
+  @@index([churchId, invitedById])
 }
 
 // ── Audit Log ─────────────────────────────────────────────

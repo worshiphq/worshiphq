@@ -7,13 +7,14 @@ import {
 } from "recharts";
 import { Card } from "@/components/ui/card";
 import {
-  Users, TrendingUp, TrendingDown, HandCoins, UserRoundPlus, Minus, Receipt, PiggyBank, Users2,
+  Users, TrendingUp, TrendingDown, HandCoins, UserRoundPlus, Minus, Receipt, PiggyBank, Users2, HeartHandshake,
 } from "lucide-react";
 import { compactNumber } from "@/lib/utils";
 
 type ChartPoint = { label: string; value: number };
 type NamedCount = { name: string; count: number };
 type NamedValue = { name: string; value: number };
+type EvangelismRow = { id: string; name: string; count: number };
 
 const PALETTE = ["#0d9488", "#6366F1", "#E5B567", "#F472B6", "#60A5FA", "#34D399", "#F59E0B", "#94A3B8"];
 
@@ -89,6 +90,28 @@ function Empty() {
   return <div className="grid h-40 place-items-center text-sm text-ink-faint">No data yet</div>;
 }
 
+function EvangelismLeaderboard({ data }: { data: EvangelismRow[] }) {
+  if (data.length === 0) return <Empty />;
+  const max = Math.max(...data.map((d) => d.count));
+  const medalTone = ["bg-gold/20 text-gold", "bg-slate-200 text-slate-600", "bg-amber-100 text-amber-700"];
+  return (
+    <div className="space-y-2.5">
+      {data.map((d, i) => (
+        <div key={d.id} className="flex items-center gap-3">
+          <span className={`flex size-6 shrink-0 items-center justify-center rounded-full text-xs font-bold ${medalTone[i] ?? "bg-surface-2 text-ink-faint"}`}>
+            {i + 1}
+          </span>
+          <span className="w-32 shrink-0 truncate text-sm font-medium sm:w-40">{d.name}</span>
+          <div className="h-2 flex-1 overflow-hidden rounded-full bg-surface-2">
+            <div className="h-full rounded-full bg-primary" style={{ width: `${(d.count / max) * 100}%` }} />
+          </div>
+          <span className="w-6 shrink-0 text-right text-sm font-semibold tabular-nums">{d.count}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ChartCard({ title, subtitle, children }: { title: string; subtitle?: string; children: React.ReactNode }) {
   return (
     <Card className="p-5">
@@ -104,6 +127,7 @@ function ChartCard({ title, subtitle, children }: { title: string; subtitle?: st
 export function ReportsClient({
   span, stats, givingByMonth, expensesByMonth, attendanceByMonth,
   membersByMonth, attendanceBreakdown, genderSplit, ageGroups, fundSplit,
+  evangelism, totalInvitedVisitors,
 }: {
   span: number;
   stats: {
@@ -119,6 +143,8 @@ export function ReportsClient({
   genderSplit: NamedCount[];
   ageGroups: NamedCount[];
   fundSplit: NamedValue[];
+  evangelism: EvangelismRow[];
+  totalInvitedVisitors: number;
 }) {
   const router = useRouter();
   const netThisMonth = stats.givingThisMonth - stats.expensesThisMonth;
@@ -227,6 +253,16 @@ export function ReportsClient({
           </ResponsiveContainer>
         )}
       </ChartCard>
+
+      {/* Evangelism: who's bringing visitors */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="lg:col-span-2">
+          <ChartCard title="Evangelism leaderboard" subtitle="Visitors brought in by each member, all time">
+            <EvangelismLeaderboard data={evangelism} />
+          </ChartCard>
+        </div>
+        <StatCard icon={HeartHandshake} tone="#EC4899" value={totalInvitedVisitors} label="Visitors from a member invite" />
+      </div>
 
       {/* Small stats */}
       <div className="grid gap-3 sm:grid-cols-2">

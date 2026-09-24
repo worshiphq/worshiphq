@@ -46,6 +46,7 @@ export default async function ReportsPage({
     monthlyExpenses,
     people,
     funds,
+    invitedGroups,
   ] = await Promise.all([
     db.person.count({ where: { churchId: session.churchId } }),
     db.person.count({ where: { churchId: session.churchId, joinedAt: { gte: thisMonth } } }),
@@ -67,6 +68,11 @@ export default async function ReportsPage({
     db.fund.findMany({
       where: { churchId: session.churchId },
       select: { name: true, gifts: { where: { date: { gte: rangeStart } }, select: { amount: true } } },
+    }),
+    db.visitor.groupBy({
+      by: ["invitedById"],
+      where: { churchId: session.churchId, invitedById: { not: null } },
+      _count: { _all: true },
     }),
   ]);
 
@@ -135,6 +141,18 @@ export default async function ReportsPage({
     .sort((a, b) => b.value - a.value)
     .slice(0, 6);
 
+  // Evangelism: who invited how many visitors.
+  const inviterIds = invitedGroups.map((g) => g.invitedById!).filter(Boolean);
+  const inviters = inviterIds.length
+    ? await db.person.findMany({ where: { id: { in: inviterIds } }, select: { id: true, firstName: true, lastName: true } })
+    : [];
+  const inviterNames = new Map(inviters.map((p) => [p.id, `${p.firstName} ${p.lastName}`.trim()]));
+  const evangelism = invitedGroups
+    .map((g) => ({ id: g.invitedById!, name: inviterNames.get(g.invitedById!) ?? "Unknown", count: g._count._all }))
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 15);
+  const totalInvitedVisitors = invitedGroups.reduce((s, g) => s + g._count._all, 0);
+
   return (
     <div>
       <PageHeader title="Reports" description="Church growth, giving trends, attendance and people analytics." />
@@ -160,6 +178,8 @@ export default async function ReportsPage({
         genderSplit={genderSplit}
         ageGroups={ageGroups}
         fundSplit={fundSplit}
+        evangelism={evangelism}
+        totalInvitedVisitors={totalInvitedVisitors}
       />
     </div>
   );

@@ -87,6 +87,10 @@ export async function addVisitor(formData: FormData) {
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const email = String(formData.get("email") ?? "").trim() || null;
   const photoUrl = String(formData.get("photoUrl") ?? "").trim() || null;
+  const invitedByIdRaw = String(formData.get("invitedById") ?? "").trim() || null;
+  const invitedById = invitedByIdRaw
+    ? (await db.person.findFirst({ where: { id: invitedByIdRaw, churchId: session.churchId }, select: { id: true } }))?.id ?? null
+    : null;
 
   const person = await db.person.create({
     data: {
@@ -104,6 +108,7 @@ export async function addVisitor(formData: FormData) {
     data: {
       churchId: session.churchId,
       personId: person.id,
+      invitedById,
       firstName,
       lastName: lastName || "",
       phone,
@@ -139,6 +144,10 @@ export async function updateVisitor(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim() || null;
   const photoUrl = String(formData.get("photoUrl") ?? "").trim() || null;
   const isRegular = formData.get("isRegular") === "on";
+  const invitedByIdRaw = String(formData.get("invitedById") ?? "").trim() || null;
+  const invitedById = invitedByIdRaw
+    ? (await db.person.findFirst({ where: { id: invitedByIdRaw, churchId: session.churchId }, select: { id: true } }))?.id ?? null
+    : null;
 
   await db.visitor.update({
     where: { id },
@@ -149,6 +158,7 @@ export async function updateVisitor(formData: FormData) {
       email,
       photoUrl,
       isRegular,
+      invitedById,
       purpose: String(formData.get("purpose") ?? "").trim() || null,
       notes: String(formData.get("notes") ?? "").trim() || null,
     },

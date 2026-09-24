@@ -42,10 +42,17 @@ export const DATASETS: Dataset[] = [
     label: "Visitors",
     section: "visitors",
     async fetch(churchId) {
-      const rows = await db.visitor.findMany({ where: { churchId }, orderBy: { visitDate: "desc" } });
+      const rows = await db.visitor.findMany({
+        where: { churchId },
+        orderBy: { visitDate: "desc" },
+        include: { invitedBy: { select: { firstName: true, lastName: true } } },
+      });
       return {
-        headers: ["First name", "Last name", "Phone", "Email", "Purpose", "Notes", "Regular", "Visit count", "Last visit", "First visit"],
-        rows: rows.map((v) => [v.firstName, v.lastName, v.phone ?? "", v.email ?? "", v.purpose ?? "", v.notes ?? "", v.isRegular ? "Yes" : "No", String(v.visitCount), d(v.lastVisit), d(v.visitDate)]),
+        headers: ["First name", "Last name", "Phone", "Email", "Purpose", "Notes", "Regular", "Visit count", "Last visit", "First visit", "Invited by"],
+        rows: rows.map((v) => [
+          v.firstName, v.lastName, v.phone ?? "", v.email ?? "", v.purpose ?? "", v.notes ?? "", v.isRegular ? "Yes" : "No", String(v.visitCount), d(v.lastVisit), d(v.visitDate),
+          v.invitedBy ? `${v.invitedBy.firstName} ${v.invitedBy.lastName}`.trim() : "",
+        ]),
       };
     },
   },

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -30,16 +30,82 @@ type VisitorRow = {
   visitDate: string;
   hasFingerprint: boolean;
   personId: string | null;
+  invitedBy: { id: string; name: string } | null;
 };
+
+type MemberOption = { id: string; name: string; phone: string | null };
 
 const PURPOSES = ["Sunday Service", "Midweek Service", "Special Event", "Counselling", "Other"];
 
+function InvitedByPicker({ members, fieldName, initial }: {
+  members: MemberOption[];
+  fieldName: string;
+  initial?: { id: string; name: string } | null;
+}) {
+  const [query, setQuery] = useState("");
+  const [picked, setPicked] = useState<{ id: string; name: string } | null>(initial ?? null);
+
+  const matches = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const pool = q
+      ? members.filter((m) => m.name.toLowerCase().includes(q) || m.phone?.includes(q))
+      : members;
+    return pool.slice(0, 8);
+  }, [query, members]);
+
+  return (
+    <div>
+      <Label>Invited by <span className="font-normal text-ink-faint">(optional - who brought them?)</span></Label>
+      <input type="hidden" name={fieldName} value={picked?.id ?? ""} />
+      {picked ? (
+        <div className="flex items-center justify-between rounded-xl border border-primary/40 bg-primary/5 px-3 py-2.5">
+          <span className="text-sm font-semibold">{picked.name}</span>
+          <button type="button" onClick={() => setPicked(null)} className="text-xs font-medium text-primary hover:underline">
+            Change
+          </button>
+        </div>
+      ) : (
+        <>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
+            <Input
+              placeholder="Search members…"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              className="pl-10"
+            />
+          </div>
+          <div className="mt-2 max-h-48 divide-y divide-line-soft overflow-y-auto rounded-xl border border-line">
+            {matches.length === 0 ? (
+              <p className="p-3 text-sm text-ink-faint">No members match.</p>
+            ) : (
+              matches.map((m) => (
+                <button
+                  key={m.id}
+                  type="button"
+                  onClick={() => setPicked({ id: m.id, name: m.name })}
+                  className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-surface-2"
+                >
+                  {m.name}
+                  <Check className="size-3.5 text-ink-faint" />
+                </button>
+              ))
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function VisitorsClient({
   visitors,
+  members,
   visitUrl,
   canWrite,
 }: {
   visitors: VisitorRow[];
+  members: MemberOption[];
   visitUrl: string | null;
   canWrite: boolean;
 }) {
@@ -242,6 +308,11 @@ export function VisitorsClient({
                     <span className="font-medium text-primary">{v.visitCount} visits</span>
                   )}
                 </div>
+                {v.invitedBy && (
+                  <div className="flex items-center gap-1.5">
+                    <UserRoundPlus className="size-3" /> Invited by {v.invitedBy.name}
+                  </div>
+                )}
               </div>
 
               {v.notes && (
@@ -336,6 +407,8 @@ export function VisitorsClient({
                   className="w-full rounded-xl border border-line bg-base px-3 py-2 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                 />
               </div>
+
+              <InvitedByPicker members={members} fieldName="invitedById" />
 
               <SubmitButton className="w-full" pendingLabel="Saving…" successMessage="Visitor added">Add visitor</SubmitButton>
             </form>
@@ -464,6 +537,8 @@ export function VisitorsClient({
                   className="w-full rounded-xl border border-line bg-base px-3 py-2 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                 />
               </div>
+
+              <InvitedByPicker key={editing.id} members={members} fieldName="invitedById" initial={editing.invitedBy} />
 
               <div className="flex gap-2">
                 <SubmitButton className="flex-1">Save changes</SubmitButton>
