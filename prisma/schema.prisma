@@ -191,6 +191,7 @@ model Church {
   welfareDues     WelfareDue[]
   dayBornWeeks    DayBornWeek[]
   paymentRequests PaymentRequest[]
+  deletedItems    DeletedItem[]
 }
 
 model Branch {
@@ -1185,6 +1186,31 @@ model AuditLog {
 
   @@index([churchId, createdAt])
   @@index([userId])
+}
+
+// ── Recycle bin ──────────────────────────────────────────
+// A generic "undo delete" snapshot. Rather than a deletedAt column on every
+// deletable model, a delete handler stores everything needed to recreate the
+// row (and any cascade children it would take with it) here first, then
+// performs the real delete. Restoring replays the snapshot; purging just
+// drops this row. deletedById/Name are plain strings (not a User relation) so
+// this still works for impersonated "support" sessions, which aren't a real
+// User row.
+model DeletedItem {
+  id            String   @id @default(cuid())
+  churchId      String
+  church        Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  entityType    String   // "person" | "visitor" | "group" | "gift" | "pledge" | "expense" | "event" | "followUp" | "prayerRequest"
+  entityId      String
+  label         String   // human-readable title, e.g. a person's name
+  detail        String?  // secondary line, e.g. an amount or date
+  snapshot      Json     // everything needed to recreate the record(s)
+  deletedById   String?
+  deletedByName String?
+  deletedAt     DateTime @default(now())
+
+  @@index([churchId, deletedAt])
+  @@index([churchId, entityType])
 }
 
 // ── Sermons & Media ───────────────────────────────────────

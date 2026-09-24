@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
+import { RecycleBin } from "@/lib/recycle-bin";
 
 export async function createExpense(formData: FormData) {
   const session = await requireModule("accounting");
@@ -62,6 +63,7 @@ export async function deleteExpense(formData: FormData) {
   const expense = await db.expense.findFirst({ where: { id, churchId: session.churchId }, select: { description: true, amount: true, vendor: true } });
   if (!expense) return;
 
+  await RecycleBin.captureExpense(session, id);
   await db.expense.deleteMany({ where: { id, churchId: session.churchId } });
 
   // Clean up any legacy mirror Transaction from before expenses were single-sourced.

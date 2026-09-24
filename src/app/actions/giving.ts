@@ -5,12 +5,14 @@ import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { logAudit } from "@/lib/audit";
+import { RecycleBin } from "@/lib/recycle-bin";
 import type { GiftMethod } from "@prisma/client";
 
 export async function deleteGift(id: string) {
   const session = await requireSession();
   assertCanDelete(session);
   const gift = await db.gift.findFirst({ where: { id, churchId: session.churchId }, select: { donorName: true, amount: true } });
+  await RecycleBin.captureGift(session, id);
   await db.gift.deleteMany({ where: { id, churchId: session.churchId } });
   if (gift) await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: "gift", entityId: id, detail: `Deleted GHS ${gift.amount} gift from ${gift.donorName}` });
   revalidatePath("/app/giving");

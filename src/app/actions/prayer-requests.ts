@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { RecycleBin } from "@/lib/recycle-bin";
 
 export async function createPrayerRequest(formData: FormData) {
   const session = await requireModule("people");
@@ -58,6 +59,7 @@ export async function deletePrayerRequest(formData: FormData) {
   const session = await requireModule("people");
   const id = String(formData.get("id"));
 
+  await RecycleBin.capturePrayerRequest(session, id);
   await db.prayerRequest.deleteMany({
     where: { id, churchId: session.churchId },
   });

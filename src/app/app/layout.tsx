@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { AppShell } from "@/components/app/app-shell";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { TourProvider } from "@/components/app/tour";
+import { RecycleBinProvider } from "@/components/app/recycle-bin-provider";
 import { getActiveAnnouncements } from "@/lib/data/announcements";
 import { getRecentNotifications } from "@/lib/data/notifications";
 import { getChurchPlan } from "@/lib/plan-gate-server";
@@ -56,7 +57,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       plan={plan}
       planTable={platformConfig.planTable}
     >
-      <TourProvider>{children}</TourProvider>
+      <RecycleBinProvider canManage={session.canDelete}>
+        <TourProvider>{children}</TourProvider>
+      </RecycleBinProvider>
     </AppShell>
   );
 }

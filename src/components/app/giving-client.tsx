@@ -80,7 +80,7 @@ export function GivingClient({ rows, funds, stats, fundBreakdown, accounts = [],
                       <div className="text-xs text-ink-faint">{formatDate(g.date)}</div>
                     </div>
                     {canDelete && (
-                      <DeleteForm action={deleteGift.bind(null, g.id)} confirm={`Delete this ₵${g.amount} gift from ${g.donor}?`} successMessage="Gift deleted" />
+                      <DeleteForm action={deleteGift.bind(null, g.id)} confirm={`Delete this ₵${g.amount} gift from ${g.donor}?`} successMessage="Gift deleted" undoable />
                     )}
                   </div>
                 );

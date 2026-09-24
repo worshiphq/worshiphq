@@ -4,11 +4,13 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { RecycleBin } from "@/lib/recycle-bin";
 
 export async function deleteEvent(id: string) {
   const session = await requireSession();
   assertCanDelete(session);
   const ev = await db.event.findFirst({ where: { id, churchId: session.churchId }, select: { title: true } });
+  await RecycleBin.captureEvent(session, id);
   await db.event.deleteMany({ where: { id, churchId: session.churchId } });
   if (ev) await audit(session, "delete", "event", `Deleted event "${ev.title}"`, id);
   revalidatePath("/app/events");

@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
+import { RecycleBin } from "@/lib/recycle-bin";
 
 export async function createFollowUp(formData: FormData) {
   const session = await requireModule("people");
@@ -84,6 +85,7 @@ export async function deleteFollowUp(formData: FormData) {
   const session = await requireModule("people");
   const id = String(formData.get("id") ?? "");
   if (!id) return;
+  await RecycleBin.captureFollowUp(session, id);
   await db.followUp.deleteMany({ where: { id, churchId: session.churchId } });
   await audit(session, "delete", "follow-up", "Deleted a follow-up", id);
   revalidatePath("/app/follow-ups");

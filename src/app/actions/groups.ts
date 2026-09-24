@@ -5,6 +5,7 @@ import { Prisma } from "@prisma/client";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
+import { RecycleBin } from "@/lib/recycle-bin";
 import { DEFAULT_MEETING_REMINDER, renderMeetingReminder, parseSchedule } from "@/lib/groups/meeting-reminder";
 
 /** Parse the shared group fields (create + edit) from the form. */
@@ -113,6 +114,7 @@ export async function deleteGroup(formData: FormData) {
   const id = String(formData.get("id"));
   const group = await db.group.findFirst({ where: { id, churchId: session.churchId }, select: { name: true } });
 
+  await RecycleBin.captureGroup(session, id);
   await db.group.deleteMany({
     where: { id, churchId: session.churchId },
   });

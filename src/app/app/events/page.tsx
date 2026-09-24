@@ -89,7 +89,7 @@ export default async function EventsPage() {
                   <Button size="sm" variant="secondary" className="flex-1"><Users className="size-4" /> Manage</Button>
                   <Button size="sm" variant="ghost"><QrCode className="size-4" /></Button>
                   {canDelete && (
-                    <DeleteForm action={deleteEvent.bind(null, e.id)} confirm={`Delete "${e.title}"?`} successMessage="Event deleted" />
+                    <DeleteForm action={deleteEvent.bind(null, e.id)} confirm={`Delete "${e.title}"?`} successMessage="Event deleted" undoable />
                   )}
                 </div>
               </Card>

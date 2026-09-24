@@ -182,6 +182,8 @@ export async function deleteVisitor(id: string) {
   assertCanWrite(session);
 
   const v = await db.visitor.findFirst({ where: { id, churchId: session.churchId }, select: { firstName: true, lastName: true, personId: true } });
+  const { RecycleBin } = await import("@/lib/recycle-bin");
+  await RecycleBin.captureVisitor(session, id);
   await db.visitor.deleteMany({ where: { id, churchId: session.churchId } });
   if (v?.personId) {
     await db.person.deleteMany({ where: { id: v.personId, churchId: session.churchId, status: "visitor" } });

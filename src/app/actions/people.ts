@@ -8,6 +8,7 @@ import { getFormDefinition } from "@/lib/forms/registration";
 import { buildPersonData } from "@/lib/forms/person-data";
 import { nextMemberId, resolveDepartmentIds } from "@/lib/members/helpers";
 import { logAudit } from "@/lib/audit";
+import { RecycleBin } from "@/lib/recycle-bin";
 import type { PersonStatus } from "@prisma/client";
 
 async function formFields(churchId: string) {
@@ -118,6 +119,7 @@ export async function deletePerson(id: string) {
   const session = await requireSession();
   assertCanDelete(session);
   const person = await db.person.findFirst({ where: { id, churchId: session.churchId }, select: { firstName: true, lastName: true } });
+  await RecycleBin.capturePerson(session, id);
   await db.person.deleteMany({ where: { id, churchId: session.churchId } });
   if (person) await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: "person", entityId: id, detail: `Deleted ${person.firstName} ${person.lastName}` });
   revalidatePath("/app/people");
