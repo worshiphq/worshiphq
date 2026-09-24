@@ -8,10 +8,12 @@ import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { OnFormComplete } from "@/components/ui/form-effects";
-import { Search, Link2, UserRoundPlus, Mail, Phone, Calendar, Pencil, Trash2, UserPlus, X, Star, UploadCloud, Fingerprint } from "lucide-react";
+import { Search, Link2, UserRoundPlus, Mail, Phone, Calendar, Pencil, Trash2, UserPlus, X, Star, UploadCloud, Fingerprint, CalendarCheck, Check, Loader2 } from "lucide-react";
 import { updateVisitor, deleteVisitor, convertVisitorToMember, addVisitor, toggleRegular } from "@/app/actions/visit";
+import { checkInVisitorNow } from "@/app/actions/attendance";
 import { phoneValidityMessage } from "@/lib/phone";
 import { ImageCropper } from "@/components/ui/image-cropper";
+import { BiometricRegisterButton } from "@/components/app/biometric-register";
 
 type VisitorRow = {
   id: string;
@@ -27,6 +29,7 @@ type VisitorRow = {
   lastVisit: string;
   visitDate: string;
   hasFingerprint: boolean;
+  personId: string | null;
 };
 
 const PURPOSES = ["Sunday Service", "Midweek Service", "Special Event", "Counselling", "Other"];
@@ -52,6 +55,8 @@ export function VisitorsClient({
   const [editPhoto, setEditPhoto] = useState("");
   const [editCropping, setEditCropping] = useState<string | null>(null);
   const editFileRef = useRef<HTMLInputElement>(null);
+  const [checkingIn, setCheckingIn] = useState(false);
+  const [checkinResult, setCheckinResult] = useState<{ id: string; message: string } | null>(null);
 
   const filtered = visitors.filter((v) => {
     if (filter === "regular" && !v.isRegular) return false;
@@ -91,6 +96,25 @@ export function VisitorsClient({
     const reader = new FileReader();
     reader.onload = () => setAddEditing(reader.result as string);
     reader.readAsDataURL(file);
+  }
+
+  function handleCheckIn(v: VisitorRow) {
+    if (!v.personId || checkingIn) return;
+    setCheckingIn(true);
+    setCheckinResult(null);
+    startTransition(async () => {
+      const res = await checkInVisitorNow(v.personId!);
+      setCheckingIn(false);
+      if (!res.ok) {
+        setCheckinResult({ id: v.id, message: "Couldn't check them in - try again." });
+        return;
+      }
+      setCheckinResult({
+        id: v.id,
+        message: res.already ? `Already checked in to ${res.sessionName} today` : `Checked in to ${res.sessionName}`,
+      });
+      router.refresh();
+    });
   }
 
   function handleEditPhoto(files: FileList | null) {
@@ -165,7 +189,7 @@ export function VisitorsClient({
             <Card
               key={v.id}
               className="group cursor-pointer p-4 space-y-2 transition-colors hover:border-primary/30"
-              onClick={() => { setEditing(v); setEditPhoto(v.photoUrl ?? ""); }}
+              onClick={() => { setEditing(v); setEditPhoto(v.photoUrl ?? ""); setCheckinResult(null); }}
             >
               <div className="flex items-start justify-between gap-2">
                 <div className="flex items-center gap-2.5">
@@ -188,7 +212,7 @@ export function VisitorsClient({
                 </div>
                 {canWrite && (
                   <button
-                    onClick={(e) => { e.stopPropagation(); setEditing(v); setEditPhoto(v.photoUrl ?? ""); }}
+                    onClick={(e) => { e.stopPropagation(); setEditing(v); setEditPhoto(v.photoUrl ?? ""); setCheckinResult(null); }}
                     className="opacity-0 group-hover:opacity-100 transition-opacity grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-surface-2"
                   >
                     <Pencil className="size-3.5" />
@@ -364,9 +388,37 @@ export function VisitorsClient({
                 </label>
               </div>
 
-              {editing.hasFingerprint && (
-                <div className="flex items-center gap-2 rounded-xl border border-primary/30 bg-primary/5 px-4 py-2 text-sm text-primary">
-                  <Fingerprint className="size-4" /> Fingerprint registered
+              {editing.personId && (
+                <div className="space-y-2 rounded-xl border border-line bg-surface-2/50 p-4">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Attendance &amp; biometrics</div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      disabled={checkingIn}
+                      onClick={() => handleCheckIn(editing)}
+                      className="gap-1.5"
+                    >
+                      {checkingIn ? <Loader2 className="size-4 animate-spin" /> : <CalendarCheck className="size-4" />}
+                      {checkingIn ? "Checking in…" : "Check in today"}
+                    </Button>
+                    <BiometricRegisterButton
+                      personId={editing.personId}
+                      personName={`${editing.firstName} ${editing.lastName}`.trim()}
+                      isRegistered={editing.hasFingerprint}
+                    />
+                  </div>
+                  {checkinResult?.id === editing.id && (
+                    <p className="flex items-center gap-1.5 text-xs font-medium text-success">
+                      <Check className="size-3.5" /> {checkinResult.message}
+                    </p>
+                  )}
+                  {editing.hasFingerprint && (
+                    <p className="flex items-center gap-1.5 text-xs text-primary">
+                      <Fingerprint className="size-3.5" /> Fingerprint on file
+                    </p>
+                  )}
                 </div>
               )}
 

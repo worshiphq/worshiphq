@@ -15,6 +15,7 @@ export default async function VisitorsPage() {
       include: {
         person: {
           select: {
+            id: true,
             biometrics: { where: { type: "scanner" }, select: { id: true }, take: 1 },
           },
         },
@@ -48,6 +49,7 @@ export default async function VisitorsPage() {
         lastVisit: v.lastVisit.toISOString(),
         visitDate: v.visitDate.toISOString(),
         hasFingerprint: (v.person?.biometrics?.length ?? 0) > 0,
+        personId: v.person?.id ?? null,
       }))}
       visitUrl={visitUrl}
       canWrite={canWrite}

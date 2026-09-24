@@ -105,6 +105,66 @@ export async function checkInMember(sessionId: string, personId: string) {
   return { ok: true as const, recordId: record.id, category };
 }
 
+/** Check a visitor (or anyone) in to "today's" service from outside the
+ *  attendance screen - e.g. a "Check in today" button on the Visitors page.
+ *  Reuses the most recent still-open session, or opens a new one if every
+ *  session has been ended already. */
+export async function checkInVisitorNow(personId: string) {
+  const session = await requireSession();
+  assertCanWrite(session);
+
+  const person = await db.person.findFirst({
+    where: { id: personId, churchId: session.churchId },
+    select: { id: true, status: true, dateOfBirth: true, birthday: true },
+  });
+  if (!person) return { ok: false as const, reason: "not-found" as const };
+
+  let sess = await db.attendanceSession.findFirst({
+    where: { churchId: session.churchId, endedAt: null },
+    orderBy: { date: "desc" },
+  });
+  if (!sess) {
+    sess = await db.attendanceSession.create({
+      data: {
+        churchId: session.churchId,
+        branchId: session.branchId ?? undefined,
+        serviceName: defaultServiceName(),
+        date: new Date(),
+      },
+    });
+  }
+
+  const existing = await db.attendanceRecord.findFirst({ where: { sessionId: sess.id, personId } });
+  if (existing) return { ok: true as const, already: true as const, sessionId: sess.id, sessionName: sess.serviceName };
+
+  const category = categoryForPerson(person);
+  await db.attendanceRecord.create({
+    data: {
+      churchId: session.churchId,
+      branchId: sess.branchId ?? undefined,
+      personId,
+      sessionId: sess.id,
+      category,
+      serviceName: sess.serviceName,
+      date: new Date(),
+      method: "manual",
+    },
+  });
+  await db.attendanceSession.update({
+    where: { id: sess.id },
+    data: { [CATEGORY_FIELD[category]]: { increment: 1 } },
+  });
+
+  if (person.status === "visitor") {
+    const { recordVisitorCheckin } = await import("@/app/actions/visit");
+    await recordVisitorCheckin(personId, session.churchId).catch(() => {});
+  }
+
+  revalidatePath(`/app/attendance/${sess.id}`);
+  revalidatePath("/app/attendance");
+  return { ok: true as const, already: false as const, sessionId: sess.id, sessionName: sess.serviceName };
+}
+
 /** Check a member in by scanning their member-ID QR code. Returns a result. */
 export async function checkInByMemberId(
   sessionId: string,
