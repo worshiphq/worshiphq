@@ -74,7 +74,15 @@ export async function storeImage(
     const name = `${folder}/${Date.now()}-${crypto.randomBytes(6).toString("hex")}.${parsed.ext}`;
     const res = await fetch(`${baseUrl()}/storage/v1/object/${BUCKET}/${encodeURI(name)}`, {
       method: "POST",
-      headers: authHeaders({ "Content-Type": parsed.contentType, "x-upsert": "true" }),
+      // Every upload gets a fresh, never-reused filename (timestamp + random),
+      // so it's always safe to cache forever - this is what actually stops the
+      // egress quota from blowing up: without it every avatar/photo view was a
+      // fresh fetch from Storage instead of the browser's (or CDN's) cache.
+      headers: authHeaders({
+        "Content-Type": parsed.contentType,
+        "x-upsert": "true",
+        "cache-control": "public, max-age=31536000, immutable",
+      }),
       body: parsed.buf as unknown as BodyInit,
     });
     if (!res.ok) return input; // keep the base64 rather than losing the image

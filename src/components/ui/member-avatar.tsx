@@ -28,6 +28,8 @@ export function MemberAvatar({
       <img
         src={photoUrl}
         alt={name}
+        loading="lazy"
+        decoding="async"
         className={cn(SIZES[size], "shrink-0 rounded-full object-cover ring-2 ring-surface", className)}
       />
     );
