@@ -1,7 +1,8 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { sendChurchSms } from "@/lib/sms/credits";
-import type { Channel } from "@prisma/client";
+import { timeReached } from "@/lib/time/tz";
+import type { Channel, Automation } from "@prisma/client";
 
 function todayMMDD(now = new Date()): string {
   return `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -32,7 +33,7 @@ export const DEFAULT_TEMPLATES: Record<string, string> = {
 export const TRIGGER_CATALOG: Record<string, { name: string; description: string }> = {
   birthday: { name: "Birthday blessings", description: "Wishes a member happy birthday on the day." },
   anniversary: { name: "Anniversary wishes", description: "Celebrates a member's anniversary on the day." },
-  visitor_followup: { name: "First-time visitor follow-up", description: "Welcomes new visitors a few days after they register." },
+  visitor_followup: { name: "First-time visitor follow-up", description: "Welcomes new visitors a few days after they register - you choose how many days and, optionally, what time." },
   lapsed: { name: "We miss you", description: "Gently checks in on members who've gone inactive." },
   new_member: { name: "New member welcome", description: "Welcomes newly registered members to the church." },
   giving_thanks: { name: "Giving thank you", description: "Thanks members who have given recently." },
@@ -51,7 +52,7 @@ export async function runAutomations(now = new Date()): Promise<{
 }> {
   const churches = await db.church.findMany({
     where: { isDemo: false },
-    select: { id: true, name: true },
+    select: { id: true, name: true, timezone: true },
   });
 
   const outcomes: AutomationOutcome[] = [];
@@ -67,7 +68,10 @@ export async function runAutomations(now = new Date()): Promise<{
     for (const a of automations) {
       // Birthdays are handled by the built-in, timezone-aware runBirthdays now.
       if (a.trigger === "birthday") continue;
-      const targets = await targetsFor(church.id, a.trigger, mmdd, threeDaysAgo, sevenDaysAgo);
+      // Visitor follow-up can be pinned to a local send hour per church -
+      // skip this tick entirely until the church's clock reaches it.
+      if (a.trigger === "visitor_followup" && a.sendHour != null && !timeReached(now, church.timezone, a.sendHour, 0)) continue;
+      const targets = await targetsFor(church.id, a.trigger, mmdd, threeDaysAgo, sevenDaysAgo, now, a);
       if (targets.length === 0) continue;
 
       const template = a.messageTemplate || DEFAULT_TEMPLATES[a.trigger] || "A message from {church}.";
@@ -132,7 +136,10 @@ export async function runSingleAutomation(automationId: string, churchId: string
   const threeDaysAgo = new Date(now.getTime() - 3 * 86400000);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000);
 
-  const targets = await targetsFor(churchId, automation.trigger, mmdd, threeDaysAgo, sevenDaysAgo);
+  // "Run now" is an explicit manual trigger - it ignores sendHour (that's
+  // only a gate for the automatic cron) but still respects delayDays, since
+  // that's about the visitor being ready, not about the time of day.
+  const targets = await targetsFor(churchId, automation.trigger, mmdd, threeDaysAgo, sevenDaysAgo, now, automation);
   if (targets.length === 0) return { ok: true, sent: 0, error: "No matching members found for this trigger right now." };
 
   const template = automation.messageTemplate || DEFAULT_TEMPLATES[automation.trigger] || "A message from {church}.";
@@ -183,6 +190,8 @@ async function targetsFor(
   mmdd: string,
   threeDaysAgo: Date,
   sevenDaysAgo: Date,
+  now: Date,
+  automation?: Automation,
 ): Promise<Target[]> {
   const select = { firstName: true, lastName: true, phone: true };
   switch (trigger) {
@@ -195,8 +204,13 @@ async function targetsFor(
       // sticks: welcomeSmsSentAt is set the moment this - or the instant send
       // on add/self-registration - reaches a visitor, so nobody gets texted
       // more than once no matter how many times this automation runs.
+      // delayDays is per-church/per-automation (default 3): only visitors who
+      // visited AT LEAST that long ago are eligible, so it actually behaves
+      // like "follow up N days after the visit" instead of a fixed window.
+      const delayDays = automation?.delayDays ?? 3;
+      const cutoff = new Date(now.getTime() - delayDays * 86400000);
       const visitors = await db.visitor.findMany({
-        where: { churchId, welcomeSmsSentAt: null, createdAt: { gte: threeDaysAgo } },
+        where: { churchId, welcomeSmsSentAt: null, createdAt: { lte: cutoff } },
         select: { id: true, firstName: true, lastName: true, phone: true },
       });
       return visitors.map((v) => ({ firstName: v.firstName, lastName: v.lastName, phone: v.phone, visitorId: v.id }));

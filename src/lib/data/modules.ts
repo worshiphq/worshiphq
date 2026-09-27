@@ -268,6 +268,8 @@ export async function getReminders(churchId: string) {
       active: a.active,
       runs: a.runs,
       messageTemplate: a.messageTemplate,
+      delayDays: a.delayDays,
+      sendHour: a.sendHour,
       lastRunAt: a.lastRunAt?.toISOString() ?? null,
     })),
     upcoming: upcoming.sort((a, b) => a.sort - b.sort).slice(0, 8),

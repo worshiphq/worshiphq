@@ -48,6 +48,9 @@ export async function createAutomation(formData: FormData) {
     const name = String(formData.get("name") ?? "").trim() || def.name;
     const messageTemplate = DEFAULT_TEMPLATES[trigger] ?? null;
 
+    const delayDaysRaw = String(formData.get("delayDays") ?? "").trim();
+    const sendHourRaw = String(formData.get("sendHour") ?? "").trim();
+
     await db.automation.create({
       data: {
         churchId: session.churchId,
@@ -57,10 +60,39 @@ export async function createAutomation(formData: FormData) {
         channel,
         active: true,
         messageTemplate,
+        ...(trigger === "visitor_followup"
+          ? {
+              delayDays: delayDaysRaw ? Math.min(30, Math.max(0, parseInt(delayDaysRaw, 10) || 3)) : 3,
+              sendHour: sendHourRaw ? Math.min(23, Math.max(0, parseInt(sendHourRaw, 10))) : null,
+            }
+          : {}),
       },
     });
   }
   revalidatePath("/app/reminders");
+}
+
+/** Save the visitor_followup automation's own schedule (delay + optional local
+ *  send hour) alongside its message, in one go. */
+export async function updateAutomationSettings(
+  id: string,
+  opts: { messageTemplate: string; delayDays: number; sendHour: number | null },
+) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  const trimmed = opts.messageTemplate.trim();
+  if (!trimmed) return { ok: false, error: "Template cannot be empty." };
+
+  await db.automation.updateMany({
+    where: { id, churchId: session.churchId },
+    data: {
+      messageTemplate: trimmed,
+      delayDays: Math.min(30, Math.max(0, opts.delayDays || 0)),
+      sendHour: opts.sendHour == null ? null : Math.min(23, Math.max(0, opts.sendHour)),
+    },
+  });
+  revalidatePath("/app/reminders");
+  return { ok: true };
 }
 
 export async function deleteAutomation(id: string) {

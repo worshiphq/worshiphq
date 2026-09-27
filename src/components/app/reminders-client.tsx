@@ -11,10 +11,12 @@ import { Label } from "@/components/ui/input";
 import { useFeedback } from "@/components/ui/feedback";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { DeleteForm } from "@/components/app/delete-form";
-import { toggleAutomation, createAutomation, deleteAutomation, updateAutomationTemplate, runAutomationNow } from "@/app/actions/automations";
+import { toggleAutomation, createAutomation, deleteAutomation, updateAutomationTemplate, updateAutomationSettings, runAutomationNow } from "@/app/actions/automations";
 import { cn } from "@/lib/utils";
 
-type Automation = { id: string; name: string; description: string; trigger: string; channel: string; active: boolean; runs: number; messageTemplate: string | null; lastRunAt: string | null };
+type Automation = { id: string; name: string; description: string; trigger: string; channel: string; active: boolean; runs: number; messageTemplate: string | null; delayDays: number; sendHour: number | null; lastRunAt: string | null };
+
+const HOUR_LABEL = (h: number) => (h === 0 ? "12am" : h < 12 ? `${h}am` : h === 12 ? "12pm" : `${h - 12}pm`);
 type Upcoming = { person: string; type: string; when: string };
 
 const SELECT = "flex h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30";
@@ -74,6 +76,24 @@ export function RemindersClient({
               <option value="custom">Custom reminder - set your own date &amp; schedule</option>
             </select>
           </div>
+          {trigger === "visitor_followup" && (
+            <>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink-muted">Follow up how many days after the visit?</label>
+                <input name="delayDays" type="number" min={0} max={30} defaultValue={3} className={SELECT} />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-sm font-medium text-ink-muted">Send at a specific time? (optional)</label>
+                <select name="sendHour" defaultValue="" className={SELECT}>
+                  <option value="">Any time - as soon as they're due</option>
+                  {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{HOUR_LABEL(h)} (your church's local time)</option>)}
+                </select>
+              </div>
+              <p className="rounded-lg bg-surface-2 px-3 py-2 text-xs text-ink-muted">
+                You can also turn this off later and send follow-ups manually instead, whenever you like, using &ldquo;Run now&rdquo; on the automation.
+              </p>
+            </>
+          )}
           {trigger === "custom" && (
             <>
               <div>
@@ -163,18 +183,23 @@ export function RemindersClient({
   );
 }
 
-function AutomationCard({ automation: a, canWrite, canDelete }: { automation: Automation & { messageTemplate: string | null; lastRunAt: string | null }; canWrite: boolean; canDelete: boolean }) {
+function AutomationCard({ automation: a, canWrite, canDelete }: { automation: Automation; canWrite: boolean; canDelete: boolean }) {
   const [pending, start] = useTransition();
   const [showTemplate, setShowTemplate] = useState(false);
   const [template, setTemplate] = useState(a.messageTemplate ?? "");
+  const [delayDays, setDelayDays] = useState(a.delayDays);
+  const [sendHour, setSendHour] = useState<string>(a.sendHour == null ? "" : String(a.sendHour));
   const [running, startRun] = useTransition();
   const { toast } = useFeedback();
   const Icon = TRIGGER_ICONS[a.trigger] ?? Cake;
+  const isVisitorFollowup = a.trigger === "visitor_followup";
 
   const handleSaveTemplate = () => {
     start(async () => {
-      const res = await updateAutomationTemplate(a.id, template);
-      if (res.ok) toast("Message template saved", "success");
+      const res = isVisitorFollowup
+        ? await updateAutomationSettings(a.id, { messageTemplate: template, delayDays, sendHour: sendHour === "" ? null : parseInt(sendHour, 10) })
+        : await updateAutomationTemplate(a.id, template);
+      if (res.ok) toast("Saved", "success");
       else toast(res.error ?? "Failed", "error");
     });
   };
@@ -213,6 +238,13 @@ function AutomationCard({ automation: a, canWrite, canDelete }: { automation: Au
               </>
             )}
           </div>
+          {isVisitorFollowup && (
+            <p className="mt-1 text-[11px] text-ink-faint">
+              {a.active
+                ? `Sends automatically ${a.delayDays === 0 ? "the same day they visit" : `${a.delayDays} day${a.delayDays !== 1 ? "s" : ""} after they visit`}${a.sendHour != null ? `, at ${HOUR_LABEL(a.sendHour)} local time` : ""}.`
+                : "Paused - nothing sends on its own. Use “Run now” whenever you want to send follow-ups manually."}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-1.5">
           {canWrite && (
@@ -270,9 +302,32 @@ function AutomationCard({ automation: a, canWrite, canDelete }: { automation: Au
             rows={3}
             className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/25 resize-none"
           />
+          {isVisitorFollowup && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label className="text-sm font-medium">Days after the visit</Label>
+                <input
+                  type="number" min={0} max={30} value={delayDays}
+                  onChange={(e) => setDelayDays(Math.min(30, Math.max(0, parseInt(e.target.value, 10) || 0)))}
+                  className="mt-1 h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm outline-none focus:border-primary/50"
+                />
+              </div>
+              <div>
+                <Label className="text-sm font-medium">Send at (optional)</Label>
+                <select
+                  value={sendHour}
+                  onChange={(e) => setSendHour(e.target.value)}
+                  className="mt-1 h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm outline-none focus:border-primary/50"
+                >
+                  <option value="">Any time</option>
+                  {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{HOUR_LABEL(h)}</option>)}
+                </select>
+              </div>
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <Button size="sm" onClick={handleSaveTemplate} disabled={pending}>
-              {pending ? "Saving…" : "Save template"}
+              {pending ? "Saving…" : "Save"}
             </Button>
             <Button size="sm" variant="ghost" onClick={() => setShowTemplate(false)}>
               Cancel

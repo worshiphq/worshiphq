@@ -765,6 +765,11 @@ model Automation {
   customDate      DateTime? // for custom trigger: the date to send
   customRecurrence String?  // "once" | "weekly" | "monthly" | "yearly"
   audience        String?   // "all" | "active" | "department:X" — who gets the custom reminder
+  // visitor_followup only, for now: how long to wait after the visit, and
+  // (optionally) what local hour to send at. Lets each church run this
+  // automation on its own schedule instead of a fixed 3-days/any-time default.
+  delayDays       Int       @default(3)
+  sendHour        Int?      // local hour 0-23; null = send as soon as eligible, any hour
 
   @@index([churchId])
 }
