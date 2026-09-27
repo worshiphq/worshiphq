@@ -8,8 +8,9 @@ import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { OnFormComplete } from "@/components/ui/form-effects";
-import { Search, Link2, UserRoundPlus, Mail, Phone, Calendar, Pencil, Trash2, UserPlus, X, Star, UploadCloud, Fingerprint, CalendarCheck, Check, Loader2 } from "lucide-react";
-import { updateVisitor, deleteVisitor, convertVisitorToMember, addVisitor, toggleRegular } from "@/app/actions/visit";
+import { Search, Link2, UserRoundPlus, Mail, Phone, Calendar, Pencil, Trash2, UserPlus, X, Star, UploadCloud, Fingerprint, CalendarCheck, Check, Loader2, MessageSquareHeart } from "lucide-react";
+import { useFeedback } from "@/components/ui/feedback";
+import { updateVisitor, deleteVisitor, convertVisitorToMember, addVisitor, toggleRegular, sendVisitorReturnMessage } from "@/app/actions/visit";
 import { checkInVisitorNow } from "@/app/actions/attendance";
 import { phoneValidityMessage } from "@/lib/phone";
 import { ImageCropper } from "@/components/ui/image-cropper";
@@ -123,6 +124,19 @@ export function VisitorsClient({
   const editFileRef = useRef<HTMLInputElement>(null);
   const [checkingIn, setCheckingIn] = useState(false);
   const [checkinResult, setCheckinResult] = useState<{ id: string; message: string } | null>(null);
+  const [sendingReturn, setSendingReturn] = useState(false);
+  const { toast } = useFeedback();
+
+  function handleSendReturn(v: VisitorRow) {
+    if (!v.phone || sendingReturn) return;
+    setSendingReturn(true);
+    startTransition(async () => {
+      const res = await sendVisitorReturnMessage(v.id);
+      setSendingReturn(false);
+      if (res?.ok) toast(`Sent to ${v.firstName}`, "success");
+      else toast(res?.error ?? "Couldn't send that.", "error");
+    });
+  }
 
   const filtered = visitors.filter((v) => {
     if (filter === "regular" && !v.isRegular) return false;
@@ -410,6 +424,11 @@ export function VisitorsClient({
 
               <InvitedByPicker members={members} fieldName="invitedById" />
 
+              <label className="flex items-center justify-between rounded-xl border border-line px-4 py-3">
+                <span className="text-sm font-medium">Send them a welcome text?</span>
+                <input type="checkbox" name="sendWelcome" defaultChecked className="size-4 rounded border-line accent-primary" />
+              </label>
+
               <SubmitButton className="w-full" pendingLabel="Saving…" successMessage="Visitor added">Add visitor</SubmitButton>
             </form>
           </div>
@@ -481,6 +500,20 @@ export function VisitorsClient({
                       personName={`${editing.firstName} ${editing.lastName}`.trim()}
                       isRegistered={editing.hasFingerprint}
                     />
+                    {editing.visitCount > 1 && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        disabled={sendingReturn || !editing.phone}
+                        title={editing.phone ? undefined : "No phone number on file"}
+                        onClick={() => handleSendReturn(editing)}
+                        className="gap-1.5"
+                      >
+                        {sendingReturn ? <Loader2 className="size-4 animate-spin" /> : <MessageSquareHeart className="size-4" />}
+                        {sendingReturn ? "Sending…" : "Good to see you again"}
+                      </Button>
+                    )}
                   </div>
                   {checkinResult?.id === editing.id && (
                     <p className="flex items-center gap-1.5 text-xs font-medium text-success">

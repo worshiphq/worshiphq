@@ -59,6 +59,7 @@ model Church {
   paystackSubaccountCode String?
   smsCredits       Int     @default(50) // prepaid SMS units (50 free on signup)
   smsWelcomeMember Boolean @default(true) // SMS a welcome to members who self-register
+  smsWelcomeVisitor Boolean @default(true) // SMS a welcome to visitors who self-register via the visit link
   smsTier          String? // per-church SMS price tier override (null = use site default)
   // Notify admins (SMS + email) when a member submits a prayer request,
   // testimony or counselling request. Editable in Settings.
@@ -1163,6 +1164,10 @@ model Visitor {
   customFields Json?
   visitDate DateTime @default(now())
   createdAt DateTime @default(now())
+  // Set once the first-time welcome text actually goes out (instantly on
+  // self-registration/admin-add, or by the visitor_followup automation as a
+  // catch-all) - guards against sending it more than once per visitor.
+  welcomeSmsSentAt DateTime?
   followUps FollowUp[]
 
   @@index([churchId, visitDate])

@@ -6,7 +6,7 @@ import { MessageSquare, Check, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import type { SmsBundle } from "@/config/sms";
-import { buySmsCredits, setWelcomeSms } from "@/app/actions/sms-credits";
+import { buySmsCredits, setWelcomeSms, setWelcomeVisitorSms } from "@/app/actions/sms-credits";
 import { useFeedback } from "@/components/ui/feedback";
 import { usePaystack } from "@/components/payments/use-paystack";
 import { cn } from "@/lib/utils";
@@ -14,11 +14,13 @@ import { cn } from "@/lib/utils";
 export function SmsCreditsPanel({
   balance,
   welcomeOn,
+  welcomeVisitorOn,
   canWrite,
   bundles,
 }: {
   balance: number;
   welcomeOn: boolean;
+  welcomeVisitorOn: boolean;
   canWrite: boolean;
   bundles: SmsBundle[];
 }) {
@@ -122,6 +124,36 @@ export function SmsCreditsPanel({
         >
           <span className={cn("absolute top-0.5 grid size-4 place-items-center rounded-full bg-white transition-all", welcomeOn ? "left-[1.45rem]" : "left-0.5")}>
             {welcomeOn && <Check className="size-3 text-primary" />}
+          </span>
+        </button>
+      </Card>
+
+      {/* Welcome SMS toggle - visitors */}
+      <Card className="flex items-center justify-between p-5">
+        <div className="pr-4">
+          <div className="text-sm font-semibold text-ink">Welcome SMS to visitors</div>
+          <p className="text-xs text-ink-muted">
+            Automatically text first-time visitors who fill in your visit link themselves. Uses 1 credit each. Edit the wording from Reminders &amp; automations.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={welcomeVisitorOn}
+          disabled={!canWrite}
+          onClick={() =>
+            run(() => setWelcomeVisitorSms(!welcomeVisitorOn), {
+              pending: "Saving…",
+              success: welcomeVisitorOn ? "Welcome SMS off" : "Welcome SMS on",
+            })
+          }
+          className={cn(
+            "relative h-6 w-11 shrink-0 rounded-full border border-line transition-colors disabled:opacity-50",
+            welcomeVisitorOn ? "bg-primary" : "bg-surface-2",
+          )}
+        >
+          <span className={cn("absolute top-0.5 grid size-4 place-items-center rounded-full bg-white transition-all", welcomeVisitorOn ? "left-[1.45rem]" : "left-0.5")}>
+            {welcomeVisitorOn && <Check className="size-3 text-primary" />}
           </span>
         </button>
       </Card>

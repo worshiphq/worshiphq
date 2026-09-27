@@ -15,7 +15,7 @@ export default async function SmsCreditsPage() {
   const [church, transactions, sms] = await Promise.all([
     db.church.findUnique({
       where: { id: session.churchId },
-      select: { smsCredits: true, smsWelcomeMember: true },
+      select: { smsCredits: true, smsWelcomeMember: true, smsWelcomeVisitor: true },
     }),
     db.smsTransaction.findMany({
       where: { churchId: session.churchId },
@@ -35,6 +35,7 @@ export default async function SmsCreditsPage() {
       <SmsCreditsPanel
         balance={church?.smsCredits ?? 0}
         welcomeOn={church?.smsWelcomeMember ?? true}
+        welcomeVisitorOn={church?.smsWelcomeVisitor ?? true}
         canWrite={!session.isDemo}
         bundles={sms.bundles}
       />

@@ -20,7 +20,7 @@ export const DEFAULT_TEMPLATES: Record<string, string> = {
   anniversary:
     "Happy anniversary, {name}! {church} celebrates God's faithfulness in your union. May your love keep growing. 💍",
   visitor_followup:
-    "Hi {name}, it was a joy to have you at {church}! We'd love to see you again this Sunday. Reply if we can pray with you. 🙏",
+    "Hi {name}, it was a joy to have you at {church}! We'd love to see you again. Have an amazing week. God bless you.",
   lapsed:
     "Hi {name}, we've missed you at {church}. You're always welcome - we'd love to reconnect. Is there any way we can support you? 🙏",
   new_member:
@@ -73,12 +73,22 @@ export async function runAutomations(now = new Date()): Promise<{
       const template = a.messageTemplate || DEFAULT_TEMPLATES[a.trigger] || "A message from {church}.";
 
       let sent = 0;
+      const sentVisitorIds: string[] = [];
       for (const t of targets) {
         if (!t.phone) continue;
         const message = renderTemplate(template, t.firstName, church.name);
         const res = await sendChurchSms(church.id, t.phone, message, { note: `${a.name} (automated)` });
         if (res.insufficient) break;
-        if (res.ok) sent++;
+        if (res.ok) {
+          sent++;
+          if (t.visitorId) sentVisitorIds.push(t.visitorId);
+        }
+      }
+      // First-time visitor welcome must only ever go out once per visitor -
+      // this is what stopped it re-firing on every hourly run for the whole
+      // 3-day window it used to be eligible for.
+      if (sentVisitorIds.length > 0) {
+        await db.visitor.updateMany({ where: { id: { in: sentVisitorIds } }, data: { welcomeSmsSentAt: now } });
       }
 
       if (sent > 0) {
@@ -128,12 +138,19 @@ export async function runSingleAutomation(automationId: string, churchId: string
   const template = automation.messageTemplate || DEFAULT_TEMPLATES[automation.trigger] || "A message from {church}.";
 
   let sent = 0;
+  const sentVisitorIds: string[] = [];
   for (const t of targets) {
     if (!t.phone) continue;
     const message = renderTemplate(template, t.firstName, church.name);
     const res = await sendChurchSms(churchId, t.phone, message, { note: `${automation.name} (manual run)` });
     if (res.insufficient) return { ok: false, sent, error: "Insufficient SMS credits." };
-    if (res.ok) sent++;
+    if (res.ok) {
+      sent++;
+      if (t.visitorId) sentVisitorIds.push(t.visitorId);
+    }
+  }
+  if (sentVisitorIds.length > 0) {
+    await db.visitor.updateMany({ where: { id: { in: sentVisitorIds } }, data: { welcomeSmsSentAt: now } });
   }
 
   if (sent > 0) {
@@ -158,7 +175,7 @@ export async function runSingleAutomation(automationId: string, churchId: string
   return { ok: true, sent };
 }
 
-type Target = { firstName: string; lastName: string; phone: string | null };
+type Target = { firstName: string; lastName: string; phone: string | null; visitorId?: string };
 
 async function targetsFor(
   churchId: string,
@@ -173,11 +190,17 @@ async function targetsFor(
       return db.person.findMany({ where: { churchId, birthday: mmdd }, select });
     case "anniversary":
       return db.person.findMany({ where: { churchId, anniversary: mmdd }, select });
-    case "visitor_followup":
-      return db.person.findMany({
-        where: { churchId, status: "visitor", joinedAt: { gte: threeDaysAgo } },
-        select,
+    case "visitor_followup": {
+      // Queries Visitor directly (not Person) so the dedupe guard actually
+      // sticks: welcomeSmsSentAt is set the moment this - or the instant send
+      // on add/self-registration - reaches a visitor, so nobody gets texted
+      // more than once no matter how many times this automation runs.
+      const visitors = await db.visitor.findMany({
+        where: { churchId, welcomeSmsSentAt: null, createdAt: { gte: threeDaysAgo } },
+        select: { id: true, firstName: true, lastName: true, phone: true },
       });
+      return visitors.map((v) => ({ firstName: v.firstName, lastName: v.lastName, phone: v.phone, visitorId: v.id }));
+    }
     case "lapsed":
       return db.person.findMany({ where: { churchId, status: "inactive" }, select });
     case "new_member":

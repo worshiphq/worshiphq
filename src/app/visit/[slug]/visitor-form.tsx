@@ -1,7 +1,9 @@
 "use client";
 
+import { useRef, useState } from "react";
 import { submitVisitorForm } from "@/app/actions/visit";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { ImageCropper } from "@/components/ui/image-cropper";
 import type { FormField } from "@/lib/forms/registration";
 
 export function VisitorForm({
@@ -15,6 +17,18 @@ export function VisitorForm({
   accentColor: string;
   fields: FormField[];
 }) {
+  const [photo, setPhoto] = useState("");
+  const [cropping, setCropping] = useState<string | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  function handlePhotoPick(files: FileList | null) {
+    const file = files?.[0];
+    if (!file || !file.type.startsWith("image/")) return;
+    const reader = new FileReader();
+    reader.onload = () => setCropping(reader.result as string);
+    reader.readAsDataURL(file);
+  }
+
   return (
     <form
       action={submitVisitorForm}
@@ -29,7 +43,33 @@ export function VisitorForm({
             {f.required && <span className="ml-0.5 text-red-500">*</span>}
           </label>
 
-          {f.type === "textarea" ? (
+          {f.type === "image" ? (
+            <div className="flex items-center gap-4">
+              <input type="hidden" name={f.id} value={photo} />
+              {photo ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={photo} alt="" className="size-14 rounded-full object-cover ring-1 ring-[#e8e2d6]" />
+              ) : (
+                <div className="grid size-14 place-items-center rounded-full bg-[#faf8f4] text-xs text-[#a09888]">Photo</div>
+              )}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  className="rounded-lg border border-[#e8e2d6] px-3 py-1.5 text-xs font-semibold text-[#1c1a16] hover:bg-[#faf8f4]"
+                >
+                  {photo ? "Replace photo" : "Add photo"}
+                </button>
+                {photo && (
+                  <button type="button" onClick={() => setPhoto("")} className="text-xs text-red-500 hover:underline">
+                    Remove
+                  </button>
+                )}
+              </div>
+              <input ref={fileRef} type="file" accept="image/*" className="hidden" onChange={(e) => { handlePhotoPick(e.target.files); e.target.value = ""; }} />
+              {cropping && <ImageCropper src={cropping} onCancel={() => setCropping(null)} onConfirm={(d) => { setPhoto(d); setCropping(null); }} />}
+            </div>
+          ) : f.type === "textarea" ? (
             <textarea
               id={f.id}
               name={f.id}

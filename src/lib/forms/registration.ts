@@ -225,6 +225,7 @@ const VISIT_PURPOSE = ["Sunday Service", "Midweek Service", "Special Event", "Co
 export const DEFAULT_VISITOR_FORM: FormField[] = [
   { id: "firstName", label: "First name", type: "text", required: true, system: true, locked: true },
   { id: "lastName", label: "Last name", type: "text", required: true, system: true, locked: true },
+  { id: "photoUrl", label: "Photo (optional)", type: "image", system: true },
   { id: "phone", label: "Phone number", type: "tel", system: true },
   { id: "email", label: "Email", type: "email", system: true },
   { id: "purpose", label: "Purpose of visit", type: "select", options: VISIT_PURPOSE, system: true },

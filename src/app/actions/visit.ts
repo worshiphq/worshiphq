@@ -3,6 +3,60 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getVisitorFormDefinition } from "@/lib/forms/registration";
+import { sendChurchSms } from "@/lib/sms/credits";
+import { DEFAULT_TEMPLATES } from "@/lib/automations/run";
+import { templateFor, renderTemplate as renderRegistryTemplate } from "@/lib/messages/registry";
+
+/** The church's current "first visit welcome" wording - the visitor_followup
+ *  automation's own override if they've customised it (Reminders page), else
+ *  the built-in default. One source of truth so the instant sends (here) and
+ *  the automation's delayed catch-all never disagree. */
+async function visitorWelcomeTemplate(churchId: string): Promise<string> {
+  const automation = await db.automation.findFirst({
+    where: { churchId, trigger: "visitor_followup" },
+    select: { messageTemplate: true },
+  });
+  return automation?.messageTemplate || DEFAULT_TEMPLATES.visitor_followup;
+}
+
+/** Sends the first-time welcome text right away and marks it sent, so the
+ *  visitor_followup automation's catch-all knows to leave this visitor alone. */
+async function sendVisitorWelcomeNow(opts: {
+  churchId: string;
+  churchName: string;
+  visitorId: string;
+  firstName: string;
+  phone: string | null;
+}) {
+  if (!opts.phone) return;
+  const template = await visitorWelcomeTemplate(opts.churchId);
+  const message = template.replace(/\{name\}/g, opts.firstName).replace(/\{church\}/g, opts.churchName);
+  const res = await sendChurchSms(opts.churchId, opts.phone, message, { note: "First visit welcome" });
+  if (res.ok) {
+    await db.visitor.update({ where: { id: opts.visitorId }, data: { welcomeSmsSentAt: new Date() } });
+  }
+}
+
+/** Admin-triggered "good to see you again" text for a returning visitor.
+ *  Never sent automatically - the church decides each time. */
+export async function sendVisitorReturnMessage(id: string) {
+  const { requireSession, assertCanWrite } = await import("@/lib/auth");
+  const session = await requireSession();
+  assertCanWrite(session);
+
+  const visitor = await db.visitor.findFirst({ where: { id, churchId: session.churchId } });
+  if (!visitor) return { ok: false as const, error: "Visitor not found." };
+  if (!visitor.phone) return { ok: false as const, error: "This visitor has no phone number on file." };
+
+  const church = await db.church.findUnique({ where: { id: session.churchId }, select: { name: true, messageTemplates: true } });
+  if (!church) return { ok: false as const, error: "Church not found." };
+
+  const template = templateFor(church.messageTemplates, "visitor_return");
+  const message = renderRegistryTemplate(template, { name: visitor.firstName, church: church.name });
+  const res = await sendChurchSms(session.churchId, visitor.phone, message, { note: "Good to see you again" });
+  if (!res.ok) return { ok: false as const, error: res.insufficient ? "Insufficient SMS credits." : "Couldn't send that message." };
+  return { ok: true as const };
+}
 
 export async function submitVisitorForm(formData: FormData) {
   const churchSlug = String(formData.get("churchSlug") ?? "").trim();
@@ -10,7 +64,7 @@ export async function submitVisitorForm(formData: FormData) {
 
   const church = await db.church.findUnique({
     where: { slug: churchSlug },
-    select: { id: true, isDemo: true, visitorFormFields: true },
+    select: { id: true, name: true, isDemo: true, visitorFormFields: true, smsWelcomeVisitor: true },
   });
   if (!church || church.isDemo) return;
 
@@ -24,6 +78,9 @@ export async function submitVisitorForm(formData: FormData) {
   const email = String(formData.get("email") ?? "").trim() || null;
   const purpose = String(formData.get("purpose") ?? "").trim() || null;
   const notes = String(formData.get("notes") ?? "").trim() || null;
+  const photoRaw = String(formData.get("photoUrl") ?? "").trim() || null;
+  const { storeImage } = await import("@/lib/storage");
+  const photoUrl = await storeImage(photoRaw, "visitors");
 
   const customFields: Record<string, string> = {};
   for (const f of fields) {
@@ -39,6 +96,7 @@ export async function submitVisitorForm(formData: FormData) {
       lastName,
       phone,
       email,
+      photoUrl,
       status: "visitor",
     },
   });
@@ -51,6 +109,7 @@ export async function submitVisitorForm(formData: FormData) {
       lastName,
       phone,
       email,
+      photoUrl,
       purpose,
       notes,
       ...(Object.keys(customFields).length ? { customFields } : {}),
@@ -67,6 +126,13 @@ export async function submitVisitorForm(formData: FormData) {
       dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
     },
   });
+
+  // They filled this in themselves with nobody there to ask them - so unlike
+  // the admin-side "Add visitor" form, this always sends (unless the church
+  // has switched it off in SMS credits settings).
+  if (church.smsWelcomeVisitor) {
+    await sendVisitorWelcomeNow({ churchId: church.id, churchName: church.name, visitorId: visitor.id, firstName, phone });
+  }
 
   redirect(`/visit/${churchSlug}/thank-you`);
 }
@@ -86,7 +152,10 @@ export async function addVisitor(formData: FormData) {
 
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const email = String(formData.get("email") ?? "").trim() || null;
-  const photoUrl = String(formData.get("photoUrl") ?? "").trim() || null;
+  const photoRaw = String(formData.get("photoUrl") ?? "").trim() || null;
+  const { storeImage } = await import("@/lib/storage");
+  const photoUrl = await storeImage(photoRaw, "visitors");
+  const sendWelcome = String(formData.get("sendWelcome") ?? "") === "on";
   const invitedByIdRaw = String(formData.get("invitedById") ?? "").trim() || null;
   const invitedById = invitedByIdRaw
     ? (await db.person.findFirst({ where: { id: invitedByIdRaw, churchId: session.churchId }, select: { id: true } }))?.id ?? null
@@ -122,6 +191,14 @@ export async function addVisitor(formData: FormData) {
 
   const { audit } = await import("@/lib/audit");
   await audit(session, "create", "visitor", `Added visitor ${firstName} ${lastName}`.trim(), v.id);
+
+  // Manual add - an admin is right there, so it's their call whether to send
+  // the welcome text now (the checkbox on the Add visitor form).
+  if (sendWelcome) {
+    const church = await db.church.findUnique({ where: { id: session.churchId }, select: { name: true } });
+    if (church) await sendVisitorWelcomeNow({ churchId: session.churchId, churchName: church.name, visitorId: v.id, firstName, phone });
+  }
+
   const { revalidatePath } = await import("next/cache");
   revalidatePath("/app/visitors");
   revalidatePath("/app/people");
@@ -142,7 +219,9 @@ export async function updateVisitor(formData: FormData) {
   const lastName = String(formData.get("lastName") ?? visitor.lastName).trim();
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const email = String(formData.get("email") ?? "").trim() || null;
-  const photoUrl = String(formData.get("photoUrl") ?? "").trim() || null;
+  const photoRaw = String(formData.get("photoUrl") ?? "").trim() || null;
+  const { storeImage } = await import("@/lib/storage");
+  const photoUrl = await storeImage(photoRaw, "visitors");
   const isRegular = formData.get("isRegular") === "on";
   const invitedByIdRaw = String(formData.get("invitedById") ?? "").trim() || null;
   const invitedById = invitedByIdRaw

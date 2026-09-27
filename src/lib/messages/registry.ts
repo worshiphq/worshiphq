@@ -38,6 +38,13 @@ export const MESSAGE_TEMPLATES: MessageTemplate[] = [
     default: "New follow-up assigned to you at {church}: \"{title}\". {details} Please action it. God bless.",
   },
   {
+    key: "visitor_return",
+    label: "Good to see you again (returning visitor)",
+    description: "Send this from a visitor's profile when they check in or visit again - it's never sent automatically.",
+    placeholders: ["name", "church"],
+    default: "Hi {name}, so good to see you again at {church}! We're grateful you keep coming back. God bless you.",
+  },
+  {
     key: "birthday_wish",
     label: "Birthday wish (to the member)",
     description: "Texted to a member on their birthday. Use {title} for Mr./Mrs./Rev. etc.",

@@ -62,3 +62,11 @@ export async function setWelcomeSms(on: boolean) {
   await db.church.update({ where: { id: session.churchId }, data: { smsWelcomeMember: on } });
   revalidatePath("/app/communications/credits");
 }
+
+/** Toggle the welcome-SMS-on-visitor-self-registration setting. */
+export async function setWelcomeVisitorSms(on: boolean) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  await db.church.update({ where: { id: session.churchId }, data: { smsWelcomeVisitor: on } });
+  revalidatePath("/app/communications/credits");
+}
