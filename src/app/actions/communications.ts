@@ -116,14 +116,37 @@ export async function sendBroadcast(formData: FormData) {
   // Per-recipient outcome for the audit log - defaults to "all succeeded"
   // (email / stub mode has no finer granularity than the whole-batch result).
   let statusByIndex: boolean[] = recipients.map(() => true);
+  // {name} means each recipient needs their own rendered message, so this
+  // sends one at a time instead of one shared batch call - same pattern the
+  // automations use for personalized texts.
+  const personalize = message.includes("{name}");
+  const renderFor = (recipientName: string) => message.replace(/\{name\}/g, recipientName || "there");
 
   if (recipients.length) {
     if (channel === "Email") {
-      const result = await sendEmail({ to: recipients, subject: name, html: `<p>${message}</p>` });
-      statusByIndex = recipients.map(() => result.ok);
-      sent = result.ok ? recipients.length : 0;
+      if (personalize) {
+        const results = await Promise.all(
+          recipientObjs.map((r) => sendEmail({ to: r.contact, subject: name, html: `<p>${renderFor(r.name)}</p>` })),
+        );
+        statusByIndex = results.map((r) => r.ok);
+        sent = statusByIndex.filter(Boolean).length;
+      } else {
+        const result = await sendEmail({ to: recipients, subject: name, html: `<p>${message}</p>` });
+        statusByIndex = recipients.map(() => result.ok);
+        sent = result.ok ? recipients.length : 0;
+      }
+    } else if (personalize) {
+      // SMS is billed against the church's prepaid credits, one recipient at a time.
+      const results: boolean[] = [];
+      for (const r of recipientObjs) {
+        const res = await sendChurchSms(session.churchId, r.contact, renderFor(r.name), { note: name });
+        if (res.insufficient) break;
+        results.push(res.ok);
+      }
+      statusByIndex = recipientObjs.map((_, i) => results[i] ?? false);
+      sent = results.filter(Boolean).length;
+      if (sent === 0) redirect("/app/communications?error=credits");
     } else {
-      // SMS is billed against the church's prepaid credits.
       const result = await sendChurchSms(session.churchId, recipients, message, { note: name });
       if (result.insufficient) {
         redirect("/app/communications?error=credits");

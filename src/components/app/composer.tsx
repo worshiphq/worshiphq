@@ -94,6 +94,17 @@ export function Composer({
             )}
           </div>
           <Textarea name="message" value={message} onChange={(e) => setMessage(e.target.value)} className="min-h-28" required />
+          <div className="mt-1.5 flex items-center gap-2 text-xs text-ink-faint">
+            <span>Address each person by name:</span>
+            <button
+              type="button"
+              onClick={() => setMessage((m) => `${m}{name}`)}
+              className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-ink-muted hover:bg-primary/10 hover:text-primary"
+            >
+              {"{name}"}
+            </button>
+            <span>becomes their first name for every recipient.</span>
+          </div>
         </div>
 
         <SubmitButton

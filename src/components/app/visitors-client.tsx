@@ -15,6 +15,7 @@ import { checkInVisitorNow } from "@/app/actions/attendance";
 import { phoneValidityMessage } from "@/lib/phone";
 import { ImageCropper } from "@/components/ui/image-cropper";
 import { BiometricRegisterButton } from "@/components/app/biometric-register";
+import { ImportVisitorsModal } from "@/components/app/import-visitors-modal";
 
 type VisitorRow = {
   id: string;
@@ -254,6 +255,7 @@ export function VisitorsClient({
               <UserRoundPlus className="size-4" /> Add visitor
             </Button>
           )}
+          {canWrite && <ImportVisitorsModal onImported={() => router.refresh()} />}
           {visitUrl && (
             <Button
               variant="secondary"
