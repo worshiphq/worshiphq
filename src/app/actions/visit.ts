@@ -7,6 +7,15 @@ import { sendChurchSms } from "@/lib/sms/credits";
 import { DEFAULT_TEMPLATES } from "@/lib/automations/run";
 import { templateFor, renderTemplate as renderRegistryTemplate } from "@/lib/messages/registry";
 
+/** "Purpose of visit" select can be "Other", in which case the real value
+ *  comes from the accompanying free-text field instead of the literal word. */
+function resolvePurpose(formData: FormData): string | null {
+  const raw = String(formData.get("purpose") ?? "").trim();
+  if (raw !== "Other") return raw || null;
+  const other = String(formData.get("purposeOther") ?? "").trim();
+  return other || "Other";
+}
+
 /** The church's current "first visit welcome" wording - the visitor_followup
  *  automation's own override if they've customised it (Reminders page), else
  *  the built-in default. One source of truth so the instant sends (here) and
@@ -76,11 +85,34 @@ export async function submitVisitorForm(formData: FormData) {
 
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const email = String(formData.get("email") ?? "").trim() || null;
-  const purpose = String(formData.get("purpose") ?? "").trim() || null;
+  const purpose = resolvePurpose(formData);
   const notes = String(formData.get("notes") ?? "").trim() || null;
   const photoRaw = String(formData.get("photoUrl") ?? "").trim() || null;
   const { storeImage } = await import("@/lib/storage");
   const photoUrl = await storeImage(photoRaw, "visitors");
+
+  // No safe way to expose a searchable member picker on a public page, so
+  // this is free text - kept as-is regardless so the name always shows on
+  // their profile, and only linked to a real member (invitedById) when the
+  // typed name matches exactly ONE member by first+last name, to avoid
+  // crediting the wrong "John" at a church with several of them.
+  const invitedByName = String(formData.get("invitedByName") ?? "").trim() || null;
+  let invitedById: string | null = null;
+  if (invitedByName) {
+    const [first, ...rest] = invitedByName.split(/\s+/);
+    const last = rest.join(" ");
+    const matches = await db.person.findMany({
+      where: {
+        churchId: church.id,
+        status: { not: "inactive" },
+        firstName: { equals: first, mode: "insensitive" },
+        ...(last ? { lastName: { equals: last, mode: "insensitive" } } : {}),
+      },
+      select: { id: true },
+      take: 2,
+    });
+    if (matches.length === 1) invitedById = matches[0].id;
+  }
 
   const customFields: Record<string, string> = {};
   for (const f of fields) {
@@ -105,6 +137,8 @@ export async function submitVisitorForm(formData: FormData) {
     data: {
       church: { connect: { id: church.id } },
       personId: person.id,
+      invitedById,
+      invitedByName,
       firstName,
       lastName,
       phone,
@@ -183,7 +217,7 @@ export async function addVisitor(formData: FormData) {
       phone,
       email,
       photoUrl,
-      purpose: String(formData.get("purpose") ?? "").trim() || null,
+      purpose: resolvePurpose(formData),
       notes: String(formData.get("notes") ?? "").trim() || null,
       visitDate: visitDateStr ? new Date(visitDateStr) : new Date(),
     },
@@ -238,7 +272,7 @@ export async function updateVisitor(formData: FormData) {
       photoUrl,
       isRegular,
       invitedById,
-      purpose: String(formData.get("purpose") ?? "").trim() || null,
+      purpose: resolvePurpose(formData),
       notes: String(formData.get("notes") ?? "").trim() || null,
     },
   });

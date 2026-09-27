@@ -20,6 +20,7 @@ export function VisitorForm({
   const [photo, setPhoto] = useState("");
   const [cropping, setCropping] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const [selectValues, setSelectValues] = useState<Record<string, string>>({});
 
   function handlePhotoPick(files: FileList | null) {
     const file = files?.[0];
@@ -80,18 +81,30 @@ export function VisitorForm({
               style={{ "--tw-ring-color": accentColor } as React.CSSProperties}
             />
           ) : f.type === "select" && f.options ? (
-            <select
-              id={f.id}
-              name={f.id}
-              required={f.required}
-              className="w-full rounded-xl border border-[#e8e2d6] bg-[#faf8f4] px-4 py-2.5 text-sm text-[#1c1a16] outline-none focus:border-transparent focus:ring-2"
-              style={{ "--tw-ring-color": accentColor } as React.CSSProperties}
-            >
-              <option value="">Select…</option>
-              {f.options.map((o) => (
-                <option key={o} value={o}>{o}</option>
-              ))}
-            </select>
+            <>
+              <select
+                id={f.id}
+                name={f.id}
+                required={f.required}
+                value={selectValues[f.id] ?? ""}
+                onChange={(e) => setSelectValues((v) => ({ ...v, [f.id]: e.target.value }))}
+                className="w-full rounded-xl border border-[#e8e2d6] bg-[#faf8f4] px-4 py-2.5 text-sm text-[#1c1a16] outline-none focus:border-transparent focus:ring-2"
+                style={{ "--tw-ring-color": accentColor } as React.CSSProperties}
+              >
+                <option value="">Select…</option>
+                {f.options.map((o) => (
+                  <option key={o} value={o}>{o}</option>
+                ))}
+              </select>
+              {selectValues[f.id] === "Other" && (
+                <input
+                  name={`${f.id}Other`}
+                  placeholder="Please specify"
+                  className="mt-2 w-full rounded-xl border border-[#e8e2d6] bg-[#faf8f4] px-4 py-2.5 text-sm text-[#1c1a16] outline-none focus:border-transparent focus:ring-2"
+                  style={{ "--tw-ring-color": accentColor } as React.CSSProperties}
+                />
+              )}
+            </>
           ) : (
             <input
               id={f.id}

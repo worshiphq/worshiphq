@@ -1156,6 +1156,11 @@ model Visitor {
   person    Person?  @relation("VisitorPerson", fields: [personId], references: [id], onDelete: SetNull)
   invitedById String?
   invitedBy   Person? @relation("VisitorInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
+  // Free-text "who invited you" from the public self-registration form (which
+  // can't safely expose a searchable member picker). Best-effort matched to
+  // invitedById above when the typed name matches an existing member exactly;
+  // kept regardless so the name still shows even when it doesn't match.
+  invitedByName String?
   firstName String
   lastName  String
   phone     String?

@@ -58,6 +58,7 @@ export default async function VisitorsPage() {
         hasFingerprint: (v.person?.biometrics?.length ?? 0) > 0,
         personId: v.person?.id ?? null,
         invitedBy: v.invitedBy ? { id: v.invitedBy.id, name: `${v.invitedBy.firstName} ${v.invitedBy.lastName}`.trim() } : null,
+        invitedByName: v.invitedByName,
       }))}
       members={members.map((m) => ({ id: m.id, name: `${m.firstName} ${m.lastName}`.trim(), phone: m.phone }))}
       visitUrl={visitUrl}

@@ -229,6 +229,7 @@ export const DEFAULT_VISITOR_FORM: FormField[] = [
   { id: "phone", label: "Phone number", type: "tel", system: true },
   { id: "email", label: "Email", type: "email", system: true },
   { id: "purpose", label: "Purpose of visit", type: "select", options: VISIT_PURPOSE, system: true },
+  { id: "invitedByName", label: "Who invited you? (optional)", type: "text", system: true },
   { id: "notes", label: "Prayer request or notes", type: "textarea", system: true },
 ];
 

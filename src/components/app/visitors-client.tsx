@@ -32,11 +32,43 @@ type VisitorRow = {
   hasFingerprint: boolean;
   personId: string | null;
   invitedBy: { id: string; name: string } | null;
+  invitedByName: string | null;
 };
 
 type MemberOption = { id: string; name: string; phone: string | null };
 
 const PURPOSES = ["Sunday Service", "Midweek Service", "Special Event", "Counselling", "Other"];
+
+/** Purpose-of-visit select that reveals a "please specify" box when "Other"
+ *  is picked. `initial` may be a custom value that isn't in PURPOSES at all
+ *  (an existing visitor's saved "Other" text) - in that case the select
+ *  starts on "Other" and the box is pre-filled with the saved text. */
+function PurposeSelect({ initial }: { initial?: string | null }) {
+  const knownInitial = initial && PURPOSES.includes(initial) ? initial : initial ? "Other" : "";
+  const [value, setValue] = useState(knownInitial);
+  return (
+    <div>
+      <Label>Purpose of visit</Label>
+      <select
+        name="purpose"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        className="h-10 w-full rounded-xl border border-line bg-base px-3 text-sm"
+      >
+        <option value="">- Select -</option>
+        {PURPOSES.map((p) => <option key={p} value={p}>{p}</option>)}
+      </select>
+      {value === "Other" && (
+        <Input
+          name="purposeOther"
+          placeholder="Please specify"
+          defaultValue={knownInitial === "Other" && initial !== "Other" ? initial ?? "" : ""}
+          className="mt-2"
+        />
+      )}
+    </div>
+  );
+}
 
 function InvitedByPicker({ members, fieldName, initial }: {
   members: MemberOption[];
@@ -401,17 +433,7 @@ export function VisitorsClient({
                 <Input name="visitDate" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
               </div>
 
-              <div>
-                <Label>Purpose of visit</Label>
-                <select
-                  name="purpose"
-                  defaultValue=""
-                  className="h-10 w-full rounded-xl border border-line bg-base px-3 text-sm"
-                >
-                  <option value="">- Select -</option>
-                  {PURPOSES.map((p) => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
+              <PurposeSelect />
 
               <div>
                 <Label>Notes / prayer request</Label>
@@ -549,17 +571,7 @@ export function VisitorsClient({
                 <Input name="email" type="email" defaultValue={editing.email ?? ""} />
               </div>
 
-              <div>
-                <Label>Purpose of visit</Label>
-                <select
-                  name="purpose"
-                  defaultValue={editing.purpose ?? ""}
-                  className="h-10 w-full rounded-xl border border-line bg-base px-3 text-sm"
-                >
-                  <option value="">- Select -</option>
-                  {PURPOSES.map((p) => <option key={p} value={p}>{p}</option>)}
-                </select>
-              </div>
+              <PurposeSelect key={editing.id} initial={editing.purpose} />
 
               <div>
                 <Label>Notes / prayer request</Label>
@@ -572,6 +584,9 @@ export function VisitorsClient({
               </div>
 
               <InvitedByPicker key={editing.id} members={members} fieldName="invitedById" initial={editing.invitedBy} />
+              {!editing.invitedBy && editing.invitedByName && (
+                <p className="text-xs text-ink-faint">They told us &ldquo;{editing.invitedByName}&rdquo; invited them (typed on the visitor form - not linked to a member record above).</p>
+              )}
 
               <div className="flex gap-2">
                 <SubmitButton className="flex-1">Save changes</SubmitButton>
