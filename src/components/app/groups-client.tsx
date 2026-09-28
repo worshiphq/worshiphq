@@ -8,12 +8,15 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useFeedback } from "@/components/ui/feedback";
 import {
-  Search, Users2, MapPin, Calendar, User, Trash2, ChevronRight, Pencil, Bell, Loader2,
+  Search, Users2, MapPin, Calendar, User, Trash2, ChevronRight, Pencil, Bell, Loader2, MessageSquare, Send,
 } from "lucide-react";
 import { deleteGroup, updateGroup, sendGroupMeetingReminder } from "@/app/actions/groups";
+import { sendBroadcast } from "@/app/actions/communications";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { GroupFields } from "@/components/app/group-fields";
+import { Modal } from "@/components/ui/modal";
 import { formatSchedule, type ScheduleEntry } from "@/lib/groups/meeting-reminder";
+import { cn } from "@/lib/utils";
 import Link from "next/link";
 
 type GroupRow = {
@@ -132,6 +135,7 @@ export function GroupsClient({ items, people, typeSuggestions, canWrite }: {
                 </div>
                 {canWrite && (
                   <div className="flex shrink-0 items-center gap-1">
+                    <GroupMessageDialog groupId={g.id} groupName={g.name} memberCount={g.memberCount} />
                     <EditGroupDialog g={g} people={people} typeSuggestions={typeSuggestions} />
                     <button
                       onClick={() => handleDelete(g.id)}
@@ -207,6 +211,96 @@ function EditGroupDialog({ g, people, typeSuggestions }: {
       <input type="hidden" name="id" value={g.id} />
       <GroupFields group={g} people={people} typeSuggestions={typeSuggestions} />
     </ActionDialog>
+  );
+}
+
+/** Manual, one-off message to everyone in the group - separate from the
+ *  scheduled meeting reminder above and from Reminders & automations. Just a
+ *  quick way to text/email a group ("bring your Bible Sunday", etc.). */
+function GroupMessageDialog({ groupId, groupName, memberCount }: { groupId: string; groupName: string; memberCount: number }) {
+  const [open, setOpen] = useState(false);
+  const [channel, setChannel] = useState<"SMS" | "Email">("SMS");
+  const [message, setMessage] = useState("");
+  const [pending, start] = useTransition();
+  const { toast } = useFeedback();
+  const router = useRouter();
+
+  function send() {
+    if (!message.trim()) return;
+    const fd = new FormData();
+    fd.set("name", `${groupName} message`);
+    fd.set("channel", channel);
+    fd.set("target", `group:${groupId}`);
+    fd.set("message", message);
+    start(async () => {
+      await sendBroadcast(fd);
+      toast("Message sent", "success");
+      setOpen(false);
+      setMessage("");
+      router.refresh();
+    });
+  }
+
+  return (
+    <>
+      <button
+        onClick={() => setOpen(true)}
+        className="rounded-lg p-1.5 text-ink-faint hover:bg-primary/10 hover:text-primary"
+        title="Message this group"
+      >
+        <MessageSquare className="size-4" />
+      </button>
+      <Modal
+        open={open}
+        onClose={() => setOpen(false)}
+        title={`Message ${groupName}`}
+        description={`Sends to all ${memberCount} member${memberCount !== 1 ? "s" : ""} with a phone number or email on file. This is manual - it's separate from any automatic reminders.`}
+      >
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-2">
+            {(["SMS", "Email"] as const).map((c) => (
+              <button
+                key={c}
+                type="button"
+                onClick={() => setChannel(c)}
+                className={cn(
+                  "rounded-xl border py-2.5 text-sm font-medium transition-colors",
+                  channel === c ? "border-primary/50 bg-primary/10 text-ink" : "border-line text-ink-muted hover:bg-surface-2",
+                )}
+              >
+                {c}
+              </button>
+            ))}
+          </div>
+          <div>
+            <textarea
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              rows={4}
+              placeholder="Hi {name}, don't forget..."
+              className="w-full rounded-xl border border-line bg-surface px-4 py-3 text-sm outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/25 resize-none"
+            />
+            <div className="mt-1.5 flex items-center gap-2 text-xs text-ink-faint">
+              <span>Address each person by name:</span>
+              <button
+                type="button"
+                onClick={() => setMessage((m) => `${m}{name}`)}
+                className="rounded bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-ink-muted hover:bg-primary/10 hover:text-primary"
+              >
+                {"{name}"}
+              </button>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <Button variant="secondary" className="flex-1" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button className="flex-1" disabled={!message.trim() || pending} onClick={send}>
+              {pending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
+              {pending ? "Sending…" : `Send ${channel}`}
+            </Button>
+          </div>
+        </div>
+      </Modal>
+    </>
   );
 }
 

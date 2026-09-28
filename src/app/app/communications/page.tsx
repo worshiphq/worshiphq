@@ -23,11 +23,12 @@ export default async function CommunicationsPage({
 }) {
   const session = await requireModule("communications");
   const { error } = await searchParams;
-  const [{ campaigns, stats }, people, smsBalance, departments] = await Promise.all([
+  const [{ campaigns, stats }, people, smsBalance, departments, groups] = await Promise.all([
     getCommunications(session.churchId),
     getPeopleStats(session.churchId),
     getSmsBalance(session.churchId),
     db.department.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    db.group.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
   return (
@@ -54,7 +55,7 @@ export default async function CommunicationsPage({
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-2"><Composer departments={departments} canWrite={!session.isDemo} /></div>
+        <div className="lg:col-span-2"><Composer departments={departments} groups={groups} canWrite={!session.isDemo} /></div>
 
         <CampaignHistory campaigns={campaigns} />
       </div>

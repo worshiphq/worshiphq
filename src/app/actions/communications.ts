@@ -96,7 +96,7 @@ export async function sendBroadcast(formData: FormData) {
     recipientObjs = pick(people);
     segmentLabel = "Adults missing Ghana Card";
   } else {
-    const where: { churchId: string; status?: "active" | "visitor"; departments?: { some: { id: string } } } = {
+    const where: { churchId: string; status?: "active" | "visitor"; departments?: { some: { id: string } }; groups?: { some: { id: string } } } = {
       churchId: session.churchId,
     };
     if (target === "active") { where.status = "active"; segmentLabel = "Active members"; }
@@ -106,6 +106,11 @@ export async function sendBroadcast(formData: FormData) {
       where.departments = { some: { id } };
       const dept = await db.department.findFirst({ where: { id, churchId: session.churchId }, select: { name: true } });
       segmentLabel = dept ? `${dept.name} department` : "Department";
+    } else if (target.startsWith("group:")) {
+      const id = target.slice(6);
+      where.groups = { some: { id } };
+      const group = await db.group.findFirst({ where: { id, churchId: session.churchId }, select: { name: true } });
+      segmentLabel = group ? `${group.name} group` : "Group";
     }
     const people = await db.person.findMany({ where, select: PERSON_SELECT });
     recipientObjs = pick(people);

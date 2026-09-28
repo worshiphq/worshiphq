@@ -10,9 +10,11 @@ import { cn } from "@/lib/utils";
 
 export function Composer({
   departments,
+  groups = [],
   canWrite,
 }: {
   departments: { id: string; name: string }[];
+  groups?: { id: string; name: string }[];
   canWrite: boolean;
 }) {
   const [channel, setChannel] = useState<"SMS" | "Email">("SMS");
@@ -64,6 +66,11 @@ export function Composer({
             {departments.length > 0 && (
               <optgroup label="By department">
                 {departments.map((d) => <option key={d.id} value={`dept:${d.id}`}>{d.name}</option>)}
+              </optgroup>
+            )}
+            {groups.length > 0 && (
+              <optgroup label="By group">
+                {groups.map((g) => <option key={g.id} value={`group:${g.id}`}>{g.name}</option>)}
               </optgroup>
             )}
             <option value="custom">{channel === "Email" ? "Specific emails…" : "Specific numbers…"}</option>
