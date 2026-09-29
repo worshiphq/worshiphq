@@ -112,7 +112,7 @@ export function BirthdaySettings({ settings, membersWithPhone, adminCount, canWr
             <div className="mt-2 flex items-center gap-2 pl-6 text-sm">
               <span className="text-xs text-ink-muted">Send every</span>
               <select value={s.digestDay} onChange={(e) => set({ digestDay: Number(e.target.value) })} disabled={!canWrite}
-                className="h-8 rounded-lg border border-line bg-surface px-2 text-sm">
+                className="h-10 rounded-lg border border-line bg-surface px-3 text-sm">
                 {DAYS.map((d, i) => <option key={d} value={i}>{d}</option>)}
               </select>
             </div>
@@ -125,14 +125,14 @@ export function BirthdaySettings({ settings, membersWithPhone, adminCount, canWr
             <Clock className="size-4 text-primary" />
             <span className="text-sm font-medium">Send at</span>
             <select value={s.sendHour} onChange={(e) => set({ sendHour: Number(e.target.value) })} disabled={!canWrite}
-              className="h-8 rounded-lg border border-line bg-surface px-2 text-sm">
+              className="h-10 rounded-lg border border-line bg-surface px-3 text-sm">
               {Array.from({ length: 24 }, (_, h) => <option key={h} value={h}>{hourLabel(h)}</option>)}
             </select>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-ink-muted">in</span>
             <select value={s.timezone} onChange={(e) => set({ timezone: e.target.value })} disabled={!canWrite}
-              className="h-8 rounded-lg border border-line bg-surface px-2 text-sm">
+              className="h-10 rounded-lg border border-line bg-surface px-3 text-sm">
               {TIMEZONES.includes(s.timezone) ? null : <option value={s.timezone}>{s.timezone}</option>}
               {TIMEZONES.map((t) => <option key={t} value={t}>{t.replace("_", " ")}</option>)}
             </select>

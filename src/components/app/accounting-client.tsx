@@ -187,7 +187,7 @@ function MoveAccountControl({ row, onMoved }: { row: AccountingRow; onMoved?: ()
         value={currentId}
         onChange={(e) => move(e.target.value)}
         disabled={pending}
-        className="max-w-[10rem] truncate rounded-lg border border-line bg-surface px-1.5 py-1 text-[11px] text-ink-muted outline-none hover:border-primary/40 focus:border-primary/50"
+        className="max-w-[10rem] truncate rounded-lg border border-line bg-surface px-2 py-1.5 text-xs text-ink-muted outline-none hover:border-primary/40 focus:border-primary/50"
       >
         {currentId === "" && <option value="">- Assign to account -</option>}
         {accounts.map((a) => (

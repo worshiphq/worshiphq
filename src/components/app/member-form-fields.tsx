@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { UploadCloud, X } from "lucide-react";
 import { type FormField, DEPARTMENT_FIELD_ID } from "@/lib/forms/registration";
 import { ImageCropper } from "@/components/ui/image-cropper";
+import { Combobox } from "@/components/ui/combobox";
 import { phoneValidityMessage } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 
@@ -55,6 +56,10 @@ export function MemberFormFields({
               <DepartmentChecks departments={departments} selected={depts} onChange={setDepts} />
             ) : f.type === "image" ? (
               <PhotoUpload value={photo} onChange={setPhoto} name={f.id} />
+            ) : f.type === "select" && (f.options?.length ?? 0) >= 10 ? (
+              // Long lists (nationality, etc.) get search + keyboard nav instead of a
+              // plain scroll-through-100-options select.
+              <Combobox name={f.id} required={f.required} value={values[f.id] ?? ""} onChange={(v) => setValue(f.id, v)} options={f.options ?? []} />
             ) : f.type === "select" ? (
               <select name={f.id} required={f.required} value={values[f.id] ?? ""} onChange={(e) => setValue(f.id, e.target.value)} className={input}>
                 <option value="">Select…</option>
