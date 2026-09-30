@@ -4,6 +4,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { StatCard } from "@/components/app/stat-card";
 import { Composer } from "@/components/app/composer";
 import { CampaignHistory } from "@/components/app/campaign-history";
+import { SystemMessagesButton } from "@/components/app/system-messages-button";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,17 +24,20 @@ export default async function CommunicationsPage({
 }) {
   const session = await requireModule("communications");
   const { error } = await searchParams;
-  const [{ campaigns, stats }, people, smsBalance, departments, groups] = await Promise.all([
+  const [{ campaigns, stats }, people, smsBalance, departments, groups, church] = await Promise.all([
     getCommunications(session.churchId),
     getPeopleStats(session.churchId),
     getSmsBalance(session.churchId),
     db.department.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     db.group.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    db.church.findUnique({ where: { id: session.churchId }, select: { messageTemplates: true } }),
   ]);
+  const messageTemplates = (church?.messageTemplates as Record<string, string> | null) ?? {};
 
   return (
     <div>
-      <PageHeader title="Communications" description="Reach your whole church - or a smart segment - by SMS and email.">
+      <PageHeader title="Communications" description="Reach your whole church - or a smart segment - by SMS.">
+        <SystemMessagesButton saved={messageTemplates} />
         <Link href="/app/communications/credits">
           <Button variant="secondary" size="sm"><Wallet className="size-4" /> {smsBalance.toLocaleString()} credits · Buy</Button>
         </Link>
