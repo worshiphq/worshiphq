@@ -69,7 +69,7 @@ export function Topbar({
                 {notifications.length === 0 ? (
                   <div className="px-2.5 py-4 text-center text-sm text-ink-faint">No recent activity</div>
                 ) : (
-                  <div className="max-h-80 overflow-y-auto">
+                  <div className="max-h-80 overflow-y-auto overscroll-contain">
                     {notifications.map((n) => {
                       const Icon = NOTIF_ICON[n.type];
                       return (
@@ -185,7 +185,7 @@ function GlobalSearch() {
           {results.length === 0 && !loading ? (
             <div className="px-3 py-4 text-center text-sm text-ink-faint">No matches for “{q.trim()}”.</div>
           ) : (
-            <ul className="max-h-96 overflow-y-auto py-1">
+            <ul className="max-h-96 overflow-y-auto overscroll-contain py-1">
               {results.map((r) => {
                 const Icon = r.type === "member" ? null : RESULT_ICON[r.type];
                 return (

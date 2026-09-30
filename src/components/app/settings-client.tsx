@@ -397,7 +397,7 @@ export function SettingsClient({
             {editingRole && (
               <>
                 <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setEditingRole(null)} />
-                <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l border-line bg-surface shadow-2xl">
+                <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto overscroll-contain border-l border-line bg-surface shadow-2xl">
                   <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-5 py-4">
                     <h2 className="font-display text-lg font-semibold">Edit role</h2>
                     <button onClick={() => setEditingRole(null)} className="grid size-8 place-items-center rounded-lg hover:bg-surface-2">
@@ -900,7 +900,7 @@ function UpgradeCelebration({ planName, newFeatures, onDone }: { planName: strin
         </div>
 
         {newFeatures.length > 0 && (
-          <div className="mt-6 max-h-60 overflow-y-auto rounded-xl border border-line bg-surface-2/30 p-4">
+          <div className="mt-6 max-h-60 overflow-y-auto overscroll-contain rounded-xl border border-line bg-surface-2/30 p-4">
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">Newly unlocked features</h3>
             <div className="space-y-2">
               {newFeatures.map((f, i) => (
@@ -1301,7 +1301,7 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
       {refundFor && (
         <>
           <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setRefundFor(null)} />
-          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l border-line bg-surface shadow-2xl">
+          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto overscroll-contain border-l border-line bg-surface shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-5 py-4">
               <h2 className="font-display text-lg font-semibold">Request a refund</h2>
               <button onClick={() => setRefundFor(null)} className="grid size-8 place-items-center rounded-lg hover:bg-surface-2">

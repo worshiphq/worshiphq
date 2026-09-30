@@ -188,7 +188,7 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
           {list.length === 0 ? (
             <p className="text-xs text-ink-faint">No-one yet - start scanning.</p>
           ) : (
-            <ul className="flex max-h-32 flex-wrap gap-2 overflow-y-auto">
+            <ul className="flex max-h-32 flex-wrap gap-2 overflow-y-auto overscroll-contain">
               {list.map((p, i) => (
                 <li key={p.personId + i} className="flex items-center gap-1.5 rounded-full border border-line bg-base py-1 pl-1 pr-2.5 text-xs">
                   <MemberAvatar name={p.name} photoUrl={p.photoUrl} gender={p.gender} size="xs" />

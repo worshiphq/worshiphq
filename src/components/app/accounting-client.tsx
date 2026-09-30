@@ -761,7 +761,7 @@ function UnassignedModal({ onClose }: { onClose: () => void }) {
           </div>
           <button onClick={onClose} className="rounded-lg p-1 text-ink-faint hover:bg-surface-2"><X className="size-4" /></button>
         </div>
-        <div className="min-h-0 flex-1 overflow-y-auto p-4">
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-4">
           {loading && rows === null ? (
             <div className="flex items-center justify-center gap-2 p-8 text-sm text-ink-muted">
               <span className="size-4 animate-spin rounded-full border-2 border-primary border-t-transparent" /> Loading…

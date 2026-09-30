@@ -151,7 +151,7 @@ export function Combobox({
               />
             </div>
           )}
-          <ul ref={listRef} role="listbox" className="max-h-56 overflow-y-auto py-1">
+          <ul ref={listRef} role="listbox" className="max-h-56 overflow-y-auto overscroll-contain py-1">
             {filtered.length === 0 ? (
               <li className="px-3.5 py-2.5 text-sm text-ink-faint">No matches.</li>
             ) : (

@@ -409,7 +409,7 @@ function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announc
   const sel = "h-9 rounded-lg border border-line bg-surface px-2.5 text-sm";
 
   return (
-    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto bg-black/40 p-4" onClick={onClose}>
+    <div className="fixed inset-0 z-50 grid place-items-center overflow-y-auto overscroll-contain bg-black/40 p-4" onClick={onClose}>
       <Card className="my-8 w-full max-w-md p-0" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line p-5">
           <h3 className="font-display text-lg font-semibold">Roster messages</h3>
@@ -556,7 +556,7 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
-      <Card className="max-h-[90vh] w-full max-w-lg overflow-y-auto p-0" onClick={(e) => e.stopPropagation()}>
+      <Card className="max-h-[90vh] w-full max-w-lg overflow-y-auto overscroll-contain p-0" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface p-5">
           <h3 className="font-display text-lg font-semibold">{sheet ? "Edit roster" : "New roster"}</h3>
           <button onClick={onClose} className="rounded-lg p-1 text-ink-faint hover:bg-surface-2"><X className="size-4" /></button>
@@ -766,7 +766,7 @@ function RolesManager({ roles, canWrite, onClose }: { roles: Role[]; canWrite: b
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
-      <Card className="max-h-[85vh] w-full max-w-md overflow-y-auto p-0" onClick={(e) => e.stopPropagation()}>
+      <Card className="max-h-[85vh] w-full max-w-md overflow-y-auto overscroll-contain p-0" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line p-5">
           <h3 className="font-display text-lg font-semibold">Service roles</h3>
           <button onClick={onClose} className="rounded-lg p-1 text-ink-faint hover:bg-surface-2"><X className="size-4" /></button>

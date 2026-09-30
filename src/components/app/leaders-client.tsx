@@ -439,7 +439,7 @@ function AddPositionForm({
               className="flex h-9 w-full rounded-lg border border-line bg-surface px-3 text-sm placeholder:text-ink-faint focus:border-primary/60 focus:outline-none focus:ring-2 focus:ring-primary/30"
             />
             {showDropdown && filtered.length > 0 && (
-              <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-xl border border-line bg-surface shadow-lg">
+              <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-48 overflow-y-auto overscroll-contain rounded-xl border border-line bg-surface shadow-lg">
                 {filtered.map((p) => (
                   <button
                     key={p.id}

@@ -195,7 +195,7 @@ export function ImportModal({ onImported }: { onImported?: () => void }) {
 
             {/* Error details */}
             {result.errors.length > 0 && (
-              <div className="max-h-40 overflow-y-auto rounded-xl border border-warning/30 bg-warning/5 p-4">
+              <div className="max-h-40 overflow-y-auto overscroll-contain rounded-xl border border-warning/30 bg-warning/5 p-4">
                 <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-warning">Issues</div>
                 {result.errors.map((e, i) => (
                   <div key={i} className="text-xs text-ink-muted">{e}</div>

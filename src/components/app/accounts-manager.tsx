@@ -128,7 +128,7 @@ export function AccountsManager({ accounts, canWrite }: { accounts: AccountRow[]
       {drawer && (
         <>
           <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setDrawer(null)} />
-          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l border-line bg-surface shadow-2xl">
+          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto overscroll-contain border-l border-line bg-surface shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-5 py-4">
               <h2 className="font-display text-lg font-semibold">
                 {drawer === "new" ? "New account" : drawer === "transfer" ? "Transfer between accounts" : "Edit account"}

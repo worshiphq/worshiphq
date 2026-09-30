@@ -40,7 +40,7 @@ export function SystemMessagesDialog({ saved, onClose }: { saved: Record<string,
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
-      <Card className="max-h-[88vh] w-full max-w-lg overflow-y-auto p-0" onClick={(e) => e.stopPropagation()}>
+      <Card className="max-h-[88vh] w-full max-w-lg overflow-y-auto overscroll-contain p-0" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 flex items-center justify-between border-b border-line bg-surface p-5">
           <div>
             <h3 className="font-display text-lg font-semibold">Automatic messages</h3>

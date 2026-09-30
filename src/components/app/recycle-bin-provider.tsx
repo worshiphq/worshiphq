@@ -204,7 +204,7 @@ export function RecycleBinProvider({ children, canManage }: { children: React.Re
                 </button>
               </div>
 
-              <div className="flex-1 overflow-y-auto px-3 py-3">
+              <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-3">
                 {loadingList && !items ? (
                   <div className="flex items-center justify-center gap-2 py-10 text-sm text-ink-faint">
                     <BouncingDots className="size-4" /> Loading…

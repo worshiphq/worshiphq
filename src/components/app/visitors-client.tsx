@@ -109,7 +109,7 @@ function InvitedByPicker({ members, fieldName, initial }: {
               className="pl-10"
             />
           </div>
-          <div className="mt-2 max-h-48 divide-y divide-line-soft overflow-y-auto rounded-xl border border-line">
+          <div className="mt-2 max-h-48 divide-y divide-line-soft overflow-y-auto overscroll-contain rounded-xl border border-line">
             {matches.length === 0 ? (
               <p className="p-3 text-sm text-ink-faint">No members match.</p>
             ) : (
@@ -377,7 +377,7 @@ export function VisitorsClient({
       {adding && (
         <>
           <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setAdding(false)} />
-          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l border-line bg-surface shadow-2xl">
+          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto overscroll-contain border-l border-line bg-surface shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-5 py-4">
               <h2 className="font-display text-lg font-semibold">Add visitor</h2>
               <button onClick={() => setAdding(false)} className="grid size-8 place-items-center rounded-lg hover:bg-surface-2">
@@ -463,7 +463,7 @@ export function VisitorsClient({
       {editing && (
         <>
           <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setEditing(null)} />
-          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l border-line bg-surface shadow-2xl">
+          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto overscroll-contain border-l border-line bg-surface shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-5 py-4">
               <h2 className="font-display text-lg font-semibold">Edit visitor</h2>
               <button onClick={() => setEditing(null)} className="grid size-8 place-items-center rounded-lg hover:bg-surface-2">

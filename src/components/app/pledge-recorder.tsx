@@ -60,7 +60,7 @@ export function PledgeRecorder({
       {open && (
         <>
           <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={close} />
-          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto border-l border-line bg-surface shadow-2xl">
+          <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto overscroll-contain border-l border-line bg-surface shadow-2xl">
             <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-5 py-4">
               <h2 className="font-display text-lg font-semibold">Record pledge</h2>
               <button onClick={close} className="grid size-8 place-items-center rounded-lg hover:bg-surface-2">
@@ -127,7 +127,7 @@ export function PledgeRecorder({
                           autoFocus
                         />
                       </div>
-                      <div className="mt-2 max-h-56 divide-y divide-line-soft overflow-y-auto rounded-xl border border-line">
+                      <div className="mt-2 max-h-56 divide-y divide-line-soft overflow-y-auto overscroll-contain rounded-xl border border-line">
                         {matches.length === 0 ? (
                           <p className="p-3 text-sm text-ink-faint">No members match.</p>
                         ) : (

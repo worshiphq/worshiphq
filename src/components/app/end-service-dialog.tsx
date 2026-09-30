@@ -155,7 +155,7 @@ function EndServiceDialog({
   return createPortal(
     <>
       <div className="fixed inset-0 z-[60] bg-black/50 backdrop-blur-sm" onClick={() => { if (!pending) onClose(); }} />
-      <div className="fixed inset-0 z-[61] flex items-start justify-center overflow-y-auto p-4">
+      <div className="fixed inset-0 z-[61] flex items-start justify-center overflow-y-auto overscroll-contain p-4">
         <div className="my-8 w-full max-w-lg rounded-2xl border border-line bg-surface p-6 shadow-2xl">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex items-center gap-2">

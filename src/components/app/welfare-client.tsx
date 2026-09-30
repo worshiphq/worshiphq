@@ -583,7 +583,7 @@ function MemberDetailDialog({ member, rates, canWrite, onClose }: {
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
-      <Card className="max-h-[85vh] w-full max-w-lg overflow-y-auto p-0" onClick={(e) => e.stopPropagation()}>
+      <Card className="max-h-[85vh] w-full max-w-lg overflow-y-auto overscroll-contain p-0" onClick={(e) => e.stopPropagation()}>
         <div className="sticky top-0 flex items-start justify-between gap-3 border-b border-line bg-surface p-5">
           <div>
             <h3 className="font-display text-lg font-semibold">{member.name}</h3>
@@ -678,7 +678,7 @@ function TemplatesDialog({ templates, onClose }: { templates: Templates; onClose
 
   return (
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
-      <Card className="max-h-[85vh] w-full max-w-lg overflow-y-auto p-0" onClick={(e) => e.stopPropagation()}>
+      <Card className="max-h-[85vh] w-full max-w-lg overflow-y-auto overscroll-contain p-0" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line p-5">
           <h3 className="font-display text-lg font-semibold">Welfare SMS messages</h3>
           <button onClick={onClose} className="rounded-lg p-1 text-ink-faint hover:bg-surface-2"><X className="size-4" /></button>

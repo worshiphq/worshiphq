@@ -419,7 +419,7 @@ function BatchRecorder({ members, fundType, activeFundName, accounts }: { member
         {showList && (
           <>
             <div className="fixed inset-0 z-10" onClick={() => setShowList(false)} />
-            <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-y-auto rounded-xl border border-line bg-surface shadow-xl">
+            <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-y-auto overscroll-contain rounded-xl border border-line bg-surface shadow-xl">
               {filtered.length === 0 ? (
                 <div className="p-4 text-center text-sm text-ink-faint">No members found</div>
               ) : filtered.map((m) => (
