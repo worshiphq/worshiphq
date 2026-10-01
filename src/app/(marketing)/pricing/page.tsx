@@ -15,6 +15,7 @@ export const metadata: Metadata = {
 
 export default async function PricingPage() {
   const platformConfig = await getPlatformConfig();
+  const freeMembers = lowerFirst(platformConfig.planDefs.free.membersLabel);
   return (
     <>
       <PageHero
@@ -31,9 +32,9 @@ export default async function PricingPage() {
       <PricingSection platformPricing={platformConfig} />
       <FAQ
         starterPrice={`${platformConfig.currencySymbol}${platformConfig.prices.starter?.monthly ?? 10}`}
-        freeMembers={lowerFirst(platformConfig.planDefs.free.membersLabel)}
+        freeMembers={freeMembers}
       />
-      <FinalCTA />
+      <FinalCTA freeMembers={freeMembers} />
     </>
   );
 }

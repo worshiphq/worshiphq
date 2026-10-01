@@ -4,6 +4,8 @@ import { PageHero } from "@/components/marketing/page-hero";
 import { FinalCTA } from "@/components/marketing/final-cta";
 import { Reveal } from "@/components/ui/reveal";
 import { brand } from "@/config/brand";
+import { getPlatformConfig } from "@/lib/data/platform-config";
+import { lowerFirst } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "About",
@@ -17,7 +19,8 @@ const values = [
   { icon: Zap, title: "Delightfully simple", body: "Powerful doesn't have to mean complicated. WorshipHQ is fast, beautiful and a joy to use on any device." },
 ];
 
-export default function AboutPage() {
+export default async function AboutPage() {
+  const platformConfig = await getPlatformConfig();
   return (
     <>
       <PageHero
@@ -74,7 +77,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <FinalCTA />
+      <FinalCTA freeMembers={lowerFirst(platformConfig.planDefs.free.membersLabel)} />
     </>
   );
 }

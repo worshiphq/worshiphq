@@ -10,17 +10,21 @@ import {
 import { PageHero } from "@/components/marketing/page-hero";
 import { FinalCTA } from "@/components/marketing/final-cta";
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/ui/reveal";
+import { getPlatformConfig } from "@/lib/data/platform-config";
+import { lowerFirst } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Solutions",
   description: "WorshipHQ for small fellowships, growing churches and large ministries.",
 };
 
-const audiences = [
-  { icon: Sprout, title: "Small fellowships", body: "Just getting started? Manage your first members, take offerings and check people in - free, forever, up to 50 members." },
-  { icon: Building2, title: "Growing churches", body: "Scale your operations with SMS broadcasts, automations, recurring giving and reports as your congregation grows." },
-  { icon: Network, title: "Large ministries", body: "Unlimited members, advanced analytics, API access and a dedicated success manager for your leadership team." },
-];
+function audiencesFor(freeMembers: string) {
+  return [
+    { icon: Sprout, title: "Small fellowships", body: `Just getting started? Manage your first members, take offerings and check people in - free, forever, ${freeMembers}.` },
+    { icon: Building2, title: "Growing churches", body: "Scale your operations with SMS broadcasts, automations, recurring giving and reports as your congregation grows." },
+    { icon: Network, title: "Large ministries", body: "Unlimited members, advanced analytics, API access and a dedicated success manager for your leadership team." },
+  ];
+}
 
 const roles = [
   { icon: UserCog, title: "For Pastors", body: "See the health of your church at a glance - attendance, giving and the people who need a shepherd's care this week." },
@@ -28,7 +32,7 @@ const roles = [
   { icon: HeartHandshake, title: "For Ministry Leaders", body: "Schedule volunteers, message your team and track engagement - without waiting on the church office." },
 ];
 
-function PressCardRow({ heading, items }: { heading: string; items: typeof audiences }) {
+function PressCardRow({ heading, items }: { heading: string; items: ReturnType<typeof audiencesFor> | typeof roles }) {
   return (
     <div>
       <Reveal>
@@ -53,7 +57,11 @@ function PressCardRow({ heading, items }: { heading: string; items: typeof audie
   );
 }
 
-export default function SolutionsPage() {
+export default async function SolutionsPage() {
+  const platformConfig = await getPlatformConfig();
+  const freeMembers = lowerFirst(platformConfig.planDefs.free.membersLabel);
+  const audiences = audiencesFor(freeMembers);
+
   return (
     <>
       <PageHero
@@ -77,7 +85,7 @@ export default function SolutionsPage() {
         </div>
       </section>
 
-      <FinalCTA />
+      <FinalCTA freeMembers={freeMembers} />
     </>
   );
 }

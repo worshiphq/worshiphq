@@ -37,6 +37,19 @@ export function PricingSection({ showComparison = true, platformPricing }: {
   const formatCurrency = (amount: number) => platformPricing ? `${sym}${amount.toLocaleString()}` : defaultFmt(amount);
   const [yearly, setYearly] = useState(false);
 
+  // The "Members" comparison row is otherwise a hardcoded string in config -
+  // keep it in sync with the real (possibly SuperAdmin-edited) plan limits
+  // shown on the cards above, instead of letting it drift stale. Extract just
+  // the number/word (e.g. "Up to 30 members" -> "30") to match the table's
+  // existing terse style.
+  const shortMemberCount = (label: string) => (label.match(/[\d,]+/)?.[0] ?? "Unlimited");
+  const liveComparison = comparison.map((grp) => ({
+    ...grp,
+    rows: grp.rows.map((row) =>
+      row.label === "Members" ? { ...row, values: plans.map((p) => shortMemberCount(p.members)) } : row,
+    ),
+  }));
+
   return (
     <section id="pricing" className="relative py-20 sm:py-28">
       <div className="mx-auto max-w-6xl px-5">
@@ -173,7 +186,7 @@ export function PricingSection({ showComparison = true, platformPricing }: {
                   </tr>
                 </thead>
                 <tbody>
-                  {comparison.map((grp) => (
+                  {liveComparison.map((grp) => (
                     <CompareGroup key={grp.group} group={grp} />
                   ))}
                 </tbody>

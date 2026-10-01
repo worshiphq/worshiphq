@@ -41,7 +41,14 @@ const FEATURE_PILLS = [
   { icon: QrCode, label: "QR member check-in" },
 ];
 
-export function Hero({ subhead = DEFAULT_SUBHEAD }: { subhead?: string }) {
+export function Hero({
+  subhead = DEFAULT_SUBHEAD,
+  freeMembers = "up to 50 members",
+}: {
+  subhead?: string;
+  /** e.g. "up to 30 members" - pulled live from the SuperAdmin-editable plan config. */
+  freeMembers?: string;
+}) {
   const [index, setIndex] = useState(0);
   const [paused, setPaused] = useState(false);
   const timer = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -133,7 +140,7 @@ export function Hero({ subhead = DEFAULT_SUBHEAD }: { subhead?: string }) {
                   </Link>
                 </div>
                 <p className="mt-5 text-xs text-parchment/50">
-                  Free forever for up to 50 members · no credit card required
+                  Free forever for {freeMembers} · no credit card required
                 </p>
               </div>
 

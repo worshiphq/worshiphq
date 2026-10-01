@@ -18,9 +18,10 @@ export default async function HomePage() {
     getMarketingContent(),
     getPlatformConfig(),
   ]);
+  const freeMembers = lowerFirst(platformConfig.planDefs.free.membersLabel);
   return (
     <>
-      <Hero subhead={content.heroSubhead} />
+      <Hero subhead={content.heroSubhead} freeMembers={freeMembers} />
       <TrustBar />
       <FeatureGrid />
       <Spotlights />
@@ -29,9 +30,9 @@ export default async function HomePage() {
       <PricingSection platformPricing={platformConfig} />
       <FAQ
         starterPrice={`${platformConfig.currencySymbol}${platformConfig.prices.starter?.monthly ?? 10}`}
-        freeMembers={lowerFirst(platformConfig.planDefs.free.membersLabel)}
+        freeMembers={freeMembers}
       />
-      <FinalCTA />
+      <FinalCTA freeMembers={freeMembers} />
     </>
   );
 }

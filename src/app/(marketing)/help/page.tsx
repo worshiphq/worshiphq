@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { PageHero } from "@/components/marketing/page-hero";
 import { FinalCTA } from "@/components/marketing/final-cta";
+import { getPlatformConfig } from "@/lib/data/platform-config";
+import { lowerFirst } from "@/lib/utils";
 import {
   Users, HandCoins, CalendarCheck2, Megaphone, Bell, ClipboardList,
   QrCode, Upload, Download, Shield, Palette, Link2, BarChart3, Smartphone,
@@ -205,7 +207,28 @@ const sections = [
   },
 ];
 
-export default function HelpPage() {
+export default async function HelpPage() {
+  const platformConfig = await getPlatformConfig();
+  const [free, starter, pro, max] = platformConfig.planList;
+  // Billing-section plan summary is otherwise 4 hardcoded member counts -
+  // pull them live so this page can't drift from the real (SuperAdmin-
+  // editable) limits the way the old "up to 50 members" text did.
+  const resolvedSections = sections.map((section) =>
+    section.title === "Billing & plans"
+      ? {
+          ...section,
+          features: section.features.map((f) =>
+            f.name === "Plans"
+              ? {
+                  ...f,
+                  desc: `Choose from Free (${lowerFirst(free.membersLabel)}), Starter (${starter.membersLabel.toLowerCase()}, SMS, reminders), Pro (${pro.membersLabel.toLowerCase()}, automations, reports) or Max (${max.membersLabel.toLowerCase()}, accounting, API, dedicated support).`,
+                }
+              : f,
+          ),
+        }
+      : section,
+  );
+
   return (
     <>
       <PageHero
@@ -222,7 +245,7 @@ export default function HelpPage() {
 
       <section className="mx-auto max-w-5xl px-4 pb-24 pt-4 sm:px-6">
         <div className="space-y-16">
-          {sections.map((section) => (
+          {resolvedSections.map((section) => (
             <div key={section.title}>
               {/* Chapter heading */}
               <div className="flex items-center gap-4 border-t-2 border-evergreen pt-6">
@@ -248,7 +271,7 @@ export default function HelpPage() {
         </div>
       </section>
 
-      <FinalCTA />
+      <FinalCTA freeMembers={lowerFirst(free.membersLabel)} />
     </>
   );
 }

@@ -3,13 +3,16 @@ import { PageHero } from "@/components/marketing/page-hero";
 import { FeatureGrid } from "@/components/marketing/feature-grid";
 import { Spotlights } from "@/components/marketing/spotlights";
 import { FinalCTA } from "@/components/marketing/final-cta";
+import { getPlatformConfig } from "@/lib/data/platform-config";
+import { lowerFirst } from "@/lib/utils";
 
 export const metadata: Metadata = {
   title: "Features",
   description: "Every tool your church needs - people, giving, events, communications and more.",
 };
 
-export default function FeaturesPage() {
+export default async function FeaturesPage() {
+  const platformConfig = await getPlatformConfig();
   return (
     <>
       <PageHero
@@ -25,7 +28,7 @@ export default function FeaturesPage() {
       />
       <FeatureGrid />
       <Spotlights />
-      <FinalCTA />
+      <FinalCTA freeMembers={lowerFirst(platformConfig.planDefs.free.membersLabel)} />
     </>
   );
 }

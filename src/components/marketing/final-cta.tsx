@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Reveal } from "@/components/ui/reveal";
 
-export function FinalCTA() {
+export function FinalCTA({ freeMembers = "up to 50 members" }: { freeMembers?: string }) {
   return (
     <section className="relative px-5 py-20 sm:py-28">
       <Reveal>
@@ -49,7 +49,7 @@ export function FinalCTA() {
             </div>
 
             <p className="mt-7 text-xs text-ink-faint">
-              Free forever for up to 50 members · no credit card required
+              Free forever for {freeMembers} · no credit card required
             </p>
           </div>
         </div>
