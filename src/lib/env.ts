@@ -79,10 +79,18 @@ const schema = z.object({
   CLOUDINARY_CLOUD_NAME: str,
   CLOUDINARY_API_KEY: str,
   CLOUDINARY_API_SECRET: str,
-  // Supabase Storage (images move out of the DB into a bucket → tiny egress)
+  // Supabase Storage (images move out of the DB into a bucket → tiny egress).
+  // Kept as a fallback - R2 below is now the preferred target (no egress fees).
   SUPABASE_URL: str,
   SUPABASE_SERVICE_ROLE_KEY: str,
   SUPABASE_STORAGE_BUCKET: z.string().default("church-media"),
+  // Cloudflare R2 - preferred image storage. No egress fees, so no repeat of
+  // the Supabase quota outage. Public URL is a custom domain bound to the bucket.
+  R2_ACCOUNT_ID: str,
+  R2_ACCESS_KEY_ID: str,
+  R2_SECRET_ACCESS_KEY: str,
+  R2_BUCKET: z.string().default("worshiphq-media"),
+  R2_PUBLIC_URL: str,
 
   // ── MAPS ─────────────────────────────────────────────
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: str,
