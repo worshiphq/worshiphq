@@ -39,6 +39,7 @@ export async function notifyChurchAdmins(
         to: emails,
         subject: `${opts.subject} - ${church.name}`,
         html: opts.emailHtml ?? `<p>${opts.sms}</p>`,
+        log: { churchId, name: opts.subject, segment: "admin-alert" },
       });
     }
   } catch (e) {

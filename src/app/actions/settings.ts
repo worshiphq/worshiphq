@@ -436,6 +436,7 @@ export async function inviteTeammate(formData: FormData) {
         <p><a href="${acceptUrl}">Accept your invite & set up your account →</a></p>
         ${tempPassword ? `<p>Or sign in with <strong>${email}</strong> and the temporary password you were given.</p>` : ""}
       `,
+      log: { churchId: session.churchId, name: `Team invite: ${name}`, segment: "invite" },
     });
   }
 
@@ -652,6 +653,7 @@ async function sendUpgradeReceipt(churchId: string, planName: string, amount: st
           <p style="margin-top:24px"><a href="${appUrl}/app/settings?tab=billing" style="background:#0d7377;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600">View your plan</a></p>
           <p style="margin-top:32px;color:#999;font-size:12px">This is your payment receipt. Keep it for your records.</p>
         </div>`,
+      log: { churchId, name: `Plan upgrade receipt: ${planName}`, segment: "receipt" },
     });
   }
 

@@ -113,6 +113,7 @@ export async function recordOnlineGift(
       to: input.email,
       subject: `Your giving receipt - ${churchName}`,
       html: receiptHtml({ churchName, donorName, amountStr, fundName, reference }),
+      log: { churchId, name: `Gift receipt: ${donorName}`, segment: "receipt" },
     });
     receiptSent = receiptSent || email.ok;
   }

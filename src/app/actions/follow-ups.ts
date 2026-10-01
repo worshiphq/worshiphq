@@ -54,7 +54,12 @@ export async function createFollowUp(formData: FormData) {
         const { sendEmail } = await import("@/lib/integrations/email");
         if (assignee.phone) await sendChurchSms(session.churchId, assignee.phone, msg, { note: "Follow-up assigned" });
         if (assignee.email && !assignee.email.endsWith("@invite.worshiphq.app")) {
-          await sendEmail({ to: assignee.email, subject: `Follow-up assigned - ${title}`, html: `<p>${msg}</p>${note ? `<p>${note}</p>` : ""}` });
+          await sendEmail({
+            to: assignee.email,
+            subject: `Follow-up assigned - ${title}`,
+            html: `<p>${msg}</p>${note ? `<p>${note}</p>` : ""}`,
+            log: { churchId: session.churchId, name: `Follow-up assigned: ${title}`, segment: "follow-up" },
+          });
         }
       } catch { /* notification must not block the task */ }
     }
