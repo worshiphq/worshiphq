@@ -81,12 +81,16 @@ export async function updatePerson(formData: FormData) {
   // Admin-editable member ID (unique per church).
   const memberId = String(formData.get("memberId") ?? "").trim() || null;
 
+  // Returning to active clears the "we miss you" dedupe guard, so a future
+  // lapse is free to text them again instead of staying silenced forever.
+  const statusFields = status === "active" ? { status, lapsedSmsSentAt: null } : { status };
+
   try {
     await db.person.update({
       where: { id },
       data: {
         ...(data as Prisma.PersonUpdateInput),
-        status,
+        ...statusFields,
         leaderTitle,
         featured,
         memberId,
@@ -101,7 +105,7 @@ export async function updatePerson(formData: FormData) {
       where: { id },
       data: {
         ...(data as Prisma.PersonUpdateInput),
-        status,
+        ...statusFields,
         leaderTitle,
         featured,
         ...(Object.keys(customFields).length ? { customFields } : {}),

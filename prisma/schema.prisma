@@ -342,6 +342,10 @@ model Person {
   notes       String?
   customFields Json?
 
+  // ── Automation dedupe guards (see src/lib/automations/run.ts) ──
+  newMemberWelcomeSentAt DateTime? // set once the "new member" automation has texted them
+  lapsedSmsSentAt        DateTime? // set once the "we miss you" automation has texted them; cleared when status returns to active so a future lapse can fire again
+
   // ── Leadership ──
   leaderTitle    String?   // e.g. Head Pastor, Associate Pastor, Shepherd, Elder
   featured       Boolean   @default(false) // Featured on dashboard (e.g. Head Pastor)
@@ -586,6 +590,10 @@ model Gift {
   reference     String? // Paystack reference
   receiptSent   Boolean    @default(false)
   date          DateTime   @default(now())
+  // Set once the "giving thanks" automation has texted the donor for this gift
+  // specifically (see src/lib/automations/run.ts) - distinct from receiptSent,
+  // which is the immediate instant receipt sent at the time the gift is recorded.
+  thanksSentAt  DateTime?
 
   @@index([churchId])
   @@index([churchId, date])

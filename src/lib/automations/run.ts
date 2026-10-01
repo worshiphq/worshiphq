@@ -45,6 +45,31 @@ function renderTemplate(template: string, firstName: string, churchName: string)
     .replace(/\{church\}/g, churchName);
 }
 
+/** Flip each trigger's dedupe guard for targets that were actually texted
+ *  successfully, so the automation never repeats itself for the same
+ *  visitor/person/gift on a later run. */
+async function markSent(trigger: string, sentTargets: Target[], now: Date) {
+  const visitorIds = sentTargets.filter((t) => t.visitorId).map((t) => t.visitorId!);
+  if (visitorIds.length > 0) {
+    await db.visitor.updateMany({ where: { id: { in: visitorIds } }, data: { welcomeSmsSentAt: now } });
+  }
+  if (trigger === "new_member" || trigger === "lapsed") {
+    const personIds = sentTargets.filter((t) => t.personId).map((t) => t.personId!);
+    if (personIds.length > 0) {
+      await db.person.updateMany({
+        where: { id: { in: personIds } },
+        data: trigger === "new_member" ? { newMemberWelcomeSentAt: now } : { lapsedSmsSentAt: now },
+      });
+    }
+  }
+  if (trigger === "giving_thanks") {
+    const giftIds = sentTargets.flatMap((t) => t.giftIds ?? []);
+    if (giftIds.length > 0) {
+      await db.gift.updateMany({ where: { id: { in: giftIds } }, data: { thanksSentAt: now } });
+    }
+  }
+}
+
 export async function runAutomations(now = new Date()): Promise<{
   ran: number;
   totalSent: number;
@@ -77,7 +102,7 @@ export async function runAutomations(now = new Date()): Promise<{
       const template = a.messageTemplate || DEFAULT_TEMPLATES[a.trigger] || "A message from {church}.";
 
       let sent = 0;
-      const sentVisitorIds: string[] = [];
+      const sentTargets: Target[] = [];
       for (const t of targets) {
         if (!t.phone) continue;
         const message = renderTemplate(template, t.firstName, church.name);
@@ -85,15 +110,13 @@ export async function runAutomations(now = new Date()): Promise<{
         if (res.insufficient) break;
         if (res.ok) {
           sent++;
-          if (t.visitorId) sentVisitorIds.push(t.visitorId);
+          sentTargets.push(t);
         }
       }
-      // First-time visitor welcome must only ever go out once per visitor -
-      // this is what stopped it re-firing on every hourly run for the whole
-      // 3-day window it used to be eligible for.
-      if (sentVisitorIds.length > 0) {
-        await db.visitor.updateMany({ where: { id: { in: sentVisitorIds } }, data: { welcomeSmsSentAt: now } });
-      }
+      // Dedupe guard, per trigger (visitor/new-member/lapsed/gift) - this is
+      // what stops each of these from re-firing on every hourly run for the
+      // whole window it's eligible in.
+      await markSent(a.trigger, sentTargets, now);
 
       if (sent > 0) {
         await db.automation.update({
@@ -145,7 +168,7 @@ export async function runSingleAutomation(automationId: string, churchId: string
   const template = automation.messageTemplate || DEFAULT_TEMPLATES[automation.trigger] || "A message from {church}.";
 
   let sent = 0;
-  const sentVisitorIds: string[] = [];
+  const sentTargets: Target[] = [];
   for (const t of targets) {
     if (!t.phone) continue;
     const message = renderTemplate(template, t.firstName, church.name);
@@ -153,12 +176,10 @@ export async function runSingleAutomation(automationId: string, churchId: string
     if (res.insufficient) return { ok: false, sent, error: "Insufficient SMS credits." };
     if (res.ok) {
       sent++;
-      if (t.visitorId) sentVisitorIds.push(t.visitorId);
+      sentTargets.push(t);
     }
   }
-  if (sentVisitorIds.length > 0) {
-    await db.visitor.updateMany({ where: { id: { in: sentVisitorIds } }, data: { welcomeSmsSentAt: now } });
-  }
+  await markSent(automation.trigger, sentTargets, now);
 
   if (sent > 0) {
     await db.automation.update({
@@ -182,7 +203,14 @@ export async function runSingleAutomation(automationId: string, churchId: string
   return { ok: true, sent };
 }
 
-type Target = { firstName: string; lastName: string; phone: string | null; visitorId?: string };
+type Target = {
+  firstName: string;
+  lastName: string;
+  phone: string | null;
+  visitorId?: string;
+  personId?: string;
+  giftIds?: string[];
+};
 
 async function targetsFor(
   churchId: string,
@@ -215,23 +243,42 @@ async function targetsFor(
       });
       return visitors.map((v) => ({ firstName: v.firstName, lastName: v.lastName, phone: v.phone, visitorId: v.id }));
     }
-    case "lapsed":
-      return db.person.findMany({ where: { churchId, status: "inactive" }, select });
-    case "new_member":
-      return db.person.findMany({
-        where: { churchId, status: "active", joinedAt: { gte: sevenDaysAgo } },
-        select,
+    case "lapsed": {
+      // Dedupe guard: once texted, a person won't be texted again for the same
+      // lapse - lapsedSmsSentAt is cleared when they return to active (see
+      // updatePerson), so a future lapse is free to fire again.
+      const people = await db.person.findMany({
+        where: { churchId, status: "inactive", lapsedSmsSentAt: null },
+        select: { id: true, ...select },
       });
-    case "giving_thanks":
-      // Members who gave in the last 7 days
+      return people.map((p) => ({ ...p, personId: p.id }));
+    }
+    case "new_member": {
+      // Dedupe guard: welcome each new member exactly once, not on every
+      // hourly run for the whole 7-day eligibility window.
+      const people = await db.person.findMany({
+        where: { churchId, status: "active", joinedAt: { gte: sevenDaysAgo }, newMemberWelcomeSentAt: null },
+        select: { id: true, ...select },
+      });
+      return people.map((p) => ({ ...p, personId: p.id }));
+    }
+    case "giving_thanks": {
+      // Dedupe guard: thank a donor once per gift (thanksSentAt on the Gift
+      // itself, not the person) - so a second gift still gets its own thank-you,
+      // but the same gift never re-fires on every hourly run within the window.
       const recentGifts = await db.gift.findMany({
-        where: { churchId, date: { gte: sevenDaysAgo } },
-        select: { personId: true },
-        distinct: ["personId"],
+        where: { churchId, date: { gte: sevenDaysAgo }, thanksSentAt: null, personId: { not: null } },
+        select: { id: true, personId: true },
       });
-      const personIds = recentGifts.map((g) => g.personId).filter((id): id is string => !!id);
-      if (personIds.length === 0) return [];
-      return db.person.findMany({ where: { id: { in: personIds }, churchId }, select });
+      const byPerson = new Map<string, string[]>();
+      for (const g of recentGifts) {
+        if (!g.personId) continue;
+        byPerson.set(g.personId, [...(byPerson.get(g.personId) ?? []), g.id]);
+      }
+      if (byPerson.size === 0) return [];
+      const people = await db.person.findMany({ where: { id: { in: [...byPerson.keys()] }, churchId }, select: { id: true, ...select } });
+      return people.map((p) => ({ ...p, personId: p.id, giftIds: byPerson.get(p.id) ?? [] }));
+    }
     default:
       return [];
   }
