@@ -7,7 +7,15 @@ import { Reveal } from "@/components/ui/reveal";
 import { faqs } from "@/config/marketing";
 import { cn } from "@/lib/utils";
 
-export function FAQ({ starterPrice = "$10" }: { starterPrice?: string }) {
+export function FAQ({
+  starterPrice = "$10",
+  freeMembers = "up to 50 members",
+}: {
+  starterPrice?: string;
+  /** e.g. "up to 30 members" - lowercase, mid-sentence. Pulled live from the
+   *  SuperAdmin-editable plan config so this never drifts from the real limit. */
+  freeMembers?: string;
+}) {
   const [open, setOpen] = useState<number | null>(0);
 
   return (
@@ -58,7 +66,7 @@ export function FAQ({ starterPrice = "$10" }: { starterPrice?: string }) {
                         className="overflow-hidden"
                       >
                         <p className="max-w-xl pb-7 text-[15px] leading-[1.85] text-ink-muted">
-                          {f.a.replace("{PRICE}", starterPrice)}
+                          {f.a.replace("{PRICE}", starterPrice).replace("{FREE_MEMBERS}", freeMembers)}
                         </p>
                       </motion.div>
                     )}

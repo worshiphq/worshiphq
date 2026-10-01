@@ -9,6 +9,7 @@ import { FAQ } from "@/components/marketing/faq";
 import { FinalCTA } from "@/components/marketing/final-cta";
 import { getMarketingContent } from "@/lib/data/site-content";
 import { getPlatformConfig } from "@/lib/data/platform-config";
+import { lowerFirst } from "@/lib/utils";
 
 export const revalidate = 3600;
 
@@ -26,7 +27,10 @@ export default async function HomePage() {
       <HowItWorks />
       <Testimonials items={content.testimonials} />
       <PricingSection platformPricing={platformConfig} />
-      <FAQ starterPrice={`${platformConfig.currencySymbol}${platformConfig.prices.starter?.monthly ?? 10}`} />
+      <FAQ
+        starterPrice={`${platformConfig.currencySymbol}${platformConfig.prices.starter?.monthly ?? 10}`}
+        freeMembers={lowerFirst(platformConfig.planDefs.free.membersLabel)}
+      />
       <FinalCTA />
     </>
   );

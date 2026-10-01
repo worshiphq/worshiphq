@@ -6,6 +6,11 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+/** Lowercase just the first character, for dropping a label mid-sentence (e.g. "Up to 30 members" → "up to 30 members"). */
+export function lowerFirst(s: string) {
+  return s ? s.charAt(0).toLowerCase() + s.slice(1) : s;
+}
+
 /** Format a Date (or ISO string) as e.g. "5 Jun 2026". */
 export function formatDate(date: Date | string, opts?: Intl.DateTimeFormatOptions) {
   const d = typeof date === "string" ? new Date(date) : date;
