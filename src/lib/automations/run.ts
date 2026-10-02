@@ -70,7 +70,7 @@ async function markSent(trigger: string, sentTargets: Target[], now: Date) {
   }
 }
 
-export async function runAutomations(now = new Date()): Promise<{
+export async function runAutomations(now = new Date(), opts: { only?: string[] } = {}): Promise<{
   ran: number;
   totalSent: number;
   outcomes: AutomationOutcome[];
@@ -93,6 +93,7 @@ export async function runAutomations(now = new Date()): Promise<{
     for (const a of automations) {
       // Birthdays are handled by the built-in, timezone-aware runBirthdays now.
       if (a.trigger === "birthday") continue;
+      if (opts.only && !opts.only.includes(a.trigger)) continue;
       // Visitor follow-up can be pinned to a local send hour per church -
       // skip this tick entirely until the church's clock reaches it.
       if (a.trigger === "visitor_followup" && a.sendHour != null && !timeReached(now, church.timezone, a.sendHour, 0)) continue;

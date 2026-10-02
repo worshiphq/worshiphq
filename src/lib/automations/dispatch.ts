@@ -38,7 +38,14 @@ export async function runDailyAutomations(now = new Date(), precise = false) {
   // the daily run ran out of time for or that failed.
   summary.backups = await safe("backups", () => runScheduledBackups(now));
 
-  if (precise) return summary;
+  if (precise) {
+    // Visitor follow-up can be pinned to a local send hour, so it must be checked
+    // every hour - the once-daily run below only sees one moment of the day and
+    // would never reach a send hour later than it. Safe to repeat: each visitor is
+    // marked welcomed the first time they are texted, so it never double-sends.
+    summary.visitorFollowups = await safe("visitorFollowups", () => runAutomations(now, { only: ["visitor_followup"] }));
+    return summary;
+  }
 
   summary.fxRate = await safe("fx", () => refreshUsdToGhsRate());
   summary.pledgeReminders = await safe("pledgeReminders", () => runPledgeReminders());
