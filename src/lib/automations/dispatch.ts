@@ -7,6 +7,7 @@ import { runBirthdays } from "./birthdays";
 import { runRosterAnnouncements } from "./roster-announce";
 import { runRosterReminders } from "./roster-reminders";
 import { runGroupMeetingReminders } from "./group-meetings";
+import { runScheduledBackups } from "@/lib/backups/run";
 
 /** Run one task, but never let its failure abort the whole batch. */
 async function safe<T>(label: string, fn: () => Promise<T>): Promise<T | { error: string }> {
@@ -32,6 +33,10 @@ export async function runDailyAutomations(now = new Date(), precise = false) {
   summary.rosterAnnouncements = await safe("rosterAnnouncements", () => runRosterAnnouncements(now, ignoreHour));
   summary.rosterReminders = await safe("rosterReminders", () => runRosterReminders(now, ignoreHour));
   summary.groupMeetings = await safe("groupMeetings", () => runGroupMeetingReminders(now, ignoreHour));
+  // Runs on the daily call AND every hourly tick: a church is only "due" about a
+  // day after its last good backup, so the hourly pings just catch up any church
+  // the daily run ran out of time for or that failed.
+  summary.backups = await safe("backups", () => runScheduledBackups(now));
 
   if (precise) return summary;
 

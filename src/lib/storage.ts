@@ -1,6 +1,6 @@
 import "server-only";
 import crypto from "crypto";
-import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, GetObjectCommand, DeleteObjectCommand } from "@aws-sdk/client-s3";
 import { env } from "@/lib/env";
 
 /**
@@ -138,4 +138,21 @@ export async function storeImage(
     if (url) return url;
   }
   return input; // keep the base64 rather than losing the image
+}
+
+/* ── Raw object access (used for encrypted backups) ── */
+
+export const r2Ready = R2_CONFIGURED;
+
+export async function putObject(key: string, body: Buffer, contentType = "application/octet-stream"): Promise<void> {
+  await getR2Client().send(new PutObjectCommand({ Bucket: env.R2_BUCKET, Key: key, Body: body, ContentType: contentType }));
+}
+
+export async function getObject(key: string): Promise<Buffer> {
+  const res = await getR2Client().send(new GetObjectCommand({ Bucket: env.R2_BUCKET, Key: key }));
+  return Buffer.from(await res.Body!.transformToByteArray());
+}
+
+export async function deleteObject(key: string): Promise<void> {
+  await getR2Client().send(new DeleteObjectCommand({ Bucket: env.R2_BUCKET, Key: key }));
 }

@@ -91,6 +91,8 @@ const schema = z.object({
   R2_SECRET_ACCESS_KEY: str,
   R2_BUCKET: z.string().default("worshiphq-media"),
   R2_PUBLIC_URL: str,
+  // AES-256 key (base64, 32 bytes) that encrypts church backups before they go to R2.
+  BACKUP_ENCRYPTION_KEY: str,
 
   // ── MAPS ─────────────────────────────────────────────
   NEXT_PUBLIC_GOOGLE_MAPS_API_KEY: str,

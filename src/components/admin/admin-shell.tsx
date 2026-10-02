@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, Building2, FileText, Megaphone, LogOut, ShieldCheck, CreditCard, Wallet, Undo2 } from "lucide-react";
+import { LayoutDashboard, Building2, FileText, Megaphone, LogOut, ShieldCheck, CreditCard, Wallet, Undo2, DatabaseBackup } from "lucide-react";
 import { superAdminSignOut } from "@/app/actions/admin";
 
 const NAV = [
@@ -7,6 +7,7 @@ const NAV = [
   { href: "/admin/pricing", label: "Pricing", icon: CreditCard },
   { href: "/admin/payments", label: "Payments", icon: Wallet },
   { href: "/admin/refunds", label: "Refunds", icon: Undo2 },
+  { href: "/admin/backups", label: "Backups", icon: DatabaseBackup },
   { href: "/admin/content", label: "Site content", icon: FileText },
   { href: "/admin/broadcast", label: "Broadcast", icon: Megaphone },
 ];

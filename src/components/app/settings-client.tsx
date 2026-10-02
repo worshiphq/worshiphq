@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Building, Palette, Users2, CreditCard, Plug, Check, Pencil, CircleDot,
   Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, Shield, MessageSquare,
-  ExternalLink, Rocket, Wallet, Loader2 as Spinner, Clock, CheckCircle2, X, Receipt,
+  ExternalLink, Rocket, Wallet, Loader2 as Spinner, Clock, CheckCircle2, X, Receipt, DatabaseBackup,
 } from "lucide-react";
 import { OnFormComplete } from "@/components/ui/form-effects";
 import { Card } from "@/components/ui/card";
@@ -28,6 +28,7 @@ import {
 import { ALL_MODULES, MODULE_LABELS } from "@/lib/permissions";
 import { RoleMatrix } from "@/components/app/role-matrix";
 import { BrandingForm } from "@/components/app/branding-form";
+import { BackupsPanel } from "@/components/app/backups-panel";
 import { FormBuilder } from "@/components/app/form-builder";
 import { getFormDefinition, getVisitorFormDefinition, getChildrenFormDefinition, getTeensFormDefinition } from "@/lib/forms/registration";
 import { createDepartment, deleteDepartment } from "@/app/actions/departments";
@@ -103,6 +104,7 @@ const tabs = [
   { key: "billing", label: "Billing", icon: CreditCard },
   { key: "online-payments", label: "Online Payments", icon: Wallet },
   { key: "sms", label: "SMS Settings", icon: MessageSquare },
+  { key: "backups", label: "Data backups", icon: DatabaseBackup },
 ] as const;
 
 const integrationList = [
@@ -589,6 +591,8 @@ export function SettingsClient({
 
         {/* ── Online Payments ── */}
         {tab === "online-payments" && <OnlinePaymentsTab churchId={session.churchId} />}
+
+        {tab === "backups" && <BackupsPanel />}
 
         {tab === "sms" && (
           <Card className="p-6">

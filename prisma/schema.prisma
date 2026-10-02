@@ -40,6 +40,9 @@ model PlatformConfig {
   /** Site-wide SMS pricing tier: "B" | "C" | "D" (default D). Per-church
    *  overrides live on Church.smsTier. */
   smsTier                 String @default("D")
+  // ── Data backups: platform-wide switch for the scheduled run + snapshots kept per church ──
+  backupsEnabled Boolean @default(true)
+  backupKeep     Int     @default(7)
   updatedAt DateTime @updatedAt
 }
 
@@ -193,6 +196,29 @@ model Church {
   dayBornWeeks    DayBornWeek[]
   paymentRequests PaymentRequest[]
   deletedItems    DeletedItem[]
+
+  // ── Data backups (see src/lib/backups) ──
+  autoBackup          Boolean   @default(true) // nightly automatic backup; the church can switch it off
+  lastBackupAt        DateTime? // last SUCCESSFUL backup
+  lastBackupAttemptAt DateTime? // last attempt, so a failing church is not retried every hour
+  backups             ChurchBackup[]
+}
+
+/// One encrypted snapshot of a church's data, stored in R2 (objectKey). Rows
+/// stay after a failed attempt so the failure is visible to the church and SuperAdmin.
+model ChurchBackup {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  trigger   String   // "auto" | "manual" | "admin"
+  status    String   // "ok" | "failed"
+  objectKey String?
+  sizeBytes Int      @default(0)
+  rowCount  Int      @default(0)
+  error     String?
+  createdAt DateTime @default(now())
+
+  @@index([churchId, createdAt])
 }
 
 model Branch {
