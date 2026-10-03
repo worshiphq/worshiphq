@@ -2,8 +2,8 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { DatabaseBackup, Download, Loader2, AlertTriangle, CheckCircle2, Play } from "lucide-react";
-import { adminBackUpChurch, adminSetChurchAutoBackup, adminSaveBackupSettings, adminRunDueBackups } from "@/app/actions/admin-backups";
+import { DatabaseBackup, Download, Loader2, AlertTriangle, CheckCircle2, Play, Mail } from "lucide-react";
+import { adminBackUpChurch, adminSetChurchAutoBackup, adminSaveBackupSettings, adminRunDueBackups, adminEmailBackup } from "@/app/actions/admin-backups";
 import { cn } from "@/lib/utils";
 
 interface ChurchRow {
@@ -188,9 +188,19 @@ export function BackupsAdmin({
                   <span className="text-white">{r.church}</span>
                   <span className="ml-2 text-xs text-white/40">{fmtWhen(r.createdAt)} · {r.trigger} · {r.rowCount.toLocaleString()} records · {fmtSize(r.sizeBytes)}</span>
                 </div>
-                <a href={`/api/backups/${r.id}`} className="inline-flex h-8 items-center gap-2 rounded-lg bg-white/10 px-3 text-xs font-medium text-white hover:bg-white/15">
-                  <Download className="size-3.5" /> Download
-                </a>
+                <div className="flex items-center gap-2">
+                  <a href={`/api/backups/${r.id}`} className="inline-flex h-8 items-center gap-2 rounded-lg bg-white/10 px-3 text-xs font-medium text-white hover:bg-white/15">
+                    <Download className="size-3.5" /> Download
+                  </a>
+                  <button
+                    type="button"
+                    disabled={busy === `mail-${r.id}`}
+                    onClick={() => act(`mail-${r.id}`, () => adminEmailBackup(r.id), `Backup emailed to ${r.church}.`)}
+                    className="inline-flex h-8 items-center gap-2 rounded-lg bg-white/10 px-3 text-xs font-medium text-white hover:bg-white/15 disabled:opacity-40"
+                  >
+                    {busy === `mail-${r.id}` ? <><Loader2 className="size-3.5 animate-spin" /> Emailing…</> : <><Mail className="size-3.5" /> Email to church</>}
+                  </button>
+                </div>
               </div>
             ))}
           </div>

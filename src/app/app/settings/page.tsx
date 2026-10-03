@@ -6,6 +6,7 @@ import { features } from "@/lib/env";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 
 export const metadata = { title: "Settings" };
+export const maxDuration = 60; // restoring a backup runs inside this page's server action
 
 export default async function SettingsPage() {
   const session = await requireModule("settings");

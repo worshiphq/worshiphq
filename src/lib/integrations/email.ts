@@ -22,6 +22,7 @@ export async function sendEmail(opts: {
    * `log` are asserting the body is already safe to store as-is.
    */
   log?: { churchId: string; name: string; segment?: string };
+  attachments?: { filename: string; content: Buffer }[];
 }): Promise<EmailResult> {
   const provider = env.EMAIL_PROVIDER;
   const from = opts.from ?? env.EMAIL_FROM;
@@ -48,6 +49,9 @@ export async function sendEmail(opts: {
             to,
             subject: opts.subject,
             html: opts.html,
+            ...(opts.attachments?.length
+              ? { attachments: opts.attachments.map((a) => ({ filename: a.filename, content: a.content.toString("base64") })) }
+              : {}),
           }),
         });
         result = { ok: res.ok, provider, stubbed: false };
@@ -66,6 +70,7 @@ export async function sendEmail(opts: {
           to: to.join(","),
           subject: opts.subject,
           html: opts.html,
+          attachments: opts.attachments,
         });
         result = { ok: true, provider, stubbed: false };
       } else {

@@ -16,9 +16,9 @@ const PAGE = 2000;
 const EXCLUDE_MODELS = new Set(["ChurchBackup", "BiometricCredential", "PhoneVerification"]);
 const STRIP_FIELDS: Record<string, string[]> = { User: ["passwordHash", "inviteToken"] };
 
-type DModel = (typeof Prisma.dmmf.datamodel.models)[number];
-const MODELS = Prisma.dmmf.datamodel.models;
-const BY_NAME = new Map(MODELS.map((m) => [m.name, m]));
+export type DModel = (typeof Prisma.dmmf.datamodel.models)[number];
+export const MODELS = Prisma.dmmf.datamodel.models;
+export const BY_NAME = new Map(MODELS.map((m) => [m.name, m]));
 
 export function backupKeyReady(): boolean {
   return !!env.BACKUP_ENCRYPTION_KEY && Buffer.from(env.BACKUP_ENCRYPTION_KEY, "base64").length === 32;
@@ -26,7 +26,7 @@ export function backupKeyReady(): boolean {
 
 /** Prisma `where` that selects only this church's rows, following relations
  *  for child tables that carry no churchId of their own. Null = not church data. */
-function whereFor(model: DModel, churchId: string, trail: Set<string> = new Set()): Record<string, unknown> | null {
+export function whereFor(model: DModel, churchId: string, trail: Set<string> = new Set()): Record<string, unknown> | null {
   if (model.name === "Church") return { id: churchId };
   if (model.fields.some((f) => f.name === "churchId" && f.kind === "scalar")) return { churchId };
   if (trail.size >= 3) return null;
@@ -43,7 +43,7 @@ function whereFor(model: DModel, churchId: string, trail: Set<string> = new Set(
   return null;
 }
 
-function replacer(_k: string, v: unknown) {
+export function replacer(_k: string, v: unknown) {
   if (typeof v === "bigint") return v.toString();
   if (v && typeof v === "object" && (v as { type?: string }).type === "Buffer" && Array.isArray((v as { data?: number[] }).data)) {
     return { __bytes: Buffer.from((v as { data: number[] }).data).toString("base64") };
@@ -51,13 +51,13 @@ function replacer(_k: string, v: unknown) {
   return v;
 }
 
-function delegate(model: string) {
+export function delegate(model: string) {
   return (db as unknown as Record<string, { findMany: (a: unknown) => Promise<Record<string, unknown>[]> }>)[
     model.charAt(0).toLowerCase() + model.slice(1)
   ];
 }
 
-async function readTable(model: DModel, where: Record<string, unknown>) {
+export async function readTable(model: DModel, where: Record<string, unknown>) {
   const d = delegate(model.name);
   const idField = model.fields.find((f) => f.isId)?.name;
   if (!idField) return d.findMany({ where });

@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { r2Ready, putObject, getObject, deleteObject } from "@/lib/storage";
 import { backupKeyReady, buildSnapshot, seal, open } from "./snapshot";
 
-export type BackupTrigger = "auto" | "manual" | "admin";
+export type BackupTrigger = "auto" | "manual" | "admin" | "pre-restore";
 
 export function backupsConfigured(): boolean {
   return r2Ready && backupKeyReady();
@@ -115,3 +115,10 @@ export async function readBackup(id: string) {
 }
 
 export const BACKUP_COOLDOWN_MS = 2 * 60 * 1000;
+
+/** The stored, still-encrypted backup file exactly as it sits in R2 (what a church downloads). */
+export async function getBackupFile(id: string) {
+  const b = await db.churchBackup.findUnique({ where: { id }, include: { church: { select: { slug: true } } } });
+  if (!b || b.status !== "ok" || !b.objectKey) return null;
+  return { sealed: await getObject(b.objectKey), churchId: b.churchId, slug: b.church.slug, createdAt: b.createdAt };
+}
