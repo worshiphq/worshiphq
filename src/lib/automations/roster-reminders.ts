@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { localParts, ymdInTz, timeReached } from "@/lib/time/tz";
 import { templateFor, renderTemplate } from "@/lib/messages/registry";
 import { sendChurchSms } from "@/lib/sms/credits";
+import { forEachChurch, type Deadline } from "@/lib/automations/pool";
 
 /**
  * Personal roster reminders: text each rostered member their duty a set number
@@ -10,7 +11,7 @@ import { sendChurchSms } from "@/lib/sms/credits";
  * church fires at its own local hour. Guarded per slot by `remindedAt` so nobody
  * is texted twice. Separate from the group-wide announcement.
  */
-export async function runRosterReminders(now = new Date(), ignoreHour = false) {
+export async function runRosterReminders(now = new Date(), ignoreHour = false, deadline?: Deadline) {
   const churches = await db.church.findMany({
     where: { isDemo: false, rosterRemindOn: true },
     select: { id: true, name: true, timezone: true, messageTemplates: true, rosterRemindHour: true, rosterRemindMinute: true, rosterRemindLeadDays: true, rosterRemindWeekday: true },
@@ -19,12 +20,12 @@ export async function runRosterReminders(now = new Date(), ignoreHour = false) {
   const shortDate = (d: Date, tz: string) => new Date(d).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: tz });
 
   let sent = 0;
-  for (const church of churches) {
+  const pool = await forEachChurch(churches, async (church) => {
     const { weekday: todayWeekday } = localParts(now, church.timezone);
-    if (!ignoreHour && !timeReached(now, church.timezone, church.rosterRemindHour, church.rosterRemindMinute)) continue;
+    if (!ignoreHour && !timeReached(now, church.timezone, church.rosterRemindHour, church.rosterRemindMinute)) return;
 
     const weekdayMode = church.rosterRemindWeekday != null;
-    if (weekdayMode && todayWeekday !== church.rosterRemindWeekday) continue;
+    if (weekdayMode && todayWeekday !== church.rosterRemindWeekday) return;
 
     // Candidate slots - a window wide enough for both modes - not yet reminded.
     const from = new Date(now.getTime() - 2 * 86400000);
@@ -44,7 +45,7 @@ export async function runRosterReminders(now = new Date(), ignoreHour = false) {
       const ymd = ymdInTz(s.date, church.timezone);
       return weekdayMode ? ymd >= todayYmd && ymd <= plus7Ymd : ymd === targetYmd;
     });
-    if (due.length === 0) continue;
+    if (due.length === 0) return;
 
     // Group duties per person for a single tidy message.
     const byPerson = new Map<string, { phone: string; firstName: string; title: string; slotIds: string[]; lines: string[] }>();
@@ -66,7 +67,7 @@ export async function runRosterReminders(now = new Date(), ignoreHour = false) {
       await db.volunteerSlot.updateMany({ where: { id: { in: p.slotIds } }, data: { remindedAt: new Date() } });
       sent += res.sent;
     }
-  }
+  }, { deadline, label: "rosterReminders" });
 
-  return { churches: churches.length, sent };
+  return { churches: churches.length, sent, ...pool };
 }

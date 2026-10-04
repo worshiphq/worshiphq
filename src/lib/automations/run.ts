@@ -1,7 +1,8 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { sendChurchSms } from "@/lib/sms/credits";
-import { timeReached } from "@/lib/time/tz";
+import { timeReached, localParts, mmddInTz, ymdInTz } from "@/lib/time/tz";
+import { forEachChurch, type Deadline } from "@/lib/automations/pool";
 import type { Channel, Automation } from "@prisma/client";
 
 function todayMMDD(now = new Date()): string {
@@ -70,7 +71,13 @@ async function markSent(trigger: string, sentTargets: Target[], now: Date) {
   }
 }
 
-export async function runAutomations(now = new Date(), opts: { only?: string[] } = {}): Promise<{
+/**
+ * `quietHours`: used by the hourly pass so soft messages (welcome, we-miss-you,
+ * thank-you, anniversary) only go out between 8am and 8pm church-local time
+ * instead of whenever the cron happens to tick. Visitor follow-ups keep their
+ * own send hour. `deadline` stops starting new churches (the next tick resumes).
+ */
+export async function runAutomations(now = new Date(), opts: { only?: string[]; deadline?: Deadline; quietHours?: boolean } = {}): Promise<{
   ran: number;
   totalSent: number;
   outcomes: AutomationOutcome[];
@@ -81,19 +88,28 @@ export async function runAutomations(now = new Date(), opts: { only?: string[] }
   });
 
   const outcomes: AutomationOutcome[] = [];
-  const mmdd = todayMMDD(now);
   const threeDaysAgo = new Date(now.getTime() - 3 * 86400000);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000);
 
-  for (const church of churches) {
+  await forEachChurch(churches, async (church) => {
     const automations = await db.automation.findMany({
       where: { churchId: church.id, active: true },
     });
+    if (automations.length === 0) return;
+
+    const localHour = localParts(now, church.timezone).hour;
+    const nightTime = opts.quietHours && (localHour < 8 || localHour >= 20);
+    const mmdd = mmddInTz(now, church.timezone, 0);
+    const todayYmd = ymdInTz(now, church.timezone);
 
     for (const a of automations) {
       // Birthdays are handled by the built-in, timezone-aware runBirthdays now.
       if (a.trigger === "birthday") continue;
       if (opts.only && !opts.only.includes(a.trigger)) continue;
+      // Hourly pass: no soft texts at night (visitor follow-up has its own hour).
+      if (nightTime && a.trigger !== "visitor_followup") continue;
+      // Anniversary has no per-person "already sent" flag, so once a day per church.
+      if (a.trigger === "anniversary" && a.lastRunAt && ymdInTz(a.lastRunAt, church.timezone) === todayYmd) continue;
       // Visitor follow-up can be pinned to a local send hour per church -
       // skip this tick entirely until the church's clock reaches it.
       if (a.trigger === "visitor_followup" && a.sendHour != null && !timeReached(now, church.timezone, a.sendHour, 0)) continue;
@@ -140,7 +156,7 @@ export async function runAutomations(now = new Date(), opts: { only?: string[] }
 
       outcomes.push({ churchId: church.id, automation: a.name, trigger: a.trigger, sent });
     }
-  }
+  }, { deadline: opts.deadline, label: "automations" });
 
   const totalSent = outcomes.reduce((s, o) => s + o.sent, 0);
   return { ran: outcomes.length, totalSent, outcomes };

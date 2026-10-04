@@ -135,7 +135,7 @@ export async function submitVisitorForm(formData: FormData) {
 
   const visitor = await db.visitor.create({
     data: {
-      church: { connect: { id: church.id } },
+      churchId: church.id,
       personId: person.id,
       invitedById,
       invitedByName,
@@ -150,15 +150,14 @@ export async function submitVisitorForm(formData: FormData) {
     },
   });
 
-  await db.followUp.create({
-    data: {
-      church: { connect: { id: church.id } },
-      visitor: { connect: { id: visitor.id } },
-      type: "new_visitor",
-      title: `Follow up with visitor ${firstName} ${lastName}`,
-      note: [purpose && `Purpose: ${purpose}`, notes && `Notes: ${notes}`].filter(Boolean).join(". ") || null,
-      dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-    },
+  const { createAutoFollowUp } = await import("@/lib/follow-ups/auto");
+  await createAutoFollowUp({
+    churchId: church.id,
+    type: "new_visitor",
+    visitorId: visitor.id,
+    title: `Follow up with visitor ${firstName} ${lastName}`.trim(),
+    note: [purpose && `Purpose: ${purpose}`, notes && `Notes: ${notes}`].filter(Boolean).join(". ") || null,
+    dueInDays: 2,
   });
 
   // They filled this in themselves with nobody there to ask them - so unlike
@@ -225,6 +224,16 @@ export async function addVisitor(formData: FormData) {
 
   const { audit } = await import("@/lib/audit");
   await audit(session, "create", "visitor", `Added visitor ${firstName} ${lastName}`.trim(), v.id);
+
+  const { createAutoFollowUp } = await import("@/lib/follow-ups/auto");
+  await createAutoFollowUp({
+    churchId: session.churchId,
+    type: "new_visitor",
+    visitorId: v.id,
+    title: `Follow up with visitor ${firstName} ${lastName}`.trim(),
+    note: [String(formData.get("notes") ?? "").trim() && `Notes: ${String(formData.get("notes") ?? "").trim()}`].filter(Boolean).join(". ") || null,
+    dueInDays: 2,
+  });
 
   // Manual add - an admin is right there, so it's their call whether to send
   // the welcome text now (the checkbox on the Add visitor form).

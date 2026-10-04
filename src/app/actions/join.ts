@@ -29,7 +29,7 @@ export async function selfRegister(formData: FormData) {
   const deptIds = await resolveDepartmentIds(church.id, departmentNames);
   const memberId = await nextMemberId(church.id);
 
-  await db.person.create({
+  const created = await db.person.create({
     data: {
       ...(data as Prisma.PersonCreateInput),
       church: { connect: { id: church.id } },
@@ -42,6 +42,16 @@ export async function selfRegister(formData: FormData) {
         ? { departments: { connect: deptIds.map((id) => ({ id })) }, department: { connect: { id: deptIds[0] } } }
         : {}),
     },
+  });
+
+  // Optional: a follow-up task so someone personally welcomes them (church setting).
+  const { createAutoFollowUp } = await import("@/lib/follow-ups/auto");
+  await createAutoFollowUp({
+    churchId: church.id,
+    type: "new_member",
+    personId: created.id,
+    title: `Welcome and connect with ${data.firstName} ${data.lastName}`.trim(),
+    dueInDays: 3,
   });
 
   // Optional welcome SMS to the new member (billed to the church's credits).

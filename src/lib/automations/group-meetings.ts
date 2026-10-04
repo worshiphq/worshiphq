@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { localParts, ymdInTz, timeReached } from "@/lib/time/tz";
 import { DAYS_FULL, DEFAULT_MEETING_REMINDER, renderMeetingReminder, parseSchedule } from "@/lib/groups/meeting-reminder";
 import { sendChurchSms } from "@/lib/sms/credits";
+import { forEachChurch, type Deadline } from "@/lib/automations/pool";
 
 /**
  * Auto meeting reminders: for each group with an automatic reminder on, text its
@@ -10,14 +11,14 @@ import { sendChurchSms } from "@/lib/sms/credits";
  * hour. Runs hourly; a per-day guard (meetingReminderLastSent) prevents doubles.
  * Groups set to manual are skipped here (they use the "Send now" button).
  */
-export async function runGroupMeetingReminders(now = new Date(), ignoreHour = false) {
+export async function runGroupMeetingReminders(now = new Date(), ignoreHour = false, deadline?: Deadline) {
   const churches = await db.church.findMany({
     where: { isDemo: false, groups: { some: { meetingReminderOn: true, meetingReminderAuto: true } } },
     select: { id: true, name: true, timezone: true },
   });
 
   let sent = 0;
-  for (const church of churches) {
+  const pool = await forEachChurch(churches, async (church) => {
     const { weekday: todayWeekday } = localParts(now, church.timezone);
     const todayYmd = ymdInTz(now, church.timezone);
 
@@ -64,7 +65,7 @@ export async function runGroupMeetingReminders(now = new Date(), ignoreHour = fa
       await db.group.update({ where: { id: g.id }, data: { meetingReminderLastSent: todayYmd } });
       sent += res.sent;
     }
-  }
+  }, { deadline, label: "groupMeetings" });
 
-  return { churches: churches.length, sent };
+  return { churches: churches.length, sent, ...pool };
 }

@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { DEFAULT_PLEDGE_REMINDER_TEMPLATE, money, fill } from "@/lib/pledges/templates";
+import { forEachChurch, type Deadline } from "@/lib/automations/pool";
 
 const DAY_MS = 86_400_000;
 
@@ -11,7 +12,7 @@ const DAY_MS = 86_400_000;
  * most once per pledge - already-passed milestones are consumed together so a
  * late run doesn't blast several texts at the same person.
  */
-export async function runPledgeReminders() {
+export async function runPledgeReminders(deadline?: Deadline) {
   const churches = await db.church.findMany({
     where: { isDemo: false },
     select: { id: true, name: true, pledgeReminderDays: true, pledgeReminderTemplate: true },
@@ -20,9 +21,9 @@ export async function runPledgeReminders() {
   let sent = 0;
   let considered = 0;
 
-  for (const church of churches) {
+  const pool = await forEachChurch(churches, async (church) => {
     const schedule = (church.pledgeReminderDays ?? []).filter((d) => d > 0).sort((a, b) => b - a);
-    if (!schedule.length) continue;
+    if (!schedule.length) return;
 
     const pledges = await db.pledge.findMany({
       where: {
@@ -65,7 +66,7 @@ export async function runPledgeReminders() {
         data: { remindersSent: { set: [...p.remindersSent, ...due.map(String)] } },
       });
     }
-  }
+  }, { deadline, label: "pledges" });
 
-  return { considered, sent };
+  return { considered, sent, ...pool };
 }

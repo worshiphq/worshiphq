@@ -5,6 +5,7 @@ import { templateFor, renderTemplate } from "@/lib/messages/registry";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { buildRosterBody } from "@/lib/rosters/message";
 import { rosterRecipientPhones } from "@/lib/rosters/audience";
+import { forEachChurch, type Deadline } from "@/lib/automations/pool";
 
 const fmtServiceDate = (d: Date) => d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
 
@@ -13,7 +14,7 @@ const fmtServiceDate = (d: Date) => d.toLocaleDateString("en-GB", { weekday: "lo
  * service. Each sheet may set its own lead-days/hour, falling back to the
  * church-wide default. Runs hourly; once per sheet (guarded by announcedAt).
  */
-export async function runRosterAnnouncements(now = new Date(), ignoreHour = false) {
+export async function runRosterAnnouncements(now = new Date(), ignoreHour = false, deadline?: Deadline) {
   const churches = await db.church.findMany({
     where: { isDemo: false, rosterAnnounceOn: true },
     select: {
@@ -24,7 +25,7 @@ export async function runRosterAnnouncements(now = new Date(), ignoreHour = fals
   });
 
   let sent = 0;
-  for (const church of churches) {
+  const pool = await forEachChurch(churches, async (church) => {
     const { weekday: todayWeekday } = localParts(now, church.timezone);
     const todayYmd = ymdInTz(now, church.timezone);
     const plus7Ymd = ymdInTz(now, church.timezone, 7);
@@ -36,7 +37,7 @@ export async function runRosterAnnouncements(now = new Date(), ignoreHour = fals
       where: { churchId: church.id, announcedAt: null, deletedAt: null, startDate: { gte: from, lte: to } },
       include: { slots: { orderBy: { date: "asc" } } },
     });
-    if (sheets.length === 0) continue;
+    if (sheets.length === 0) return;
 
     // Recipients depend on each sheet's own audience choice, so resolve per
     // sheet - cached, since most sheets share the church default.
@@ -84,7 +85,7 @@ export async function runRosterAnnouncements(now = new Date(), ignoreHour = fals
       await db.volunteerRoster.update({ where: { id: sheet.id }, data: { announcedAt: new Date() } });
       sent += res.sent;
     }
-  }
+  }, { deadline, label: "rosterAnnouncements" });
 
-  return { churches: churches.length, sent };
+  return { churches: churches.length, sent, ...pool };
 }

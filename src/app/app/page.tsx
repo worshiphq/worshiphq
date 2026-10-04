@@ -270,6 +270,7 @@ export default async function DashboardPage() {
                 <span className="grid size-8 place-items-center rounded-lg bg-danger/10"><Heart className="size-4 text-danger" /></span>
                 Follow-up
               </h3>
+              <Link href="/app/follow-ups" className="text-xs text-primary-bright hover:underline">View all</Link>
             </div>
             <div className="space-y-1 px-3 pb-3">
               {careTasks.length === 0 && <p className="px-2 py-6 text-center text-sm text-ink-faint">No follow-ups right now.</p>}

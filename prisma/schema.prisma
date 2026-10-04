@@ -202,6 +202,11 @@ model Church {
   lastBackupAt        DateTime? // last SUCCESSFUL backup
   lastBackupAttemptAt DateTime? // last attempt, so a failing church is not retried every hour
   backups             ChurchBackup[]
+
+  // ── Follow-ups (see src/lib/follow-ups) ──
+  followUpAssigneeId  String?  // who auto-created follow-ups are assigned to (a User id in this church); null = unassigned
+  followUpNewMembers  Boolean  @default(false) // also create a follow-up for each self-registered new member
+  followUpDigestSent  String?  // local YYYY-MM-DD the daily due/overdue email last went out
 }
 
 /// One encrypted snapshot of a church's data, stored in R2 (objectKey). Rows

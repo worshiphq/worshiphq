@@ -10,7 +10,7 @@ export async function getDashboard(churchId: string) {
   const weekAgo = new Date(Date.now() - 7 * 86400000);
   const todayMMDD = `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 
-  const [activeMembers, weekAgg, monthGiving, reachAgg, gifts, attendance, events, people, departments, recent, featuredLeaders, church] =
+  const [activeMembers, weekAgg, monthGiving, reachAgg, gifts, attendance, events, people, departments, recent, featuredLeaders, church, openFollowUps] =
     await Promise.all([
       db.person.count({ where: { churchId, status: "active" } }),
       db.attendanceSession.aggregate({
@@ -27,6 +27,17 @@ export async function getDashboard(churchId: string) {
       db.person.findMany({ where: { churchId }, orderBy: { joinedAt: "desc" }, take: 6, select: { firstName: true, lastName: true, gender: true, status: true, joinedAt: true, photoUrl: true, departments: { select: { name: true }, take: 1 } } }),
       db.person.findMany({ where: { churchId, featured: true, leaderTitle: { not: null } }, select: { id: true, firstName: true, lastName: true, title: true, leaderTitle: true, photoUrl: true, phone: true, email: true, leaderSortOrder: true } }),
       db.church.findUnique({ where: { id: churchId }, select: { featuredLeaderCount: true } }),
+      // The real follow-up tasks, most urgent first (undated last).
+      db.followUp.findMany({
+        where: { churchId, status: { not: "done" } },
+        include: {
+          person: { select: { firstName: true, lastName: true } },
+          visitor: { select: { firstName: true, lastName: true } },
+          assignee: { select: { name: true } },
+        },
+        orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
+        take: 5,
+      }),
     ]);
 
   // 6-month trend buckets
@@ -52,16 +63,26 @@ export async function getDashboard(churchId: string) {
     .slice(0, 5)
     .map((p) => ({ name: `${p.firstName} ${p.lastName}`, gender: p.gender, photoUrl: p.photoUrl }));
 
-  const careTasks = people
-    .filter((p) => p.status === "visitor" || p.status === "inactive")
-    .slice(0, 5)
-    .map((p, i) => ({
-      id: String(i),
-      person: `${p.firstName} ${p.lastName}`,
-      reason: p.status === "visitor" ? "First-time visitor - welcome & connect" : "Hasn't attended recently - check in",
-      due: i === 0 ? "Today" : i === 1 ? "Today" : "This week",
-      priority: (p.status === "visitor" ? "high" : "medium") as "high" | "medium" | "low",
-    }));
+  // Real follow-up tasks. "reason" is the task title; "due" says when, honestly.
+  const startToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  const careTasks = openFollowUps.map((f) => {
+    const who = f.visitor ?? f.person;
+    const dueTs = f.dueDate ? new Date(f.dueDate.getFullYear(), f.dueDate.getMonth(), f.dueDate.getDate()).getTime() : null;
+    const days = dueTs === null ? null : Math.round((dueTs - startToday) / 86400000);
+    const due =
+      days === null ? "No date"
+        : days < 0 ? "Overdue"
+          : days === 0 ? "Today"
+            : days === 1 ? "Tomorrow"
+              : f.dueDate!.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+    return {
+      id: f.id,
+      person: who ? `${who.firstName} ${who.lastName}`.trim() : f.title,
+      reason: who ? f.title : f.assignee ? `Assigned to ${f.assignee.name}` : "Not assigned yet",
+      due,
+      priority: (days !== null && days < 0 ? "high" : days !== null && days <= 2 ? "medium" : "low") as "high" | "medium" | "low",
+    };
+  });
 
   const departmentBreakdown = departments.map((d) => ({ name: d.name, count: d._count.members }));
 

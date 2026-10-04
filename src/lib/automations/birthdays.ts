@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { notifyChurchAdmins } from "@/lib/notify/admins";
 import { localParts, mmddInTz, ymdInTz, timeReached } from "@/lib/time/tz";
 import { templateFor, renderTemplate } from "@/lib/messages/registry";
+import { forEachChurch, type Deadline } from "@/lib/automations/pool";
 
 /**
  * Birthday automations. The cron runs hourly; for each church we only act when
@@ -13,7 +14,7 @@ import { templateFor, renderTemplate } from "@/lib/messages/registry";
  *  - Admin same-day  (birthdayAdminAlertOn): tell admins who's celebrating today.
  *  - Weekly digest   (birthdayDigestOn):    on birthdayDigestDay, list the week.
  */
-export async function runBirthdays(now = new Date(), ignoreHour = false) {
+export async function runBirthdays(now = new Date(), ignoreHour = false, deadline?: Deadline) {
   const churches = await db.church.findMany({
     where: {
       isDemo: false,
@@ -28,20 +29,22 @@ export async function runBirthdays(now = new Date(), ignoreHour = false) {
 
   let wishes = 0, adminAlerts = 0, digests = 0;
 
-  for (const church of churches) {
+  const pool = await forEachChurch(churches, async (church) => {
     const { weekday } = localParts(now, church.timezone);
     // Fire once the church's local clock reaches its send time (a precise trigger
     // may run many times an hour). On the daily cron (ignoreHour) always try.
-    if (!ignoreHour && !timeReached(now, church.timezone, church.birthdaySendHour, 0)) continue;
+    if (!ignoreHour && !timeReached(now, church.timezone, church.birthdaySendHour, 0)) return;
 
     // Claim today atomically so the birthday batch runs ONCE per day no matter
     // how often the cron ticks - this is what stops the repeated texts.
     const todayYmd = ymdInTz(now, church.timezone);
     const claim = await db.church.updateMany({
-      where: { id: church.id, NOT: { birthdayLastSent: todayYmd } },
+      // `NOT: { col: x }` matches NOTHING when col is NULL, so a church that had never
+      // run yet could never claim a day. Spell out the NULL case.
+      where: { id: church.id, OR: [{ birthdayLastSent: null }, { birthdayLastSent: { not: todayYmd } }] },
       data: { birthdayLastSent: todayYmd },
     });
-    if (claim.count === 0) continue; // already ran today
+    if (claim.count === 0) return; // already ran today
 
     const todayKey = mmddInTz(now, church.timezone, 0);
 
@@ -105,7 +108,7 @@ export async function runBirthdays(now = new Date(), ignoreHour = false) {
         digests++;
       }
     }
-  }
+  }, { deadline, label: "birthdays" });
 
-  return { churches: churches.length, wishes, adminAlerts, digests };
+  return { churches: churches.length, wishes, adminAlerts, digests, ...pool };
 }
