@@ -65,7 +65,7 @@ type Remind = { on: boolean; leadDays: number; hour: number; minute: number; wee
 
 type Assignment = { id: string; role: string; personId: string | null; personName: string | null; hasPhone: boolean; notified: boolean };
 type ServiceBlock = { service: string; date: string; time: string; assignments: Assignment[] };
-type Sheet = { id: string; name: string; announceLeadDays: number | null; announceHour: number | null; announceMinute: number | null; announceWeekday: number | null; announceDate: string | null; announcedAt: string | null; services: ServiceBlock[] };
+type Sheet = { id: string; name: string; announceLeadDays: number | null; announceHour: number | null; announceMinute: number | null; announceWeekday: number | null; announceDate: string | null; announceAudience: string | null; announceGroupId: string | null; announcedAt: string | null; services: ServiceBlock[] };
 type Member = { id: string; name: string; hasPhone: boolean };
 type Role = { id: string; name: string };
 
@@ -120,6 +120,8 @@ export function RostersClient({ sheets, members, roles, smsBalance, messageTempl
           sheet={editing}
           members={members}
           roles={roles}
+          groups={groups}
+          announce={announce}
           onClose={() => { setCreating(false); setEditing(null); }}
         />
       )}
@@ -469,7 +471,7 @@ function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announc
 type DialogRow = { role: string; personId: string; typed: string };
 type DialogService = { service: string; date: string; time: string; rows: DialogRow[] };
 
-function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; members: Member[]; roles: Role[]; onClose: () => void }) {
+function SheetDialog({ sheet, members, roles, groups, announce, onClose }: { sheet: Sheet | null; members: Member[]; roles: Role[]; groups: Group[]; announce: Announce; onClose: () => void }) {
   const router = useRouter();
   const { toast } = useFeedback();
   const [pending, start] = useTransition();
@@ -498,6 +500,15 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
   const [ovMinute, setOvMinute] = useState(sheet?.announceMinute ?? 0);
   const [ovWeekday, setOvWeekday] = useState(sheet?.announceWeekday ?? 1);
   const [ovDate, setOvDate] = useState(sheet?.announceDate ? sheet.announceDate.slice(0, 10) : "");
+  // Who this roster is announced to: "general" follows the church default group.
+  const [toMode, setToMode] = useState<"general" | "group" | "church">(
+    sheet?.announceAudience === "group" ? "group" : sheet?.announceAudience === "church" ? "church" : "general",
+  );
+  const [toGroup, setToGroup] = useState(sheet?.announceGroupId ?? "");
+  const defaultTo =
+    announce.audience === "church"
+      ? "the whole church"
+      : groups.find((g) => g.id === announce.groupId)?.name ?? "no group chosen yet";
   const [services, setServices] = useState<DialogService[]>(
     sheet?.services?.length
       ? sheet.services.map((s) => ({ service: s.service, date: s.date.slice(0, 10), time: s.time, rows: makeRows(s.assignments) }))
@@ -547,6 +558,9 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
     fd.set("announceMinute", ovMode === "general" ? "" : String(ovMinute));
     fd.set("announceWeekday", ovMode === "weekday" ? String(ovWeekday) : "");
     fd.set("announceDate", ovMode === "date" ? ovDate : "");
+    fd.set("announceAudience", toMode === "general" ? "" : toMode);
+    fd.set("announceGroupId", toMode === "group" ? toGroup : "");
+    if (toMode === "group" && !toGroup) return toast("Pick which group should receive this roster", "error");
     start(async () => {
       const res = await saveServiceSheet(fd);
       if (res?.ok) { toast(sheet ? "Roster updated" : "Roster created", "success"); router.refresh(); onClose(); }
@@ -615,6 +629,33 @@ function SheetDialog({ sheet, members, roles, onClose }: { sheet: Sheet | null; 
           <button onClick={addService} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-line py-2.5 text-sm font-medium text-ink-muted hover:border-primary/40 hover:text-primary">
             <Plus className="size-4" /> Add another service
           </button>
+
+          {/* Per-roster audience (falls back to the general Announcement settings) */}
+          <div className="rounded-xl border border-line p-3">
+            <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint"><Megaphone className="size-3.5" /> Announce this roster to</div>
+            <Segmented
+              value={toMode}
+              onChange={setToMode}
+              options={[
+                { value: "general", label: "Use general" },
+                { value: "group", label: "A group" },
+                { value: "church", label: "Whole church" },
+              ]}
+            />
+            {toMode === "group" && (
+              <select value={toGroup} onChange={(e) => setToGroup(e.target.value)} className={cn(inputCls, "mt-2 w-full")}>
+                <option value="">- Choose a group -</option>
+                {groups.map((g) => <option key={g.id} value={g.id}>{g.name} ({g.memberCount})</option>)}
+              </select>
+            )}
+            <p className="mt-1.5 text-[11px] text-ink-faint">
+              {toMode === "general"
+                ? <>“Use general” sends to the group set in Announcement settings: <span className="font-medium text-ink-muted">{defaultTo}</span>. Pick a different group here when this roster is for another team.</>
+                : toMode === "group"
+                  ? "Only this group is texted for this roster. Other rosters are not affected."
+                  : "Everyone active with a phone number is texted for this roster."}
+            </p>
+          </div>
 
           {/* Per-roster send time (falls back to the general Announcement settings) */}
           <div className="rounded-xl border border-line p-3">

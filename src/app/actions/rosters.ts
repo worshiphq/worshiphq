@@ -108,6 +108,16 @@ export async function saveServiceSheet(formData: FormData) {
   const announceHour = numOrNull(formData.get("announceHour"));
   const announceMinute = numOrNull(formData.get("announceMinute"));
   const announceWeekday = parseWeekday(formData.get("announceWeekday"));
+  // Per-roster audience: "" = follow the church default.
+  const audienceRaw = String(formData.get("announceAudience") ?? "");
+  const announceAudience = audienceRaw === "group" || audienceRaw === "church" ? audienceRaw : null;
+  let announceGroupId: string | null = null;
+  if (announceAudience === "group") {
+    const gid = String(formData.get("announceGroupId") ?? "").trim();
+    const owned = gid ? await db.group.findFirst({ where: { id: gid, churchId: session.churchId }, select: { id: true } }) : null;
+    if (!owned) return { ok: false as const, error: "Pick which group should receive this roster." };
+    announceGroupId = owned.id;
+  }
   const announceDateStr = String(formData.get("announceDate") ?? "").trim();
   const announceDate = /^\d{4}-\d{2}-\d{2}$/.test(announceDateStr) ? new Date(`${announceDateStr}T00:00:00`) : null;
 
@@ -149,12 +159,12 @@ export async function saveServiceSheet(formData: FormData) {
     // announces once; use the "Announce" button to send again on purpose.
     await db.volunteerRoster.update({
       where: { id: rosterId },
-      data: { name: rosterName, startDate, endDate, announceLeadDays, announceHour, announceMinute, announceWeekday, announceDate },
+      data: { name: rosterName, startDate, endDate, announceLeadDays, announceHour, announceMinute, announceWeekday, announceDate, announceAudience, announceGroupId },
     });
     await db.volunteerSlot.deleteMany({ where: { rosterId, churchId: session.churchId } });
   } else {
     const roster = await db.volunteerRoster.create({
-      data: { churchId: session.churchId, name: rosterName, startDate, endDate, announceLeadDays, announceHour, announceMinute, announceWeekday, announceDate },
+      data: { churchId: session.churchId, name: rosterName, startDate, endDate, announceLeadDays, announceHour, announceMinute, announceWeekday, announceDate, announceAudience, announceGroupId },
       select: { id: true },
     });
     rosterId = roster.id;
@@ -306,18 +316,14 @@ async function buildAnnouncement(churchId: string, rosterId: string) {
     list: body,
   });
 
-  // Recipients: a group's members, or the whole active church.
-  let people: { phone: string | null }[] = [];
-  if ((church?.rosterAnnounceAudience ?? "group") === "church") {
-    people = await db.person.findMany({ where: { churchId, status: { not: "inactive" }, phone: { not: null } }, select: { phone: true } });
-  } else if (church?.rosterAnnounceGroupId) {
-    const group = await db.group.findFirst({
-      where: { id: church.rosterAnnounceGroupId, churchId },
-      select: { members: { where: { phone: { not: null } }, select: { phone: true } } },
-    });
-    people = group?.members ?? [];
-  }
-  const phones = people.map((p) => p.phone!).filter(Boolean);
+  // Recipients: this roster's own group/audience, else the church default.
+  const { rosterRecipientPhones } = await import("@/lib/rosters/audience");
+  const phones = church
+    ? await rosterRecipientPhones(
+        { id: churchId, rosterAnnounceAudience: church.rosterAnnounceAudience, rosterAnnounceGroupId: church.rosterAnnounceGroupId },
+        roster,
+      )
+    : [];
   return { text, phones, service: roster.name, date: roster.startDate };
 }
 
@@ -350,7 +356,7 @@ export async function announceRoster(rosterId: string) {
   const session = await requireModule("volunteers");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const { text, phones } = await buildAnnouncement(session.churchId, rosterId);
-  if (phones.length === 0) return { ok: false as const, error: "No recipients - pick a group (with phones) in Announcement settings." };
+  if (phones.length === 0) return { ok: false as const, error: "No recipients - pick a group with phone numbers for this roster (or in Announcement settings)." };
   const { sendChurchSms } = await import("@/lib/sms/credits");
   const res = await sendChurchSms(session.churchId, phones, text, { note: "Roster announcement" });
   if (!res.ok && res.insufficient) return { ok: false as const, error: `Not enough SMS credits - need ${res.cost}, have ${res.balance}.` };

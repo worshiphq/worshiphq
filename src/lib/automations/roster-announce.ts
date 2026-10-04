@@ -4,6 +4,7 @@ import { localParts, ymdInTz, timeReached } from "@/lib/time/tz";
 import { templateFor, renderTemplate } from "@/lib/messages/registry";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { buildRosterBody } from "@/lib/rosters/message";
+import { rosterRecipientPhones } from "@/lib/rosters/audience";
 
 const fmtServiceDate = (d: Date) => d.toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long" });
 
@@ -37,19 +38,14 @@ export async function runRosterAnnouncements(now = new Date(), ignoreHour = fals
     });
     if (sheets.length === 0) continue;
 
-    // Resolve recipients once per church.
-    let phones: string[] = [];
-    if (church.rosterAnnounceAudience === "church") {
-      const people = await db.person.findMany({ where: { churchId: church.id, status: { not: "inactive" }, phone: { not: null } }, select: { phone: true } });
-      phones = people.map((p) => p.phone!).filter(Boolean);
-    } else if (church.rosterAnnounceGroupId) {
-      const group = await db.group.findFirst({
-        where: { id: church.rosterAnnounceGroupId, churchId: church.id },
-        select: { members: { where: { phone: { not: null } }, select: { phone: true } } },
-      });
-      phones = (group?.members ?? []).map((m) => m.phone!).filter(Boolean);
-    }
-    if (phones.length === 0) continue;
+    // Recipients depend on each sheet's own audience choice, so resolve per
+    // sheet - cached, since most sheets share the church default.
+    const phoneCache = new Map<string, string[]>();
+    const phonesFor = async (sheet: { announceAudience: string | null; announceGroupId: string | null }) => {
+      const key = `${sheet.announceAudience ?? "default"}:${sheet.announceGroupId ?? ""}`;
+      if (!phoneCache.has(key)) phoneCache.set(key, await rosterRecipientPhones(church, sheet));
+      return phoneCache.get(key)!;
+    };
 
     const tpl = templateFor(church.messageTemplates, "roster_announcement");
     for (const sheet of sheets) {
@@ -76,6 +72,9 @@ export async function runRosterAnnouncements(now = new Date(), ignoreHour = fals
         // Relative: send `leadDays` before the first service.
         if (startYmd !== ymdInTz(now, church.timezone, lead)) continue;
       }
+
+      const phones = await phonesFor(sheet);
+      if (phones.length === 0) continue;
 
       const text = renderTemplate(tpl, {
         church: church.name, service: sheet.name, date: fmtServiceDate(sheet.startDate), list: buildRosterBody(sheet.slots),

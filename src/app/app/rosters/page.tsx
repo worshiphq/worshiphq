@@ -89,6 +89,8 @@ export default async function RostersPage() {
             announceMinute: s.announceMinute,
             announceWeekday: s.announceWeekday,
             announceDate: s.announceDate ? s.announceDate.toISOString() : null,
+            announceAudience: s.announceAudience,
+            announceGroupId: s.announceGroupId,
             announcedAt: s.announcedAt ? s.announcedAt.toISOString() : null,
             services,
           };
