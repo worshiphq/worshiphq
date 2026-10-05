@@ -54,7 +54,7 @@ export function HowItWorks({ freeMemberLimit = 30 }: {
               </StaggerGroup>
 
               <p className="mt-14 text-center text-sm text-parchment/50">
-                ✦ &nbsp; Your first {freeMemberLimit} members are free, forever. &nbsp; ✦
+                ✦ &nbsp; {`Your first ${freeMemberLimit} members are free, forever.`} &nbsp; ✦
               </p>
             </div>
           </div>
