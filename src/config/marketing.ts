@@ -43,28 +43,28 @@ export const spotlights: Spotlight[] = [
     title: "Know every member by name",
     body: "Build a living picture of your congregation - profiles with photos, departments, attendance history and custom fields. Import from CSV or let members register themselves.",
     points: ["Rich profiles with photos & member IDs", "Departments & custom fields", "CSV import & export", "Self-registration via shared link"],
-    image: "https://images.unsplash.com/photo-1609234656388-0ff363383899?auto=format&fit=crop&w=1200&q=80",
+    image: "/marketing/spotlight-people.webp",
   },
   {
     eyebrow: "Giving",
     title: "Giving made simple",
     body: "Record tithes and offerings with ease. Accept online giving via Mobile Money and cards through Paystack. Track funds, harvest contributions and send receipts automatically.",
     points: ["Mobile Money & card payments", "Multiple funds & harvest tracking", "Automated receipts", "Giving reports & Excel export"],
-    image: "https://images.unsplash.com/photo-1504052434569-70ad5836ab65?auto=format&fit=crop&w=1200&q=80",
+    image: "/marketing/spotlight-giving.webp",
   },
   {
     eyebrow: "Reminders & automations",
     title: "Care that never forgets",
     body: "Birthdays, anniversaries and custom reminders - all sent automatically via SMS, so no one slips through the cracks.",
     points: ["Automatic birthday & anniversary SMS", "Custom recurring reminders", "Targeted messaging", "Custom sender ID"],
-    image: "https://images.unsplash.com/photo-1478147427282-58a87a120781?auto=format&fit=crop&w=1200&q=80",
+    image: "/marketing/spotlight-care.webp",
   },
   {
     eyebrow: "Communications",
     title: "One message, your whole church",
     body: "Send a Sunday reminder by SMS, a targeted note to your worship team, or a message to individual members - with delivery tracking.",
     points: ["SMS broadcasts", "Department & individual targeting", "Custom sender ID", "Delivery tracking"],
-    image: "https://images.unsplash.com/photo-1507692049790-de58290a4334?auto=format&fit=crop&w=1200&q=80",
+    image: "/marketing/spotlight-messages.webp",
   },
 ];
 

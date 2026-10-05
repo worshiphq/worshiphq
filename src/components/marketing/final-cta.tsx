@@ -4,7 +4,7 @@ import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { Reveal } from "@/components/ui/reveal";
 
-export function FinalCTA({ freeMembers = "up to 50 members" }: { freeMembers?: string }) {
+export function FinalCTA({ freeMembers = "up to 30 members" }: { freeMembers?: string }) {
   return (
     <section className="relative px-5 py-20 sm:py-28">
       <Reveal>

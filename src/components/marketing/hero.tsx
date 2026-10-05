@@ -19,17 +19,17 @@ const DEFAULT_SUBHEAD =
 const SLIDES = [
   {
     id: "dashboard",
-    image: "https://images.unsplash.com/photo-1563330232-57114bb0823c?w=2000&q=80&auto=format",
+    image: "/marketing/hero-media-desk.webp",
     alt: "Church media team at the production desk",
   },
   {
     id: "features",
-    image: "https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=2000&q=80&auto=format",
+    image: "/marketing/hero-sanctuary.webp",
     alt: "Church interior",
   },
   {
     id: "welcome",
-    image: "https://images.unsplash.com/photo-1478147427282-58a87a120781?w=2000&q=80&auto=format",
+    image: "/marketing/hero-worship.webp",
     alt: "Congregation in worship",
   },
 ] as const;
@@ -43,7 +43,7 @@ const FEATURE_PILLS = [
 
 export function Hero({
   subhead = DEFAULT_SUBHEAD,
-  freeMembers = "up to 50 members",
+  freeMembers = "up to 30 members",
 }: {
   subhead?: string;
   /** e.g. "up to 30 members" - pulled live from the SuperAdmin-editable plan config. */

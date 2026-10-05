@@ -3,7 +3,10 @@
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/ui/reveal";
 import { steps } from "@/config/marketing";
 
-export function HowItWorks() {
+export function HowItWorks({ freeMemberLimit = 30 }: {
+  /** Free-plan member cap, pulled live from the SuperAdmin-editable plan config. */
+  freeMemberLimit?: number;
+}) {
   return (
     <section className="relative py-16 sm:py-24">
       <div className="mx-auto max-w-6xl px-5">
@@ -51,7 +54,7 @@ export function HowItWorks() {
               </StaggerGroup>
 
               <p className="mt-14 text-center text-sm text-parchment/50">
-                ✦ &nbsp; Your first fifty members are free, forever. &nbsp; ✦
+                ✦ &nbsp; Your first {freeMemberLimit} members are free, forever. &nbsp; ✦
               </p>
             </div>
           </div>

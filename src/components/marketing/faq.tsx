@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils";
 
 export function FAQ({
   starterPrice = "$10",
-  freeMembers = "up to 50 members",
+  freeMembers = "up to 30 members",
 }: {
   starterPrice?: string;
   /** e.g. "up to 30 members" - lowercase, mid-sentence. Pulled live from the

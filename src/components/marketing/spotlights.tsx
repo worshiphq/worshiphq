@@ -54,6 +54,7 @@ export function Spotlights() {
                       src={s.image}
                       alt={s.title}
                       loading="lazy"
+                      decoding="async"
                       className="aspect-[4/3] w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
                     />
                     {/* Warm duotone wash */}

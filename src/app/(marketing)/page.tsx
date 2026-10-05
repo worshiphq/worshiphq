@@ -25,7 +25,7 @@ export default async function HomePage() {
       <TrustBar />
       <FeatureGrid />
       <Spotlights />
-      <HowItWorks />
+      <HowItWorks freeMemberLimit={platformConfig.planDefs.free.memberLimit} />
       <Testimonials items={content.testimonials} />
       <PricingSection platformPricing={platformConfig} />
       <FAQ

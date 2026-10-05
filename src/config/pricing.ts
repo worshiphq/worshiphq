@@ -23,7 +23,7 @@ export const plans: Plan[] = [
     tagline: "For new & small fellowships",
     monthly: 0,
     yearly: 0,
-    members: "Up to 50 members",
+    members: "Up to 30 members",
     cta: "Start free",
     features: [
       "People & households",
@@ -163,7 +163,7 @@ export const comparison: { group: string; rows: { label: string; values: (boolea
       { label: "Advanced analytics & dashboards", values: [false, false, false, true] },
       { label: "Audit log", values: [false, false, false, true] },
       { label: "API access", values: [false, false, false, true] },
-      { label: "Members", values: ["50", "250", "1,000", "Unlimited"] },
+      { label: "Members", values: ["30", "250", "1,000", "Unlimited"] },
       { label: "Support", values: ["Community", "Email", "Priority", "Dedicated"] },
     ],
   },

@@ -61,7 +61,7 @@ export const FEATURE_TIERS = {
 } as const;
 
 export const DEFAULT_PLAN_TABLE: PlanTable = {
-  free:    { members: 50,       teamUsers: 2,        features: FREE_FEATURES },
+  free:    { members: 30,       teamUsers: 2,        features: FREE_FEATURES },
   starter: { members: 250,      teamUsers: 5,        features: STARTER_FEATURES },
   pro:     { members: 1000,     teamUsers: 15,       features: PRO_FEATURES },
   max:     { members: Infinity, teamUsers: Infinity, features: MAX_FEATURES },
