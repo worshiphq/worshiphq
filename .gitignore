@@ -45,3 +45,4 @@ build.log
 # tauri
 apps/media/src-tauri/target/
 apps/media/src-tauri/resources/bibles/*.db
+scripts/image-migration-rollback.json
