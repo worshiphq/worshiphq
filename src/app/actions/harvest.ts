@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { sendChurchSms } from "@/lib/sms/credits";
 import type { GiftMethod } from "@prisma/client";
+import { DEFAULT_HARVEST_RECEIPT } from "@/lib/harvest/receipt";
 
 const METHOD_FROM_LABEL: Record<string, GiftMethod> = {
   "MTN MoMo": "MTN_MoMo",
@@ -82,8 +83,7 @@ export async function recordHarvestContributions(year: number, entries: HarvestE
     if (entry.donorPhone && !insufficientCredits) {
       const amtStr = entry.amount.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const church = await db.church.findUnique({ where: { id: session.churchId }, select: { name: true, harvestReceiptTemplate: true } });
-      const defaultTpl = "Dear {name}, your Harvest contribution of GHS {amount} has been received by {church}. God bless you abundantly!";
-      const tpl = church?.harvestReceiptTemplate || defaultTpl;
+      const tpl = church?.harvestReceiptTemplate || DEFAULT_HARVEST_RECEIPT;
       const msg = tpl.replace(/\{name\}/gi, entry.donorName).replace(/\{amount\}/gi, amtStr).replace(/\{church\}/gi, church?.name ?? "your church");
       const smsResult = await sendChurchSms(session.churchId, entry.donorPhone, msg, { note: "Harvest receipt" });
       if (smsResult.ok) smsSent++;

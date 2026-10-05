@@ -21,6 +21,7 @@ import { formatCurrency } from "@/config/brand";
 import { wideYears } from "@/lib/years";
 import { formatDate, cn } from "@/lib/utils";
 import type { HarvestData, HarvestContributionRow } from "@/lib/data/harvest";
+import { DEFAULT_HARVEST_RECEIPT } from "@/lib/harvest/receipt";
 
 const methods = ["MTN MoMo", "Telecel Cash", "AirtelTigo", "Card", "Cash"] as const;
 const methodIcon: Record<string, typeof Smartphone> = {
@@ -221,11 +222,9 @@ function HarvestEditBar({ harvest, year }: { harvest: NonNullable<HarvestData["h
 
 /* ────── Harvest Template Editor ────── */
 
-const DEFAULT_HARVEST_TEMPLATE = "Dear {name}, thank you for your harvest contribution of GHS {amount} to {church}. God bless you abundantly!";
-
 function HarvestTemplateEditor({ template }: { template: string | null }) {
   const [show, setShow] = useState(false);
-  const [text, setText] = useState(template || DEFAULT_HARVEST_TEMPLATE);
+  const [text, setText] = useState(template || DEFAULT_HARVEST_RECEIPT);
   const [saving, startTransition] = useTransition();
   const { toast } = useFeedback();
 
@@ -266,7 +265,7 @@ function HarvestTemplateEditor({ template }: { template: string | null }) {
             <Button size="sm" onClick={handleSave} disabled={saving}>
               {saving ? "Saving…" : "Save template"}
             </Button>
-            <Button size="sm" variant="ghost" onClick={() => setText(DEFAULT_HARVEST_TEMPLATE)}>
+            <Button size="sm" variant="ghost" onClick={() => setText(DEFAULT_HARVEST_RECEIPT)}>
               Reset to default
             </Button>
           </div>
