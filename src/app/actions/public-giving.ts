@@ -34,9 +34,10 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
 
   const church = await db.church.findUnique({
     where: { slug: churchSlug },
-    select: { id: true, isDemo: true, paystackSubaccountCode: true },
+    select: { id: true, isDemo: true, paystackSubaccountCode: true, givingBlocked: true },
   });
   if (!church || church.isDemo) return giftError("This church can't receive gifts right now.");
+  if (church.givingBlocked) return giftError("Online giving is temporarily unavailable for this church. Please contact the church directly.");
 
   const amount = Number(formData.get("amount") ?? 0);
   if (!amount || amount <= 0) return giftError("Enter a valid amount.");

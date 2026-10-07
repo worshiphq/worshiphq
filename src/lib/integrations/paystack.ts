@@ -187,6 +187,40 @@ export async function createSubaccount(opts: {
   }
 }
 
+/** Update a subaccount: change where it settles, or switch it on/off.
+ *  Paystack has NO delete endpoint for subaccounts - `active: false` is the
+ *  official way to kill one (it stops receiving any split). */
+export async function updateSubaccount(code: string, changes: {
+  businessName?: string;
+  settlementBank?: string;
+  accountNumber?: string;
+  description?: string;
+  active?: boolean;
+}): Promise<{ ok: boolean; stubbed: boolean; error?: string }> {
+  if (!features.payments || code.startsWith("ACCT_stub_")) {
+    console.info(`[Paystack:stub] update subaccount ${code}`, JSON.stringify(changes));
+    return { ok: true, stubbed: true };
+  }
+  try {
+    const res = await fetch(`https://api.paystack.co/subaccount/${encodeURIComponent(code)}`, {
+      method: "PUT",
+      headers: { authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        ...(changes.businessName !== undefined ? { business_name: changes.businessName } : {}),
+        ...(changes.settlementBank !== undefined ? { settlement_bank: changes.settlementBank } : {}),
+        ...(changes.accountNumber !== undefined ? { account_number: changes.accountNumber } : {}),
+        ...(changes.description !== undefined ? { description: changes.description } : {}),
+        ...(changes.active !== undefined ? { active: changes.active } : {}),
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data?.status) return { ok: false, stubbed: false, error: data?.message ?? "Paystack rejected the update." };
+    return { ok: true, stubbed: false };
+  } catch (e) {
+    return { ok: false, stubbed: false, error: (e as Error).message };
+  }
+}
+
 /** Gross up a gift so that, after Paystack's fee, the church receives `net`.
  *  Only used when the platform is set to "donor bears the fee". */
 export function grossUpForFee(net: number, feePercent: number): number {

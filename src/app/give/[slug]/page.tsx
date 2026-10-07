@@ -31,6 +31,7 @@ export default async function GivePage({
       name: true,
       slug: true,
       isDemo: true,
+      givingBlocked: true,
       logoUrl: true,
       accentColor: true,
       funds: { select: { name: true }, orderBy: { name: "asc" } },
@@ -69,12 +70,19 @@ export default async function GivePage({
           </p>
         </div>
 
-        <GiveForm
-          churchSlug={church.slug}
-          churchName={church.name}
-          accentColor={church.accentColor}
-          funds={funds}
-        />
+        {church.givingBlocked ? (
+          <div className="rounded-2xl border border-[#e6dfd0] bg-white p-6 text-center">
+            <p className="font-semibold text-[#1c1a16]">Online giving is temporarily unavailable</p>
+            <p className="mt-1 text-sm text-[#6b6560]">Please contact {church.name} directly to give. We are sorry for the inconvenience.</p>
+          </div>
+        ) : (
+          <GiveForm
+            churchSlug={church.slug}
+            churchName={church.name}
+            accentColor={church.accentColor}
+            funds={funds}
+          />
+        )}
       </div>
     </div>
   );

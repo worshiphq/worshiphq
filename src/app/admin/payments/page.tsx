@@ -8,7 +8,7 @@ export default async function AdminPaymentsPage() {
   const [requests, cfg] = await Promise.all([
     db.paymentRequest.findMany({
       orderBy: { createdAt: "desc" },
-      include: { church: { select: { name: true, slug: true, paystackSubaccountCode: true } } },
+      include: { church: { select: { name: true, slug: true, paystackSubaccountCode: true, givingBlocked: true } } },
     }),
     db.platformConfig.findUnique({
       where: { id: "default" },
