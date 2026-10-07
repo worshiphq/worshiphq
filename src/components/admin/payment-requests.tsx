@@ -5,8 +5,60 @@ import {
   Clock, CheckCircle2, Phone, Mail, Calendar, MessageSquare,
   ChevronDown, ChevronUp, Building2, Loader2, Video, MapPin,
 } from "lucide-react";
-import { updatePaymentRequest } from "@/app/actions/admin";
+import { updatePaymentRequest, approveGivingSetup, setGivingFeeSettings } from "@/app/actions/admin";
 import { AdminCard } from "./admin-shell";
+
+type Fees = { platformPercent: number; donorBearsFee: boolean; paystackFeePercent: number };
+
+function FeeSettings({ fees }: { fees: Fees }) {
+  const [platformPercent, setPlatformPercent] = useState(String(fees.platformPercent));
+  const [donorBearsFee, setDonorBearsFee] = useState(fees.donorBearsFee);
+  const [paystackFeePercent, setPaystackFeePercent] = useState(String(fees.paystackFeePercent));
+  const [saving, setSaving] = useState(false);
+  const [saved, setSaved] = useState(false);
+
+  async function save() {
+    setSaving(true); setSaved(false);
+    await setGivingFeeSettings({ platformPercent: Number(platformPercent) || 0, donorBearsFee, paystackFeePercent: Number(paystackFeePercent) || 0 });
+    setSaving(false); setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  }
+
+  return (
+    <AdminCard className="p-5">
+      <h2 className="font-semibold text-slate-100">Giving fees</h2>
+      <p className="mt-0.5 text-xs text-slate-400">Applies to every church&apos;s online giving. New subaccounts use the platform split below.</p>
+      <div className="mt-4 grid gap-4 sm:grid-cols-3">
+        <label className="text-xs text-slate-400">
+          WorshipHQ split (%)
+          <input value={platformPercent} onChange={(e) => setPlatformPercent(e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal"
+            className="mt-1 block h-9 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-slate-100" />
+          <span className="mt-1 block text-[11px] text-slate-500">0 = church keeps all (recommended)</span>
+        </label>
+        <label className="text-xs text-slate-400">
+          Paystack fee (%) for gross-up
+          <input value={paystackFeePercent} onChange={(e) => setPaystackFeePercent(e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal"
+            className="mt-1 block h-9 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-slate-100" />
+          <span className="mt-1 block text-[11px] text-slate-500">Ghana ≈ 1.95</span>
+        </label>
+        <label className="flex flex-col text-xs text-slate-400">
+          Who bears Paystack&apos;s fee
+          <button type="button" onClick={() => setDonorBearsFee((v) => !v)}
+            className={`mt-1 inline-flex h-9 items-center justify-center rounded-lg border px-3 text-sm font-medium ${donorBearsFee ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-slate-700 bg-slate-800 text-slate-200"}`}>
+            {donorBearsFee ? "Donor pays (church gets full gift)" : "Church bears it"}
+          </button>
+        </label>
+      </div>
+      <div className="mt-4 flex items-center gap-3">
+        <button type="button" onClick={save} disabled={saving}
+          className="inline-flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-400 disabled:opacity-50">
+          {saving ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : "Save fee settings"}
+        </button>
+        {saved && <span className="text-xs text-emerald-400">✓ Saved</span>}
+      </div>
+    </AdminCard>
+  );
+}
 
 const STATUS_COLORS: Record<string, string> = {
   pending: "bg-amber-500/15 text-amber-400",
@@ -30,7 +82,7 @@ const MEETING_TYPES = [
   { value: "in_person", label: "In Person", icon: MapPin },
 ];
 
-export function PaymentRequestsManager({ requests }: { requests: any[] }) {
+export function PaymentRequestsManager({ requests, fees }: { requests: any[]; fees: Fees }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const pending = requests.filter((r) => r.status === "pending");
@@ -39,6 +91,8 @@ export function PaymentRequestsManager({ requests }: { requests: any[] }) {
 
   return (
     <div className="space-y-8">
+      <FeeSettings fees={fees} />
+
       {/* Stats */}
       <div className="grid grid-cols-4 gap-3">
         <AdminCard className="p-4 text-center">
@@ -84,12 +138,27 @@ function RequestCard({ request: req, expanded, onToggle }: {
   request: any; expanded: boolean; onToggle: () => void;
 }) {
   const [saving, setSaving] = useState(false);
+  const [approving, setApproving] = useState(false);
+  const [approveMsg, setApproveMsg] = useState<{ ok: boolean; text: string } | null>(null);
 
   async function handleUpdate(formData: FormData) {
     setSaving(true);
     await updatePaymentRequest(req.id, formData);
     setSaving(false);
   }
+
+  async function handleApprove() {
+    setApproving(true);
+    setApproveMsg(null);
+    const res = await approveGivingSetup(req.id);
+    setApproving(false);
+    setApproveMsg(res.ok
+      ? { ok: true, text: `Subaccount created: ${res.code}. Giving now settles to this church.` }
+      : { ok: false, text: res.error ?? "Could not create the subaccount." });
+  }
+
+  const hasAccount = !!(req.bankCode && req.accountNumber && req.accountName);
+  const alreadyLive = !!req.church?.paystackSubaccountCode;
 
   return (
     <AdminCard className="overflow-hidden">
@@ -118,6 +187,34 @@ function RequestCard({ request: req, expanded, onToggle }: {
             <div>
               <label className="block text-xs font-medium text-slate-400 mb-1">Church&apos;s Needs</label>
               <p className="rounded-lg bg-slate-800/50 p-3 text-sm text-slate-200">{req.needs}</p>
+            </div>
+          )}
+
+          {/* Settlement account the church submitted + one-click subaccount creation */}
+          {hasAccount && (
+            <div className="rounded-lg border border-slate-700 bg-slate-800/40 p-3">
+              <div className="text-xs font-semibold text-slate-300">Settlement account (verified with Paystack)</div>
+              <div className="mt-1 grid grid-cols-3 gap-2 text-sm text-slate-200">
+                <div><span className="text-slate-500">Type</span><br />{req.settlementType === "momo" ? "Mobile Money" : "Bank"}</div>
+                <div><span className="text-slate-500">{req.settlementType === "momo" ? "Provider" : "Bank"}</span><br />{req.bankName}</div>
+                <div><span className="text-slate-500">Number</span><br />{req.accountNumber}</div>
+              </div>
+              <div className="mt-2 text-sm text-emerald-400">✓ Name on account: <span className="font-semibold">{req.accountName}</span></div>
+
+              {alreadyLive ? (
+                <p className="mt-3 text-xs text-emerald-400">✓ Subaccount live: {req.church.paystackSubaccountCode}</p>
+              ) : (
+                <div className="mt-3">
+                  <button type="button" onClick={handleApprove} disabled={approving}
+                    className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2 text-sm font-semibold text-white hover:bg-emerald-400 disabled:opacity-50">
+                    {approving ? <><Loader2 className="size-4 animate-spin" /> Creating subaccount…</> : "Approve & create subaccount"}
+                  </button>
+                  <p className="mt-1.5 text-[11px] text-slate-500">Creates the Paystack subaccount and routes this church&apos;s giving to it. This calls Paystack for real.</p>
+                </div>
+              )}
+              {approveMsg && (
+                <p className={`mt-2 text-xs ${approveMsg.ok ? "text-emerald-400" : "text-red-400"}`}>{approveMsg.text}</p>
+              )}
             </div>
           )}
 

@@ -40,6 +40,13 @@ model PlatformConfig {
   /** Site-wide SMS pricing tier: "B" | "C" | "D" (default D). Per-church
    *  overrides live on Church.smsTier. */
   smsTier                 String @default("D")
+  // ── Online giving fees ──
+  /** % of each gift that settles to WorshipHQ (subaccount percentage_charge). 0 = church keeps all (minus Paystack's fee). */
+  givingPlatformPercent Float   @default(0)
+  /** When true, the donor is charged a bit extra so Paystack's fee doesn't come out of the church's amount. */
+  givingDonorBearsFee   Boolean @default(true)
+  /** Paystack's own transaction fee %% (Ghana ~1.95), used to gross up the charge when the donor bears the fee. */
+  paystackFeePercent    Float   @default(1.95)
   // ── Data backups: platform-wide switch for the scheduled run + snapshots kept per church ──
   backupsEnabled Boolean @default(true)
   backupKeep     Int     @default(7)
@@ -1553,6 +1560,12 @@ model PaymentRequest {
   paystackSubId String?
   ussdCode      String?
   portalUrl     String?
+  // ── Church's settlement account for auto subaccount creation ──
+  settlementType String? // "bank" | "momo"
+  bankCode       String? // Paystack bank/telco code (settlement_bank)
+  bankName       String? // display name of the bank / MoMo provider
+  accountNumber  String? // the church's account / MoMo number
+  accountName    String? // resolved from Paystack (name on the account)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

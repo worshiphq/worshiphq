@@ -15,7 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input, Label } from "@/components/ui/input";
 import type { Session } from "@/lib/permissions";
 import { ROLE_PERMISSIONS } from "@/lib/permissions";
-import { submitPaymentRequest, getPaymentRequestStatus } from "@/app/actions/payment-request";
+import { submitPaymentRequest, getPaymentRequestStatus, getGivingBanks, verifyGivingAccount } from "@/app/actions/payment-request";
 import { checkRefundEligibility, requestRefund } from "@/app/actions/refunds";
 import {
   updateChurch, inviteTeammate,
@@ -1671,15 +1671,55 @@ function OnlinePaymentsTab({ churchId }: { churchId: string }) {
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState("");
 
+  // Settlement account (where online giving pays into).
+  const [settlementType, setSettlementType] = useState<"momo" | "bank">("momo");
+  const [banks, setBanks] = useState<{ name: string; code: string }[]>([]);
+  const [banksLoading, setBanksLoading] = useState(false);
+  const [bankCode, setBankCode] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [accountName, setAccountName] = useState("");
+  const [verifying, setVerifying] = useState(false);
+  const [verifyErr, setVerifyErr] = useState("");
+
   useEffect(() => {
     getPaymentRequestStatus().then((s) => { setStatus(s); setLoading(false); });
   }, []);
+
+  // Load the provider list whenever bank/MoMo is toggled.
+  useEffect(() => {
+    let cancelled = false;
+    setBanksLoading(true);
+    setBankCode(""); setAccountName(""); setVerifyErr("");
+    getGivingBanks(settlementType).then((res) => {
+      if (cancelled) return;
+      setBanks(res.ok ? res.banks : []);
+      setBanksLoading(false);
+    });
+    return () => { cancelled = true; };
+  }, [settlementType]);
+
+  const bankName = banks.find((b) => b.code === bankCode)?.name ?? "";
+
+  async function handleVerify() {
+    setVerifyErr(""); setAccountName("");
+    if (!bankCode || !accountNumber.trim()) { setVerifyErr("Choose a provider and enter the account number."); return; }
+    setVerifying(true);
+    const res = await verifyGivingAccount(accountNumber.trim(), bankCode);
+    setVerifying(false);
+    if (res.ok) setAccountName(res.accountName || "");
+    else setVerifyErr(res.error || "Could not verify that account.");
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setSubmitting(true);
     setError("");
     const formData = new FormData(e.currentTarget);
+    formData.set("settlementType", settlementType);
+    formData.set("bankCode", bankCode);
+    formData.set("bankName", bankName);
+    formData.set("accountNumber", accountNumber.trim());
+    formData.set("accountName", accountName);
     const result = await submitPaymentRequest(formData);
     setSubmitting(false);
     if (result?.error) {
@@ -1748,7 +1788,53 @@ function OnlinePaymentsTab({ churchId }: { churchId: string }) {
       )}
 
       {!hasActive && !submitted && (
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          {/* ── Where giving pays into ── */}
+          <div className="rounded-xl border border-line p-4">
+            <div className="text-sm font-semibold">Where should giving pay into?</div>
+            <p className="mt-0.5 text-xs text-ink-muted">Choose the account your members&rsquo; gifts settle to. We verify the name before setup.</p>
+
+            <div className="mt-3 flex gap-2">
+              {(["momo", "bank"] as const).map((t) => (
+                <button key={t} type="button" onClick={() => setSettlementType(t)}
+                  className={cn("h-10 flex-1 rounded-xl border text-sm font-medium transition-colors",
+                    settlementType === t ? "border-primary bg-primary/10 text-primary-bright" : "border-line text-ink-muted hover:bg-surface-2")}>
+                  {t === "momo" ? "Mobile Money" : "Bank account"}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+              <div>
+                <Label>{settlementType === "momo" ? "Provider" : "Bank"}</Label>
+                <select value={bankCode} onChange={(e) => { setBankCode(e.target.value); setAccountName(""); setVerifyErr(""); }}
+                  disabled={banksLoading}
+                  className="h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm outline-none focus:border-primary/50 disabled:opacity-60">
+                  <option value="">{banksLoading ? "Loading…" : settlementType === "momo" ? "- Choose provider -" : "- Choose bank -"}</option>
+                  {banks.map((b) => <option key={b.code} value={b.code}>{b.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <Label>{settlementType === "momo" ? "Mobile Money number" : "Account number"}</Label>
+                <Input value={accountNumber} onChange={(e) => { setAccountNumber(e.target.value); setAccountName(""); setVerifyErr(""); }}
+                  inputMode="numeric" placeholder={settlementType === "momo" ? "024 000 0000" : "Account number"} />
+              </div>
+            </div>
+
+            {accountName ? (
+              <div className="mt-3 flex items-center gap-2 rounded-xl border border-success/30 bg-success/10 px-3 py-2.5 text-sm text-success">
+                <CheckCircle2 className="size-4 shrink-0" /> Pays into: <span className="font-semibold">{accountName}</span>
+              </div>
+            ) : (
+              <div className="mt-3 flex items-center gap-3">
+                <Button type="button" variant="secondary" size="sm" onClick={handleVerify} disabled={verifying || !bankCode || !accountNumber.trim()}>
+                  {verifying ? <><Spinner className="size-4 animate-spin" /> Verifying…</> : "Verify account"}
+                </Button>
+                {verifyErr && <span className="text-xs text-destructive">{verifyErr}</span>}
+              </div>
+            )}
+          </div>
+
           <div>
             <Label>Contact Name *</Label>
             <Input name="contactName" required placeholder="Who should we reach out to?" />
@@ -1764,15 +1850,16 @@ function OnlinePaymentsTab({ churchId }: { churchId: string }) {
             </div>
           </div>
           <div>
-            <Label>What do you need?</Label>
-            <textarea name="needs" rows={3} placeholder="Tell us what payment options you'd like - mobile money, card payments, USSD, QR codes, etc."
-              className="flex min-h-[80px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
+            <Label>Anything else? (optional)</Label>
+            <textarea name="needs" rows={2} placeholder="USSD code, QR codes, or anything specific you'd like."
+              className="flex min-h-[64px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2" />
           </div>
           {error && <p className="text-sm text-destructive">{error}</p>}
-          <Button type="submit" disabled={submitting}>
+          <Button type="submit" disabled={submitting || !accountName}>
             {submitting && <Spinner className="size-4 animate-spin" />}
-            {submitting ? "Submitting..." : "Request Online Payments Setup"}
+            {submitting ? "Submitting..." : "Submit for approval"}
           </Button>
+          {!accountName && <p className="text-xs text-ink-faint">Verify the settlement account above to submit.</p>}
         </form>
       )}
 

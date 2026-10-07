@@ -66,7 +66,7 @@ async function bytesFromSupabase(url: string): Promise<{ buf: Buffer; ct: string
 }
 
 function bytesFromBase64(dataUrl: string): { buf: Buffer; ct: string } | null {
-  const m = /^data:([^;,]+)(;base64)?,(.*)$/s.exec(dataUrl);
+  const m = /^data:([^;,]+)(;base64)?,([\s\S]*)$/.exec(dataUrl);
   if (!m) return null;
   const ct = m[1] || "image/jpeg";
   const buf = m[2] ? Buffer.from(m[3], "base64") : Buffer.from(decodeURIComponent(m[3]));

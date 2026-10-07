@@ -15,6 +15,8 @@ import { saveMarketingContent, type MarketingContent } from "@/lib/data/site-con
 import { sendSms } from "@/lib/integrations/sms";
 import { addCredits } from "@/lib/sms/credits";
 import { isSmsTier } from "@/config/sms";
+import { createSubaccount } from "@/lib/integrations/paystack";
+import { env } from "@/lib/env";
 
 /**
  * Manually run all scheduled automations now (platform owner only). Useful to
@@ -403,6 +405,66 @@ export async function updatePaymentRequest(id: string, formData: FormData) {
   });
 
   revalidatePath("/admin/payments");
+}
+
+/**
+ * Approve a church's online-giving setup: create their Paystack subaccount from
+ * the bank/MoMo account they submitted, store the ACCT code on the church (so
+ * giving starts routing to them), and mark the request completed. The platform
+ * split (% WorshipHQ keeps) comes from PlatformConfig.givingPlatformPercent.
+ */
+export async function approveGivingSetup(id: string): Promise<{ ok: boolean; code?: string; error?: string }> {
+  await requireSuperAdmin();
+  const req = await db.paymentRequest.findUnique({
+    where: { id },
+    include: { church: { select: { id: true, name: true, slug: true, paystackSubaccountCode: true } } },
+  });
+  if (!req) return { ok: false, error: "Request not found." };
+  if (req.church.paystackSubaccountCode) return { ok: false, error: "This church already has a subaccount." };
+  if (!req.bankCode || !req.accountNumber || !req.accountName) {
+    return { ok: false, error: "This request has no verified settlement account to create a subaccount from." };
+  }
+
+  const cfg = await db.platformConfig.findUnique({ where: { id: "default" }, select: { givingPlatformPercent: true } });
+  const percentageCharge = Math.max(0, Math.min(cfg?.givingPlatformPercent ?? 0, 100));
+
+  const host = env.NEXT_PUBLIC_APP_URL.replace(/^https?:\/\//, "").replace(/\/$/, "");
+  const res = await createSubaccount({
+    businessName: req.church.name,
+    settlementBank: req.bankCode,
+    accountNumber: req.accountNumber,
+    percentageCharge,
+    description: `WorshipHQ giving for ${req.church.name} (${req.church.slug}.${host})`,
+    primaryContactEmail: req.contactEmail,
+    primaryContactPhone: req.contactPhone,
+  });
+  if (!res.ok || !res.subaccountCode) return { ok: false, error: res.error ?? "Paystack did not return a subaccount code." };
+
+  await db.paymentRequest.update({
+    where: { id },
+    data: { paystackSubId: res.subaccountCode, status: "completed" },
+  });
+  await db.church.update({
+    where: { id: req.church.id },
+    data: { paystackSubaccountCode: res.subaccountCode },
+  });
+
+  revalidatePath("/admin/payments");
+  return { ok: true, code: res.subaccountCode };
+}
+
+/** SuperAdmin: set the online-giving fee model (platform split + who bears Paystack's fee). */
+export async function setGivingFeeSettings(input: { platformPercent: number; donorBearsFee: boolean; paystackFeePercent: number }) {
+  await requireSuperAdmin();
+  const platformPercent = Math.max(0, Math.min(Number(input.platformPercent) || 0, 100));
+  const paystackFeePercent = Math.max(0, Math.min(Number(input.paystackFeePercent) || 0, 20));
+  await db.platformConfig.upsert({
+    where: { id: "default" },
+    update: { givingPlatformPercent: platformPercent, givingDonorBearsFee: !!input.donorBearsFee, paystackFeePercent },
+    create: { id: "default", currency: "USD", currencySymbol: "$", givingPlatformPercent: platformPercent, givingDonorBearsFee: !!input.donorBearsFee, paystackFeePercent },
+  });
+  revalidatePath("/admin/payments");
+  return { ok: true as const };
 }
 
 // ── SMS pricing tiers ──

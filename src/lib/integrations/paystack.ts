@@ -94,6 +94,107 @@ export async function initializePayment(opts: {
   }
 }
 
+/* ── Subaccount setup (church online-giving settlement) ───────────────── */
+
+export type Bank = { name: string; code: string; type?: string; currency?: string };
+
+const STUB_BANKS: Bank[] = [
+  { name: "MTN Mobile Money", code: "MTN", type: "mobile_money" },
+  { name: "Telecel Cash", code: "VODAFONE", type: "mobile_money" },
+  { name: "AirtelTigo Money", code: "ATL", type: "mobile_money" },
+  { name: "GCB Bank", code: "040100", type: "ghipss" },
+  { name: "Ecobank Ghana", code: "130100", type: "ghipss" },
+  { name: "Fidelity Bank Ghana", code: "240100", type: "ghipss" },
+  { name: "Absa Bank Ghana", code: "030100", type: "ghipss" },
+];
+
+/** List banks / mobile-money providers Paystack can settle to, for a currency.
+ *  `type: "mobile_money"` returns the Ghana telcos; omit for regular banks. */
+export async function listBanks(opts: { currency?: string; type?: string } = {}): Promise<{ ok: boolean; banks: Bank[]; stubbed: boolean; error?: string }> {
+  const currency = opts.currency ?? SETTLEMENT_CURRENCY;
+  if (!features.payments) {
+    const banks = opts.type ? STUB_BANKS.filter((b) => b.type === opts.type) : STUB_BANKS;
+    return { ok: true, stubbed: true, banks };
+  }
+  try {
+    const url = new URL("https://api.paystack.co/bank");
+    url.searchParams.set("currency", currency);
+    if (opts.type) url.searchParams.set("type", opts.type);
+    url.searchParams.set("perPage", "100");
+    const res = await fetch(url, { headers: { authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}` } });
+    const data = await res.json();
+    if (!res.ok || !data?.status) return { ok: false, stubbed: false, banks: [], error: data?.message ?? "Could not load banks." };
+    const banks: Bank[] = (data.data ?? []).map((b: { name: string; code: string; type?: string; currency?: string }) => ({ name: b.name, code: b.code, type: b.type, currency: b.currency }));
+    return { ok: true, stubbed: false, banks };
+  } catch (e) {
+    return { ok: false, stubbed: false, banks: [], error: (e as Error).message };
+  }
+}
+
+/** Resolve the account holder's name for an account/MoMo number at a bank/telco.
+ *  Read-only on Paystack (no side effects), so safe to call for a confirm step. */
+export async function resolveAccount(accountNumber: string, bankCode: string): Promise<{ ok: boolean; accountName?: string; stubbed: boolean; error?: string }> {
+  if (!features.payments) {
+    return { ok: true, stubbed: true, accountName: "DEMO ACCOUNT NAME" };
+  }
+  try {
+    const url = new URL("https://api.paystack.co/bank/resolve");
+    url.searchParams.set("account_number", accountNumber);
+    url.searchParams.set("bank_code", bankCode);
+    const res = await fetch(url, { headers: { authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}` } });
+    const data = await res.json();
+    if (!res.ok || !data?.status) return { ok: false, stubbed: false, error: data?.message ?? "Could not verify that account." };
+    return { ok: true, stubbed: false, accountName: data?.data?.account_name };
+  } catch (e) {
+    return { ok: false, stubbed: false, error: (e as Error).message };
+  }
+}
+
+/** Create a Paystack subaccount the church's online giving settles to.
+ *  percentageCharge = the % of each gift that stays with the MAIN (WorshipHQ)
+ *  account; 0 means the church keeps everything (minus Paystack's own fee). */
+export async function createSubaccount(opts: {
+  businessName: string;
+  settlementBank: string;
+  accountNumber: string;
+  percentageCharge: number;
+  description?: string;
+  primaryContactEmail?: string | null;
+  primaryContactPhone?: string | null;
+}): Promise<{ ok: boolean; subaccountCode?: string; stubbed: boolean; error?: string }> {
+  if (!features.payments) {
+    return { ok: true, stubbed: true, subaccountCode: `ACCT_stub_${Date.now().toString(36)}` };
+  }
+  try {
+    const res = await fetch("https://api.paystack.co/subaccount", {
+      method: "POST",
+      headers: { authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`, "content-type": "application/json" },
+      body: JSON.stringify({
+        business_name: opts.businessName,
+        settlement_bank: opts.settlementBank,
+        account_number: opts.accountNumber,
+        percentage_charge: opts.percentageCharge,
+        description: opts.description,
+        primary_contact_email: opts.primaryContactEmail || undefined,
+        primary_contact_phone: opts.primaryContactPhone || undefined,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok || !data?.status) return { ok: false, stubbed: false, error: data?.message ?? "Paystack rejected the subaccount." };
+    return { ok: true, stubbed: false, subaccountCode: data?.data?.subaccount_code };
+  } catch (e) {
+    return { ok: false, stubbed: false, error: (e as Error).message };
+  }
+}
+
+/** Gross up a gift so that, after Paystack's fee, the church receives `net`.
+ *  Only used when the platform is set to "donor bears the fee". */
+export function grossUpForFee(net: number, feePercent: number): number {
+  const rate = Math.max(0, Math.min(feePercent, 20)) / 100;
+  if (rate <= 0) return net;
+  return Math.ceil((net / (1 - rate)) * 100) / 100;
+}
+
 export type RefundResult = {
   ok: boolean;
   stubbed: boolean;

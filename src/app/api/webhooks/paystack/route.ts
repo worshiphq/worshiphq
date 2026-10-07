@@ -149,10 +149,15 @@ export async function POST(request: NextRequest) {
     // they left it blank) fall back to whatever Paystack captured itself -
     // e.g. the Mobile Money number used to complete the charge.
     const phone = meta.phone || data.customer?.phone || data.authorization?.mobile_money_number || null;
+    // Record the amount the donor meant to give. When the donor bears Paystack's
+    // fee we charge a grossed-up amount, so prefer the intended amount from
+    // metadata; fall back to the charged amount for older/plain charges.
+    const intended = Number(meta.intendedAmount);
+    const amountGhs = Number.isFinite(intended) && intended > 0 ? intended : (data.amount ?? 0) / 100;
     const result = await recordOnlineGift({
       churchId: meta.churchId,
       reference: data.reference,
-      amountGhs: (data.amount ?? 0) / 100, // pesewas → cedis
+      amountGhs, // cedis
       donorName: meta.donorName ?? "Anonymous",
       email: data.customer?.email ?? meta.email ?? null,
       phone,
@@ -174,6 +179,7 @@ interface GiftMetadata {
   email?: string;
   phone?: string;
   fundName?: string;
+  intendedAmount?: number | string;
   credits?: number | string;
   bundleId?: string;
   plan?: string;

@@ -2,7 +2,7 @@
 
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { initializePayment, newPaymentReference, SETTLEMENT_CURRENCY } from "@/lib/integrations/paystack";
+import { initializePayment, newPaymentReference, SETTLEMENT_CURRENCY, grossUpForFee } from "@/lib/integrations/paystack";
 import { recordOnlineGift } from "@/lib/giving/record";
 
 /**
@@ -21,6 +21,8 @@ export type GiftInit = {
   authorizationUrl?: string;
   reference: string;
   thankYouUrl: string;
+  /** What the donor is actually charged (gift + Paystack fee when the donor bears it). */
+  charged?: number;
   error?: string;
 };
 
@@ -53,11 +55,18 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
   // Paystack requires an email; fall back to a no-reply address for anonymous MoMo gifts.
   const payerEmail = email ?? `giving+${reference}@worshiphq.org`;
 
+  // When the platform is set so the donor bears Paystack's fee, charge a little
+  // extra so the church still receives the full amount the donor intended. The
+  // Gift we record (and receipt we send) is always the intended `amount`.
+  const cfg = await db.platformConfig.findUnique({ where: { id: "default" }, select: { givingDonorBearsFee: true, paystackFeePercent: true } });
+  const donorBearsFee = cfg?.givingDonorBearsFee ?? true;
+  const chargeAmount = donorBearsFee ? grossUpForFee(amount, cfg?.paystackFeePercent ?? 1.95) : amount;
+
   const init = await initializePayment({
     email: payerEmail,
     // Gifts are entered in local currency (₵) and charged in the merchant's
     // settlement currency - never the display currency (which may be USD).
-    amount,
+    amount: chargeAmount,
     currency: SETTLEMENT_CURRENCY,
     reference,
     callbackUrl: thankYouUrl,
@@ -73,6 +82,9 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
       email,
       phone,
       fundName,
+      // The amount the donor meant to give (what the church receives + what the
+      // receipt shows) - distinct from the grossed-up amount actually charged.
+      intendedAmount: amount,
     },
   });
 
@@ -98,6 +110,7 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
     authorizationUrl: init.authorizationUrl ?? thankYouUrl,
     reference,
     thankYouUrl,
+    charged: chargeAmount,
     error: init.error,
   };
 }
