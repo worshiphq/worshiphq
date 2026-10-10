@@ -22,7 +22,7 @@ const SECRET = env.NEXTAUTH_SECRET ?? "dev-insecure-secret-change-me";
 type Payload =
   | { uid: string }
   | { demo: true }
-  | { sa: true; ghost?: string };
+  | { sa: true; ghost?: string; until?: number; rid?: string };
 
 function sign(payload: Payload): string {
   const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
@@ -140,9 +140,12 @@ export async function startSuperAdminSession() {
   await setCookie({ sa: true });
 }
 
-/** SuperAdmin "magic links" into a church as invisible support. */
-export async function startGhostSession(churchId: string) {
-  await setCookie({ sa: true, ghost: churchId });
+/**
+ * SuperAdmin enters a church as support. `until` (ms epoch) makes the entry
+ * expire on its own; `rid` ties it to its SupportAccess record.
+ */
+export async function startGhostSession(churchId: string, opts?: { until?: number; rid?: string }) {
+  await setCookie({ sa: true, ghost: churchId, until: opts?.until, rid: opts?.rid });
 }
 
 /** Leave a church and return to the admin area. */
@@ -151,17 +154,17 @@ export async function stopGhostSession() {
 }
 
 /** Returns the SuperAdmin identity if the current cookie is a SuperAdmin one. */
-export async function getSuperAdmin(): Promise<{ email: string; ghost?: string } | null> {
+export async function getSuperAdmin(): Promise<{ email: string; ghost?: string; rid?: string } | null> {
   const store = await cookies();
   const token = store.get(COOKIE)?.value;
   if (!token) return null;
   const payload = verify(token);
   if (!payload || !("sa" in payload)) return null;
-  return { email: env.SUPERADMIN_EMAIL, ghost: payload.ghost };
+  return { email: env.SUPERADMIN_EMAIL, ghost: payload.ghost, rid: payload.rid };
 }
 
 /** Guard for /admin pages: returns the SuperAdmin or redirects to admin login. */
-export async function requireSuperAdmin(): Promise<{ email: string; ghost?: string }> {
+export async function requireSuperAdmin(): Promise<{ email: string; ghost?: string; rid?: string }> {
   const sa = await getSuperAdmin();
   if (!sa) redirect("/admin/login");
   return sa;
@@ -199,6 +202,7 @@ async function _getSession(): Promise<Session | null> {
   // in their team/roles list. The SuperAdmin's email is never exposed here.
   if ("sa" in payload) {
     if (!payload.ghost) return null; // bare superadmin isn't an app session
+    if (payload.until && payload.until < Date.now()) return null; // timed entry has lapsed
     const church = await db.church.findUnique({ where: { id: payload.ghost } });
     if (!church) return null;
     return {

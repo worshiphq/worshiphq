@@ -47,17 +47,33 @@ export async function superAdminSignOut() {
 }
 
 // ── Impersonation ──
-export async function impersonateChurch(churchId: string) {
+// Emergency entry (no code from the church). A reason is required and the entry
+// is recorded; the normal route is requestSupportAccess in support-access.ts.
+const EMERGENCY_HOURS = 4;
+
+export async function impersonateChurch(churchId: string, formData?: FormData) {
   await requireSuperAdmin();
+  const reason = String(formData?.get("reason") ?? "").trim().slice(0, 300);
+  if (!reason) return;
   const church = await db.church.findUnique({ where: { id: churchId }, select: { id: true } });
   if (!church) return;
-  await startGhostSession(church.id);
+  const until = new Date(Date.now() + EMERGENCY_HOURS * 60 * 60_000);
+  const rec = await db.supportAccess.create({
+    data: { churchId: church.id, method: "emergency", reason, status: "active", startedAt: new Date(), until },
+  });
+  await startGhostSession(church.id, { until: until.getTime(), rid: rec.id });
   redirect("/app");
 }
 
 /** Called from the app shell banner to return to the admin area. */
 export async function exitImpersonation() {
-  await requireSuperAdmin();
+  const sa = await requireSuperAdmin();
+  if (sa.rid) {
+    await db.supportAccess.updateMany({
+      where: { id: sa.rid, status: "active" },
+      data: { status: "ended", endedAt: new Date() },
+    });
+  }
   await stopGhostSession();
   redirect("/admin");
 }

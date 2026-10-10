@@ -97,7 +97,9 @@ export default function PrivacyPage() {
           Data is encrypted in transit, and each church&rsquo;s data is isolated from every other church&rsquo;s at the
           database level. We apply access controls and audit trails to guard against unauthorised access, and a small number of
           authorised support staff may access account information only when necessary to provide support, troubleshoot an
-          issue, or as required by law. No system is perfectly secure, but we take safeguarding your data seriously and
+          issue, protect against fraud or a security incident, or as required by law. When you ask us for help, we request
+          your permission first with a one-time code sent by SMS to your church&rsquo;s Owner, and that access is time-limited
+          and recorded. No system is perfectly secure, but we take safeguarding your data seriously and
           continually invest in improving it.
         </p>
       </LegalSection>

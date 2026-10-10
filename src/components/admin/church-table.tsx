@@ -1,10 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { LogIn, Ban, CheckCircle2, Trash2, Search, Building2, Gift } from "lucide-react";
+import { Ban, CheckCircle2, Trash2, Search, Building2, Gift } from "lucide-react";
 import type { ChurchRow } from "@/lib/data/admin";
 import {
-  impersonateChurch,
   setChurchSuspended,
   setChurchPlan,
   deleteChurch,
@@ -14,8 +13,8 @@ import {
   rejectSenderId,
   setChurchSmsTier,
 } from "@/app/actions/admin";
-import { SubmitButton } from "@/components/ui/submit-button";
 import { useFeedback } from "@/components/ui/feedback";
+import { SupportAccessButton } from "@/components/admin/support-access-dialog";
 
 const PLANS = ["free", "starter", "pro", "max"];
 const SMS_TIERS = ["B", "C", "D"];
@@ -179,15 +178,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
               >
                 <Gift className="size-4" />
               </button>
-              <form action={impersonateChurch.bind(null, c.id)}>
-                <SubmitButton
-                  size="sm"
-                  pendingLabel="Entering…"
-                  className="h-auto rounded-lg bg-teal-500/15 px-2.5 py-1.5 text-xs font-medium text-teal-300 shadow-none hover:bg-teal-500/25"
-                >
-                  <LogIn className="size-3.5" /> Enter
-                </SubmitButton>
-              </form>
+              <SupportAccessButton churchId={c.id} churchName={c.name} />
               <button
                 type="button"
                 onClick={() => run(() => setChurchSuspended(c.id, !c.suspended), { pending: c.suspended ? "Reactivating…" : "Suspending…", success: c.suspended ? "Church reactivated" : "Church suspended" })}
@@ -365,16 +356,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                     >
                       <Gift className="size-4" />
                     </button>
-                    <form action={impersonateChurch.bind(null, c.id)}>
-                      <SubmitButton
-                        size="sm"
-                        pendingLabel="Entering…"
-                        className="h-auto rounded-lg bg-teal-500/15 px-2.5 py-1.5 text-xs font-medium text-teal-300 shadow-none hover:bg-teal-500/25"
-                        title="Step into dashboard"
-                      >
-                        <LogIn className="size-3.5" /> Enter
-                      </SubmitButton>
-                    </form>
+                    <SupportAccessButton churchId={c.id} churchName={c.name} />
                     <button
                       type="button"
                       onClick={() =>

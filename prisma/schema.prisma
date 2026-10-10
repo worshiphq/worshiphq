@@ -202,6 +202,7 @@ model Church {
   welfareDues     WelfareDue[]
   dayBornWeeks    DayBornWeek[]
   paymentRequests PaymentRequest[]
+  supportAccess   SupportAccess[]
   deletedItems    DeletedItem[]
 
   // ── Data backups (see src/lib/backups) ──
@@ -1542,6 +1543,29 @@ model ServiceRole {
 
   @@unique([churchId, name])
   @@index([churchId])
+}
+
+// ── Support access ───────────────────────────────────────
+// Every time the platform owner enters a church account. "consent" = the church
+// Owner was sent a one-time code by SMS and shared it; "emergency" = direct entry
+// (reason recorded). The code is stored hashed, never in clear.
+model SupportAccess {
+  id          String    @id @default(cuid())
+  churchId    String
+  church      Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  method      String    // "consent" | "emergency"
+  reason      String?
+  codeHash    String?
+  sentTo      String?   // masked destination the code went to
+  attempts    Int       @default(0)
+  status      String    @default("pending") // pending | active | ended | expired | cancelled
+  codeExpires DateTime?
+  startedAt   DateTime?
+  until       DateTime? // when the session stops working
+  endedAt     DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([churchId, createdAt])
 }
 
 // ── Online Payment Request ───────────────────────────────
