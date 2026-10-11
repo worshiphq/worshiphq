@@ -2,6 +2,7 @@ import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { DynamicJoinForm } from "./dynamic-join-form";
 import { getFormDefinition } from "@/lib/forms/registration";
+import { getCategoriesForForm } from "@/lib/members/categories";
 import type { Metadata } from "next";
 
 export async function generateMetadata({
@@ -41,6 +42,7 @@ export default async function JoinPage({
   if (!church || church.isDemo) notFound();
 
   const fields = getFormDefinition(church.registrationFields);
+  const categories = await getCategoriesForForm(church.id, { joinFormOnly: true });
 
   return (
     <div className="min-h-screen bg-[#faf8f4]">
@@ -66,6 +68,7 @@ export default async function JoinPage({
           accentColor={church.accentColor}
           fields={fields}
           departments={church.departments}
+          categories={categories}
         />
       </div>
     </div>

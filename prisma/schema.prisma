@@ -614,6 +614,7 @@ model MemberCategory {
   church        Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
   name          String
   allowMultiple Boolean  @default(false)
+  showOnJoinForm Boolean @default(true) // asked on the public self-registration form
   sortOrder     Int      @default(0)
   createdAt     DateTime @default(now())
 

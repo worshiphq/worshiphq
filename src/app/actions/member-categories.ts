@@ -26,6 +26,7 @@ export type CategoryAdminRow = {
   id: string;
   name: string;
   allowMultiple: boolean;
+  showOnJoinForm: boolean;
   options: { id: string; name: string; members: number }[];
 };
 
@@ -35,7 +36,7 @@ export async function getMemberCategoriesAdmin(): Promise<CategoryAdminRow[]> {
     where: { churchId: session.churchId },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     select: {
-      id: true, name: true, allowMultiple: true,
+      id: true, name: true, allowMultiple: true, showOnJoinForm: true,
       options: {
         orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
         select: { id: true, name: true, _count: { select: { members: true } } },
@@ -45,7 +46,7 @@ export async function getMemberCategoriesAdmin(): Promise<CategoryAdminRow[]> {
   return rows.map((c) => ({ ...c, options: c.options.map((o) => ({ id: o.id, name: o.name, members: o._count.members })) }));
 }
 
-export async function createMemberCategory(input: { name: string; allowMultiple: boolean; options?: string[] }): Promise<Result> {
+export async function createMemberCategory(input: { name: string; allowMultiple: boolean; showOnJoinForm?: boolean; options?: string[] }): Promise<Result> {
   const session = await requirePeopleManager();
   const name = clean(input.name);
   if (!name) return { ok: false, error: "Give the category a name, e.g. Zone or Fellowship." };
@@ -65,6 +66,7 @@ export async function createMemberCategory(input: { name: string; allowMultiple:
       churchId: session.churchId,
       name,
       allowMultiple: input.allowMultiple,
+      showOnJoinForm: input.showOnJoinForm ?? true,
       sortOrder: count,
       options: { create: options.map((o, i) => ({ churchId: session.churchId, name: o, sortOrder: i })) },
     },
@@ -74,7 +76,7 @@ export async function createMemberCategory(input: { name: string; allowMultiple:
   return { ok: true };
 }
 
-export async function updateMemberCategory(id: string, input: { name: string; allowMultiple: boolean }): Promise<Result> {
+export async function updateMemberCategory(id: string, input: { name: string; allowMultiple: boolean; showOnJoinForm?: boolean }): Promise<Result> {
   const session = await requirePeopleManager();
   const cat = await db.memberCategory.findFirst({ where: { id, churchId: session.churchId } });
   if (!cat) return { ok: false, error: "Category not found." };
@@ -82,7 +84,11 @@ export async function updateMemberCategory(id: string, input: { name: string; al
   if (!name) return { ok: false, error: "The name can't be empty." };
   const clash = await db.memberCategory.findFirst({ where: { churchId: session.churchId, id: { not: id }, name: { equals: name, mode: "insensitive" } } });
   if (clash) return { ok: false, error: `You already have a category called "${name}".` };
-  await db.memberCategory.update({ where: { id }, data: { name, allowMultiple: input.allowMultiple } });
+  await db.memberCategory.update({
+    where: { id },
+    data: { name, allowMultiple: input.allowMultiple, ...(input.showOnJoinForm !== undefined ? { showOnJoinForm: input.showOnJoinForm } : {}) },
+  });
+  revalidatePath("/join", "layout");
 
   // Switching to one-only: nothing is deleted, but members with several will
   // keep only their first the next time their profile is saved.

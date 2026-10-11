@@ -54,7 +54,7 @@ export function MemberCategoryFields({ categories, selected = [] }: { categories
               </div>
             ) : (
               <select id={`cat-${c.id}`} name={`cat_${c.id}`} value={mine[0]?.id ?? ""} onChange={(e) => setSingle(c, e.target.value)} className={select}>
-                <option value="">Not set</option>
+                <option value="">Select…</option>
                 {c.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
               </select>
             )}

@@ -9,9 +9,9 @@ import { db } from "@/lib/db";
 
 export type CategoryForForm = { id: string; name: string; allowMultiple: boolean; options: { id: string; name: string }[] };
 
-export async function getCategoriesForForm(churchId: string): Promise<CategoryForForm[]> {
+export async function getCategoriesForForm(churchId: string, opts: { joinFormOnly?: boolean } = {}): Promise<CategoryForForm[]> {
   return db.memberCategory.findMany({
-    where: { churchId },
+    where: { churchId, ...(opts.joinFormOnly ? { showOnJoinForm: true } : {}) },
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     select: {
       id: true, name: true, allowMultiple: true,
@@ -30,9 +30,16 @@ export const CATEGORY_FORM_MARKER = "categoriesForm";
  * belong to this church and category are kept; single-choice categories keep
  * the first. Does nothing if the form didn't include the pickers.
  */
-export async function saveMemberCategoryChoices(churchId: string, personId: string, formData: FormData) {
+export async function saveMemberCategoryChoices(
+  churchId: string,
+  personId: string,
+  formData: FormData,
+  opts: { joinFormOnly?: boolean } = {},
+) {
   if (formData.get(CATEGORY_FORM_MARKER) !== "1") return;
-  const categories = await getCategoriesForForm(churchId);
+  // On the public form only the categories the church chose to ask about can be set.
+  const categories = await getCategoriesForForm(churchId, opts);
+  if (categories.length === 0) return;
   const chosen: string[] = [];
   for (const c of categories) {
     const valid = new Set(c.options.map((o) => o.id));

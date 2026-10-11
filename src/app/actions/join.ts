@@ -7,6 +7,7 @@ import { getFormDefinition, getChildrenFormDefinition, getTeensFormDefinition } 
 import { buildPersonData } from "@/lib/forms/person-data";
 import { nextMemberId, resolveDepartmentIds } from "@/lib/members/helpers";
 import { sendChurchSms } from "@/lib/sms/credits";
+import { saveMemberCategoryChoices } from "@/lib/members/categories";
 
 /**
  * Public self-registration. Uses the same shared form mapper as the admin add/
@@ -43,6 +44,9 @@ export async function selfRegister(formData: FormData) {
         : {}),
     },
   });
+
+  // Zone / fellowship choices, limited to the categories shown on the join form.
+  await saveMemberCategoryChoices(church.id, created.id, formData, { joinFormOnly: true });
 
   // Optional: a follow-up task so someone personally welcomes them (church setting).
   const { createAutoFollowUp } = await import("@/lib/follow-ups/auto");

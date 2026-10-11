@@ -21,6 +21,7 @@ export function MemberCategoriesTab({ canManage }: { canManage: boolean }) {
   const [warning, setWarning] = useState("");
   const [newName, setNewName] = useState("");
   const [newMulti, setNewMulti] = useState(false);
+  const [newOnJoin, setNewOnJoin] = useState(true);
   const [newOptions, setNewOptions] = useState("");
 
   const load = async () => setRows(await getMemberCategoriesAdmin());
@@ -97,14 +98,22 @@ export function MemberCategoriesTab({ canManage }: { canManage: boolean }) {
               </button>
             ))}
           </div>
+          <label className="mt-4 flex items-start gap-2 text-sm">
+            <input type="checkbox" checked={newOnJoin} onChange={(e) => setNewOnJoin(e.target.checked)} className="mt-0.5 size-4 rounded border-line accent-primary" />
+            <span>
+              Ask on the join form
+              <span className="block text-xs text-ink-muted">Members choose it themselves when they register. Untick if your leaders assign it.</span>
+            </span>
+          </label>
           <Button
             className="mt-4"
             disabled={busy !== null || !newName.trim()}
             onClick={() =>
-              run("create", () => createMemberCategory({ name: newName, allowMultiple: newMulti, options: newOptions.split(",") }), () => {
+              run("create", () => createMemberCategory({ name: newName, allowMultiple: newMulti, showOnJoinForm: newOnJoin, options: newOptions.split(",") }), () => {
                 setNewName("");
                 setNewOptions("");
                 setNewMulti(false);
+                setNewOnJoin(true);
               })
             }
           >
@@ -127,6 +136,7 @@ function CategoryCard({
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(cat.name);
   const [multi, setMulti] = useState(cat.allowMultiple);
+  const [onJoin, setOnJoin] = useState(cat.showOnJoinForm);
   const [adding, setAdding] = useState("");
   const [renaming, setRenaming] = useState<{ id: string; name: string } | null>(null);
   const total = cat.options.reduce((s, o) => s + o.members, 0);
@@ -144,11 +154,15 @@ function CategoryCard({
               <input type="checkbox" checked={multi} onChange={(e) => setMulti(e.target.checked)} className="size-4 rounded border-line accent-primary" />
               Members can choose several
             </label>
+            <label className="flex items-center gap-2 pb-3 text-sm">
+              <input type="checkbox" checked={onJoin} onChange={(e) => setOnJoin(e.target.checked)} className="size-4 rounded border-line accent-primary" />
+              Ask on the join form
+            </label>
             <div className="flex gap-2 pb-0.5">
-              <Button size="sm" disabled={busy !== null} onClick={() => run(`upd-${cat.id}`, () => updateMemberCategory(cat.id, { name, allowMultiple: multi }), () => setEditing(false))}>
+              <Button size="sm" disabled={busy !== null} onClick={() => run(`upd-${cat.id}`, () => updateMemberCategory(cat.id, { name, allowMultiple: multi, showOnJoinForm: onJoin }), () => setEditing(false))}>
                 {busy === `upd-${cat.id}` ? <><Loader2 className="size-3.5 animate-spin" /> Saving…</> : "Save"}
               </Button>
-              <Button size="sm" variant="secondary" onClick={() => { setEditing(false); setName(cat.name); setMulti(cat.allowMultiple); }}>Cancel</Button>
+              <Button size="sm" variant="secondary" onClick={() => { setEditing(false); setName(cat.name); setMulti(cat.allowMultiple); setOnJoin(cat.showOnJoinForm); }}>Cancel</Button>
             </div>
           </div>
         ) : (
@@ -156,7 +170,7 @@ function CategoryCard({
             <div>
               <h3 className="font-display text-base font-semibold text-ink">{cat.name}</h3>
               <p className="text-sm text-ink-muted">
-                {cat.allowMultiple ? "Members can choose several" : "One per member"} · {cat.options.length} option{cat.options.length === 1 ? "" : "s"} · {total} member{total === 1 ? "" : "s"} assigned
+                {cat.allowMultiple ? "Members can choose several" : "One per member"} · {cat.showOnJoinForm ? "Asked on the join form" : "Not on the join form"} · {cat.options.length} option{cat.options.length === 1 ? "" : "s"} · {total} member{total === 1 ? "" : "s"} assigned
               </p>
             </div>
             {canManage && (

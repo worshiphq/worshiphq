@@ -3,6 +3,7 @@
 import { selfRegister } from "@/app/actions/join";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { MemberFormFields } from "@/components/app/member-form-fields";
+import { MemberCategoryFields, type FormCategory } from "@/components/app/member-category-fields";
 import { type FormField } from "@/lib/forms/registration";
 
 export function DynamicJoinForm({
@@ -11,6 +12,7 @@ export function DynamicJoinForm({
   accentColor,
   fields,
   departments = [],
+  categories = [],
   action,
   submitLabel = "Submit registration",
   requireGuardianConsent = false,
@@ -20,6 +22,8 @@ export function DynamicJoinForm({
   accentColor: string;
   fields: FormField[];
   departments?: { id: string; name: string }[];
+  /** Zones, fellowships, etc. the church asks about (empty = nothing extra shown). */
+  categories?: FormCategory[];
   action?: (formData: FormData) => Promise<void>;
   submitLabel?: string;
   /** This registers a minor - require an affirmative parent/guardian consent
@@ -34,6 +38,8 @@ export function DynamicJoinForm({
       <input type="hidden" name="churchSlug" value={churchSlug} />
 
       <MemberFormFields fields={fields} departments={departments} />
+
+      <MemberCategoryFields categories={categories} />
 
       {requireGuardianConsent && (
         <label className="flex items-start gap-2 rounded-lg border border-line bg-surface-2/50 p-3 text-xs text-ink-muted">
