@@ -5,13 +5,14 @@ import { PeopleClient } from "@/components/app/people-client";
 import { JoinLinkCard } from "@/components/app/join-link-card";
 import { PageTips } from "@/components/app/page-tips";
 import { getFormDefinition } from "@/lib/forms/registration";
+import { getCategoriesForForm } from "@/lib/members/categories";
 
 export const metadata = { title: "People" };
 
 export default async function PeoplePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q } = await searchParams;
   const session = await requireModule("people");
-  const [allPeople, stats, departments, church, adults] = await Promise.all([
+  const [allPeople, stats, departments, church, adults, categories] = await Promise.all([
     getPeople(session.churchId),
     getAllPeopleStats(session.churchId),
     db.department.findMany({
@@ -32,6 +33,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
       take: 500,
     }),
+    getCategoriesForForm(session.churchId),
   ]);
   const formFields = getFormDefinition(church?.registrationFields ?? null);
   return (
@@ -56,6 +58,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
           departments={departments}
           formFields={formFields}
           adults={adults}
+          categories={categories}
           initialQuery={q ?? ""}
         />
       </div>

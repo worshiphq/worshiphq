@@ -10,7 +10,7 @@ import { MemberAvatar } from "@/components/ui/member-avatar";
 const AGENT_URL = "http://localhost:23847";
 
 type Person = { name: string; personId: string; photoUrl: string | null; gender: string | null };
-type Welcome = Person & { alreadyIn?: boolean; category?: string };
+type Welcome = Person & { alreadyIn?: boolean; category?: string; serviceName?: string };
 
 /**
  * Hands-free biometric check-in. Opens once, then keeps scanning: each finger
@@ -169,6 +169,7 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
               </div>
               <h4 className="mt-1 font-display text-2xl font-bold">{welcome.name}</h4>
               {welcome.category && !welcome.alreadyIn && <p className="text-xs capitalize text-ink-faint">{welcome.category}</p>}
+              {welcome.serviceName && <p className="mt-1 text-sm font-medium text-primary-bright">{welcome.serviceName}</p>}
             </div>
           )}
 

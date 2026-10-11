@@ -8,13 +8,14 @@ import { MemberAvatar } from "@/components/ui/member-avatar";
 import { cn } from "@/lib/utils";
 
 type Person = { id: string; name: string; photoUrl: string | null; gender: string | null };
-export type DepartmentRow = {
+export type BreakdownRow = {
   id: string;
   name: string;
   present: (Person & { category: string })[];
   absent: Person[];
   byCategory: { adult: number; teen: number; child: number; visitor: number };
 };
+export type BreakdownGrouping = { key: string; label: string; rows: BreakdownRow[]; notInAny: number };
 
 type Sort = "present" | "turnout" | "name";
 
@@ -25,26 +26,34 @@ const CATS = [
   { key: "visitor", label: "Visitors" },
 ] as const;
 
-const turnout = (r: DepartmentRow) => {
+const turnout = (r: BreakdownRow) => {
   const total = r.present.length + r.absent.length;
   return total > 0 ? Math.round((r.present.length / total) * 100) : 0;
 };
 
-/** Per-department attendance for one service, sortable, with who came and who didn't. */
+/**
+ * Per-department (and per zone, fellowship, ...) attendance for one service:
+ * sortable, with who came and who didn't. A tab per grouping when the church
+ * has set up member categories.
+ */
 export function DepartmentBreakdown({
-  rows, namedCount, noDepartment, guests, headcountOnly, serviceLabel,
+  groupings, namedCount, guests, headcountOnly, serviceLabel,
 }: {
-  rows: DepartmentRow[];
+  groupings: BreakdownGrouping[];
   namedCount: number;
-  noDepartment: number;
   guests: number;
   headcountOnly: boolean;
   serviceLabel: string;
 }) {
+  const [activeKey, setActiveKey] = useState(groupings[0]?.key ?? "departments");
   const [sort, setSort] = useState<Sort>("present");
   const [q, setQ] = useState("");
   const [open, setOpen] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  const active = groupings.find((g) => g.key === activeKey) ?? groupings[0];
+  const rows = active?.rows ?? [];
+  const noun = active?.key === "departments" ? "department" : (active?.label ?? "group").toLowerCase();
 
   const sorted = rows
     .filter((r) => !q || r.name.toLowerCase().includes(q.toLowerCase()))
@@ -60,20 +69,25 @@ export function DepartmentBreakdown({
     const lines = [...rows]
       .sort((a, b) => b.present.length - a.present.length || a.name.localeCompare(b.name))
       .map((r) => `${r.name}: ${r.present.length} of ${r.present.length + r.absent.length}`);
-    const text = [`${serviceLabel} - attendance by department`, ...lines, noDepartment ? `Not in a department: ${noDepartment}` : "", guests ? `Guests: ${guests}` : ""]
-      .filter(Boolean)
-      .join("\n");
+    const text = [
+      `${serviceLabel} - attendance by ${noun}`,
+      ...lines,
+      active?.notInAny ? `Not in a ${noun}: ${active.notInAny}` : "",
+      guests ? `Guests: ${guests}` : "",
+    ].filter(Boolean).join("\n");
     navigator.clipboard.writeText(text);
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   }
 
+  const title = groupings.length > 1 ? "By group" : "By department";
+
   return (
     <Card>
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-line p-5">
         <div>
-          <h3 className="font-display text-lg font-semibold">By department</h3>
-          <p className="text-sm text-ink-muted">How many from each department came. Members in two departments count in both.</p>
+          <h3 className="font-display text-lg font-semibold">{title}</h3>
+          <p className="text-sm text-ink-muted">How many from each {groupings.length > 1 ? "group" : "department"} came. Someone in two counts in both.</p>
         </div>
         {rows.length > 0 && namedCount > 0 && (
           <Button variant="secondary" size="sm" onClick={copySummary}>
@@ -82,12 +96,36 @@ export function DepartmentBreakdown({
         )}
       </div>
 
+      {groupings.length > 1 && !headcountOnly && (
+        <div className="flex flex-wrap gap-1 border-b border-line px-5 py-3" role="tablist" aria-label="Break down by">
+          {groupings.map((g) => (
+            <button
+              key={g.key}
+              type="button"
+              role="tab"
+              aria-selected={g.key === active?.key}
+              onClick={() => { setActiveKey(g.key); setOpen(null); setQ(""); }}
+              className={cn(
+                "h-8 rounded-lg px-3 text-sm font-medium transition-colors",
+                g.key === active?.key ? "bg-primary/10 text-primary" : "text-ink-muted hover:bg-surface-2",
+              )}
+            >
+              {g.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {headcountOnly ? (
         <p className="p-5 text-sm text-ink-muted">
-          This service was recorded as a headcount, so there are no names to sort by department. Use <strong>Start check-in</strong> for services where you want this breakdown.
+          This service was recorded as a headcount, so there are no names to break down. Use <strong>Start check-in</strong> for services where you want this breakdown.
         </p>
       ) : rows.length === 0 ? (
-        <p className="p-5 text-sm text-ink-muted">You have no departments yet. Add them under People to see this breakdown.</p>
+        <p className="p-5 text-sm text-ink-muted">
+          {active?.key === "departments"
+            ? "You have no departments yet. Add them in Settings to see this breakdown."
+            : `No ${active?.label} options yet. Add them in Settings, Zones & fellowships.`}
+        </p>
       ) : (
         <div className="p-5">
           <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -96,11 +134,11 @@ export function DepartmentBreakdown({
               <input
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                placeholder="Find a department…"
+                placeholder={`Find a ${noun}…`}
                 className="h-9 w-full rounded-lg border border-line bg-base pl-9 pr-3 text-sm outline-none focus:border-primary/50"
               />
             </div>
-            <div className="flex gap-1" role="group" aria-label="Sort departments">
+            <div className="flex gap-1" role="group" aria-label="Sort">
               {([
                 ["present", "Most present"],
                 ["turnout", "Best turnout"],
@@ -154,19 +192,19 @@ export function DepartmentBreakdown({
 
                   {expanded && (
                     <div className="grid gap-4 border-t border-line px-4 py-3 sm:grid-cols-2">
-                      <PeopleList title="Came" people={r.present} empty="Nobody from this department checked in." />
+                      <PeopleList title="Came" people={r.present} empty={`Nobody from this ${noun} checked in.`} />
                       <PeopleList title="Didn't check in" people={r.absent} empty="Everyone came." />
                     </div>
                   )}
                 </li>
               );
             })}
-            {sorted.length === 0 && <li className="py-6 text-center text-sm text-ink-muted">No department matches &ldquo;{q}&rdquo;.</li>}
+            {sorted.length === 0 && <li className="py-6 text-center text-sm text-ink-muted">Nothing matches &ldquo;{q}&rdquo;.</li>}
           </ul>
 
-          {(noDepartment > 0 || guests > 0) && (
+          {((active?.notInAny ?? 0) > 0 || guests > 0) && (
             <p className="mt-4 text-xs text-ink-faint">
-              {noDepartment > 0 && <>{noDepartment} checked-in member{noDepartment === 1 ? " is" : "s are"} not in any department. </>}
+              {(active?.notInAny ?? 0) > 0 && <>{active!.notInAny} checked-in member{active!.notInAny === 1 ? " is" : "s are"} not in any {noun}. </>}
               {guests > 0 && <>{guests} guest{guests === 1 ? "" : "s"} checked in without a member record.</>}
             </p>
           )}

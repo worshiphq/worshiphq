@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireModule } from "@/lib/auth";
-import { getAttendanceOverview, getDepartmentTrend } from "@/lib/data/attendance";
+import { getAttendanceOverview, getGroupingTrend } from "@/lib/data/attendance";
 import { DepartmentTrend } from "@/components/app/department-trend";
 import { recordService, startCheckIn } from "@/app/actions/attendance";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
@@ -19,7 +19,7 @@ export default async function AttendancePage() {
   const session = await requireModule("attendance");
   const [{ kpis, trend, mostRecent, history }, departmentTrend] = await Promise.all([
     getAttendanceOverview(session.churchId),
-    getDepartmentTrend(session.churchId),
+    getGroupingTrend(session.churchId),
   ]);
   const past = history.slice(mostRecent ? 1 : 0);
 

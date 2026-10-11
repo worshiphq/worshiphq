@@ -116,6 +116,7 @@ export async function getAttendanceSession(churchId: string, id: string) {
               firstName: true, lastName: true, gender: true, photoUrl: true,
               departments: { select: { name: true } },
               department: { select: { name: true } },
+              categoryOptions: { select: { name: true, categoryId: true } },
             },
           },
         },
@@ -140,7 +141,7 @@ export async function getAttendanceSession(churchId: string, id: string) {
     category: r.category,
     method: r.method,
     time: r.date.toISOString(),
-    departments: r.person ? departmentNames(r.person) : [],
+    groups: r.person ? personGroups(r.person) : {},
   }));
 
   return {
@@ -208,6 +209,7 @@ export async function getCheckInCandidates(churchId: string, sessionId: string) 
         id: true, firstName: true, lastName: true, gender: true, status: true, photoUrl: true,
         departments: { select: { name: true } },
         department: { select: { name: true } },
+        categoryOptions: { select: { name: true, categoryId: true } },
       },
     }),
     db.attendanceRecord.findMany({ where: { sessionId }, select: { personId: true } }),
@@ -223,7 +225,7 @@ export async function getCheckInCandidates(churchId: string, sessionId: string) 
     photoUrl: p.photoUrl,
     status: p.status,
     checkedIn: checkedIn.has(p.id),
-    departments: departmentNames(p),
+    groups: personGroups(p),
   }));
 }
 
@@ -234,24 +236,57 @@ function departmentNames(p: { departments: { name: string }[]; department: { nam
   return [...names].sort((a, b) => a.localeCompare(b));
 }
 
-type DeptMember = { id: string; firstName: string; lastName: string; photoUrl: string | null; gender: string | null; status: string };
+/** Names of everything a person belongs to, keyed by grouping ("departments" or a category id). */
+function personGroups(p: {
+  departments: { name: string }[];
+  department: { name: string } | null;
+  categoryOptions: { name: string; categoryId: string }[];
+}): Record<string, string[]> {
+  const out: Record<string, string[]> = { departments: departmentNames(p) };
+  for (const o of p.categoryOptions) (out[o.categoryId] ??= []).push(o.name);
+  for (const k of Object.keys(out)) out[k].sort((a, b) => a.localeCompare(b));
+  return out;
+}
 
-/** Every department with its members (both membership links, de-duplicated). */
-async function departmentsWithMembers(churchId: string) {
+type GroupMember = { id: string; firstName: string; lastName: string; photoUrl: string | null; gender: string | null; status: string };
+type Grouping = { key: string; label: string; groups: { id: string; name: string; members: GroupMember[] }[] };
+
+/**
+ * Every way the church groups members, with each group's members: departments
+ * (both membership links, de-duplicated) plus each member category the church
+ * has set up (Zone, Fellowship, ...). Categories with no options are skipped.
+ */
+async function groupingsWithMembers(churchId: string): Promise<Grouping[]> {
   const memberSelect = { id: true, firstName: true, lastName: true, photoUrl: true, gender: true, status: true } as const;
-  const departments = await db.department.findMany({
-    where: { churchId },
-    orderBy: { name: "asc" },
-    select: { id: true, name: true, members: { select: memberSelect }, people: { select: memberSelect } },
-  });
-  return departments.map((d) => {
-    const byId = new Map<string, DeptMember>();
+  const [departments, categories] = await Promise.all([
+    db.department.findMany({
+      where: { churchId },
+      orderBy: { name: "asc" },
+      select: { id: true, name: true, members: { select: memberSelect }, people: { select: memberSelect } },
+    }),
+    db.memberCategory.findMany({
+      where: { churchId },
+      orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+      select: {
+        id: true, name: true,
+        options: { orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, members: { select: memberSelect } } },
+      },
+    }),
+  ]);
+  const deptGroups = departments.map((d) => {
+    const byId = new Map<string, GroupMember>();
     for (const m of [...d.members, ...d.people]) byId.set(m.id, m);
     return { id: d.id, name: d.name, members: [...byId.values()] };
   });
+  return [
+    { key: "departments", label: "Departments", groups: deptGroups },
+    ...categories
+      .filter((c) => c.options.length > 0)
+      .map((c) => ({ key: c.id, label: c.name, groups: c.options.map((o) => ({ id: o.id, name: o.name, members: o.members })) })),
+  ];
 }
 
-export type DepartmentBreakdownRow = {
+export type BreakdownRow = {
   id: string;
   name: string;
   present: { id: string; name: string; photoUrl: string | null; gender: string | null; category: string }[];
@@ -260,62 +295,76 @@ export type DepartmentBreakdownRow = {
 };
 
 /**
- * Who came from each department for one service. Only named check-ins can be
- * counted (a headcount has no names). A member in two departments counts in both.
- * "Absent" leaves out members marked inactive.
+ * Who came from each department, zone, fellowship, etc. for one service. Only
+ * named check-ins can be counted (a headcount has no names). A member in two
+ * groups counts in both. "Absent" leaves out members marked inactive.
  */
-export async function getDepartmentBreakdown(churchId: string, sessionId: string) {
-  const [departments, records] = await Promise.all([
-    departmentsWithMembers(churchId),
+export async function getAttendanceBreakdown(churchId: string, sessionId: string) {
+  const [groupings, records] = await Promise.all([
+    groupingsWithMembers(churchId),
     db.attendanceRecord.findMany({ where: { churchId, sessionId }, select: { personId: true, category: true } }),
   ]);
   const categoryOf = new Map<string, string>();
   for (const r of records) if (r.personId) categoryOf.set(r.personId, r.category);
+  const fullName = (m: GroupMember) => `${m.firstName} ${m.lastName}`.trim();
+  const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
 
-  const fullName = (m: DeptMember) => `${m.firstName} ${m.lastName}`.trim();
-  const inSomeDepartment = new Set<string>();
-  const rows: DepartmentBreakdownRow[] = departments.map((d) => {
-    const byCategory: Record<AttendanceCategory, number> = { adult: 0, teen: 0, child: 0, visitor: 0 };
-    const present: DepartmentBreakdownRow["present"] = [];
-    const absent: DepartmentBreakdownRow["absent"] = [];
-    for (const m of d.members) {
-      inSomeDepartment.add(m.id);
-      const cat = categoryOf.get(m.id);
-      if (cat) {
-        present.push({ id: m.id, name: fullName(m), photoUrl: m.photoUrl, gender: m.gender, category: cat });
-        byCategory[(cat as AttendanceCategory) in byCategory ? (cat as AttendanceCategory) : "adult"]++;
-      } else if (m.status !== "inactive") {
-        absent.push({ id: m.id, name: fullName(m), photoUrl: m.photoUrl, gender: m.gender });
-      }
-    }
-    const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
-    return { id: d.id, name: d.name, present: present.sort(byName), absent: absent.sort(byName), byCategory };
-  });
-
-  const named = records.filter((r) => r.personId).length;
   return {
-    rows,
-    namedCount: named,
-    noDepartment: records.filter((r) => r.personId && !inSomeDepartment.has(r.personId)).length,
+    namedCount: records.filter((r) => r.personId).length,
     guests: records.filter((r) => !r.personId).length,
+    groupings: groupings.map((g) => {
+      const inSome = new Set<string>();
+      const rows: BreakdownRow[] = g.groups.map((grp) => {
+        const byCategory: Record<AttendanceCategory, number> = { adult: 0, teen: 0, child: 0, visitor: 0 };
+        const present: BreakdownRow["present"] = [];
+        const absent: BreakdownRow["absent"] = [];
+        for (const m of grp.members) {
+          inSome.add(m.id);
+          const cat = categoryOf.get(m.id);
+          if (cat) {
+            present.push({ id: m.id, name: fullName(m), photoUrl: m.photoUrl, gender: m.gender, category: cat });
+            byCategory[(cat as AttendanceCategory) in byCategory ? (cat as AttendanceCategory) : "adult"]++;
+          } else if (m.status !== "inactive") {
+            absent.push({ id: m.id, name: fullName(m), photoUrl: m.photoUrl, gender: m.gender });
+          }
+        }
+        return { id: grp.id, name: grp.name, present: present.sort(byName), absent: absent.sort(byName), byCategory };
+      });
+      return {
+        key: g.key,
+        label: g.label,
+        rows,
+        notInAny: records.filter((r) => r.personId && !inSome.has(r.personId)).length,
+      };
+    }),
   };
 }
 
+/** Which groupings exist (for the present list's "Group by" buttons). */
+export async function getGroupingLabels(churchId: string) {
+  const cats = await db.memberCategory.findMany({
+    where: { churchId, options: { some: {} } },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: { id: true, name: true },
+  });
+  return [{ key: "departments", label: "Department" }, ...cats.map((c) => ({ key: c.id, label: c.name }))];
+}
+
 /**
- * Department turnout across the most recent services that had named check-ins,
- * oldest first so it reads left to right.
+ * Turnout per department / zone / fellowship across the most recent services
+ * that had named check-ins, oldest first so it reads left to right.
  */
-export async function getDepartmentTrend(churchId: string, take = 6) {
+export async function getGroupingTrend(churchId: string, take = 6) {
   const sessions = await db.attendanceSession.findMany({
     where: { churchId, records: { some: { personId: { not: null } } } },
     orderBy: { date: "desc" },
     take,
     select: { id: true, serviceName: true, date: true },
   });
-  if (sessions.length === 0) return { sessions: [], rows: [] };
+  if (sessions.length === 0) return { sessions: [], groupings: [] };
 
-  const [departments, records] = await Promise.all([
-    departmentsWithMembers(churchId),
+  const [groupings, records] = await Promise.all([
+    groupingsWithMembers(churchId),
     db.attendanceRecord.findMany({
       where: { churchId, sessionId: { in: sessions.map((s) => s.id) }, personId: { not: null } },
       select: { sessionId: true, personId: true },
@@ -326,17 +375,20 @@ export async function getDepartmentTrend(churchId: string, take = 6) {
 
   return {
     sessions: ordered.map((s) => ({ id: s.id, serviceName: s.serviceName, date: s.date.toISOString() })),
-    rows: departments
-      .map((d) => {
-        const active = d.members.filter((m) => m.status !== "inactive");
-        return {
-          id: d.id,
-          name: d.name,
-          members: active.length,
-          counts: ordered.map((s) => d.members.filter((m) => present.has(`${s.id}:${m.id}`)).length),
-        };
-      })
-      .filter((r) => r.members > 0 || r.counts.some((c) => c > 0)),
+    groupings: groupings
+      .map((g) => ({
+        key: g.key,
+        label: g.label,
+        rows: g.groups
+          .map((grp) => ({
+            id: grp.id,
+            name: grp.name,
+            members: grp.members.filter((m) => m.status !== "inactive").length,
+            counts: ordered.map((s) => grp.members.filter((m) => present.has(`${s.id}:${m.id}`)).length),
+          }))
+          .filter((r) => r.members > 0 || r.counts.some((c) => c > 0)),
+      }))
+      .filter((g) => g.rows.length > 0),
   };
 }
 
@@ -347,6 +399,12 @@ export async function getPublicSession(id: string) {
     include: { church: { select: { name: true, slug: true, accentColor: true, logoUrl: true, isDemo: true } } },
   });
   if (!s || s.church.isDemo) return null;
+  // A scheduled service's QR follows the service times, so show what's on now.
+  if (s.autoKey) {
+    const { describeCurrentService } = await import("@/lib/attendance/service-times");
+    const now = await describeCurrentService(s.churchId, s.branchId);
+    if (now) return { id: s.id, serviceName: now.name, date: new Date().toISOString(), church: s.church };
+  }
   return {
     id: s.id,
     serviceName: s.serviceName,

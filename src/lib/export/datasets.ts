@@ -2,6 +2,17 @@ import "server-only";
 import { db } from "@/lib/db";
 import { methodLabel, outcomeLabel } from "@/lib/follow-ups/outcomes";
 
+/** One spreadsheet column per member category (Zone, Fellowship, ...). */
+async function categoryColumns(churchId: string) {
+  const cats = await db.memberCategory.findMany({ where: { churchId }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } });
+  return {
+    headers: cats.map((c) => c.name),
+    values: (opts: { categoryId: string; name: string }[] | undefined) =>
+      cats.map((c) => (opts ?? []).filter((o) => o.categoryId === c.id).map((o) => o.name).sort().join("; ")),
+  };
+}
+const CATEGORY_OPTION_SELECT = { categoryOptions: { select: { categoryId: true, name: true } } } as const;
+
 /**
  * One exportable table. Every tab in the app maps to a dataset here, so the
  * per-tab export, the combined workbook and the zip bundle all read from the
@@ -24,16 +35,21 @@ export const DATASETS: Dataset[] = [
     label: "Members",
     section: "people",
     async fetch(churchId) {
-      const rows = await db.person.findMany({
-        where: { churchId },
-        orderBy: { firstName: "asc" },
-        include: { department: { select: { name: true } } },
-      });
+      const [rows, cats] = await Promise.all([
+        db.person.findMany({
+          where: { churchId },
+          orderBy: { firstName: "asc" },
+          include: { department: { select: { name: true } }, departments: { select: { name: true } }, ...CATEGORY_OPTION_SELECT },
+        }),
+        categoryColumns(churchId),
+      ]);
       return {
-        headers: ["Member ID", "First name", "Last name", "Phone", "Email", "Gender", "Status", "Department", "Birthday", "Joined"],
+        headers: ["Member ID", "First name", "Last name", "Phone", "Email", "Gender", "Status", "Departments", ...cats.headers, "Birthday", "Joined"],
         rows: rows.map((p) => [
           p.memberId ?? "", p.firstName, p.lastName, p.phone ?? "", p.email ?? "",
-          p.gender ?? "", p.status, p.department?.name ?? "", p.birthday ?? "", d(p.joinedAt),
+          p.gender ?? "", p.status,
+          [...new Set([...p.departments.map((x) => x.name), ...(p.department ? [p.department.name] : [])])].sort().join("; "),
+          ...cats.values(p.categoryOptions), p.birthday ?? "", d(p.joinedAt),
         ]),
       };
     },
@@ -121,18 +137,21 @@ export const DATASETS: Dataset[] = [
     label: "Attendance",
     section: "attendance",
     async fetch(churchId) {
-      const rows = await db.attendanceRecord.findMany({
-        where: { churchId },
-        orderBy: { date: "desc" },
-        take: 20000,
-        include: {
-          person: {
-            select: { firstName: true, lastName: true, departments: { select: { name: true } }, department: { select: { name: true } } },
+      const [rows, cats] = await Promise.all([
+        db.attendanceRecord.findMany({
+          where: { churchId },
+          orderBy: { date: "desc" },
+          take: 20000,
+          include: {
+            person: {
+              select: { firstName: true, lastName: true, departments: { select: { name: true } }, department: { select: { name: true } }, ...CATEGORY_OPTION_SELECT },
+            },
           },
-        },
-      });
+        }),
+        categoryColumns(churchId),
+      ]);
       return {
-        headers: ["Date", "Service", "Attendee", "Category", "Departments", "Checked in via"],
+        headers: ["Date", "Service", "Attendee", "Category", "Departments", ...cats.headers, "Checked in via"],
         rows: rows.map((a) => [
           d(a.date),
           a.serviceName,
@@ -141,6 +160,7 @@ export const DATASETS: Dataset[] = [
           a.person
             ? [...new Set([...a.person.departments.map((x) => x.name), ...(a.person.department ? [a.person.department.name] : [])])].sort().join("; ")
             : "",
+          ...cats.values(a.person?.categoryOptions),
           a.method,
         ]),
       };

@@ -143,6 +143,10 @@ model Church {
   attendanceReportNumbers    String? @db.Text // extra phone numbers (comma/newline) for people without accounts
   attendanceReportToAdmins   Boolean @default(true)  // send to Owners/Admins
   attendanceReportToLeaders  Boolean @default(false) // send to everyone with attendance access
+  // ── Service times (optional): check-ins are routed to the service whose time
+  // window they fall in. Off until the church turns it on in Settings.
+  serviceTimesOn        Boolean @default(false)
+  serviceGraceMinutes   Int     @default(60) // early/late arrivals within this many minutes join the nearest service
   /** Editable system-SMS overrides, keyed by template id (see src/lib/messages/registry). */
   messageTemplates           Json?
   /** Days before a pledge due date to auto-remind, e.g. [30, 7, 3]. */
@@ -204,6 +208,9 @@ model Church {
   dayBornWeeks    DayBornWeek[]
   paymentRequests PaymentRequest[]
   supportAccess   SupportAccess[]
+  serviceSlots    ServiceSlot[]
+  memberCategories MemberCategory[]
+  memberCategoryOptions MemberCategoryOption[]
   deletedItems    DeletedItem[]
 
   // ── Data backups (see src/lib/backups) ──
@@ -250,6 +257,7 @@ model Branch {
   events      Event[]
   attendance  AttendanceRecord[]
   attendanceSessions AttendanceSession[]
+  serviceSlots ServiceSlot[]
   gifts       Gift[]
   users       User[]
   dayBornWeeks DayBornWeek[]
@@ -459,6 +467,7 @@ model Person {
   welfareRecords WelfareRecord[]
   welfareDues    WelfareDue[]
   biometrics     BiometricCredential[]
+  categoryOptions MemberCategoryOption[] @relation("PersonCategoryOptions")
   testimonies    Testimony[]
   counselingSessions CounselingSession[]
   volunteerSlots VolunteerSlot[]
@@ -543,11 +552,18 @@ model AttendanceSession {
   endedAt     DateTime? // set when the service is ended (report sent)
   reportSentTo Int      @default(0) // how many recipients the end-of-service report reached
   createdAt   DateTime @default(now())
+  // Set when the session was opened automatically from the church's service
+  // times: which slot, and a key (church, branch, local day, slot) so every
+  // check-in in that window lands in the same session.
+  slotId      String?
+  slot        ServiceSlot? @relation(fields: [slotId], references: [id], onDelete: SetNull)
+  autoKey     String?
 
   records AttendanceRecord[]
 
   @@index([churchId])
   @@index([date])
+  @@index([autoKey])
 }
 
 model AttendanceRecord {
@@ -569,6 +585,58 @@ model AttendanceRecord {
   @@index([churchId])
   @@index([date])
   @@index([sessionId])
+}
+
+// A regular service in the church's week, e.g. "Twi service, Sunday 06:30-08:30".
+model ServiceSlot {
+  id          String   @id @default(cuid())
+  churchId    String
+  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  branchId    String?  // null = every branch
+  branch      Branch?  @relation(fields: [branchId], references: [id], onDelete: Cascade)
+  name        String
+  weekday     Int      // 0 = Sunday .. 6 = Saturday
+  startMinute Int      // minutes after local midnight
+  endMinute   Int
+  active      Boolean  @default(true)
+  createdAt   DateTime @default(now())
+
+  sessions AttendanceSession[]
+
+  @@index([churchId, weekday])
+}
+
+// Church-defined ways of grouping members beyond departments, e.g. "Zone",
+// "Fellowship", "Cell". Each has its own options; a member picks one or several.
+model MemberCategory {
+  id            String   @id @default(cuid())
+  churchId      String
+  church        Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name          String
+  allowMultiple Boolean  @default(false)
+  sortOrder     Int      @default(0)
+  createdAt     DateTime @default(now())
+
+  options MemberCategoryOption[]
+
+  @@unique([churchId, name])
+  @@index([churchId])
+}
+
+model MemberCategoryOption {
+  id         String         @id @default(cuid())
+  churchId   String
+  church     Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  categoryId String
+  category   MemberCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name       String
+  sortOrder  Int            @default(0)
+  createdAt  DateTime       @default(now())
+
+  members Person[] @relation("PersonCategoryOptions")
+
+  @@unique([categoryId, name])
+  @@index([churchId])
 }
 
 // ── Giving ────────────────────────────────────────────────

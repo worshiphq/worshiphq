@@ -9,6 +9,7 @@ import { buildPersonData } from "@/lib/forms/person-data";
 import { nextMemberId, resolveDepartmentIds } from "@/lib/members/helpers";
 import { logAudit } from "@/lib/audit";
 import { RecycleBin } from "@/lib/recycle-bin";
+import { saveMemberCategoryChoices } from "@/lib/members/categories";
 import type { PersonStatus } from "@prisma/client";
 
 async function formFields(churchId: string) {
@@ -49,6 +50,7 @@ export async function createPerson(formData: FormData) {
     },
   });
 
+  await saveMemberCategoryChoices(session.churchId, person.id, formData);
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "person", entityId: person.id, detail: `Added ${data.firstName} ${data.lastName}` });
   revalidatePath("/app/people");
   revalidatePath("/app");
@@ -114,6 +116,7 @@ export async function updatePerson(formData: FormData) {
       },
     });
   }
+  await saveMemberCategoryChoices(session.churchId, id, formData);
 
   revalidatePath("/app/people");
   revalidatePath("/app");

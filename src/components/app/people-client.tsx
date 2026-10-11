@@ -21,6 +21,7 @@ import { updateChild, assignParent, createChildState } from "@/app/actions/child
 import { sendSmsToPerson } from "@/app/actions/communications";
 import { BiometricRegisterButton } from "@/components/app/biometric-register";
 import { MemberFormFields, type MemberDefaults } from "@/components/app/member-form-fields";
+import { MemberCategoryFields, type FormCategory } from "@/components/app/member-category-fields";
 import type { PersonRow } from "@/lib/data/people";
 import type { FormField } from "@/lib/forms/registration";
 import { phoneValidityMessage } from "@/lib/phone";
@@ -51,9 +52,9 @@ type Dept = { id: string; name: string };
 type Adult = { id: string; firstName: string; lastName: string };
 
 export function PeopleClient({
-  people, stats, canWrite, departments, formFields, adults, initialQuery = "",
+  people, stats, canWrite, departments, formFields, adults, categories = [], initialQuery = "",
 }: {
-  people: PersonRow[]; stats: AllStats; canWrite: boolean; departments: Dept[]; formFields: FormField[]; adults: Adult[]; initialQuery?: string;
+  people: PersonRow[]; stats: AllStats; canWrite: boolean; departments: Dept[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; initialQuery?: string;
 }) {
   const [ageTab, setAgeTab] = useState<AgeTab>("adult");
   const [query, setQuery] = useState(initialQuery);
@@ -64,6 +65,8 @@ export function PeopleClient({
   const [view, setView] = useState<"list" | "grid">("list");
   const [deptFilter, setDeptFilter] = useState("");
   const [engFilter, setEngFilter] = useState("");
+  const [catFilter, setCatFilter] = useState(""); // a category option id
+  const filterableCategories = categories.filter((c) => c.options.length > 0);
   const [sortBy, setSortBy] = useState<"name-az" | "name-za" | "newest" | "oldest">("name-az");
 
   const isAdultTab = ageTab === "adult";
@@ -75,6 +78,7 @@ export function PeopleClient({
       if (isAdultTab && segment !== "all" && p.status !== segment) return false;
       if (isAdultTab && deptFilter && !p.departments.some((d) => d === deptFilter)) return false;
       if (isAdultTab && engFilter && p.engagement !== engFilter) return false;
+      if (catFilter && !p.categoryOptionIds.includes(catFilter)) return false;
       if (query) {
         const q = query.toLowerCase();
         return (
@@ -101,7 +105,7 @@ export function PeopleClient({
       }
     });
     return list;
-  }, [people, query, segment, deptFilter, engFilter, sortBy, ageTab, isAdultTab]);
+  }, [people, query, segment, deptFilter, engFilter, catFilter, sortBy, ageTab, isAdultTab]);
 
   const addLabel = ageTab === "child" ? "Add child" : ageTab === "teen" ? "Add teen" : "Add member";
 
@@ -212,6 +216,21 @@ export function PeopleClient({
               </select>
             </>
           )}
+          {filterableCategories.length > 0 && (
+            <select
+              value={catFilter}
+              onChange={(e) => setCatFilter(e.target.value)}
+              aria-label="Filter by zone, fellowship and other categories"
+              className="h-9 rounded-lg border border-line bg-surface px-2.5 text-xs text-ink focus-visible:border-primary/50 focus-visible:outline-none"
+            >
+              <option value="">All {filterableCategories.map((c) => c.name.toLowerCase()).join(" / ")}</option>
+              {filterableCategories.map((c) => (
+                <optgroup key={c.id} label={c.name}>
+                  {c.options.map((o) => <option key={o.id} value={o.id}>{o.name}</option>)}
+                </optgroup>
+              ))}
+            </select>
+          )}
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
@@ -222,8 +241,8 @@ export function PeopleClient({
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
           </select>
-          {(deptFilter || engFilter) && (
-            <button onClick={() => { setDeptFilter(""); setEngFilter(""); }} className="text-xs text-primary-bright hover:underline">
+          {(deptFilter || engFilter || catFilter) && (
+            <button onClick={() => { setDeptFilter(""); setEngFilter(""); setCatFilter(""); }} className="text-xs text-primary-bright hover:underline">
               Clear filters
             </button>
           )}
@@ -371,6 +390,7 @@ export function PeopleClient({
           person={selected}
           canWrite={canWrite}
           adults={adults}
+          categories={categories}
           onClose={() => setSelected(null)}
           onEdit={() => { setEditing(selected); setSelected(null); }}
         />
@@ -381,6 +401,7 @@ export function PeopleClient({
           departments={departments}
           formFields={formFields}
           adults={adults}
+          categories={categories}
           ageTab={ageTab}
           onClose={() => { setCreating(false); setEditing(null); }}
         />
@@ -408,7 +429,7 @@ function EmptyState({ query, hasAny, canWrite, onAdd, ageTab }: { query: string;
   );
 }
 
-function PersonDrawer({ person, canWrite, adults, onClose, onEdit }: { person: PersonRow; canWrite: boolean; adults: Adult[]; onClose: () => void; onEdit: () => void }) {
+function PersonDrawer({ person, canWrite, adults, categories = [], onClose, onEdit }: { person: PersonRow; canWrite: boolean; adults: Adult[]; categories?: FormCategory[]; onClose: () => void; onEdit: () => void }) {
   const eng = engagementStyle[person.engagement];
   const [smsOpen, setSmsOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
@@ -526,6 +547,18 @@ function PersonDrawer({ person, canWrite, adults, onClose, onEdit }: { person: P
               </div>
             </Section>
           )}
+
+          {categories.map((c) => {
+            const mine = c.options.filter((o) => person.categoryOptionIds.includes(o.id));
+            if (!mine.length) return null;
+            return (
+              <Section key={c.id} title={c.name}>
+                <div className="flex flex-wrap gap-1.5">
+                  {mine.map((o) => <Badge key={o.id} variant="primary">{o.name}</Badge>)}
+                </div>
+              </Section>
+            );
+          })}
 
           {person.positions.length > 0 && (
             <Section title="Leadership positions">
@@ -675,9 +708,9 @@ function buildDefaults(fields: FormField[], person: PersonRow): MemberDefaults {
 type AddResult = { ok: boolean; personId?: string; name?: string } | null;
 
 function PersonForm({
-  person, departments, formFields, adults, ageTab, onClose,
+  person, departments, formFields, adults, categories = [], ageTab, onClose,
 }: {
-  person: PersonRow | null; departments: Dept[]; formFields: FormField[]; adults: Adult[]; ageTab: AgeTab; onClose: () => void;
+  person: PersonRow | null; departments: Dept[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; ageTab: AgeTab; onClose: () => void;
 }) {
   const isEdit = !!person;
   const personAge = person ? (person.ageGroup ?? "adult") : ageTab;
@@ -746,6 +779,9 @@ function PersonForm({
 
           {/* Full form fields - same as adults: photo, biometric fields, all profile fields */}
           <MemberFormFields fields={formFields} departments={departments} defaults={defaults} />
+
+          {/* Zones, fellowships and any other categories the church has set up */}
+          <MemberCategoryFields categories={categories} selected={person?.categoryOptionIds ?? []} />
 
           {/* Youth-specific: age group selector + school + parent */}
           {isYouth && (

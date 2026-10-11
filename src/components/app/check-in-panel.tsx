@@ -18,7 +18,7 @@ interface Candidate {
   photoUrl?: string | null;
   status: string;
   checkedIn?: boolean;
-  departments?: string[];
+  groups?: Record<string, string[]>;
 }
 interface Attendee {
   id: string;
@@ -28,10 +28,8 @@ interface Attendee {
   category: string;
   method: string;
   time?: string; // ISO - when they checked in
-  departments?: string[];
+  groups?: Record<string, string[]>; // "departments" / category id -> names
 }
-
-const NO_DEPARTMENT = "Not in a department";
 
 // Present list is split into these groups, in this order.
 const CATEGORY_SECTIONS: { key: string; label: string }[] = [
@@ -61,17 +59,20 @@ export function CheckInPanel({
   attendees,
   checkInUrl,
   canWrite,
+  groupings = [{ key: "departments", label: "Department" }],
 }: {
   sessionId: string;
   candidates: Candidate[];
   attendees: Attendee[];
   checkInUrl: string;
   canWrite: boolean;
+  /** Ways the present list can be grouped besides age group: departments plus any member categories. */
+  groupings?: { key: string; label: string }[];
 }) {
   const [q, setQ] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
   const [bioOpen, setBioOpen] = useState(false);
-  const [groupBy, setGroupBy] = useState<"category" | "department">("category");
+  const [groupBy, setGroupBy] = useState<string>("category");
   const [scanning, start] = useTransition();
   const { toast } = useFeedback();
 
@@ -117,7 +118,7 @@ export function CheckInPanel({
     // Show them in Present immediately.
     const tempId = `optimistic-${c.id}`;
     setExtraAttendees((prev) => [
-      { id: tempId, name: c.name, gender: c.gender, photoUrl: c.photoUrl, category: c.status === "visitor" ? "visitor" : "adult", method: "manual", time: new Date().toISOString(), departments: c.departments ?? [] },
+      { id: tempId, name: c.name, gender: c.gender, photoUrl: c.photoUrl, category: c.status === "visitor" ? "visitor" : "adult", method: "manual", time: new Date().toISOString(), groups: c.groups ?? {} },
       ...prev,
     ]);
 
@@ -164,19 +165,22 @@ export function CheckInPanel({
 
   const visibleAttendees = [...extraAttendees, ...attendees].filter((a) => !removedIds.has(a.id));
 
-  // Present list sections: by category (fixed order) or by department (A to Z,
-  // "Not in a department" last). A member in two departments shows under both.
+  // Present list sections: by age group (fixed order) or by a grouping such as
+  // department, zone or fellowship (A to Z, "Not in a ..." last). Someone in two
+  // groups shows under both.
+  const activeGrouping = groupings.find((g) => g.key === groupBy);
+  const noneLabel = `Not in a ${(activeGrouping?.label ?? "group").toLowerCase()}`;
   const sections: { key: string; label: string; people: Attendee[] }[] =
-    groupBy === "category"
+    !activeGrouping
       ? CATEGORY_SECTIONS.map(({ key, label }) => ({ key, label, people: visibleAttendees.filter((a) => (a.category || "adult") === key) }))
       : (() => {
           const map = new Map<string, Attendee[]>();
           for (const a of visibleAttendees) {
-            const names = a.departments?.length ? a.departments : [NO_DEPARTMENT];
+            const names = a.groups?.[activeGrouping.key]?.length ? a.groups[activeGrouping.key] : [noneLabel];
             for (const n of names) map.set(n, [...(map.get(n) ?? []), a]);
           }
           return [...map.entries()]
-            .sort(([x], [y]) => (x === NO_DEPARTMENT ? 1 : y === NO_DEPARTMENT ? -1 : x.localeCompare(y)))
+            .sort(([x], [y]) => (x === noneLabel ? 1 : y === noneLabel ? -1 : x.localeCompare(y)))
             .map(([name, people]) => ({ key: name, label: name, people }));
         })();
 
@@ -260,7 +264,7 @@ export function CheckInPanel({
             {visibleAttendees.length > 0 && (
               <div className="flex items-center gap-1 text-xs" role="group" aria-label="Group present list">
                 <span className="mr-1 text-ink-faint">Group by</span>
-                {([["category", "Age group"], ["department", "Department"]] as const).map(([key, label]) => (
+                {[{ key: "category", label: "Age group" }, ...groupings].map(({ key, label }) => (
                   <button
                     key={key}
                     type="button"

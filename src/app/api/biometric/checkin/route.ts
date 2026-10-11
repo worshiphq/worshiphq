@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { routeAutoSession } from "@/lib/attendance/service-times";
 
 export const dynamic = "force-dynamic";
 
@@ -24,12 +25,15 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, ...who, message: "Identity verified" });
   }
 
-  const sess = await db.attendanceSession.findFirst({ where: { id: sessionId, churchId: session.churchId } });
-  if (!sess) return NextResponse.json({ ok: false, message: "Session not found" }, { status: 404 });
+  const opened = await db.attendanceSession.findFirst({ where: { id: sessionId, churchId: session.churchId } });
+  if (!opened) return NextResponse.json({ ok: false, message: "Session not found" }, { status: 404 });
+  // A scanner left running across services follows the service times.
+  const sess = await routeAutoSession(opened);
+  const moved = sess.id !== opened.id;
 
-  const dup = await db.attendanceRecord.findFirst({ where: { sessionId, personId: person.id } });
+  const dup = await db.attendanceRecord.findFirst({ where: { sessionId: sess.id, personId: person.id } });
   if (dup) {
-    return NextResponse.json({ ok: true, ...who, alreadyIn: true, message: "Already checked in" });
+    return NextResponse.json({ ok: true, ...who, alreadyIn: true, sessionId: sess.id, serviceName: sess.serviceName, message: `Already checked in to ${sess.serviceName}` });
   }
 
   let category = "adult";
@@ -50,7 +54,7 @@ export async function POST(req: NextRequest) {
       churchId: session.churchId,
       branchId: sess.branchId ?? undefined,
       personId: person.id,
-      sessionId,
+      sessionId: sess.id,
       category,
       serviceName: sess.serviceName,
       date: new Date(),
@@ -58,7 +62,7 @@ export async function POST(req: NextRequest) {
     },
   });
   await db.attendanceSession.update({
-    where: { id: sessionId },
+    where: { id: sess.id },
     data: { [catField[category] ?? "adults"]: { increment: 1 } },
   });
 
@@ -67,5 +71,8 @@ export async function POST(req: NextRequest) {
     await recordVisitorCheckin(person.id, session.churchId).catch(() => {});
   }
 
-  return NextResponse.json({ ok: true, ...who, category, message: "Checked in via fingerprint" });
+  return NextResponse.json({
+    ok: true, ...who, category, sessionId: sess.id, serviceName: sess.serviceName, moved,
+    message: moved ? `Checked in to ${sess.serviceName}` : "Checked in via fingerprint",
+  });
 }

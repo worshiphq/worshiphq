@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 import { nextMemberId } from "@/lib/members/helpers";
 import { logAudit } from "@/lib/audit";
+import { saveMemberCategoryChoices } from "@/lib/members/categories";
 
 export async function createChild(formData: FormData) {
   const session = await requireSession();
@@ -50,6 +51,7 @@ export async function createChild(formData: FormData) {
     },
   });
 
+  await saveMemberCategoryChoices(session.churchId, person.id, formData);
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "person", entityId: person.id, detail: `Added ${ageGroup} ${firstName} ${lastName}` });
   revalidatePath("/app/children");
   revalidatePath("/app/people");
@@ -116,6 +118,7 @@ export async function updateChild(formData: FormData) {
       parent: parentId ? { connect: { id: parentId } } : { disconnect: true },
     },
   });
+  await saveMemberCategoryChoices(session.churchId, id, formData);
 
   revalidatePath("/app/children");
   revalidatePath("/app/people");

@@ -8,6 +8,7 @@ import { categoryForPerson, type AttendanceCategory } from "@/lib/data/attendanc
 import { sendChurchSms } from "@/lib/sms/credits";
 import { can, granted } from "@/lib/permissions";
 import { DEFAULT_ATTENDANCE_REPORT, renderAttendanceReport } from "@/lib/attendance/report";
+import { resolveServiceSession, routeAutoSession } from "@/lib/attendance/service-times";
 
 const CATEGORY_FIELD: Record<AttendanceCategory, "adults" | "teens" | "children" | "visitors"> = {
   adult: "adults",
@@ -46,11 +47,23 @@ export async function recordService(formData: FormData) {
   revalidatePath("/app");
 }
 
-/** Create a fresh session for today and jump straight into its check-in screen. */
+/**
+ * Jump into check-in. With service times switched on (and no name typed), this
+ * opens whichever service is on right now, e.g. the 2nd service at 10am, so
+ * every device lands in the same session. Otherwise it creates a fresh one.
+ */
 export async function startCheckIn(formData: FormData) {
   const session = await requireSession();
   assertCanWrite(session);
-  const serviceName = String(formData.get("serviceName") ?? "").trim() || defaultServiceName();
+  const typed = String(formData.get("serviceName") ?? "").trim();
+  if (!typed) {
+    const current = await resolveServiceSession(session.churchId, session.branchId ?? null);
+    if (current) {
+      revalidatePath("/app/attendance");
+      redirect(`/app/attendance/${current.id}`);
+    }
+  }
+  const serviceName = typed || defaultServiceName();
   const created = await db.attendanceSession.create({
     data: {
       churchId: session.churchId,
@@ -119,10 +132,12 @@ export async function checkInVisitorNow(personId: string) {
   });
   if (!person) return { ok: false as const, reason: "not-found" as const };
 
-  let sess = await db.attendanceSession.findFirst({
-    where: { churchId: session.churchId, endedAt: null },
-    orderBy: { date: "desc" },
-  });
+  let sess =
+    (await resolveServiceSession(session.churchId, session.branchId ?? null)) ??
+    (await db.attendanceSession.findFirst({
+      where: { churchId: session.churchId, endedAt: null },
+      orderBy: { date: "desc" },
+    }));
   if (!sess) {
     sess = await db.attendanceSession.create({
       data: {
@@ -350,19 +365,23 @@ export async function deleteSession(sessionId: string) {
  * or name; otherwise records a visitor. Increments the session category.
  */
 export async function selfCheckIn(formData: FormData) {
-  const sessionId = String(formData.get("sessionId") ?? "").trim();
-  if (!sessionId) return;
-  const sess = await db.attendanceSession.findUnique({
-    where: { id: sessionId },
+  const linkSessionId = String(formData.get("sessionId") ?? "").trim();
+  if (!linkSessionId) return;
+  const linked = await db.attendanceSession.findUnique({
+    where: { id: linkSessionId },
     include: { church: { select: { id: true, isDemo: true } } },
   });
-  if (!sess || sess.church.isDemo) return;
+  if (!linked || linked.church.isDemo) return;
+  // A QR printed for a scheduled service keeps working: the check-in goes to
+  // whichever service is on now (e.g. the English service after the Twi one).
+  const sess = await routeAutoSession(linked);
+  const sessionId = sess.id;
 
   const name = String(formData.get("name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
   if (!name) return;
 
-  const churchId = sess.church.id;
+  const churchId = linked.church.id;
   let person: { id: string; status: string | null; dateOfBirth: Date | null; birthday: string | null } | null = null;
   if (phone) {
     person = await db.person.findFirst({

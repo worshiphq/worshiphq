@@ -62,13 +62,15 @@ export const RecycleBin = {
   async capturePerson(session: { churchId: string; userId: string; name?: string }, id: string) {
     const person = await db.person.findFirst({ where: { id, churchId: session.churchId } });
     if (!person) return;
-    const [departments, groups, tags, positions, welfareDues, biometrics] = await Promise.all([
-      db.department.findMany({ where: { people: { some: { id } } }, select: { id: true } }),
+    const [departments, groups, tags, positions, welfareDues, biometrics, categoryOptions] = await Promise.all([
+      // Both membership links: the many-to-many list and the older single department.
+      db.department.findMany({ where: { OR: [{ members: { some: { id } } }, { people: { some: { id } } }] }, select: { id: true } }),
       db.group.findMany({ where: { members: { some: { id } } }, select: { id: true } }),
       db.tag.findMany({ where: { people: { some: { id } } }, select: { id: true } }),
       db.departmentPosition.findMany({ where: { personId: id } }),
       db.welfareDue.findMany({ where: { personId: id } }),
       db.biometricCredential.findMany({ where: { personId: id } }),
+      db.memberCategoryOption.findMany({ where: { members: { some: { id } } }, select: { id: true } }),
     ]);
     await createDeletedItem(session, {
       entityType: "person",
@@ -83,6 +85,7 @@ export const RecycleBin = {
         positions,
         welfareDues,
         biometrics,
+        categoryOptionIds: categoryOptions.map((o) => o.id),
       },
     });
   },
@@ -201,12 +204,13 @@ type RestoreResult = { ok: boolean; error?: string };
 
 const RESTORERS: Record<EntityType, (churchId: string, snapshot: any) => Promise<RestoreResult>> = {
   async person(churchId, snap) {
-    const { record, departmentIds, groupIds, tagIds, positions, welfareDues, biometrics } = snap;
+    const { record, departmentIds, groupIds, tagIds, positions, welfareDues, biometrics, categoryOptionIds } = snap;
     if (record.churchId !== churchId) return { ok: false, error: "Church mismatch." };
     await db.person.create({ data: record });
     await reconnectMany(db.person as any, record.id, "departments", departmentIds ?? []);
     await reconnectMany(db.person as any, record.id, "groups", groupIds ?? []);
     await reconnectMany(db.person as any, record.id, "tags", tagIds ?? []);
+    await reconnectMany(db.person as any, record.id, "categoryOptions", categoryOptionIds ?? []);
     if (positions?.length) await db.departmentPosition.createMany({ data: positions }).catch(() => {});
     if (welfareDues?.length) await db.welfareDue.createMany({ data: welfareDues }).catch(() => {});
     if (biometrics?.length) await db.biometricCredential.createMany({ data: biometrics }).catch(() => {});

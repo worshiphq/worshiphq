@@ -1,10 +1,12 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Trash2, Users } from "lucide-react";
+import { ArrowLeft, Trash2, Users, Clock } from "lucide-react";
 import { requireModule } from "@/lib/auth";
 import { getBaseUrl } from "@/lib/url";
-import { getAttendanceSession, getCheckInCandidates, getAttendanceReportConfig, getDepartmentBreakdown } from "@/lib/data/attendance";
+import { getAttendanceSession, getCheckInCandidates, getAttendanceReportConfig, getAttendanceBreakdown, getGroupingLabels } from "@/lib/data/attendance";
 import { DepartmentBreakdown } from "@/components/app/department-breakdown";
+import { describeCurrentService } from "@/lib/attendance/service-times";
+import { startCheckIn } from "@/app/actions/attendance";
 import { getSmsBalance } from "@/lib/sms/credits";
 import { deleteSession } from "@/app/actions/attendance";
 import { MembershipDonut } from "@/components/app/charts";
@@ -23,14 +25,20 @@ export default async function AttendanceSessionPage({
 }) {
   const { id } = await params;
   const session = await requireModule("attendance");
-  const [data, candidates, reportConfig, smsBalance, departments] = await Promise.all([
+  const [data, candidates, reportConfig, smsBalance, breakdown, groupingLabels] = await Promise.all([
     getAttendanceSession(session.churchId, id),
     getCheckInCandidates(session.churchId, id),
     getAttendanceReportConfig(session.churchId),
     getSmsBalance(session.churchId),
-    getDepartmentBreakdown(session.churchId, id),
+    getAttendanceBreakdown(session.churchId, id),
+    getGroupingLabels(session.churchId),
   ]);
   if (!data) notFound();
+
+  // With service times on, nudge staff across when the next service has begun.
+  const current = !data.endedAt ? await describeCurrentService(session.churchId, session.branchId ?? null) : null;
+  const sameDay = new Date(data.date).toDateString() === new Date().toDateString();
+  const switchTo = current && sameDay && current.name !== data.serviceName ? current.name : null;
 
   const checkInUrl = `${await getBaseUrl()}/checkin/${data.id}`;
   const donutData = data.breakdown.filter((b) => b.count > 0).map((b) => ({ name: b.name, count: b.count }));
@@ -70,6 +78,16 @@ export default async function AttendanceSessionPage({
           )}
         </div>
       </div>
+
+      {switchTo && !session.isDemo && (
+        <form action={startCheckIn} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-info/30 bg-info/10 px-4 py-3">
+          <input type="hidden" name="serviceName" value="" />
+          <p className="flex items-center gap-2 text-sm text-ink">
+            <Clock className="size-4 text-info" /> It&rsquo;s now <strong>{switchTo}</strong> time. New check-ins should go there.
+          </p>
+          <SubmitButton size="sm" pendingLabel="Opening…" overlay={false}>Open {switchTo}</SubmitButton>
+        </form>
+      )}
 
       {/* Header */}
       <div>
@@ -115,13 +133,13 @@ export default async function AttendanceSessionPage({
         attendees={data.attendees}
         checkInUrl={checkInUrl}
         canWrite={!session.isDemo}
+        groupings={groupingLabels}
       />
 
       <DepartmentBreakdown
-        rows={departments.rows}
-        namedCount={departments.namedCount}
-        noDepartment={departments.noDepartment}
-        guests={departments.guests}
+        groupings={breakdown.groupings}
+        namedCount={breakdown.namedCount}
+        guests={breakdown.guests}
         headcountOnly={data.attendees.length === 0 && data.total > 0}
         serviceLabel={`${data.serviceName}, ${new Date(data.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`}
       />

@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Building, Palette, Users2, CreditCard, Plug, Check, Pencil, CircleDot,
   Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, Shield, MessageSquare,
-  ExternalLink, Rocket, Wallet, Loader2 as Spinner, Clock, CheckCircle2, X, Receipt, DatabaseBackup,
+  ExternalLink, Rocket, Wallet, Loader2 as Spinner, Clock, CheckCircle2, X, Receipt, DatabaseBackup, Tags,
 } from "lucide-react";
 import { OnFormComplete } from "@/components/ui/form-effects";
 import { Card } from "@/components/ui/card";
@@ -16,6 +16,9 @@ import { Input, Label } from "@/components/ui/input";
 import type { Session } from "@/lib/permissions";
 import { ROLE_PERMISSIONS } from "@/lib/permissions";
 import { OnlinePaymentsTab } from "@/components/app/online-payments-tab";
+import { ServiceTimesTab } from "@/components/app/service-times-tab";
+import { MemberCategoriesTab } from "@/components/app/member-categories-tab";
+import { canManage as canManageSection } from "@/lib/permissions";
 import { checkRefundEligibility, requestRefund } from "@/app/actions/refunds";
 import {
   updateChurch, inviteTeammate,
@@ -100,6 +103,8 @@ const tabs = [
   { key: "branding", label: "Branding", icon: Palette },
   { key: "team", label: "Users & roles", icon: Users2 },
   { key: "departments", label: "Departments", icon: Layers },
+  { key: "categories", label: "Zones & fellowships", icon: Tags },
+  { key: "service-times", label: "Service times", icon: Clock },
   { key: "registration", label: "Join link", icon: Link2 },
   { key: "billing", label: "Billing", icon: CreditCard },
   { key: "online-payments", label: "Online Payments", icon: Wallet },
@@ -591,6 +596,10 @@ export function SettingsClient({
 
         {/* ── Online Payments ── */}
         {tab === "online-payments" && <OnlinePaymentsTab canManage={isAdmin && !ro} />}
+
+        {tab === "categories" && <MemberCategoriesTab canManage={!ro && canManageSection(session, "people")} />}
+
+        {tab === "service-times" && <ServiceTimesTab canManage={!ro && canManageSection(session, "attendance")} />}
 
         {tab === "backups" && <BackupsPanel />}
 

@@ -63,10 +63,11 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
       db.person.findMany({
         where: { churchId },
         orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-        include: { departments: { select: { name: true } }, branch: { select: { name: true } } },
+        include: { departments: { select: { name: true } }, branch: { select: { name: true } }, categoryOptions: { select: { categoryId: true, name: true } } },
       }),
       db.church.findUnique({ where: { id: churchId }, select: { registrationFields: true } }),
     ]);
+    const categories = await db.memberCategory.findMany({ where: { churchId }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } });
     baseName = "members";
     sheetTitle = "Members";
 
@@ -79,7 +80,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
       "Date of Birth", "Marital Status", "Occupation", "Employer", "Previous Church", "Date of Membership",
       "Place of Birth", "Nationality", "Country", "Region", "District", "Town", "Home Town",
       "National ID", "House Address", "Postal Address", "Work Phone", "Home Phone", "Special Interest",
-      "Baptized", "Departments", "Status",
+      "Baptized", "Departments", ...categories.map((c) => c.name), "Status",
       "Emergency Name", "Emergency Phone", "Emergency Relation", "Emergency Email", "Emergency Address",
       "Notes", "Joined",
       ...customLabels,
@@ -93,7 +94,9 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
         p.nationality, p.country, p.region, p.district, p.town, p.homeTown, p.nationalId,
         p.houseAddress, p.postalAddress, p.workPhone, p.homePhone, p.specialInterest,
         p.baptized === true ? "Yes" : p.baptized === false ? "No" : "",
-        p.departments.map((d) => d.name).join("; "), p.status,
+        p.departments.map((d) => d.name).join("; "),
+        ...categories.map((c) => p.categoryOptions.filter((o) => o.categoryId === c.id).map((o) => o.name).join("; ")),
+        p.status,
         p.emergencyName, p.emergencyPhone, p.emergencyRelation, p.emergencyEmail, p.emergencyAddress,
         p.notes, fmtDate(p.joinedAt),
         ...customLabels.map((l) => cf[l] ?? ""),
