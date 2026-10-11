@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import { ArrowLeft, Trash2, Users } from "lucide-react";
 import { requireModule } from "@/lib/auth";
 import { getBaseUrl } from "@/lib/url";
-import { getAttendanceSession, getCheckInCandidates, getAttendanceReportConfig } from "@/lib/data/attendance";
+import { getAttendanceSession, getCheckInCandidates, getAttendanceReportConfig, getDepartmentBreakdown } from "@/lib/data/attendance";
+import { DepartmentBreakdown } from "@/components/app/department-breakdown";
 import { getSmsBalance } from "@/lib/sms/credits";
 import { deleteSession } from "@/app/actions/attendance";
 import { MembershipDonut } from "@/components/app/charts";
@@ -22,11 +23,12 @@ export default async function AttendanceSessionPage({
 }) {
   const { id } = await params;
   const session = await requireModule("attendance");
-  const [data, candidates, reportConfig, smsBalance] = await Promise.all([
+  const [data, candidates, reportConfig, smsBalance, departments] = await Promise.all([
     getAttendanceSession(session.churchId, id),
     getCheckInCandidates(session.churchId, id),
     getAttendanceReportConfig(session.churchId),
     getSmsBalance(session.churchId),
+    getDepartmentBreakdown(session.churchId, id),
   ]);
   if (!data) notFound();
 
@@ -113,6 +115,15 @@ export default async function AttendanceSessionPage({
         attendees={data.attendees}
         checkInUrl={checkInUrl}
         canWrite={!session.isDemo}
+      />
+
+      <DepartmentBreakdown
+        rows={departments.rows}
+        namedCount={departments.namedCount}
+        noDepartment={departments.noDepartment}
+        guests={departments.guests}
+        headcountOnly={data.attendees.length === 0 && data.total > 0}
+        serviceLabel={`${data.serviceName}, ${new Date(data.date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}`}
       />
     </div>
   );

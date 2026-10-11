@@ -18,6 +18,7 @@ interface Candidate {
   photoUrl?: string | null;
   status: string;
   checkedIn?: boolean;
+  departments?: string[];
 }
 interface Attendee {
   id: string;
@@ -27,7 +28,10 @@ interface Attendee {
   category: string;
   method: string;
   time?: string; // ISO - when they checked in
+  departments?: string[];
 }
+
+const NO_DEPARTMENT = "Not in a department";
 
 // Present list is split into these groups, in this order.
 const CATEGORY_SECTIONS: { key: string; label: string }[] = [
@@ -67,6 +71,7 @@ export function CheckInPanel({
   const [q, setQ] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
   const [bioOpen, setBioOpen] = useState(false);
+  const [groupBy, setGroupBy] = useState<"category" | "department">("category");
   const [scanning, start] = useTransition();
   const { toast } = useFeedback();
 
@@ -112,7 +117,7 @@ export function CheckInPanel({
     // Show them in Present immediately.
     const tempId = `optimistic-${c.id}`;
     setExtraAttendees((prev) => [
-      { id: tempId, name: c.name, gender: c.gender, photoUrl: c.photoUrl, category: "adult", method: "manual", time: new Date().toISOString() },
+      { id: tempId, name: c.name, gender: c.gender, photoUrl: c.photoUrl, category: c.status === "visitor" ? "visitor" : "adult", method: "manual", time: new Date().toISOString(), departments: c.departments ?? [] },
       ...prev,
     ]);
 
@@ -158,6 +163,22 @@ export function CheckInPanel({
   }
 
   const visibleAttendees = [...extraAttendees, ...attendees].filter((a) => !removedIds.has(a.id));
+
+  // Present list sections: by category (fixed order) or by department (A to Z,
+  // "Not in a department" last). A member in two departments shows under both.
+  const sections: { key: string; label: string; people: Attendee[] }[] =
+    groupBy === "category"
+      ? CATEGORY_SECTIONS.map(({ key, label }) => ({ key, label, people: visibleAttendees.filter((a) => (a.category || "adult") === key) }))
+      : (() => {
+          const map = new Map<string, Attendee[]>();
+          for (const a of visibleAttendees) {
+            const names = a.departments?.length ? a.departments : [NO_DEPARTMENT];
+            for (const n of names) map.set(n, [...(map.get(n) ?? []), a]);
+          }
+          return [...map.entries()]
+            .sort(([x], [y]) => (x === NO_DEPARTMENT ? 1 : y === NO_DEPARTMENT ? -1 : x.localeCompare(y)))
+            .map(([name, people]) => ({ key: name, label: name, people }));
+        })();
 
   return (
     <div className="grid gap-4 lg:grid-cols-3">
@@ -234,8 +255,26 @@ export function CheckInPanel({
 
         {/* Present list */}
         <div className="mt-5">
-          <div className="mb-2 flex items-center justify-between">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
             <h4 className="text-sm font-semibold text-ink">Present <span className="text-ink-faint">({visibleAttendees.length})</span></h4>
+            {visibleAttendees.length > 0 && (
+              <div className="flex items-center gap-1 text-xs" role="group" aria-label="Group present list">
+                <span className="mr-1 text-ink-faint">Group by</span>
+                {([["category", "Age group"], ["department", "Department"]] as const).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    onClick={() => setGroupBy(key)}
+                    className={cn(
+                      "h-7 rounded-lg border px-2.5 font-medium transition-colors",
+                      groupBy === key ? "border-primary/40 bg-primary/10 text-primary" : "border-line text-ink-muted hover:bg-surface-2",
+                    )}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           {visibleAttendees.length === 0 ? (
             <p className="rounded-xl border border-dashed border-line p-6 text-center text-sm text-ink-faint">
@@ -243,8 +282,7 @@ export function CheckInPanel({
             </p>
           ) : (
             <div className="space-y-4">
-              {CATEGORY_SECTIONS.map(({ key, label }) => {
-                const group = visibleAttendees.filter((a) => (a.category || "adult") === key);
+              {sections.map(({ key, label, people: group }) => {
                 if (group.length === 0) return null;
                 return (
                   <div key={key}>

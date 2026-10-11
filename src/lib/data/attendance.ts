@@ -110,7 +110,15 @@ export async function getAttendanceSession(churchId: string, id: string) {
       branch: { select: { name: true } },
       records: {
         orderBy: { date: "desc" },
-        include: { person: { select: { firstName: true, lastName: true, gender: true, photoUrl: true } } },
+        include: {
+          person: {
+            select: {
+              firstName: true, lastName: true, gender: true, photoUrl: true,
+              departments: { select: { name: true } },
+              department: { select: { name: true } },
+            },
+          },
+        },
       },
     },
   });
@@ -132,6 +140,7 @@ export async function getAttendanceSession(churchId: string, id: string) {
     category: r.category,
     method: r.method,
     time: r.date.toISOString(),
+    departments: r.person ? departmentNames(r.person) : [],
   }));
 
   return {
@@ -195,7 +204,11 @@ export async function getCheckInCandidates(churchId: string, sessionId: string) 
     db.person.findMany({
       where: { churchId },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-      select: { id: true, firstName: true, lastName: true, gender: true, status: true, photoUrl: true },
+      select: {
+        id: true, firstName: true, lastName: true, gender: true, status: true, photoUrl: true,
+        departments: { select: { name: true } },
+        department: { select: { name: true } },
+      },
     }),
     db.attendanceRecord.findMany({ where: { sessionId }, select: { personId: true } }),
   ]);
@@ -210,7 +223,121 @@ export async function getCheckInCandidates(churchId: string, sessionId: string) 
     photoUrl: p.photoUrl,
     status: p.status,
     checkedIn: checkedIn.has(p.id),
+    departments: departmentNames(p),
   }));
+}
+
+/** A person's departments: the many-to-many list plus the older single link. */
+function departmentNames(p: { departments: { name: string }[]; department: { name: string } | null }): string[] {
+  const names = new Set(p.departments.map((d) => d.name));
+  if (p.department) names.add(p.department.name);
+  return [...names].sort((a, b) => a.localeCompare(b));
+}
+
+type DeptMember = { id: string; firstName: string; lastName: string; photoUrl: string | null; gender: string | null; status: string };
+
+/** Every department with its members (both membership links, de-duplicated). */
+async function departmentsWithMembers(churchId: string) {
+  const memberSelect = { id: true, firstName: true, lastName: true, photoUrl: true, gender: true, status: true } as const;
+  const departments = await db.department.findMany({
+    where: { churchId },
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, members: { select: memberSelect }, people: { select: memberSelect } },
+  });
+  return departments.map((d) => {
+    const byId = new Map<string, DeptMember>();
+    for (const m of [...d.members, ...d.people]) byId.set(m.id, m);
+    return { id: d.id, name: d.name, members: [...byId.values()] };
+  });
+}
+
+export type DepartmentBreakdownRow = {
+  id: string;
+  name: string;
+  present: { id: string; name: string; photoUrl: string | null; gender: string | null; category: string }[];
+  absent: { id: string; name: string; photoUrl: string | null; gender: string | null }[];
+  byCategory: Record<AttendanceCategory, number>;
+};
+
+/**
+ * Who came from each department for one service. Only named check-ins can be
+ * counted (a headcount has no names). A member in two departments counts in both.
+ * "Absent" leaves out members marked inactive.
+ */
+export async function getDepartmentBreakdown(churchId: string, sessionId: string) {
+  const [departments, records] = await Promise.all([
+    departmentsWithMembers(churchId),
+    db.attendanceRecord.findMany({ where: { churchId, sessionId }, select: { personId: true, category: true } }),
+  ]);
+  const categoryOf = new Map<string, string>();
+  for (const r of records) if (r.personId) categoryOf.set(r.personId, r.category);
+
+  const fullName = (m: DeptMember) => `${m.firstName} ${m.lastName}`.trim();
+  const inSomeDepartment = new Set<string>();
+  const rows: DepartmentBreakdownRow[] = departments.map((d) => {
+    const byCategory: Record<AttendanceCategory, number> = { adult: 0, teen: 0, child: 0, visitor: 0 };
+    const present: DepartmentBreakdownRow["present"] = [];
+    const absent: DepartmentBreakdownRow["absent"] = [];
+    for (const m of d.members) {
+      inSomeDepartment.add(m.id);
+      const cat = categoryOf.get(m.id);
+      if (cat) {
+        present.push({ id: m.id, name: fullName(m), photoUrl: m.photoUrl, gender: m.gender, category: cat });
+        byCategory[(cat as AttendanceCategory) in byCategory ? (cat as AttendanceCategory) : "adult"]++;
+      } else if (m.status !== "inactive") {
+        absent.push({ id: m.id, name: fullName(m), photoUrl: m.photoUrl, gender: m.gender });
+      }
+    }
+    const byName = (a: { name: string }, b: { name: string }) => a.name.localeCompare(b.name);
+    return { id: d.id, name: d.name, present: present.sort(byName), absent: absent.sort(byName), byCategory };
+  });
+
+  const named = records.filter((r) => r.personId).length;
+  return {
+    rows,
+    namedCount: named,
+    noDepartment: records.filter((r) => r.personId && !inSomeDepartment.has(r.personId)).length,
+    guests: records.filter((r) => !r.personId).length,
+  };
+}
+
+/**
+ * Department turnout across the most recent services that had named check-ins,
+ * oldest first so it reads left to right.
+ */
+export async function getDepartmentTrend(churchId: string, take = 6) {
+  const sessions = await db.attendanceSession.findMany({
+    where: { churchId, records: { some: { personId: { not: null } } } },
+    orderBy: { date: "desc" },
+    take,
+    select: { id: true, serviceName: true, date: true },
+  });
+  if (sessions.length === 0) return { sessions: [], rows: [] };
+
+  const [departments, records] = await Promise.all([
+    departmentsWithMembers(churchId),
+    db.attendanceRecord.findMany({
+      where: { churchId, sessionId: { in: sessions.map((s) => s.id) }, personId: { not: null } },
+      select: { sessionId: true, personId: true },
+    }),
+  ]);
+  const present = new Set(records.map((r) => `${r.sessionId}:${r.personId}`));
+  const ordered = [...sessions].reverse();
+
+  return {
+    sessions: ordered.map((s) => ({ id: s.id, serviceName: s.serviceName, date: s.date.toISOString() })),
+    rows: departments
+      .map((d) => {
+        const active = d.members.filter((m) => m.status !== "inactive");
+        return {
+          id: d.id,
+          name: d.name,
+          members: active.length,
+          counts: ordered.map((s) => d.members.filter((m) => present.has(`${s.id}:${m.id}`)).length),
+        };
+      })
+      .filter((r) => r.members > 0 || r.counts.some((c) => c > 0)),
+  };
 }
 
 /** Minimal public info for the self check-in page (no auth). */

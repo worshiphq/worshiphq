@@ -125,15 +125,22 @@ export const DATASETS: Dataset[] = [
         where: { churchId },
         orderBy: { date: "desc" },
         take: 20000,
-        include: { person: { select: { firstName: true, lastName: true } } },
+        include: {
+          person: {
+            select: { firstName: true, lastName: true, departments: { select: { name: true } }, department: { select: { name: true } } },
+          },
+        },
       });
       return {
-        headers: ["Date", "Service", "Attendee", "Category", "Checked in via"],
+        headers: ["Date", "Service", "Attendee", "Category", "Departments", "Checked in via"],
         rows: rows.map((a) => [
           d(a.date),
           a.serviceName,
           a.person ? `${a.person.firstName} ${a.person.lastName}` : (a.guestName ?? "Guest"),
           a.category,
+          a.person
+            ? [...new Set([...a.person.departments.map((x) => x.name), ...(a.person.department ? [a.person.department.name] : [])])].sort().join("; ")
+            : "",
           a.method,
         ]),
       };

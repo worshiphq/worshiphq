@@ -7,7 +7,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { requireModule } from "@/lib/auth";
-import { getAttendanceOverview } from "@/lib/data/attendance";
+import { getAttendanceOverview, getDepartmentTrend } from "@/lib/data/attendance";
+import { DepartmentTrend } from "@/components/app/department-trend";
 import { recordService, startCheckIn } from "@/app/actions/attendance";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { PageTips } from "@/components/app/page-tips";
@@ -16,7 +17,10 @@ export const metadata = { title: "Attendance" };
 
 export default async function AttendancePage() {
   const session = await requireModule("attendance");
-  const { kpis, trend, mostRecent, history } = await getAttendanceOverview(session.churchId);
+  const [{ kpis, trend, mostRecent, history }, departmentTrend] = await Promise.all([
+    getAttendanceOverview(session.churchId),
+    getDepartmentTrend(session.churchId),
+  ]);
   const past = history.slice(mostRecent ? 1 : 0);
 
   return (
@@ -121,6 +125,8 @@ export default async function AttendancePage() {
           </div>
         </Card>
       </div>
+
+      <DepartmentTrend trend={departmentTrend} />
 
       {history.length === 0 && (
         <div className="mt-4 rounded-2xl border border-dashed border-line p-8 text-center">
