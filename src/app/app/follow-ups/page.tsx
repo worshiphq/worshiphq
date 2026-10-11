@@ -20,8 +20,8 @@ export default async function FollowUpsPage() {
 
   const since = new Date(Date.now() - 60 * 86400000);
   const include = {
-    person: { select: { firstName: true, lastName: true } },
-    visitor: { select: { firstName: true, lastName: true } },
+    person: { select: { firstName: true, lastName: true, phone: true } },
+    visitor: { select: { firstName: true, lastName: true, phone: true } },
     assignee: { select: { name: true } },
   } as const;
 
@@ -107,6 +107,7 @@ export default async function FollowUpsPage() {
           createdAt: f.createdAt.toISOString(),
           personName: f.person ? `${f.person.firstName} ${f.person.lastName}` : null,
           visitorName: f.visitor ? `${f.visitor.firstName} ${f.visitor.lastName}` : null,
+          phone: f.visitor?.phone ?? f.person?.phone ?? null,
           assigneeId: f.assigneeId,
           assigneeName: f.assignee?.name ?? null,
         }))}

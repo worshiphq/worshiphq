@@ -8,9 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Search, CheckCircle2, Clock, Circle, UserRoundPlus, UserPlus, Heart, ListTodo,
-  Calendar, User, Trash2, Loader2,
+  Calendar, User, Trash2, Loader2, Phone, MessageCircle, Pencil,
 } from "lucide-react";
-import { updateFollowUpStatus, deleteFollowUp, assignFollowUp, setFollowUpDue } from "@/app/actions/follow-ups";
+import { updateFollowUpStatus, deleteFollowUp, assignFollowUp, setFollowUpDue, setFollowUpNote } from "@/app/actions/follow-ups";
+import { normalisePhone } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 
 type FollowUpRow = {
@@ -24,6 +25,7 @@ type FollowUpRow = {
   createdAt: string;
   personName: string | null;
   visitorName: string | null;
+  phone: string | null;
   assigneeId: string | null;
   assigneeName: string | null;
 };
@@ -57,6 +59,7 @@ export function FollowUpsClient({
   const [filter, setFilter] = useState<Filter>("active");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
   const [, start] = useTransition();
 
   const today = startOfToday();
@@ -106,6 +109,16 @@ export function FollowUpsClient({
     fd.set("id", id);
     fd.set("status", status);
     run(id, () => updateFollowUpStatus(fd));
+  };
+
+  const saveNote = () => {
+    if (!editing) return;
+    const { id, text } = editing;
+    run(id, async () => {
+      const res = await setFollowUpNote(id, text);
+      if (res.ok) setEditing(null);
+      return res;
+    });
   };
 
   const remove = (id: string) => {
@@ -180,10 +193,57 @@ export function FollowUpsClient({
                       </Badge>
                       {overdue && <Badge variant="gold" className="text-[10px]">Overdue</Badge>}
                     </div>
-                    {(who || f.note) && (
-                      <div className="mt-1 flex flex-wrap items-center gap-x-4 gap-y-0.5 text-xs text-ink-muted">
-                        {who && <span className="flex items-center gap-1"><User className="size-3" /> {who}</span>}
-                        {f.note && <span className="italic text-ink-faint">{f.note}</span>}
+                    {who && (
+                      <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
+                        <span className="flex items-center gap-1"><User className="size-3" /> {who}</span>
+                        {f.phone && (
+                          <>
+                            <span className="tabular-nums">{f.phone}</span>
+                            <a href={`tel:${f.phone.replace(/\s+/g, "")}`} className="inline-flex h-7 items-center gap-1 rounded-lg border border-line px-2 font-medium text-ink hover:bg-surface-2">
+                              <Phone className="size-3" /> Call
+                            </a>
+                            <a
+                              href={`https://wa.me/${normalisePhone(f.phone)}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="inline-flex h-7 items-center gap-1 rounded-lg border border-line px-2 font-medium text-ink hover:bg-surface-2"
+                            >
+                              <MessageCircle className="size-3" /> WhatsApp
+                            </a>
+                          </>
+                        )}
+                      </div>
+                    )}
+                    {editing?.id === f.id ? (
+                      <div className="mt-2 space-y-2">
+                        <textarea
+                          value={editing.text}
+                          onChange={(e) => setEditing({ id: f.id, text: e.target.value })}
+                          rows={3}
+                          maxLength={2000}
+                          autoFocus
+                          placeholder="What happened? e.g. Called her, she'll come on Sunday."
+                          className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary/50"
+                        />
+                        <div className="flex gap-2">
+                          <Button size="sm" onClick={saveNote} disabled={saving}>
+                            {saving ? <><Loader2 className="size-3.5 animate-spin" /> Saving note…</> : "Save note"}
+                          </Button>
+                          <Button size="sm" variant="secondary" onClick={() => setEditing(null)} disabled={saving}>Cancel</Button>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="mt-1 flex items-start gap-2 text-xs">
+                        {f.note && <span className="whitespace-pre-line italic text-ink-faint">{f.note}</span>}
+                        {canWrite && (
+                          <button
+                            type="button"
+                            onClick={() => setEditing({ id: f.id, text: f.note ?? "" })}
+                            className="inline-flex shrink-0 items-center gap-1 text-ink-faint hover:text-primary"
+                          >
+                            <Pencil className="size-3" /> {f.note ? "Edit note" : "Add note"}
+                          </button>
+                        )}
                       </div>
                     )}
                   </div>

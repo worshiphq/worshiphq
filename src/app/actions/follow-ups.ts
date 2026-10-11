@@ -105,6 +105,18 @@ export async function setFollowUpDue(id: string, date: string | null) {
   return { ok: true as const };
 }
 
+/** Record what happened ("Called, she'll come on Sunday"). */
+export async function setFollowUpNote(id: string, note: string) {
+  const session = await requireModule("follow-ups");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  const clean = note.trim().slice(0, 2000) || null;
+  const res = await db.followUp.updateMany({ where: { id, churchId: session.churchId }, data: { note: clean } });
+  if (res.count === 0) return { ok: false as const, error: "Follow-up not found." };
+  await audit(session, "update", "follow-up", "Updated a follow-up note", id);
+  revalidatePath("/app/follow-ups");
+  return { ok: true as const };
+}
+
 /** Who auto-created follow-ups go to, and whether new members get one too. */
 export async function saveFollowUpSettings(formData: FormData) {
   const session = await requireModule("follow-ups");

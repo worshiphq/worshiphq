@@ -348,6 +348,10 @@ export async function convertVisitorToMember(id: string) {
     personId = person.id;
   }
 
+  // Their follow-ups point at the visitor row, which is about to go - move them
+  // onto the member so the task still says who it's about.
+  await db.followUp.updateMany({ where: { churchId: session.churchId, visitorId: id }, data: { personId, visitorId: null } });
+
   await db.visitor.delete({ where: { id } });
 
   const { audit } = await import("@/lib/audit");
