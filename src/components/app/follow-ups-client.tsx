@@ -13,6 +13,7 @@ import {
 import { updateFollowUpStatus, deleteFollowUp, assignFollowUp, setFollowUpDue, setFollowUpNote } from "@/app/actions/follow-ups";
 import { normalisePhone } from "@/lib/phone";
 import { cn } from "@/lib/utils";
+import { FollowUpReports, OutcomePill, type ReportRow } from "@/components/app/follow-up-reports";
 
 type FollowUpRow = {
   id: string;
@@ -28,6 +29,7 @@ type FollowUpRow = {
   phone: string | null;
   assigneeId: string | null;
   assigneeName: string | null;
+  reports: ReportRow[];
 };
 
 const TYPE_META: Record<string, { icon: typeof Heart; label: string }> = {
@@ -52,8 +54,8 @@ const startOfToday = () => {
 };
 
 export function FollowUpsClient({
-  items, users, me, canWrite,
-}: { items: FollowUpRow[]; users: { id: string; name: string }[]; me: string; canWrite: boolean }) {
+  items, users, me, canWrite, canManage = false,
+}: { items: FollowUpRow[]; users: { id: string; name: string }[]; me: string; canWrite: boolean; canManage?: boolean }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("active");
@@ -192,6 +194,7 @@ export function FollowUpsClient({
                         <TypeIcon className="size-3" /> {typeMeta.label}
                       </Badge>
                       {overdue && <Badge variant="gold" className="text-[10px]">Overdue</Badge>}
+                      {f.reports[0] && <OutcomePill outcome={f.reports[0].outcome} className="text-[10px]" />}
                     </div>
                     {who && (
                       <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-ink-muted">
@@ -222,7 +225,7 @@ export function FollowUpsClient({
                           rows={3}
                           maxLength={2000}
                           autoFocus
-                          placeholder="What happened? e.g. Called her, she'll come on Sunday."
+                          placeholder="Details about this follow-up"
                           className="w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-primary/50"
                         />
                         <div className="flex gap-2">
@@ -303,6 +306,8 @@ export function FollowUpsClient({
                     />
                   </label>
                 </div>
+
+                <FollowUpReports followUpId={f.id} reports={f.reports} status={f.status} me={me} canWrite={canWrite} canManage={canManage} />
               </Card>
             );
           })}

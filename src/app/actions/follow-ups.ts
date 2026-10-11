@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { RecycleBin } from "@/lib/recycle-bin";
 import { notifyFollowUpAssignee } from "@/lib/follow-ups/notify";
+import { REPORT_METHODS, REPORT_OUTCOMES, outcomeLabel } from "@/lib/follow-ups/outcomes";
+import { canManage } from "@/lib/permissions";
 
 export async function createFollowUp(formData: FormData) {
   const session = await requireModule("follow-ups");
@@ -105,7 +107,65 @@ export async function setFollowUpDue(id: string, date: string | null) {
   return { ok: true as const };
 }
 
-/** Record what happened ("Called, she'll come on Sunday"). */
+/**
+ * Report back on a follow-up: how they reached out and what happened. Moves an
+ * open task to "in progress", or to "done" when the reporter says it is finished.
+ */
+export async function addFollowUpReport(input: { followUpId: string; method: string; outcome: string; note?: string; markDone?: boolean }) {
+  const session = await requireModule("follow-ups");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  if (!REPORT_METHODS.some((m) => m.value === input.method)) return { ok: false as const, error: "Choose how you reached out." };
+  if (!REPORT_OUTCOMES.some((o) => o.value === input.outcome)) return { ok: false as const, error: "Choose what happened." };
+
+  const followUp = await db.followUp.findFirst({ where: { id: input.followUpId, churchId: session.churchId }, select: { id: true, title: true, status: true } });
+  if (!followUp) return { ok: false as const, error: "Follow-up not found." };
+
+  // Support/demo sessions have no User row; keep the name only.
+  const author = await db.user.findFirst({ where: { id: session.userId, churchId: session.churchId }, select: { id: true } });
+  await db.followUpReport.create({
+    data: {
+      churchId: session.churchId,
+      followUpId: followUp.id,
+      authorId: author?.id ?? null,
+      authorName: session.name || "Team member",
+      method: input.method,
+      outcome: input.outcome,
+      note: input.note?.trim().slice(0, 2000) || null,
+    },
+  });
+
+  const status = input.markDone ? "done" : followUp.status === "open" ? "in_progress" : followUp.status;
+  if (status !== followUp.status) {
+    await db.followUp.update({
+      where: { id: followUp.id },
+      data: { status, completedAt: status === "done" ? new Date() : null },
+    });
+  }
+
+  await audit(session, "create", "follow-up", `Reported on "${followUp.title}": ${outcomeLabel(input.outcome)}`, followUp.id);
+  revalidatePath("/app/follow-ups");
+  revalidatePath("/app/follow-ups/report");
+  revalidatePath("/app");
+  return { ok: true as const };
+}
+
+/** Remove a report (its author, or anyone who manages follow-ups). */
+export async function deleteFollowUpReport(id: string) {
+  const session = await requireModule("follow-ups");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  const report = await db.followUpReport.findFirst({ where: { id, churchId: session.churchId }, select: { authorId: true } });
+  if (!report) return { ok: false as const, error: "Report not found." };
+  if (report.authorId !== session.userId && !canManage(session, "follow-ups")) {
+    return { ok: false as const, error: "Only the person who wrote it, or a leader, can remove this report." };
+  }
+  await db.followUpReport.delete({ where: { id } });
+  await audit(session, "delete", "follow-up", "Removed a follow-up report", id);
+  revalidatePath("/app/follow-ups");
+  revalidatePath("/app/follow-ups/report");
+  return { ok: true as const };
+}
+
+/** Edit the task's details. */
 export async function setFollowUpNote(id: string, note: string) {
   const session = await requireModule("follow-ups");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };

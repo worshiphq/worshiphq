@@ -166,12 +166,13 @@ export const RecycleBin = {
   async captureFollowUp(session: { churchId: string; userId: string; name?: string }, id: string) {
     const followUp = await db.followUp.findFirst({ where: { id, churchId: session.churchId } });
     if (!followUp) return;
+    const reports = await db.followUpReport.findMany({ where: { followUpId: id } });
     await createDeletedItem(session, {
       entityType: "followUp",
       entityId: id,
       label: followUp.title,
       detail: followUp.type,
-      snapshot: { record: followUp },
+      snapshot: { record: followUp, reports },
     });
   },
 
@@ -259,9 +260,10 @@ const RESTORERS: Record<EntityType, (churchId: string, snapshot: any) => Promise
   },
 
   async followUp(churchId, snap) {
-    const { record } = snap;
+    const { record, reports } = snap;
     if (record.churchId !== churchId) return { ok: false, error: "Church mismatch." };
     await db.followUp.create({ data: record });
+    if (reports?.length) await db.followUpReport.createMany({ data: reports }).catch(() => {});
     return { ok: true };
   },
 

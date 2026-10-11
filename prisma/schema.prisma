@@ -177,6 +177,7 @@ model Church {
   subscription  Subscription?
   visitors      Visitor[]
   followUps     FollowUp[]
+  followUpReports FollowUpReport[]
   prayerRequests PrayerRequest[]
   notices        ChurchNotice[]
   welfareRecords WelfareRecord[]
@@ -349,6 +350,7 @@ model User {
   person       Person?  @relation(fields: [personId], references: [id])
   createdAt    DateTime @default(now())
   assignedFollowUps FollowUp[]
+  followUpReports   FollowUpReport[]
   auditLogs         AuditLog[]
   counselingSessions CounselingSession[]
 
@@ -1192,8 +1194,29 @@ model FollowUp {
   dueDate     DateTime?
   completedAt DateTime?
   createdAt   DateTime @default(now())
+  reports     FollowUpReport[]
 
   @@index([churchId, status])
+}
+
+// What happened each time someone reached out on a follow-up (a call, a visit…).
+// A task can have several: "no answer" on Monday, "spoke to her" on Wednesday.
+model FollowUpReport {
+  id         String   @id @default(cuid())
+  churchId   String
+  church     Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  followUpId String
+  followUp   FollowUp @relation(fields: [followUpId], references: [id], onDelete: Cascade)
+  authorId   String?
+  author     User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
+  authorName String   // kept so the report still reads right if the user is removed
+  method     String   // see src/lib/follow-ups/outcomes.ts
+  outcome    String
+  note       String?
+  createdAt  DateTime @default(now())
+
+  @@index([churchId, createdAt])
+  @@index([followUpId])
 }
 
 // ── Visitors ──────────────────────────────────────────────

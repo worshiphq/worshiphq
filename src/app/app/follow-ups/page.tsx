@@ -4,7 +4,9 @@ import { FollowUpsClient } from "@/components/app/follow-ups-client";
 import { createFollowUp, saveFollowUpSettings } from "@/app/actions/follow-ups";
 import { PageHeader } from "@/components/app/page-header";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
-import { Plus, Settings2 } from "lucide-react";
+import { Plus, Settings2, BarChart3 } from "lucide-react";
+import { PendingLink } from "@/components/ui/pending-link";
+import { canManage } from "@/lib/permissions";
 
 export const metadata = { title: "Follow-ups" };
 
@@ -23,6 +25,10 @@ export default async function FollowUpsPage() {
     person: { select: { firstName: true, lastName: true, phone: true } },
     visitor: { select: { firstName: true, lastName: true, phone: true } },
     assignee: { select: { name: true } },
+    reports: {
+      orderBy: { createdAt: "desc" },
+      select: { id: true, method: true, outcome: true, note: true, authorId: true, authorName: true, createdAt: true },
+    },
   } as const;
 
   // Everything still open (never capped by a pile of old finished tasks), plus
@@ -45,6 +51,11 @@ export default async function FollowUpsPage() {
   return (
     <div>
       <PageHeader title="Follow-ups" description="Make sure every visitor and member is personally cared for, and nobody is forgotten.">
+        {canManage(session, "follow-ups") && (
+          <PendingLink href="/app/follow-ups/report" icon={<BarChart3 />} pendingLabel="Opening report…">
+            Team report
+          </PendingLink>
+        )}
         <ActionDialog
           triggerLabel="Settings"
           triggerIcon={<Settings2 />}
@@ -95,6 +106,7 @@ export default async function FollowUpsPage() {
       <FollowUpsClient
         me={session.userId}
         canWrite={!session.isDemo}
+        canManage={canManage(session, "follow-ups")}
         users={users}
         items={items.map((f) => ({
           id: f.id,
@@ -110,6 +122,7 @@ export default async function FollowUpsPage() {
           phone: f.visitor?.phone ?? f.person?.phone ?? null,
           assigneeId: f.assigneeId,
           assigneeName: f.assignee?.name ?? null,
+          reports: f.reports.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
         }))}
       />
     </div>

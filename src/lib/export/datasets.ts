@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { methodLabel, outcomeLabel } from "@/lib/follow-ups/outcomes";
 
 /**
  * One exportable table. Every tab in the app maps to a dataset here, so the
@@ -366,18 +367,54 @@ export const DATASETS: Dataset[] = [
         where: { churchId },
         orderBy: { createdAt: "desc" },
         include: {
-          person: { select: { firstName: true, lastName: true } },
-          visitor: { select: { firstName: true, lastName: true } },
+          person: { select: { firstName: true, lastName: true, phone: true } },
+          visitor: { select: { firstName: true, lastName: true, phone: true } },
           assignee: { select: { name: true } },
+          reports: { orderBy: { createdAt: "desc" }, select: { outcome: true, note: true, createdAt: true } },
         },
       });
       return {
-        headers: ["Date", "Type", "Title", "For", "Assigned to", "Status", "Due date"],
-        rows: rows.map((f) => [
-          d(f.createdAt), f.type, f.title,
-          f.person ? `${f.person.firstName} ${f.person.lastName}` : f.visitor ? `${f.visitor.firstName} ${f.visitor.lastName}` : "",
-          f.assignee?.name ?? "", f.status, d(f.dueDate),
-        ]),
+        headers: ["Date", "Type", "Title", "For", "Phone", "Assigned to", "Status", "Due date", "Completed", "Reports", "Latest outcome", "Latest report", "Latest report date"],
+        rows: rows.map((f) => {
+          const who = f.person ?? f.visitor;
+          const last = f.reports[0];
+          return [
+            d(f.createdAt), f.type, f.title,
+            who ? `${who.firstName} ${who.lastName}` : "", who?.phone ?? "",
+            f.assignee?.name ?? "", f.status, d(f.dueDate), d(f.completedAt),
+            f.reports.length, last ? outcomeLabel(last.outcome) : "", last?.note ?? "", d(last?.createdAt),
+          ];
+        }),
+      };
+    },
+  },
+  {
+    key: "follow-up-reports",
+    label: "Follow-up reports",
+    section: "follow-ups",
+    async fetch(churchId) {
+      const rows = await db.followUpReport.findMany({
+        where: { churchId },
+        orderBy: { createdAt: "desc" },
+        include: {
+          followUp: {
+            select: {
+              title: true,
+              person: { select: { firstName: true, lastName: true } },
+              visitor: { select: { firstName: true, lastName: true } },
+            },
+          },
+        },
+      });
+      return {
+        headers: ["Date", "Reported by", "Follow-up", "For", "How", "Outcome", "Details"],
+        rows: rows.map((r) => {
+          const who = r.followUp.person ?? r.followUp.visitor;
+          return [
+            d(r.createdAt), r.authorName, r.followUp.title, who ? `${who.firstName} ${who.lastName}` : "",
+            methodLabel(r.method), outcomeLabel(r.outcome), r.note ?? "",
+          ];
+        }),
       };
     },
   },
