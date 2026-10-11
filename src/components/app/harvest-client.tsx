@@ -324,7 +324,6 @@ function TotalRecorder({ year, accounts, harvestDate }: { year: number; accounts
   const [amount, setAmount] = useState("");
   const [envelopes, setEnvelopes] = useState("");
   const [label, setLabel] = useState("Anonymous envelopes");
-  const [method, setMethod] = useState<string>("Cash");
   const [date, setDate] = useState(harvestDate && harvestDate.slice(0, 10) <= today ? harvestDate.slice(0, 10) : today);
   const [note, setNote] = useState("");
   const [accountId, setAccountId] = useState(defaultAccountId);
@@ -339,7 +338,7 @@ function TotalRecorder({ year, accounts, harvestDate }: { year: number; accounts
     if (value <= 0) return setError("Enter the total amount counted.");
     setSaving(true);
     try {
-      const res = await recordHarvestTotal(year, { amount: value, envelopeCount: envelopes ? count : null, label, method, date, note }, accountId || null);
+      const res = await recordHarvestTotal(year, { amount: value, envelopeCount: envelopes ? count : null, label, method: "Cash", date, note }, accountId || null);
       if (!res.ok) return setError(res.error ?? "Could not save the total.");
       toast(`${formatCurrency(value, { decimals: true })} added to the harvest`, "success");
       setAmount("");
@@ -385,22 +384,6 @@ function TotalRecorder({ year, accounts, harvestDate }: { year: number; accounts
       </div>
 
       <div className="mt-4">
-        <label className="mb-1.5 block text-sm font-medium text-ink-muted">How it was given</label>
-        <div className="flex flex-wrap gap-2">
-          {methods.map((m) => {
-            const Icon = methodIcon[m];
-            return (
-              <button key={m} type="button" onClick={() => setMethod(m)}
-                className={cn("flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
-                  method === m ? "border-primary/50 bg-primary/10 text-ink" : "border-line text-ink-muted hover:bg-surface-2")}>
-                <Icon className="size-3.5" /> {m}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      <div className="mt-4">
         <Label htmlFor="tNote">Note <span className="font-normal text-ink-faint">(optional)</span></Label>
         <Input id="tNote" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="e.g. Counted by Bro. Kofi and Sis. Ama after 2nd service" />
       </div>
@@ -417,7 +400,6 @@ function TotalRecorder({ year, accounts, harvestDate }: { year: number; accounts
         <div>
           <div className="text-sm text-ink-muted">{label.trim() || "Anonymous envelopes"}{count > 0 ? ` · ${count} envelope${count === 1 ? "" : "s"}` : ""}</div>
           <div className="font-display text-2xl font-bold">{formatCurrency(value, { decimals: true })}</div>
-          {count > 0 && value > 0 && <div className="text-xs text-ink-faint">About {formatCurrency(value / count, { decimals: true })} per envelope</div>}
         </div>
         <Button onClick={save} disabled={saving || value <= 0} size="lg">
           {saving ? <><Loader2 className="size-4 animate-spin" /> Saving total…</> : <><Plus className="size-4" /> Add to harvest</>}

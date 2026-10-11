@@ -120,7 +120,7 @@ export async function recordHarvestContributions(year: number, entries: HarvestE
  */
 export async function recordHarvestTotal(
   year: number,
-  input: { amount: number; envelopeCount?: number | null; label?: string; method: string; date?: string; note?: string },
+  input: { amount: number; envelopeCount?: number | null; label?: string; method?: string; date?: string; note?: string },
   accountId?: string | null,
 ) {
   const session = await requireSession();
@@ -143,7 +143,7 @@ export async function recordHarvestTotal(
       donorName: label,
       donorType: "anonymous",
       amount,
-      method: METHOD_FROM_LABEL[input.method] ?? "Cash",
+      method: METHOD_FROM_LABEL[input.method ?? "Cash"] ?? "Cash",
       date,
       envelopeCount: envelopes,
       note: (input.note ?? "").trim().slice(0, 500) || null,
