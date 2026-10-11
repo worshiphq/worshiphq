@@ -866,11 +866,15 @@ model HarvestContribution {
   person      Person?     @relation(fields: [personId], references: [id])
   donorName   String
   donorPhone  String?
-  donorType   String      @default("member") // "member" or "visitor"
+  donorType   String      @default("member") // "member" | "visitor" | "anonymous" (a counted lump sum)
   amount      Decimal     @db.Decimal(12, 2)
   method      GiftMethod  @default(Cash)
   date        DateTime    @default(now())
   receiptSent Boolean     @default(false)
+  // Lump-sum entries only: how many envelopes were in the count, and a note
+  // (e.g. "Counted by the finance team after 2nd service").
+  envelopeCount Int?
+  note          String?
 
   @@index([harvestId])
   @@index([churchId])

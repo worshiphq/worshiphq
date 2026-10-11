@@ -16,6 +16,8 @@ export interface HarvestContributionRow {
   date: string;
   receiptSent: boolean;
   photoUrl: string | null;
+  envelopeCount: number | null;
+  note: string | null;
 }
 
 export interface HarvestData {
@@ -32,6 +34,9 @@ export interface HarvestData {
   contributorCount: number;
   memberCount: number;
   visitorCount: number;
+  /** Counted lump sums (anonymous envelopes): total amount and envelopes. */
+  anonymousTotal: number;
+  envelopeCount: number;
   members: { id: string; firstName: string; lastName: string; phone: string | null; photoUrl: string | null }[];
 }
 
@@ -54,7 +59,7 @@ export async function getHarvestData(churchId: string, year: number): Promise<Ha
   ]);
 
   if (!harvest) {
-    return { harvest: null, contributions: [], totalRaised: 0, contributorCount: 0, memberCount: 0, visitorCount: 0, members };
+    return { harvest: null, contributions: [], totalRaised: 0, contributorCount: 0, memberCount: 0, visitorCount: 0, anonymousTotal: 0, envelopeCount: 0, members };
   }
 
   const contributions: HarvestContributionRow[] = harvest.contributions.map((c) => ({
@@ -68,11 +73,14 @@ export async function getHarvestData(churchId: string, year: number): Promise<Ha
     date: c.date.toISOString(),
     receiptSent: c.receiptSent,
     photoUrl: c.person?.photoUrl ?? null,
+    envelopeCount: c.envelopeCount,
+    note: c.note,
   }));
 
   const totalRaised = contributions.reduce((s, c) => s + c.amount, 0);
   const memberContribs = contributions.filter((c) => c.donorType === "member");
   const visitorContribs = contributions.filter((c) => c.donorType === "visitor");
+  const anonymous = contributions.filter((c) => c.donorType === "anonymous");
 
   return {
     harvest: {
@@ -85,9 +93,12 @@ export async function getHarvestData(churchId: string, year: number): Promise<Ha
     },
     contributions,
     totalRaised,
-    contributorCount: contributions.length,
+    // Named contributions, plus each counted envelope as one contributor.
+    contributorCount: memberContribs.length + visitorContribs.length + anonymous.reduce((s, c) => s + (c.envelopeCount ?? 0), 0),
     memberCount: memberContribs.length,
     visitorCount: visitorContribs.length,
+    anonymousTotal: anonymous.reduce((s, c) => s + c.amount, 0),
+    envelopeCount: anonymous.reduce((s, c) => s + (c.envelopeCount ?? 0), 0),
     members,
   };
 }

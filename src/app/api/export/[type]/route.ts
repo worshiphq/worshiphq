@@ -196,7 +196,10 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
       const total = harvest.contributions.reduce((s, c) => s + Number(c.amount), 0);
       rows = [
         ...harvest.contributions.map((c) => [
-          fmtDate(c.date), c.donorName, c.donorType, c.donorPhone ?? "",
+          fmtDate(c.date),
+          c.envelopeCount ? `${c.donorName} (${c.envelopeCount} envelopes)` : c.donorName,
+          c.donorType === "anonymous" ? "counted total" : c.donorType,
+          c.donorPhone ?? "",
           Number(c.amount).toFixed(2), c.method,
         ]),
         [],

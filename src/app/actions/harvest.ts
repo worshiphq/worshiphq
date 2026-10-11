@@ -114,6 +114,60 @@ export async function recordHarvestContributions(year: number, entries: HarvestE
   return { ok: true, recorded, smsSent, insufficientCredits };
 }
 
+/**
+ * A counted lump sum with no names, e.g. anonymous envelopes opened and totalled
+ * by the finance team. No receipt SMS (there is nobody to send it to).
+ */
+export async function recordHarvestTotal(
+  year: number,
+  input: { amount: number; envelopeCount?: number | null; label?: string; method: string; date?: string; note?: string },
+  accountId?: string | null,
+) {
+  const session = await requireSession();
+  assertCanWrite(session);
+
+  const amount = Math.round(Number(input.amount) * 100) / 100;
+  if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: "Enter the total amount counted." };
+  const envelopes = input.envelopeCount == null || String(input.envelopeCount) === "" ? null : Math.floor(Number(input.envelopeCount));
+  if (envelopes !== null && (!Number.isFinite(envelopes) || envelopes < 1)) return { ok: false, error: "Number of envelopes must be 1 or more, or left empty." };
+  const date = input.date && /^\d{4}-\d{2}-\d{2}$/.test(input.date) ? new Date(`${input.date}T12:00:00`) : new Date();
+
+  const harvest = await db.harvest.findUnique({ where: { churchId_year: { churchId: session.churchId, year } } });
+  if (!harvest) return { ok: false, error: "No harvest set for this year. Set a harvest date first." };
+
+  const label = (input.label ?? "").trim().slice(0, 120) || "Anonymous envelopes";
+  await db.harvestContribution.create({
+    data: {
+      harvestId: harvest.id,
+      churchId: session.churchId,
+      donorName: label,
+      donorType: "anonymous",
+      amount,
+      method: METHOD_FROM_LABEL[input.method] ?? "Cash",
+      date,
+      envelopeCount: envelopes,
+      note: (input.note ?? "").trim().slice(0, 500) || null,
+    },
+  });
+  await db.harvest.update({ where: { id: harvest.id }, data: { raised: { increment: amount } } });
+
+  const { postLedgerToAccount } = await import("@/lib/data/accounts");
+  await postLedgerToAccount(session.churchId, {
+    description: `Harvest ${year} - ${label}${envelopes ? ` (${envelopes} envelopes)` : ""}`,
+    category: "Harvest",
+    amount,
+    fund: "Harvest",
+    accountId: accountId ?? null,
+  });
+
+  const { audit } = await import("@/lib/audit");
+  await audit(session, "create", "harvest", `Recorded harvest total ${amount.toFixed(2)}: ${label}${envelopes ? ` (${envelopes} envelopes)` : ""}`);
+
+  revalidatePath("/app/harvest");
+  revalidatePath("/app/accounting");
+  return { ok: true };
+}
+
 export async function createVisitorForHarvest(formData: FormData) {
   const session = await requireSession();
   assertCanWrite(session);
@@ -197,14 +251,23 @@ export async function editHarvestContribution(id: string, formData: FormData) {
   if (!contribution) return { ok: false, error: "Not found." };
 
   const amount = Number(formData.get("amount"));
-  const donorName = String(formData.get("donorName") ?? contribution.donorName).trim();
+  const donorName = String(formData.get("donorName") ?? contribution.donorName).trim() || contribution.donorName;
   if (!amount || amount <= 0) return { ok: false, error: "Invalid amount." };
+
+  // Lump-sum entries can also correct their envelope count.
+  let envelopeCount = contribution.envelopeCount;
+  if (contribution.donorType === "anonymous" && formData.has("envelopeCount")) {
+    const raw = String(formData.get("envelopeCount") ?? "").trim();
+    const n = raw ? Math.floor(Number(raw)) : null;
+    if (n !== null && (!Number.isFinite(n) || n < 1)) return { ok: false, error: "Number of envelopes must be 1 or more, or left empty." };
+    envelopeCount = n;
+  }
 
   const diff = amount - Number(contribution.amount);
 
   await db.harvestContribution.update({
     where: { id },
-    data: { amount, donorName },
+    data: { amount, donorName, envelopeCount },
   });
 
   // Update harvest raised total by the difference

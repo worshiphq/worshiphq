@@ -247,9 +247,10 @@ export const DATASETS: Dataset[] = [
         include: { harvest: { select: { year: true } } },
       });
       return {
-        headers: ["Year", "Date", "Donor", "Type", "Phone", "Amount", "Method"],
+        headers: ["Year", "Date", "Donor", "Type", "Phone", "Amount", "Method", "Envelopes", "Note"],
         rows: rows.map((h) => [
-          h.harvest?.year ?? "", d(h.date), h.donorName, h.donorType, h.donorPhone ?? "", n(h.amount), String(h.method).replace(/_/g, " "),
+          h.harvest?.year ?? "", d(h.date), h.donorName, h.donorType === "anonymous" ? "counted total" : h.donorType, h.donorPhone ?? "",
+          n(h.amount), String(h.method).replace(/_/g, " "), h.envelopeCount ?? "", h.note ?? "",
         ]),
       };
     },

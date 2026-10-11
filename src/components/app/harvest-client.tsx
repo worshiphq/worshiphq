@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Search, Plus, Trash2, Pencil, Send, Download, Calendar, Settings2,
   Smartphone, CreditCard, Banknote, Users, UserPlus,
-  CheckCircle2, Target, Wheat, Crown, X, Check, AlertTriangle, MessageSquare,
+  CheckCircle2, Target, Wheat, Crown, X, Check, AlertTriangle, MessageSquare, Mail, Loader2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,7 +15,7 @@ import { Input, Label } from "@/components/ui/input";
 import { StatCard } from "@/components/app/stat-card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { useFeedback } from "@/components/ui/feedback";
-import { setHarvestDate, recordHarvestContributions, createVisitorForHarvest, deleteHarvestContribution, editHarvestContribution, deleteHarvest, saveHarvestTemplate, type HarvestEntry } from "@/app/actions/harvest";
+import { setHarvestDate, recordHarvestContributions, recordHarvestTotal, createVisitorForHarvest, deleteHarvestContribution, editHarvestContribution, deleteHarvest, saveHarvestTemplate, type HarvestEntry } from "@/app/actions/harvest";
 import { AccountSelect, type AccountOption } from "@/components/app/account-select";
 import { formatCurrency } from "@/config/brand";
 import { wideYears } from "@/lib/years";
@@ -44,6 +44,8 @@ export function HarvestClient({
   contributorCount,
   memberCount,
   visitorCount,
+  anonymousTotal,
+  envelopeCount,
   members,
   year,
   accounts = [],
@@ -75,11 +77,14 @@ export function HarvestClient({
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className={cn("grid gap-4 sm:grid-cols-2", anonymousTotal > 0 ? "lg:grid-cols-5" : "lg:grid-cols-4")}>
         <StatCard label="Total raised" value={totalRaised} prefix="₵" icon={Wheat} />
         <StatCard label="Contributors" value={contributorCount} icon={Users} />
         <StatCard label="Members" value={memberCount} icon={Crown} />
         <StatCard label="Visitors" value={visitorCount} icon={UserPlus} />
+        {anonymousTotal > 0 && (
+          <StatCard label={envelopeCount > 0 ? `Envelopes (${envelopeCount})` : "Counted totals"} value={anonymousTotal} prefix="₵" icon={Mail} />
+        )}
       </div>
 
       {/* Goal progress */}
@@ -125,11 +130,11 @@ export function HarvestClient({
         <>
           <HarvestEditBar harvest={harvest} year={year} />
           <HarvestTemplateEditor template={harvestTemplate} />
-          <ContributionRecorder members={members} year={year} accounts={accounts} />
+          <RecordModeSwitch members={members} year={year} accounts={accounts} harvestDate={harvest.date} />
         </>
       )}
       {tab === "contributions" && <ContributionsList contributions={contributions} canWrite={canWrite} />}
-      {tab === "report" && <HarvestReport contributions={contributions} totalRaised={totalRaised} contributorCount={contributorCount} memberCount={memberCount} visitorCount={visitorCount} harvest={harvest} year={year} />}
+      {tab === "report" && <HarvestReport contributions={contributions} totalRaised={totalRaised} contributorCount={contributorCount} memberCount={memberCount} visitorCount={visitorCount} anonymousTotal={anonymousTotal} envelopeCount={envelopeCount} harvest={harvest} year={year} />}
     </div>
   );
 }
@@ -276,6 +281,151 @@ function HarvestTemplateEditor({ template }: { template: string | null }) {
 }
 
 /* ────── Contribution Recorder ────── */
+
+/* ────── Record: named contributions or a counted total ────── */
+
+function RecordModeSwitch({ members, year, accounts, harvestDate }: { members: HarvestData["members"]; year: number; accounts: AccountOption[]; harvestDate: string | null }) {
+  const [mode, setMode] = useState<"named" | "total">("named");
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-1.5" role="group" aria-label="How to record">
+        {([
+          ["named", "Named contributions", Users],
+          ["total", "Counted total (envelopes)", Mail],
+        ] as const).map(([key, label, Icon]) => (
+          <button
+            key={key}
+            type="button"
+            onClick={() => setMode(key)}
+            className={cn(
+              "flex items-center gap-1.5 rounded-lg border px-3 py-2 text-sm font-medium transition-colors",
+              mode === key ? "border-primary/50 bg-primary/10 text-ink" : "border-line text-ink-muted hover:bg-surface-2",
+            )}
+          >
+            <Icon className="size-4" /> {label}
+          </button>
+        ))}
+      </div>
+      {mode === "named" ? (
+        <ContributionRecorder members={members} year={year} accounts={accounts} />
+      ) : (
+        <TotalRecorder year={year} accounts={accounts} harvestDate={harvestDate} />
+      )}
+    </div>
+  );
+}
+
+/** One counted lump sum with no names, e.g. anonymous envelopes totalled after service. */
+function TotalRecorder({ year, accounts, harvestDate }: { year: number; accounts: AccountOption[]; harvestDate: string | null }) {
+  const router = useRouter();
+  const { toast } = useFeedback();
+  const today = new Date().toISOString().slice(0, 10);
+  const defaultAccountId = accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "";
+  const [amount, setAmount] = useState("");
+  const [envelopes, setEnvelopes] = useState("");
+  const [label, setLabel] = useState("Anonymous envelopes");
+  const [method, setMethod] = useState<string>("Cash");
+  const [date, setDate] = useState(harvestDate && harvestDate.slice(0, 10) <= today ? harvestDate.slice(0, 10) : today);
+  const [note, setNote] = useState("");
+  const [accountId, setAccountId] = useState(defaultAccountId);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState("");
+
+  const value = Number(amount) || 0;
+  const count = Number(envelopes) || 0;
+
+  async function save() {
+    setError("");
+    if (value <= 0) return setError("Enter the total amount counted.");
+    setSaving(true);
+    try {
+      const res = await recordHarvestTotal(year, { amount: value, envelopeCount: envelopes ? count : null, label, method, date, note }, accountId || null);
+      if (!res.ok) return setError(res.error ?? "Could not save the total.");
+      toast(`${formatCurrency(value, { decimals: true })} added to the harvest`, "success");
+      setAmount("");
+      setEnvelopes("");
+      setNote("");
+      router.refresh();
+    } catch {
+      setError("Could not save the total. Try again.");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <Card className="p-6">
+      <div className="mb-5">
+        <h3 className="font-display text-lg font-semibold">Record a counted total</h3>
+        <p className="text-sm text-ink-muted">
+          For envelopes or cash given without names. Count it, then enter the total once. No receipts are sent.
+        </p>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2">
+        <div>
+          <Label htmlFor="tAmount">Total counted</Label>
+          <div className="relative">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-faint">₵</span>
+            <Input id="tAmount" type="number" min="0.01" step="0.01" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="0.00" className="pl-8 text-lg font-semibold" />
+          </div>
+        </div>
+        <div>
+          <Label htmlFor="tEnvelopes">Number of envelopes <span className="font-normal text-ink-faint">(optional)</span></Label>
+          <Input id="tEnvelopes" type="number" min="1" step="1" inputMode="numeric" value={envelopes} onChange={(e) => setEnvelopes(e.target.value)} placeholder="e.g. 48" />
+        </div>
+        <div>
+          <Label htmlFor="tLabel">Label</Label>
+          <Input id="tLabel" value={label} onChange={(e) => setLabel(e.target.value)} maxLength={120} placeholder="Anonymous envelopes" />
+        </div>
+        <div>
+          <Label htmlFor="tDate">Date</Label>
+          <Input id="tDate" type="date" value={date} max={today} onChange={(e) => setDate(e.target.value)} />
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <label className="mb-1.5 block text-sm font-medium text-ink-muted">How it was given</label>
+        <div className="flex flex-wrap gap-2">
+          {methods.map((m) => {
+            const Icon = methodIcon[m];
+            return (
+              <button key={m} type="button" onClick={() => setMethod(m)}
+                className={cn("flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
+                  method === m ? "border-primary/50 bg-primary/10 text-ink" : "border-line text-ink-muted hover:bg-surface-2")}>
+                <Icon className="size-3.5" /> {m}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="mt-4">
+        <Label htmlFor="tNote">Note <span className="font-normal text-ink-faint">(optional)</span></Label>
+        <Input id="tNote" value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} placeholder="e.g. Counted by Bro. Kofi and Sis. Ama after 2nd service" />
+      </div>
+
+      {accounts.length > 1 && (
+        <div className="mt-4 max-w-xs">
+          <AccountSelect accounts={accounts} value={accountId} onChange={setAccountId} label="Deposit into" />
+        </div>
+      )}
+
+      {error && <p className="mt-4 text-sm text-danger">{error}</p>}
+
+      <div className="mt-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-5 py-4">
+        <div>
+          <div className="text-sm text-ink-muted">{label.trim() || "Anonymous envelopes"}{count > 0 ? ` · ${count} envelope${count === 1 ? "" : "s"}` : ""}</div>
+          <div className="font-display text-2xl font-bold">{formatCurrency(value, { decimals: true })}</div>
+          {count > 0 && value > 0 && <div className="text-xs text-ink-faint">About {formatCurrency(value / count, { decimals: true })} per envelope</div>}
+        </div>
+        <Button onClick={save} disabled={saving || value <= 0} size="lg">
+          {saving ? <><Loader2 className="size-4 animate-spin" /> Saving total…</> : <><Plus className="size-4" /> Add to harvest</>}
+        </Button>
+      </div>
+    </Card>
+  );
+}
 
 function ContributionRecorder({ members, year, accounts }: { members: HarvestData["members"]; year: number; accounts: AccountOption[] }) {
   const router = useRouter();
@@ -511,6 +661,7 @@ function ContributionsList({ contributions, canWrite }: { contributions: Harvest
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [editAmount, setEditAmount] = useState("");
   const [editName, setEditName] = useState("");
+  const [editEnvelopes, setEditEnvelopes] = useState("");
   const [pending, startTransition] = useTransition();
   const { toast } = useFeedback();
 
@@ -518,16 +669,19 @@ function ContributionsList({ contributions, canWrite }: { contributions: Harvest
     setEditingId(c.id);
     setEditAmount(String(c.amount));
     setEditName(c.donorName);
+    setEditEnvelopes(c.envelopeCount ? String(c.envelopeCount) : "");
     setDeletingId(null);
   };
 
   const cancelEdit = () => { setEditingId(null); setEditAmount(""); setEditName(""); };
 
-  const saveEdit = (id: string) => {
+  const saveEdit = (c: HarvestContributionRow) => {
+    const id = c.id;
     startTransition(async () => {
       const fd = new FormData();
       fd.set("amount", editAmount);
       fd.set("donorName", editName);
+      if (c.donorType === "anonymous") fd.set("envelopeCount", editEnvelopes);
       const res = await editHarvestContribution(id, fd);
       if (!res.ok) toast(res.error ?? "Failed to update", "error");
       else { toast("Contribution updated", "success"); cancelEdit(); router.refresh(); }
@@ -569,7 +723,7 @@ function ContributionsList({ contributions, canWrite }: { contributions: Harvest
           if (isEditing) {
             return (
               <div key={c.id} className="flex items-center gap-3 bg-primary/5 px-5 py-3">
-                <Avatar name={c.donorName} src={c.photoUrl ?? undefined} size="sm" />
+                <ContributionAvatar c={c} />
                 <div className="min-w-0 flex-1">
                   <input
                     value={editName}
@@ -577,6 +731,17 @@ function ContributionsList({ contributions, canWrite }: { contributions: Harvest
                     className="w-full rounded-lg border border-line bg-surface px-3 py-1.5 text-sm font-medium outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/25"
                     placeholder="Donor name"
                   />
+                  {c.donorType === "anonymous" && (
+                    <input
+                      type="number"
+                      min="1"
+                      step="1"
+                      value={editEnvelopes}
+                      onChange={(e) => setEditEnvelopes(e.target.value)}
+                      placeholder="Envelopes (optional)"
+                      className="mt-1.5 w-40 rounded-lg border border-line bg-surface px-3 py-1.5 text-xs outline-none focus:border-primary/50"
+                    />
+                  )}
                 </div>
                 <div className="flex items-center gap-2">
                   <div className="relative">
@@ -590,7 +755,7 @@ function ContributionsList({ contributions, canWrite }: { contributions: Harvest
                       className="w-28 rounded-lg border border-line bg-surface py-1.5 pl-10 pr-3 text-right text-sm font-medium outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/25"
                     />
                   </div>
-                  <button onClick={() => saveEdit(c.id)} disabled={pending}
+                  <button onClick={() => saveEdit(c)} disabled={pending}
                     className="grid size-8 place-items-center rounded-lg text-success hover:bg-success/10">
                     {pending ? <div className="size-4 animate-spin rounded-full border-2 border-success border-t-transparent" /> : <Check className="size-4" />}
                   </button>
@@ -605,17 +770,17 @@ function ContributionsList({ contributions, canWrite }: { contributions: Harvest
 
           return (
             <div key={c.id} className="flex items-center gap-3 px-5 py-3">
-              <Avatar name={c.donorName} src={c.photoUrl ?? undefined} size="sm" />
+              <ContributionAvatar c={c} />
               <div className="min-w-0 flex-1">
                 <div className="flex items-center gap-2">
                   <span className="text-sm font-medium">{c.donorName}</span>
-                  <Badge variant={c.donorType === "member" ? "success" : "warning"} className="text-[10px]">
-                    {c.donorType === "member" ? "Member" : "Visitor"}
-                  </Badge>
+                  <DonorBadge type={c.donorType} />
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-ink-faint">
+                <div className="flex flex-wrap items-center gap-1.5 text-xs text-ink-faint">
                   <Icon className="size-3" /> {c.method} · {formatDate(c.date)}
+                  {c.envelopeCount ? <> · {c.envelopeCount} envelope{c.envelopeCount === 1 ? "" : "s"}</> : null}
                 </div>
+                {c.note && <div className="mt-0.5 text-xs italic text-ink-faint">{c.note}</div>}
               </div>
               <div className="flex items-center gap-2">
                 <div className="text-right">
@@ -656,26 +821,52 @@ function ContributionsList({ contributions, canWrite }: { contributions: Harvest
   );
 }
 
+function DonorBadge({ type }: { type: string }) {
+  if (type === "anonymous") return <Badge variant="default" className="text-[10px]">Counted total</Badge>;
+  return (
+    <Badge variant={type === "member" ? "success" : "warning"} className="text-[10px]">
+      {type === "member" ? "Member" : "Visitor"}
+    </Badge>
+  );
+}
+
+function ContributionAvatar({ c }: { c: Pick<HarvestContributionRow, "donorType" | "donorName" | "photoUrl"> }) {
+  if (c.donorType === "anonymous") {
+    return (
+      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-primary-bright">
+        <Mail className="size-4" />
+      </span>
+    );
+  }
+  return <Avatar name={c.donorName} src={c.photoUrl ?? undefined} size="sm" />;
+}
+
 /* ────── Harvest Report ────── */
 
 function HarvestReport({
-  contributions, totalRaised, contributorCount, memberCount, visitorCount, harvest, year,
+  contributions, totalRaised, contributorCount, memberCount, visitorCount, anonymousTotal, envelopeCount, harvest, year,
 }: {
   contributions: HarvestContributionRow[];
   totalRaised: number;
   contributorCount: number;
   memberCount: number;
   visitorCount: number;
+  anonymousTotal: number;
+  envelopeCount: number;
   harvest: HarvestData["harvest"];
   year: number;
 }) {
-  const byDonor = new Map<string, { name: string; type: string; total: number; count: number }>();
+  const byDonor = new Map<string, { name: string; type: string; total: number; count: number; envelopes: number }>();
   for (const c of contributions) {
-    const key = c.personId ?? c.donorName;
+    const key = c.donorType === "anonymous" ? `anon:${c.donorName}` : c.personId ?? c.donorName;
     const existing = byDonor.get(key);
-    if (existing) { existing.total += c.amount; existing.count++; }
-    else byDonor.set(key, { name: c.donorName, type: c.donorType, total: c.amount, count: 1 });
+    if (existing) { existing.total += c.amount; existing.count++; existing.envelopes += c.envelopeCount ?? 0; }
+    else byDonor.set(key, { name: c.donorName, type: c.donorType, total: c.amount, count: 1, envelopes: c.envelopeCount ?? 0 });
   }
+  // Average per giver: named contributions plus counted envelopes. Totals
+  // entered without an envelope count can't be split, so they're left out.
+  const uncountedTotal = contributions.filter((c) => c.donorType === "anonymous" && !c.envelopeCount).reduce((s, c) => s + c.amount, 0);
+  const avg = contributorCount ? (totalRaised - uncountedTotal) / contributorCount : 0;
   const donorList = [...byDonor.values()].sort((a, b) => b.total - a.total);
 
   const memberTotal = contributions.filter((c) => c.donorType === "member").reduce((s, c) => s + c.amount, 0);
@@ -694,7 +885,7 @@ function HarvestReport({
           </a>
         </div>
 
-        <div className="mt-5 grid gap-4 sm:grid-cols-4">
+        <div className={cn("mt-5 grid gap-4 sm:grid-cols-2", anonymousTotal > 0 ? "lg:grid-cols-5" : "lg:grid-cols-4")}>
           <div className="rounded-xl border border-line bg-surface-2/50 p-4 text-center">
             <div className="text-sm text-ink-muted">Total raised</div>
             <div className="mt-1 font-display text-2xl font-bold text-success">{formatCurrency(totalRaised, { decimals: true })}</div>
@@ -707,10 +898,16 @@ function HarvestReport({
             <div className="text-sm text-ink-muted">From visitors</div>
             <div className="mt-1 font-display text-2xl font-bold">{formatCurrency(visitorTotal, { decimals: true })}</div>
           </div>
+          {anonymousTotal > 0 && (
+            <div className="rounded-xl border border-line bg-surface-2/50 p-4 text-center">
+              <div className="text-sm text-ink-muted">{envelopeCount > 0 ? `Envelopes (${envelopeCount})` : "Counted totals"}</div>
+              <div className="mt-1 font-display text-2xl font-bold">{formatCurrency(anonymousTotal, { decimals: true })}</div>
+            </div>
+          )}
           <div className="rounded-xl border border-line bg-surface-2/50 p-4 text-center">
             <div className="text-sm text-ink-muted">{harvest?.goal ? "Goal progress" : "Avg contribution"}</div>
             <div className="mt-1 font-display text-2xl font-bold">
-              {harvest?.goal ? `${Math.round((totalRaised / harvest.goal) * 100)}%` : formatCurrency(contributorCount ? Math.round(totalRaised / contributorCount) : 0)}
+              {harvest?.goal ? `${Math.round((totalRaised / harvest.goal) * 100)}%` : formatCurrency(Math.round(avg))}
             </div>
           </div>
         </div>
@@ -727,15 +924,17 @@ function HarvestReport({
             {donorList.map((d, i) => (
               <div key={i} className="flex items-center gap-3 px-5 py-3">
                 <span className="grid size-7 place-items-center rounded-full bg-surface-2 text-xs font-semibold text-ink-faint">{i + 1}</span>
-                <Avatar name={d.name} size="sm" />
+                <ContributionAvatar c={{ donorType: d.type, donorName: d.name, photoUrl: null }} />
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-medium">{d.name}</span>
-                    <Badge variant={d.type === "member" ? "success" : "warning"} className="text-[10px]">
-                      {d.type === "member" ? "Member" : "Visitor"}
-                    </Badge>
+                    <DonorBadge type={d.type} />
                   </div>
-                  <div className="text-xs text-ink-faint">{d.count} {d.count === 1 ? "contribution" : "contributions"}</div>
+                  <div className="text-xs text-ink-faint">
+                    {d.type === "anonymous"
+                      ? `${d.count} ${d.count === 1 ? "count" : "counts"}${d.envelopes ? ` · ${d.envelopes} envelopes` : ""}`
+                      : `${d.count} ${d.count === 1 ? "contribution" : "contributions"}`}
+                  </div>
                 </div>
                 <div className="font-display font-semibold text-success">{formatCurrency(d.total, { decimals: true })}</div>
               </div>
