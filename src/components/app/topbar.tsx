@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Search, Bell, BellRing, ChevronDown, LogOut, Settings, Menu, UserCircle, UserPlus, UserRoundPlus, HandCoins, CalendarCheck2, Heart, Users2, CalendarDays, Loader2 } from "lucide-react";
+import { Search, Bell, BellRing, ChevronDown, LogOut, Settings, Menu, UserCircle, BookOpen, UserPlus, UserRoundPlus, HandCoins, CalendarCheck2, Heart, Users2, CalendarDays, Loader2 } from "lucide-react";
 import { MemberAvatar } from "@/components/ui/member-avatar";
 import { OfflineIndicator } from "@/components/app/offline-indicator";
 import { signOut } from "@/app/actions/auth";
@@ -116,6 +116,9 @@ export function Topbar({
                 </div>
                 <a href="/app/account" className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2">
                   <UserCircle className="size-4" /> My account
+                </a>
+                <a href="/docs" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2">
+                  <BookOpen className="size-4" /> User manual
                 </a>
                 {session.sections.includes("settings") && (
                   <a href="/app/settings" className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2">

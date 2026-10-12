@@ -243,6 +243,16 @@ export default async function HelpPage() {
         subtitle="A complete guide to every feature in WorshipHQ."
       />
 
+      <section className="mx-auto max-w-5xl px-4 pt-2 sm:px-6">
+        <a href="/docs" className="group flex flex-wrap items-center justify-between gap-3 border-2 border-evergreen bg-evergreen/5 px-5 py-4 hover:bg-evergreen/10">
+          <span>
+            <span className="block font-display text-lg font-bold text-evergreen-deep">Looking for step-by-step instructions?</span>
+            <span className="text-sm text-ink-muted">The free user manual walks through every feature, one step at a time.</span>
+          </span>
+          <span className="font-semibold text-evergreen group-hover:underline">Open the user manual →</span>
+        </a>
+      </section>
+
       <section className="mx-auto max-w-5xl px-4 pb-24 pt-4 sm:px-6">
         <div className="space-y-16">
           {resolvedSections.map((section) => (
