@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { deleteExpense } from "@/app/actions/expenses";
 import { PeriodBar, FilterBar } from "@/components/app/accounting/accounting-client";
 import { Breakdown } from "@/components/app/accounting/overview";
-import { useLedgerNav, type LedgerAccount } from "@/components/app/accounting/shared";
+import { useLedgerNav, dayHeadings, type LedgerAccount } from "@/components/app/accounting/shared";
 import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 import { formatCurrency } from "@/config/brand";
 import { cn } from "@/lib/utils";
@@ -20,7 +20,6 @@ import type { Ledger } from "@/lib/data/ledger";
 type Detail = { description: string; vendor: string | null; receiptRef: string | null; approvedBy: string | null };
 
 const money = (n: number) => formatCurrency(n, { decimals: true });
-const dayLabel = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
 export function ExpensesClient({ ledger, accounts, details, payees, canWrite, canDelete }: {
   ledger: Ledger;
@@ -102,7 +101,7 @@ function Records({ ledger, details, accounts, canWrite, canDelete }: { ledger: L
     start(async () => { await deleteExpense(fd); binDeleted(); router.refresh(); });
   };
 
-  let lastDay = "";
+  const heads = dayHeadings(shown, filters.sort !== "largest");
   return (
     <Card className="overflow-hidden p-0">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
@@ -123,10 +122,9 @@ function Records({ ledger, details, accounts, canWrite, canDelete }: { ledger: L
           </div>
         ) : (
           <div className="divide-y divide-line-soft">
-            {shown.map((r) => {
+            {shown.map((r, i) => {
               const d = details[r.id];
-              const day = r.date.slice(0, 10);
-              const heading = filters.sort !== "largest" && day !== lastDay ? ((lastDay = day), dayLabel(r.date)) : null;
+              const heading = heads[i];
               const account = acctName(r.accountId);
               return (
                 <div key={r.id}>

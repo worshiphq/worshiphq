@@ -26,8 +26,9 @@ export async function getAccountsWithBalances(churchId: string): Promise<Account
       where: { churchId },
       orderBy: [{ isDefault: "desc" }, { createdAt: "asc" }],
     }),
-    db.transaction.groupBy({ by: ["accountId"], where: { churchId }, _sum: { amount: true } }),
-    db.gift.groupBy({ by: ["accountId"], where: { churchId }, _sum: { amount: true } }),
+    // Money marked "not banked yet" is real income but sits in no account, so it is left out here.
+    db.transaction.groupBy({ by: ["accountId"], where: { churchId, pendingDeposit: false }, _sum: { amount: true } }),
+    db.gift.groupBy({ by: ["accountId"], where: { churchId, pendingDeposit: false }, _sum: { amount: true } }),
     db.expense.groupBy({ by: ["accountId"], where: { churchId }, _sum: { amount: true } }),
   ]);
 
@@ -172,10 +173,12 @@ export async function getAccountHistory(churchId: string, accountId: string): Pr
   });
   const isDefault = accountsOrdered[0]?.id === accountId;
   const acctFilter = isDefault ? { OR: [{ accountId }, { accountId: null }] } : { accountId };
+  // Not-yet-banked money isn't in any account, so it stays out of the default account's statement too.
+  const bankedFilter = isDefault ? { OR: [{ accountId }, { accountId: null, pendingDeposit: false }] } : { accountId };
 
   const [txns, gifts, expenses] = await Promise.all([
-    db.transaction.findMany({ where: { churchId, ...acctFilter }, select: { id: true, description: true, amount: true, date: true } }),
-    db.gift.findMany({ where: { churchId, ...acctFilter }, select: { id: true, donorName: true, amount: true, date: true, fund: { select: { name: true } } } }),
+    db.transaction.findMany({ where: { churchId, ...bankedFilter }, select: { id: true, description: true, amount: true, date: true } }),
+    db.gift.findMany({ where: { churchId, ...bankedFilter }, select: { id: true, donorName: true, amount: true, date: true, fund: { select: { name: true } } } }),
     db.expense.findMany({ where: { churchId, ...acctFilter }, select: { id: true, description: true, amount: true, date: true, vendor: true } }),
   ]);
 

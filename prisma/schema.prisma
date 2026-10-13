@@ -708,6 +708,7 @@ model Gift {
   recurring     Boolean    @default(false)
   reference     String? // Paystack reference
   receiptSent   Boolean    @default(false)
+  pendingDeposit Boolean   @default(false) // received but not banked into an account yet
   date          DateTime   @default(now())
   // Set once the "giving thanks" automation has texted the donor for this gift
   // specifically (see src/lib/automations/run.ts) - distinct from receiptSent,
@@ -1007,6 +1008,9 @@ model Transaction {
   account     ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   amount      Decimal        @db.Decimal(12, 2) // positive = income, negative = expense
   date        DateTime       @default(now())
+  // Received (e.g. cash in hand) but not put into an account yet. Counted as income, left out of every
+  // account balance until it is assigned to one.
+  pendingDeposit Boolean     @default(false)
 
   @@index([churchId])
 }

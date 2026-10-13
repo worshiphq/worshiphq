@@ -92,7 +92,7 @@ export async function recordGift(formData: FormData) {
  * counts it together and banks it together. Each part becomes one gift, banked
  * into its own account, so account balances and accounting stay right.
  */
-export interface CollectionLine { method: string; amount: number; accountId?: string | null }
+export interface CollectionLine { method: string; amount: number; accountId?: string | null; /** received but not banked yet */ notBanked?: boolean }
 
 export async function recordCollection(input: { fund: string; date: string; note?: string; lines: CollectionLine[] }) {
   const session = await requireSession();
@@ -102,8 +102,8 @@ export async function recordCollection(input: { fund: string; date: string; note
   const fundName = (input.fund ?? "").trim();
   if (!fundName) return { ok: false as const, error: "Choose which fund this is for." };
   const lines = (input.lines ?? [])
-    .map((l) => ({ method: METHOD_FROM_LABEL[l.method] ?? (["Cash", "MTN_MoMo", "Telecel_Cash", "AirtelTigo", "Card", "Bank"].includes(l.method) ? (l.method as GiftMethod) : null), amount: Math.round(Number(l.amount) * 100) / 100, accountId: l.accountId ?? null }))
-    .filter((l): l is { method: GiftMethod; amount: number; accountId: string | null } => !!l.method && l.amount > 0);
+    .map((l) => ({ method: METHOD_FROM_LABEL[l.method] ?? (["Cash", "MTN_MoMo", "Telecel_Cash", "AirtelTigo", "Card", "Bank"].includes(l.method) ? (l.method as GiftMethod) : null), amount: Math.round(Number(l.amount) * 100) / 100, accountId: l.accountId ?? null, notBanked: !!l.notBanked }))
+    .filter((l): l is { method: GiftMethod; amount: number; accountId: string | null; notBanked: boolean } => !!l.method && l.amount > 0);
   if (lines.length === 0) return { ok: false as const, error: "Enter how much was collected." };
 
   const fund =
@@ -117,9 +117,9 @@ export async function recordCollection(input: { fund: string; date: string; note
 
   let total = 0;
   for (const l of lines) {
-    const accountId = await resolveAccountId(session.churchId, l.accountId);
+    const accountId = l.notBanked ? null : await resolveAccountId(session.churchId, l.accountId);
     await db.gift.create({
-      data: { churchId: session.churchId, branchId: session.branchId ?? undefined, donorName, fundId: fund.id, accountId, amount: l.amount, method: l.method, currency: "GHS", date },
+      data: { churchId: session.churchId, branchId: session.branchId ?? undefined, donorName, fundId: fund.id, accountId, pendingDeposit: l.notBanked, amount: l.amount, method: l.method, currency: "GHS", date },
     });
     total += l.amount;
   }

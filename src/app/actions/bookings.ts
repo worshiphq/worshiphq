@@ -225,7 +225,9 @@ export async function recordBookingPayment(formData: FormData): Promise<Result> 
   if (!booking) return { ok: false, error: "Booking not found." };
 
   const method = METHODS[str(formData.get("method"))] ?? "Cash";
-  const accountId = await resolveAccountId(session.churchId, str(formData.get("accountId")) || null);
+  // "Not banked yet" (e.g. cash still in hand): counted as income, but in no account until it is banked.
+  const notBanked = formData.get("notBanked") === "1";
+  const accountId = notBanked ? null : await resolveAccountId(session.churchId, str(formData.get("accountId")) || null);
   const dateRaw = str(formData.get("date"));
   const date = dateRaw && !Number.isNaN(new Date(dateRaw).getTime()) ? new Date(dateRaw) : new Date();
   const note = str(formData.get("note")) || null;
@@ -234,6 +236,7 @@ export async function recordBookingPayment(formData: FormData): Promise<Result> 
     data: {
       churchId: session.churchId,
       accountId,
+      pendingDeposit: notBanked,
       description: `${booking.facility.name} booking: ${booking.title} (${booking.bookedBy})`,
       category: "Facility hire",
       amount,

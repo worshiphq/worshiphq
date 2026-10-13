@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import {
   ChevronLeft, ChevronRight, Calendar, Search, X, AlertTriangle, TrendingUp, TrendingDown, Scale, ListChecks,
   LayoutDashboard, Rows3, Landmark, PiggyBank, FileText, SlidersHorizontal,
@@ -29,11 +29,13 @@ interface Props {
   accounts: AccountRow[];
   funds: FundRow[];
   unassigned?: { count: number; net: number; defaultAccount: string };
+  /** Money received but not banked into an account yet. */
+  notBanked?: { count: number; total: number };
   canWrite: boolean;
   canDelete: boolean;
 }
 
-export function AccountingClient({ ledger, accounts, funds, unassigned, canWrite, canDelete }: Props) {
+export function AccountingClient({ ledger, accounts, funds, unassigned, notBanked, canWrite, canDelete }: Props) {
   const [tab, setTab] = useState<Tab>("overview");
   const [showUnassigned, setShowUnassigned] = useState(false);
   const [stmtAccount, setStmtAccount] = useState(accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "");
@@ -65,6 +67,16 @@ export function AccountingClient({ ledger, accounts, funds, unassigned, canWrite
           <Kpi label="Net" value={totals.net} tone={totals.net >= 0 ? "success" : "danger"} icon={Scale} prev={previous ? { label: previous.label, v: previous.net } : null} good="up" />
           <Kpi label="Entries" value={totals.count} icon={ListChecks} plain />
         </div>
+
+        {canWrite && notBanked && notBanked.count > 0 && (
+          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+            <AlertTriangle className="size-4 shrink-0" />
+            <span className="min-w-0 flex-1">
+              <b>{formatCurrency(notBanked.total, { decimals: true })}</b> received in <b>{notBanked.count} {notBanked.count === 1 ? "entry" : "entries"}</b> is not banked yet, so it isn&apos;t in any account balance. Assign each one to an account once it is deposited.
+            </span>
+            <button onClick={() => setShowUnassigned(true)} className="shrink-0 rounded-lg bg-amber-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-amber-700">Bank it</button>
+          </div>
+        )}
 
         {canWrite && unassigned && unassigned.count > 0 && accounts.length >= 2 && (
           <div className="flex flex-wrap items-center gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
@@ -216,7 +228,8 @@ export function FilterBar({ ledger, accounts, variant = "ledger", placeholder }:
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Keep the box in step when filters are cleared from elsewhere.
-  useEffect(() => { setQ(f.q); }, [f.q]);
+  const [seenQ, setSeenQ] = useState(f.q);
+  if (seenQ !== f.q) { setSeenQ(f.q); setQ(f.q); }
 
   const onSearch = (v: string) => {
     setQ(v);

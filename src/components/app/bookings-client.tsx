@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search, DoorOpen, Trash2, Clock, User, MapPin, Building, Plus, Pencil, Link2, Check, ExternalLink,
-  Phone, Wallet, Camera, X, CircleDollarSign, Inbox, CheckCircle2, XCircle, Globe, Users, Loader2,
+  Phone, Wallet, Camera, X, CircleDollarSign, Inbox, CheckCircle2, XCircle, Globe, Users, Loader2, Landmark,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { useFeedback } from "@/components/ui/feedback";
-import { AccountSelect, type AccountOption } from "@/components/app/account-select";
+import type { AccountOption } from "@/components/app/account-select";
 import {
   deleteBooking, deleteFacility, saveFacility, saveBooking, decideBooking,
   recordBookingPayment, deleteBookingPayment, savePublicBookingSettings,
@@ -64,7 +64,7 @@ export function BookingsClient({ facilities, bookings, accounts, canWrite, slug,
   const router = useRouter();
   const { toast } = useFeedback();
 
-  const now = Date.now();
+  const [now] = useState(() => Date.now()); // fixed when the page opens
   const pendingCount = bookings.filter((b) => b.status === "pending").length;
   const counts = {
     upcoming: bookings.filter((b) => b.status === "confirmed" && new Date(b.endTime).getTime() >= now).length,
@@ -76,7 +76,7 @@ export function BookingsClient({ facilities, bookings, accounts, canWrite, slug,
     const q = search.trim().toLowerCase();
     return bookings
       .filter((b) => {
-        const past = new Date(b.endTime).getTime() < Date.now();
+        const past = new Date(b.endTime).getTime() < now;
         if (filter === "upcoming" && !(b.status === "confirmed" && !past)) return false;
         if (filter === "pending" && b.status !== "pending") return false;
         if (filter === "past" && !(b.status !== "pending" && past)) return false;
@@ -85,7 +85,7 @@ export function BookingsClient({ facilities, bookings, accounts, canWrite, slug,
         return [b.title, b.bookedBy, b.facilityName, b.contactPhone ?? ""].some((x) => x.toLowerCase().includes(q));
       })
       .sort((a, b) => (filter === "past" ? b.startTime.localeCompare(a.startTime) : a.startTime.localeCompare(b.startTime)));
-  }, [bookings, filter, facilityFilter, search]);
+  }, [bookings, filter, facilityFilter, search, now]);
 
   const visible = filter === "past" || filter === "all" ? list.slice(0, shown) : list;
   const payBooking = payFor ? bookings.find((b) => b.id === payFor) ?? null : null;
@@ -331,8 +331,7 @@ function BookingLinkCard({ slug, on, note }: { slug: string; on: boolean; note: 
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [saving, startSave] = useTransition();
-  const [origin, setOrigin] = useState("");
-  useEffect(() => { setOrigin(window.location.origin); }, []);
+  const origin = useSyncExternalStore(() => () => {}, () => window.location.origin, () => "");
   const url = `${origin}/book/${slug}`;
 
   const save = (nextOn: boolean, nextNote: string) => {
@@ -574,14 +573,20 @@ function PaymentDialog({ booking, accounts, onClose }: { booking: BookingRow; ac
   const paid = paidOf(booking);
   const balance = booking.amount != null ? Math.max(0, booking.amount - paid) : null;
   const defaultAccount = accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "";
-  const [accountId, setAccountId] = useState(defaultAccount);
+  // Cash may not have reached the bank yet, so it starts as "not banked yet" instead of landing in an account.
+  const NOT_BANKED = "none";
+  const accountFor = (m: string) =>
+    m === "Cash" ? NOT_BANKED
+      : accounts.find((a) => a.type === (m === "Bank" || m === "Card" ? "bank" : "mobile-money"))?.id ?? defaultAccount;
+  const [accountId, setAccountId] = useState(NOT_BANKED);
   const [amount, setAmount] = useState(balance ? String(balance) : "");
-  const [method, setMethod] = useState("Cash");
+  const [method, setMethodState] = useState("Cash");
+  const setMethod = (m: string) => { setMethodState(m); setAccountId(accountFor(m)); };
 
   const add = (fd: FormData) => {
     setError("");
     fd.set("bookingId", booking.id);
-    fd.set("accountId", accountId);
+    if (accountId === NOT_BANKED) fd.set("notBanked", "1"); else fd.set("accountId", accountId);
     fd.set("method", method);
     start(async () => {
       const r = await recordBookingPayment(fd);
@@ -636,14 +641,21 @@ function PaymentDialog({ booking, accounts, onClose }: { booking: BookingRow; ac
               </select>
             </div>
           </div>
-          <AccountSelect accounts={accounts} value={accountId} onChange={setAccountId} label="Goes into account" />
+          <div className="space-y-1">
+            <Label htmlFor="p-acct" className="flex items-center gap-1.5 text-xs"><Landmark className="size-3.5" /> Goes into account</Label>
+            <select id="p-acct" value={accountId} onChange={(e) => setAccountId(e.target.value)} className={sel}>
+              <option value={NOT_BANKED}>Not banked yet (still in hand)</option>
+              {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}{a.isDefault ? " (default)" : ""}</option>)}
+            </select>
+            {accountId === NOT_BANKED && <p className="text-[11px] text-ink-faint">It counts as received, but isn&apos;t in any account balance until you assign it one in Accounting.</p>}
+          </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div><Label htmlFor="p-d">Date</Label><Input id="p-d" name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></div>
             <div><Label htmlFor="p-n">Note (optional)</Label><Input id="p-n" name="note" placeholder="e.g. deposit" /></div>
           </div>
           {error && <p className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
           <Button type="submit" className="w-full" disabled={pending}>{pending ? <><Loader2 className="size-4 animate-spin" /> Recording…</> : "Record payment"}</Button>
-          <p className="text-[11px] text-ink-faint">It is added to that account as income under “Facility hire”, so your accounting stays right.</p>
+          <p className="text-[11px] text-ink-faint">It is recorded as income under “Facility hire”, so your accounting stays right.</p>
         </form>
 
         <Button type="button" variant="secondary" className="w-full" onClick={onClose}>Done</Button>

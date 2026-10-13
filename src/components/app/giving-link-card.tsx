@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Link2, Check, HandCoins, ExternalLink } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,8 +10,7 @@ import { Input } from "@/components/ui/input";
 export function GivingLinkCard({ slug }: { slug: string }) {
   const [copied, setCopied] = useState(false);
   // Same on the server and the first client render; the full address fills in after mount.
-  const [origin, setOrigin] = useState("");
-  useEffect(() => { setOrigin(window.location.origin); }, []);
+  const origin = useSyncExternalStore(() => () => {}, () => window.location.origin, () => "");
   const url = `${origin}/give/${slug}`;
 
   return (

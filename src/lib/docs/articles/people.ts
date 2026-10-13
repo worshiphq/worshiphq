@@ -220,6 +220,8 @@ export const people: DocArticle[] = [
         "Choose **Send automatically** (a set number of days before, or on a set day of the week, at a set time) or **Send manually**.",
         "Edit the message if you like, and save.",
       ] },
+      { h: "A different reminder time for each day" },
+      { p: "A group that meets on more than one day can have a reminder time for each. Under the reminder settings, tick **Different reminder time for each meeting day**. Then for every meeting day choose when its reminder goes out: for example the **day before** for Sunday, but **the same day** at 7:00 AM for Wednesday. You can also choose **Don't remind** for a day. Days you leave on **Same as above** follow the group's usual time." },
       { p: "To message a group at any time, choose **Message this group** on the group's card. You can address each person by name in the message." },
     ],
   },
@@ -265,6 +267,13 @@ export const people: DocArticle[] = [
     appPath: "/app/birthdays",
     body: [
       { p: "**Birthdays** shows who is celebrating today (marked **Today!**) and who's coming up. Birthdays come from members' date of birth." },
+      { h: "Find people quickly" },
+      { list: [
+        "**Today** and **Next 30 days** show who is coming up soon.",
+        "**All** opens a **By month** view first: twelve months with how many birthdays and anniversaries each has. Open a month to see it day by day.",
+        "Switch to **A to Z list** for a page-by-page directory, or use the search box to find one person.",
+        "Choose **Birthdays** or **Anniversaries** to show just one kind.",
+      ] },
       { h: "Automatic birthday messages" },
       { steps: [
         "Go to **Birthdays** and find **Birthday reminders**.",

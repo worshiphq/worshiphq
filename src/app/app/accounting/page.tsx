@@ -21,7 +21,7 @@ export default async function AccountingPage({
   const params = await searchParams;
   const { period, filters } = parseLedgerParams(params);
 
-  const [ledger, accounts, funds, unTx, unGift, unExp] = await Promise.all([
+  const [ledger, accounts, funds, unTx, unGift, unExp, nbTx, nbGift] = await Promise.all([
     getLedger(session.churchId, period, filters),
     getAccountsWithBalances(session.churchId),
     db.fund.findMany({
@@ -29,10 +29,17 @@ export default async function AccountingPage({
       orderBy: { name: "asc" },
       select: { id: true, name: true, color: true, gifts: { select: { amount: true } } },
     }),
-    db.transaction.aggregate({ where: { churchId: session.churchId, accountId: null }, _sum: { amount: true }, _count: true }),
-    db.gift.aggregate({ where: { churchId: session.churchId, accountId: null }, _sum: { amount: true }, _count: true }),
+    db.transaction.aggregate({ where: { churchId: session.churchId, accountId: null, pendingDeposit: false }, _sum: { amount: true }, _count: true }),
+    db.gift.aggregate({ where: { churchId: session.churchId, accountId: null, pendingDeposit: false }, _sum: { amount: true }, _count: true }),
     db.expense.aggregate({ where: { churchId: session.churchId, accountId: null }, _sum: { amount: true }, _count: true }),
+    // Money received but not put into an account yet (e.g. cash still in hand).
+    db.transaction.aggregate({ where: { churchId: session.churchId, pendingDeposit: true }, _sum: { amount: true }, _count: true }),
+    db.gift.aggregate({ where: { churchId: session.churchId, pendingDeposit: true }, _sum: { amount: true }, _count: true }),
   ]);
+  const notBanked = {
+    count: nbTx._count + nbGift._count,
+    total: Number(nbTx._sum.amount ?? 0) + Number(nbGift._sum.amount ?? 0),
+  };
   // All-time money with no account attached (folded into the default account).
   const unassigned = {
     count: unTx._count + unGift._count + unExp._count,
@@ -86,6 +93,7 @@ export default async function AccountingPage({
         accounts={accounts}
         funds={fundRows}
         unassigned={unassigned}
+        notBanked={notBanked}
         canWrite={!session.isDemo}
         canDelete={session.canDelete && !session.isDemo}
       />

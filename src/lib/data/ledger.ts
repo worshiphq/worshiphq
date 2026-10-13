@@ -42,6 +42,8 @@ export interface LedgerRow {
   accountId: string | null;
   /** Paid-by label for gifts (Cash, MTN MoMo…). */
   method?: string | null;
+  /** Received but not put into an account yet (e.g. cash in hand). */
+  pending?: boolean;
   /** A summarised day of giving: the gifts inside it. */
   group?: LedgerRow[];
 }
@@ -149,12 +151,12 @@ function previousPeriod(p: Period): Period | null {
 async function loadRows(churchId: string, from: Date | null, to: Date | null): Promise<LedgerRow[]> {
   const where = { churchId, ...(from && to ? { date: { gte: from, lte: to } } : {}) };
   const [txns, gifts, expenses] = await Promise.all([
-    db.transaction.findMany({ where, select: { id: true, description: true, category: true, fund: true, amount: true, date: true, accountId: true } }),
-    db.gift.findMany({ where, select: { id: true, donorName: true, amount: true, date: true, accountId: true, method: true, fund: { select: { name: true } }, person: { select: { firstName: true, lastName: true } } } }),
+    db.transaction.findMany({ where, select: { id: true, description: true, category: true, fund: true, amount: true, date: true, accountId: true, pendingDeposit: true } }),
+    db.gift.findMany({ where, select: { id: true, donorName: true, amount: true, date: true, accountId: true, pendingDeposit: true, method: true, fund: { select: { name: true } }, person: { select: { firstName: true, lastName: true } } } }),
     db.expense.findMany({ where, select: { id: true, description: true, category: true, amount: true, date: true, vendor: true, accountId: true } }),
   ]);
   return [
-    ...txns.map((t): LedgerRow => ({ id: t.id, description: t.description, category: t.category, fund: t.fund ?? "General", amount: Number(t.amount), date: t.date.toISOString(), source: "manual", accountId: t.accountId })),
+    ...txns.map((t): LedgerRow => ({ id: t.id, description: t.description, category: t.category, fund: t.fund ?? "General", amount: Number(t.amount), date: t.date.toISOString(), source: "manual", accountId: t.accountId, pending: t.pendingDeposit })),
     // Expenses live in their own table (the single source of truth), shown here as outgoing rows.
     ...expenses.map((e): LedgerRow => ({ id: e.id, description: `${e.description}${e.vendor ? ` (${e.vendor})` : ""}`, category: e.category, fund: "General", amount: -Number(e.amount), date: e.date.toISOString(), source: "expense", accountId: e.accountId })),
     ...gifts.map((g): LedgerRow => ({
@@ -166,6 +168,7 @@ async function loadRows(churchId: string, from: Date | null, to: Date | null): P
       date: g.date.toISOString(),
       source: "giving",
       accountId: g.accountId,
+      pending: g.pendingDeposit,
       method: METHOD[g.method] ?? g.method,
     })),
   ];
@@ -182,7 +185,7 @@ function filterRows(rows: LedgerRow[], f: LedgerFilters, defaultId: string | nul
     if (f.account) {
       const eff = r.accountId ?? null;
       if (f.account === "none") { if (eff) return false; }
-      else if ((eff ?? defaultId) !== f.account) return false; // money with no account counts under the default one
+      else if (r.pending || (eff ?? defaultId) !== f.account) return false; // money with no account counts under the default one (unless it's not banked yet)
     }
     if (q && !`${r.description} ${r.category} ${r.fund}`.toLowerCase().includes(q)) return false;
     return true;
@@ -321,7 +324,7 @@ export async function getLedger(churchId: string, period: Period, filters: Ledge
 
   const acct = new Map<string, { accountId: string | null; income: number; expenses: number; count: number }>();
   for (const r of filtered) {
-    const eff = r.accountId ?? defaultId;
+    const eff = r.pending ? null : r.accountId ?? defaultId;
     const k = eff ?? "";
     const e = acct.get(k) ?? { accountId: eff, income: 0, expenses: 0, count: 0 };
     if (r.amount >= 0) e.income += r.amount; else e.expenses += -r.amount;
@@ -363,6 +366,6 @@ export async function getLedgerRows(churchId: string, period: Period, filters: L
   ]);
   const filtered = filterRows(rows, filters, defaultId).sort((a, b) => a.date.localeCompare(b.date));
   const names = new Map(accounts.map((a) => [a.id, a.name]));
-  if (defaultId) for (const r of filtered) if (!r.accountId) r.accountId = defaultId;
+  if (defaultId) for (const r of filtered) if (!r.accountId && !r.pending) r.accountId = defaultId;
   return { label, rows: filtered, accounts: names };
 }

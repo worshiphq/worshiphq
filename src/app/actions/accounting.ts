@@ -11,13 +11,13 @@ import { audit } from "@/lib/audit";
 export async function loadUnassignedEntries() {
   const session = await requireSession();
   const [txns, gifts, expenses] = await Promise.all([
-    db.transaction.findMany({ where: { churchId: session.churchId, accountId: null }, select: { id: true, description: true, category: true, fund: true, amount: true, date: true } }),
-    db.gift.findMany({ where: { churchId: session.churchId, accountId: null }, select: { id: true, donorName: true, amount: true, date: true, fund: { select: { name: true } } } }),
+    db.transaction.findMany({ where: { churchId: session.churchId, accountId: null }, select: { id: true, description: true, category: true, fund: true, amount: true, date: true, pendingDeposit: true } }),
+    db.gift.findMany({ where: { churchId: session.churchId, accountId: null }, select: { id: true, donorName: true, amount: true, date: true, pendingDeposit: true, fund: { select: { name: true } } } }),
     db.expense.findMany({ where: { churchId: session.churchId, accountId: null }, select: { id: true, description: true, category: true, amount: true, date: true, vendor: true } }),
   ]);
   const rows = [
-    ...txns.map((t) => ({ id: t.id, description: t.description, category: t.category, fund: t.fund ?? "General", amount: Number(t.amount), date: t.date.toISOString(), source: "manual" as const, accountId: null })),
-    ...gifts.map((g) => ({ id: g.id, description: `${g.donorName ?? "Anonymous"} - ${g.fund?.name ?? "Gift"}`, category: g.fund?.name ?? "Giving", fund: g.fund?.name ?? "General", amount: Number(g.amount), date: g.date.toISOString(), source: "giving" as const, accountId: null })),
+    ...txns.map((t) => ({ id: t.id, description: t.description, category: t.category, fund: t.fund ?? "General", amount: Number(t.amount), date: t.date.toISOString(), source: "manual" as const, accountId: null, pending: t.pendingDeposit })),
+    ...gifts.map((g) => ({ id: g.id, description: `${g.donorName ?? "Anonymous"} - ${g.fund?.name ?? "Gift"}`, category: g.fund?.name ?? "Giving", fund: g.fund?.name ?? "General", amount: Number(g.amount), date: g.date.toISOString(), source: "giving" as const, accountId: null, pending: g.pendingDeposit })),
     ...expenses.map((e) => ({ id: e.id, description: `${e.description}${e.vendor ? ` (${e.vendor})` : ""}`, category: e.category, fund: "General", amount: -Number(e.amount), date: e.date.toISOString(), source: "expense" as const, accountId: null })),
   ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   return { ok: true as const, rows };
@@ -104,7 +104,7 @@ export async function moveLedgerEntryAccount(source: "manual" | "giving" | "expe
   if (source === "manual") {
     const tx = await db.transaction.findFirst({ where: { id, churchId: session.churchId }, select: { id: true, description: true } });
     if (!tx) return { ok: false, error: "Entry not found." };
-    await db.transaction.update({ where: { id }, data: { accountId } });
+    await db.transaction.update({ where: { id }, data: { accountId, pendingDeposit: false } });
     await audit(session, "update", "transaction", `Moved "${tx.description}" to ${account.name}`, id);
   } else if (source === "expense") {
     const exp = await db.expense.findFirst({ where: { id, churchId: session.churchId }, select: { id: true, description: true } });
@@ -114,7 +114,7 @@ export async function moveLedgerEntryAccount(source: "manual" | "giving" | "expe
   } else {
     const gift = await db.gift.findFirst({ where: { id, churchId: session.churchId }, select: { id: true, donorName: true } });
     if (!gift) return { ok: false, error: "Entry not found." };
-    await db.gift.update({ where: { id }, data: { accountId } });
+    await db.gift.update({ where: { id }, data: { accountId, pendingDeposit: false } });
     await audit(session, "update", "gift", `Moved ${gift.donorName ?? "gift"} to ${account.name}`, id);
   }
 

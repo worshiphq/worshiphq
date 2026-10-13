@@ -32,6 +32,18 @@ export function useLedgerNav(ledger: Ledger) {
   return { go, hrefFor, clearFilters, pending };
 }
 
+/** A heading ("Monday, 12 October 2026") for the first row of each day, null for the rest. */
+export function dayHeadings(rows: { date: string }[], enabled = true): (string | null)[] {
+  let last = "";
+  return rows.map((r) => {
+    if (!enabled) return null;
+    const day = r.date.slice(0, 10);
+    if (day === last) return null;
+    last = day;
+    return new Date(r.date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+  });
+}
+
 export const sourceLabel = (s: "manual" | "giving" | "expense") => (s === "giving" ? "Giving" : s === "expense" ? "Expense" : "Entry");
 
 /** "+₵1,200" / "−₵300" with the sign placed outside the currency symbol. */

@@ -13,14 +13,13 @@ import { cn } from "@/lib/utils";
 import { confirmBinDelete } from "@/lib/recycle-bin-events";
 import { BIN_TOAST } from "@/lib/recycle-bin-config";
 import type { Ledger, LedgerRow } from "@/lib/data/ledger";
-import { type LedgerAccount, useLedgerNav, signed } from "./shared";
+import { type LedgerAccount, useLedgerNav, signed, dayHeadings } from "./shared";
 
 export const AccountsContext = createContext<LedgerAccount[]>([]);
 
 const ICON = { giving: HandCoins, expense: Receipt, manual: Banknote };
 const TONE = { giving: "bg-success/10 text-success", expense: "bg-danger/10 text-danger", manual: "bg-surface-2 text-ink-muted" };
 
-const dayLabel = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
 
 /* ────── Move an entry to another account ────── */
 
@@ -30,7 +29,7 @@ export function MoveAccountControl({ row, onMoved }: { row: LedgerRow; onMoved?:
   const { toast } = useFeedback();
   const router = useRouter();
 
-  if (accounts.length < 2 || row.group) return null; // nothing to move between
+  if ((accounts.length < 2 && !row.pending) || row.group) return null; // nothing to move between (unless it still needs banking)
   // An entry with no account isn't "in" the default - it's just folded into it for the
   // totals. Show it as unassigned so every account (Main included) is a real target.
   const currentId = accounts.find((a) => a.id === row.accountId)?.id ?? "";
@@ -53,7 +52,7 @@ export function MoveAccountControl({ row, onMoved }: { row: LedgerRow; onMoved?:
         disabled={pending}
         className="max-w-[9rem] truncate rounded-lg border border-line bg-surface px-1.5 py-1 text-xs text-ink-muted outline-none hover:border-primary/40 focus:border-primary/50"
       >
-        {currentId === "" && <option value="">Assign account…</option>}
+        {currentId === "" && <option value="">{row.pending ? "Bank it into…" : "Assign account…"}</option>}
         {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}{a.isDefault ? " (default)" : ""}</option>)}
       </select>
     </span>
@@ -70,7 +69,7 @@ export function EntriesView({ ledger, canWrite, canDelete }: { ledger: Ledger; c
 
   // A heading each time the day changes (only meaningful when sorted by date).
   const byDate = filters.sort !== "largest";
-  let lastDay = "";
+  const heads = dayHeadings(shown, byDate);
 
   return (
     <Card className="overflow-hidden p-0">
@@ -108,9 +107,8 @@ export function EntriesView({ ledger, canWrite, canDelete }: { ledger: Ledger; c
           </div>
         ) : (
           <div className="divide-y divide-line-soft">
-            {shown.map((r) => {
-              const day = r.date.slice(0, 10);
-              const heading = byDate && day !== lastDay ? ((lastDay = day), dayLabel(r.date)) : null;
+            {shown.map((r, i) => {
+              const heading = heads[i];
               return (
                 <div key={r.id}>
                   {heading && <div className="bg-surface-2/50 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{heading}</div>}
@@ -206,6 +204,7 @@ function EntryRow({ row, canWrite, canDelete, onHide }: { row: LedgerRow; canWri
           </div>
           <div className="truncate text-xs text-ink-faint">
             {row.category}{row.fund && row.fund !== row.category ? ` · ${row.fund}` : ""}{row.method ? ` · ${row.method}` : ""}{accountName ? ` · ${accountName}` : ""}
+            {row.pending && <span className="ml-1.5 rounded-full bg-amber-100 px-1.5 py-0.5 text-[10px] font-semibold text-amber-700">Not banked yet</span>}
           </div>
         </button>
         <div className="flex shrink-0 items-center gap-2">

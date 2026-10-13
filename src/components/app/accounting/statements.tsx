@@ -10,7 +10,7 @@ import type { AccountStatement } from "@/lib/data/accounts";
 import { formatCurrency } from "@/config/brand";
 import { cn } from "@/lib/utils";
 import type { Ledger } from "@/lib/data/ledger";
-import type { LedgerAccount } from "./shared";
+import { dayHeadings, type LedgerAccount } from "./shared";
 
 const money = (n: number) => formatCurrency(n, { decimals: true });
 
@@ -42,7 +42,7 @@ export function StatementsView({ accounts, ledger, accountId, onAccount }: { acc
     return <Card className="p-8 text-center text-sm text-ink-muted">Add a bank, Mobile Money or cash account first, then its statement shows here.</Card>;
   }
 
-  let lastDay = "";
+  const heads = dayHeadings(data?.rows ?? []);
   return (
     <Card className="overflow-hidden p-0">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
@@ -87,9 +87,8 @@ export function StatementsView({ accounts, ledger, accountId, onAccount }: { acc
           <p className="p-10 text-center text-sm text-ink-faint">No movements {range === "period" ? `in ${ledger.label}` : "yet"}.</p>
         ) : (
           <div className="divide-y divide-line-soft">
-            {data.rows.map((r) => {
-              const day = r.date.slice(0, 10);
-              const head = day !== lastDay ? ((lastDay = day), new Date(r.date).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", year: "numeric" })) : null;
+            {data.rows.map((r, i) => {
+              const head = heads[i];
               return (
                 <div key={r.id}>
                   {head && <div className="bg-surface-2/50 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{head}</div>}

@@ -40,7 +40,9 @@ export function CollectionForm({ fundName, funds, accounts, onDone, serviceHint 
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [note, setNote] = useState(serviceHint ?? "");
   const fallback = accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "";
-  const pickAccount = (c: Channel) => accounts.find((a) => a.type === ACCOUNT_TYPE[c])?.id ?? fallback;
+  // Cash is often counted first and banked later, so it starts as "not banked yet" rather than in an account.
+  const NOT_BANKED = "none";
+  const pickAccount = (c: Channel) => (c === "cash" ? NOT_BANKED : accounts.find((a) => a.type === ACCOUNT_TYPE[c])?.id ?? fallback);
 
   const [amount, setAmount] = useState<Record<Channel, string>>({ cash: "", momo: "", bank: "" });
   const [method, setMethod] = useState<Record<Channel, string>>({ cash: "Cash", momo: "MTN_MoMo", bank: "Bank" });
@@ -50,7 +52,7 @@ export function CollectionForm({ fundName, funds, accounts, onDone, serviceHint 
 
   const submit = () => {
     if (!(total > 0)) { toast("Enter how much was collected", "error"); return; }
-    const lines = CHANNELS.filter((c) => Number(amount[c.key]) > 0).map((c) => ({ method: method[c.key], amount: Number(amount[c.key]), accountId: acct[c.key] || null }));
+    const lines = CHANNELS.filter((c) => Number(amount[c.key]) > 0).map((c) => ({ method: method[c.key], amount: Number(amount[c.key]), accountId: acct[c.key] === NOT_BANKED ? null : acct[c.key] || null, notBanked: acct[c.key] === NOT_BANKED }));
     start(async () => {
       const res = await recordCollection({ fund, date, note, lines });
       if (res.ok) {
@@ -108,10 +110,11 @@ export function CollectionForm({ fundName, funds, accounts, onDone, serviceHint 
                       {COLLECTION_METHODS[c.key].map((m) => <option key={m.value} value={m.value}>{m.label}</option>)}
                     </select>
                   )}
-                  {accounts.length > 1 && (
+                  {accounts.length > 0 && (
                     <label className="flex items-center gap-1.5 text-xs text-ink-muted">
                       <Landmark className="size-3.5" /> into
                       <select value={acct[c.key]} onChange={(e) => setAcct((p) => ({ ...p, [c.key]: e.target.value }))} className="h-9 rounded-lg border border-line bg-surface px-2 text-xs">
+                        <option value={NOT_BANKED}>Not banked yet</option>
                         {accounts.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
                       </select>
                     </label>
