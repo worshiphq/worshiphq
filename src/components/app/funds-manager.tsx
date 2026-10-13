@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { useFeedback } from "@/components/ui/feedback";
 import { createFund, renameFund, deleteFund } from "@/app/actions/funds";
 import { useRouter } from "next/navigation";
+import { confirmBinDelete } from "@/lib/recycle-bin-events";
+import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
 export interface FundRow {
   id: string;
@@ -104,9 +106,9 @@ export function FundsManager({ funds, canWrite }: { funds: FundRow[]; canWrite: 
                     <button
                       onClick={() => {
                         if (f.giftCount > 0) { toast(`“${f.name}” has giving recorded - move it to another fund first.`, "error"); return; }
-                        if (!confirm(`Delete the “${f.name}” fund? This cannot be undone.`)) return;
+                        if (!confirmBinDelete(`Delete the “${f.name}” fund?`)) return;
                         const fd = new FormData(); fd.set("id", f.id);
-                        submit(fd, deleteFund, "Fund deleted", () => {});
+                        submit(fd, deleteFund, BIN_TOAST, () => {});
                       }}
                       title="Delete fund"
                       className="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"

@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { runDailyAutomations } from "@/lib/automations/dispatch";
+import { purgeExpiredBinItems } from "@/lib/recycle-bin";
 
 export const dynamic = "force-dynamic";
 // Allow longer execution for churches with many members.
@@ -21,8 +22,10 @@ export async function GET(request: NextRequest) {
 
   const precise = new URL(request.url).searchParams.get("precise") === "1";
   const summary = await runDailyAutomations(new Date(), precise);
+  // Recycle bin: anything deleted more than 7 days ago is removed for good.
+  const recycleBin = await purgeExpiredBinItems().catch((err) => ({ error: String(err) }));
   console.info("[cron/automations] ran", JSON.stringify(summary));
-  return Response.json({ ok: true, ...summary });
+  return Response.json({ ok: true, ...summary, recycleBin });
 }
 
 function isAuthorized(request: NextRequest): boolean {

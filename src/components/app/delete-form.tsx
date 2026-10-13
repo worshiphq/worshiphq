@@ -5,6 +5,7 @@ import { useFormStatus } from "react-dom";
 import { Trash2 } from "lucide-react";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { flyToBin, notifyRecycleBinChanged } from "@/lib/recycle-bin-events";
+import { BIN_TOAST, binConfirm } from "@/lib/recycle-bin-config";
 
 /** Form descendant (so it can call useFormStatus) that fires the "fly to bin"
  *  animation + tells the bin to refresh its count once the delete succeeds. */
@@ -38,19 +39,18 @@ function FlyToBinOnSuccess({ originRef }: { originRef: React.RefObject<HTMLEleme
 export function DeleteForm({
   action,
   confirm: message,
-  successMessage = "Deleted",
+  successMessage = BIN_TOAST,
   label,
   className = "text-ink-faint hover:text-danger",
-  undoable = false,
+  undoable = true,
 }: {
   action: () => void | Promise<void>;
   confirm?: string;
   successMessage?: string;
   label?: string;
   className?: string;
-  /** Set when `action` actually snapshots into the recycle bin before deleting -
-   *  plays the fly-to-bin animation and refreshes its count. Leave false for
-   *  deletes that aren't (yet) restorable, so the bin never shows a false promise. */
+  /** Every delete goes to the recycle bin now; plays the fly-to-bin animation
+   *  and refreshes its count. Set false only for something that isn't a delete. */
   undoable?: boolean;
 }) {
   const formRef = useRef<HTMLFormElement>(null);
@@ -59,7 +59,7 @@ export function DeleteForm({
       ref={formRef}
       action={action}
       onSubmit={(e) => {
-        if (message && !window.confirm(message)) e.preventDefault();
+        if (message && !window.confirm(undoable ? binConfirm(message) : message)) e.preventDefault();
       }}
     >
       <SubmitButton size="sm" variant="ghost" overlay={false} successMessage={successMessage} className={className}>

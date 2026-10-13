@@ -3,10 +3,11 @@
 import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { usePathname } from "next/navigation";
 import { AnimatePresence, motion } from "motion/react";
-import { RotateCcw, Trash2, X } from "lucide-react";
+import { AlertTriangle, RotateCcw, Trash2, X } from "lucide-react";
 import { BouncingDots } from "@/components/ui/bouncing-dots";
 import { useFeedback } from "@/components/ui/feedback";
 import { onRecycleBinChanged, onFlyToBin, type FlyToBinOrigin } from "@/lib/recycle-bin-events";
+import { RECYCLE_BIN_DAYS } from "@/lib/recycle-bin-config";
 import { getRecycleBinCount, getRecycleBinItems, restoreRecycleBinItem, purgeRecycleBinItem, type RecycleBinItem } from "@/app/actions/recycle-bin";
 
 type Ghost = { id: number; from: FlyToBinOrigin; to: DOMRect };
@@ -34,6 +35,16 @@ function timeAgo(iso: string): string {
   return new Date(iso).toLocaleDateString();
 }
 
+/** "in 6 days" / "in 5 hours" / "within the hour" until permanent removal. */
+function timeLeft(iso: string): { text: string; urgent: boolean } {
+  const ms = new Date(iso).getTime() - Date.now();
+  const hours = Math.floor(ms / 3_600_000);
+  if (hours < 1) return { text: "within the hour", urgent: true };
+  if (hours < 24) return { text: `in ${hours} hour${hours === 1 ? "" : "s"}`, urgent: true };
+  const days = Math.floor(hours / 24);
+  return { text: `in ${days} day${days === 1 ? "" : "s"}`, urgent: days <= 1 };
+}
+
 function BinIcon({ lidKick }: { lidKick: number }) {
   return (
     <svg viewBox="0 0 24 24" className="size-6" fill="none">
@@ -51,8 +62,14 @@ function BinIcon({ lidKick }: { lidKick: number }) {
   );
 }
 
-export function RecycleBinProvider({ children, canManage }: { children: React.ReactNode; canManage: boolean }) {
-  const [count, setCount] = useState(0);
+export function RecycleBinProvider({ children, canManage, initialCount = 0 }: { children: React.ReactNode; canManage: boolean; initialCount?: number }) {
+  const [count, setCount] = useState(initialCount);
+  // The server recounts on every refresh after a delete (any page), so follow it.
+  const [seenInitial, setSeenInitial] = useState(initialCount);
+  if (seenInitial !== initialCount) {
+    setSeenInitial(initialCount);
+    setCount(initialCount);
+  }
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<RecycleBinItem[] | null>(null);
   const [loadingList, setLoadingList] = useState(false);
@@ -204,6 +221,14 @@ export function RecycleBinProvider({ children, canManage }: { children: React.Re
                 </button>
               </div>
 
+              <div className="flex items-start gap-2 border-b border-warning/30 bg-warning/10 px-5 py-3 text-xs text-ink">
+                <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
+                <p>
+                  <span className="font-semibold">Items are permanently deleted {RECYCLE_BIN_DAYS} days after they were deleted.</span>{" "}
+                  Restore anything you need before then. After that it can&apos;t be brought back.
+                </p>
+              </div>
+
               <div className="flex-1 overflow-y-auto overscroll-contain px-3 py-3">
                 {loadingList && !items ? (
                   <div className="flex items-center justify-center gap-2 py-10 text-sm text-ink-faint">
@@ -227,6 +252,14 @@ export function RecycleBinProvider({ children, canManage }: { children: React.Re
                               Deleted {timeAgo(item.deletedAt)}
                               {item.deletedByName ? ` by ${item.deletedByName}` : ""}
                             </p>
+                            {(() => {
+                              const left = timeLeft(item.expiresAt);
+                              return (
+                                <p className={`mt-0.5 text-[11px] font-semibold ${left.urgent ? "text-danger" : "text-warning"}`}>
+                                  Deleted forever {left.text}
+                                </p>
+                              );
+                            })()}
                           </div>
                         </div>
                         <div className="mt-2 flex items-center gap-2">

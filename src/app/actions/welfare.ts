@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { audit } from "@/lib/audit";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -214,6 +215,7 @@ export async function deleteWelfareDue(formData: FormData) {
   const session = await requireModule("giving");
   if (session.isDemo) return;
   const id = String(formData.get("id"));
+  await moveToBin(session, "welfareDue", "WelfareDue", id);
   await db.welfareDue.deleteMany({ where: { id, churchId: session.churchId } });
   revalidatePath("/app/welfare");
 }
@@ -343,6 +345,7 @@ export async function deleteWelfareRecord(formData: FormData) {
 
   const id = String(formData.get("id"));
   const rec = await db.welfareRecord.findFirst({ where: { id, churchId: session.churchId }, select: { recipientName: true } });
+  await moveToBin(session, "welfareRecord", "WelfareRecord", id);
   await db.welfareRecord.deleteMany({ where: { id, churchId: session.churchId } });
   if (rec) await audit(session, "delete", "welfare", `Deleted welfare for ${rec.recipientName}`, id);
   revalidatePath("/app/welfare");

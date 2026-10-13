@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { requireSession, assertCanWrite, hashPassword, verifyPassword } from "@/lib/auth";
 import { getFormDefinition, getVisitorFormDefinition } from "@/lib/forms/registration";
 import crypto from "node:crypto";
@@ -599,6 +600,7 @@ export async function deleteCustomRole(id: string) {
   const session = await requireSession();
   assertCanWrite(session);
   if (session.role !== "Owner" && session.role !== "Admin") return;
+  await moveToBin(session, "customRole", "CustomRole", id);
   // Detach any users on this role first (they fall back to their base role).
   await db.user.updateMany({ where: { customRoleId: id, churchId: session.churchId }, data: { customRoleId: null } });
   await db.customRole.deleteMany({ where: { id, churchId: session.churchId } });
@@ -619,6 +621,7 @@ export async function removeTeamMember(formData: FormData) {
   const target = await db.user.findFirst({ where: { id: userId, churchId: session.churchId } });
   if (!target || target.role === "Owner") return;
 
+  await moveToBin(session, "teamMember", "User", userId);
   await db.user.delete({ where: { id: userId } });
   revalidatePath("/app/settings");
 }

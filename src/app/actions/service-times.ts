@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 import { canManage } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
@@ -113,6 +114,11 @@ export async function saveServiceSlot(input: { id?: string; name: string; weekda
 
 export async function deleteServiceSlot(id: string) {
   const session = await requireAttendanceManager();
+  const [others, church] = await Promise.all([
+    db.serviceSlot.count({ where: { churchId: session.churchId, active: true, id: { not: id } } }),
+    db.church.findUnique({ where: { id: session.churchId }, select: { serviceTimesOn: true } }),
+  ]);
+  await moveToBin(session, "serviceSlot", "ServiceSlot", id, { extra: { turnedOffServiceTimes: others === 0 && !!church?.serviceTimesOn } });
   await db.serviceSlot.deleteMany({ where: { id, churchId: session.churchId } });
   const left = await db.serviceSlot.count({ where: { churchId: session.churchId, active: true } });
   if (left === 0) await db.church.update({ where: { id: session.churchId }, data: { serviceTimesOn: false } });

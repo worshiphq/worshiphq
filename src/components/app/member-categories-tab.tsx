@@ -10,6 +10,7 @@ import {
   addCategoryOption, renameCategoryOption, deleteCategoryOption, type CategoryAdminRow,
 } from "@/app/actions/member-categories";
 import { cn } from "@/lib/utils";
+import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 
 type Res = { ok: boolean; error?: string; warning?: string };
 
@@ -180,8 +181,8 @@ function CategoryCard({
                   type="button"
                   disabled={busy !== null}
                   onClick={() => {
-                    if (!confirm(`Delete the "${cat.name}" category? Members are not deleted, only their ${cat.name} choices.`)) return;
-                    void run(`delc-${cat.id}`, () => deleteMemberCategory(cat.id));
+                    if (!confirmBinDelete(`Delete the "${cat.name}" category? Members are not deleted, only their ${cat.name} choices.`)) return;
+                    void run(`delc-${cat.id}`, () => deleteMemberCategory(cat.id), () => binDeleted());
                   }}
                   className="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger disabled:opacity-40"
                   title="Delete category"
@@ -226,8 +227,8 @@ function CategoryCard({
                           type="button"
                           disabled={busy !== null}
                           onClick={() => {
-                            if (!confirm(`Remove "${o.name}"?${o.members ? ` ${o.members} member${o.members === 1 ? "" : "s"} will no longer be in it.` : ""}`)) return;
-                            void run(`delo-${o.id}`, () => deleteCategoryOption(o.id));
+                            if (!confirmBinDelete(`Remove "${o.name}"?${o.members ? ` ${o.members} member${o.members === 1 ? "" : "s"} will no longer be in it.` : ""}`)) return;
+                            void run(`delo-${o.id}`, () => deleteCategoryOption(o.id), () => binDeleted());
                           }}
                           className="grid size-6 place-items-center rounded-full text-ink-faint hover:bg-danger/10 hover:text-danger"
                           title="Remove"

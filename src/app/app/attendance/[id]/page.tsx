@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Trash2, Users, Clock } from "lucide-react";
+import { ArrowLeft, Users, Clock } from "lucide-react";
 import { requireModule } from "@/lib/auth";
 import { getBaseUrl } from "@/lib/url";
 import { getAttendanceSession, getCheckInCandidates, getAttendanceReportConfig, getAttendanceBreakdown, getGroupingLabels } from "@/lib/data/attendance";
@@ -15,6 +15,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { CheckInPanel } from "@/components/app/check-in-panel";
 import { EndServiceButton } from "@/components/app/end-service-dialog";
 import { EditableServiceName } from "@/components/app/editable-service-name";
+import { DeleteForm } from "@/components/app/delete-form";
 
 export const metadata = { title: "Service attendance" };
 
@@ -70,11 +71,12 @@ export default async function AttendanceSessionPage({
             isDemo={session.isDemo}
           />
           {!session.isDemo && (
-            <form action={deleteSession.bind(null, data.id)}>
-              <SubmitButton variant="ghost" size="sm" overlay={false} pendingLabel="Deleting…" className="text-danger">
-                <Trash2 className="size-4" /> Delete service
-              </SubmitButton>
-            </form>
+            <DeleteForm
+              action={deleteSession.bind(null, data.id)}
+              confirm="Delete this service and all its check-ins?"
+              label="Delete service"
+              className="text-danger"
+            />
           )}
         </div>
       </div>

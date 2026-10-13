@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useRef, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
 import { CheckCircle2, AlertTriangle, Info, X } from "lucide-react";
 import { CometSpinner } from "@/components/ui/comet-spinner";
@@ -31,6 +31,14 @@ interface FeedbackApi {
 
 const FeedbackContext = createContext<FeedbackApi | null>(null);
 
+/** Set by the mounted provider so plain event handlers can toast without a hook. */
+let activeToast: FeedbackApi["toast"] | null = null;
+
+/** Show a toast from anywhere on the client (no-op if no provider is mounted). */
+export function toastNow(message: string, type: ToastType = "info") {
+  activeToast?.(message, type);
+}
+
 export function useFeedback(): FeedbackApi {
   const ctx = useContext(FeedbackContext);
   if (!ctx) throw new Error("useFeedback must be used within <FeedbackProvider>");
@@ -48,8 +56,14 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
   const toast = useCallback((message: string, type: ToastType = "info") => {
     const id = ++idRef.current;
     setToasts((t) => [...t, { id, type, message }]);
-    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3500);
+    // Longer messages stay up a little longer so they can actually be read.
+    setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), Math.min(7000, Math.max(3500, message.length * 60)));
   }, []);
+
+  useEffect(() => {
+    activeToast = toast;
+    return () => { if (activeToast === toast) activeToast = null; };
+  }, [toast]);
 
   const showBusy = useCallback((message = "Working…") => setBusy({ visible: true, message }), []);
   const hideBusy = useCallback(() => setBusy((b) => ({ ...b, visible: false })), []);

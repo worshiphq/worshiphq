@@ -19,6 +19,8 @@ import { MessageSquare, Megaphone, Users, Clock, Bell } from "lucide-react";
 import { WEEKDAY_OPTIONS, WEEKDAY_LABELS } from "@/lib/automations/weekdays";
 import { Segmented } from "@/components/ui/segmented";
 import { cn } from "@/lib/utils";
+import { confirmBinDelete } from "@/lib/recycle-bin-events";
+import { BIN_TOAST, RECYCLE_BIN_DAYS } from "@/lib/recycle-bin-config";
 
 const hhmm = (h: number, m: number) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 const parseHhmm = (v: string): [number, number] => { const m = /^(\d{1,2}):(\d{2})$/.exec(v); return m ? [Math.min(23, +m[1]), Math.min(59, +m[2])] : [8, 0]; };
@@ -159,7 +161,7 @@ function RecentlyDeleted({ sheets }: { sheets: DeletedSheet[] }) {
       </button>
       {open && (
         <div className="space-y-2 border-t border-line p-4">
-          <p className="text-xs text-ink-faint">Deleted sheets are kept for 30 days. Restore one, or remove it for good.</p>
+          <p className="text-xs text-ink-faint">Deleted sheets are kept for {RECYCLE_BIN_DAYS} days, then removed for good. Restore one, or remove it now.</p>
           {sheets.map((s) => (
             <div key={s.id} className="flex items-center gap-2 rounded-xl border border-line px-3 py-2">
               <div className="min-w-0 flex-1">
@@ -208,9 +210,9 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
   };
 
   const remove = () => {
-    if (!confirm(`Delete the roster "${sheet.name}"? You can restore it from “Recently deleted” for 30 days.`)) return;
+    if (!confirmBinDelete(`Delete the roster "${sheet.name}"?`)) return;
     const fd = new FormData(); fd.set("id", sheet.id);
-    start(async () => { await deleteRoster(fd); toast("Roster deleted - restore it from Recently deleted", "info"); router.refresh(); });
+    start(async () => { await deleteRoster(fd); toast(BIN_TOAST, "success"); router.refresh(); });
   };
 
   // Human schedule for the auto-announcement (per-roster override).
@@ -800,9 +802,9 @@ function RolesManager({ roles, canWrite, onClose }: { roles: Role[]; canWrite: b
     start(async () => { await addServiceRole(fd); setName(""); toast("Role added", "success"); router.refresh(); });
   };
   const remove = (id: string, roleName: string) => {
-    if (!confirm(`Remove the role "${roleName}"? Existing sheets keep their assignments.`)) return;
+    if (!confirmBinDelete(`Remove the role "${roleName}"? Existing sheets keep their assignments.`)) return;
     const fd = new FormData(); fd.set("id", id);
-    start(async () => { await deleteServiceRole(fd); toast("Role removed", "success"); router.refresh(); });
+    start(async () => { await deleteServiceRole(fd); toast(BIN_TOAST, "success"); router.refresh(); });
   };
 
   return (

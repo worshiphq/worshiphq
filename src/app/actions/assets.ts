@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { logAudit } from "@/lib/audit";
 
 const CATEGORIES = ["general", "audio-visual", "musical", "furniture", "vehicle", "IT", "kitchen", "other"];
@@ -47,6 +48,7 @@ export async function deleteAsset(formData: FormData) {
 
   const id = String(formData.get("id"));
   const asset = await db.asset.findFirst({ where: { id, churchId: session.churchId }, select: { name: true } });
+  await moveToBin(session, "asset", "Asset", id);
   await db.asset.deleteMany({ where: { id, churchId: session.churchId } });
   if (asset) await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: "asset", entityId: id, detail: `Deleted asset "${asset.name}"` });
   revalidatePath("/app/assets");

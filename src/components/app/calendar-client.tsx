@@ -9,6 +9,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { OnFormComplete } from "@/components/ui/form-effects";
 import { ChevronLeft, ChevronRight, CalendarDays, Cake, CalendarCheck2, Plus, X, Clock, MapPin } from "lucide-react";
 import { createEvent, deleteEvent } from "@/app/actions/events";
+import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 
 type CalEvent = {
   id: string;
@@ -198,7 +199,7 @@ export function CalendarClient({ events, canWrite }: { events: CalEvent[]; canWr
                     </div>
                     {canWrite && e.type === "event" && (
                       <button
-                        onClick={() => { if (confirm(`Delete "${e.title}"?`)) start(async () => { await deleteEvent(e.id); router.refresh(); }); }}
+                        onClick={() => { if (confirmBinDelete(`Delete "${e.title}"?`)) start(async () => { await deleteEvent(e.id); binDeleted(); router.refresh(); }); }}
                         disabled={pending}
                         className="rounded-md p-1 text-ink-faint hover:text-danger disabled:opacity-50"
                       ><X className="size-4" /></button>

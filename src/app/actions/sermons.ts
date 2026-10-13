@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { logAudit } from "@/lib/audit";
 
 export async function createSermon(formData: FormData) {
@@ -44,6 +45,7 @@ export async function deleteSermon(formData: FormData) {
 
   const id = String(formData.get("id"));
   const sermon = await db.sermon.findFirst({ where: { id, churchId: session.churchId }, select: { title: true } });
+  await moveToBin(session, "sermon", "Sermon", id);
   await db.sermon.deleteMany({ where: { id, churchId: session.churchId } });
   if (sermon) await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: "sermon", entityId: id, detail: `Deleted sermon "${sermon.title}"` });
   revalidatePath("/app/sermons");

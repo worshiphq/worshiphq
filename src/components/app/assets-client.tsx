@@ -8,6 +8,7 @@ import {
   Search, Package, Trash2, MapPin, Hash, Music, Monitor, Truck, Utensils, Armchair, Cpu, HelpCircle,
 } from "lucide-react";
 import { deleteAsset } from "@/app/actions/assets";
+import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 
 type AssetRow = {
   id: string;
@@ -67,7 +68,8 @@ export function AssetsClient({
   const handleDelete = (id: string) => {
     const fd = new FormData();
     fd.set("id", id);
-    start(() => deleteAsset(fd));
+    if (!confirmBinDelete("Delete this asset?")) return;
+    start(async () => { await deleteAsset(fd); binDeleted(); });
   };
 
   const categories = [...new Set(assets.map((a) => a.category))].sort();

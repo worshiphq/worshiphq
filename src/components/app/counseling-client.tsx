@@ -5,6 +5,8 @@ import { Search, Trash2, Heart, Users, Shield, BookOpen, AlertTriangle, CircleDo
 import { deleteCounselingSession, updateCounselingStatus } from "@/app/actions/counseling";
 import { useFeedback } from "@/components/ui/feedback";
 import { formatDate } from "@/lib/utils";
+import { confirmBinDelete } from "@/lib/recycle-bin-events";
+import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
 interface Session {
   id: string;
@@ -115,7 +117,7 @@ export function CounselingClient({ sessions }: { sessions: Session[] }) {
                         </button>
                       </form>
                     )}
-                    <form action={(fd) => start(async () => { fd.set("id", s.id); await deleteCounselingSession(fd); toast("Session deleted", "info"); })}>
+                    <form action={(fd) => { if (!confirmBinDelete("Delete this counselling session?")) return; start(async () => { fd.set("id", s.id); await deleteCounselingSession(fd); toast(BIN_TOAST, "success"); }); }}>
                       <button type="submit" disabled={pending} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger disabled:pointer-events-none">
                         {pending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                       </button>

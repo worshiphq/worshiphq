@@ -11,6 +11,7 @@ import {
 import {
   updatePrayerRequestStatus, incrementPrayerCount, deletePrayerRequest,
 } from "@/app/actions/prayer-requests";
+import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 
 type PrayerRow = {
   id: string;
@@ -57,7 +58,8 @@ export function PrayerRequestsClient({ items, prayUrl }: { items: PrayerRow[]; p
   const handleDelete = (id: string) => {
     const fd = new FormData();
     fd.set("id", id);
-    start(() => deletePrayerRequest(fd));
+    if (!confirmBinDelete("Delete this prayer request?")) return;
+    start(async () => { await deletePrayerRequest(fd); binDeleted(); });
   };
 
   const copyLink = () => {

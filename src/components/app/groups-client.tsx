@@ -18,6 +18,7 @@ import { Modal } from "@/components/ui/modal";
 import { formatSchedule, type ScheduleEntry } from "@/lib/groups/meeting-reminder";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
+import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 
 type GroupRow = {
   id: string;
@@ -76,7 +77,8 @@ export function GroupsClient({ items, people, typeSuggestions, canWrite }: {
   const handleDelete = (id: string) => {
     const fd = new FormData();
     fd.set("id", id);
-    start(() => deleteGroup(fd));
+    if (!confirmBinDelete("Delete this group? Its members stay in your church.")) return;
+    start(async () => { await deleteGroup(fd); binDeleted(); });
   };
 
   return (

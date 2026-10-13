@@ -8,6 +8,7 @@ import {
   Search, DoorOpen, Trash2, Clock, User, MapPin, Building,
 } from "lucide-react";
 import { deleteBooking, deleteFacility } from "@/app/actions/bookings";
+import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 
 type FacilityRow = {
   id: string;
@@ -53,13 +54,15 @@ export function BookingsClient({
   const handleDeleteBooking = (id: string) => {
     const fd = new FormData();
     fd.set("id", id);
-    start(() => deleteBooking(fd));
+    if (!confirmBinDelete("Delete this booking?")) return;
+    start(async () => { await deleteBooking(fd); binDeleted(); });
   };
 
   const handleDeleteFacility = (id: string) => {
     const fd = new FormData();
     fd.set("id", id);
-    start(() => deleteFacility(fd));
+    if (!confirmBinDelete("Delete this facility and its bookings?")) return;
+    start(async () => { await deleteFacility(fd); binDeleted(); });
   };
 
   const now = new Date();

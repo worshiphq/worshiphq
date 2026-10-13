@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { TRIGGER_CATALOG, DEFAULT_TEMPLATES, runSingleAutomation } from "@/lib/automations/run";
 import { audit } from "@/lib/audit";
@@ -98,6 +99,7 @@ export async function updateAutomationSettings(
 export async function deleteAutomation(id: string) {
   const session = await requireSession();
   assertCanDelete(session);
+  await moveToBin(session, "automation", "Automation", id);
   await db.automation.deleteMany({ where: { id, churchId: session.churchId } });
   revalidatePath("/app/reminders");
 }

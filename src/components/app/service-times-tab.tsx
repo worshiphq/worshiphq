@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { getServiceTimes, setServiceTimesOptions, saveServiceSlot, deleteServiceSlot, type ServiceTimesData } from "@/app/actions/service-times";
 import { cn } from "@/lib/utils";
+import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const hhmm = (m: number) => `${String(Math.floor(m / 60)).padStart(2, "0")}:${String(m % 60).padStart(2, "0")}`;
@@ -174,8 +175,9 @@ export function ServiceTimesTab({ canManage }: { canManage: boolean }) {
                             type="button"
                             disabled={busy !== null}
                             onClick={() => {
-                              if (!confirm(`Remove "${s.name}"? Past attendance stays as it is.`)) return;
+                              if (!confirmBinDelete(`Remove "${s.name}"? Past attendance stays as it is.`)) return;
                               void run(`del-${s.id}`, () => deleteServiceSlot(s.id), (r) => {
+                                binDeleted();
                                 if (r.turnedOff) setNotice("That was your last service, so service times have been turned off.");
                               });
                             }}

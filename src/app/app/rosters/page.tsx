@@ -38,7 +38,7 @@ export default async function RostersPage() {
     }),
   ]);
   const messageTemplates = (church?.messageTemplates as Record<string, string> | null) ?? {};
-  // Recently deleted sheets (last 30 days) - restorable.
+  // Recently deleted sheets (last 7 days) - restorable.
   const deletedSheets = await db.volunteerRoster.findMany({
     where: { churchId: session.churchId, deletedAt: { gte: new Date(Date.now() - 30 * 86400000) } },
     orderBy: { deletedAt: "desc" },

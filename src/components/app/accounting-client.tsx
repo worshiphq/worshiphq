@@ -18,6 +18,8 @@ import type { AccountHistory } from "@/lib/data/accounts";
 import { formatCurrency } from "@/config/brand";
 import { formatDate, cn } from "@/lib/utils";
 import type { AccountingWeek, AccountingRow } from "@/lib/data/modules";
+import { confirmBinDelete } from "@/lib/recycle-bin-events";
+import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
 const MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -299,8 +301,9 @@ function TransactionRow({ row, canWrite, onDelete }: { row: AccountingRow; canWr
   };
 
   const handleDelete = () => {
+    if (!confirmBinDelete("Delete this transaction?")) return;
     onDelete(row.id);
-    toast("Transaction deleted", "success");
+    toast(BIN_TOAST, "success");
     deleteTransaction(row.id).then(() => router.refresh());
   };
 
@@ -430,8 +433,9 @@ function AllTransactionsRow({ row: r, canWrite, onDelete }: { row: AccountingRow
   };
 
   const handleDelete = () => {
+    if (!confirmBinDelete("Delete this transaction?")) return;
     onDelete(r.id);
-    toast("Transaction deleted", "success");
+    toast(BIN_TOAST, "success");
     deleteTransaction(r.id).then(() => router.refresh());
   };
 

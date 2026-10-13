@@ -5,6 +5,8 @@ import { Search, Trash2, Star, Eye, EyeOff, Sparkles, Heart, HandHeart, Shield, 
 import { deleteTestimony, toggleTestimonyStatus } from "@/app/actions/testimonies";
 import { useFeedback } from "@/components/ui/feedback";
 import { formatDate } from "@/lib/utils";
+import { confirmBinDelete } from "@/lib/recycle-bin-events";
+import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
 interface Testimony {
   id: string;
@@ -94,7 +96,7 @@ export function TestimoniesClient({ testimonies }: { testimonies: Testimony[] })
                         {pending ? <Loader2 className="size-4 animate-spin" /> : t.status === "featured" ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
                       </button>
                     </form>
-                    <form action={(fd) => start(async () => { fd.set("id", t.id); await deleteTestimony(fd); toast("Testimony deleted", "info"); })}>
+                    <form action={(fd) => { if (!confirmBinDelete("Delete this testimony?")) return; start(async () => { fd.set("id", t.id); await deleteTestimony(fd); toast(BIN_TOAST, "success"); }); }}>
                       <button type="submit" disabled={pending} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger disabled:pointer-events-none">
                         {pending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                       </button>

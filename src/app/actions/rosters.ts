@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { logAudit } from "@/lib/audit";
 
 /** "" / invalid → null (relative mode); "0".."6" → that weekday (absolute mode). */
@@ -227,6 +228,7 @@ export async function deleteSlot(formData: FormData) {
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
+  await moveToBin(session, "volunteerSlot", "VolunteerSlot", id);
   await db.volunteerSlot.deleteMany({ where: { id, churchId: session.churchId } });
   revalidatePath("/app/rosters");
 }
@@ -251,6 +253,7 @@ export async function deleteServiceRole(formData: FormData) {
   const session = await requireModule("volunteers");
   if (session.isDemo) return;
   const id = String(formData.get("id"));
+  await moveToBin(session, "serviceRole", "ServiceRole", id);
   await db.serviceRole.deleteMany({ where: { id, churchId: session.churchId } });
   revalidatePath("/app/rosters");
 }

@@ -8,6 +8,7 @@ import {
   Search, BookOpen, Trash2, Calendar, User, Video, Headphones, Eye, EyeOff, BookMarked,
 } from "lucide-react";
 import { deleteSermon, toggleSermonPublished } from "@/app/actions/sermons";
+import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 
 type SermonRow = {
   id: string;
@@ -40,7 +41,8 @@ export function SermonsClient({ sermons }: { sermons: SermonRow[] }) {
   const handleDelete = (id: string) => {
     const fd = new FormData();
     fd.set("id", id);
-    start(() => deleteSermon(fd));
+    if (!confirmBinDelete("Delete this sermon?")) return;
+    start(async () => { await deleteSermon(fd); binDeleted(); });
   };
 
   const handleTogglePublished = (id: string) => {

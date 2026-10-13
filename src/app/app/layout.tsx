@@ -6,6 +6,7 @@ import { AppShell } from "@/components/app/app-shell";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { TourProvider } from "@/components/app/tour";
 import { RecycleBinProvider } from "@/components/app/recycle-bin-provider";
+import { binCutoff } from "@/lib/recycle-bin";
 import { getActiveAnnouncements } from "@/lib/data/announcements";
 import { getRecentNotifications } from "@/lib/data/notifications";
 import { getChurchPlan } from "@/lib/plan-gate-server";
@@ -23,7 +24,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/verify-phone");
   }
 
-  const [announcements, church, notifications, plan, platformConfig] = await Promise.all([
+  const [announcements, church, notifications, plan, platformConfig, binCount] = await Promise.all([
     getActiveAnnouncements(),
     db.church.findUnique({
       where: { id: session.churchId },
@@ -32,6 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     getRecentNotifications(session.churchId),
     getChurchPlan(session.churchId),
     getPlatformConfig(),
+    session.canDelete ? countRecycleBin(session.churchId) : Promise.resolve(0),
   ]);
 
   // Suspended churches are locked out - but SuperAdmin support can still enter.
@@ -57,9 +59,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       plan={plan}
       planTable={platformConfig.planTable}
     >
-      <RecycleBinProvider canManage={session.canDelete}>
+      <RecycleBinProvider canManage={session.canDelete} initialCount={binCount}>
         <TourProvider>{children}</TourProvider>
       </RecycleBinProvider>
     </AppShell>
   );
+}
+
+/** Items still in the recycle bin (not yet past their 7 days). */
+async function countRecycleBin(churchId: string): Promise<number> {
+  const cutoff = binCutoff();
+  const [items, rosters] = await Promise.all([
+    db.deletedItem.count({ where: { churchId, deletedAt: { gte: cutoff } } }),
+    db.volunteerRoster.count({ where: { churchId, deletedAt: { gte: cutoff } } }),
+  ]);
+  return items + rosters;
 }

@@ -13,6 +13,7 @@ import {
   deleteDevotional, toggleDevotionalPublished,
   previewDevotionalBlast, blastDevotional,
 } from "@/app/actions/devotionals";
+import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 
 type BlastPreview = {
   recipients: number;
@@ -80,7 +81,8 @@ export function DevotionalsClient({ devotionals }: { devotionals: DevotionalRow[
   const handleDelete = (id: string) => {
     const fd = new FormData();
     fd.set("id", id);
-    start(() => deleteDevotional(fd));
+    if (!confirmBinDelete("Delete this devotional?")) return;
+    start(async () => { await deleteDevotional(fd); binDeleted(); });
   };
 
   const handleToggle = (id: string) => {

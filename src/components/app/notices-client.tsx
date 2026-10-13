@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, Pin, Trash2, Megaphone } from "lucide-react";
 import { togglePinNotice, deleteNotice } from "@/app/actions/notices";
+import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 
 type NoticeRow = {
   id: string;
@@ -35,7 +36,8 @@ export function NoticesClient({ items }: { items: NoticeRow[] }) {
   const handleDelete = (id: string) => {
     const fd = new FormData();
     fd.set("id", id);
-    start(() => deleteNotice(fd));
+    if (!confirmBinDelete("Delete this notice?")) return;
+    start(async () => { await deleteNotice(fd); binDeleted(); });
   };
 
   return (

@@ -7,6 +7,9 @@
  * this stays generic rather than importing the provider directly, so leaf
  * components (DeleteForm, bespoke delete buttons) don't need to know it exists.
  */
+import { toastNow } from "@/components/ui/feedback";
+import { BIN_TOAST, binConfirm } from "@/lib/recycle-bin-config";
+
 type Listener = () => void;
 
 const listeners = new Set<Listener>();
@@ -33,4 +36,16 @@ export function flyToBin(origin: FlyToBinOrigin) {
 export function onFlyToBin(listener: FlyListener): () => void {
   flyListeners.add(listener);
   return () => flyListeners.delete(listener);
+}
+
+/** "Delete X?" confirm that also reminds people about the 7-day recycle bin. */
+export function confirmBinDelete(question: string): boolean {
+  return window.confirm(binConfirm(question));
+}
+
+/** After a delete succeeds: tell the user it's in the bin (and for how long),
+ *  and refresh the bin's count. */
+export function binDeleted(message: string = BIN_TOAST) {
+  toastNow(message, "success");
+  notifyRecycleBinChanged();
 }

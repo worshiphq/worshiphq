@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { addFollowUpReport, deleteFollowUpReport } from "@/app/actions/follow-ups";
 import { REPORT_METHODS, REPORT_OUTCOMES, methodLabel, outcomeLabel, outcomeTone } from "@/lib/follow-ups/outcomes";
 import { cn } from "@/lib/utils";
+import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 
 export type ReportRow = {
   id: string;
@@ -79,12 +80,13 @@ export function FollowUpReports({
   }
 
   async function remove(id: string) {
-    if (!confirm("Remove this report?")) return;
+    if (!confirmBinDelete("Remove this report?")) return;
     setBusy(id);
     setError("");
     try {
       const res = await deleteFollowUpReport(id);
       if (!res.ok) setError(res.error);
+      else binDeleted();
       router.refresh();
     } catch {
       setError("Couldn't remove the report.");

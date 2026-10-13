@@ -41,6 +41,8 @@ import { getPlanLimits, type PlanId } from "@/lib/plan-gate";
 import { usePaystack } from "@/components/payments/use-paystack";
 import { phoneValidityMessage } from "@/lib/phone";
 import { cn } from "@/lib/utils";
+import { confirmBinDelete } from "@/lib/recycle-bin-events";
+import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
 type FeatureMap = Record<string, boolean>;
 type Church = {
@@ -269,9 +271,9 @@ export function SettingsClient({
                         <Badge variant="default">{u.customRole?.name ?? u.role}</Badge>
                       )}
                       {isAdmin && u.id !== session.userId && u.role !== "Owner" && (
-                        <form action={removeTeamMember}>
+                        <form action={removeTeamMember} onSubmit={(e) => { if (!confirmBinDelete(`Remove ${u.name ?? "this person"} from your team?`)) e.preventDefault(); }}>
                           <input type="hidden" name="userId" value={u.id} />
-                          <SubmitButton size="sm" variant="danger" overlay={false} successMessage="Member removed" className="h-8 px-2">
+                          <SubmitButton size="sm" variant="danger" overlay={false} successMessage={BIN_TOAST} className="h-8 px-2">
                             <Trash2 className="size-3" />
                           </SubmitButton>
                         </form>
@@ -374,8 +376,8 @@ export function SettingsClient({
                           <Button size="sm" variant="secondary" onClick={() => setEditingRole(cr)} disabled={ro}>
                             <Pencil className="size-3.5" /> Edit
                           </Button>
-                          <form action={deleteCustomRole.bind(null, cr.id)}>
-                            <SubmitButton size="sm" variant="ghost" overlay={false} successMessage="Role deleted" className="text-danger">
+                          <form action={deleteCustomRole.bind(null, cr.id)} onSubmit={(e) => { if (!confirmBinDelete(`Delete the "${cr.name}" role? People on it go back to their basic role.`)) e.preventDefault(); }}>
+                            <SubmitButton size="sm" variant="ghost" overlay={false} successMessage={BIN_TOAST} className="text-danger">
                               <Trash2 className="size-3.5" />
                             </SubmitButton>
                           </form>
@@ -477,12 +479,12 @@ export function SettingsClient({
                       <form
                         action={deleteDepartment.bind(null, d.id)}
                         onSubmit={(e) => {
-                          if (!confirm(`Delete "${d.name}"? Members in this department will be unlinked.`)) {
+                          if (!confirmBinDelete(`Delete "${d.name}"? Members in this department will be unlinked.`)) {
                             e.preventDefault();
                           }
                         }}
                       >
-                        <SubmitButton size="sm" variant="ghost" overlay={false} successMessage="Department deleted" className="text-danger">
+                        <SubmitButton size="sm" variant="ghost" overlay={false} successMessage={BIN_TOAST} className="text-danger">
                           <Trash2 className="size-3.5" />
                         </SubmitButton>
                       </form>

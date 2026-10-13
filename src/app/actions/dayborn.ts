@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 
 function getMonday(d: Date): Date {
@@ -104,6 +105,7 @@ export async function deleteDayBornEntry(entryId: string) {
   });
   if (!entry || entry.week.churchId !== session.churchId) return;
 
+  await moveToBin(session, "dayBornEntry", "DayBornEntry", entryId);
   await db.dayBornEntry.delete({ where: { id: entryId } });
   revalidatePath("/app/dayborn");
 }
@@ -117,6 +119,7 @@ export async function deleteDayBornWeek(weekId: string) {
   });
   if (!week) return;
 
+  await moveToBin(session, "dayBornWeek", "DayBornWeek", weekId);
   await db.dayBornWeek.delete({ where: { id: weekId } });
   revalidatePath("/app/dayborn");
   revalidatePath("/app/accounting");

@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 
 const VALID_POSITIONS = [
@@ -41,6 +42,7 @@ export async function removePosition(id: string) {
   assertCanWrite(session);
   if (session.role !== "Owner" && session.role !== "Admin" && session.role !== "Pastor") return;
 
+  await moveToBin(session, "position", "DepartmentPosition", id);
   await db.departmentPosition.deleteMany({
     where: { id, churchId: session.churchId },
   });

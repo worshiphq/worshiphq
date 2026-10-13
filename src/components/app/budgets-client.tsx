@@ -7,6 +7,8 @@ import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { AccountSelect, type AccountOption } from "@/components/app/account-select";
 import { useFeedback } from "@/components/ui/feedback";
 import { cn } from "@/lib/utils";
+import { confirmBinDelete } from "@/lib/recycle-bin-events";
+import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
 interface BudgetItem {
   id: string;
@@ -129,7 +131,7 @@ export function BudgetsClient({
                     </div>
                   </div>
                   {!isLeader && (
-                    <form action={(fd) => { if (!confirm(`Delete the "${b.name}" budget and all its entries? This cannot be undone.`)) return; start(async () => { fd.set("id", b.id); await deleteBudget(fd); toast("Budget deleted", "info"); }); }} onClick={(e) => e.stopPropagation()}>
+                    <form action={(fd) => { if (!confirmBinDelete(`Delete the "${b.name}" budget and all its entries?`)) return; start(async () => { fd.set("id", b.id); await deleteBudget(fd); toast(BIN_TOAST, "success"); }); }} onClick={(e) => e.stopPropagation()}>
                       <button type="submit" disabled={pending} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger disabled:pointer-events-none">
                         {pending ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                       </button>
@@ -192,7 +194,7 @@ export function BudgetsClient({
                                     {e.type === "income" ? "+" : "−"}{fmt(e.amount)}
                                   </td>
                                   <td className="py-2 text-right w-8">
-                                    <form action={(fd) => { if (!confirm("Remove this entry? This cannot be undone.")) return; start(async () => { fd.set("id", e.id); await deleteEntryAction(fd); toast("Entry removed", "info"); }); }}>
+                                    <form action={(fd) => { if (!confirmBinDelete("Remove this entry?")) return; start(async () => { fd.set("id", e.id); await deleteEntryAction(fd); toast(BIN_TOAST, "success"); }); }}>
                                       <button type="submit" disabled={pending} className="grid size-6 place-items-center rounded text-ink-faint hover:text-danger disabled:pointer-events-none">
                                         {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
                                       </button>
@@ -230,7 +232,7 @@ export function BudgetsClient({
                                     <td className="py-2 pr-3 text-ink-muted">{item.description}</td>
                                     <td className="py-2 pr-3 text-right">{fmt(item.amount)}</td>
                                     <td className="py-2 text-right">
-                                      <form action={(fd) => { if (!confirm("Remove this budget line? This cannot be undone.")) return; start(async () => { fd.set("id", item.id); await deleteBudgetItem(fd); toast("Item removed", "info"); }); }}>
+                                      <form action={(fd) => { if (!confirmBinDelete("Remove this budget line?")) return; start(async () => { fd.set("id", item.id); await deleteBudgetItem(fd); toast(BIN_TOAST, "success"); }); }}>
                                         <button type="submit" disabled={pending} className="grid size-6 place-items-center rounded text-ink-faint hover:text-danger disabled:pointer-events-none">
                                           {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
                                         </button>

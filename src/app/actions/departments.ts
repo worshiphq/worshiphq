@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 
@@ -32,6 +33,7 @@ export async function deleteDepartment(id: string) {
   const session = await requireSession();
   assertCanWrite(session);
   const dept = await db.department.findFirst({ where: { id, churchId: session.churchId }, select: { name: true } });
+  await moveToBin(session, "department", "Department", id);
   // Unlink people first, then delete
   await db.person.updateMany({
     where: { churchId: session.churchId, departmentId: id },

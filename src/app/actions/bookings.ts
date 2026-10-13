@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { logAudit } from "@/lib/audit";
 
 export async function createFacility(formData: FormData) {
@@ -27,6 +28,7 @@ export async function deleteFacility(formData: FormData) {
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
+  await moveToBin(session, "facility", "Facility", id);
   await db.facility.deleteMany({ where: { id, churchId: session.churchId } });
   revalidatePath("/app/bookings");
 }
@@ -65,6 +67,7 @@ export async function deleteBooking(formData: FormData) {
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
+  await moveToBin(session, "booking", "Booking", id);
   await db.booking.deleteMany({ where: { id, churchId: session.churchId } });
   revalidatePath("/app/bookings");
 }

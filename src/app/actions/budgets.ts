@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { logAudit } from "@/lib/audit";
 
 /** Budget leaders are scoped to their own department and can't create/delete budgets. */
@@ -141,6 +142,7 @@ export async function deleteBudgetEntry(formData: FormData) {
   if (!entry) return;
   if (isLeader(session) && entry.budget.departmentId !== session.budgetDepartmentId) return;
 
+  await moveToBin(session, "budgetEntry", "BudgetEntry", id);
   await db.budgetEntry.deleteMany({ where: { id, churchId: session.churchId } });
   revalidatePath("/app/budgets");
 }
@@ -151,6 +153,7 @@ export async function deleteBudget(formData: FormData) {
 
   const id = String(formData.get("id"));
   const b = await db.budget.findFirst({ where: { id, churchId: session.churchId }, select: { name: true } });
+  await moveToBin(session, "budget", "Budget", id);
   await db.budget.deleteMany({ where: { id, churchId: session.churchId } });
   if (b) await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: "budget", entityId: id, detail: `Deleted budget "${b.name}"` });
   revalidatePath("/app/budgets");
@@ -161,6 +164,7 @@ export async function deleteBudgetItem(formData: FormData) {
   if (session.isDemo || isLeader(session)) return;
 
   const id = String(formData.get("id"));
+  await moveToBin(session, "budgetItem", "BudgetItem", id);
   await db.budgetItem.deleteMany({ where: { id, churchId: session.churchId } });
   revalidatePath("/app/budgets");
 }

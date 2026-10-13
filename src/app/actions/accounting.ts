@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 
@@ -64,6 +65,7 @@ export async function deleteTransaction(id: string) {
   const session = await requireSession();
   assertCanDelete(session);
   const tx = await db.transaction.findFirst({ where: { id, churchId: session.churchId }, select: { description: true } });
+  await moveToBin(session, "transaction", "Transaction", id);
   await db.transaction.deleteMany({ where: { id, churchId: session.churchId } });
   if (tx) await audit(session, "delete", "transaction", `Deleted transaction "${tx.description}"`, id);
   revalidatePath("/app/accounting");

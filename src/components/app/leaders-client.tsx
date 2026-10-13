@@ -11,6 +11,7 @@ import { MemberAvatar } from "@/components/ui/member-avatar";
 import { addPosition, removePosition } from "@/app/actions/positions";
 import { reorderLeaders } from "@/app/actions/leaders";
 import { cn } from "@/lib/utils";
+import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 
 type Leader = {
   id: string;
@@ -351,7 +352,7 @@ function RemovableMember({ member: m, isAdmin, isDemo }: { member: DeptMember; i
         <button
           type="button"
           disabled={removing}
-          onClick={() => startRemove(() => removePosition(m.positionId))}
+          onClick={() => { if (!confirmBinDelete(`Remove ${m.position}?`)) return; startRemove(async () => { await removePosition(m.positionId); binDeleted(); }); }}
           className="grid size-6 place-items-center rounded text-ink-faint transition-colors hover:bg-danger/10 hover:text-danger disabled:pointer-events-none"
         >
           {removing ? <Loader2 className="size-3 animate-spin" /> : <X className="size-3" />}

@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { requireSession, assertCanDelete } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { restoreItem, purgeItem, ENTITY_LABELS, type EntityType } from "@/lib/recycle-bin";
+import { restoreItem, purgeItem, purgeExpiredBinItems, binCutoff, ENTITY_LABELS } from "@/lib/recycle-bin";
+import { RECYCLE_BIN_DAYS } from "@/lib/recycle-bin-config";
 import { audit } from "@/lib/audit";
 
 export type RecycleBinItem = {
@@ -14,11 +15,17 @@ export type RecycleBinItem = {
   label: string;
   detail: string | null;
   deletedAt: string;
+  /** When it will be permanently removed. */
+  expiresAt: string;
   deletedByName: string | null;
 };
 
+const expiry = (d: Date) => new Date(d.getTime() + RECYCLE_BIN_DAYS * 24 * 60 * 60 * 1000).toISOString();
+
 export async function getRecycleBinItems(): Promise<RecycleBinItem[]> {
   const session = await requireSession();
+  // Clear anything past its 7 days now, rather than waiting for the nightly sweep.
+  await purgeExpiredBinItems(session.churchId).catch(() => {});
 
   const [deletedItems, rosters] = await Promise.all([
     db.deletedItem.findMany({ where: { churchId: session.churchId }, orderBy: { deletedAt: "desc" } }),
@@ -29,10 +36,11 @@ export async function getRecycleBinItems(): Promise<RecycleBinItem[]> {
     id: d.id,
     source: "generic",
     entityType: d.entityType,
-    entityLabel: ENTITY_LABELS[d.entityType as EntityType] ?? d.entityType,
+    entityLabel: ENTITY_LABELS[d.entityType] ?? d.entityType,
     label: d.label,
     detail: d.detail,
     deletedAt: d.deletedAt.toISOString(),
+    expiresAt: expiry(d.deletedAt),
     deletedByName: d.deletedByName,
   }));
 
@@ -44,6 +52,7 @@ export async function getRecycleBinItems(): Promise<RecycleBinItem[]> {
     label: r.name,
     detail: r.ministry,
     deletedAt: (r.deletedAt as Date).toISOString(),
+    expiresAt: expiry(r.deletedAt as Date),
     deletedByName: null,
   }));
 
@@ -53,8 +62,8 @@ export async function getRecycleBinItems(): Promise<RecycleBinItem[]> {
 export async function getRecycleBinCount(): Promise<number> {
   const session = await requireSession();
   const [genericCount, rosterCount] = await Promise.all([
-    db.deletedItem.count({ where: { churchId: session.churchId } }),
-    db.volunteerRoster.count({ where: { churchId: session.churchId, deletedAt: { not: null } } }),
+    db.deletedItem.count({ where: { churchId: session.churchId, deletedAt: { gte: binCutoff() } } }),
+    db.volunteerRoster.count({ where: { churchId: session.churchId, deletedAt: { gte: binCutoff() } } }),
   ]);
   return genericCount + rosterCount;
 }

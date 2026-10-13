@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { logAudit } from "@/lib/audit";
 
 const ACCOUNT_TYPES = ["bank", "mobile-money", "cash"];
@@ -80,6 +81,7 @@ export async function deleteAccount(id: string) {
   const acc = await db.churchAccount.findFirst({ where: { id, churchId: session.churchId }, select: { id: true, name: true } });
   if (!acc) return;
   // Money records keep their history; their accountId is set null on delete.
+  await moveToBin(session, "account", "ChurchAccount", id);
   await db.churchAccount.delete({ where: { id } });
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: "account", entityId: id, detail: `Deleted account "${acc.name}"` });
   revalidatePath("/app/accounting");

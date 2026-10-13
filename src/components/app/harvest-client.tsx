@@ -22,6 +22,8 @@ import { wideYears } from "@/lib/years";
 import { formatDate, cn } from "@/lib/utils";
 import type { HarvestData, HarvestContributionRow } from "@/lib/data/harvest";
 import { DEFAULT_HARVEST_RECEIPT } from "@/lib/harvest/receipt";
+import { BIN_TOAST, RECYCLE_BIN_DAYS } from "@/lib/recycle-bin-config";
+import { confirmBinDelete } from "@/lib/recycle-bin-events";
 
 const methods = ["MTN MoMo", "Telecel Cash", "AirtelTigo", "Card", "Cash"] as const;
 const methodIcon: Record<string, typeof Smartphone> = {
@@ -185,7 +187,7 @@ function HarvestEditBar({ harvest, year }: { harvest: NonNullable<HarvestData["h
     startTransition(async () => {
       const res = await deleteHarvest(year);
       if (!res.ok) toast(res.error ?? "Failed to delete harvest", "error");
-      else toast("Harvest deleted", "success");
+      else toast(BIN_TOAST, "success");
       setConfirming(false);
       router.refresh();
     });
@@ -210,7 +212,7 @@ function HarvestEditBar({ harvest, year }: { harvest: NonNullable<HarvestData["h
       ) : (
         <div className="flex items-center gap-2">
           <span className="flex items-center gap-1 text-xs text-danger">
-            <AlertTriangle className="size-3.5" /> Delete all contributions?
+            <AlertTriangle className="size-3.5" /> Delete this harvest and its contributions? You can restore it for {RECYCLE_BIN_DAYS} days.
           </span>
           <Button size="sm" variant="ghost" onClick={() => setConfirming(false)} disabled={pending}>
             <X className="size-4" /> Cancel
@@ -671,11 +673,11 @@ function ContributionsList({ contributions, canWrite }: { contributions: Harvest
   };
 
   const handleDelete = (id: string) => {
-    if (!confirm("Delete this contribution? This cannot be undone.")) return;
+    if (!confirmBinDelete("Delete this contribution?")) return;
     startTransition(async () => {
       const res = await deleteHarvestContribution(id);
       if (!res.ok) toast(res.error ?? "Failed to delete", "error");
-      else toast("Contribution deleted", "success");
+      else toast(BIN_TOAST, "success");
       setDeletingId(null);
       router.refresh();
     });

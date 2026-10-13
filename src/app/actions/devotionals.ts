@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { segmentsFor } from "@/config/sms";
 import { sendChurchSms } from "@/lib/sms/credits";
 
@@ -94,6 +95,7 @@ export async function deleteDevotional(formData: FormData) {
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
+  await moveToBin(session, "devotional", "Devotional", id);
   await db.devotional.deleteMany({ where: { id, churchId: session.churchId } });
   revalidatePath("/app/devotionals");
 }

@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 
 export async function createNotice(formData: FormData) {
   const session = await requireModule("communications");
@@ -43,6 +44,7 @@ export async function deleteNotice(formData: FormData) {
   const session = await requireModule("communications");
   const id = String(formData.get("id"));
 
+  await moveToBin(session, "notice", "ChurchNotice", id);
   await db.churchNotice.deleteMany({
     where: { id, churchId: session.churchId },
   });

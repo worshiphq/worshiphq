@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
-import { RecycleBin } from "@/lib/recycle-bin";
+import { RecycleBin, moveToBin } from "@/lib/recycle-bin";
 import { notifyFollowUpAssignee } from "@/lib/follow-ups/notify";
 import { REPORT_METHODS, REPORT_OUTCOMES, outcomeLabel } from "@/lib/follow-ups/outcomes";
 import { canManage } from "@/lib/permissions";
@@ -158,6 +158,7 @@ export async function deleteFollowUpReport(id: string) {
   if (report.authorId !== session.userId && !canManage(session, "follow-ups")) {
     return { ok: false as const, error: "Only the person who wrote it, or a leader, can remove this report." };
   }
+  await moveToBin(session, "followUpReport", "FollowUpReport", id);
   await db.followUpReport.delete({ where: { id } });
   await audit(session, "delete", "follow-up", "Removed a follow-up report", id);
   revalidatePath("/app/follow-ups");

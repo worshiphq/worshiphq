@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 import { canManage } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
@@ -110,6 +111,7 @@ export async function deleteMemberCategory(id: string): Promise<Result> {
   const session = await requirePeopleManager();
   const cat = await db.memberCategory.findFirst({ where: { id, churchId: session.churchId }, select: { name: true } });
   if (!cat) return { ok: false, error: "Category not found." };
+  await moveToBin(session, "memberCategory", "MemberCategory", id);
   await db.memberCategory.delete({ where: { id } });
   await audit(session, "delete", "settings", `Member category "${cat.name}"`);
   refresh();
@@ -156,6 +158,7 @@ export async function deleteCategoryOption(id: string): Promise<Result> {
   const session = await requirePeopleManager();
   const opt = await db.memberCategoryOption.findFirst({ where: { id, churchId: session.churchId }, select: { name: true } });
   if (!opt) return { ok: false, error: "Not found." };
+  await moveToBin(session, "categoryOption", "MemberCategoryOption", id);
   await db.memberCategoryOption.delete({ where: { id } });
   await audit(session, "delete", "settings", `Removed "${opt.name}" from a member category`);
   refresh();

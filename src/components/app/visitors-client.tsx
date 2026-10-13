@@ -16,6 +16,7 @@ import { phoneValidityMessage } from "@/lib/phone";
 import { ImageCropper } from "@/components/ui/image-cropper";
 import { BiometricRegisterButton } from "@/components/app/biometric-register";
 import { ImportVisitorsModal } from "@/components/app/import-visitors-modal";
+import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 
 type VisitorRow = {
   id: string;
@@ -187,9 +188,10 @@ export function VisitorsClient({
   const regularCount = visitors.filter((v) => v.isRegular).length;
 
   function handleDelete(v: VisitorRow) {
-    if (!confirm(`Delete visitor ${v.firstName} ${v.lastName}?`)) return;
+    if (!confirmBinDelete(`Delete visitor ${v.firstName} ${v.lastName}?`)) return;
     startTransition(async () => {
       await deleteVisitor(v.id);
+      binDeleted();
       router.refresh();
     });
   }

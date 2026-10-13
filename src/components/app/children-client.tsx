@@ -17,6 +17,8 @@ import { deletePerson } from "@/app/actions/people";
 import type { PersonRow } from "@/lib/data/people";
 import { phoneValidityMessage } from "@/lib/phone";
 import { formatDate, cn } from "@/lib/utils";
+import { confirmBinDelete } from "@/lib/recycle-bin-events";
+import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
 const segments = [
   { key: "all", label: "All" },
@@ -322,10 +324,10 @@ function ChildDrawer({
               <form
                 action={deletePerson.bind(null, person.id)}
                 onSubmit={(e) => {
-                  if (!confirm(`Remove ${person.fullName}? This cannot be undone.`)) e.preventDefault();
+                  if (!confirmBinDelete(`Remove ${person.fullName}?`)) e.preventDefault();
                 }}
               >
-                <SubmitButton variant="danger" pendingLabel="Removing…" successMessage="Removed"><Trash2 className="size-4" /></SubmitButton>
+                <SubmitButton variant="danger" pendingLabel="Removing…" successMessage={BIN_TOAST}><Trash2 className="size-4" /></SubmitButton>
                 <OnFormComplete onComplete={onClose} />
               </form>
             </div>

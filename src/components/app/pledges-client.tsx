@@ -17,6 +17,8 @@ import {
 } from "@/app/actions/pledges";
 import { AccountSelect, type AccountOption } from "@/components/app/account-select";
 import { cn } from "@/lib/utils";
+import { confirmBinDelete } from "@/lib/recycle-bin-events";
+import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
 type CampaignRow = {
   id: string; name: string; goal: number; raised: number; endsAt: string | null; pledgeCount: number;
@@ -171,7 +173,7 @@ export function PledgesClient({
                       <h3 className="text-sm font-semibold">{c.name}</h3>
                       <p className="mt-0.5 text-xs text-ink-muted">{c.pledgeCount} pledge{c.pledgeCount !== 1 ? "s" : ""}</p>
                     </div>
-                    <button onClick={() => simple(deleteCampaign, c.id, "Campaign deleted")}
+                    <button onClick={() => { if (confirmBinDelete(`Delete the "${c.name}" campaign?`)) simple(deleteCampaign, c.id, BIN_TOAST); }}
                       className="shrink-0 rounded-lg p-1.5 text-ink-faint hover:bg-danger/10 hover:text-danger">
                       <Trash2 className="size-3.5" />
                     </button>
@@ -333,7 +335,7 @@ export function PledgesClient({
                           <BellRing className="size-3.5" />
                         </Button>
                       )}
-                      <button onClick={() => simple(deletePledge, p.id, "Pledge deleted")}
+                      <button onClick={() => { if (confirmBinDelete("Delete this pledge and its payments?")) simple(deletePledge, p.id, BIN_TOAST); }}
                         className="rounded-lg p-1.5 text-ink-faint hover:bg-danger/10 hover:text-danger">
                         <Trash2 className="size-4" />
                       </button>

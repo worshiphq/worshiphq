@@ -148,7 +148,7 @@ export const gettingStarted: DocArticle[] = [
       { h: "On-screen tips" },
       { p: "The first time you open many pages, a short tour points out the important parts. Choose **Next** to step through it, or close it." },
       { h: "Recycle bin" },
-      { p: "The round bin button in the bottom corner opens the **Recycle bin**, where you can restore things deleted by mistake. See **Restoring deleted items**." },
+      { p: "The round bin button in the bottom corner opens the **Recycle bin**, where you can restore things deleted by mistake within 7 days. See **Restoring deleted items**." },
     ],
   },
   {
@@ -182,13 +182,14 @@ export const gettingStarted: DocArticle[] = [
     title: "Restoring deleted items",
     summary: "Bring back members, gifts, events and more that were deleted by mistake.",
     body: [
-      { p: "When you delete something important, such as a member, visitor, gift, pledge, expense, event, group, follow-up or prayer request, it goes to the **Recycle bin** first." },
+      { p: "Everything you delete goes to the **Recycle bin** first: members, visitors, gifts, pledges, expenses, transactions, events, services, budgets, harvest records, departments, zones and fellowships, roles, team members, sermons, notices and more." },
+      { note: "Items stay in the Recycle bin for **7 days**. After that they are deleted permanently and can't be brought back, so restore anything you need before then. Each item shows how long it has left." },
       { steps: [
         "Choose the round bin button in the bottom corner of the screen.",
         "Find the item in the list.",
         "Choose **Restore**. It returns exactly as it was, with its links (departments, payments and so on).",
       ] },
-      { note: "**Delete forever** removes an item permanently and can't be undone." },
+      { note: "**Delete forever** removes an item permanently straight away. Only Owners, Admins and roles allowed to delete can see the Recycle bin." },
     ],
   },
   {

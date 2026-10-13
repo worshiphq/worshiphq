@@ -16,7 +16,7 @@ export const giving: DocArticle[] = [
         "Choose **Record**.",
       ] },
       { p: "The page shows **This month**, **Recurring givers**, **Mobile Money %** and **Avg. gift**, plus **Recent giving** and **Giving by fund**. Gifts made online appear here automatically, marked **Live**." },
-      { list: ["**Export CSV** downloads all giving.", "Delete a gift with its bin button. It goes to the Recycle bin."] },
+      { list: ["**Export CSV** downloads all giving.", "Delete a gift with its bin button. It goes to the Recycle bin, where you can restore it for 7 days."] },
     ],
   },
   {

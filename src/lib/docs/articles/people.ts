@@ -68,7 +68,7 @@ export const people: DocArticle[] = [
       { steps: ["Open their profile and choose **SMS**.", "Type your message and choose **Send SMS**."] },
       { p: "It's billed to your SMS credits and shows your church's name as the sender." },
       { h: "Remove a member" },
-      { steps: ["Open their profile and choose the red bin button.", "Confirm. They go to the Recycle bin, so you can restore them if it was a mistake."] },
+      { steps: ["Open their profile and choose the red bin button.", "Confirm. They go to the Recycle bin, so you can restore them within 7 days if it was a mistake."] },
     ],
   },
   {
@@ -190,7 +190,7 @@ export const people: DocArticle[] = [
         "**Good to see you again**: texts a returning visitor (you choose when).",
         "**Regular**: they've visited often. It's set automatically after 3 visits, or tick **Regular visitor** yourself.",
         "**Convert to member**: makes them a full member and keeps their follow-ups.",
-        "**Delete visitor**: removes them (restorable from the Recycle bin).",
+        "**Delete visitor**: removes them (restorable from the Recycle bin for 7 days).",
       ] },
       { h: "Import a visitor list" },
       { p: "Choose **Import from Excel/CSV**, download the template, and upload your CSV. Tick **Require a phone number** to skip rows with no phone." },

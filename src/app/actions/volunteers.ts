@@ -2,11 +2,13 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 
 export async function deleteAssignment(id: string) {
   const session = await requireSession();
   assertCanDelete(session);
+  await moveToBin(session, "volunteerAssignment", "VolunteerAssignment", id);
   await db.volunteerAssignment.deleteMany({ where: { id, churchId: session.churchId } });
   revalidatePath("/app/volunteers");
 }

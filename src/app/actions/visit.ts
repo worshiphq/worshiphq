@@ -304,8 +304,10 @@ export async function deleteVisitor(id: string) {
   assertCanWrite(session);
 
   const v = await db.visitor.findFirst({ where: { id, churchId: session.churchId }, select: { firstName: true, lastName: true, personId: true } });
-  const { RecycleBin } = await import("@/lib/recycle-bin");
-  await RecycleBin.captureVisitor(session, id);
+  const { moveToBin } = await import("@/lib/recycle-bin");
+  // The visitor's person record goes too (if they never became a member), so bin both together.
+  const alsoPerson = v?.personId ? await db.person.findFirst({ where: { id: v.personId, churchId: session.churchId, status: "visitor" }, select: { id: true } }) : null;
+  await moveToBin(session, "visitor", "Visitor", id, { alsoRoots: alsoPerson ? [{ model: "Person", id: alsoPerson.id }] : [] });
   await db.visitor.deleteMany({ where: { id, churchId: session.churchId } });
   if (v?.personId) {
     await db.person.deleteMany({ where: { id: v.personId, churchId: session.churchId, status: "visitor" } });

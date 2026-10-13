@@ -22,6 +22,8 @@ import {
 import type { WelfareData } from "@/lib/data/welfare";
 import { wideYears } from "@/lib/years";
 import { cn } from "@/lib/utils";
+import { confirmBinDelete } from "@/lib/recycle-bin-events";
+import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const MONTHS_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
@@ -568,9 +570,9 @@ function MemberDetailDialog({ member, rates, canWrite, onClose }: {
     startTx(async () => { const r = await editWelfareDue(fd); if (r?.ok) { toast("Updated", "success"); setEditId(null); load(); router.refresh(); } else toast(r?.error ?? "Failed", "error"); });
   };
   const del = (id: string) => {
-    if (!confirm("Delete this month's dues record?")) return;
+    if (!confirmBinDelete("Delete this month's dues record?")) return;
     const fd = new FormData(); fd.set("id", id);
-    startTx(async () => { await deleteWelfareDue(fd); toast("Deleted", "success"); load(); router.refresh(); });
+    startTx(async () => { await deleteWelfareDue(fd); toast(BIN_TOAST, "success"); load(); router.refresh(); });
   };
 
   // Group dues by year desc.
@@ -713,9 +715,9 @@ function AidTab({ data, canWrite }: { data: WelfareData; canWrite: boolean }) {
   const filtered = data.aid.filter((r) => !search || r.recipientName.toLowerCase().includes(search.toLowerCase()) || r.description?.toLowerCase().includes(search.toLowerCase()));
 
   const del = (id: string) => {
-    if (!confirm("Delete this aid record? This cannot be undone.")) return;
+    if (!confirmBinDelete("Delete this aid record?")) return;
     const fd = new FormData(); fd.set("id", id);
-    start(() => deleteWelfareRecord(fd).then(() => toast("Deleted", "success")));
+    start(() => deleteWelfareRecord(fd).then(() => toast(BIN_TOAST, "success")));
   };
 
   return (

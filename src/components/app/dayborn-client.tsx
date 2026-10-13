@@ -23,6 +23,8 @@ import { AccountSelect, type AccountOption } from "@/components/app/account-sele
 import { formatCurrency } from "@/config/brand";
 import { cn } from "@/lib/utils";
 import type { DayBornWeekRow, DayBornEntryRow } from "@/lib/data/dayborn";
+import { confirmBinDelete } from "@/lib/recycle-bin-events";
+import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
 const DAYS = ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday", "sunday"] as const;
 
@@ -535,9 +537,9 @@ function EntryRow({ entry, canWrite, onDelete }: { entry: DayBornEntryRow; canWr
       {canWrite && (
         <button
           onClick={() => {
-            if (!confirm("Remove this entry? This cannot be undone.")) return;
+            if (!confirmBinDelete("Remove this entry?")) return;
             onDelete(entry.id);
-            toast("Entry removed");
+            toast(BIN_TOAST, "success");
             deleteDayBornEntry(entry.id).then(() => router.refresh());
           }}
           className="text-red-500 hover:text-red-700 p-1"
@@ -675,9 +677,9 @@ function HistoryTab({
                   className="text-red-500 hover:text-red-700 hover:bg-red-50"
                   disabled={actionPending && actionId === `del-${week.id}`}
                   onClick={() => {
-                    if (!confirm(`Delete Day Born record for ${formatWeekRange(sundayIso)}?\n\nThis cannot be undone.`)) return;
+                    if (!confirmBinDelete(`Delete Day Born record for ${formatWeekRange(sundayIso)}?`)) return;
                     onDeleteWeek(week.id);
-                    toast("Record deleted");
+                    toast(BIN_TOAST, "success");
                     deleteDayBornWeek(week.id).then(() => router.refresh());
                   }}
                 >

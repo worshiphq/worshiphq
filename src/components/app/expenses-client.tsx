@@ -8,6 +8,7 @@ import {
   Search, Receipt, Trash2, Calendar, Store, FileText, UserCheck, Banknote, Landmark,
 } from "lucide-react";
 import { deleteExpense } from "@/app/actions/expenses";
+import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 
 type ExpenseRow = {
   id: string;
@@ -50,7 +51,8 @@ export function ExpensesClient({
   const handleDelete = (id: string) => {
     const fd = new FormData();
     fd.set("id", id);
-    start(() => deleteExpense(fd));
+    if (!confirmBinDelete("Delete this expense?")) return;
+    start(async () => { await deleteExpense(fd); binDeleted(); });
   };
 
   return (

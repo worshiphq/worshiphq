@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 import { categoryForPerson, type AttendanceCategory } from "@/lib/data/attendance";
 import { sendChurchSms } from "@/lib/sms/credits";
@@ -355,6 +356,7 @@ export async function reopenService(sessionId: string) {
 export async function deleteSession(sessionId: string) {
   const session = await requireSession();
   assertCanWrite(session);
+  await moveToBin(session, "attendanceSession", "AttendanceSession", sessionId);
   await db.attendanceSession.deleteMany({ where: { id: sessionId, churchId: session.churchId } });
   revalidatePath("/app/attendance");
   redirect("/app/attendance");

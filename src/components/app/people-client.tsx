@@ -26,6 +26,8 @@ import type { PersonRow } from "@/lib/data/people";
 import type { FormField } from "@/lib/forms/registration";
 import { phoneValidityMessage } from "@/lib/phone";
 import { formatDate, cn } from "@/lib/utils";
+import { confirmBinDelete } from "@/lib/recycle-bin-events";
+import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
 const ageGroupTabs = [
   { key: "adult", label: "Adults", icon: Users },
@@ -618,12 +620,12 @@ function PersonDrawer({ person, canWrite, adults, categories = [], onClose, onEd
               <form
                 action={deletePerson.bind(null, person.id)}
                 onSubmit={(e) => {
-                  if (!confirm(`Remove ${person.fullName} from your members? This cannot be undone.`)) {
+                  if (!confirmBinDelete(`Remove ${person.fullName} from your members?`)) {
                     e.preventDefault();
                   }
                 }}
               >
-                <SubmitButton variant="danger" pendingLabel="Removing…" successMessage="Member removed"><Trash2 className="size-4" /></SubmitButton>
+                <SubmitButton variant="danger" pendingLabel="Removing…" successMessage={BIN_TOAST}><Trash2 className="size-4" /></SubmitButton>
                 <OnFormComplete onComplete={onClose} />
               </form>
             </div>

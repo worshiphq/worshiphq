@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { requireModule } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 
@@ -65,6 +66,7 @@ export async function deleteFund(formData: FormData) {
     return { ok: false as const, error: `“${fund.name}” still has giving recorded against it. Move those to another fund first.` };
   }
 
+  await moveToBin(session, "fund", "Fund", id);
   await db.fund.delete({ where: { id } });
   await audit(session, "delete", "fund", `Deleted fund "${fund.name}"`, id);
   revalidatePath("/app/accounting");

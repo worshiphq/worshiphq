@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
+import { moveToBin } from "@/lib/recycle-bin";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { sendChurchSms } from "@/lib/sms/credits";
 import type { GiftMethod } from "@prisma/client";
@@ -229,6 +230,7 @@ export async function deleteHarvestContribution(id: string) {
   });
   if (!contribution) return { ok: false, error: "Not found." };
 
+  await moveToBin(session, "harvestContribution", "HarvestContribution", id);
   await db.harvestContribution.delete({ where: { id } });
 
   // Update the harvest raised total
@@ -291,6 +293,7 @@ export async function deleteHarvest(year: number) {
   });
   if (!harvest) return { ok: false, error: "Not found." };
 
+  await moveToBin(session, "harvest", "Harvest", harvest.id, { label: `Harvest ${year}` });
   // Delete all contributions first
   await db.harvestContribution.deleteMany({ where: { harvestId: harvest.id } });
   await db.harvest.delete({ where: { id: harvest.id } });

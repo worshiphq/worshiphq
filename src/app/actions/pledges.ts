@@ -5,7 +5,7 @@ import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { audit } from "@/lib/audit";
-import { RecycleBin } from "@/lib/recycle-bin";
+import { RecycleBin, moveToBin } from "@/lib/recycle-bin";
 import {
   DEFAULT_PLEDGE_TEMPLATE,
   DEFAULT_PLEDGE_PAYMENT_TEMPLATE,
@@ -50,6 +50,7 @@ export async function deleteCampaign(formData: FormData) {
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
+  await moveToBin(session, "campaign", "Campaign", id);
   await db.campaign.deleteMany({ where: { id, churchId: session.churchId } });
   revalidatePath("/app/pledges");
 }

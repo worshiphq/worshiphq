@@ -14,6 +14,7 @@ import { updateFollowUpStatus, deleteFollowUp, assignFollowUp, setFollowUpDue, s
 import { normalisePhone } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 import { FollowUpReports, OutcomePill, type ReportRow } from "@/components/app/follow-up-reports";
+import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 
 type FollowUpRow = {
   id: string;
@@ -126,7 +127,7 @@ export function FollowUpsClient({
   const remove = (id: string) => {
     const fd = new FormData();
     fd.set("id", id);
-    run(id, () => deleteFollowUp(fd));
+    run(id, async () => { await deleteFollowUp(fd); binDeleted(); });
   };
 
   const FILTERS: { key: Filter; label: string; danger?: boolean }[] = [
@@ -253,7 +254,7 @@ export function FollowUpsClient({
                   {saving && <span className="flex shrink-0 items-center gap-1.5 text-xs text-ink-muted"><Loader2 className="size-3.5 animate-spin" /> Saving…</span>}
                   {canWrite && (
                     <button
-                      onClick={() => { if (confirm("Delete this follow-up?")) remove(f.id); }}
+                      onClick={() => { if (confirmBinDelete("Delete this follow-up?")) remove(f.id); }}
                       disabled={saving}
                       className="shrink-0 rounded-lg p-1.5 text-ink-faint hover:bg-danger/10 hover:text-danger disabled:opacity-40"
                       title="Delete"

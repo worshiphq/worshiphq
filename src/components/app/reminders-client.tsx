@@ -283,7 +283,7 @@ function AutomationCard({ automation: a, canWrite, canDelete }: { automation: Au
             <span className={cn("absolute top-0.5 size-4 rounded-full bg-white transition-all", a.active ? "left-[1.45rem]" : "left-0.5")} />
           </button>
           {canDelete && (
-            <DeleteForm action={deleteAutomation.bind(null, a.id)} confirm={`Delete the "${a.name}" automation?`} successMessage="Automation deleted" />
+            <DeleteForm action={deleteAutomation.bind(null, a.id)} confirm={`Delete the "${a.name}" automation?`} />
           )}
         </div>
       </div>

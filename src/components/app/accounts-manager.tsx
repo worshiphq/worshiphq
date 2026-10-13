@@ -11,6 +11,8 @@ import { OnFormComplete } from "@/components/ui/form-effects";
 import { useFeedback } from "@/components/ui/feedback";
 import { createAccount, updateAccount, deleteAccount, setDefaultAccount, transferBetweenAccounts } from "@/app/actions/accounts";
 import { cn } from "@/lib/utils";
+import { confirmBinDelete } from "@/lib/recycle-bin-events";
+import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
 export interface AccountRow {
   id: string;
@@ -94,7 +96,7 @@ export function AccountsManager({ accounts, canWrite }: { accounts: AccountRow[]
                       <button title="Edit" onClick={() => setDrawer({ edit: a })} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-surface-2 hover:text-ink"><Pencil className="size-3.5" /></button>
                       <button
                         title="Delete account"
-                        onClick={() => { if (confirm(`Delete account "${a.name}"? Its transactions stay but become unassigned.`)) start(async () => { await deleteAccount(a.id); toast("Account deleted", "info"); router.refresh(); }); }}
+                        onClick={() => { if (confirmBinDelete(`Delete account "${a.name}"? Its transactions stay, unassigned until you restore it.`)) start(async () => { await deleteAccount(a.id); toast(BIN_TOAST, "success"); router.refresh(); }); }}
                         className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger"
                       ><Trash2 className="size-3.5" /></button>
                     </div>
