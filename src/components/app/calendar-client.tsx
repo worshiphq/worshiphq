@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { OnFormComplete } from "@/components/ui/form-effects";
-import { ChevronLeft, ChevronRight, CalendarDays, Cake, CalendarCheck2, Plus, X, Clock, MapPin } from "lucide-react";
+import Link from "next/link";
+import { ChevronLeft, ChevronRight, CalendarDays, Cake, CalendarCheck2, Plus, X, Clock, DoorOpen } from "lucide-react";
 import { createEvent, deleteEvent } from "@/app/actions/events";
 import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 
@@ -17,8 +18,9 @@ type CalEvent = {
   date: string;
   endDate?: string | null;
   dates?: string[];
-  type: "event" | "attendance" | "birthday";
-  color: "brand" | "info" | "success" | "warning";
+  detail?: string;
+  type: "event" | "attendance" | "birthday" | "booking";
+  color: "brand" | "info" | "success" | "warning" | "booking";
 };
 
 const COLOR_MAP = {
@@ -26,9 +28,11 @@ const COLOR_MAP = {
   info: "bg-info/15 text-info border-info/30",
   success: "bg-success/15 text-success border-success/30",
   warning: "bg-warning/15 text-warning border-warning/30",
+  booking: "bg-primary/15 text-primary-bright border-primary/30",
 };
-const DOT = { brand: "bg-brand", info: "bg-info", success: "bg-success", warning: "bg-warning" };
-const TYPE_ICON = { event: CalendarDays, attendance: CalendarCheck2, birthday: Cake };
+const DOT = { brand: "bg-brand", info: "bg-info", success: "bg-success", warning: "bg-warning", booking: "bg-primary" };
+const TYPE_ICON = { event: CalendarDays, attendance: CalendarCheck2, birthday: Cake, booking: DoorOpen };
+const ICON_COLOR = { brand: "text-brand", info: "text-info", success: "text-success", warning: "text-warning", booking: "text-primary" };
 const MONTH_NAMES = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 const DAY_NAMES = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
@@ -189,14 +193,18 @@ export function CalendarClient({ events, canWrite }: { events: CalEvent[]; canWr
                 const span = e.endDate ? ` → ${new Date(e.endDate).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : "";
                 return (
                   <div key={e.id} className="flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-surface-2">
-                    <Icon className={`size-4 ${e.color === "brand" ? "text-brand" : e.color === "info" ? "text-info" : e.color === "success" ? "text-success" : "text-warning"}`} />
+                    <Icon className={`size-4 ${ICON_COLOR[e.color]}`} />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium">{e.title}{span}</p>
                       <p className="flex items-center gap-2 text-xs text-ink-muted capitalize">
-                        {e.type}
-                        <span className="flex items-center gap-0.5"><Clock className="size-3" />{new Date(e.date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}</span>
+                        {e.type === "booking" ? "facility booking" : e.type}
+                        <span className="flex items-center gap-0.5"><Clock className="size-3" />{new Date(e.date).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}{e.type === "booking" && e.endDate ? ` - ${new Date(e.endDate).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit" })}` : ""}</span>
                       </p>
+                      {e.detail && <p className="text-xs normal-case text-ink-faint">{e.detail}</p>}
                     </div>
+                    {e.type === "booking" && (
+                      <Link href="/app/bookings" className="shrink-0 text-xs font-medium text-primary hover:underline">Open</Link>
+                    )}
                     {canWrite && e.type === "event" && (
                       <button
                         onClick={() => { if (confirmBinDelete(`Delete "${e.title}"?`)) start(async () => { await deleteEvent(e.id); binDeleted(); router.refresh(); }); }}
@@ -217,6 +225,7 @@ export function CalendarClient({ events, canWrite }: { events: CalEvent[]; canWr
         <span className="flex items-center gap-1.5"><span className={`size-2.5 rounded-full ${DOT.info}`} /> Events</span>
         <span className="flex items-center gap-1.5"><span className={`size-2.5 rounded-full ${DOT.success}`} /> Attendance</span>
         <span className="flex items-center gap-1.5"><span className={`size-2.5 rounded-full ${DOT.warning}`} /> Birthdays</span>
+        {events.some((e) => e.type === "booking") && <span className="flex items-center gap-1.5"><span className={`size-2.5 rounded-full ${DOT.booking}`} /> Facility bookings</span>}
       </div>
     </div>
   );

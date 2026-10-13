@@ -35,6 +35,7 @@ export const ENTITY_LABELS: Record<string, string> = {
   automation: "Automation",
   facility: "Facility",
   booking: "Booking",
+  bookingPayment: "Booking payment",
   branch: "Branch",
   budget: "Budget",
   budgetEntry: "Budget entry",

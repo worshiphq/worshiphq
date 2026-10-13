@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { hasSection } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { CalendarClient } from "@/components/app/calendar-client";
 import { PageHeader } from "@/components/app/page-header";
@@ -12,7 +13,9 @@ export default async function CalendarPage() {
   const start = new Date(now.getFullYear(), now.getMonth() - 1, 1);
   const end = new Date(now.getFullYear(), now.getMonth() + 2, 0);
 
-  const [events, sessions, birthdays] = await Promise.all([
+  // Facility bookings sit on the same calendar so leaders can see who has the hall (only for people who may see bookings).
+  const canSeeBookings = hasSection(session, "bookings");
+  const [events, sessions, birthdays, bookings] = await Promise.all([
     db.event.findMany({
       where: {
         churchId: session.churchId,
@@ -34,6 +37,19 @@ export default async function CalendarPage() {
       where: { churchId: session.churchId, birthday: { not: null } },
       select: { firstName: true, lastName: true, birthday: true },
     }),
+    canSeeBookings
+      ? db.booking.findMany({
+          where: {
+            churchId: session.churchId,
+            status: { in: ["confirmed", "pending"] },
+            startTime: { lte: end },
+            endTime: { gte: start },
+          },
+          select: { id: true, title: true, bookedBy: true, startTime: true, endTime: true, status: true, facility: { select: { name: true } } },
+          orderBy: { startTime: "asc" },
+          take: 300,
+        })
+      : Promise.resolve([]),
   ]);
 
   const calendarEvents = [
@@ -45,6 +61,15 @@ export default async function CalendarPage() {
       dates: e.dates.map((d) => d.toISOString()),
       type: "event" as const,
       color: e.type === "Service" ? "brand" as const : "info" as const,
+    })),
+    ...bookings.map((b) => ({
+      id: `booking-${b.id}`,
+      title: `${b.facility.name}: ${b.title}${b.status === "pending" ? " (requested)" : ""}`,
+      date: b.startTime.toISOString(),
+      endDate: b.endTime.toISOString(),
+      detail: `Booked by ${b.bookedBy}${b.status === "pending" ? " - waiting for confirmation" : ""}`,
+      type: "booking" as const,
+      color: "booking" as const,
     })),
     ...sessions.map((s) => ({
       id: s.id,
