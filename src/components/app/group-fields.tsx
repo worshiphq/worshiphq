@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Bell } from "lucide-react";
 import { Field } from "@/components/app/action-dialog";
-import { DAYS_FULL, DEFAULT_MEETING_REMINDER, type ScheduleEntry } from "@/lib/groups/meeting-reminder";
+import { DAYS_FULL, DEFAULT_MEETING_REMINDER, type ScheduleEntry, type DayRemind } from "@/lib/groups/meeting-reminder";
 import { WEEKDAY_OPTIONS } from "@/lib/automations/weekdays";
 import { Segmented } from "@/components/ui/segmented";
 import { cn } from "@/lib/utils";
@@ -58,16 +58,31 @@ export function GroupFields({
   const [remMinute, setRemMinute] = useState(group?.meetingReminderMinute ?? 0);
   const [remWeekday, setRemWeekday] = useState(group?.meetingReminderWeekday ?? 1);
   const hhmm = (h: number, m: number) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+  // Each meeting day can have its own reminder timing (e.g. Sunday the day before,
+  // Wednesday that morning). Off = every day follows the default above.
+  const [perDay, setPerDay] = useState(initialSchedule.some((s) => s.remind));
 
   const timeFor = (d: string) => schedule.find((s) => s.day === d)?.time ?? "";
   const toggleDay = (d: string) =>
     setSchedule((prev) => (prev.some((s) => s.day === d) ? prev.filter((s) => s.day !== d) : [...prev, { day: d, time: null }]));
   const setTime = (d: string, t: string) =>
     setSchedule((prev) => prev.map((s) => (s.day === d ? { ...s, time: t || null } : s)));
+  const setRemind = (d: string, remind: DayRemind | undefined) =>
+    setSchedule((prev) => prev.map((s) => {
+      if (s.day !== d) return s;
+      const { remind: _old, ...rest } = s;
+      void _old;
+      return remind ? { ...rest, remind } : rest;
+    }));
+  const customFor = (d: string) => schedule.find((s) => s.day === d)?.remind;
 
   // Serialise for the server action, ordered Sun→Sat.
   const scheduleJson = JSON.stringify(
-    DAYS_FULL.map((d) => schedule.find((s) => s.day === d)).filter(Boolean).map((s) => ({ day: s!.day, time: s!.time })),
+    DAYS_FULL.map((d) => schedule.find((s) => s.day === d)).filter(Boolean).map((s) => ({
+      day: s!.day,
+      time: s!.time,
+      ...(reminderOn && mode === "auto" && perDay && s!.remind ? { remind: s!.remind } : {}),
+    })),
   );
 
   return (
@@ -170,6 +185,59 @@ export function GroupFields({
                     onChange={(e) => { const m = /^(\d{1,2}):(\d{2})$/.exec(e.target.value); if (m) { setRemHour(Math.min(23, +m[1])); setRemMinute(Math.min(59, +m[2])); } }}
                     className="h-9 rounded-lg border border-line bg-surface px-2 text-sm" />
                 </div>
+
+                {/* Per-day timing */}
+                {schedule.length > 0 && (
+                  <div className="rounded-lg border border-line-soft bg-surface-2/40 p-2.5">
+                    <label className="flex cursor-pointer items-start gap-2 text-sm">
+                      <input type="checkbox" checked={perDay} onChange={(e) => setPerDay(e.target.checked)} className="mt-0.5 size-4 accent-primary" />
+                      <span>
+                        <span className="font-medium">Different reminder time for each meeting day</span>
+                        <span className="block text-[11px] text-ink-faint">e.g. remind the day before for Sunday, but the same morning for Wednesday.</span>
+                      </span>
+                    </label>
+                    {perDay && (
+                      <div className="mt-2.5 space-y-2">
+                        {DAYS_FULL.filter((d) => schedule.some((s) => s.day === d)).map((d) => {
+                          const r = customFor(d);
+                          const choice = r?.off ? "off" : r ? String(r.leadDays) : "default";
+                          return (
+                            <div key={d} className="flex flex-wrap items-center gap-2 rounded-lg border border-line bg-surface px-2.5 py-2">
+                              <span className="w-24 shrink-0 text-xs font-semibold">{d}</span>
+                              <select
+                                value={choice}
+                                onChange={(e) => {
+                                  const v = e.target.value;
+                                  if (v === "default") setRemind(d, undefined);
+                                  else if (v === "off") setRemind(d, { off: true, leadDays: 0, hour: remHour, minute: remMinute });
+                                  else setRemind(d, { leadDays: Number(v), hour: r?.hour ?? remHour, minute: r?.minute ?? remMinute });
+                                }}
+                                className="h-9 min-w-0 flex-1 rounded-lg border border-line bg-surface px-2 text-sm"
+                              >
+                                <option value="default">Same as above</option>
+                                <option value="0">The same day</option>
+                                <option value="1">The day before</option>
+                                {[2, 3, 4, 5, 6, 7].map((n) => <option key={n} value={n}>{n} days before</option>)}
+                                <option value="off">Don’t remind</option>
+                              </select>
+                              {r && !r.off && (
+                                <>
+                                  <span className="text-xs text-ink-muted">at</span>
+                                  <input
+                                    type="time"
+                                    value={hhmm(r.hour, r.minute)}
+                                    onChange={(e) => { const m = /^(\d{1,2}):(\d{2})$/.exec(e.target.value); if (m) setRemind(d, { leadDays: r.leadDays, hour: Math.min(23, +m[1]), minute: Math.min(59, +m[2]) }); }}
+                                    className="h-9 rounded-lg border border-line bg-surface px-2 text-sm"
+                                  />
+                                </>
+                              )}
+                            </div>
+                          );
+                        })}
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
             ) : (
               <p className="text-xs text-ink-muted">You’ll send it yourself with the <b>Remind</b> button on the group.</p>

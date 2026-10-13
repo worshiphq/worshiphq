@@ -20,6 +20,7 @@ import { WEEKDAY_OPTIONS, WEEKDAY_LABELS } from "@/lib/automations/weekdays";
 import { Segmented } from "@/components/ui/segmented";
 import { cn } from "@/lib/utils";
 import { confirmBinDelete } from "@/lib/recycle-bin-events";
+import { resolveRemind, describeRemind, sendLabelFor, type RemindOverride, type ChurchRemind } from "@/lib/rosters/remind";
 import { BIN_TOAST, RECYCLE_BIN_DAYS } from "@/lib/recycle-bin-config";
 
 const hhmm = (h: number, m: number) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
@@ -61,13 +62,14 @@ function ScheduleControl({ verb, mode, setMode, leadDays, setLeadDays, weekday, 
 }
 
 type Group = { id: string; name: string; memberCount: number };
+type Dept = { id: string; name: string };
 type Announce = { on: boolean; audience: string; groupId: string | null; leadDays: number; hour: number; minute: number; weekday: number | null; timezone: string };
 type Remind = { on: boolean; leadDays: number; hour: number; minute: number; weekday: number | null };
 
 
 type Assignment = { id: string; role: string; personId: string | null; personName: string | null; hasPhone: boolean; notified: boolean };
-type ServiceBlock = { service: string; date: string; time: string; assignments: Assignment[] };
-type Sheet = { id: string; name: string; announceLeadDays: number | null; announceHour: number | null; announceMinute: number | null; announceWeekday: number | null; announceDate: string | null; announceAudience: string | null; announceGroupId: string | null; announcedAt: string | null; services: ServiceBlock[] };
+type ServiceBlock = { service: string; date: string; time: string; remind: RemindOverride | null; assignments: Assignment[] };
+type Sheet = { id: string; name: string; announceLeadDays: number | null; announceHour: number | null; announceMinute: number | null; announceWeekday: number | null; announceDate: string | null; announceAudience: string | null; announceGroupId: string | null; announcedAt: string | null; remindOverride: RemindOverride | null; services: ServiceBlock[] };
 type Member = { id: string; name: string; hasPhone: boolean };
 type Role = { id: string; name: string };
 
@@ -79,9 +81,9 @@ const fmtTime = (t: string) => { const m = /^(\d{1,2}):(\d{2})$/.exec(t); if (!m
 
 type DeletedSheet = { id: string; name: string; date: string; deletedAt: string };
 
-export function RostersClient({ sheets, members, roles, smsBalance, messageTemplates, groups, announce, remind, deletedSheets, canWrite }: {
+export function RostersClient({ sheets, members, roles, smsBalance, messageTemplates, groups, departments, announce, remind, deletedSheets, canWrite }: {
   sheets: Sheet[]; members: Member[]; roles: Role[]; smsBalance: number; messageTemplates: Record<string, string>;
-  groups: Group[]; announce: Announce; remind: Remind; deletedSheets: DeletedSheet[]; canWrite: boolean;
+  groups: Group[]; departments: Dept[]; announce: Announce; remind: Remind; deletedSheets: DeletedSheet[]; canWrite: boolean;
 }) {
   const [editing, setEditing] = useState<Sheet | null>(null);
   const [creating, setCreating] = useState(false);
@@ -110,7 +112,7 @@ export function RostersClient({ sheets, members, roles, smsBalance, messageTempl
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
           {sheets.map((s) => (
-            <SheetCard key={s.id} sheet={s} smsBalance={smsBalance} canWrite={canWrite} onEdit={() => setEditing(s)} />
+            <SheetCard key={s.id} sheet={s} remind={remind} smsBalance={smsBalance} canWrite={canWrite} onEdit={() => setEditing(s)} />
           ))}
         </div>
       )}
@@ -123,13 +125,15 @@ export function RostersClient({ sheets, members, roles, smsBalance, messageTempl
           members={members}
           roles={roles}
           groups={groups}
+          departments={departments}
           announce={announce}
+          remind={remind}
           onClose={() => { setCreating(false); setEditing(null); }}
         />
       )}
       {showRoles && <RolesManager roles={roles} canWrite={canWrite} onClose={() => setShowRoles(false)} />}
       {showMessages && <SystemMessagesDialog saved={messageTemplates} onClose={() => setShowMessages(false)} />}
-      {showAnnounce && <AnnounceSettingsDialog announce={announce} remind={remind} groups={groups} onClose={() => setShowAnnounce(false)} />}
+      {showAnnounce && <AnnounceSettingsDialog announce={announce} remind={remind} groups={groups} departments={departments} onClose={() => setShowAnnounce(false)} />}
     </div>
   );
 }
@@ -180,7 +184,7 @@ function RecentlyDeleted({ sheets }: { sheets: DeletedSheet[] }) {
   );
 }
 
-function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsBalance: number; canWrite: boolean; onEdit: () => void }) {
+function SheetCard({ sheet, remind, smsBalance, canWrite, onEdit }: { sheet: Sheet; remind: Remind; smsBalance: number; canWrite: boolean; onEdit: () => void }) {
   const router = useRouter();
   const { toast } = useFeedback();
   const [pending, start] = useTransition();
@@ -251,6 +255,17 @@ function SheetCard({ sheet, smsBalance, canWrite, onEdit }: { sheet: Sheet; smsB
             <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-faint">
               {svc.service} · {fmtShort(svc.date)}{svc.time ? ` ${fmtTime(svc.time)}` : ""}
             </div>
+            {(() => {
+              const r = resolveRemind(svc.remind, sheet.remindOverride, remind);
+              const when = sendLabelFor(r, svc.date.slice(0, 10));
+              return (
+                <p className="-mt-0.5 mb-1.5 flex items-center gap-1 text-[11px] text-ink-faint">
+                  <Bell className="size-3" />
+                  {r.mode === "off" ? "No reminder" : <>Reminder: <span className="font-medium text-ink-muted">{when ?? describeRemind(r)}</span></>}
+                  {(svc.remind || sheet.remindOverride) && r.mode !== "off" && <span className="rounded bg-primary/10 px-1 text-[10px] font-medium text-primary-bright">custom</span>}
+                </p>
+              );
+            })()}
             <div className="space-y-1">
               {svc.assignments.map((a) => (
                 <div key={a.id} className="flex items-center gap-2 text-sm">
@@ -368,7 +383,7 @@ function AnnounceDialog({ sheetId, label, announcedAt, onClose }: { sheetId: str
 }
 
 /** Auto-announcement schedule + recipient settings. */
-function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announce: Announce; remind: Remind; groups: Group[]; onClose: () => void }) {
+function AnnounceSettingsDialog({ announce, remind, groups, departments, onClose }: { announce: Announce; remind: Remind; groups: Group[]; departments: Dept[]; onClose: () => void }) {
   const router = useRouter();
   const { toast } = useFeedback();
   const [pending, start] = useTransition();
@@ -420,7 +435,7 @@ function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announc
           <button onClick={onClose} className="rounded-lg p-1 text-ink-faint hover:bg-surface-2"><X className="size-4" /></button>
         </div>
         <div className="space-y-4 p-5">
-          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint"><Megaphone className="size-3.5" /> Group announcement</div>
+          <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint"><Megaphone className="size-3.5" /> Announcement (default)</div>
           <label className="flex items-center justify-between gap-3 rounded-xl border border-line p-3">
             <span className="text-sm font-medium">Automatically send the sheet ahead of each service</span>
             <input type="checkbox" checked={on} onChange={(e) => setOn(e.target.checked)} className="size-4 accent-primary" />
@@ -429,14 +444,21 @@ function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announc
           <div>
             <label className="mb-1 block text-xs text-ink-faint flex items-center gap-1.5"><Users className="size-3.5" /> Send to</label>
             <div className="flex items-center gap-2">
-              <select value={audience} onChange={(e) => setAudience(e.target.value)} className={sel}>
+              <select value={audience} onChange={(e) => { setAudience(e.target.value); setGroupId(""); }} className={sel}>
                 <option value="group">A group</option>
-                <option value="church">The whole church</option>
+                <option value="department">A department</option>
+                <option value="church">Everyone</option>
               </select>
               {audience === "group" && (
                 <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={cn(sel, "flex-1")}>
                   <option value="">- Pick a group -</option>
                   {groups.map((g) => <option key={g.id} value={g.id}>{g.name} ({g.memberCount})</option>)}
+                </select>
+              )}
+              {audience === "department" && (
+                <select value={groupId} onChange={(e) => setGroupId(e.target.value)} className={cn(sel, "flex-1")}>
+                  <option value="">- Pick a department -</option>
+                  {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
                 </select>
               )}
             </div>
@@ -450,7 +472,7 @@ function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announc
 
           {/* Personal reminders */}
           <div className="border-t border-line pt-4">
-            <div className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint"><Bell className="size-3.5" /> Personal reminders</div>
+            <div className="mb-3 flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint"><Bell className="size-3.5" /> Personal reminders (default)</div>
             <label className="flex items-center justify-between gap-3 rounded-xl border border-line p-3">
               <span className="text-sm font-medium">Text each rostered member their own duty before the service</span>
               <input type="checkbox" checked={remOn} onChange={(e) => setRemOn(e.target.checked)} className="size-4 accent-primary" />
@@ -458,7 +480,7 @@ function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announc
             <div className="mt-3">
               <ScheduleControl verb="Remind" mode={remMode} setMode={setRemMode} leadDays={remLead} setLeadDays={setRemLead} weekday={remWeekday} setWeekday={setRemWeekday} hour={remHour} minute={remMinute} setTime={(h, m) => { setRemHour(h); setRemMinute(m); }} />
             </div>
-            <p className="mt-2 text-xs text-ink-muted">On “Days before” it goes to the people serving that day; on “On a day” it lists everyone’s duties for the coming week. Edit the wording under “Messages”.</p>
+            <p className="mt-2 text-xs text-ink-muted">This is the church-wide default. Each roster, and each service on it, can have its own reminder time when you create or edit it. Edit the wording under “Messages”.</p>
           </div>
         </div>
         <div className="flex items-center justify-end gap-2 border-t border-line p-4">
@@ -470,10 +492,83 @@ function AnnounceSettingsDialog({ announce, remind, groups, onClose }: { announc
   );
 }
 
-type DialogRow = { role: string; personId: string; typed: string };
-type DialogService = { service: string; date: string; time: string; rows: DialogRow[] };
+/**
+ * Reminder timing for one roster or one service: follow the level above, set a
+ * time of its own ("the day before at 6pm", "Tuesdays at 6pm"), or send none.
+ * Shows the real day it will go out once a service date is known.
+ */
+function ReminderPicker({ value, onChange, inheritLabel, inheritEffective, serviceYmd, title, hint, compact }: {
+  value: RemindOverride | null;
+  onChange: (v: RemindOverride | null) => void;
+  inheritLabel: string;
+  inheritEffective: ReturnType<typeof resolveRemind>;
+  serviceYmd?: string;
+  title: string;
+  hint?: string;
+  compact?: boolean;
+}) {
+  const sel = "h-9 rounded-lg border border-line bg-surface px-2.5 text-sm";
+  const kind = !value ? "inherit" : value.mode === "off" ? "off" : "custom";
+  const eff = value ? resolveRemind(value, null, { on: true, leadDays: 1, hour: 18, minute: 0, weekday: null }) : inheritEffective;
+  const when = serviceYmd ? sendLabelFor(eff, serviceYmd) : null;
+  const rel = value && value.mode !== "off" ? value : null;
+  const hour = rel?.hour ?? 18;
+  const minute = rel?.minute ?? 0;
 
-function SheetDialog({ sheet, members, roles, groups, announce, onClose }: { sheet: Sheet | null; members: Member[]; roles: Role[]; groups: Group[]; announce: Announce; onClose: () => void }) {
+  return (
+    <div>
+      <div className={cn("mb-2 flex items-center gap-1.5 font-semibold uppercase tracking-wide text-ink-faint", compact ? "text-[11px]" : "text-xs")}>
+        <Bell className="size-3.5" /> {title}
+      </div>
+      <Segmented
+        value={kind}
+        onChange={(k) => {
+          if (k === "inherit") onChange(null);
+          else if (k === "off") onChange({ mode: "off" });
+          else onChange({ mode: "relative", leadDays: 1, hour: 18, minute: 0 });
+        }}
+        options={[{ value: "inherit", label: inheritLabel }, { value: "custom", label: "Set a time" }, { value: "off", label: "No reminder" }]}
+      />
+      {kind === "custom" && rel && (
+        <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
+          <select
+            value={rel.mode}
+            onChange={(e) => onChange(e.target.value === "weekday" ? { mode: "weekday", weekday: 2, hour, minute } : { mode: "relative", leadDays: 1, hour, minute })}
+            className={sel}
+          >
+            <option value="relative">Days before</option>
+            <option value="weekday">On a day</option>
+          </select>
+          {rel.mode === "relative" ? (
+            <select value={rel.leadDays ?? 1} onChange={(e) => onChange({ ...rel, leadDays: Number(e.target.value) })} className={sel}>
+              {[0, 1, 2, 3, 4, 5, 6, 7].map((d) => <option key={d} value={d}>{d === 0 ? "the same day" : d === 1 ? "the day before" : `${d} days before`}</option>)}
+            </select>
+          ) : (
+            <select value={rel.weekday ?? 2} onChange={(e) => onChange({ ...rel, weekday: Number(e.target.value) })} className={sel}>
+              {WEEKDAY_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}s</option>)}
+            </select>
+          )}
+          <span className="text-ink-muted">at</span>
+          <input type="time" value={hhmm(hour, minute)} onChange={(e) => { const [h, m] = parseHhmm(e.target.value); onChange({ ...rel, hour: h, minute: m }); }} className={sel} />
+        </div>
+      )}
+      <p className="mt-1.5 text-[11px] text-ink-faint">
+        {eff.mode === "off"
+          ? "No reminder will be sent."
+          : when
+            ? <>They’re texted on <span className="font-medium text-ink-muted">{when}</span>.</>
+            : <>Texted {describeRemind(eff)}.</>}
+        {kind === "inherit" && !hint ? " Change it here to give this a different time." : ""}
+        {hint ? ` ${hint}` : ""}
+      </p>
+    </div>
+  );
+}
+
+type DialogRow = { role: string; personId: string; typed: string };
+type DialogService = { service: string; date: string; time: string; remind: RemindOverride | null; rows: DialogRow[] };
+
+function SheetDialog({ sheet, members, roles, groups, departments, announce, remind, onClose }: { sheet: Sheet | null; members: Member[]; roles: Role[]; groups: Group[]; departments: Dept[]; announce: Announce; remind: Remind; onClose: () => void }) {
   const router = useRouter();
   const { toast } = useFeedback();
   const [pending, start] = useTransition();
@@ -503,24 +598,29 @@ function SheetDialog({ sheet, members, roles, groups, announce, onClose }: { she
   const [ovWeekday, setOvWeekday] = useState(sheet?.announceWeekday ?? 1);
   const [ovDate, setOvDate] = useState(sheet?.announceDate ? sheet.announceDate.slice(0, 10) : "");
   // Who this roster is announced to: "general" follows the church default group.
-  const [toMode, setToMode] = useState<"general" | "group" | "church">(
-    sheet?.announceAudience === "group" ? "group" : sheet?.announceAudience === "church" ? "church" : "general",
+  const [toMode, setToMode] = useState<"general" | "group" | "department" | "church">(
+    sheet?.announceAudience === "group" ? "group" : sheet?.announceAudience === "department" ? "department" : sheet?.announceAudience === "church" ? "church" : "general",
   );
-  const [toGroup, setToGroup] = useState(sheet?.announceGroupId ?? "");
+  const [toGroup, setToGroup] = useState(sheet?.announceAudience === "group" ? sheet.announceGroupId ?? "" : "");
+  const [toDept, setToDept] = useState(sheet?.announceAudience === "department" ? sheet.announceGroupId ?? "" : "");
   const defaultTo =
     announce.audience === "church"
-      ? "the whole church"
-      : groups.find((g) => g.id === announce.groupId)?.name ?? "no group chosen yet";
+      ? "everyone"
+      : announce.audience === "department"
+        ? departments.find((d) => d.id === announce.groupId)?.name ?? "no department chosen yet"
+        : groups.find((g) => g.id === announce.groupId)?.name ?? "no group chosen yet";
+  // Personal reminders: the whole roster, and optionally each service on its own.
+  const [sheetRemind, setSheetRemind] = useState<RemindOverride | null>(sheet?.remindOverride ?? null);
   const [services, setServices] = useState<DialogService[]>(
     sheet?.services?.length
-      ? sheet.services.map((s) => ({ service: s.service, date: s.date.slice(0, 10), time: s.time, rows: makeRows(s.assignments) }))
-      : [{ service: "Sunday Service", date: "", time: "", rows: makeRows([]) }],
+      ? sheet.services.map((s) => ({ service: s.service, date: s.date.slice(0, 10), time: s.time, remind: s.remind, rows: makeRows(s.assignments) }))
+      : [{ service: "Sunday Service", date: "", time: "", remind: null, rows: makeRows([]) }],
   );
 
   const setSvc = (i: number, patch: Partial<DialogService>) => setServices((p) => p.map((s, idx) => (idx === i ? { ...s, ...patch } : s)));
   const setRow = (si: number, ri: number, patch: Partial<DialogRow>) =>
     setServices((p) => p.map((s, idx) => (idx === si ? { ...s, rows: s.rows.map((r, j) => (j === ri ? { ...r, ...patch } : r)) } : s)));
-  const addService = () => setServices((p) => [...p, { service: "", date: "", time: "", rows: makeRows([]) }]);
+  const addService = () => setServices((p) => [...p, { service: "", date: "", time: "", remind: null, rows: makeRows([]) }]);
   const removeService = (i: number) => setServices((p) => p.filter((_, idx) => idx !== i));
 
   const inputCls = "h-9 rounded-lg border border-line bg-surface px-2.5 text-sm outline-none focus:border-primary/50";
@@ -543,6 +643,7 @@ function SheetDialog({ sheet, members, roles, groups, announce, onClose }: { she
         service: s.service.trim(),
         date: s.date,
         time: s.time,
+        remind: s.remind,
         assignments: s.rows
           .filter((r) => r.personId || r.typed.trim())
           .map((r) => ({ role: r.role, personId: r.personId || null, personName: r.personId ? null : r.typed.trim() })),
@@ -561,8 +662,10 @@ function SheetDialog({ sheet, members, roles, groups, announce, onClose }: { she
     fd.set("announceWeekday", ovMode === "weekday" ? String(ovWeekday) : "");
     fd.set("announceDate", ovMode === "date" ? ovDate : "");
     fd.set("announceAudience", toMode === "general" ? "" : toMode);
-    fd.set("announceGroupId", toMode === "group" ? toGroup : "");
+    fd.set("announceGroupId", toMode === "group" ? toGroup : toMode === "department" ? toDept : "");
+    fd.set("remindOverride", sheetRemind ? JSON.stringify(sheetRemind) : "null");
     if (toMode === "group" && !toGroup) return toast("Pick which group should receive this roster", "error");
+    if (toMode === "department" && !toDept) return toast("Pick which department should receive this roster", "error");
     start(async () => {
       const res = await saveServiceSheet(fd);
       if (res?.ok) { toast(sheet ? "Roster updated" : "Roster created", "success"); router.refresh(); onClose(); }
@@ -625,12 +728,36 @@ function SheetDialog({ sheet, members, roles, groups, announce, onClose }: { she
                 ))}
                 {svc.rows.length === 0 && <p className="text-xs text-ink-faint">No roles yet - add some via “Manage roles”.</p>}
               </div>
+
+              <div className="mt-3 border-t border-line-soft pt-3">
+                <ReminderPicker
+                  value={svc.remind}
+                  onChange={(v) => setSvc(si, { remind: v })}
+                  inheritLabel="Same as roster"
+                  inheritEffective={resolveRemind(null, sheetRemind, remind)}
+                  serviceYmd={svc.date}
+                  title="Remind these people"
+                  compact
+                />
+              </div>
             </div>
           ))}
 
           <button onClick={addService} className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-dashed border-line py-2.5 text-sm font-medium text-ink-muted hover:border-primary/40 hover:text-primary">
             <Plus className="size-4" /> Add another service
           </button>
+
+          {/* Personal reminders for this whole roster (each service can still override below) */}
+          <div className="rounded-xl border border-line p-3">
+            <ReminderPicker
+              value={sheetRemind}
+              onChange={setSheetRemind}
+              inheritLabel="Use general"
+              inheritEffective={resolveRemind(null, null, remind)}
+              title="Text each person their own duty"
+              hint="Applies to every service on this roster unless you set a different time on a service above."
+            />
+          </div>
 
           {/* Per-roster audience (falls back to the general Announcement settings) */}
           <div className="rounded-xl border border-line p-3">
@@ -641,7 +768,8 @@ function SheetDialog({ sheet, members, roles, groups, announce, onClose }: { she
               options={[
                 { value: "general", label: "Use general" },
                 { value: "group", label: "A group" },
-                { value: "church", label: "Whole church" },
+                { value: "department", label: "A department" },
+                { value: "church", label: "Everyone" },
               ]}
             />
             {toMode === "group" && (
@@ -650,12 +778,20 @@ function SheetDialog({ sheet, members, roles, groups, announce, onClose }: { she
                 {groups.map((g) => <option key={g.id} value={g.id}>{g.name} ({g.memberCount})</option>)}
               </select>
             )}
+            {toMode === "department" && (
+              <select value={toDept} onChange={(e) => setToDept(e.target.value)} className={cn(inputCls, "mt-2 w-full")}>
+                <option value="">- Choose a department -</option>
+                {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            )}
             <p className="mt-1.5 text-[11px] text-ink-faint">
               {toMode === "general"
                 ? <>“Use general” sends to the group set in Announcement settings: <span className="font-medium text-ink-muted">{defaultTo}</span>. Pick a different group here when this roster is for another team.</>
                 : toMode === "group"
                   ? "Only this group is texted for this roster. Other rosters are not affected."
-                  : "Everyone active with a phone number is texted for this roster."}
+                  : toMode === "department"
+                    ? "Everyone in this department who has a phone number is texted for this roster."
+                    : "Everyone active with a phone number is texted for this roster."}
             </p>
           </div>
 

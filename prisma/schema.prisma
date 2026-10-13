@@ -97,6 +97,10 @@ model Church {
   rosterRemindHour     Int     @default(18) // local hour to send
   rosterRemindMinute   Int     @default(0)  // local minute to send
   rosterRemindWeekday  Int?    // 0=Sun..6=Sat — when set, send on this weekday instead of "leadDays before"
+
+  // ── Public facility booking link (/book/<slug>) ──
+  publicBookingOn   Boolean @default(false)
+  bookingNote       String? @db.Text // shown on the public booking page (rates, rules, how to pay)
   memberPrefix String? // member ID prefix, e.g. "GBC" (derived from name if unset)
   memberSeq    Int     @default(0) // last issued member number
   name         String
@@ -191,6 +195,7 @@ model Church {
   expenses       Expense[]
   facilities     Facility[]
   bookings       Booking[]
+  bookingPayments BookingPayment[]
   devotionals    Devotional[]
   testimonies    Testimony[]
   counselingSessions CounselingSession[]
@@ -520,6 +525,7 @@ model Group {
   meetingReminderWeekday  Int?    // 0=Sun..6=Sat — when set, send on this weekday instead of "leadDays before"
   meetingReminderText     String? @db.Text        // editable message (else a sensible default)
   meetingReminderLastSent String? // local YYYY-MM-DD guard so auto-send never doubles up in a day
+  meetingReminderSent     Json?   // per-meeting-day guard for days with their own reminder timing: { "Wednesday": "2026-10-14" } (the meeting date that was reminded)
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   members     Person[] @relation("GroupMembers")
@@ -647,6 +653,7 @@ enum GiftMethod {
   AirtelTigo
   Card
   Cash
+  Bank
 }
 
 model ChurchAccount {
@@ -1437,6 +1444,10 @@ model Facility {
   name      String
   capacity  Int?
   location  String?
+  description String?  @db.Text
+  imageUrl  String?  @db.Text // uploaded photo (data URL or storage URL)
+  rate      Decimal? @db.Decimal(12, 2) // usual price per booking, used to pre-fill the amount
+  publicBookable Boolean @default(true) // appears on the public booking link
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
   bookings  Booking[]
@@ -1455,11 +1466,36 @@ model Booking {
   startTime  DateTime
   endTime    DateTime
   notes      String?
-  status     String   @default("confirmed")
+  status     String   @default("confirmed") // pending (asked via the public link) | confirmed | declined
+  source     String   @default("internal")  // internal | public
+  contactPhone String?
+  contactEmail String?
+  amount     Decimal? @db.Decimal(12, 2) // the agreed charge, if any
+  payments   BookingPayment[]
   createdAt  DateTime @default(now())
 
   @@index([churchId, startTime])
   @@index([facilityId, startTime])
+}
+
+// Money received for a booking. Each payment is also posted to the chosen
+// account's ledger (transactionId) so balances and accounting stay in step.
+model BookingPayment {
+  id        String     @id @default(cuid())
+  churchId  String
+  church    Church     @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  bookingId String
+  booking   Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  amount    Decimal    @db.Decimal(12, 2)
+  method    GiftMethod @default(Cash)
+  accountId String?
+  note      String?
+  transactionId String?
+  date      DateTime   @default(now())
+  createdAt DateTime   @default(now())
+
+  @@index([bookingId])
+  @@index([churchId, date])
 }
 
 // ── Devotionals ───────────────────────────────────────────
@@ -1596,8 +1632,12 @@ model VolunteerRoster {
   announceDate     DateTime? // when set, send on this exact date (a one-off) at announceHour:announceMinute
   // Per-roster audience — overrides the church-wide default group when set.
   // null = use the church default; "group" uses announceGroupId; "church" = everyone active.
+  // "group" | "church" (everyone) | "department" - for "group" announceGroupId is a Group id, for "department" it is a Department id.
   announceAudience String?
   announceGroupId  String?
+  // Personal duty reminders for this whole sheet. null = follow the church default.
+  // { mode: "off" | "relative" | "weekday", leadDays?, hour?, minute?, weekday? }
+  remindOverride Json?
   deletedAt DateTime? // soft delete — hidden from lists but restorable for 30 days
   slots     VolunteerSlot[]
   createdAt DateTime @default(now())
@@ -1621,6 +1661,8 @@ model VolunteerSlot {
   status    String   @default("assigned") // assigned, confirmed, swapped, absent
   notifiedAt DateTime? // set when this person was SMS'd about the assignment (manual)
   remindedAt DateTime? // set when the automated day-before reminder went out
+  // Reminder timing for this one service (wins over the sheet and the church default).
+  remindOverride Json?
   createdAt DateTime @default(now())
 
   @@index([rosterId])

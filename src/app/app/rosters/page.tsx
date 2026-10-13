@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { getServiceRoles } from "@/lib/data/rosters";
 import { getSmsBalance } from "@/lib/sms/credits";
 import { RostersClient } from "@/components/app/rosters-client";
+import { parseRemindOverride } from "@/lib/rosters/remind";
 import { PageHeader } from "@/components/app/page-header";
 
 export const metadata = { title: "Rosters" };
@@ -49,6 +50,11 @@ export default async function RostersPage() {
     select: { id: true, name: true, _count: { select: { members: true } } },
     orderBy: { name: "asc" },
   });
+  const departments = await db.department.findMany({
+    where: { churchId: session.churchId },
+    select: { id: true, name: true },
+    orderBy: { name: "asc" },
+  });
 
   return (
     <div>
@@ -61,7 +67,7 @@ export default async function RostersPage() {
         sheets={sheets.map((s) => {
           // Group this roster's slots by service + day.
           const groups = new Map<string, {
-            service: string; date: string; time: string;
+            service: string; date: string; time: string; remind: ReturnType<typeof parseRemindOverride>;
             assignments: { id: string; role: string; personId: string | null; personName: string | null; hasPhone: boolean; notified: boolean }[];
           }>();
           for (const sl of s.slots) {
@@ -70,7 +76,7 @@ export default async function RostersPage() {
             const hh = sl.date.getUTCHours();
             const mm = sl.date.getUTCMinutes();
             const time = hh === 0 && mm === 0 ? "" : `${String(hh).padStart(2, "0")}:${String(mm).padStart(2, "0")}`;
-            if (!groups.has(key)) groups.set(key, { service: sl.service ?? "Service", date: sl.date.toISOString(), time, assignments: [] });
+            if (!groups.has(key)) groups.set(key, { service: sl.service ?? "Service", date: sl.date.toISOString(), time, remind: parseRemindOverride(sl.remindOverride), assignments: [] });
             groups.get(key)!.assignments.push({
               id: sl.id,
               role: sl.role,
@@ -92,6 +98,7 @@ export default async function RostersPage() {
             announceAudience: s.announceAudience,
             announceGroupId: s.announceGroupId,
             announcedAt: s.announcedAt ? s.announcedAt.toISOString() : null,
+            remindOverride: parseRemindOverride(s.remindOverride),
             services,
           };
         })}
@@ -100,6 +107,7 @@ export default async function RostersPage() {
         smsBalance={smsBalance}
         messageTemplates={messageTemplates}
         groups={groups.map((g) => ({ id: g.id, name: g.name, memberCount: g._count.members }))}
+        departments={departments}
         deletedSheets={deletedSheets.map((d) => ({ id: d.id, name: d.name, date: d.startDate.toISOString(), deletedAt: d.deletedAt!.toISOString() }))}
         announce={{
           on: church?.rosterAnnounceOn ?? false,

@@ -17,21 +17,53 @@ export const MEETING_REMINDER_PLACEHOLDERS: { key: string; hint: string }[] = [
   { key: "time", hint: "Just the time" },
 ];
 
-export type ScheduleEntry = { day: string; time: string | null };
+/** A meeting day's own reminder timing. Absent = follow the group's default. */
+export type DayRemind = {
+  /** true = never remind for this day. */
+  off?: boolean;
+  /** Days before the meeting (0 = the same day). */
+  leadDays: number;
+  hour: number;
+  minute: number;
+};
+
+export type ScheduleEntry = { day: string; time: string | null; remind?: DayRemind };
+
+const clampInt = (v: unknown, lo: number, hi: number, fallback: number) => {
+  const n = typeof v === "number" ? Math.trunc(v) : parseInt(String(v ?? ""), 10);
+  return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : fallback;
+};
+
+/** Clean up a stored per-day reminder, or null when the day follows the default. */
+export function parseDayRemind(raw: unknown): DayRemind | undefined {
+  if (!raw || typeof raw !== "object") return undefined;
+  const r = raw as Record<string, unknown>;
+  if (r.off === true) return { off: true, leadDays: 0, hour: 8, minute: 0 };
+  return { leadDays: clampInt(r.leadDays, 0, 14, 0), hour: clampInt(r.hour, 0, 23, 8), minute: clampInt(r.minute, 0, 59, 0) };
+}
 
 /** Coerce whatever is stored in Group.meetingSchedule (Json) into clean entries,
  *  ordered Sun→Sat and de-duped by day. */
 export function parseSchedule(raw: unknown): ScheduleEntry[] {
   const arr = Array.isArray(raw) ? raw : [];
-  const byDay = new Map<string, string | null>();
+  const byDay = new Map<string, { time: string | null; remind?: DayRemind }>();
   for (const item of arr) {
     if (!item || typeof item !== "object") continue;
     const day = String((item as { day?: unknown }).day ?? "").trim();
     if (!DAYS_FULL.includes(day)) continue;
     const t = String((item as { time?: unknown }).time ?? "").trim();
-    byDay.set(day, t || null);
+    byDay.set(day, { time: t || null, remind: parseDayRemind((item as { remind?: unknown }).remind) });
   }
-  return DAYS_FULL.filter((d) => byDay.has(d)).map((d) => ({ day: d, time: byDay.get(d) ?? null }));
+  return DAYS_FULL.filter((d) => byDay.has(d)).map((d) => {
+    const e = byDay.get(d)!;
+    return e.remind ? { day: d, time: e.time, remind: e.remind } : { day: d, time: e.time };
+  });
+}
+
+/** "the day before at 6:00 PM", "the same day at 7:00 AM", "3 days before at 8:00 AM". */
+export function describeLead(leadDays: number, hour: number, minute = 0): string {
+  const when = leadDays === 0 ? "the same day" : leadDays === 1 ? "the day before" : `${leadDays} days before`;
+  return `${when} at ${formatTime(`${hour}:${String(minute).padStart(2, "0")}`)}`;
 }
 
 /** Order a set of weekday names Sun→Sat and join them nicely. */
@@ -123,6 +155,62 @@ export function nextGroupReminderLabel(opts: {
     return label(offset);
   }
   return null;
+}
+
+/** One group's reminder timing for a single meeting day, resolved against the group default. */
+export type EffectiveRemind =
+  | { kind: "off" }
+  | { kind: "relative"; leadDays: number; hour: number; minute: number; custom: boolean }
+  | { kind: "weekday"; weekday: number; hour: number; minute: number };
+
+export type GroupRemindDefaults = { leadDays: number; hour: number; minute: number; weekday: number | null };
+
+/** The timing that actually applies to a meeting day: its own, or the group's default. */
+export function effectiveRemind(entry: ScheduleEntry, d: GroupRemindDefaults): EffectiveRemind {
+  if (entry.remind?.off) return { kind: "off" };
+  if (entry.remind) return { kind: "relative", leadDays: entry.remind.leadDays, hour: entry.remind.hour, minute: entry.remind.minute, custom: true };
+  if (d.weekday != null) return { kind: "weekday", weekday: d.weekday, hour: d.hour, minute: d.minute };
+  return { kind: "relative", leadDays: d.leadDays, hour: d.hour, minute: d.minute, custom: false };
+}
+
+/**
+ * When the next automatic reminder for a group will fire, taking each meeting
+ * day's own timing into account, e.g. "Sat 18 Oct · 6:00 pm". Null if nothing is
+ * due in the next two weeks. Uses the church timezone so it matches the cron.
+ */
+export function nextGroupReminderFromSchedule(opts: {
+  schedule: ScheduleEntry[];
+  defaults: GroupRemindDefaults;
+  timezone: string;
+  now?: Date;
+}): string | null {
+  const now = opts.now ?? new Date();
+  const { hour: nowHour, minute: nowMinute } = localParts(now, opts.timezone);
+  const nowMins = nowHour * 60 + nowMinute;
+
+  let best: { offset: number; mins: number } | null = null;
+  const consider = (offset: number, hour: number, minute: number) => {
+    const mins = hour * 60 + minute;
+    if (offset === 0 && mins <= nowMins) return; // already passed today
+    if (!best || offset < best.offset || (offset === best.offset && mins < best.mins)) best = { offset, mins };
+  };
+
+  const eff = opts.schedule.map((e) => ({ e, r: effectiveRemind(e, opts.defaults) }));
+  for (let offset = 0; offset < 15; offset++) {
+    const sendWeekday = localParts(new Date(now.getTime() + offset * 86400000), opts.timezone).weekday;
+    for (const { e, r } of eff) {
+      if (r.kind === "off") continue;
+      if (r.kind === "weekday") { if (sendWeekday === r.weekday) consider(offset, r.hour, r.minute); continue; }
+      const meetingWeekday = localParts(new Date(now.getTime() + (offset + r.leadDays) * 86400000), opts.timezone).weekday;
+      if (DAYS_FULL[meetingWeekday] === e.day) consider(offset, r.hour, r.minute);
+    }
+  }
+  if (!best) return null;
+  const { offset, mins } = best as { offset: number; mins: number };
+  const sendYmd = ymdInTz(now, opts.timezone, offset);
+  const sendWeekday = localParts(new Date(now.getTime() + offset * 86400000), opts.timezone).weekday;
+  const mon = MONTHS_SHORT[parseInt(sendYmd.slice(5, 7), 10) - 1];
+  return `${DAYS_SHORT[sendWeekday]} ${parseInt(sendYmd.slice(8, 10), 10)} ${mon} · ${hour12(Math.floor(mins / 60), mins % 60)}`;
 }
 
 export function renderMeetingReminder(

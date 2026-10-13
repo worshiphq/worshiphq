@@ -5,7 +5,7 @@ import { createGroup } from "@/app/actions/groups";
 import { GroupFields } from "@/components/app/group-fields";
 import { PageHeader } from "@/components/app/page-header";
 import { ActionDialog } from "@/components/app/action-dialog";
-import { nextGroupReminderLabel, parseSchedule } from "@/lib/groups/meeting-reminder";
+import { nextGroupReminderFromSchedule, parseSchedule } from "@/lib/groups/meeting-reminder";
 import { Plus } from "lucide-react";
 
 export const metadata = { title: "Groups" };
@@ -83,7 +83,7 @@ export default async function GroupsPage() {
             meetingReminderText: g.meetingReminderText,
             nextReminderLabel:
               g.meetingReminderOn && g.meetingReminderAuto
-                ? nextGroupReminderLabel({ meetingDays: days, leadDays: g.meetingReminderLeadDays, hour: g.meetingReminderHour, minute: g.meetingReminderMinute, weekday: g.meetingReminderWeekday, timezone: tz, now })
+                ? nextGroupReminderFromSchedule({ schedule, defaults: { leadDays: g.meetingReminderLeadDays, hour: g.meetingReminderHour, minute: g.meetingReminderMinute, weekday: g.meetingReminderWeekday }, timezone: tz, now })
                 : null,
           };
         })}

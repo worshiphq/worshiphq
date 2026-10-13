@@ -5,6 +5,8 @@ import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
 import { logAudit } from "@/lib/audit";
+import type { Prisma } from "@prisma/client";
+import { parseRemindOverride } from "@/lib/rosters/remind";
 
 /** "" / invalid → null (relative mode); "0".."6" → that weekday (absolute mode). */
 function parseWeekday(v: FormDataEntryValue | null): number | null {
@@ -88,7 +90,16 @@ type SheetService = {
   date: string;   // "YYYY-MM-DD"
   time?: string;  // "HH:MM" (optional)
   assignments: { role: string; personId?: string | null; personName?: string | null }[];
+  /** This service's own reminder timing (absent = same as the roster). */
+  remind?: unknown;
 };
+
+/** A cleaned override for the Json column, or the DB null that clears it (so the level above applies). */
+async function overrideForDb(v: unknown) {
+  const { Prisma: P } = await import("@prisma/client");
+  const o = parseRemindOverride(v);
+  return o ? (o as unknown as Prisma.InputJsonValue) : P.DbNull;
+}
 
 /** Save a roster sheet that can cover one OR several services (each with its own
  *  date/time + assignments), plus an optional per-roster announcement schedule. */
@@ -111,14 +122,22 @@ export async function saveServiceSheet(formData: FormData) {
   const announceWeekday = parseWeekday(formData.get("announceWeekday"));
   // Per-roster audience: "" = follow the church default.
   const audienceRaw = String(formData.get("announceAudience") ?? "");
-  const announceAudience = audienceRaw === "group" || audienceRaw === "church" ? audienceRaw : null;
+  const announceAudience = audienceRaw === "group" || audienceRaw === "church" || audienceRaw === "department" ? audienceRaw : null;
   let announceGroupId: string | null = null;
-  if (announceAudience === "group") {
+  if (announceAudience === "group" || announceAudience === "department") {
     const gid = String(formData.get("announceGroupId") ?? "").trim();
-    const owned = gid ? await db.group.findFirst({ where: { id: gid, churchId: session.churchId }, select: { id: true } }) : null;
-    if (!owned) return { ok: false as const, error: "Pick which group should receive this roster." };
+    const owned = gid
+      ? announceAudience === "group"
+        ? await db.group.findFirst({ where: { id: gid, churchId: session.churchId }, select: { id: true } })
+        : await db.department.findFirst({ where: { id: gid, churchId: session.churchId }, select: { id: true } })
+      : null;
+    if (!owned) return { ok: false as const, error: `Pick which ${announceAudience} should receive this roster.` };
     announceGroupId = owned.id;
   }
+  // Personal-reminder timing for the whole sheet ("" = follow the church default).
+  let sheetRemind: unknown = null;
+  try { sheetRemind = JSON.parse(String(formData.get("remindOverride") ?? "null")); } catch { /* ignore */ }
+  const remindOverride = await overrideForDb(sheetRemind);
   const announceDateStr = String(formData.get("announceDate") ?? "").trim();
   const announceDate = /^\d{4}-\d{2}-\d{2}$/.test(announceDateStr) ? new Date(`${announceDateStr}T00:00:00`) : null;
 
@@ -131,6 +150,7 @@ export async function saveServiceSheet(formData: FormData) {
       service: s.service.trim(),
       date: s.date,
       time: s.time?.trim() || "",
+      remind: s.remind,
       assignments: (s.assignments ?? []).filter((a) => a.role && (a.personId || (a.personName && String(a.personName).trim()))),
     }))
     .filter((s) => s.assignments.length > 0);
@@ -150,6 +170,10 @@ export async function saveServiceSheet(formData: FormData) {
   const endDate = new Date(Math.max(...dates.map((d) => d.getTime())));
   const rosterName = name || (services.length === 1 ? services[0].service : `${services.length} services`);
 
+  const slotKey = (x: { personId: string | null; role: string; service: string | null; date: Date }) =>
+    `${x.service ?? ""}|${x.date.toISOString()}|${x.role}|${x.personId ?? ""}`;
+  const carried = new Map<string, { remindedAt: Date | null; notifiedAt: Date | null }>();
+
   // Get or create the sheet container.
   let rosterId = sheetId;
   if (rosterId) {
@@ -160,27 +184,41 @@ export async function saveServiceSheet(formData: FormData) {
     // announces once; use the "Announce" button to send again on purpose.
     await db.volunteerRoster.update({
       where: { id: rosterId },
-      data: { name: rosterName, startDate, endDate, announceLeadDays, announceHour, announceMinute, announceWeekday, announceDate, announceAudience, announceGroupId },
+      data: { name: rosterName, startDate, endDate, announceLeadDays, announceHour, announceMinute, announceWeekday, announceDate, announceAudience, announceGroupId, remindOverride },
     });
+    // Remember who was already reminded / texted so editing a sheet doesn't re-send to them.
+    const before = await db.volunteerSlot.findMany({
+      where: { rosterId, churchId: session.churchId },
+      select: { personId: true, role: true, service: true, date: true, remindedAt: true, notifiedAt: true },
+    });
+    for (const b of before) {
+      if (b.remindedAt || b.notifiedAt) carried.set(slotKey(b), { remindedAt: b.remindedAt, notifiedAt: b.notifiedAt });
+    }
     await db.volunteerSlot.deleteMany({ where: { rosterId, churchId: session.churchId } });
   } else {
     const roster = await db.volunteerRoster.create({
-      data: { churchId: session.churchId, name: rosterName, startDate, endDate, announceLeadDays, announceHour, announceMinute, announceWeekday, announceDate, announceAudience, announceGroupId },
+      data: { churchId: session.churchId, name: rosterName, startDate, endDate, announceLeadDays, announceHour, announceMinute, announceWeekday, announceDate, announceAudience, announceGroupId, remindOverride },
       select: { id: true },
     });
     rosterId = roster.id;
   }
 
-  const slots = services.flatMap((s) =>
-    s.assignments.map((a) => ({
-      churchId: session.churchId,
-      rosterId: rosterId!,
-      role: a.role,
-      service: s.service,
-      date: toDate(s.date, s.time),
-      personId: a.personId || null,
-      personName: a.personId ? (nameById.get(a.personId) ?? null) : (String(a.personName ?? "").trim() || null),
-    })),
+  const serviceRemind = await Promise.all(services.map((s) => overrideForDb(s.remind)));
+  const slots = services.flatMap((s, i) =>
+    s.assignments.map((a) => {
+      const row = {
+        churchId: session.churchId,
+        rosterId: rosterId!,
+        role: a.role,
+        service: s.service,
+        date: toDate(s.date, s.time),
+        personId: a.personId || null,
+        personName: a.personId ? (nameById.get(a.personId) ?? null) : (String(a.personName ?? "").trim() || null),
+        remindOverride: serviceRemind[i],
+      };
+      const was = carried.get(slotKey(row));
+      return was ? { ...row, remindedAt: was.remindedAt, notifiedAt: was.notifiedAt } : row;
+    }),
   );
   await db.volunteerSlot.createMany({ data: slots });
 
@@ -373,7 +411,8 @@ export async function announceRoster(rosterId: string) {
 export async function saveRosterAnnounceSettings(formData: FormData) {
   const session = await requireModule("volunteers");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
-  const audience = String(formData.get("audience") ?? "group") === "church" ? "church" : "group";
+  const audienceRaw = String(formData.get("audience") ?? "group");
+  const audience = audienceRaw === "church" || audienceRaw === "department" ? audienceRaw : "group";
   const groupId = String(formData.get("groupId") ?? "").trim() || null;
   const leadDays = Math.min(30, Math.max(0, parseInt(String(formData.get("leadDays") ?? "2"), 10) || 0));
   const hour = Math.min(23, Math.max(0, parseInt(String(formData.get("hour") ?? "8"), 10) || 8));
@@ -384,7 +423,7 @@ export async function saveRosterAnnounceSettings(formData: FormData) {
     data: {
       rosterAnnounceOn: String(formData.get("on") ?? "") === "on",
       rosterAnnounceAudience: audience,
-      rosterAnnounceGroupId: audience === "group" ? groupId : null,
+      rosterAnnounceGroupId: audience === "church" ? null : groupId,
       rosterAnnounceLeadDays: leadDays,
       rosterAnnounceHour: hour,
       rosterAnnounceMinute: minute,

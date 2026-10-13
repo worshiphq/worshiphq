@@ -15,7 +15,7 @@ import { sendBroadcast } from "@/app/actions/communications";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { GroupFields } from "@/components/app/group-fields";
 import { Modal } from "@/components/ui/modal";
-import { formatSchedule, type ScheduleEntry } from "@/lib/groups/meeting-reminder";
+import { formatSchedule, type ScheduleEntry, describeLead } from "@/lib/groups/meeting-reminder";
 import { cn } from "@/lib/utils";
 import Link from "next/link";
 import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
@@ -187,6 +187,18 @@ export function GroupsClient({ items, people, typeSuggestions, canWrite }: {
                   </span>
                   <RemindButton groupId={g.id} />
                 </div>
+              )}
+              {canWrite && g.meetingReminderOn && g.meetingReminderAuto && g.schedule.some((s) => s.remind) && (
+                <ul className="mt-2 space-y-0.5 text-[11px] text-ink-faint">
+                  {g.schedule.map((s) => (
+                    <li key={s.day}>
+                      <span className="font-medium text-ink-muted">{s.day.slice(0, 3)}</span>{" "}
+                      {s.remind
+                        ? s.remind.off ? "no reminder" : `reminded ${describeLead(s.remind.leadDays, s.remind.hour, s.remind.minute)}`
+                        : "follows the group default"}
+                    </li>
+                  ))}
+                </ul>
               )}
             </Card>
           ))}

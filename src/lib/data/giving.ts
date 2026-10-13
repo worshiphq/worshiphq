@@ -8,6 +8,7 @@ export const METHOD_LABEL: Record<GiftMethod, string> = {
   AirtelTigo: "AirtelTigo",
   Card: "Card",
   Cash: "Cash",
+  Bank: "Bank",
 };
 
 export interface GiftRow {
