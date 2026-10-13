@@ -101,7 +101,12 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
   const [detailFor, setDetailFor] = useState<{ id: string; name: string } | null>(null);
   const [showTemplates, setShowTemplates] = useState(false);
 
-  const filtered = data.members.filter((m) => !search || m.name.toLowerCase().includes(search.toLowerCase()));
+  const [tool, setTool] = useState<null | "record" | "rates" | "start">(null);
+  const [status, setStatus] = useState<"all" | "owing" | "paid">("all");
+  const [sort, setSort] = useState<"az" | "owed" | "paid">("az");
+  const [page, setPage] = useState(1);
+  const PAGE_SIZE = 15;
+
   const owingCount = data.members.filter((m) => m.owed > 0).length;
   const isCurrentYear = data.selectedYear === data.currentYear;
 
@@ -114,14 +119,36 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
   const [rToY, setRToY] = useState(data.range?.toY ?? data.currentYear);
   const [rToM, setRToM] = useState(data.range?.toM ?? data.currentMonth);
   const years = wideYears();
+  const owedOf = (m: (typeof data.members)[number]) => (rangeMode ? m.rangeOwed : m.owed);
+  const paidOf = (m: (typeof data.members)[number]) => (rangeMode ? m.rangePaid : m.paidTotal);
+  const matches = data.members.filter((m) => !search || m.name.toLowerCase().includes(search.toLowerCase()));
+  const counts = { all: matches.length, owing: matches.filter((m) => owedOf(m) > 0).length, paid: matches.filter((m) => owedOf(m) <= 0).length };
+  const filtered = matches
+    .filter((m) => (status === "owing" ? owedOf(m) > 0 : status === "paid" ? owedOf(m) <= 0 : true))
+    .sort((a, b) => (sort === "owed" ? owedOf(b) - owedOf(a) : sort === "paid" ? paidOf(b) - paidOf(a) : 0) || a.name.localeCompare(b.name));
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const safePage = Math.min(page, pages);
+  const visible = filtered.slice((safePage - 1) * PAGE_SIZE, safePage * PAGE_SIZE);
   const applyRange = () =>
     router.push(`/app/welfare?from=${rFromY}-${String(rFromM).padStart(2, "0")}&to=${rToY}-${String(rToM).padStart(2, "0")}`);
 
   return (
     <div className="space-y-4">
-      {canWrite && <RatesPanel rates={data.rates} currentYear={data.currentYear} />}
-      {canWrite && <ChurchStartCard churchStart={data.churchStart} />}
-      {canWrite && <RecordDuesForm members={members} accounts={accounts} rates={data.rates} currentYear={data.currentYear} />}
+      {canWrite && (
+        <div className="space-y-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button size="sm" variant={tool === "record" ? "primary" : "secondary"} onClick={() => setTool(tool === "record" ? null : "record")}><Plus className="size-4" /> Record dues</Button>
+            <Button size="sm" variant={tool === "rates" ? "primary" : "secondary"} onClick={() => setTool(tool === "rates" ? null : "rates")}>
+              <Settings2 className="size-4" /> Monthly rate
+              <span className={cn("text-xs font-normal", tool === "rates" ? "text-white/80" : "text-ink-faint")}>{data.rates.length ? ghs(data.rates[data.rates.length - 1].amount) : "not set"}</span>
+            </Button>
+            <Button size="sm" variant={tool === "start" ? "primary" : "secondary"} onClick={() => setTool(tool === "start" ? null : "start")}><Calendar className="size-4" /> Dues start</Button>
+          </div>
+          {tool === "record" && <RecordDuesForm members={members} accounts={accounts} rates={data.rates} currentYear={data.currentYear} />}
+          {tool === "rates" && <RatesPanel rates={data.rates} currentYear={data.currentYear} defaultOpen />}
+          {tool === "start" && <ChurchStartCard churchStart={data.churchStart} />}
+        </div>
+      )}
 
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-4">
@@ -207,21 +234,33 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
             </div>
           )}
 
-          <div className="relative mb-3">
-            <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-            <Input placeholder="Search members…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <div className="relative min-w-48 flex-1">
+              <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
+              <Input placeholder="Search members…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="pl-10" />
+            </div>
+            <div className="flex gap-1 rounded-xl bg-surface-2 p-1">
+              {([["all", "Everyone"], ["owing", "Owing"], ["paid", "Paid up"]] as const).map(([k, label]) => (
+                <button key={k} onClick={() => { setStatus(k); setPage(1); }} className={cn("rounded-lg px-3 py-1.5 text-xs font-medium transition-colors", status === k ? "bg-surface text-ink shadow-sm" : "text-ink-muted hover:text-ink")}>
+                  {label} <span className="text-ink-faint">({counts[k]})</span>
+                </button>
+              ))}
+            </div>
+            <select value={sort} onChange={(e) => { setSort(e.target.value as typeof sort); setPage(1); }} className="h-9 rounded-lg border border-line bg-surface px-2 text-xs">
+              <option value="az">A to Z</option><option value="owed">Owes the most</option><option value="paid">Paid the most</option>
+            </select>
           </div>
           {!rangeMode && data.rates.length === 0 && (
             <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0" /> Set a monthly rate above (per year) so “owed” can be calculated.
+              <AlertTriangle className="mt-0.5 size-4 shrink-0" /> Set a monthly rate (use “Monthly rate” above) so “owed” can be calculated.
             </div>
           )}
 
           {rangeMode && rangeBlocked ? null : (
-          <div className="space-y-2">
-            {filtered.map((m) => (
+          <div className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line">
+            {visible.map((m) => (
               <button key={m.id} onClick={() => setDetailFor({ id: m.id, name: m.name })}
-                className="flex w-full flex-wrap items-center gap-3 rounded-xl border border-line px-3 py-2.5 text-left hover:border-primary/40 hover:bg-surface-2/40">
+                className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-2/50">
                 <div className="min-w-40 flex-1">
                   <div className="flex items-center gap-2 text-sm font-medium">
                     {m.name}
@@ -262,8 +301,18 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
                 )}
               </button>
             ))}
-            {filtered.length === 0 && <p className="py-6 text-center text-sm text-ink-faint">No members found.</p>}
+            {filtered.length === 0 && <p className="py-8 text-center text-sm text-ink-faint">No members found.</p>}
           </div>
+          )}
+          {!(rangeMode && rangeBlocked) && pages > 1 && (
+            <div className="mt-3 flex items-center justify-between">
+              <span className="text-xs text-ink-faint">{(safePage - 1) * PAGE_SIZE + 1}-{Math.min(filtered.length, safePage * PAGE_SIZE)} of {filtered.length}</span>
+              <div className="flex items-center gap-1.5">
+                <Button size="sm" variant="secondary" disabled={safePage <= 1} onClick={() => setPage(safePage - 1)}>Prev</Button>
+                <span className="px-1 text-xs text-ink-muted">Page {safePage} of {pages}</span>
+                <Button size="sm" variant="secondary" disabled={safePage >= pages} onClick={() => setPage(safePage + 1)}>Next</Button>
+              </div>
+            </div>
           )}
         </div>
       </Card>
@@ -310,10 +359,10 @@ function ChurchStartCard({ churchStart }: { churchStart: string | null }) {
   );
 }
 
-function RatesPanel({ rates, currentYear }: { rates: { year: number; amount: number }[]; currentYear: number }) {
+function RatesPanel({ rates, currentYear, defaultOpen = false }: { rates: { year: number; amount: number }[]; currentYear: number; defaultOpen?: boolean }) {
   const router = useRouter();
   const { toast } = useFeedback();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(defaultOpen);
   const [year, setYear] = useState(String(currentYear));
   const [amount, setAmount] = useState("");
   const [pending, start] = useTransition();
