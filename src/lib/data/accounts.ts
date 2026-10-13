@@ -196,3 +196,57 @@ export async function getAccountHistory(churchId: string, accountId: string): Pr
 
   return { account: { id: account.id, name: account.name, openingBalance: account.openingBalance }, current: bal, rows };
 }
+
+export interface AccountStatement {
+  account: { id: string; name: string; openingBalance: number };
+  /** Balance right now. */
+  current: number;
+  /** Balance at the start of the chosen range, and at its end. */
+  startBalance: number;
+  endBalance: number;
+  totalIn: number;
+  totalOut: number;
+  rows: AccountHistoryRow[]; // this page, newest first
+  page: number;
+  pages: number;
+  total: number;
+}
+
+/**
+ * A bank-statement view of one account for a date range: opening balance, every
+ * entry with its running balance, closing balance, money in and out. Paginated,
+ * so a busy account never turns into an endless scroll.
+ */
+export async function getAccountStatement(
+  churchId: string,
+  accountId: string,
+  opts: { from?: string | null; to?: string | null; page?: number; pageSize?: number },
+): Promise<AccountStatement | null> {
+  const history = await getAccountHistory(churchId, accountId);
+  if (!history) return null;
+  const pageSize = opts.pageSize ?? 30;
+  const fromT = opts.from ? new Date(`${opts.from}T00:00:00`).getTime() : -Infinity;
+  const toT = opts.to ? new Date(`${opts.to}T23:59:59.999`).getTime() : Infinity;
+
+  const inRange = history.rows.filter((r) => { const t = new Date(r.date).getTime(); return t >= fromT && t <= toT; });
+  const before = history.rows.find((r) => new Date(r.date).getTime() < fromT); // newest entry before the range
+  const startBalance = before ? before.balanceAfter : history.account.openingBalance;
+  const endBalance = inRange.length ? inRange[0].balanceAfter : startBalance;
+  const totalIn = inRange.filter((r) => r.amount > 0).reduce((s, r) => s + r.amount, 0);
+  const totalOut = inRange.filter((r) => r.amount < 0).reduce((s, r) => s - r.amount, 0);
+
+  const pages = Math.max(1, Math.ceil(inRange.length / pageSize));
+  const page = Math.min(Math.max(1, opts.page ?? 1), pages);
+  return {
+    account: history.account,
+    current: history.current,
+    startBalance,
+    endBalance,
+    totalIn,
+    totalOut,
+    rows: inRange.slice((page - 1) * pageSize, page * pageSize),
+    page,
+    pages,
+    total: inRange.length,
+  };
+}

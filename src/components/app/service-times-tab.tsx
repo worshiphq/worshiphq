@@ -120,7 +120,7 @@ export function ServiceTimesTab({ canManage }: { canManage: boolean }) {
       <Card>
         <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line p-6">
           <div>
-            <h3 className="font-display text-base font-semibold text-ink">Your services</h3>
+            <h3 className="font-display text-[1rem] font-semibold text-ink">Your services</h3>
             <p className="text-sm text-ink-muted">e.g. &ldquo;1st Service&rdquo; and &ldquo;2nd Service&rdquo;, or &ldquo;Twi Service&rdquo; and &ldquo;English Service&rdquo;.</p>
           </div>
           {canManage && !draft && (

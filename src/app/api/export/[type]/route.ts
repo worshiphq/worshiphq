@@ -155,28 +155,23 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
     ];
   } else if (type === "transactions") {
     if (!session.sections.includes("accounting")) return new Response("Forbidden", { status: 403 });
-    const txYear = Number(reqUrl.searchParams.get("year")) || undefined;
-    const txMonth = reqUrl.searchParams.get("month") != null ? Number(reqUrl.searchParams.get("month")) : undefined;
-    const txWhere: Record<string, unknown> = { churchId };
-    if (txYear != null && txMonth != null) {
-      txWhere.date = { gte: new Date(txYear, txMonth, 1), lte: new Date(txYear, txMonth + 1, 0, 23, 59, 59, 999) };
-    }
-    const txns = await db.transaction.findMany({ where: txWhere, orderBy: { date: "desc" } });
-    const txGifts = (txYear != null && txMonth != null)
-      ? await db.gift.findMany({
-          where: { churchId, date: txWhere.date as object },
-          orderBy: { date: "desc" },
-          include: { fund: { select: { name: true } } },
-        })
-      : [];
-    const monthNames = ["January","February","March","April","May","June","July","August","September","October","November","December"];
-    baseName = txYear && txMonth != null ? `accounting-${monthNames[txMonth]}-${txYear}` : "transactions";
-    sheetTitle = "Transactions";
-    headers = ["Date", "Description", "Category", "Fund", "Amount", "Source"];
-    rows = [
-      ...txns.map((t) => [fmtDate(t.date), t.description, t.category, t.fund ?? "General", Number(t.amount).toFixed(2), "Manual"]),
-      ...txGifts.map((g) => [fmtDate(g.date), `${g.donorName ?? "Anonymous"} - ${g.fund?.name ?? "Gift"}`, g.fund?.name ?? "Giving", g.fund?.name ?? "General", Number(g.amount).toFixed(2), "Giving"]),
-    ];
+    // Same period + filters as the Accounting page, and every kind of money entry:
+    // giving, expenses and manual entries (it used to leave expenses and old giving out).
+    const { parseLedgerParams, getLedgerRows } = await import("@/lib/data/ledger");
+    const parsed = parseLedgerParams(Object.fromEntries(reqUrl.searchParams.entries()));
+    const ledger = await getLedgerRows(churchId, parsed.period, parsed.filters);
+    baseName = `accounting-${ledger.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
+    sheetTitle = "Accounting";
+    headers = ["Date", "Description", "Type", "Category", "Fund", "Source", "Paid by", "Account", "Income", "Expense"];
+    rows = ledger.rows.map((r) => [
+      fmtDate(new Date(r.date)), r.description, r.amount >= 0 ? "Income" : "Expense", r.category, r.fund,
+      r.source === "giving" ? "Giving" : r.source === "expense" ? "Expense record" : "Manual entry",
+      r.method ?? "", r.accountId ? ledger.accounts.get(r.accountId) ?? "" : "",
+      r.amount >= 0 ? r.amount.toFixed(2) : "", r.amount < 0 ? (-r.amount).toFixed(2) : "",
+    ]);
+    const income = ledger.rows.filter((r) => r.amount >= 0).reduce((t, r) => t + r.amount, 0);
+    const spent = ledger.rows.filter((r) => r.amount < 0).reduce((t, r) => t - r.amount, 0);
+    rows.push([], ["", "TOTAL", "", "", "", "", "", "", income.toFixed(2), spent.toFixed(2)], ["", "NET", "", "", "", "", "", "", (income - spent).toFixed(2), ""]);
   } else if (type === "harvest") {
     if (!session.sections.includes("harvest") && !session.sections.includes("giving"))
       return new Response("Forbidden", { status: 403 });

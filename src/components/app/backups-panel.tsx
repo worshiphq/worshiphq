@@ -171,7 +171,7 @@ export function BackupsPanel() {
       </Card>
 
       <Card className="p-6">
-        <h3 className="font-display text-base font-semibold">Restore points</h3>
+        <h3 className="font-display text-[1rem] font-semibold">Restore points</h3>
         {data.backups.length === 0 ? (
           <p className="mt-3 rounded-xl border border-dashed border-line p-6 text-center text-sm text-ink-muted">No backups yet.</p>
         ) : (

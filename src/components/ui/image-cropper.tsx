@@ -105,7 +105,7 @@ export function ImageCropper({
       <div className="fixed inset-0 z-[80] bg-black/60 backdrop-blur-sm" onClick={onCancel} />
       <div className="fixed left-1/2 top-1/2 z-[80] w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line bg-surface p-5 shadow-2xl">
         <div className="mb-3 flex items-center justify-between">
-          <h3 className="font-display text-base font-semibold">Adjust photo</h3>
+          <h3 className="font-display text-[1rem] font-semibold">Adjust photo</h3>
           <button onClick={onCancel} className="grid size-8 place-items-center rounded-lg text-ink-muted hover:bg-surface-2"><X className="size-4" /></button>
         </div>
 

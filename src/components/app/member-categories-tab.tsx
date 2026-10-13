@@ -70,7 +70,7 @@ export function MemberCategoriesTab({ canManage }: { canManage: boolean }) {
 
       {canManage && (
         <Card className="p-6">
-          <h3 className="flex items-center gap-2 font-display text-base font-semibold text-ink"><Tags className="size-4" /> Add a category</h3>
+          <h3 className="flex items-center gap-2 font-display text-[1rem] font-semibold text-ink"><Tags className="size-4" /> Add a category</h3>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
               <Label htmlFor="catName">Category name</Label>
@@ -169,7 +169,7 @@ function CategoryCard({
         ) : (
           <>
             <div>
-              <h3 className="font-display text-base font-semibold text-ink">{cat.name}</h3>
+              <h3 className="font-display text-[1rem] font-semibold text-ink">{cat.name}</h3>
               <p className="text-sm text-ink-muted">
                 {cat.allowMultiple ? "Members can choose several" : "One per member"} · {cat.showOnJoinForm ? "Asked on the join form" : "Not on the join form"} · {cat.options.length} option{cat.options.length === 1 ? "" : "s"} · {total} member{total === 1 ? "" : "s"} assigned
               </p>

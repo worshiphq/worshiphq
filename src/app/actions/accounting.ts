@@ -32,6 +32,15 @@ export async function loadAccountHistory(accountId: string) {
   return { ok: true as const, history };
 }
 
+/** One account's statement for a date range (the accounting Statements tab). */
+export async function loadAccountStatement(accountId: string, from: string | null, to: string | null, page: number) {
+  const session = await requireSession();
+  const { getAccountStatement } = await import("@/lib/data/accounts");
+  const statement = await getAccountStatement(session.churchId, accountId, { from, to, page });
+  if (!statement) return { ok: false as const, error: "Account not found." };
+  return { ok: true as const, statement };
+}
+
 export async function createTransaction(formData: FormData) {
   const session = await requireSession();
   assertCanWrite(session);
@@ -52,7 +61,11 @@ export async function createTransaction(formData: FormData) {
       fund: String(formData.get("fund") ?? "General"),
       ...(accountId ? { accountId } : {}),
       amount,
-      date: new Date(),
+      date: (() => {
+        const raw = String(formData.get("date") ?? "").trim();
+        const d = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? new Date(`${raw}T12:00:00`) : null;
+        return d && !Number.isNaN(d.getTime()) ? d : new Date();
+      })(),
     },
   });
 

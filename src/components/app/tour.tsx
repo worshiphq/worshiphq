@@ -190,7 +190,7 @@ function Coachmark({
         <div className="mb-1 text-[11px] font-semibold uppercase tracking-wide text-primary-bright">
           Tip {index + 1} of {total}
         </div>
-        <h4 className="font-display text-base font-semibold text-ink">{step.title}</h4>
+        <h4 className="font-display text-[1rem] font-semibold text-ink">{step.title}</h4>
         <p className="mt-1 text-sm text-ink-muted">{step.body}</p>
         <div className="mt-4 flex items-center justify-between">
           <button

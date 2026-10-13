@@ -36,7 +36,7 @@ const TYPE_META: Record<string, { icon: typeof Landmark; label: string }> = {
 const fmt = (n: number) => new Intl.NumberFormat("en-GH", { style: "currency", currency: "GHS" }).format(n);
 const inputCls = "h-10 w-full rounded-xl border border-line bg-base px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30";
 
-export function AccountsManager({ accounts, canWrite }: { accounts: AccountRow[]; canWrite: boolean }) {
+export function AccountsManager({ accounts, canWrite, onStatement }: { accounts: AccountRow[]; canWrite: boolean; onStatement?: (accountId: string) => void }) {
   const [drawer, setDrawer] = useState<"new" | "transfer" | { edit: AccountRow } | null>(null);
   const [pending, start] = useTransition();
   const { toast } = useFeedback();
@@ -48,7 +48,7 @@ export function AccountsManager({ accounts, canWrite }: { accounts: AccountRow[]
     <Card className="mb-4 p-5">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <h3 className="flex items-center gap-2 font-display text-base font-semibold">
+          <h3 className="flex items-center gap-2 font-display text-[1rem] font-semibold">
             <Landmark className="size-4" /> Accounts
           </h3>
           <p className="text-xs text-ink-muted">Total across all accounts: <b className="text-ink">{fmt(total)}</b></p>
@@ -111,6 +111,11 @@ export function AccountsManager({ accounts, canWrite }: { accounts: AccountRow[]
                   </div>
                 </div>
 
+                {onStatement && (
+                  <button onClick={() => onStatement(a.id)} className="mt-3 mr-4 text-xs font-medium text-primary hover:underline">
+                    View statement
+                  </button>
+                )}
                 {canWrite && !a.isDefault && (
                   <button
                     onClick={() => start(async () => { await setDefaultAccount(a.id); toast(`${a.name} is now the default`, "success"); router.refresh(); })}

@@ -286,7 +286,7 @@ export function SettingsClient({
 
             {isAdmin && (
               <Card className="p-6">
-                <h3 className="flex items-center gap-2 font-display text-base font-semibold">
+                <h3 className="flex items-center gap-2 font-display text-[1rem] font-semibold">
                   <UserPlus className="size-4" /> Invite a teammate
                 </h3>
                 <form action={inviteTeammate} className="mt-4 grid gap-3 sm:grid-cols-2">
@@ -320,7 +320,7 @@ export function SettingsClient({
             {/* ── Department budget leaders ── */}
             {isAdmin && (
               <Card className="p-6">
-                <h3 className="flex items-center gap-2 font-display text-base font-semibold">
+                <h3 className="flex items-center gap-2 font-display text-[1rem] font-semibold">
                   <Wallet className="size-4" /> Department budget leaders
                 </h3>
                 <p className="mt-1 text-sm text-ink-muted">
@@ -354,7 +354,7 @@ export function SettingsClient({
             {/* ── Custom roles ── */}
             {isAdmin && (
               <Card className="p-6">
-                <h3 className="flex items-center gap-2 font-display text-base font-semibold">
+                <h3 className="flex items-center gap-2 font-display text-[1rem] font-semibold">
                   <Shield className="size-4" /> Custom roles
                 </h3>
                 <p className="mt-1 text-sm text-ink-muted">
@@ -495,7 +495,7 @@ export function SettingsClient({
             </Card>
 
             <Card className="p-6">
-              <h3 className="font-display text-base font-semibold">Add department</h3>
+              <h3 className="font-display text-[1rem] font-semibold">Add department</h3>
               <form action={createDepartment} className="mt-3 flex gap-3">
                 <Input name="name" placeholder="e.g. Choir, Ushering, Youth" required disabled={ro} className="flex-1" />
                 <Input name="description" placeholder="Description (optional)" disabled={ro} className="flex-1" />
@@ -661,7 +661,7 @@ function BuiltInRolesEditor({
   return (
     <Card>
       <div className="border-b border-line p-6">
-        <h3 className="font-display text-base font-semibold">Built-in role permissions</h3>
+        <h3 className="font-display text-[1rem] font-semibold">Built-in role permissions</h3>
         <p className="mt-1 text-sm text-ink-muted">
           Click the pencil to customize what each role can access. Owner always has full access.
         </p>
@@ -1251,7 +1251,7 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
       {/* Upgrade confirmation dialog */}
       {/* ── Billing history ── */}
       <Card className="mt-6 p-6">
-        <h3 className="flex items-center gap-2 font-display text-base font-semibold">
+        <h3 className="flex items-center gap-2 font-display text-[1rem] font-semibold">
           <Receipt className="size-4" /> Billing history
         </h3>
         {payments.length === 0 ? (

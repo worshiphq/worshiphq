@@ -26,7 +26,7 @@ export function ChurchLogo({
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={logo} alt={name} className="size-8 shrink-0 rounded-lg object-cover ring-1 ring-line" />
       {!collapsed && (
-        <span className={cn("max-w-[10rem] truncate font-display text-base font-semibold tracking-tight text-ink")}>
+        <span className={cn("max-w-[10rem] truncate font-display text-[1rem] font-semibold tracking-tight text-ink")}>
           {name}
         </span>
       )}

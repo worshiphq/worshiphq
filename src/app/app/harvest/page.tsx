@@ -50,7 +50,7 @@ export default async function HarvestPage({
         <div className="mt-6 rounded-2xl border border-line bg-surface">
           <div className="flex flex-wrap items-center justify-between gap-2 border-b border-line p-4">
             <div>
-              <h2 className="font-display text-base font-semibold">Pledges toward {year} harvest</h2>
+              <h2 className="font-display text-[1rem] font-semibold">Pledges toward {year} harvest</h2>
               <p className="text-xs text-ink-muted">
                 {harvestPledges.length} pledge{harvestPledges.length !== 1 ? "s" : ""} ·
                 {" "}₵{pledgePaid.toLocaleString()} received of ₵{pledgedTotal.toLocaleString()} pledged

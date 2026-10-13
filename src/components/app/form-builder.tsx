@@ -80,7 +80,7 @@ export function FormBuilder({
     <Card className="p-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="font-display text-base font-semibold">{title}</h3>
+          <h3 className="font-display text-[1rem] font-semibold">{title}</h3>
           <p className="mt-1 text-sm text-ink-muted">{description}</p>
         </div>
       </div>

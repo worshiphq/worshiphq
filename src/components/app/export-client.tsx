@@ -29,7 +29,7 @@ export function ExportClient({
     <div className="mt-5 space-y-6">
       {/* ── Everything at once ── */}
       <Card className="p-6">
-        <h2 className="flex items-center gap-2 font-display text-base font-semibold">
+        <h2 className="flex items-center gap-2 font-display text-[1rem] font-semibold">
           <Package className="size-4" /> Download everything
         </h2>
         <p className="mt-1 text-sm text-ink-muted">

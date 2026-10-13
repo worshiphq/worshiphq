@@ -113,7 +113,7 @@ export default async function DashboardPage() {
                         className={`transition-transform hover:scale-105 ${isHead ? "ring-4 ring-gold/30" : ""}`}
                       />
                       <Link href={`/app/people?highlight=${l.id}`} className="group">
-                        <h4 className={`mt-3 font-display font-semibold text-ink group-hover:text-primary-bright transition-colors ${isHead ? "text-base" : "text-sm"}`}>
+                        <h4 className={`mt-3 font-display font-semibold text-ink group-hover:text-primary-bright transition-colors ${isHead ? "text-[1rem]" : "text-sm"}`}>
                           {l.name}
                         </h4>
                       </Link>

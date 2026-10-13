@@ -73,7 +73,7 @@ export function QrScanner({ onScan, onClose }: { onScan: (value: string) => void
       <div className="fixed inset-0 z-[70] bg-black/70 backdrop-blur-sm" onClick={onClose} />
       <div className="fixed left-1/2 top-1/2 z-[70] w-full max-w-md -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
         <div className="flex items-center justify-between border-b border-line p-4">
-          <h3 className="flex items-center gap-2 font-display text-base font-semibold"><Camera className="size-4" /> Scan member QR</h3>
+          <h3 className="flex items-center gap-2 font-display text-[1rem] font-semibold"><Camera className="size-4" /> Scan member QR</h3>
           <button onClick={onClose} className="grid size-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-2"><X className="size-5" /></button>
         </div>
         <div className="relative aspect-square bg-black">
