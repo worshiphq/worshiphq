@@ -140,7 +140,7 @@ function Kpi({ label, value, icon: Icon, tone, prev, good, plain }: {
 
 /* ────── Period picker ────── */
 
-function PeriodBar({ ledger }: { ledger: Ledger }) {
+export function PeriodBar({ ledger }: { ledger: Ledger }) {
   const nav = useLedgerNav(ledger);
   const { period } = ledger;
   const years = wideYears();
@@ -208,7 +208,7 @@ function PeriodBar({ ledger }: { ledger: Ledger }) {
 
 /* ────── Filters ────── */
 
-function FilterBar({ ledger, accounts }: { ledger: Ledger; accounts: LedgerAccount[] }) {
+export function FilterBar({ ledger, accounts, variant = "ledger", placeholder }: { ledger: Ledger; accounts: LedgerAccount[]; variant?: "ledger" | "expenses"; placeholder?: string }) {
   const nav = useLedgerNav(ledger);
   const f = ledger.filters;
   const [q, setQ] = useState(f.q);
@@ -230,7 +230,7 @@ function FilterBar({ ledger, accounts }: { ledger: Ledger; accounts: LedgerAccou
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-52 flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-          <input value={q} onChange={(e) => onSearch(e.target.value)} placeholder="Search description, category or fund…" className={cn(fieldCls, "h-10 w-full pl-9")} />
+          <input value={q} onChange={(e) => onSearch(e.target.value)} placeholder={placeholder ?? "Search description, category or fund…"} className={cn(fieldCls, "h-10 w-full pl-9")} />
         </div>
         <Button size="sm" variant="secondary" onClick={() => setOpen((v) => !v)} className="h-10">
           <SlidersHorizontal className="size-4" /> Filters{ledger.activeFilters > 0 ? ` (${ledger.activeFilters})` : ""}
@@ -241,16 +241,20 @@ function FilterBar({ ledger, accounts }: { ledger: Ledger; accounts: LedgerAccou
       </div>
       {open && (
         <div className="grid gap-2 rounded-xl border border-line bg-surface p-3 sm:grid-cols-2 lg:grid-cols-5">
-          <Labeled label="Type">
-            <select value={f.type} onChange={(e) => nav.go({ filters: { type: e.target.value as typeof f.type } })} className={sel}>
-              <option value="">Income and expenses</option><option value="income">Income only</option><option value="expense">Expenses only</option>
-            </select>
-          </Labeled>
-          <Labeled label="Source">
-            <select value={f.source} onChange={(e) => nav.go({ filters: { source: e.target.value as typeof f.source } })} className={sel}>
-              <option value="">All sources</option><option value="giving">Giving</option><option value="expense">Expense records</option><option value="manual">Manual entries</option>
-            </select>
-          </Labeled>
+          {variant === "ledger" && (
+            <>
+              <Labeled label="Type">
+                <select value={f.type} onChange={(e) => nav.go({ filters: { type: e.target.value as typeof f.type } })} className={sel}>
+                  <option value="">Income and expenses</option><option value="income">Income only</option><option value="expense">Expenses only</option>
+                </select>
+              </Labeled>
+              <Labeled label="Source">
+                <select value={f.source} onChange={(e) => nav.go({ filters: { source: e.target.value as typeof f.source } })} className={sel}>
+                  <option value="">All sources</option><option value="giving">Giving</option><option value="expense">Expense records</option><option value="manual">Manual entries</option>
+                </select>
+              </Labeled>
+            </>
+          )}
           {accounts.length > 0 && (
             <Labeled label="Account">
               <select value={f.account} onChange={(e) => nav.go({ filters: { account: e.target.value } })} className={sel}>
@@ -260,12 +264,14 @@ function FilterBar({ ledger, accounts }: { ledger: Ledger; accounts: LedgerAccou
               </select>
             </Labeled>
           )}
-          <Labeled label="Fund">
-            <select value={f.fund} onChange={(e) => nav.go({ filters: { fund: e.target.value } })} className={sel}>
-              <option value="">All funds</option>
-              {ledger.options.funds.map((x) => <option key={x} value={x}>{x}</option>)}
-            </select>
-          </Labeled>
+          {variant === "ledger" && (
+            <Labeled label="Fund">
+              <select value={f.fund} onChange={(e) => nav.go({ filters: { fund: e.target.value } })} className={sel}>
+                <option value="">All funds</option>
+                {ledger.options.funds.map((x) => <option key={x} value={x}>{x}</option>)}
+              </select>
+            </Labeled>
+          )}
           <Labeled label="Category">
             <select value={f.category} onChange={(e) => nav.go({ filters: { category: e.target.value } })} className={sel}>
               <option value="">All categories</option>

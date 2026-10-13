@@ -4,45 +4,68 @@ import { ExpensesClient } from "@/components/app/expenses-client";
 import { createExpense } from "@/app/actions/expenses";
 import { PageHeader } from "@/components/app/page-header";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
-import { Plus } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Plus, Download } from "lucide-react";
+import { getLedger, parseLedgerParams, periodBounds } from "@/lib/data/ledger";
+import { ledgerQuery } from "@/lib/ledger-query";
 
 export const metadata = { title: "Expenses" };
 
 const CATEGORIES = ["General", "Utilities", "Rent", "Transport", "Maintenance", "Supplies", "Salaries", "Missions", "Welfare", "Events", "Instruments", "Honorarium"];
 
-export default async function ExpensesPage() {
+export default async function ExpensesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const session = await requireModule("expenses");
+  const params = await searchParams;
+  const parsed = parseLedgerParams(params);
+  // This page is only ever the expense records, whatever is in the address bar.
+  const filters = { ...parsed.filters, source: "expense" as const, type: "" as const, fund: "", group: false };
 
-  const [expenses, accounts] = await Promise.all([
-    db.expense.findMany({
-      where: { churchId: session.churchId },
-      orderBy: { date: "desc" },
-      take: 300,
-      include: { account: { select: { name: true } } },
-    }),
+  const [ledger, accounts, allUsed] = await Promise.all([
+    getLedger(session.churchId, parsed.period, filters),
     db.churchAccount.findMany({
       where: { churchId: session.churchId },
       orderBy: [{ isDefault: "desc" }, { name: "asc" }],
       select: { id: true, name: true, isDefault: true },
     }),
+    db.expense.findMany({ where: { churchId: session.churchId }, select: { category: true }, distinct: ["category"], take: 200 }),
   ]);
+  ledger.activeFilters = [filters.account, filters.category, filters.q].filter(Boolean).length;
+
+  // Details the ledger doesn't carry (payee, receipt, approver) for the rows on this page.
+  const ids = ledger.rows.map((r) => r.id);
+  const { from, to } = periodBounds(parsed.period);
+  const [details, payees] = await Promise.all([
+    ids.length ? db.expense.findMany({ where: { churchId: session.churchId, id: { in: ids } }, select: { id: true, description: true, vendor: true, receiptRef: true, approvedBy: true } }) : Promise.resolve([]),
+    db.expense.groupBy({
+      by: ["vendor"],
+      where: {
+        churchId: session.churchId, vendor: { not: null },
+        ...(from && to ? { date: { gte: from, lte: to } } : {}),
+        ...(filters.category ? { category: filters.category } : {}),
+        ...(filters.account && filters.account !== "none" ? { accountId: filters.account } : {}),
+      },
+      _sum: { amount: true },
+      _count: true,
+      orderBy: { _sum: { amount: "desc" } },
+      take: 8,
+    }),
+  ]);
+
   const accountOptions = [
     { label: "- No account -", value: "" },
     ...accounts.map((a) => ({ label: a.isDefault ? `${a.name} (default)` : a.name, value: a.id })),
   ];
-
-  const totalAmount = expenses.reduce((s, e) => s + e.amount, 0);
-  // Suggested categories: the presets plus any the church has already used, so
-  // custom ones (e.g. "Instruments") are reusable next time.
-  const usedCategories = [...new Set(expenses.map((e) => e.category).filter(Boolean))];
-  const categorySuggestions = [...new Set([...CATEGORIES, ...usedCategories])];
+  const categorySuggestions = [...new Set([...CATEGORIES, ...allUsed.map((e) => e.category).filter(Boolean)])];
+  const exportQs = ledgerQuery(ledger.period, { ...filters, page: 1 }).toString();
 
   return (
     <div>
-      <PageHeader
-        title="Expenses"
-        description="Track church expenditures and outgoing payments."
-      >
+      <PageHeader title="Expenses" description="Everything the church spent, by month and week, with reports.">
+        <a href={`/api/export/transactions?${exportQs}`}><Button variant="secondary" size="sm"><Download /> Export</Button></a>
         <ActionDialog
           triggerLabel="Record expense"
           triggerIcon={<Plus />}
@@ -61,24 +84,17 @@ export default async function ExpensesPage() {
           <Field label="Vendor / payee" name="vendor" placeholder="Who was paid" />
           <Field label="Receipt reference" name="receiptRef" placeholder="Receipt or invoice number" />
           <Field label="Approved by" name="approvedBy" placeholder="Name of approving officer" />
-          <Field label="Date" name="date" type="date" />
+          <Field label="Date" name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
         </ActionDialog>
       </PageHeader>
 
       <ExpensesClient
-        expenses={expenses.map((e) => ({
-          id: e.id,
-          description: e.description,
-          category: e.category,
-          amount: e.amount,
-          vendor: e.vendor,
-          receiptRef: e.receiptRef,
-          approvedBy: e.approvedBy,
-          account: e.account?.name ?? null,
-          date: e.date.toISOString(),
-        }))}
-        totalAmount={totalAmount}
-        totalCount={expenses.length}
+        ledger={ledger}
+        accounts={accounts.map((a) => ({ id: a.id, name: a.name, isDefault: a.isDefault }))}
+        details={Object.fromEntries(details.map((d) => [d.id, { description: d.description, vendor: d.vendor, receiptRef: d.receiptRef, approvedBy: d.approvedBy }]))}
+        payees={payees.map((p) => ({ name: p.vendor ?? "", total: Number(p._sum.amount ?? 0), count: p._count }))}
+        canWrite={!session.isDemo}
+        canDelete={session.canDelete && !session.isDemo}
       />
     </div>
   );
