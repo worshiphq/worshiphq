@@ -18,14 +18,21 @@ export default async function GivingPage({
   const params = await searchParams;
 
   const now = new Date();
-  const titheYear = Number(params.titheYear) || now.getFullYear();
-  const rawMonth = params.titheMonth != null ? Number(params.titheMonth) : NaN;
-  const validMonth = rawMonth >= 0 && rawMonth <= 11 ? rawMonth : now.getMonth();
+
+  // The activity list has its own period + kind + page (gy / gm / gk / gp).
+  const one = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
+  const gy = parseInt(one(params.gy), 10);
+  const gm = parseInt(one(params.gm), 10);
+  const gk = one(params.gk);
+  const givingYear = Number.isFinite(gy) && gy > 1990 && gy < 2200 ? gy : now.getFullYear();
+  const givingMonth = Number.isFinite(gm) && gm >= 0 && gm <= 11 ? gm : now.getMonth();
+  const givingKind = (["tithes", "offertory", "other"] as const).find((k) => k === gk) ?? "all";
+  const givingPage = Math.max(1, parseInt(one(params.gp), 10) || 1);
 
   const [data, church, titheData, accounts, funds] = await Promise.all([
-    getGiving(session.churchId),
+    getGiving(session.churchId, { year: givingYear, month: givingMonth, kind: givingKind, page: givingPage }),
     db.church.findUnique({ where: { id: session.churchId }, select: { slug: true, isDemo: true, titheReceiptTemplate: true } }),
-    getTitheData(session.churchId, titheYear, validMonth),
+    getTitheData(session.churchId, givingYear, givingMonth),
     getAccountOptions(session.churchId),
     db.fund.findMany({ where: { churchId: session.churchId }, select: { name: true }, orderBy: { name: "asc" } }),
   ]);

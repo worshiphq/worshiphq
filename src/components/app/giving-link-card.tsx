@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link2, Check, HandCoins, ExternalLink } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -9,8 +9,10 @@ import { Input } from "@/components/ui/input";
 /** Shareable public giving link for the church (mirrors the join-link pattern). */
 export function GivingLinkCard({ slug }: { slug: string }) {
   const [copied, setCopied] = useState(false);
-  const url =
-    typeof window !== "undefined" ? `${window.location.origin}/give/${slug}` : `/give/${slug}`;
+  // Same on the server and the first client render; the full address fills in after mount.
+  const [origin, setOrigin] = useState("");
+  useEffect(() => { setOrigin(window.location.origin); }, []);
+  const url = `${origin}/give/${slug}`;
 
   return (
     <Card className="p-5">

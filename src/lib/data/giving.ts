@@ -1,6 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import type { GiftMethod } from "@prisma/client";
+import { channelOf, fundKind, isCollectionGift, type Channel, type FundKind } from "@/lib/giving/channels";
 
 export const METHOD_LABEL: Record<GiftMethod, string> = {
   MTN_MoMo: "MTN MoMo",
@@ -140,57 +141,140 @@ export async function getTitheData(churchId: string, year: number, month: number
   };
 }
 
-export async function getGiving(churchId: string) {
-  const now = new Date();
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+export type GivingKind = "all" | FundKind;
 
-  const [gifts, recurringCount, monthGifts, funds] = await Promise.all([
+/** One gift to a person or fund (tithes and other named giving). */
+export interface GiftEntry {
+  type: "gift";
+  id: string;
+  donor: string;
+  photoUrl: string | null;
+  amount: number;
+  fund: string;
+  method: string;
+  date: string;
+  recurring: boolean;
+}
+
+/** A whole day's offertory: counted and banked together, shown as one total. */
+export interface CollectionEntry {
+  type: "collection";
+  id: string;
+  fund: string;
+  date: string;
+  total: number;
+  channels: Record<Channel, number>;
+  /** The parts: counted ones can be deleted; online/named ones are summarised. */
+  lines: { id: string | null; channel: Channel; label: string; amount: number; count: number; deletable: boolean }[];
+}
+
+export type GivingEntry = GiftEntry | CollectionEntry;
+
+const METHOD_NAME: Record<string, string> = { Cash: "Cash", MTN_MoMo: "MTN MoMo", Telecel_Cash: "Telecel Cash", AirtelTigo: "AirtelTigo", Card: "Card", Bank: "Bank" };
+const PAGE = 15;
+
+/**
+ * Giving for one month: totals, a split by fund kind and channel, and a paged
+ * activity list. Offertory is grouped per day (it's counted together) so there's
+ * no list of names; tithes and other giving stay per person.
+ */
+export async function getGiving(churchId: string, opts: { year?: number; month?: number; kind?: GivingKind; page?: number } = {}) {
+  const now = new Date();
+  const year = opts.year ?? now.getFullYear();
+  const month = opts.month ?? now.getMonth();
+  const kind = opts.kind ?? "all";
+  const start = new Date(year, month, 1);
+  const end = new Date(year, month + 1, 0, 23, 59, 59, 999);
+  const prevStart = new Date(year, month - 1, 1);
+  const prevEnd = new Date(year, month, 0, 23, 59, 59, 999);
+
+  const [gifts, prevAgg, recurringCount, funds] = await Promise.all([
     db.gift.findMany({
-      where: { churchId },
+      where: { churchId, date: { gte: start, lte: end } },
       orderBy: { date: "desc" },
-      take: 12,
       include: { person: { select: { firstName: true, lastName: true, photoUrl: true } }, fund: { select: { name: true } } },
     }),
+    db.gift.aggregate({ where: { churchId, date: { gte: prevStart, lte: prevEnd } }, _sum: { amount: true } }),
     db.gift.count({ where: { churchId, recurring: true } }),
-    db.gift.findMany({ where: { churchId, date: { gte: startOfMonth } }, include: { fund: { select: { name: true } } } }),
     db.fund.findMany({ where: { churchId }, select: { name: true, color: true } }),
   ]);
 
-  const rows: GiftRow[] = gifts.map((g) => ({
-    id: g.id,
-    donor: g.person ? `${g.person.firstName} ${g.person.lastName}` : g.donorName ?? "Anonymous",
-    photoUrl: g.person?.photoUrl ?? null,
-    amount: Number(g.amount),
-    fund: g.fund?.name ?? "General",
-    method: METHOD_LABEL[g.method],
-    date: g.date.toISOString(),
-    recurring: g.recurring,
-  }));
-
-  // Fund breakdown + stats (this month) - computed from monthGifts, no extra queries
+  // Totals for the month (always every kind, so the cards stay put while you filter the list).
+  const byKind: Record<FundKind, number> = { tithes: 0, offertory: 0, other: 0 };
+  const byChannel: Record<Channel, number> = { cash: 0, momo: 0, bank: 0 };
   const byFund = new Map<string, number>();
-  let momoCount = 0;
-  let monthTotal = 0;
-  let monthSum = 0;
-  for (const g of monthGifts) {
+  let total = 0;
+  for (const g of gifts) {
     const amt = Number(g.amount);
-    byFund.set(g.fund?.name ?? "General", (byFund.get(g.fund?.name ?? "General") ?? 0) + amt);
-    monthTotal++;
-    monthSum += amt;
-    if (["MTN_MoMo", "Telecel_Cash", "AirtelTigo"].includes(g.method)) momoCount++;
+    const name = g.fund?.name ?? "General";
+    total += amt;
+    byKind[fundKind(name)] += amt;
+    byChannel[channelOf(g.method)] += amt;
+    byFund.set(name, (byFund.get(name) ?? 0) + amt);
   }
 
-  const fundBreakdown = [...byFund.entries()].map(([name, value]) => ({ name, value }));
+  // The activity list.
+  const entries: GivingEntry[] = [];
+  const cols = new Map<string, CollectionEntry>();
+  for (const g of gifts) {
+    const fundName = g.fund?.name ?? "General";
+    const k = fundKind(fundName);
+    if (kind !== "all" && k !== kind) continue;
+    const amt = Number(g.amount);
+    if (k === "offertory") {
+      const day = g.date.toISOString().slice(0, 10);
+      const key = `${day}|${fundName}`;
+      let c = cols.get(key);
+      if (!c) {
+        c = { type: "collection", id: `col:${key}`, fund: fundName, date: g.date.toISOString(), total: 0, channels: { cash: 0, momo: 0, bank: 0 }, lines: [] };
+        cols.set(key, c);
+        entries.push(c);
+      }
+      const ch = channelOf(g.method);
+      c.total += amt;
+      c.channels[ch] += amt;
+      if (isCollectionGift(g)) {
+        c.lines.push({ id: g.id, channel: ch, label: METHOD_NAME[g.method] ?? g.method, amount: amt, count: 1, deletable: true });
+      } else {
+        // Online and named gifts to the offertory fund: one summary line per channel.
+        const ex = c.lines.find((l) => !l.deletable && l.channel === ch);
+        if (ex) { ex.amount += amt; ex.count++; }
+        else c.lines.push({ id: null, channel: ch, label: ch === "momo" ? "Mobile Money (online)" : ch === "bank" ? "Card (online)" : "Cash gifts", amount: amt, count: 1, deletable: false });
+      }
+    } else {
+      entries.push({
+        type: "gift",
+        id: g.id,
+        donor: g.person ? `${g.person.firstName} ${g.person.lastName}` : g.donorName ?? "Anonymous",
+        photoUrl: g.person?.photoUrl ?? null,
+        amount: amt,
+        fund: fundName,
+        method: METHOD_LABEL[g.method],
+        date: g.date.toISOString(),
+        recurring: g.recurring,
+      });
+    }
+  }
+  entries.sort((a, b) => b.date.localeCompare(a.date));
+
+  const pages = Math.max(1, Math.ceil(entries.length / PAGE));
+  const page = Math.min(Math.max(1, opts.page ?? 1), pages);
 
   return {
-    rows,
+    year,
+    month,
+    kind,
+    entries: entries.slice((page - 1) * PAGE, page * PAGE),
+    pageInfo: { page, pages, total: entries.length, pageSize: PAGE },
     funds,
     stats: {
-      monthTotal: monthSum,
-      avgGift: monthTotal ? Math.round(monthSum / monthTotal) : 0,
+      total,
+      prevTotal: Number(prevAgg._sum.amount ?? 0),
+      byKind,
+      byChannel,
       recurringCount,
-      momoPct: monthTotal ? Math.round((momoCount / monthTotal) * 100) : 0,
+      giftCount: gifts.length,
     },
-    fundBreakdown,
+    fundBreakdown: [...byFund.entries()].map(([name, value]) => ({ name, value })).sort((a, b) => b.value - a.value),
   };
 }

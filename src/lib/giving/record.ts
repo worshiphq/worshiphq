@@ -13,6 +13,7 @@ export const GIFT_METHOD_FROM_LABEL: Record<string, GiftMethod> = {
   AirtelTigo: "AirtelTigo",
   Card: "Card",
   Cash: "Cash",
+  Bank: "Bank",
 };
 
 /** Map a Paystack `channel` (returned on success) to a Gift method. */

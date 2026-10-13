@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Search, Plus, Trash2, Send, ChevronDown, ChevronRight,
   Download, Calendar, Smartphone, CreditCard, Banknote,
-  CheckCircle2, AlertCircle, Users, Receipt,
+  CheckCircle2, AlertCircle, Users, Receipt, Landmark,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,18 +13,18 @@ import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
 import { StatCard } from "@/components/app/stat-card";
 import { useFeedback } from "@/components/ui/feedback";
-import { recordTitheBatch, recordGivingBatch, recordGift, saveTitheTemplate, type TitheEntry } from "@/app/actions/giving";
+import { recordTitheBatch, recordGivingBatch, saveTitheTemplate, type TitheEntry } from "@/app/actions/giving";
 import { AccountSelect, type AccountOption } from "@/components/app/account-select";
+import { CollectionForm } from "@/components/app/collection-form";
 import { Pencil, MessageSquare, X } from "lucide-react";
 import { Input, Label } from "@/components/ui/input";
 import { formatCurrency } from "@/config/brand";
-import { wideYears } from "@/lib/years";
 import { formatDate, cn } from "@/lib/utils";
 import type { TitheMember, WeekGroup } from "@/lib/data/giving";
 
-const methods = ["MTN MoMo", "Telecel Cash", "AirtelTigo", "Card", "Cash"] as const;
+const methods = ["MTN MoMo", "Telecel Cash", "AirtelTigo", "Card", "Bank", "Cash"] as const;
 const methodIcon: Record<string, typeof Smartphone> = {
-  "MTN MoMo": Smartphone, "Telecel Cash": Smartphone, AirtelTigo: Smartphone, Card: CreditCard, Cash: Banknote,
+  "MTN MoMo": Smartphone, "Telecel Cash": Smartphone, AirtelTigo: Smartphone, Card: CreditCard, Bank: Landmark, Cash: Banknote,
 };
 
 type LocalEntry = { personId: string; name: string; amount: string; method: string; phone: string | null; photoUrl: string | null };
@@ -63,14 +63,10 @@ export function TitheClient({
   customFunds?: string[];
 }) {
   const [tab, setTab] = useState<"record" | "records" | "report">("records");
-  const [selectedYear, setSelectedYear] = useState(year);
-  const [selectedMonth, setSelectedMonth] = useState(month);
   const [fundType, setFundType] = useState<string>("tithes");
   const [customFund, setCustomFund] = useState("");
   const [showTemplateEditor, setShowTemplateEditor] = useState(false);
 
-  const currentYear = new Date().getFullYear();
-  const years = wideYears();
 
   const router = useRouter();
   const [templateText, setTemplateText] = useState(titheTemplate || DEFAULT_TITHE_TEMPLATE);
@@ -80,14 +76,6 @@ export function TitheClient({
   const activeFundName = fundType === "tithes" ? "Tithes"
     : fundType === "offertory" ? "Offertory"
     : customFund || "Custom";
-
-  const navigatePeriod = (newYear: number, newMonth: number) => {
-    setSelectedYear(newYear);
-    setSelectedMonth(newMonth);
-    if (newYear !== year || newMonth !== month) {
-      router.push(`/app/giving?titheYear=${newYear}&titheMonth=${newMonth}`);
-    }
-  };
 
   const handleSaveTemplate = () => {
     const fd = new FormData();
@@ -105,26 +93,10 @@ export function TitheClient({
 
   return (
     <div className="space-y-5">
-      {/* Period selector */}
-      <div className="flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2">
-          <Calendar className="size-4 text-ink-faint" />
-          <select
-            value={selectedMonth}
-            onChange={(e) => navigatePeriod(selectedYear, Number(e.target.value))}
-            className="bg-transparent text-sm font-medium outline-none"
-          >
-            {MONTHS.map((m, i) => <option key={i} value={i}>{m}</option>)}
-          </select>
-          <select
-            value={selectedYear}
-            onChange={(e) => navigatePeriod(Number(e.target.value), selectedMonth)}
-            className="bg-transparent text-sm font-medium outline-none"
-          >
-            {years.map((y) => <option key={y} value={y}>{y}</option>)}
-          </select>
-        </div>
-        <span className="text-sm text-ink-muted">{monthLabel}</span>
+      {/* The month follows the month picked at the top of the page. */}
+      <div>
+        <h2 className="font-display text-xl font-bold">Tithes &amp; records</h2>
+        <p className="text-sm text-ink-muted">Record tithes and see the weekly records and report for <b className="text-ink">{monthLabel}</b>. Change the month at the top of the page.</p>
       </div>
 
       {/* Stats */}
@@ -549,78 +521,19 @@ function LumpSumRecorder({
   accounts: AccountOption[];
   onSwitchToMembers: () => void;
 }) {
-  const router = useRouter();
-  const { toast } = useFeedback();
-  const [amount, setAmount] = useState("");
-  const [method, setMethod] = useState("Cash");
-  const defaultAccountId = accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "";
-  const [accountId, setAccountId] = useState(defaultAccountId);
-  const [pending, start] = useTransition();
-
-  const submit = () => {
-    const value = Number(amount);
-    if (!value || value <= 0) { toast("Enter the total collected", "error"); return; }
-    start(async () => {
-      const fd = new FormData();
-      fd.set("donor", `${fundName} (collection)`);
-      fd.set("amount", String(value));
-      fd.set("fund", fundName);
-      fd.set("method", method);
-      if (accountId) fd.set("accountId", accountId);
-      await recordGift(fd);
-      toast(`${fundName} of ₵${value.toLocaleString()} recorded`, "success");
-      setAmount("");
-      router.refresh();
-    });
-  };
-
   return (
     <Card className="p-6">
-      <div className="mb-5 flex items-center justify-between">
+      <div className="mb-5 flex items-center justify-between gap-3">
         <div>
           <h3 className="font-display text-lg font-semibold">Record {fundName}</h3>
-          <p className="text-sm text-ink-muted">Collected together and banked as one deposit - just enter the total.</p>
+          <p className="text-sm text-ink-muted">Collected together, so just enter the totals by how it was received. No names needed.</p>
         </div>
         <button type="button" onClick={onSwitchToMembers}
-          className="rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-2">
+          className="shrink-0 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium text-ink-muted hover:bg-surface-2">
           Record per member instead
         </button>
       </div>
-
-      <div className="grid gap-4 sm:grid-cols-2">
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-ink-muted">Total collected (₵)</label>
-          <div className="relative">
-            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-faint">₵</span>
-            <input type="number" min="1" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)}
-              placeholder="0.00" autoFocus
-              className="h-11 w-full rounded-xl border border-line bg-surface pl-7 pr-3 text-sm outline-none focus:border-primary/50" />
-          </div>
-        </div>
-        <div>
-          <label className="mb-1.5 block text-sm font-medium text-ink-muted">Method</label>
-          <select value={method} onChange={(e) => setMethod(e.target.value)}
-            className="h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm outline-none focus:border-primary/50">
-            {methods.map((m) => <option key={m} value={m}>{m}</option>)}
-          </select>
-        </div>
-      </div>
-
-      {accounts.length > 0 && (
-        <div className="mt-4 max-w-xs">
-          <AccountSelect accounts={accounts} value={accountId} onChange={setAccountId} label={`Deposit ${fundName.toLowerCase()} into`} />
-        </div>
-      )}
-
-      <div className="mt-5 flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 px-5 py-4">
-        <div>
-          <div className="text-sm text-ink-muted">One deposit</div>
-          <div className="font-display text-2xl font-bold">{formatCurrency(Number(amount) || 0, { decimals: true })}</div>
-        </div>
-        <Button onClick={submit} disabled={pending || !(Number(amount) > 0)} size="lg">
-          {pending ? <><div className="size-4 animate-spin rounded-full border-2 border-white border-t-transparent" /> Recording…</> : <><Send className="size-4" /> Record {fundName}</>}
-        </Button>
-      </div>
+      <CollectionForm fundName={fundName} accounts={accounts} />
     </Card>
   );
 }

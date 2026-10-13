@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search, DoorOpen, Trash2, Clock, User, MapPin, Building, Plus, Pencil, Link2, Check, ExternalLink,
@@ -331,7 +331,9 @@ function BookingLinkCard({ slug, on, note }: { slug: string; on: boolean; note: 
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const [saving, startSave] = useTransition();
-  const url = typeof window !== "undefined" ? `${window.location.origin}/book/${slug}` : `/book/${slug}`;
+  const [origin, setOrigin] = useState("");
+  useEffect(() => { setOrigin(window.location.origin); }, []);
+  const url = `${origin}/book/${slug}`;
 
   const save = (nextOn: boolean, nextNote: string) => {
     const fd = new FormData();

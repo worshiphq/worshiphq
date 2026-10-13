@@ -25,7 +25,16 @@ const METHOD_FROM_LABEL: Record<string, GiftMethod> = {
   AirtelTigo: "AirtelTigo",
   Card: "Card",
   Cash: "Cash",
+  Bank: "Bank",
+  "Bank transfer": "Bank",
 };
+
+/** A date from a form (YYYY-MM-DD) as midday, so timezones never shift the day; today if blank/invalid. */
+function formDate(v: FormDataEntryValue | string | null | undefined): Date {
+  const raw = String(v ?? "").trim();
+  const d = /^\d{4}-\d{2}-\d{2}$/.test(raw) ? new Date(`${raw}T12:00:00`) : null;
+  return d && !Number.isNaN(d.getTime()) ? d : new Date();
+}
 
 export async function recordGift(formData: FormData) {
   const session = await requireSession();
@@ -67,6 +76,7 @@ export async function recordGift(formData: FormData) {
       amount,
       method,
       currency: "GHS",
+      date: formDate(formData.get("date")),
       ...(accountId ? { accountId } : {}),
     },
   });
@@ -74,6 +84,51 @@ export async function recordGift(formData: FormData) {
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "gift", entityId: gift.id, detail: `Recorded GHS ${amount} from ${donorName}` });
   revalidatePath("/app/giving");
   revalidatePath("/app");
+}
+
+/**
+ * Record a collection (offertory and similar) as ONE counted total, split by how
+ * it was received: cash, Mobile Money, bank/card. Nobody is named: the church
+ * counts it together and banks it together. Each part becomes one gift, banked
+ * into its own account, so account balances and accounting stay right.
+ */
+export interface CollectionLine { method: string; amount: number; accountId?: string | null }
+
+export async function recordCollection(input: { fund: string; date: string; note?: string; lines: CollectionLine[] }) {
+  const session = await requireSession();
+  assertCanWrite(session);
+  if (session.isDemo) return { ok: false as const, error: "This is the read-only demo." };
+
+  const fundName = (input.fund ?? "").trim();
+  if (!fundName) return { ok: false as const, error: "Choose which fund this is for." };
+  const lines = (input.lines ?? [])
+    .map((l) => ({ method: METHOD_FROM_LABEL[l.method] ?? (["Cash", "MTN_MoMo", "Telecel_Cash", "AirtelTigo", "Card", "Bank"].includes(l.method) ? (l.method as GiftMethod) : null), amount: Math.round(Number(l.amount) * 100) / 100, accountId: l.accountId ?? null }))
+    .filter((l): l is { method: GiftMethod; amount: number; accountId: string | null } => !!l.method && l.amount > 0);
+  if (lines.length === 0) return { ok: false as const, error: "Enter how much was collected." };
+
+  const fund =
+    (await db.fund.findFirst({ where: { churchId: session.churchId, name: { equals: fundName, mode: "insensitive" } } })) ??
+    (await db.fund.create({ data: { churchId: session.churchId, name: fundName } }));
+
+  const { resolveAccountId } = await import("@/lib/data/accounts");
+  const date = formDate(input.date);
+  const note = (input.note ?? "").trim().slice(0, 60);
+  const donorName = `${fund.name} collection${note ? ` (${note})` : ""}`;
+
+  let total = 0;
+  for (const l of lines) {
+    const accountId = await resolveAccountId(session.churchId, l.accountId);
+    await db.gift.create({
+      data: { churchId: session.churchId, branchId: session.branchId ?? undefined, donorName, fundId: fund.id, accountId, amount: l.amount, method: l.method, currency: "GHS", date },
+    });
+    total += l.amount;
+  }
+
+  await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "gift", detail: `Recorded ${fund.name} collection of GHS ${total} (${lines.length} part${lines.length === 1 ? "" : "s"})` });
+  revalidatePath("/app/giving");
+  revalidatePath("/app/accounting");
+  revalidatePath("/app");
+  return { ok: true as const, total };
 }
 
 export async function saveTitheTemplate(formData: FormData) {
