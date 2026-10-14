@@ -13,7 +13,7 @@ export async function addCredits(
   churchId: string,
   credits: number,
   kind: "topup" | "bonus" | "refund",
-  opts?: { note?: string; reference?: string },
+  opts?: { note?: string; reference?: string; amountGhs?: number; source?: "paystack" | "granted" | "manual" },
 ): Promise<{ balance: number; created: boolean }> {
   // Idempotency: don't double-credit a Paystack reference on webhook retries.
   if (opts?.reference) {
@@ -40,6 +40,8 @@ export async function addCredits(
       balanceAfter: updated.smsCredits,
       note: opts?.note,
       reference: opts?.reference,
+      amountGhs: opts?.amountGhs ?? null,
+      source: opts?.source ?? (kind === "bonus" ? "granted" : null),
     },
   });
   return { balance: updated.smsCredits, created: true };

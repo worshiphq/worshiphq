@@ -12,39 +12,45 @@ export interface SmsBundle {
   popular?: boolean;
 }
 
-/** Pricing tiers the SuperAdmin can switch between (per-SMS profit rises B→D).
- *  Provider cost is ~₵0.03-0.04/SMS, so every tier here stays comfortably
- *  profitable. "D" is the site default. */
+/**
+ * Pricing tiers the SuperAdmin can switch between. Every tier is a flat price per credit, so any number of credits
+ * costs credits x rate, and a bundle is just a handy round number. "D" (GH₵0.10 per credit, 500 credits for
+ * GH₵50) is the standard price. Provider cost is about GH₵0.03 per credit (see PlatformConfig.smsCostPerCredit).
+ */
 export type SmsTier = "B" | "C" | "D";
-export const SMS_TIERS: Record<SmsTier, SmsBundle[]> = {
-  // Balanced - ~2.5-3× cost
-  B: [
-    { id: "starter", credits: 500, priceGhs: 65 },
-    { id: "growth", credits: 2000, priceGhs: 240, popular: true },
-    { id: "church", credits: 5000, priceGhs: 550 },
-    { id: "campus", credits: 10000, priceGhs: 1000 },
-  ],
-  // Premium - ~3-4× cost
-  C: [
-    { id: "starter", credits: 500, priceGhs: 80 },
-    { id: "growth", credits: 2000, priceGhs: 300, popular: true },
-    { id: "church", credits: 5000, priceGhs: 700 },
-    { id: "campus", credits: 10000, priceGhs: 1250 },
-  ],
-  // Top-tier - ~4-5× cost (default)
-  D: [
-    { id: "starter", credits: 500, priceGhs: 100 },
-    { id: "growth", credits: 2000, priceGhs: 360, popular: true },
-    { id: "church", credits: 5000, priceGhs: 800 },
-    { id: "campus", credits: 10000, priceGhs: 1500 },
-  ],
-};
+/** GHS per credit. */
+export const SMS_RATE: Record<SmsTier, number> = { B: 0.08, C: 0.09, D: 0.1 };
+
+const round2 = (n: number) => Math.round(n * 100) / 100;
+const BUNDLE_CREDITS = [500, 2000, 5000, 10000, 25000];
+const BUNDLE_IDS = ["starter", "growth", "church", "campus", "cathedral"];
+
+function bundlesAt(rate: number): SmsBundle[] {
+  return BUNDLE_CREDITS.map((credits, i) => ({ id: BUNDLE_IDS[i], credits, priceGhs: round2(credits * rate), popular: credits === 2000 }));
+}
+
+export const SMS_TIERS: Record<SmsTier, SmsBundle[]> = { B: bundlesAt(SMS_RATE.B), C: bundlesAt(SMS_RATE.C), D: bundlesAt(SMS_RATE.D) };
 
 export const SMS_TIER_META: Record<SmsTier, { label: string; note: string }> = {
-  B: { label: "Balanced", note: "Lowest prices · ~2.5-3× cost" },
-  C: { label: "Premium", note: "Higher margin · ~3-4× cost" },
-  D: { label: "Top-tier", note: "Highest margin · ~4-5× cost" },
+  B: { label: "Lowest", note: `GH₵${SMS_RATE.B.toFixed(2)} per credit` },
+  C: { label: "Reduced", note: `GH₵${SMS_RATE.C.toFixed(2)} per credit` },
+  D: { label: "Standard", note: `GH₵${SMS_RATE.D.toFixed(2)} per credit (500 credits for GH₵50)` },
 };
+
+/** Smallest and largest custom purchase. */
+export const MIN_CUSTOM_CREDITS = 100;
+export const MAX_CUSTOM_CREDITS = 200_000;
+
+/** What `credits` cost at a tier. */
+export function priceForCredits(credits: number, tier?: string | null): number {
+  return round2(Math.max(0, Math.floor(credits)) * SMS_RATE[isSmsTier(tier) ? tier : DEFAULT_SMS_TIER]);
+}
+
+/** How many credits `amountGhs` buys at a tier (rounded down, so the church never pays for a part-credit). */
+export function creditsForAmount(amountGhs: number, tier?: string | null): number {
+  const rate = SMS_RATE[isSmsTier(tier) ? tier : DEFAULT_SMS_TIER];
+  return Math.max(0, Math.floor((amountGhs + 1e-9) / rate));
+}
 
 export const DEFAULT_SMS_TIER: SmsTier = "D";
 

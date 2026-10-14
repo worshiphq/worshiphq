@@ -62,7 +62,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     >
       <RecycleBinProvider canManage={session.canDelete} initialCount={binCount}>
         <TourProvider>
-          <AmountPrivacy enabled={church?.hideAmounts ?? true}>{children}</AmountPrivacy>
+          <AmountPrivacy enabled={church?.hideAmounts ?? false}>{children}</AmountPrivacy>
         </TourProvider>
       </RecycleBinProvider>
     </AppShell>

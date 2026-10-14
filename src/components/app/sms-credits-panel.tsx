@@ -5,8 +5,9 @@ import { useRouter } from "next/navigation";
 import { MessageSquare, Check, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import type { SmsBundle } from "@/config/sms";
-import { buySmsCredits, setWelcomeSms, setWelcomeVisitorSms } from "@/app/actions/sms-credits";
+import { SMS_RATE, MIN_CUSTOM_CREDITS, MAX_CUSTOM_CREDITS, creditsForAmount, priceForCredits, type SmsBundle, type SmsTier } from "@/config/sms";
+import { buySmsCredits, buyCustomSmsCredits, setWelcomeSms, setWelcomeVisitorSms } from "@/app/actions/sms-credits";
+import { Input } from "@/components/ui/input";
 import { useFeedback } from "@/components/ui/feedback";
 import { usePaystack } from "@/components/payments/use-paystack";
 import { cn } from "@/lib/utils";
@@ -17,17 +18,40 @@ export function SmsCreditsPanel({
   welcomeVisitorOn,
   canWrite,
   bundles,
+  tier,
 }: {
   balance: number;
   welcomeOn: boolean;
   welcomeVisitorOn: boolean;
   canWrite: boolean;
   bundles: SmsBundle[];
+  tier: SmsTier;
 }) {
   const { run, toast } = useFeedback();
   const { start } = usePaystack();
   const router = useRouter();
   const [busyBundle, setBusyBundle] = useState<string | null>(null);
+  const rate = SMS_RATE[tier];
+  // The two boxes stay in step: type credits to see the price, or type a price to see the credits.
+  const [creditsText, setCreditsText] = useState("");
+  const [amountText, setAmountText] = useState("");
+  const customCredits = Math.floor(Number(creditsText) || 0);
+  const customPrice = priceForCredits(customCredits, tier);
+  const customOk = customCredits >= MIN_CUSTOM_CREDITS && customCredits <= MAX_CUSTOM_CREDITS;
+
+  async function buyCustom() {
+    setBusyBundle("custom");
+    try {
+      const init = await buyCustomSmsCredits({ credits: customCredits });
+      if ("error" in init && init.error) { toast(String(init.error), "error"); return; }
+      await start(init, {
+        onSuccess: () => { toast("Payment received - your credits are on the way.", "success"); setCreditsText(""); setAmountText(""); router.refresh(); },
+        onError: (m) => toast(m, "error"),
+      });
+    } finally {
+      setBusyBundle(null);
+    }
+  }
 
   async function buy(bundleId: string) {
     setBusyBundle(bundleId);
@@ -59,7 +83,8 @@ export function SmsCreditsPanel({
           </div>
         </div>
         <div className="text-right text-xs text-ink-faint">
-          1 credit = 1 SMS<br />(per 160 characters, per recipient)
+          1 credit = 1 SMS<br />(per 160 characters, per recipient)<br />
+          <span className="font-medium text-ink-muted">₵{rate.toFixed(2)} per credit</span>
         </div>
       </Card>
 
@@ -72,7 +97,7 @@ export function SmsCreditsPanel({
       {/* Bundles */}
       <div>
         <h3 className="mb-3 font-display text-lg font-semibold">Buy SMS credits</h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           {bundles.map((b) => (
             <Card key={b.id} className={cn("relative flex flex-col p-5", b.popular && "overflow-visible border-primary/40 ring-1 ring-primary/20")}>
               {b.popular && (
@@ -97,6 +122,42 @@ export function SmsCreditsPanel({
         </div>
         <p className="mt-2 text-xs text-ink-faint">Secure payment via Paystack (Mobile Money or card). Credits never expire.</p>
       </div>
+
+      {/* Any amount */}
+      <Card className="p-5">
+        <h3 className="font-display text-[1rem] font-semibold">Buy any amount</h3>
+        <p className="mt-0.5 text-xs text-ink-muted">Type how many credits you want, or how much you want to spend. Every credit costs ₵{rate.toFixed(2)}.</p>
+        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <label className="text-xs font-medium text-ink-muted">Credits
+            <Input
+              inputMode="numeric" placeholder={`e.g. 3000 (minimum ${MIN_CUSTOM_CREDITS})`} value={creditsText} disabled={!canWrite}
+              onChange={(e) => {
+                const v = e.target.value.replace(/[^\d]/g, "");
+                setCreditsText(v);
+                setAmountText(v ? priceForCredits(Number(v), tier).toFixed(2) : "");
+              }}
+              className="mt-1"
+            />
+          </label>
+          <label className="text-xs font-medium text-ink-muted">You pay (₵)
+            <Input
+              inputMode="decimal" placeholder="e.g. 300" value={amountText} disabled={!canWrite}
+              onChange={(e) => {
+                const v = e.target.value.replace(/[^\d.]/g, "");
+                setAmountText(v);
+                setCreditsText(v ? String(creditsForAmount(Number(v), tier)) : "");
+              }}
+              className="mt-1"
+            />
+          </label>
+          <Button onClick={buyCustom} disabled={!canWrite || !customOk || busyBundle !== null}>
+            {busyBundle === "custom" ? <><Loader2 className="mr-1.5 size-4 animate-spin" /> Starting…</> : customOk ? `Buy ${customCredits.toLocaleString()} for ₵${customPrice.toFixed(2)}` : "Buy"}
+          </Button>
+        </div>
+        {customCredits > 0 && !customOk && (
+          <p className="mt-2 text-xs text-warning">{customCredits < MIN_CUSTOM_CREDITS ? `The smallest purchase is ${MIN_CUSTOM_CREDITS} credits (₵${(MIN_CUSTOM_CREDITS * rate).toFixed(2)}).` : `The largest single purchase is ${MAX_CUSTOM_CREDITS.toLocaleString()} credits.`}</p>
+        )}
+      </Card>
 
       {/* Welcome SMS toggle */}
       <Card className="flex items-center justify-between p-5">

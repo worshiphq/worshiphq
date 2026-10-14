@@ -71,9 +71,13 @@ export async function POST(request: NextRequest) {
     try {
       const credits = Number(meta.credits ?? 0);
       if (credits > 0) {
+        // Paystack reports the amount in the smallest unit (pesewas).
+        const paid = Number(data.amount ?? 0) / 100;
         await addCredits(meta.churchId, credits, "topup", {
           reference: data.reference,
-          note: `${credits} SMS credits`,
+          note: `${credits.toLocaleString()} SMS credits`,
+          amountGhs: paid > 0 ? paid : undefined,
+          source: "paystack",
         });
       }
       return Response.json({ received: true, kind: "sms_topup" });

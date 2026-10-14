@@ -40,6 +40,8 @@ model PlatformConfig {
   /** Site-wide SMS pricing tier: "B" | "C" | "D" (default D). Per-church
    *  overrides live on Church.smsTier. */
   smsTier                 String @default("D")
+  /** What the SMS provider charges WorshipHQ per credit (segment). Used for the SMS profit view. */
+  smsCostPerCredit        Float  @default(0.03)
   // ── Online giving fees ──
   /** % of each gift that settles to WorshipHQ (subaccount percentage_charge). 0 = church keeps all (minus Paystack's fee). */
   givingPlatformPercent Float   @default(0)
@@ -75,7 +77,7 @@ model Church {
   // testimony or counselling request. Editable in Settings.
   notifySubmissions Boolean @default(true)
   // Show money as *** on finance screens until someone taps the eye icon (shoulder-surfing protection).
-  hideAmounts       Boolean @default(true)
+  hideAmounts       Boolean @default(false)
   // "Thank you for coming" text to every member who checked in, offered when a service is ended. Off by default.
   thankAfterService  Boolean  @default(false)
   thankServiceNames  String[] @default([])   // services (by name) where the thank-you is ticked by default
@@ -1066,9 +1068,12 @@ model SmsTransaction {
   balanceAfter Int
   note         String?
   reference    String?  // Paystack reference for top-ups
+  amountGhs    Float?   // money received for a top-up (null for usage and older rows)
+  source       String?  // paystack | granted | manual (how a top-up or bonus arrived)
   createdAt    DateTime @default(now())
 
   @@index([churchId])
+  @@index([churchId, createdAt])
 }
 
 // ── Phone verification (OTP) ──────────────────────────────
@@ -1221,6 +1226,9 @@ model PlanPayment {
   periodStart  DateTime
   periodEnd    DateTime
   status       String   @default("paid") // paid | refunded
+  source       String   @default("paystack") // paystack | offline (paid outside the app, recorded by SuperAdmin) | granted (a gift)
+  note         String?
+  termMonths   Int      @default(0) // length bought, in months (0 = unknown / older rows)
   paidAt       DateTime @default(now())
   createdAt    DateTime @default(now())
 

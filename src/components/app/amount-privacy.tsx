@@ -12,6 +12,11 @@ const EXCLUDED = ["/app/settings", "/app/account", "/app/messages", "/app/commun
 const MONEY = /-?(?:GH₵|GHS|GH¢|US\$|₵|\$)\s?\d[\d,]*(?:\.\d+)?(?:[kKmM]\b)?|-?\b\d[\d,]*(?:\.\d+)?\s?GHS\b/g;
 const SKIP = new Set(["INPUT", "TEXTAREA", "SCRIPT", "STYLE", "SELECT", "OPTION"]);
 const REVEAL_MS = 3 * 60 * 1000;
+/** Used only by browsers that cannot blur text in place (very old ones). */
+const FALLBACK_MASK = "••••";
+
+/** Modern browsers can blur a piece of text without touching the page (the CSS Custom Highlight API). */
+const canBlur = () => typeof window !== "undefined" && "Highlight" in window && typeof CSS !== "undefined" && "highlights" in CSS;
 /** On the very first load the page arrives as server HTML that React is still hydrating; wait until it has settled. */
 const FIRST_LOAD_WAIT_MS = 1200;
 let booted = false;
@@ -42,7 +47,7 @@ function restoreNodes(map: Map<Text, string>) {
 }
 
 /**
- * Money on screen shows as *** until someone taps the eye, so nobody can read it over a shoulder. It covers every
+ * Money on screen is blurred until someone taps the eye, so nobody can read it over a shoulder. It covers every
  * amount on the finance pages for everybody, owners included, and can be switched off in Settings. Amounts are
  * hidden in place and the real figures are put back when revealed, so every page works as before. A number is only
  * hidden after React has finished hydrating its element, so hiding never fights the page loading.
@@ -67,6 +72,39 @@ export function AmountPrivacy({ enabled, children }: { enabled: boolean; childre
   useLayoutEffect(() => {
     const el = root.current;
     if (!el) return;
+    // Preferred way: blur the amounts in place. Nothing in the page is changed, so nothing can go wrong while it loads.
+    if (active && !revealed && canBlur()) {
+      const HL = (window as unknown as { Highlight: new (...r: Range[]) => unknown }).Highlight;
+      const registry = (CSS as unknown as { highlights: Map<string, unknown> }).highlights;
+      let frame = 0;
+      const paint = () => {
+        const ranges: Range[] = [];
+        const walker = document.createTreeWalker(el, NodeFilter.SHOW_TEXT);
+        let n: Node | null;
+        while ((n = walker.nextNode())) {
+          const t = n as Text;
+          if (skipped(t.parentElement)) continue;
+          const v = t.nodeValue ?? "";
+          MONEY.lastIndex = 0;
+          let m: RegExpExecArray | null;
+          while ((m = MONEY.exec(v))) {
+            const r = document.createRange();
+            r.setStart(t, m.index);
+            r.setEnd(t, m.index + m[0].length);
+            ranges.push(r);
+          }
+        }
+        MONEY.lastIndex = 0;
+        registry.set("amounts", new HL(...ranges));
+        el.dataset.amounts = "ready";
+        setFound(ranges.length);
+      };
+      paint();
+      const obs = new MutationObserver(() => { cancelAnimationFrame(frame); frame = requestAnimationFrame(paint); });
+      obs.observe(el, { subtree: true, childList: true, characterData: true });
+      return () => { obs.disconnect(); cancelAnimationFrame(frame); registry.delete("amounts"); };
+    }
+
     const originals = new Map<Text, string>();
     const pending = new Set<Text>();
     let timer: ReturnType<typeof setInterval> | null = null;
@@ -84,7 +122,7 @@ export function AmountPrivacy({ enabled, children }: { enabled: boolean; childre
       if (skipped(parent)) return;
       if (!hydrated(parent)) { pending.add(node); return; }
       originals.set(node, v);
-      node.nodeValue = v.replace(MONEY, "***");
+      node.nodeValue = v.replace(MONEY, FALLBACK_MASK);
     };
     const poll = () => {
       for (const n of [...pending]) {
@@ -123,7 +161,7 @@ export function AmountPrivacy({ enabled, children }: { enabled: boolean; childre
             const n = r.target as Text;
             // React rewrote a number we had hidden: remember the new real value and hide it again.
             if (hasMoney(n.nodeValue)) hide(n);
-            else if (originals.has(n) && !(n.nodeValue ?? "").includes("***")) originals.delete(n);
+            else if (originals.has(n) && !(n.nodeValue ?? "").includes(FALLBACK_MASK)) originals.delete(n);
           } else {
             r.addedNodes.forEach((added) => scan(added));
           }
@@ -154,21 +192,21 @@ export function AmountPrivacy({ enabled, children }: { enabled: boolean; childre
   return (
     <>
       {/* Keep the page blank for a moment on first load, so the real numbers never flash before they are hidden. */}
-      <style>{`[data-amounts="guard"]{visibility:hidden;animation:amounts-fallback 0s 6s forwards}@keyframes amounts-fallback{to{visibility:visible}}`}</style>
+      <style>{`[data-amounts="guard"]{visibility:hidden;animation:amounts-fallback 0s 6s forwards}@keyframes amounts-fallback{to{visibility:visible}}::highlight(amounts){color:transparent;text-shadow:0 0 8px rgba(120,125,135,.95)}`}</style>
       <div ref={root} data-amounts={active ? "guard" : "ready"}>{children}</div>
       {active && (found > 0 || revealed) && (
         <button
           type="button"
           onClick={() => setRevealedFor((cur) => (cur === pathname ? null : pathname))}
           aria-pressed={revealed}
-          title={revealed ? "Hide amounts" : "Show amounts"}
+          title={revealed ? "Blur amounts again" : "Show amounts"}
           className={cn(
             "fixed bottom-5 right-5 z-40 inline-flex items-center gap-2 rounded-full border px-4 py-2.5 text-sm font-semibold shadow-lg transition-colors",
             revealed ? "border-gold/40 bg-gold-soft text-gold" : "border-line bg-surface text-ink hover:border-primary/50 hover:text-primary",
           )}
         >
           {revealed ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-          {revealed ? "Hide amounts" : "Amounts hidden. Show"}
+          {revealed ? "Blur amounts" : "Amounts blurred. Show"}
         </button>
       )}
     </>

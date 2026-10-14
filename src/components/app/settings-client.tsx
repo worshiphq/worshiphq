@@ -206,11 +206,11 @@ export function SettingsClient({
                 </span>
               </label>
               <label className="mt-3 flex items-start gap-2 rounded-xl border border-line bg-surface-2/40 p-3 text-sm text-ink-muted">
-                <input type="checkbox" name="hideAmounts" defaultChecked={church?.hideAmounts ?? true} disabled={ro} className="mt-0.5 size-4 rounded border-line accent-primary" />
+                <input type="checkbox" name="hideAmounts" defaultChecked={church?.hideAmounts ?? false} disabled={ro} className="mt-0.5 size-4 rounded border-line accent-primary" />
                 <span>
-                  <span className="font-medium text-ink">Hide amounts on screen</span> - money shows as *** on the dashboard, giving, accounting,
-                  expenses and other finance pages until someone taps the eye icon, so nobody can read it over your shoulder. Applies to everyone,
-                  owners included. Switch off if you do not need it.
+                  <span className="font-medium text-ink">Blur amounts on screen</span> - money is blurred on the dashboard, giving, accounting,
+                  expenses and other finance pages until someone taps the eye button, so nobody can read it over your shoulder. Applies to everyone,
+                  owners included. Off by default.
                 </span>
               </label>
               <div className="mt-3 rounded-xl border border-line bg-surface-2/40 p-3 text-sm text-ink-muted">
