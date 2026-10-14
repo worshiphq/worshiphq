@@ -115,16 +115,12 @@ export function PeopleClient({
     <div>
       <PageHeader title="People" description="Your whole congregation - members, families, teens and children.">
         {canWrite && isAdultTab && <ImportModal />}
-        {isAdultTab && (
-          <>
-            <a href="/api/export/people?format=csv">
-              <Button size="sm" variant="secondary"><Download className="size-4" /> CSV</Button>
-            </a>
-            <a href="/api/export/people?format=xlsx">
-              <Button size="sm" variant="secondary"><Download className="size-4" /> Excel</Button>
-            </a>
-          </>
-        )}
+        <a href={`/api/export/people?format=csv&ageGroup=${ageTab}`}>
+          <Button size="sm" variant="secondary"><Download className="size-4" /> CSV</Button>
+        </a>
+        <a href={`/api/export/people?format=xlsx&ageGroup=${ageTab}`}>
+          <Button size="sm" variant="secondary"><Download className="size-4" /> Excel</Button>
+        </a>
         <Button size="sm" onClick={() => setCreating(true)} disabled={!canWrite}>
           <Plus className="size-4" /> {addLabel}
         </Button>

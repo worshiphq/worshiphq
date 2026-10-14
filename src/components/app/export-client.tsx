@@ -17,6 +17,7 @@ export function ExportClient({
   plan: string;
 }) {
   const [busy, setBusy] = useState<string | null>(null);
+  const [age, setAge] = useState<"all" | "adult" | "teen" | "child">("all");
 
   function download(url: string, id: string) {
     setBusy(id);
@@ -85,9 +86,22 @@ export function ExportClient({
             {datasets.map((d) => (
               <div key={d.key} className="flex items-center justify-between gap-3 px-4 py-3">
                 <span className="text-sm font-medium">{d.label}</span>
-                <div className="flex gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {d.key === "members" && (
+                    <select
+                      value={age}
+                      onChange={(e) => setAge(e.target.value as typeof age)}
+                      className="h-8 rounded-lg border border-line bg-surface px-2 text-xs text-ink-muted"
+                      aria-label="Age group"
+                    >
+                      <option value="all">All members</option>
+                      <option value="adult">Adults</option>
+                      <option value="teen">Teens</option>
+                      <option value="child">Children</option>
+                    </select>
+                  )}
                   <button
-                    onClick={() => download(`/api/export/${d.key}?format=xlsx`, `${d.key}-xlsx`)}
+                    onClick={() => download(`/api/export/${d.key}?format=xlsx${d.key === "members" ? `&ageGroup=${age}` : ""}`, `${d.key}-xlsx`)}
                     className={cn(
                       "inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium",
                       "text-ink-muted hover:bg-surface-2 hover:text-ink",
@@ -97,7 +111,7 @@ export function ExportClient({
                     Excel
                   </button>
                   <button
-                    onClick={() => download(`/api/export/${d.key}?format=csv`, `${d.key}-csv`)}
+                    onClick={() => download(`/api/export/${d.key}?format=csv${d.key === "members" ? `&ageGroup=${age}` : ""}`, `${d.key}-csv`)}
                     className={cn(
                       "inline-flex items-center gap-1.5 rounded-lg border border-line px-2.5 py-1.5 text-xs font-medium",
                       "text-ink-muted hover:bg-surface-2 hover:text-ink",

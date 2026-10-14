@@ -20,8 +20,32 @@ export interface SheetSpec {
   rows: unknown[][];
 }
 
+export interface LogoImage { buffer: Buffer; width: number; height: number }
+
+/** Fetch the church logo (data URL or web address) and shrink it to a small PNG. Null if anything fails. */
+export async function loadLogo(logoUrl?: string | null): Promise<LogoImage | null> {
+  if (!logoUrl) return null;
+  try {
+    let raw: Buffer;
+    if (logoUrl.startsWith("data:")) {
+      raw = Buffer.from(logoUrl.slice(logoUrl.indexOf(",") + 1), "base64");
+    } else if (/^https?:\/\//.test(logoUrl)) {
+      const res = await fetch(logoUrl, { signal: AbortSignal.timeout(4000) });
+      if (!res.ok) return null;
+      raw = Buffer.from(await res.arrayBuffer());
+    } else return null;
+    const sharp = (await import("sharp")).default;
+    const out = await sharp(raw).resize({ width: 320, height: 320, fit: "inside" }).png().toBuffer({ resolveWithObject: true });
+    return { buffer: out.data, width: out.info.width, height: out.info.height };
+  } catch {
+    return null;
+  }
+}
+
 export interface WorkbookSpec {
   churchName: string;
+  /** The church logo, shown at the left of the title block. */
+  logo?: LogoImage | null;
   /** Church brand colour (#rrggbb). Falls back to the WorshipHQ teal. */
   color?: string | null;
   /** Shown in the footer line, e.g. the signed-in user. */
@@ -75,7 +99,7 @@ const thin = (argb: string): Partial<ExcelJS.Borders> => ({
   right: { style: "thin", color: { argb } },
 });
 
-function addSheet(wb: ExcelJS.Workbook, spec: WorkbookSpec, sheet: SheetSpec, taken: Set<string>, color: string, generated: Date) {
+function addSheet(wb: ExcelJS.Workbook, spec: WorkbookSpec, sheet: SheetSpec, taken: Set<string>, color: string, generated: Date, logoId: number | null) {
   const cols = Math.max(sheet.headers.length, 1);
   const ws = wb.addWorksheet(cleanSheetName(sheet.name, taken), {
     properties: { tabColor: { argb: `FF${color}` } },
@@ -93,22 +117,28 @@ function addSheet(wb: ExcelJS.Workbook, spec: WorkbookSpec, sheet: SheetSpec, ta
   ws.addRow([spec.churchName]);
   mergeAcross(1);
   const r1 = ws.getRow(1);
-  r1.height = 28;
+  r1.height = 30;
   r1.getCell(1).font = { name: "Calibri", size: 18, bold: true, color: { argb: brand } };
-  r1.getCell(1).alignment = { vertical: "middle" };
+  r1.getCell(1).alignment = { vertical: "middle", horizontal: "center" };
 
   ws.addRow([sheet.title]);
   mergeAcross(2);
-  ws.getRow(2).height = 22;
+  ws.getRow(2).height = 24;
   ws.getRow(2).getCell(1).font = { name: "Calibri", size: 14, bold: true, color: { argb: "FF1C1A16" } };
-  ws.getRow(2).getCell(1).alignment = { vertical: "middle" };
+  ws.getRow(2).getCell(1).alignment = { vertical: "middle", horizontal: "center" };
 
   const stamp = generated.toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
   const sub = [sheet.subtitle, `Generated ${stamp}`, spec.preparedBy ? `by ${spec.preparedBy}` : ""].filter(Boolean).join("  |  ");
   ws.addRow([sub]);
   mergeAcross(3);
+  ws.getRow(3).height = 20;
   ws.getRow(3).getCell(1).font = { name: "Calibri", size: 10, color: { argb: "FF6B6456" } };
-  ws.getRow(3).getCell(1).alignment = { vertical: "middle" };
+  ws.getRow(3).getCell(1).alignment = { vertical: "middle", horizontal: "center" };
+  if (logoId !== null && spec.logo) {
+    const h = 62;
+    const w = Math.max(20, Math.round((spec.logo.width / spec.logo.height) * h));
+    ws.addImage(logoId, { tl: { col: 0.12, row: 0.1 }, ext: { width: w, height: h }, editAs: "oneCell" });
+  }
 
   // Brand rule under the title block.
   ws.addRow([]);
@@ -227,6 +257,7 @@ export async function buildWorkbook(spec: WorkbookSpec): Promise<Buffer> {
   const generated = new Date();
   const color = hex(spec.color);
   const taken = new Set<string>();
+  const logoId = spec.logo ? wb.addImage({ buffer: spec.logo.buffer as unknown as ExcelJS.Buffer, extension: "png" }) : null;
 
   if (spec.contents && spec.sheets.length > 1) {
     const rows = spec.sheets.map((s) => [s.title, s.rows.filter((r) => r.length > 0 && !r.every((v) => v === "" || v == null)).length]);
@@ -236,12 +267,12 @@ export async function buildWorkbook(spec: WorkbookSpec): Promise<Buffer> {
       subtitle: `${spec.sheets.length} sheets in this workbook`,
       headers: ["Sheet", "Rows"],
       rows,
-    }, taken, color, generated);
+    }, taken, color, generated, logoId);
   }
-  for (const sheet of spec.sheets) addSheet(wb, spec, sheet, taken, color, generated);
+  for (const sheet of spec.sheets) addSheet(wb, spec, sheet, taken, color, generated, logoId);
 
   if (wb.worksheets.length === 0) {
-    addSheet(wb, spec, { name: "Export", title: "Export", headers: ["Info"], rows: [] }, taken, color, generated);
+    addSheet(wb, spec, { name: "Export", title: "Export", headers: ["Info"], rows: [] }, taken, color, generated, logoId);
   }
   return Buffer.from(await wb.xlsx.writeBuffer());
 }

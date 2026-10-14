@@ -1,10 +1,10 @@
 import type { NextRequest } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { getFormDefinition } from "@/lib/forms/registration";
+import { membersTable, parseAgeFilter, AGE_LABELS } from "@/lib/export/members";
 import { hasSection } from "@/lib/permissions";
 import { DATASETS } from "@/lib/export/datasets";
-import { buildWorkbook } from "@/lib/export/workbook";
+import { buildWorkbook, loadLogo } from "@/lib/export/workbook";
 
 export const dynamic = "force-dynamic";
 
@@ -39,53 +39,16 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
   let reportTitle = "";
   let subtitle = "";
 
-  if (type === "people") {
+  if (type === "people" || type === "members") {
     if (!session.sections.includes("people")) return new Response("Forbidden", { status: 403 });
-    const [people, church] = await Promise.all([
-      db.person.findMany({
-        where: { churchId },
-        orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-        include: { departments: { select: { name: true } }, branch: { select: { name: true } }, categoryOptions: { select: { categoryId: true, name: true } } },
-      }),
-      db.church.findUnique({ where: { id: churchId }, select: { registrationFields: true } }),
-    ]);
-    const categories = await db.memberCategory.findMany({ where: { churchId }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } });
-    baseName = "members";
+    const age = parseAgeFilter(reqUrl.searchParams.get("ageGroup"));
+    const t = await membersTable(churchId, age);
+    baseName = age === "all" ? "members" : `members-${age === "adult" ? "adults" : age === "teen" ? "teens" : "children"}`;
     sheetTitle = "Members";
-    reportTitle = "Members register";
-    subtitle = `${people.length} member${people.length === 1 ? "" : "s"}`;
-
-    const customLabels = getFormDefinition(church?.registrationFields ?? null)
-      .filter((f) => !f.system && f.id !== "department")
-      .map((f) => f.label);
-
-    headers = [
-      "Member ID", "First Name", "Last Name", "Other Names", "Email", "Phone", "Gender", "Title",
-      "Date of Birth", "Marital Status", "Occupation", "Employer", "Previous Church", "Date of Membership",
-      "Place of Birth", "Nationality", "Country", "Region", "District", "Town", "Home Town",
-      "National ID", "House Address", "Postal Address", "Work Phone", "Home Phone", "Special Interest",
-      "Baptized", "Departments", ...categories.map((c) => c.name), "Status",
-      "Emergency Name", "Emergency Phone", "Emergency Relation", "Emergency Email", "Emergency Address",
-      "Notes", "Joined",
-      ...customLabels,
-    ];
-    rows = people.map((p) => {
-      const cf = (p.customFields as Record<string, string> | null) ?? {};
-      return [
-        p.memberId, p.firstName, p.lastName, p.otherNames, p.email, p.phone, p.gender, p.title,
-        p.dateOfBirth ? fmtDate(p.dateOfBirth) : "", p.maritalStatus, p.occupation, p.employer,
-        p.previousChurch, p.dateOfMembership ? fmtDate(p.dateOfMembership) : "", p.placeOfBirth,
-        p.nationality, p.country, p.region, p.district, p.town, p.homeTown, p.nationalId,
-        p.houseAddress, p.postalAddress, p.workPhone, p.homePhone, p.specialInterest,
-        p.baptized === true ? "Yes" : p.baptized === false ? "No" : "",
-        p.departments.map((d) => d.name).join("; "),
-        ...categories.map((c) => p.categoryOptions.filter((o) => o.categoryId === c.id).map((o) => o.name).join("; ")),
-        p.status,
-        p.emergencyName, p.emergencyPhone, p.emergencyRelation, p.emergencyEmail, p.emergencyAddress,
-        p.notes, fmtDate(p.joinedAt),
-        ...customLabels.map((l) => cf[l] ?? ""),
-      ];
-    });
+    reportTitle = age === "all" ? "Members register" : `Members register: ${AGE_LABELS[age]}`;
+    subtitle = `${t.rows.length} ${AGE_LABELS[age].toLowerCase()}`;
+    headers = t.headers;
+    rows = t.rows;
   } else if (type === "giving") {
     if (!session.sections.includes("giving")) return new Response("Forbidden", { status: 403 });
     const gifts = await db.gift.findMany({
@@ -203,7 +166,7 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
     const ds = DATASETS.find((x) => x.key === type);
     if (!ds) return new Response("Unknown export type", { status: 404 });
     if (!hasSection(session, ds.section)) return new Response("Forbidden", { status: 403 });
-    const data = await ds.fetch(churchId);
+    const data = await ds.fetch(churchId, { age: parseAgeFilter(reqUrl.searchParams.get("ageGroup")) });
     baseName = ds.key;
     sheetTitle = ds.label;
     reportTitle = ds.label;
@@ -213,9 +176,10 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
   }
 
   if (format === "xlsx") {
-    const church = await db.church.findUnique({ where: { id: churchId }, select: { name: true, accentColor: true } });
+    const church = await db.church.findUnique({ where: { id: churchId }, select: { name: true, accentColor: true, logoUrl: true } });
     const buf = await buildWorkbook({
       churchName: church?.name ?? "Church",
+      logo: await loadLogo(church?.logoUrl),
       color: church?.accentColor,
       preparedBy: session.name || undefined,
       sheets: [{ name: sheetTitle, title: reportTitle || sheetTitle, subtitle, headers, rows }],

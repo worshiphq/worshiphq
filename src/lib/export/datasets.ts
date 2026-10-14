@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { membersTable, type AgeFilter } from "@/lib/export/members";
 import { methodLabel, outcomeLabel } from "@/lib/follow-ups/outcomes";
 
 /** One spreadsheet column per member category (Zone, Fellowship, ...). */
@@ -23,7 +24,7 @@ export interface Dataset {
   label: string;
   /** Section key the user must be able to see for this dataset. */
   section: string;
-  fetch: (churchId: string) => Promise<{ headers: string[]; rows: unknown[][] }>;
+  fetch: (churchId: string, opts?: { age?: AgeFilter }) => Promise<{ headers: string[]; rows: unknown[][] }>;
 }
 
 const d = (v: Date | null | undefined) => (v ? v.toISOString().slice(0, 10) : "");
@@ -34,24 +35,8 @@ export const DATASETS: Dataset[] = [
     key: "members",
     label: "Members",
     section: "people",
-    async fetch(churchId) {
-      const [rows, cats] = await Promise.all([
-        db.person.findMany({
-          where: { churchId },
-          orderBy: { firstName: "asc" },
-          include: { department: { select: { name: true } }, departments: { select: { name: true } }, ...CATEGORY_OPTION_SELECT },
-        }),
-        categoryColumns(churchId),
-      ]);
-      return {
-        headers: ["Member ID", "First name", "Last name", "Phone", "Email", "Gender", "Status", "Departments", ...cats.headers, "Birthday", "Joined"],
-        rows: rows.map((p) => [
-          p.memberId ?? "", p.firstName, p.lastName, p.phone ?? "", p.email ?? "",
-          p.gender ?? "", p.status,
-          [...new Set([...p.departments.map((x) => x.name), ...(p.department ? [p.department.name] : [])])].sort().join("; "),
-          ...cats.values(p.categoryOptions), p.birthday ?? "", d(p.joinedAt),
-        ]),
-      };
+    async fetch(churchId, opts) {
+      return membersTable(churchId, opts?.age ?? "all");
     },
   },
   {

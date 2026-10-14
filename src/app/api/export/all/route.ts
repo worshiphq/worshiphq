@@ -6,7 +6,7 @@ import { getChurchPlan } from "@/lib/plan-gate-server";
 import { planRank } from "@/lib/plan-gate";
 import { allowedDatasets, type Dataset } from "@/lib/export/datasets";
 import { db } from "@/lib/db";
-import { buildWorkbook } from "@/lib/export/workbook";
+import { buildWorkbook, loadLogo, type LogoImage } from "@/lib/export/workbook";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -24,11 +24,12 @@ function toCsv(headers: string[], rows: unknown[][]): string {
 
 async function sheetBook(
   sets: { ds: Dataset; data: { headers: string[]; rows: unknown[][] } }[],
-  church: { name: string; color?: string | null; preparedBy?: string },
+  church: { name: string; color?: string | null; preparedBy?: string; logo?: LogoImage | null },
 ): Promise<Buffer> {
   return buildWorkbook({
     churchName: church.name,
     color: church.color,
+    logo: church.logo,
     preparedBy: church.preparedBy,
     contents: true,
     sheets: sets.map(({ ds, data }) => ({
@@ -67,10 +68,10 @@ export async function GET(req: NextRequest) {
 
   const church = await db.church.findUnique({
     where: { id: session.churchId },
-    select: { name: true, accentColor: true },
+    select: { name: true, accentColor: true, logoUrl: true },
   });
   const churchName = church?.name ?? "Church";
-  const branding = { name: churchName, color: church?.accentColor, preparedBy: session.name || undefined };
+  const branding = { name: churchName, color: church?.accentColor, logo: await loadLogo(church?.logoUrl), preparedBy: session.name || undefined };
   const slug = churchName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "church";
   const stamp = new Date().toISOString().slice(0, 10);
 
