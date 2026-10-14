@@ -27,6 +27,7 @@ function readGroupFields(formData: FormData) {
     meetingTime: schedule[0]?.time ?? null,
     location: String(formData.get("location") ?? "").trim() || null,
     leaderId: String(formData.get("leaderId") ?? "").trim() || null,
+    onForms: formData.get("onForms") === "on",
     meetingReminderOn: formData.get("meetingReminderOn") === "on" && meetingDays.length > 0,
     meetingReminderAuto: String(formData.get("meetingReminderMode") ?? "auto") !== "manual",
     meetingReminderLeadDays: Math.min(14, Math.max(0, parseInt(String(formData.get("meetingReminderLeadDays") ?? "0"), 10) || 0)),
@@ -130,12 +131,29 @@ export async function addGroupMember(formData: FormData) {
   const groupId = String(formData.get("groupId"));
   const personId = String(formData.get("personId"));
 
+  const person = await db.person.findFirst({ where: { id: personId, churchId: session.churchId }, select: { id: true } });
+  if (!person) return;
   await db.group.update({
     where: { id: groupId, churchId: session.churchId },
     data: { members: { connect: { id: personId } } },
   });
 
   revalidatePath(`/app/groups/${groupId}`);
+}
+
+/** Add several people to a group at once (only people of this church are accepted). */
+export async function addGroupMembers(groupId: string, personIds: string[]) {
+  const session = await requireManage("groups");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  const group = await db.group.findFirst({ where: { id: groupId, churchId: session.churchId }, select: { id: true, name: true } });
+  if (!group) return { ok: false as const, error: "Group not found." };
+  const valid = await db.person.findMany({ where: { churchId: session.churchId, id: { in: personIds.slice(0, 500) } }, select: { id: true } });
+  if (valid.length === 0) return { ok: false as const, error: "Pick at least one person." };
+  await db.group.update({ where: { id: groupId }, data: { members: { connect: valid.map((p) => ({ id: p.id })) } } });
+  await audit(session, "update", "group", `Added ${valid.length} people to "${group.name}"`, groupId);
+  revalidatePath(`/app/groups/${groupId}`);
+  revalidatePath("/app/groups");
+  return { ok: true as const, added: valid.length };
 }
 
 export async function removeGroupMember(formData: FormData) {

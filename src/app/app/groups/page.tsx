@@ -17,12 +17,13 @@ const GROUP_TYPE_SUGGESTIONS = ["Small group", "Ministry", "Committee", "Fellows
 export default async function GroupsPage() {
   const session = await requireModule("groups");
 
-  const [groups, people, church] = await Promise.all([
+  const [groups, people, church, inGroups] = await Promise.all([
     db.group.findMany({
       where: { churchId: session.churchId },
       include: {
         leader: { select: { firstName: true, lastName: true } },
         _count: { select: { members: true } },
+        members: { take: 4, orderBy: { firstName: "asc" }, select: { firstName: true, lastName: true, photoUrl: true, gender: true } },
       },
       orderBy: { name: "asc" },
     }),
@@ -33,6 +34,7 @@ export default async function GroupsPage() {
       take: 500,
     }),
     db.church.findUnique({ where: { id: session.churchId }, select: { timezone: true } }),
+    db.person.count({ where: { churchId: session.churchId, groups: { some: { isActive: true } } } }),
   ]);
 
   const peopleOpts = people.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`.trim() }));
@@ -57,6 +59,12 @@ export default async function GroupsPage() {
 
       <GroupsClient
         canWrite={canEdit(session, "groups")}
+        stats={{
+          groups: groups.length,
+          inGroups,
+          onForms: groups.filter((g) => g.onForms).length,
+          meetingThisWeek: groups.filter((g) => g.isActive && (parseSchedule(g.meetingSchedule).length > 0 || !!g.meetingDay)).length,
+        }}
         people={peopleOpts}
         typeSuggestions={GROUP_TYPE_SUGGESTIONS}
         items={groups.map((g) => {
@@ -72,9 +80,11 @@ export default async function GroupsPage() {
             meetingDays: days,
             location: g.location,
             isActive: g.isActive,
+            onForms: g.onForms,
             leaderId: g.leaderId,
             leaderName: g.leader ? `${g.leader.firstName} ${g.leader.lastName}` : null,
             memberCount: g._count.members,
+            preview: g.members.map((m) => ({ name: `${m.firstName} ${m.lastName}`.trim(), photoUrl: m.photoUrl, gender: m.gender })),
             meetingReminderOn: g.meetingReminderOn,
             meetingReminderAuto: g.meetingReminderAuto,
             meetingReminderLeadDays: g.meetingReminderLeadDays,

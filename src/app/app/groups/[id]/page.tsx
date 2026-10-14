@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { GroupDetailClient } from "@/components/app/group-detail-client";
 import { parseSchedule } from "@/lib/groups/meeting-reminder";
@@ -19,7 +20,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
     include: {
       leader: { select: { id: true, firstName: true, lastName: true, phone: true } },
       members: {
-        select: { id: true, firstName: true, lastName: true, phone: true, photoUrl: true, gender: true },
+        select: { id: true, firstName: true, lastName: true, phone: true, photoUrl: true, gender: true, status: true },
         orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
       },
     },
@@ -29,46 +30,51 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
 
   const allPeople = await db.person.findMany({
     where: { churchId: session.churchId },
-    select: { id: true, firstName: true, lastName: true, photoUrl: true, gender: true },
+    select: { id: true, firstName: true, lastName: true, phone: true },
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-    take: 500,
+    take: 3000,
   });
 
   const memberIds = new Set(group.members.map((m) => m.id));
-  const available = allPeople.filter((p) => !memberIds.has(p.id));
+  const schedule = (() => {
+    const s = parseSchedule(group.meetingSchedule);
+    return s.length ? s : group.meetingDay ? [{ day: group.meetingDay, time: group.meetingTime }] : [];
+  })();
 
   return (
     <GroupDetailClient
+      canWrite={canEdit(session, "groups")}
       group={{
         id: group.id,
         name: group.name,
         type: group.type,
         description: group.description,
-        schedule: (() => {
-          const s = parseSchedule(group.meetingSchedule);
-          return s.length ? s : group.meetingDay ? [{ day: group.meetingDay, time: group.meetingTime }] : [];
-        })(),
-        meetingTime: group.meetingTime,
+        schedule,
+        meetingDays: schedule.map((s) => s.day),
         location: group.location,
         isActive: group.isActive,
+        onForms: group.onForms,
+        leaderId: group.leaderId,
         leader: group.leader
           ? { id: group.leader.id, name: `${group.leader.firstName} ${group.leader.lastName}`, phone: group.leader.phone }
           : null,
+        meetingReminderOn: group.meetingReminderOn,
+        meetingReminderAuto: group.meetingReminderAuto,
+        meetingReminderLeadDays: group.meetingReminderLeadDays,
+        meetingReminderHour: group.meetingReminderHour,
+        meetingReminderMinute: group.meetingReminderMinute,
+        meetingReminderWeekday: group.meetingReminderWeekday,
+        meetingReminderText: group.meetingReminderText,
       }}
       members={group.members.map((m) => ({
         id: m.id,
-        name: `${m.firstName} ${m.lastName}`,
+        name: `${m.firstName} ${m.lastName}`.trim(),
         phone: m.phone,
         photoUrl: m.photoUrl,
         gender: m.gender,
+        inactive: m.status === "inactive",
       }))}
-      available={available.map((p) => ({
-        id: p.id,
-        name: `${p.firstName} ${p.lastName}`,
-        photoUrl: p.photoUrl,
-        gender: p.gender,
-      }))}
-      isDemo={session.isDemo}
+      people={allPeople.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`.trim(), phone: p.phone, member: memberIds.has(p.id) }))}
     />
   );
 }

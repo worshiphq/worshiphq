@@ -18,6 +18,7 @@ export type GroupFormValues = {
   meetingTime: string | null;
   location: string | null;
   leaderId: string | null;
+  onForms: boolean;
   meetingReminderOn: boolean;
   meetingReminderAuto: boolean;
   meetingReminderLeadDays: number;
@@ -126,6 +127,14 @@ export function GroupFields({
         </div>
         <p className="mt-1 text-[11px] text-ink-faint">Optional - pick each day the group meets and set its own time (leave a time blank if it varies).</p>
       </div>
+
+      <label className="flex cursor-pointer items-start justify-between gap-3 rounded-xl border border-line p-3">
+        <span>
+          <span className="block text-sm font-medium">Let people choose this group when they sign up</span>
+          <span className="mt-0.5 block text-xs text-ink-faint">It appears as a choice on the member, teens and children forms (once you add the Groups question to the form). You can always add or remove people yourself.</span>
+        </span>
+        <input type="checkbox" name="onForms" defaultChecked={group?.onForms ?? false} className="mt-1 size-4 shrink-0 accent-primary" />
+      </label>
 
       <Field label="Location" name="location" placeholder="e.g. Church hall room 3" defaultValue={group?.location ?? ""} />
       <Field
