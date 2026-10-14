@@ -17,7 +17,7 @@ export default async function PrayerRequestsPage() {
     db.prayerRequest.findMany({
       where: { churchId: session.churchId },
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
-      take: 300,
+      take: 2000,
     }),
     db.church.findUnique({
       where: { id: session.churchId },

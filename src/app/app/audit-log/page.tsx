@@ -12,7 +12,7 @@ export default async function AuditLogPage() {
     where: { churchId: session.churchId },
     include: { user: { select: { name: true, email: true } } },
     orderBy: { createdAt: "desc" },
-    take: 300,
+    take: 3000,
   });
 
   return (
