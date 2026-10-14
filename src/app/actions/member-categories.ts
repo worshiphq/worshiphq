@@ -6,6 +6,7 @@ import { moveToBin } from "@/lib/recycle-bin";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 import { canManage } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
+import { getFormDefinition, GROUPS_FIELD_ID } from "@/lib/forms/registration";
 
 type Result = { ok: true; warning?: string } | { ok: false; error: string };
 
@@ -163,4 +164,87 @@ export async function deleteCategoryOption(id: string): Promise<Result> {
   await audit(session, "delete", "settings", `Removed "${opt.name}" from a member category`);
   refresh();
   return { ok: true };
+}
+
+export type ConvertResult =
+  | { ok: true; groups: number; reused: number; people: number; removed: number; formUpdated: boolean }
+  | { ok: false; error: string };
+
+/**
+ * Turn every zone, fellowship or other category option into a group, with the same
+ * people in it. Each option becomes a group of that category's type (for example a
+ * "Zone" group called "Asokwa"). Safe to run again: groups that already exist are
+ * reused and only missing people are added. Optionally puts the old categories in the
+ * recycle bin afterwards, and adds the Groups question to the join form when a
+ * category used to be asked there.
+ */
+export async function convertCategoriesToGroups(opts: { removeOld: boolean }): Promise<ConvertResult> {
+  const session = await requirePeopleManager();
+  if (!canManage(session, "groups")) return { ok: false, error: "You also need permission to manage Groups to do this." };
+  if (session.isDemo) return { ok: false, error: "Read-only demo." };
+
+  const cats = await db.memberCategory.findMany({
+    where: { churchId: session.churchId },
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    select: {
+      id: true, name: true, showOnJoinForm: true,
+      options: { orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, members: { select: { id: true } } } },
+    },
+  });
+  const usable = cats.filter((c) => c.options.length > 0);
+  if (usable.length === 0) return { ok: false, error: "There are no zones, fellowships or categories with options to convert." };
+
+  let created = 0, reused = 0;
+  const linked = new Set<string>();
+  let anyOnForm = false;
+
+  for (const cat of usable) {
+    for (const opt of cat.options) {
+      const existing = await db.group.findFirst({
+        where: { churchId: session.churchId, name: { equals: opt.name, mode: "insensitive" }, type: { equals: cat.name, mode: "insensitive" } },
+        select: { id: true },
+      });
+      let groupId: string;
+      if (existing) { groupId = existing.id; reused++; }
+      else {
+        const g = await db.group.create({ data: { churchId: session.churchId, name: opt.name, type: cat.name, onForms: cat.showOnJoinForm } });
+        groupId = g.id;
+        created++;
+      }
+      if (cat.showOnJoinForm) anyOnForm = true;
+      if (opt.members.length > 0) {
+        await db.group.update({ where: { id: groupId }, data: { members: { connect: opt.members.map((m) => ({ id: m.id })) } } });
+        for (const m of opt.members) linked.add(m.id);
+      }
+    }
+  }
+
+  // Ask for groups on the join form wherever the old categories were asked.
+  let formUpdated = false;
+  if (anyOnForm) {
+    const church = await db.church.findUnique({ where: { id: session.churchId }, select: { registrationFields: true } });
+    const fields = getFormDefinition(church?.registrationFields ?? null);
+    if (!fields.some((f) => f.id === GROUPS_FIELD_ID)) {
+      await db.church.update({
+        where: { id: session.churchId },
+        data: { registrationFields: [...fields, { id: GROUPS_FIELD_ID, label: "Groups you would like to join", type: "select", system: true }] as object },
+      });
+      formUpdated = true;
+    }
+  }
+
+  let removed = 0;
+  if (opts.removeOld) {
+    for (const cat of usable) {
+      await moveToBin(session, "memberCategory", "MemberCategory", cat.id);
+      await db.memberCategory.delete({ where: { id: cat.id } });
+      removed++;
+    }
+  }
+
+  await audit(session, "update", "settings", `Converted ${usable.length} categor${usable.length === 1 ? "y" : "ies"} into groups (${created} new)${opts.removeOld ? ", old categories removed" : ""}`);
+  refresh();
+  revalidatePath("/app/groups");
+  revalidatePath("/app/directory");
+  return { ok: true, groups: created, reused, people: linked.size, removed, formUpdated };
 }

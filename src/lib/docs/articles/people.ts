@@ -139,6 +139,7 @@ export const people: DocArticle[] = [
     appPath: "/app/settings",
     body: [
       { p: "Besides departments, many churches group members by **zone** (where they live), **fellowship** (Men, Women, Youth) or **cell**. You can create any of these. It's optional; if you don't, nothing changes." },
+      { p: "**Already using zones or fellowships?** Open **Settings**, then **Zones & fellowships**, and use **Move these to Groups**. Every zone or fellowship becomes a group (with the same people in it), so you can filter by it on People, Directory and Attendance, let people pick it when they sign up, and message the whole group. You can keep the old categories or remove them (they go to the Recycle bin), and running it twice does no harm." },
       { h: "Create a category" },
       { steps: [
         "Go to **Settings**, then **Zones & fellowships**.",

@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Loader2, Plus, Trash2, Pencil, Check, X, Tags, AlertTriangle } from "lucide-react";
+import Link from "next/link";
+import { Loader2, Plus, Trash2, Pencil, Check, X, Tags, AlertTriangle, Users2, ArrowRightLeft } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import {
   getMemberCategoriesAdmin, createMemberCategory, updateMemberCategory, deleteMemberCategory,
-  addCategoryOption, renameCategoryOption, deleteCategoryOption, type CategoryAdminRow,
+  addCategoryOption, renameCategoryOption, deleteCategoryOption, convertCategoriesToGroups, type CategoryAdminRow, type ConvertResult,
 } from "@/app/actions/member-categories";
 import { cn } from "@/lib/utils";
 import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
@@ -24,6 +25,7 @@ export function MemberCategoriesTab({ canManage }: { canManage: boolean }) {
   const [newMulti, setNewMulti] = useState(false);
   const [newOnJoin, setNewOnJoin] = useState(true);
   const [newOptions, setNewOptions] = useState("");
+  const [converted, setConverted] = useState<Extract<ConvertResult, { ok: true }> | null>(null);
 
   const load = async () => setRows(await getMemberCategoriesAdmin());
   useEffect(() => { void load(); }, []);
@@ -63,6 +65,58 @@ export function MemberCategoriesTab({ canManage }: { canManage: boolean }) {
         {error && <p className="mt-3 text-sm text-danger">{error}</p>}
         {warning && <p className="mt-3 flex items-start gap-1.5 text-sm text-warning"><AlertTriangle className="mt-0.5 size-4 shrink-0" /> {warning}</p>}
       </Card>
+
+      {canManage && rows.some((c) => c.options.length > 0) && (
+        <Card className="border-primary/30 bg-primary/5 p-6">
+          <div className="flex flex-wrap items-start justify-between gap-4">
+            <div className="max-w-2xl">
+              <h3 className="flex items-center gap-2 font-display text-[1rem] font-semibold"><Users2 className="size-4 text-primary" /> Move these to Groups</h3>
+              <p className="mt-1 text-sm text-ink-muted">
+                Groups can do everything categories do, and more: people can pick them when they sign up, you can filter People, the Directory and
+                Attendance by them, add people in bulk, set meeting times and reminders, and message a whole group. Each {rows.filter((c) => c.options.length > 0).map((c) => c.name).join(", ")} option becomes a group with the same people in it.
+                Nothing is lost, and you can run it again safely.
+              </p>
+              <p className="mt-2 text-xs text-ink-faint">
+                {rows.reduce((n, c) => n + c.options.length, 0)} option{rows.reduce((n, c) => n + c.options.length, 0) === 1 ? "" : "s"} across {rows.filter((c) => c.options.length > 0).length} categor{rows.filter((c) => c.options.length > 0).length === 1 ? "y" : "ies"}. A &quot;one per member&quot; rule becomes a normal group, so a member can be in more than one.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button
+                disabled={busy !== null}
+                onClick={() => run("convert", async () => {
+                  const r = await convertCategoriesToGroups({ removeOld: false });
+                  if (r.ok) setConverted(r);
+                  return r.ok ? { ok: true } : { ok: false, error: r.error };
+                })}
+              >
+                {busy === "convert" ? <><Loader2 className="size-4 animate-spin" /> Converting…</> : <><ArrowRightLeft className="size-4" /> Convert to groups</>}
+              </Button>
+              <Button
+                variant="secondary"
+                disabled={busy !== null}
+                onClick={() => {
+                  if (!window.confirm("Convert to groups and remove these categories? The categories go to the Recycle bin for 7 days. Your people stay in their new groups.")) return;
+                  void run("convert-remove", async () => {
+                    const r = await convertCategoriesToGroups({ removeOld: true });
+                    if (r.ok) setConverted(r);
+                    return r.ok ? { ok: true } : { ok: false, error: r.error };
+                  });
+                }}
+              >
+                {busy === "convert-remove" ? <><Loader2 className="size-4 animate-spin" /> Converting…</> : "Convert and remove the old ones"}
+              </Button>
+            </div>
+          </div>
+          {converted && (
+            <div className="mt-4 rounded-xl border border-success/30 bg-success/10 p-3 text-sm text-success">
+              Done. {converted.groups} group{converted.groups === 1 ? "" : "s"} created{converted.reused ? `, ${converted.reused} already existed` : ""}, {converted.people} {converted.people === 1 ? "person" : "people"} placed in groups
+              {converted.formUpdated ? ". The Groups question was added to your join form" : ""}
+              {converted.removed ? `, and ${converted.removed} old categor${converted.removed === 1 ? "y was" : "ies were"} removed` : ""}.{" "}
+              <Link href="/app/groups" className="font-semibold underline">Open Groups</Link>
+            </div>
+          )}
+        </Card>
+      )}
 
       {rows.map((c) => (
         <CategoryCard key={c.id} cat={c} canManage={canManage} busy={busy} run={run} />
