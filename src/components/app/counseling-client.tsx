@@ -383,7 +383,7 @@ function SessionForm({ row, members, counselors, me, onClose }: {
 
           <div className="rounded-xl border border-line bg-surface-2/40 p-3.5">
             <label className="flex items-start gap-2.5 text-sm">
-              <input type="checkbox" checked={textUpdates} onChange={(e) => setTextUpdates(e.target.checked)} disabled={!effectivePhone} className="mt-0.5 size-4 rounded border-line accent-primary" />
+              <input type="checkbox" checked={textUpdates && !!effectivePhone} onChange={(e) => setTextUpdates(e.target.checked)} disabled={!effectivePhone} className="mt-0.5 size-4 rounded border-line accent-primary" />
               <span>
                 Text this person about the appointment
                 <span className="mt-0.5 block text-xs text-ink-faint">
@@ -393,7 +393,7 @@ function SessionForm({ row, members, counselors, me, onClose }: {
                 </span>
               </span>
             </label>
-            {textUpdates && canText && (
+            {textUpdates && !!effectivePhone && canText && (
               <label className="mt-2.5 flex items-start gap-2.5 text-sm">
                 <input type="checkbox" checked={notify} onChange={(e) => setNotify(e.target.checked)} className="mt-0.5 size-4 rounded border-line accent-primary" />
                 <span>

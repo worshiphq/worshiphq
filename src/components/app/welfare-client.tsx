@@ -829,7 +829,7 @@ function AidTab({ data, canWrite }: { data: WelfareData; canWrite: boolean }) {
       )}
 
       {filtered.length === 0 ? (
-        <Card className="p-12 text-center"><Heart className="mx-auto size-10 text-ink-faint" /><p className="mt-3 text-sm text-ink-muted">{filtering ? "No aid records match those filters." : "No aid records yet. Use \“Record aid\” above."}</p></Card>
+        <Card className="p-12 text-center"><Heart className="mx-auto size-10 text-ink-faint" /><p className="mt-3 text-sm text-ink-muted">{filtering ? "No aid records match those filters." : "No aid records yet. Use “Record aid” above."}</p></Card>
       ) : (
         <div className={cn("space-y-2", pending && "opacity-60")}>
           {shown.map((r) => {
@@ -842,7 +842,7 @@ function AidTab({ data, canWrite }: { data: WelfareData; canWrite: boolean }) {
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium">{r.recipientName}</span>
                       <Badge variant="default" className="text-[10px] capitalize">{meta.label}</Badge>
-                      {r.amount && r.amount > 0 && <span className="text-sm font-bold text-danger">\−{ghs(r.amount)}</span>}
+                      {r.amount && r.amount > 0 && <span className="text-sm font-bold text-danger">−{ghs(r.amount)}</span>}
                     </div>
                     {r.description && <p className="mt-1 text-xs text-ink-muted">{r.description}</p>}
                     <div className="mt-1.5 flex flex-wrap gap-x-4 text-xs text-ink-faint">
