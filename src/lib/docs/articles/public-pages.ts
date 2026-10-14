@@ -86,6 +86,7 @@ export const publicPages: DocArticle[] = [
       ] },
       { p: "The gift appears in **Giving** automatically, under the right fund, and the money is paid into the church's own account." },
       { note: "A small processing fee may be added on top of the amount, so the church receives the full gift. The giver sees the exact amount before paying." },
+      { p: "You can change the questions on the giving page, add your own, and show it in steps under **Settings**, **Links & forms**, **Online giving**, **Customize form**. The amount and what they give towards are always there." },
     ],
   },
   {
@@ -100,6 +101,7 @@ export const publicPages: DocArticle[] = [
       { p: "Members enter a title, category (Praise report, Healing, Provision, Deliverance, Salvation or Other) and their story, or **Share anonymously**. You review each one before it's published, and admins are notified." },
       { h: "Counselling requests" },
       { p: "Members enter their name, phone, what it's about (e.g. Marriage / family, Grief / loss, Financial) and how you can help. It's private: it opens a confidential case in **Counseling** and notifies your admins by SMS and email." },
+      { p: "Each of these forms can be customised, and shown in steps, under **Settings**, **Links & forms**, **Customize form**. See **Choose what your forms ask for**." },
     ],
   },
   {

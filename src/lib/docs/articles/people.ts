@@ -162,6 +162,7 @@ export const people: DocArticle[] = [
         "In **Attendance**: a breakdown by zone or fellowship for every service, and the present list can be grouped by them.",
         "In the members and attendance Excel downloads, as extra columns.",
       ] },
+      { tip: "Prefer one simple idea? Zones, cells and fellowships can also be set up as **Groups**. Groups can be chosen on your sign-up forms, filtered on People, Directory and Attendance, and messaged in one go. See **Groups, cells and committees**." },
     ],
   },
   {
@@ -200,20 +201,33 @@ export const people: DocArticle[] = [
     slug: "groups",
     section: "people",
     title: "Groups, cells and committees",
-    summary: "Create groups that meet, add members, set meeting days and send reminders.",
+    summary: "Create groups that meet, let people join them, add members in bulk, and message or filter by group.",
     appPath: "/app/groups",
     body: [
-      { p: "Groups are for people who meet together: small groups, ministries, committees and fellowships." },
+      { p: "Groups are for people who meet together: small groups, ministries, committees, fellowships and cells. The Groups page shows how many groups you have, how many people are in one, which meet regularly and which are open to sign-ups. Filter by type, search, and sort by name or size." },
       { h: "Create a group" },
       { steps: [
         "Go to **Groups** and choose **New group**.",
         "Give it a **Name** (e.g. Youth Fellowship) and choose a **Type**, or type your own.",
         "Add a **Description**, **Location** and **Leader** (optional).",
         "Tap each day the group meets and set its time. Leave the time blank if it varies.",
+        "Tick **Let people choose this group when they sign up** if members may pick it themselves.",
         "Choose **Create**.",
       ] },
       { h: "Add or remove members" },
-      { steps: ["Open the group.", "Use **Search members to add...** to add people.", "Use **Remove from group** next to a name to remove them."] },
+      { steps: ["Open the group (choose **Members** on its card).", "Choose **Add people**, search by name or phone and tick as many people as you like, then choose **Add**.", "Use the cross next to a name to remove someone."] },
+      { h: "Let people pick their group" },
+      { steps: [
+        "On each group you want people to choose, tick **Let people choose this group when they sign up**.",
+        "Go to **Settings**, **Links & forms**, open the member (or teens or children's) form, and choose **Add a standard question**, **Groups you would like to join**.",
+        "Save the form. New people can now tick the groups they want, and you can add or change a person's groups yourself on their record.",
+      ] },
+      { h: "Filter and message by group" },
+      { list: [
+        "On **People** and **Member directory**, use **All groups** to see just one group.",
+        "In **Attendance**, **Group** is one of the ways to see who came and who did not.",
+        "Choose **Message** on a group's card to text or email everyone in it, or pick the group when you send an SMS from **Communications**.",
+      ] },
       { h: "Meeting reminders" },
       { steps: [
         "Edit the group and tick **Remind the group of meetings** (pick meeting days first).",
@@ -222,7 +236,6 @@ export const people: DocArticle[] = [
       ] },
       { h: "A different reminder time for each day" },
       { p: "A group that meets on more than one day can have a reminder time for each. Under the reminder settings, tick **Different reminder time for each meeting day**. Then for every meeting day choose when its reminder goes out: for example the **day before** for Sunday, but **the same day** at 7:00 AM for Wednesday. You can also choose **Don't remind** for a day. Days you leave on **Same as above** follow the group's usual time." },
-      { p: "To message a group at any time, choose **Message this group** on the group's card. You can address each person by name in the message." },
     ],
   },
   {

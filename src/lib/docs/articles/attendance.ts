@@ -203,6 +203,7 @@ export const attendance: DocArticle[] = [
       ] },
       { p: "A member in two groups counts in both. Members marked inactive are left out of the \"didn't check in\" list. On the main **Attendance** page, **Departments at recent services** shows each group across your last six services." },
       { note: "This only works for services where people were checked in by name. A headcount has no names to break down." },
+      { p: "If your church has **Groups**, a **Group** option appears alongside Department, Zone and Fellowship in the breakdown, the present list and the trend, so you can see turnout for each cell, ministry or committee." },
     ],
   },
   {
@@ -249,7 +250,7 @@ export const attendance: DocArticle[] = [
       { h: "Add a room or space" },
       { steps: [
         "Go to **Bookings**, open the **Facilities** tab and choose **Add facility**.",
-        "Enter the **Name** (e.g. Main hall), **Capacity** and **Location**, and a **Usual price** if you charge for it.",
+        "Enter the **Name** (e.g. Main hall), **Capacity** and **Location**, and the **Price** if you charge for it. Under **The price is**, choose **One price for the whole booking**, **Per day** or **Per hour**.",
         "Choose **Upload photo** to add a picture, and add a short description.",
         "Choose **Add facility**. Use the pencil on a facility's card to edit it later.",
       ] },
@@ -257,7 +258,7 @@ export const attendance: DocArticle[] = [
       { steps: [
         "On the **Bookings** tab, choose **Book a facility**.",
         "Enter what it's for, pick the **Facility**, and who it's **Booked by** (and their phone).",
-        "Set the **Start** and **End** time. The **Charge** is filled in from the facility's usual price; change it or leave it empty if it's free.",
+        "Set the **Start** and **End** time. The **Charge** is worked out for you from the price (for example three days at a per day price), and you can type a different amount or leave it empty if it's free.",
         "Choose **Save booking**. A facility can't be double-booked: you'll be told if the time is already taken.",
       ] },
       { p: "Confirmed bookings also appear on your **Calendar**, so church leaders can see who has the hall. Filter bookings by **Upcoming**, **Requests**, **Past** or **All**, or by facility, and search by name." },
@@ -277,6 +278,9 @@ export const attendance: DocArticle[] = [
         "Choose **Confirm** or **Decline**. If they gave a phone number, they get a text with your answer.",
       ] },
       { p: "Delete a booking or facility with its bin button. It goes to the Recycle bin for 7 days." },
+      { h: "The public booking form and the price calculator" },
+      { p: "On your booking link, people choose a space, then the day and a **start time** (required). If it is one day, they can add an optional **end time**. If it runs over more than one day they tick **It runs over more than one day** and choose the last day. When the space has a price, an **Estimated price** appears as they choose, for example GH₵800 per day x 3 days = GH₵2,400. For a per hour price the end time is needed. The request arrives with that estimate as its charge, and you confirm the final amount." },
+      { p: "You can change the booking form's questions, order and steps under **Settings**, **Links & forms**, **Facility booking**." },
     ],
   },
   {
