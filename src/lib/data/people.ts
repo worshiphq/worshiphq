@@ -37,6 +37,9 @@ export interface PersonRow {
   title: string | null;
   dateOfBirth: string | null; // ISO (date input)
   dateOfMembership: string | null;
+  weddingDate: string | null;
+  householdId: string | null;
+  householdRole: string | null;
   occupation: string | null;
   employer: string | null;
   previousChurch: string | null;
@@ -131,6 +134,9 @@ export async function getPeople(churchId: string, ageFilter?: "adults" | "childr
     title: p.title,
     dateOfBirth: isoDate(p.dateOfBirth),
     dateOfMembership: isoDate(p.dateOfMembership),
+    weddingDate: isoDate(p.weddingDate),
+    householdId: p.householdId,
+    householdRole: p.householdRole,
     occupation: p.occupation,
     employer: p.employer,
     previousChurch: p.previousChurch,

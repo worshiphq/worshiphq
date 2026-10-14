@@ -22,6 +22,7 @@ import { sendSmsToPerson } from "@/app/actions/communications";
 import { BiometricRegisterButton } from "@/components/app/biometric-register";
 import { MemberFormFields, type MemberDefaults } from "@/components/app/member-form-fields";
 import { MemberGroupFields } from "@/components/app/member-group-fields";
+import { FamilySection } from "@/components/app/family-section";
 import { MemberCategoryFields, type FormCategory } from "@/components/app/member-category-fields";
 import type { PersonRow } from "@/lib/data/people";
 import type { FormField } from "@/lib/forms/registration";
@@ -551,7 +552,7 @@ function PersonDrawer({ person, canWrite, adults, categories = [], onClose, onEd
             </Section>
           )}
 
-          <Section title="Household"><p className="text-sm text-ink-muted">{person.household ?? "---"}</p></Section>
+          <Section title="Family and marriage"><FamilySection key={person.id} personId={person.id} lastName={person.lastName} canWrite={canWrite} /></Section>
 
           {person.departments.length > 0 && (
             <Section title="Departments">

@@ -48,7 +48,7 @@ export const SYSTEM_COLUMNS = [
   "previousChurch", "dateOfMembership", "placeOfBirth", "nationality",
   "country", "region", "district", "town", "nationalId", "houseAddress",
   "homeTown", "workPhone", "postalAddress", "homePhone", "specialInterest",
-  "maritalStatus", "baptized", "emergencyName", "emergencyPhone",
+  "maritalStatus", "weddingDate", "baptized", "emergencyName", "emergencyPhone",
   "emergencyRelation", "emergencyEmail", "emergencyAddress",
   "guardianName", "guardianPhone", "school", "grade",
 ] as const;
@@ -95,6 +95,7 @@ export const SYSTEM_FIELD_CATALOG: FormField[] = [
   { id: "title", label: "Title", type: "select", options: TITLES, system: true },
   { id: "dateOfBirth", label: "Date of birth", type: "date", system: true },
   { id: "maritalStatus", label: "Marital status", type: "select", options: MARITAL, system: true },
+  { id: "weddingDate", label: "Wedding anniversary", type: "date", system: true },
   { id: "occupation", label: "Occupation", type: "text", system: true },
   { id: "employer", label: "Employer", type: "text", system: true },
   { id: "previousChurch", label: "Previous church", type: "text", system: true },

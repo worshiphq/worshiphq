@@ -53,7 +53,7 @@ const AUTOMATION: CatalogItem[] = [
   { key: "auto_visitor_followup", group: "members", label: "Thank you for visiting (first time visitors)", description: "Texted a few days after a visitor registers. Set the delay under Reminders.", placeholders: ["name", "church"], default: DEFAULT_TEMPLATES.visitor_followup, store: "automation", field: "visitor_followup" },
   { key: "auto_new_member", group: "members", label: "Welcome (new members)", description: "Texted to newly registered members.", placeholders: ["name", "church"], default: DEFAULT_TEMPLATES.new_member, store: "automation", field: "new_member" },
   { key: "auto_giving_thanks", group: "giving", label: "Thank you for giving", description: "Texted to members after they have given.", placeholders: ["name", "church"], default: DEFAULT_TEMPLATES.giving_thanks, store: "automation", field: "giving_thanks" },
-  { key: "auto_anniversary", group: "members", label: "Anniversary wish", description: "Texted to a member on their anniversary.", placeholders: ["name", "church"], default: DEFAULT_TEMPLATES.anniversary, store: "automation", field: "anniversary" },
+  { key: "auto_anniversary", group: "members", label: "Anniversary wish", description: "Texted to each partner on their wedding anniversary. Add the date on a member's profile under Family and marriage, or ask for it on your join form.", placeholders: ["name", "church"], default: DEFAULT_TEMPLATES.anniversary, store: "automation", field: "anniversary" },
 ];
 
 const CHURCH: CatalogItem[] = [

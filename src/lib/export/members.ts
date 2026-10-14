@@ -38,6 +38,7 @@ export async function membersTable(churchId: string, age: AgeFilter = "all") {
         branch: { select: { name: true } },
         categoryOptions: { select: { categoryId: true, name: true } },
         groups: { select: { name: true } },
+        household: { select: { name: true } },
       },
     }),
     db.church.findUnique({ where: { id: churchId }, select: { registrationFields: true } }),
@@ -50,7 +51,7 @@ export async function membersTable(churchId: string, age: AgeFilter = "all") {
 
   const headers = [
     "Member ID", "First Name", "Last Name", "Other Names", "Age group", "Email", "Phone", "Gender", "Title",
-    "Date of Birth", "Marital Status", "Occupation", "Employer", "Previous Church", "Date of Membership",
+    "Date of Birth", "Marital Status", "Wedding Anniversary", "Family", "Occupation", "Employer", "Previous Church", "Date of Membership",
     "Place of Birth", "Nationality", "Country", "Region", "District", "Town", "Home Town",
     "National ID", "House Address", "Postal Address", "Work Phone", "Home Phone", "Special Interest",
     "Baptized", "Departments", "Groups", ...categories.map((c) => c.name), "Status",
@@ -63,7 +64,7 @@ export async function membersTable(churchId: string, age: AgeFilter = "all") {
     const cf = (p.customFields as Record<string, string> | null) ?? {};
     return [
       p.memberId, p.firstName, p.lastName, p.otherNames, ageLabel(p.ageGroup), p.email, p.phone, p.gender, p.title,
-      fmtDate(p.dateOfBirth), p.maritalStatus, p.occupation, p.employer,
+      fmtDate(p.dateOfBirth), p.maritalStatus, fmtDate(p.weddingDate), p.household?.name ?? "", p.occupation, p.employer,
       p.previousChurch, fmtDate(p.dateOfMembership), p.placeOfBirth,
       p.nationality, p.country, p.region, p.district, p.town, p.homeTown, p.nationalId,
       p.houseAddress, p.postalAddress, p.workPhone, p.homePhone, p.specialInterest,

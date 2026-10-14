@@ -1,7 +1,7 @@
 import "server-only";
 import { type FormField, isSystemColumn, DEPARTMENT_FIELD_ID, GROUPS_FIELD_ID } from "./registration";
 
-const DATE_FIELDS = new Set(["dateOfBirth", "dateOfMembership"]);
+const DATE_FIELDS = new Set(["dateOfBirth", "dateOfMembership", "weddingDate"]);
 const pad = (n: number) => String(n).padStart(2, "0");
 const MAX_PHOTO = 1_500_000; // ~1.5MB data URL
 
@@ -65,6 +65,11 @@ export async function buildPersonData(fields: FormField[], formData: FormData): 
   if (data.dateOfBirth instanceof Date) {
     const d = data.dateOfBirth as Date;
     data.birthday = `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  }
+  // The wedding date also feeds the anniversary wish (month and day only).
+  if (data.weddingDate instanceof Date) {
+    const w = data.weddingDate as Date;
+    data.anniversary = `${pad(w.getMonth() + 1)}-${pad(w.getDate())}`;
   }
   data.location = (data.town as string) || (data.region as string) || (data.location as string) || null;
 

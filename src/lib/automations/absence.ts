@@ -71,6 +71,12 @@ export async function absentMembers(churchId: string, weeks: number, timezone: s
   return out.sort((a, b) => b.weeksAway - a.weeksAway || a.name.localeCompare(b.name));
 }
 
+/** Is this away member due a text? First text unless they have been away for ages; repeats only up to the limit and after the gap. */
+export function textDue(m: Pick<AbsentMember, "textCount" | "lastTextAt" | "stale">, maxTexts: number, gapMs: number, now: Date) {
+  if (m.textCount === 0) return !m.stale;
+  return m.textCount < maxTexts && !!m.lastTextAt && now.getTime() - m.lastTextAt.getTime() >= gapMs;
+}
+
 /**
  * The "we have not seen you in a while" check. For each church that switched it
  * on: text the member (optional), tell the chosen team members (optional) and
@@ -101,11 +107,7 @@ export async function runAbsenceCheck(now = new Date(), ignoreHour = false, dead
     // 1) Text members who are due a message (never more than the limit).
     if (church.absenceTextMember) {
       const tpl = templateFor(church.messageTemplates, "absent_member");
-      const due = all.filter((m) => {
-        if (!m.phone) return false;
-        if (m.textCount === 0) return !m.stale;
-        return m.textCount < maxTexts && !!m.lastTextAt && now.getTime() - m.lastTextAt.getTime() >= gap;
-      });
+      const due = all.filter((m) => !!m.phone && textDue(m, maxTexts, gap, now));
       for (const m of due) {
         const msg = renderTemplate(tpl, { name: m.firstName, church: church.name, weeks: String(church.absenceWeeks) });
         const res = await sendChurchSms(church.id, m.phone!, msg, { note: m.textCount ? "We miss you (reminder)" : "We miss you (automatic)" });
