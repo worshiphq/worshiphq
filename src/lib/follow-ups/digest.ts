@@ -53,7 +53,7 @@ export async function runFollowUpDigest(now = new Date(), ignoreHour = false, de
       include: {
         person: { select: { firstName: true, lastName: true } },
         visitor: { select: { firstName: true, lastName: true } },
-        assignee: { select: { id: true, name: true, email: true } },
+        assignees: { select: { user: { select: { id: true, name: true, email: true } } } },
       },
       orderBy: { dueDate: "asc" },
     });
@@ -64,7 +64,7 @@ export async function runFollowUpDigest(now = new Date(), ignoreHour = false, de
         const dueYmd = ymdInTz(f.dueDate!, church.timezone);
         const overdueDays = Math.round((startOfToday - Date.parse(`${dueYmd}T00:00:00Z`)) / 86400000);
         const who = f.visitor ?? f.person;
-        return { f, overdueDays, item: { title: f.title, who: who ? `${who.firstName} ${who.lastName}`.trim() : null, overdueDays, assignee: f.assignee?.name ?? null } };
+        return { f, overdueDays, item: { title: f.title, who: who ? `${who.firstName} ${who.lastName}`.trim() : null, overdueDays, assignee: f.assignees.map((a) => a.user.name).join(", ") || null } };
       })
       .filter((x) => x.overdueDays >= 0); // due today or earlier
     if (due.length === 0) return;
@@ -74,10 +74,12 @@ export async function runFollowUpDigest(now = new Date(), ignoreHour = false, de
     // Each assignee gets their own list.
     const byAssignee = new Map<string, { email: string; items: Item[] }>();
     for (const { f, item } of due) {
-      if (!f.assignee || !real(f.assignee.email)) continue;
-      const e = byAssignee.get(f.assignee.id) ?? { email: f.assignee.email, items: [] };
-      e.items.push({ ...item, assignee: null });
-      byAssignee.set(f.assignee.id, e);
+      for (const { user } of f.assignees) {
+        if (!real(user.email)) continue;
+        const e = byAssignee.get(user.id) ?? { email: user.email, items: [] };
+        e.items.push({ ...item, assignee: null });
+        byAssignee.set(user.id, e);
+      }
     }
     for (const { email, items } of byAssignee.values()) {
       const r = await sendEmail({
@@ -89,7 +91,7 @@ export async function runFollowUpDigest(now = new Date(), ignoreHour = false, de
     }
 
     // Admins hear about anything nobody owns.
-    const unassigned = due.filter(({ f }) => !f.assignee).map(({ item }) => item);
+    const unassigned = due.filter(({ f }) => f.assignees.length === 0).map(({ item }) => item);
     if (unassigned.length > 0) {
       const admins = await db.user.findMany({ where: { churchId: church.id, role: { in: ["Owner", "Admin", "Pastor"] } }, select: { email: true } });
       const to = [...new Set(admins.map((a) => a.email).filter(real))];

@@ -57,6 +57,7 @@ export async function createAutoFollowUp(input: {
         visitorId: input.visitorId ?? null,
         personId: input.personId ?? null,
         assigneeId: assignee?.id ?? null,
+        ...(assignee ? { assignees: { create: [{ userId: assignee.id }] } } : {}),
       },
     });
 

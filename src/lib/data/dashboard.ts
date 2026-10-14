@@ -33,7 +33,7 @@ export async function getDashboard(churchId: string) {
         include: {
           person: { select: { firstName: true, lastName: true } },
           visitor: { select: { firstName: true, lastName: true } },
-          assignee: { select: { name: true } },
+          assignees: { select: { user: { select: { name: true } } } },
         },
         orderBy: [{ dueDate: { sort: "asc", nulls: "last" } }, { createdAt: "desc" }],
         take: 5,
@@ -78,7 +78,7 @@ export async function getDashboard(churchId: string) {
     return {
       id: f.id,
       person: who ? `${who.firstName} ${who.lastName}`.trim() : f.title,
-      reason: who ? f.title : f.assignee ? `Assigned to ${f.assignee.name}` : "Not assigned yet",
+      reason: who ? f.title : f.assignees.length ? `Assigned to ${f.assignees.map((a) => a.user.name).join(", ")}` : "Not assigned yet",
       due,
       priority: (days !== null && days < 0 ? "high" : days !== null && days <= 2 ? "medium" : "low") as "high" | "medium" | "low",
     };

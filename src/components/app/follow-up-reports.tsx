@@ -40,14 +40,16 @@ const when = (iso: string) =>
 
 /** "Give report" form plus the history of reports on one follow-up. */
 export function FollowUpReports({
-  followUpId, reports, status, me, canWrite, canManage,
+  followUpId, reports, status, me, canReport, canManage, hasAssignees,
 }: {
   followUpId: string;
   reports: ReportRow[];
   status: string;
   me: string;
-  canWrite: boolean;
+  /** True only for the people this follow-up is assigned to. */
+  canReport: boolean;
   canManage: boolean;
+  hasAssignees: boolean;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
@@ -107,7 +109,7 @@ export function FollowUpReports({
                 <OutcomePill outcome={r.outcome} />
                 <span className="text-ink-muted">{methodLabel(r.method)}</span>
                 <span className="text-ink-faint">· {r.authorName} · {when(r.createdAt)}</span>
-                {canWrite && (r.authorId === me || canManage) && (
+                {(r.authorId === me || canManage) && (
                   <button
                     type="button"
                     onClick={() => remove(r.id)}
@@ -130,10 +132,16 @@ export function FollowUpReports({
         </div>
       )}
 
-      {canWrite && !open && (
+      {canReport && !open && (
         <Button size="sm" variant="secondary" className={cn(reports.length > 0 && "mt-2")} onClick={() => setOpen(true)}>
           <ClipboardCheck className="size-3.5" /> {reports.length > 0 ? "Add another report" : "Give report"}
         </Button>
+      )}
+
+      {!canReport && !open && (
+        <p className={cn("text-xs text-ink-faint", reports.length > 0 && "mt-2")}>
+          {hasAssignees ? "Only the people assigned to this follow-up can report on it." : "Assign someone to this follow-up so they can report on it."}
+        </p>
       )}
 
       {open && (

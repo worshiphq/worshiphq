@@ -37,9 +37,9 @@ export default async function FollowUpReportPage({ searchParams }: { searchParam
     }),
     db.followUp.findMany({
       where: { churchId, status: "done", ...(inRange ? { completedAt: inRange } : {}) },
-      select: { assigneeId: true },
+      select: { assignees: { select: { userId: true } } },
     }),
-    db.followUp.findMany({ where: { churchId, status: { not: "done" } }, select: { assigneeId: true, dueDate: true } }),
+    db.followUp.findMany({ where: { churchId, status: { not: "done" } }, select: { assignees: { select: { userId: true } }, dueDate: true } }),
     db.followUpReport.findMany({
       where: { churchId, ...(inRange ? { createdAt: inRange } : {}) },
       orderBy: { createdAt: "desc" },
@@ -81,13 +81,13 @@ export default async function FollowUpReportPage({ searchParams }: { searchParam
   // Per team member.
   const team = [...users, { id: "", name: "Nobody assigned" }]
     .map((u) => {
-      const open = openNow.filter((f) => (f.assigneeId ?? "") === u.id);
+      const open = openNow.filter((f) => (u.id ? f.assignees.some((a) => a.userId === u.id) : f.assignees.length === 0));
       return {
         id: u.id,
         name: u.name,
         open: open.length,
         overdue: open.filter((f) => f.dueDate && f.dueDate < now).length,
-        done: completedInRange.filter((f) => (f.assigneeId ?? "") === u.id).length,
+        done: completedInRange.filter((f) => (u.id ? f.assignees.some((a) => a.userId === u.id) : f.assignees.length === 0)).length,
         reports: u.id ? reports.filter((r) => r.authorId === u.id).length : 0,
         lastReport: u.id ? reports.find((r) => r.authorId === u.id)?.createdAt ?? null : null,
       };

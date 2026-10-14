@@ -8,6 +8,7 @@ import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { Plus, Settings2, BarChart3 } from "lucide-react";
 import { PendingLink } from "@/components/ui/pending-link";
 import { canManage } from "@/lib/permissions";
+import { MultiPicker } from "@/components/app/multi-picker";
 
 export const metadata = { title: "Follow-ups" };
 
@@ -25,7 +26,7 @@ export default async function FollowUpsPage() {
   const include = {
     person: { select: { firstName: true, lastName: true, phone: true } },
     visitor: { select: { firstName: true, lastName: true, phone: true } },
-    assignee: { select: { name: true } },
+    assignees: { select: { user: { select: { id: true, name: true } } } },
     reports: {
       orderBy: { createdAt: "desc" },
       select: { id: true, method: true, outcome: true, note: true, authorId: true, authorName: true, createdAt: true },
@@ -94,12 +95,11 @@ export default async function FollowUpsPage() {
           <Field label="Title" name="title" placeholder="Call visitor John" required />
           <Field label="Type" name="type" options={TYPE_OPTIONS} defaultValue="custom" />
           <Field label="Note" name="note" placeholder="Additional details…" />
-          <Field
-            label="Assign to"
-            name="assigneeId"
-            defaultValue=""
-            options={[{ label: "Nobody yet", value: "" }, ...users.map((u) => ({ label: u.name, value: u.id }))]}
-          />
+          <div>
+            <label className="mb-1.5 block text-sm font-medium text-ink-muted">Assign to</label>
+            <MultiPicker name="assigneeIds" options={users.map((u) => ({ value: u.id, label: u.name }))} emptyLabel="Nobody yet (pick one or more)" placeholder="Search your team…" />
+            <p className="mt-1 text-[11px] text-ink-faint">Everyone you pick is told, and each of them can report back on it.</p>
+          </div>
           <Field label="Due date" name="dueDate" type="date" />
         </ActionDialog>
       </PageHeader>
@@ -121,8 +121,7 @@ export default async function FollowUpsPage() {
           personName: f.person ? `${f.person.firstName} ${f.person.lastName}` : null,
           visitorName: f.visitor ? `${f.visitor.firstName} ${f.visitor.lastName}` : null,
           phone: f.visitor?.phone ?? f.person?.phone ?? null,
-          assigneeId: f.assigneeId,
-          assigneeName: f.assignee?.name ?? null,
+          assignees: f.assignees.map((a) => ({ id: a.user.id, name: a.user.name })),
           reports: f.reports.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
         }))}
       />

@@ -397,7 +397,7 @@ export const DATASETS: Dataset[] = [
         include: {
           person: { select: { firstName: true, lastName: true, phone: true } },
           visitor: { select: { firstName: true, lastName: true, phone: true } },
-          assignee: { select: { name: true } },
+          assignees: { select: { user: { select: { name: true } } } },
           reports: { orderBy: { createdAt: "desc" }, select: { outcome: true, note: true, createdAt: true } },
         },
       });
@@ -409,7 +409,7 @@ export const DATASETS: Dataset[] = [
           return [
             d(f.createdAt), f.type, f.title,
             who ? `${who.firstName} ${who.lastName}` : "", who?.phone ?? "",
-            f.assignee?.name ?? "", f.status, d(f.dueDate), d(f.completedAt),
+            f.assignees.map((a) => a.user.name).join(", "), f.status, d(f.dueDate), d(f.completedAt),
             f.reports.length, last ? outcomeLabel(last.outcome) : "", last?.note ?? "", d(last?.createdAt),
           ];
         }),

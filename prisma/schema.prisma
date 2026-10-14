@@ -366,6 +366,7 @@ model User {
   person       Person?  @relation(fields: [personId], references: [id])
   createdAt    DateTime @default(now())
   assignedFollowUps FollowUp[]
+  followUpAssignments FollowUpAssignee[] @relation("FollowUpAssignees")
   followUpReports   FollowUpReport[]
   auditLogs         AuditLog[]
   counselingSessions CounselingSession[]
@@ -1274,6 +1275,8 @@ model FollowUp {
   visitor     Visitor? @relation(fields: [visitorId], references: [id], onDelete: SetNull)
   assigneeId  String?
   assignee    User?    @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  // Everyone the task is assigned to (assigneeId above mirrors the first, for old code).
+  assignees   FollowUpAssignee[]
   type        String   // "new_visitor" | "new_member" | "pastoral" | "custom"
   title       String
   note        String?
@@ -1284,6 +1287,18 @@ model FollowUp {
   reports     FollowUpReport[]
 
   @@index([churchId, status])
+}
+
+model FollowUpAssignee {
+  id         String   @id @default(cuid())
+  followUpId String
+  followUp   FollowUp @relation(fields: [followUpId], references: [id], onDelete: Cascade)
+  userId     String
+  user       User     @relation("FollowUpAssignees", fields: [userId], references: [id], onDelete: Cascade)
+  createdAt  DateTime @default(now())
+
+  @@unique([followUpId, userId])
+  @@index([userId])
 }
 
 // What happened each time someone reached out on a follow-up (a call, a visit…).

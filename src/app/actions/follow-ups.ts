@@ -9,6 +9,26 @@ import { notifyFollowUpAssignee } from "@/lib/follow-ups/notify";
 import { REPORT_METHODS, REPORT_OUTCOMES, outcomeLabel } from "@/lib/follow-ups/outcomes";
 import { canManage } from "@/lib/permissions";
 
+type Session = Awaited<ReturnType<typeof requireModule>>;
+
+/** Keep only ids that are real users of this church. */
+async function validUserIds(churchId: string, ids: string[]) {
+  if (ids.length === 0) return [];
+  const users = await db.user.findMany({ where: { churchId, id: { in: ids } }, select: { id: true } });
+  const ok = new Set(users.map((u) => u.id));
+  return ids.filter((id) => ok.has(id));
+}
+
+/** Is this signed-in person one of the people the follow-up is assigned to? */
+async function isAssignee(session: Session, followUpId: string) {
+  if (!session.userId) return false;
+  const hit = await db.followUpAssignee.findFirst({
+    where: { followUpId, userId: session.userId, followUp: { churchId: session.churchId } },
+    select: { id: true },
+  });
+  return !!hit;
+}
+
 export async function createFollowUp(formData: FormData) {
   const session = await requireManage("follow-ups");
   const title = String(formData.get("title") ?? "").trim();
@@ -21,38 +41,42 @@ export async function createFollowUp(formData: FormData) {
   const personId = String(formData.get("personId") ?? "").trim() || null;
   const visitorId = String(formData.get("visitorId") ?? "").trim() || null;
 
-  // Only assign to someone who actually belongs to this church.
-  const assigneeRaw = String(formData.get("assigneeId") ?? "").trim() || null;
-  const assigneeId = assigneeRaw
-    ? (await db.user.findFirst({ where: { id: assigneeRaw, churchId: session.churchId }, select: { id: true } }))?.id ?? null
-    : null;
+  // Only assign to people who actually belong to this church.
+  const wanted = [...new Set([...formData.getAll("assigneeIds"), formData.get("assigneeId")].map((v) => String(v ?? "").trim()).filter(Boolean))];
+  const assigneeIds = await validUserIds(session.churchId, wanted);
 
-  await db.followUp.create({
+  const created = await db.followUp.create({
     data: {
       church: { connect: { id: session.churchId } },
       title,
       type,
       note,
       dueDate,
-      ...(assigneeId ? { assignee: { connect: { id: assigneeId } } } : {}),
+      ...(assigneeIds[0] ? { assignee: { connect: { id: assigneeIds[0] } } } : {}),
+      ...(assigneeIds.length ? { assignees: { create: assigneeIds.map((userId) => ({ userId })) } } : {}),
       ...(personId ? { person: { connect: { id: personId } } } : {}),
       ...(visitorId ? { visitor: { connect: { id: visitorId } } } : {}),
     },
   });
 
-  if (assigneeId) {
+  for (const assigneeId of assigneeIds) {
     await notifyFollowUpAssignee({ churchId: session.churchId, assigneeId, title, note, dueDate, personId, visitorId });
   }
 
-  await audit(session, "create", "follow-up", `Created follow-up "${title}"${assigneeId ? " (assignee notified)" : ""}`);
+  const assigneeCount = assigneeIds.length;
+  await audit(session, "create", "follow-up", `Created follow-up "${title}"${assigneeCount ? ` (${assigneeCount} assignee${assigneeCount === 1 ? "" : "s"} notified)` : ""}`, created.id);
   revalidatePath("/app/follow-ups");
 }
 
 export async function updateFollowUpStatus(formData: FormData) {
-  const session = await requireManage("follow-ups");
+  const session = await requireModule("follow-ups");
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "");
   if (!id || !["open", "in_progress", "done"].includes(status)) return;
+  if (session.isDemo) return;
+  if (!canManage(session, "follow-ups") && !(await isAssignee(session, id))) {
+    throw new Error("Only the people assigned to this follow-up, or a leader, can change its status.");
+  }
 
   await db.followUp.updateMany({
     where: { id, churchId: session.churchId },
@@ -66,34 +90,41 @@ export async function updateFollowUpStatus(formData: FormData) {
   revalidatePath("/app");
 }
 
-/** Hand a follow-up to someone else (or nobody). The new person is told. */
-export async function assignFollowUp(id: string, assigneeId: string | null) {
+/**
+ * Set exactly who a follow-up is assigned to (one person, several, or nobody).
+ * Anyone with Manage on follow-ups can do this. People newly added are told.
+ */
+export async function setFollowUpAssignees(id: string, userIds: string[]) {
   const session = await requireManage("follow-ups");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
 
   const followUp = await db.followUp.findFirst({
     where: { id, churchId: session.churchId },
-    select: { id: true, title: true, note: true, dueDate: true, personId: true, visitorId: true, assigneeId: true },
+    select: { id: true, title: true, note: true, dueDate: true, personId: true, visitorId: true, assignees: { select: { userId: true } } },
   });
   if (!followUp) return { ok: false as const, error: "Follow-up not found." };
 
-  let next: string | null = null;
-  if (assigneeId) {
-    const user = await db.user.findFirst({ where: { id: assigneeId, churchId: session.churchId }, select: { id: true } });
-    if (!user) return { ok: false as const, error: "That person is not on your team." };
-    next = user.id;
-  }
-  if (next === followUp.assigneeId) return { ok: true as const };
+  const next = await validUserIds(session.churchId, [...new Set(userIds)]);
+  const before = new Set(followUp.assignees.map((a) => a.userId));
+  const added = next.filter((u) => !before.has(u));
+  const removed = [...before].filter((u) => !next.includes(u));
+  if (added.length === 0 && removed.length === 0) return { ok: true as const };
 
-  await db.followUp.update({ where: { id }, data: { assigneeId: next } });
-  if (next) {
+  await db.$transaction([
+    ...(removed.length ? [db.followUpAssignee.deleteMany({ where: { followUpId: id, userId: { in: removed } } })] : []),
+    ...(added.length ? [db.followUpAssignee.createMany({ data: added.map((userId) => ({ followUpId: id, userId })), skipDuplicates: true })] : []),
+    db.followUp.update({ where: { id }, data: { assigneeId: next[0] ?? null } }),
+  ]);
+
+  for (const assigneeId of added) {
     await notifyFollowUpAssignee({
-      churchId: session.churchId, assigneeId: next, title: followUp.title, note: followUp.note,
+      churchId: session.churchId, assigneeId, title: followUp.title, note: followUp.note,
       dueDate: followUp.dueDate, personId: followUp.personId, visitorId: followUp.visitorId,
     });
   }
-  await audit(session, "update", "follow-up", next ? "Reassigned a follow-up" : "Unassigned a follow-up", id);
+  await audit(session, "update", "follow-up", next.length ? `Changed who a follow-up is assigned to (${next.length})` : "Unassigned a follow-up", id);
   revalidatePath("/app/follow-ups");
+  revalidatePath("/app");
   return { ok: true as const };
 }
 
@@ -112,8 +143,12 @@ export async function setFollowUpDue(id: string, date: string | null) {
  * open task to "in progress", or to "done" when the reporter says it is finished.
  */
 export async function addFollowUpReport(input: { followUpId: string; method: string; outcome: string; note?: string; markDone?: boolean }) {
-  const session = await requireManage("follow-ups");
+  // Viewing is enough: what matters is that this follow-up is assigned to you.
+  const session = await requireModule("follow-ups");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  if (!(await isAssignee(session, input.followUpId))) {
+    return { ok: false as const, error: "Only the people assigned to this follow-up can report on it. Ask a leader to assign you." };
+  }
   if (!REPORT_METHODS.some((m) => m.value === input.method)) return { ok: false as const, error: "Choose how you reached out." };
   if (!REPORT_OUTCOMES.some((o) => o.value === input.outcome)) return { ok: false as const, error: "Choose what happened." };
 
@@ -151,7 +186,7 @@ export async function addFollowUpReport(input: { followUpId: string; method: str
 
 /** Remove a report (its author, or anyone who manages follow-ups). */
 export async function deleteFollowUpReport(id: string) {
-  const session = await requireManage("follow-ups");
+  const session = await requireModule("follow-ups");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const report = await db.followUpReport.findFirst({ where: { id, churchId: session.churchId }, select: { authorId: true } });
   if (!report) return { ok: false as const, error: "Report not found." };
@@ -168,8 +203,11 @@ export async function deleteFollowUpReport(id: string) {
 
 /** Edit the task's details. */
 export async function setFollowUpNote(id: string, note: string) {
-  const session = await requireManage("follow-ups");
+  const session = await requireModule("follow-ups");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  if (!canManage(session, "follow-ups") && !(await isAssignee(session, id))) {
+    return { ok: false as const, error: "Only the people assigned to this follow-up, or a leader, can edit its details." };
+  }
   const clean = note.trim().slice(0, 2000) || null;
   const res = await db.followUp.updateMany({ where: { id, churchId: session.churchId }, data: { note: clean } });
   if (res.count === 0) return { ok: false as const, error: "Follow-up not found." };

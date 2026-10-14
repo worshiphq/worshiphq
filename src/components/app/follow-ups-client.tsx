@@ -8,13 +8,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   Search, CheckCircle2, Clock, Circle, UserRoundPlus, UserPlus, Heart, ListTodo,
-  Calendar, User, Trash2, Loader2, Phone, MessageCircle, Pencil,
+  Calendar, User, Users, Trash2, Loader2, Phone, MessageCircle, Pencil,
 } from "lucide-react";
-import { updateFollowUpStatus, deleteFollowUp, assignFollowUp, setFollowUpDue, setFollowUpNote } from "@/app/actions/follow-ups";
+import { updateFollowUpStatus, deleteFollowUp, setFollowUpAssignees, setFollowUpDue, setFollowUpNote } from "@/app/actions/follow-ups";
 import { normalisePhone } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 import { FollowUpReports, OutcomePill, type ReportRow } from "@/components/app/follow-up-reports";
 import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
+import { MultiPicker } from "@/components/app/multi-picker";
 
 type FollowUpRow = {
   id: string;
@@ -28,8 +29,7 @@ type FollowUpRow = {
   personName: string | null;
   visitorName: string | null;
   phone: string | null;
-  assigneeId: string | null;
-  assigneeName: string | null;
+  assignees: { id: string; name: string }[];
   reports: ReportRow[];
 };
 
@@ -63,6 +63,7 @@ export function FollowUpsClient({
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [editing, setEditing] = useState<{ id: string; text: string } | null>(null);
+  const [assigning, setAssigning] = useState<{ id: string; ids: string[] } | null>(null);
   const [, start] = useTransition();
 
   const today = startOfToday();
@@ -71,7 +72,7 @@ export function FollowUpsClient({
 
   const counts = {
     active: items.filter(isActive).length,
-    mine: items.filter((f) => isActive(f) && f.assigneeId === me).length,
+    mine: items.filter((f) => isActive(f) && f.assignees.some((a) => a.id === me)).length,
     overdue: items.filter(isOverdue).length,
     done: items.filter((f) => !isActive(f)).length,
     all: items.length,
@@ -79,7 +80,7 @@ export function FollowUpsClient({
 
   const filtered = items.filter((f) => {
     if (filter === "active" && !isActive(f)) return false;
-    if (filter === "mine" && !(isActive(f) && f.assigneeId === me)) return false;
+    if (filter === "mine" && !(isActive(f) && f.assignees.some((a) => a.id === me))) return false;
     if (filter === "overdue" && !isOverdue(f)) return false;
     if (filter === "done" && isActive(f)) return false;
     if (!search) return true;
@@ -88,7 +89,7 @@ export function FollowUpsClient({
       f.title.toLowerCase().includes(q) ||
       f.personName?.toLowerCase().includes(q) ||
       f.visitorName?.toLowerCase().includes(q) ||
-      f.assigneeName?.toLowerCase().includes(q)
+      f.assignees.some((a) => a.name.toLowerCase().includes(q))
     );
   });
 
@@ -138,8 +139,6 @@ export function FollowUpsClient({
     { key: "all", label: "All" },
   ];
 
-  const selectCls = "h-8 max-w-[11rem] rounded-lg border border-line bg-surface px-2 text-xs text-ink-muted outline-none focus:border-primary/50 disabled:opacity-60";
-
   return (
     <div className="mt-5 space-y-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -184,6 +183,8 @@ export function FollowUpsClient({
             const overdue = isOverdue(f);
             const saving = busy === f.id;
             const who = f.visitorName ?? f.personName;
+            const mine = f.assignees.some((a) => a.id === me);
+            const canAct = canWrite || mine; // managers, and the people it is assigned to
 
             return (
               <Card key={f.id} className={cn("p-4", saving && "opacity-70")}>
@@ -239,7 +240,7 @@ export function FollowUpsClient({
                     ) : (
                       <div className="mt-1 flex items-start gap-2 text-xs">
                         {f.note && <span className="whitespace-pre-line italic text-ink-faint">{f.note}</span>}
-                        {canWrite && (
+                        {canAct && (
                           <button
                             type="button"
                             onClick={() => setEditing({ id: f.id, text: f.note ?? "" })}
@@ -271,7 +272,7 @@ export function FollowUpsClient({
                       return (
                         <button
                           key={s.value}
-                          disabled={!canWrite || saving || on}
+                          disabled={!canAct || saving || on}
                           onClick={() => setStatus(f.id, s.value)}
                           className={cn(
                             "flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-xs font-medium transition-colors",
@@ -284,16 +285,28 @@ export function FollowUpsClient({
                     })}
                   </div>
 
-                  <select
-                    value={f.assigneeId ?? ""}
-                    disabled={!canWrite || saving}
-                    onChange={(e) => run(f.id, () => assignFollowUp(f.id, e.target.value || null))}
-                    className={selectCls}
-                    aria-label="Assigned to"
-                  >
-                    <option value="">Unassigned</option>
-                    {users.map((u) => <option key={u.id} value={u.id}>{u.name}{u.id === me ? " (me)" : ""}</option>)}
-                  </select>
+                  <div className="flex min-h-8 flex-wrap items-center gap-1.5 rounded-lg border border-line px-2 py-1 text-xs text-ink-muted">
+                    <Users className="size-3.5 shrink-0" />
+                    {f.assignees.length === 0 ? (
+                      <span className="text-ink-faint">Unassigned</span>
+                    ) : (
+                      f.assignees.map((a) => (
+                        <span key={a.id} className={cn("rounded-full bg-surface-2 px-2 py-0.5 font-medium", a.id === me && "bg-primary/10 text-primary")}>
+                          {a.id === me ? "Me" : a.name}
+                        </span>
+                      ))
+                    )}
+                    {canWrite && (
+                      <button
+                        type="button"
+                        disabled={saving}
+                        onClick={() => setAssigning(assigning?.id === f.id ? null : { id: f.id, ids: f.assignees.map((a) => a.id) })}
+                        className="ml-1 inline-flex items-center gap-1 font-medium text-primary hover:underline disabled:opacity-50"
+                      >
+                        <Pencil className="size-3" /> {f.assignees.length ? "Change" : "Assign"}
+                      </button>
+                    )}
+                  </div>
 
                   <label className={cn("flex h-8 items-center gap-1.5 rounded-lg border px-2 text-xs", overdue ? "border-warning/40 text-warning" : "border-line text-ink-muted")}>
                     <Calendar className="size-3.5" />
@@ -308,7 +321,33 @@ export function FollowUpsClient({
                   </label>
                 </div>
 
-                <FollowUpReports followUpId={f.id} reports={f.reports} status={f.status} me={me} canWrite={canWrite} canManage={canManage} />
+                {assigning?.id === f.id && (
+                  <div className="mt-3 space-y-2 rounded-xl border border-line bg-surface-2/40 p-3">
+                    <div className="text-xs font-medium text-ink-muted">Who is this follow-up assigned to? Anyone you add is told.</div>
+                    <MultiPicker
+                      options={users.map((u) => ({ value: u.id, label: u.id === me ? `${u.name} (me)` : u.name }))}
+                      defaultValue={assigning.ids}
+                      onChange={(ids) => setAssigning({ id: f.id, ids })}
+                      placeholder="Search your team…"
+                    />
+                    <div className="flex gap-2">
+                      <Button
+                        size="sm"
+                        disabled={saving}
+                        onClick={() => run(f.id, async () => {
+                          const res = await setFollowUpAssignees(f.id, assigning.ids);
+                          if (res.ok) setAssigning(null);
+                          return res;
+                        })}
+                      >
+                        {saving ? <><Loader2 className="size-3.5 animate-spin" /> Saving…</> : "Save assignees"}
+                      </Button>
+                      <Button size="sm" variant="secondary" onClick={() => setAssigning(null)} disabled={saving}>Cancel</Button>
+                    </div>
+                  </div>
+                )}
+
+                <FollowUpReports followUpId={f.id} reports={f.reports} status={f.status} me={me} canReport={mine} canManage={canManage} hasAssignees={f.assignees.length > 0} />
               </Card>
             );
           })}
