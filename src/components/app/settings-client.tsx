@@ -33,6 +33,7 @@ import { RoleMatrix } from "@/components/app/role-matrix";
 import { BrandingForm } from "@/components/app/branding-form";
 import { BackupsPanel } from "@/components/app/backups-panel";
 import { FormBuilder } from "@/components/app/form-builder";
+import { LinksTab } from "@/components/app/links-tab";
 import { getFormDefinition, getVisitorFormDefinition, getChildrenFormDefinition, getTeensFormDefinition } from "@/lib/forms/registration";
 import { createDepartment, deleteDepartment } from "@/app/actions/departments";
 import { plans as defaultPlans } from "@/config/pricing";
@@ -107,7 +108,7 @@ const tabs = [
   { key: "departments", label: "Departments", icon: Layers },
   { key: "categories", label: "Zones & fellowships", icon: Tags },
   { key: "service-times", label: "Service times", icon: Clock },
-  { key: "registration", label: "Join link", icon: Link2 },
+  { key: "registration", label: "Links & forms", icon: Link2 },
   { key: "billing", label: "Billing", icon: CreditCard },
   { key: "online-payments", label: "Online Payments", icon: Wallet },
   { key: "sms", label: "SMS Settings", icon: MessageSquare },
@@ -505,92 +506,68 @@ export function SettingsClient({
           </div>
         )}
 
-        {/* ── Join link / registration form config ── */}
+        {/* ── Links and sign-up forms ── */}
         {tab === "registration" && (
-          <div className="space-y-4">
-            <SlugEditor slug={church?.slug ?? ""} ro={ro} isAdmin={isAdmin} />
-
-            <SharedLinkCard
-              title="Member self-registration"
-              description="Share this link with your congregation. Members fill in their own details and appear in your People list automatically."
-              path={`/join/${church?.slug ?? ""}`}
-              slug={church?.slug}
-            />
-
-            {isAdmin && (
-              <FormBuilder initial={getFormDefinition(church?.registrationFields ?? null)} readOnly={ro} />
-            )}
-
-            <SharedLinkCard
-              title="Visitor form"
-              description="A simpler form for first-time visitors. Collects name, phone, purpose of visit and prayer requests."
-              path={`/visit/${church?.slug ?? ""}`}
-              slug={church?.slug}
-            />
-
-            {isAdmin && (
-              <FormBuilder
-                initial={getVisitorFormDefinition(church?.visitorFormFields ?? null)}
-                readOnly={ro}
-                saveAction={saveVisitorForm}
-                title="Visitor form builder"
-                description="Customise the fields first-time visitors fill in. Name fields are always required."
-              />
-            )}
-
-            <SharedLinkCard
-              title="Children's registration"
-              description="A simplified form for registering children. Collects guardian details, school and class info."
-              path={`/children/${church?.slug ?? ""}`}
-              slug={church?.slug}
-            />
-
-            {isAdmin && (
-              <FormBuilder
-                initial={getChildrenFormDefinition(church?.childrenFormFields ?? null)}
-                readOnly={ro}
-                saveAction={saveChildrenForm}
-                title="Children's form builder"
-                description="Customise the fields for children's registration. Guardian details are included by default."
-              />
-            )}
-
-            <SharedLinkCard
-              title="Teens registration"
-              description="Registration for teens. Includes guardian info and lets teens select which department they serve in."
-              path={`/teens/${church?.slug ?? ""}`}
-              slug={church?.slug}
-            />
-
-            {isAdmin && (
-              <FormBuilder
-                initial={getTeensFormDefinition(church?.teensFormFields ?? null)}
-                readOnly={ro}
-                saveAction={saveTeensForm}
-                title="Teens form builder"
-                description="Customise the fields for teen registration. Includes department selection so teens can join ministries."
-              />
-            )}
-
-            <SharedLinkCard
-              title="Prayer requests"
-              description="Share this link so members can submit prayer requests online."
-              path={`/pray/${church?.slug ?? ""}`}
-              slug={church?.slug}
-            />
-            <SharedLinkCard
-              title="Testimonies"
-              description="Members share testimonies here. You review each one before it's published; admins get an SMS + email on every submission."
-              path={`/testify/${church?.slug ?? ""}`}
-              slug={church?.slug}
-            />
-            <SharedLinkCard
-              title="Counselling requests"
-              description="Members privately request counselling. It opens a confidential case and notifies your admins by SMS + email."
-              path={`/counsel/${church?.slug ?? ""}`}
-              slug={church?.slug}
-            />
-          </div>
+          <LinksTab
+            slugEditor={<SlugEditor slug={church?.slug ?? ""} ro={ro} isAdmin={isAdmin} />}
+            forms={[
+              {
+                key: "member", icon: "member", title: "Member registration",
+                description: "Members fill in their own details and appear in your People list automatically.",
+                path: `/join/${church?.slug ?? ""}`,
+                builder: isAdmin ? <FormBuilder initial={getFormDefinition(church?.registrationFields ?? null)} readOnly={ro} /> : undefined,
+              },
+              {
+                key: "visitor", icon: "visitor", title: "Visitor form",
+                description: "A simple form for first-time visitors: name, phone, purpose of visit, prayer requests.",
+                path: `/visit/${church?.slug ?? ""}`,
+                builder: isAdmin ? (
+                  <FormBuilder
+                    initial={getVisitorFormDefinition(church?.visitorFormFields ?? null)}
+                    readOnly={ro}
+                    saveAction={saveVisitorForm}
+                    title="Visitor form builder"
+                    description="Customise the fields first-time visitors fill in. Name fields are always required."
+                  />
+                ) : undefined,
+              },
+              {
+                key: "children", icon: "children", title: "Children's registration",
+                description: "Register children with guardian details, school and class.",
+                path: `/children/${church?.slug ?? ""}`,
+                builder: isAdmin ? (
+                  <FormBuilder
+                    initial={getChildrenFormDefinition(church?.childrenFormFields ?? null)}
+                    readOnly={ro}
+                    saveAction={saveChildrenForm}
+                    title="Children's form builder"
+                    description="Customise the fields for children's registration. Guardian details are included by default."
+                  />
+                ) : undefined,
+              },
+              {
+                key: "teens", icon: "teens", title: "Teens registration",
+                description: "Teens register with guardian info and choose the department they serve in.",
+                path: `/teens/${church?.slug ?? ""}`,
+                builder: isAdmin ? (
+                  <FormBuilder
+                    initial={getTeensFormDefinition(church?.teensFormFields ?? null)}
+                    readOnly={ro}
+                    saveAction={saveTeensForm}
+                    title="Teens form builder"
+                    description="Customise the fields for teen registration. Includes department selection so teens can join ministries."
+                  />
+                ) : undefined,
+              },
+            ]}
+            share={[
+              { key: "pray", icon: "prayer", title: "Prayer requests", description: "Members submit prayer requests online.", path: `/pray/${church?.slug ?? ""}` },
+              { key: "testify", icon: "testimony", title: "Testimonies", description: "Members share testimonies. You review each one before it is published.", path: `/testify/${church?.slug ?? ""}` },
+              { key: "counsel", icon: "counsel", title: "Counselling requests", description: "Members privately request counselling. Your admins are notified.", path: `/counsel/${church?.slug ?? ""}` },
+              { key: "give", icon: "give", title: "Online giving", description: "Mobile Money and card giving page.", path: `/give/${church?.slug ?? ""}` },
+              { key: "book", icon: "book", title: "Facility booking", description: "People request a hall or room for an event.", path: `/book/${church?.slug ?? ""}` },
+            ]}
+          />
         )}
 
         {/* ── Billing ── */}
@@ -1585,13 +1562,12 @@ function SlugEditor({ slug, ro, isAdmin }: { slug: string; ro: boolean; isAdmin:
     .replace(/^-|-$/g, "");
 
   return (
-    <Card className="p-6">
-      <h3 className="font-display text-lg font-semibold">Your church link</h3>
-      <p className="text-sm text-ink-muted">
-        This slug is used in all your shared links - membership, visitor form and prayer requests.
-        Changing it updates every link at once.
-      </p>
-      <div className="mt-4 flex items-center gap-2">
+    <Card className="p-4">
+      <div className="flex flex-wrap items-baseline gap-x-3">
+        <h3 className="font-display text-[1rem] font-semibold">Your church link name</h3>
+        <p className="text-xs text-ink-muted">Used in every link below. Changing it updates all of them at once.</p>
+      </div>
+      <div className="mt-3 flex items-center gap-2">
         {editing ? (
           <>
             <div className="flex flex-1 items-center rounded-xl border border-line bg-surface px-3">
@@ -1634,41 +1610,6 @@ function SlugEditor({ slug, ro, isAdmin }: { slug: string; ro: boolean; isAdmin:
       {error && <p className="mt-2 text-xs text-danger">{error}</p>}
       {editing && preview && preview !== slug && (
         <p className="mt-2 text-xs text-ink-faint">Preview: /join/<strong>{preview}</strong></p>
-      )}
-    </Card>
-  );
-}
-
-function SharedLinkCard({ title, description, path, slug }: { title: string; description: string; path: string; slug?: string }) {
-  const origin = typeof window !== "undefined" ? window.location.origin : "";
-  const url = slug ? `${origin}${path}` : "";
-  const [copied, setCopied] = useState(false);
-
-  return (
-    <Card className="p-5">
-      <h3 className="text-sm font-semibold">{title}</h3>
-      <p className="mt-1 text-xs text-ink-muted">{description}</p>
-      {url && (
-        <div className="mt-3 flex items-center gap-2">
-          <Input value={url} readOnly className="flex-1 font-mono text-xs" />
-          <Button
-            type="button"
-            variant="secondary"
-            size="sm"
-            onClick={() => {
-              navigator.clipboard.writeText(url);
-              setCopied(true);
-              setTimeout(() => setCopied(false), 2000);
-            }}
-          >
-            {copied ? <><Check className="size-3.5" /> Copied</> : <><Link2 className="size-3.5" /> Copy</>}
-          </Button>
-          <a href={path} target="_blank" rel="noopener noreferrer">
-            <Button type="button" variant="ghost" size="sm">
-              <ExternalLink className="size-3.5" /> Open
-            </Button>
-          </a>
-        </div>
       )}
     </Card>
   );
