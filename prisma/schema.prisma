@@ -1571,10 +1571,35 @@ model CounselingSession {
   confidential Boolean  @default(true)
   date         DateTime @default(now())
   followUpDate DateTime?
+  // Who it is with when they are not a member (a visitor, someone from outside).
+  counseleeName  String?
+  counseleePhone String?
+  // The booked appointment (date and time), and whether the person is texted about it.
+  scheduledAt    DateTime?
+  reminderSentAt DateTime?
+  textUpdates    Boolean  @default(false)
+  messages       CounselingMessage[]
   createdAt    DateTime @default(now())
 
   @@index([churchId, date])
   @@index([personId])
+  @@index([churchId, scheduledAt])
+}
+
+// Every text sent about a counselling session (the topic is never put in a text).
+model CounselingMessage {
+  id        String   @id @default(cuid())
+  churchId  String
+  sessionId String
+  session   CounselingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  kind      String   // scheduled | reminder | update | custom
+  body      String   @db.Text
+  sentTo    String
+  sentBy    String   // a name, or "Automatic reminder"
+  ok        Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
 }
 
 // ── Budget Management ────────────────────────────────────

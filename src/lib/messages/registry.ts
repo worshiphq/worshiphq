@@ -38,6 +38,27 @@ export const MESSAGE_TEMPLATES: MessageTemplate[] = [
     default: "New follow-up assigned to you at {church}: \"{title}\". {details} Please action it. God bless.",
   },
   {
+    key: "counseling_scheduled",
+    label: "Counselling appointment booked",
+    description: "Texted to the person when a counselling session is booked for them. Never includes what it is about.",
+    placeholders: ["name", "church", "counselor", "when"],
+    default: "Hi {name}, your counselling appointment at {church} with {counselor} is booked for {when}. Reply or call the church office if you need to change it. God bless you.",
+  },
+  {
+    key: "counseling_reminder",
+    label: "Counselling appointment reminder",
+    description: "Texted automatically the day before a counselling appointment (and when you tap Send reminder).",
+    placeholders: ["name", "church", "counselor", "when"],
+    default: "Hi {name}, a reminder of your counselling appointment at {church} with {counselor} on {when}. We look forward to seeing you. God bless.",
+  },
+  {
+    key: "counseling_update",
+    label: "Counselling appointment changed",
+    description: "Texted when a counselling appointment is moved or its details change.",
+    placeholders: ["name", "church", "counselor", "when"],
+    default: "Hi {name}, your counselling appointment at {church} with {counselor} has been updated. It is now {when}. God bless you.",
+  },
+  {
     key: "visitor_return",
     label: "Good to see you again (returning visitor)",
     description: "Send this from a visitor's profile when they check in or visit again - it's never sent automatically.",
