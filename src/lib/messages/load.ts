@@ -27,7 +27,7 @@ export async function loadMessageCenter(churchId: string): Promise<MessageCenter
     let v: string | null | undefined;
     if (item.store === "registry") v = saved[item.key];
     else if (item.store === "church") v = (church as Record<string, unknown> | null)?.[item.field!] as string | null | undefined;
-    else v = automations.find((a) => a.trigger === item.field)?.messageTemplate;
+    else v = saved[item.key] ?? automations.find((a) => a.trigger === item.field)?.messageTemplate;
     if (typeof v === "string" && v.trim() && v.trim() !== item.default.trim()) values[item.key] = v;
   }
   return { values, automations: [...new Set(automations.map((a) => a.trigger))] };

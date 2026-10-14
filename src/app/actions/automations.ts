@@ -153,14 +153,27 @@ export async function saveBirthdaySettings(formData: FormData) {
 }
 
 /** Save the "we have not seen you in a while" settings. */
-export async function saveAbsenceSettings(input: { on: boolean; weeks: number; textMember: boolean; alertAdmins: boolean }) {
+export async function saveAbsenceSettings(input: {
+  on: boolean; weeks: number; textMember: boolean; alertAdmins: boolean;
+  maxTexts: number; repeatWeeks: number; createFollowUp: boolean; notifyUserIds: string[];
+}) {
   const session = await requireSession();
   assertCanWrite(session, "reminders");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const weeks = Math.min(52, Math.max(1, Math.trunc(input.weeks) || 3));
+  const maxTexts = Math.min(5, Math.max(1, Math.trunc(input.maxTexts) || 1));
+  const repeatWeeks = Math.min(12, Math.max(1, Math.trunc(input.repeatWeeks) || 2));
+  // Only people who belong to this church can be chosen.
+  const users = input.notifyUserIds.length
+    ? await db.user.findMany({ where: { churchId: session.churchId, id: { in: input.notifyUserIds } }, select: { id: true } })
+    : [];
   await db.church.update({
     where: { id: session.churchId },
-    data: { absenceOn: !!input.on, absenceWeeks: weeks, absenceTextMember: !!input.textMember, absenceAlertAdmins: !!input.alertAdmins },
+    data: {
+      absenceOn: !!input.on, absenceWeeks: weeks, absenceTextMember: !!input.textMember, absenceAlertAdmins: !!input.alertAdmins,
+      absenceMaxTexts: maxTexts, absenceRepeatWeeks: repeatWeeks, absenceCreateFollowUp: !!input.createFollowUp,
+      absenceNotifyUserIds: users.map((u) => u.id),
+    },
   });
   await audit(session, "update", "settings", input.on ? `Switched on "not seen in a while" after ${weeks} week(s)` : 'Switched off "not seen in a while"');
   revalidatePath("/app/reminders");

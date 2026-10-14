@@ -73,7 +73,6 @@ export function RemindersClient({
               <option value="birthday">Birthday - wish the member on their birthday</option>
               <option value="anniversary">Anniversary - celebrate their anniversary</option>
               <option value="visitor_followup">New visitor - welcome them after they register</option>
-              <option value="lapsed">Lapsed member - gently check in if inactive</option>
               <option value="new_member">New member - welcome newly registered members</option>
               <option value="giving_thanks">Giving thanks - thank members who gave recently</option>
               <option value="custom">Custom reminder - set your own date &amp; schedule</option>

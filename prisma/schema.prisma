@@ -164,6 +164,13 @@ model Church {
   absenceWeeks       Int     @default(3)
   absenceTextMember  Boolean @default(true)
   absenceAlertAdmins Boolean @default(true)
+  // How often a member is texted for one absence: up to absenceMaxTexts times, absenceRepeatWeeks apart (1 = just once).
+  absenceMaxTexts      Int      @default(1)
+  absenceRepeatWeeks   Int      @default(2)
+  // Open a follow-up for each newly away member, assigned to the people below.
+  absenceCreateFollowUp Boolean @default(false)
+  // Team members who receive the "not seen" alert and the follow-ups. Empty = every admin.
+  absenceNotifyUserIds String[] @default([])
   /** Days before a pledge due date to auto-remind, e.g. [30, 7, 3]. */
   pledgeReminderDays     Int[]   @default([30, 7, 3])
   pledgePayments         PledgePayment[]
@@ -409,12 +416,15 @@ model Person {
   photoUrl    String?
   birthday    String? // MM-DD
   anniversary String? // MM-DD
+  weddingDate DateTime? // full wedding date when known; anniversary above is its MM-DD
+  householdRole String? // head, spouse, child, other
   joinedAt    DateTime     @default(now())
   notes       String?
   customFields Json?
 
   // ── Automation dedupe guards (see src/lib/automations/run.ts) ──
   newMemberWelcomeSentAt DateTime? // set once the "new member" automation has texted them
+  lapsedSmsCount         Int       @default(0) // texts sent for the current absence (counts again from 0 after they attend)
   lapsedAlertedAt        DateTime? // admins were told this person has been away; re-arms when they attend again
   lapsedSmsSentAt        DateTime? // set once the "we miss you" automation has texted them; cleared when status returns to active so a future lapse can fire again
 
@@ -513,6 +523,7 @@ model Household {
   churchId String
   church   Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
   name     String
+  kind     String   @default("family") // family | couple
   members  Person[]
 
   @@index([churchId])

@@ -57,16 +57,15 @@ export async function saveMessageTemplate(key: string, text: string | null) {
   const clean = (text ?? "").trim().slice(0, 1000);
   const value = clean && clean !== item.default.trim() ? clean : null;
 
-  if (item.store === "registry") {
+  if (item.store === "registry" || item.store === "automation") {
     const church = await db.church.findUnique({ where: { id: session.churchId }, select: { messageTemplates: true } });
     const map = { ...((church?.messageTemplates as Record<string, string> | null) ?? {}) };
     if (value) map[key] = value; else delete map[key];
     await db.church.update({ where: { id: session.churchId }, data: { messageTemplates: map } });
-  } else if (item.store === "church") {
-    await db.church.update({ where: { id: session.churchId }, data: { [item.field!]: value } });
+    // Keep the automation's own copy in step, so a text can be written before the automation is switched on.
+    if (item.store === "automation") await db.automation.updateMany({ where: { churchId: session.churchId, trigger: item.field! }, data: { messageTemplate: value } });
   } else {
-    const res = await db.automation.updateMany({ where: { churchId: session.churchId, trigger: item.field! }, data: { messageTemplate: value } });
-    if (res.count === 0) return { ok: false as const, error: "Switch this automation on under Reminders first, then you can edit its message." };
+    await db.church.update({ where: { id: session.churchId }, data: { [item.field!]: value } });
   }
 
   await audit(session, "update", "settings", `Edited the message "${item.label}"`);

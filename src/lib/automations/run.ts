@@ -6,6 +6,12 @@ import { forEachChurch, type Deadline } from "@/lib/automations/pool";
 import type { Channel, Automation } from "@prisma/client";
 import { DEFAULT_TEMPLATES } from "@/lib/messages/automation-defaults";
 
+/** The church's own wording for an automation text, written in the Message Center. */
+function savedTemplate(store: unknown, trigger: string): string | null {
+  const v = store && typeof store === "object" ? (store as Record<string, unknown>)[`auto_${trigger}`] : null;
+  return typeof v === "string" && v.trim() ? v : null;
+}
+
 function todayMMDD(now = new Date()): string {
   return `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 }
@@ -72,7 +78,7 @@ export async function runAutomations(now = new Date(), opts: { only?: string[]; 
 }> {
   const churches = await db.church.findMany({
     where: { isDemo: false },
-    select: { id: true, name: true, timezone: true, absenceOn: true },
+    select: { id: true, name: true, timezone: true, absenceOn: true, messageTemplates: true },
   });
 
   const outcomes: AutomationOutcome[] = [];
@@ -106,7 +112,7 @@ export async function runAutomations(now = new Date(), opts: { only?: string[]; 
       const targets = await targetsFor(church.id, a.trigger, mmdd, threeDaysAgo, sevenDaysAgo, now, a);
       if (targets.length === 0) continue;
 
-      const template = a.messageTemplate || DEFAULT_TEMPLATES[a.trigger] || "A message from {church}.";
+      const template = a.messageTemplate || savedTemplate(church.messageTemplates, a.trigger) || DEFAULT_TEMPLATES[a.trigger] || "A message from {church}.";
 
       let sent = 0;
       const sentTargets: Target[] = [];

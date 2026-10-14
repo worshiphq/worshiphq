@@ -175,8 +175,8 @@ export function MessageCenter({
           <div>
             {needsAutomation && (
               <div className="mb-3 rounded-xl border border-gold/30 bg-gold-soft px-3 py-2.5 text-sm text-gold">
-                This message is sent by an automation you have not switched on yet.{" "}
-                <Link href="/app/reminders" className="font-semibold underline">Set it up under Reminders</Link>, then come back to change its wording.
+                You can write this message now. It is only sent once you switch the reminder on.{" "}
+                <Link href="/app/reminders" className="font-semibold underline">Switch it on under Reminders</Link>
               </div>
             )}
             <div className="mb-1.5 flex items-center justify-between text-xs text-ink-faint">
@@ -186,7 +186,7 @@ export function MessageCenter({
             <textarea
               ref={area}
               value={current}
-              disabled={!canWrite || needsAutomation}
+              disabled={!canWrite}
               onChange={(e) => setDrafts((d) => ({ ...d, [item.key]: e.target.value }))}
               rows={8}
               maxLength={1000}
@@ -199,7 +199,7 @@ export function MessageCenter({
                   <button
                     key={p}
                     type="button"
-                    disabled={!canWrite || needsAutomation}
+                    disabled={!canWrite}
                     onClick={() => insert(p)}
                     className="rounded-lg bg-surface-2 px-2 py-1 text-xs font-medium text-ink-muted hover:bg-primary/10 hover:text-primary disabled:opacity-50"
                   >
@@ -209,7 +209,7 @@ export function MessageCenter({
               </div>
             </div>
             <div className="mt-5 flex flex-wrap items-center gap-2">
-              <Button onClick={() => save(current)} disabled={!canWrite || needsAutomation || pending || !dirty(item.key)}>
+              <Button onClick={() => save(current)} disabled={!canWrite || pending || !dirty(item.key)}>
                 {pending ? <><Loader2 className="animate-spin" /> Saving…</> : <><Check /> Save message</>}
               </Button>
               {(isCustom(item.key) || dirty(item.key)) && (

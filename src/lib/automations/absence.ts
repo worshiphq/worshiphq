@@ -15,6 +15,9 @@ export type AbsentMember = {
   weeksAway: number;
   alerted: boolean;
   texted: boolean;
+  /** How many texts went out for this absence so far. */
+  textCount: number;
+  lastTextAt: Date | null;
   /** Away much longer than the setting: shown in the list, but not texted automatically. */
   stale: boolean;
 };
@@ -41,7 +44,7 @@ export async function absentMembers(churchId: string, weeks: number, timezone: s
 
   const people = await db.person.findMany({
     where: { churchId, status: "active", id: { in: [...last.keys()] }, OR: [{ ageGroup: null }, { ageGroup: { not: "child" } }] },
-    select: { id: true, firstName: true, lastName: true, phone: true, lapsedAlertedAt: true, lapsedSmsSentAt: true },
+    select: { id: true, firstName: true, lastName: true, phone: true, lapsedAlertedAt: true, lapsedSmsSentAt: true, lapsedSmsCount: true },
   });
 
   const out: AbsentMember[] = [];
@@ -59,6 +62,9 @@ export async function absentMembers(churchId: string, weeks: number, timezone: s
       // They have been dealt with for this absence if it happened after they last attended.
       alerted: !!p.lapsedAlertedAt && p.lapsedAlertedAt > seen,
       texted: !!p.lapsedSmsSentAt && p.lapsedSmsSentAt > seen,
+      // Texts only count for the current absence: attending again starts the count over.
+      textCount: p.lapsedSmsSentAt && p.lapsedSmsSentAt > seen ? Math.max(1, p.lapsedSmsCount) : 0,
+      lastTextAt: p.lapsedSmsSentAt && p.lapsedSmsSentAt > seen ? p.lapsedSmsSentAt : null,
       stale: Math.floor(days / 7) > w + 6,
     });
   }
@@ -67,49 +73,86 @@ export async function absentMembers(churchId: string, weeks: number, timezone: s
 
 /**
  * The "we have not seen you in a while" check. For each church that switched it
- * on: text the member (optional) and tell the admins (optional), once per
- * absence. Attending again re-arms it for a future absence.
+ * on: text the member (optional), tell the chosen team members (optional) and
+ * open follow-ups (optional). A member is texted at most `absenceMaxTexts` times
+ * for one absence, `absenceRepeatWeeks` apart (default: once). The team is told
+ * once per absence. Attending again re-arms everything for a future absence.
  */
 export async function runAbsenceCheck(now = new Date(), ignoreHour = false, deadline?: Deadline) {
   const churches = await db.church.findMany({
     where: { isDemo: false, absenceOn: true },
-    select: { id: true, name: true, timezone: true, absenceWeeks: true, absenceTextMember: true, absenceAlertAdmins: true, messageTemplates: true },
+    select: {
+      id: true, name: true, timezone: true, absenceWeeks: true, absenceTextMember: true, absenceAlertAdmins: true,
+      absenceMaxTexts: true, absenceRepeatWeeks: true, absenceCreateFollowUp: true, absenceNotifyUserIds: true,
+      followUpAssigneeId: true, messageTemplates: true,
+    },
   });
 
-  let texted = 0, alerts = 0;
+  let texted = 0, alerts = 0, followUps = 0;
   const pool = await forEachChurch(churches, async (church) => {
     if (!ignoreHour) {
       const { hour } = localParts(now, church.timezone);
       if (hour < 8 || hour >= 20) return;
     }
-    const away = (await absentMembers(church.id, church.absenceWeeks, church.timezone, now)).filter((m) => !m.stale);
+    const all = await absentMembers(church.id, church.absenceWeeks, church.timezone, now);
+    const maxTexts = Math.min(5, Math.max(1, church.absenceMaxTexts));
+    const gap = Math.max(1, church.absenceRepeatWeeks) * 7 * 86400000;
 
-    // 1) Text each member who has not been told yet.
+    // 1) Text members who are due a message (never more than the limit).
     if (church.absenceTextMember) {
       const tpl = templateFor(church.messageTemplates, "absent_member");
-      for (const m of away.filter((x) => !x.texted && x.phone)) {
+      const due = all.filter((m) => {
+        if (!m.phone) return false;
+        if (m.textCount === 0) return !m.stale;
+        return m.textCount < maxTexts && !!m.lastTextAt && now.getTime() - m.lastTextAt.getTime() >= gap;
+      });
+      for (const m of due) {
         const msg = renderTemplate(tpl, { name: m.firstName, church: church.name, weeks: String(church.absenceWeeks) });
-        const res = await sendChurchSms(church.id, m.phone!, msg, { note: "We miss you (automatic)" });
+        const res = await sendChurchSms(church.id, m.phone!, msg, { note: m.textCount ? "We miss you (reminder)" : "We miss you (automatic)" });
         if (res.insufficient) break;
-        if (res.ok) { texted++; await db.person.update({ where: { id: m.id }, data: { lapsedSmsSentAt: now } }); }
+        if (res.ok) { texted++; await db.person.update({ where: { id: m.id }, data: { lapsedSmsSentAt: now, lapsedSmsCount: m.textCount + 1 } }); }
       }
     }
 
-    // 2) One message to the admins listing everyone newly away.
-    if (church.absenceAlertAdmins) {
-      const fresh = away.filter((x) => !x.alerted);
-      if (fresh.length > 0) {
-        const shown = fresh.slice(0, 12).map((m) => `${m.name} (${m.weeksAway}w)`).join(", ");
-        const list = fresh.length > 12 ? `${shown} and ${fresh.length - 12} more` : shown;
-        const msg = renderTemplate(templateFor(church.messageTemplates, "absent_admin"), {
-          count: String(fresh.length), church: church.name, list, weeks: String(church.absenceWeeks),
+    // 2) Tell the team once, and open follow-ups for everyone newly away.
+    const fresh = all.filter((x) => !x.alerted && !x.stale);
+    if (fresh.length === 0) return;
+
+    const team = church.absenceNotifyUserIds.length
+      ? (await db.user.findMany({ where: { churchId: church.id, id: { in: church.absenceNotifyUserIds } }, select: { id: true } })).map((u) => u.id)
+      : [];
+    const assignTo = team.length ? team : church.followUpAssigneeId ? [church.followUpAssigneeId] : [];
+
+    if (church.absenceCreateFollowUp) {
+      const valid = assignTo.length ? (await db.user.findMany({ where: { churchId: church.id, id: { in: assignTo } }, select: { id: true } })).map((u) => u.id) : [];
+      for (const m of fresh) {
+        const open = await db.followUp.findFirst({ where: { churchId: church.id, personId: m.id, type: "pastoral", status: { not: "done" } }, select: { id: true } });
+        if (open) continue;
+        await db.followUp.create({
+          data: {
+            churchId: church.id, personId: m.id, type: "pastoral",
+            title: `Check on ${m.name}`,
+            note: `Has not been seen at church for ${m.weeksAway} week${m.weeksAway === 1 ? "" : "s"}. Please reach out, listen, and record what you find.`,
+            dueDate: new Date(now.getTime() + 3 * 86400000),
+            assigneeId: valid[0] ?? null,
+            ...(valid.length ? { assignees: { create: valid.map((userId) => ({ userId })) } } : {}),
+          },
         });
-        await notifyChurchAdmins(church.id, { subject: "Members not seen in a while", sms: msg, force: true });
-        await db.person.updateMany({ where: { id: { in: fresh.map((m) => m.id) } }, data: { lapsedAlertedAt: now } });
-        alerts++;
+        followUps++;
       }
     }
+
+    if (church.absenceAlertAdmins) {
+      const shown = fresh.slice(0, 12).map((m) => `${m.name} (${m.weeksAway}w)`).join(", ");
+      const list = fresh.length > 12 ? `${shown} and ${fresh.length - 12} more` : shown;
+      const msg = renderTemplate(templateFor(church.messageTemplates, "absent_admin"), {
+        count: String(fresh.length), church: church.name, list, weeks: String(church.absenceWeeks),
+      });
+      await notifyChurchAdmins(church.id, { subject: "Members not seen in a while", sms: msg, force: true, userIds: team.length ? team : undefined });
+      alerts++;
+    }
+    await db.person.updateMany({ where: { id: { in: fresh.map((m) => m.id) } }, data: { lapsedAlertedAt: now } });
   }, { deadline, label: "absence" });
 
-  return { churches: churches.length, texted, alerts, ...pool };
+  return { churches: churches.length, texted, alerts, followUps, ...pool };
 }

@@ -11,7 +11,7 @@ import { sendEmail } from "@/lib/integrations/email";
  */
 export async function notifyChurchAdmins(
   churchId: string,
-  opts: { subject: string; sms: string; emailHtml?: string; /** Send even if the church switched submission alerts off. */ force?: boolean },
+  opts: { subject: string; sms: string; emailHtml?: string; /** Send even if the church switched submission alerts off. */ force?: boolean; /** Only these team members (user ids) instead of every admin. */ userIds?: string[] },
 ) {
   try {
     const church = await db.church.findUnique({
@@ -21,7 +21,7 @@ export async function notifyChurchAdmins(
     if (!church || (church.notifySubmissions === false && !opts.force)) return;
 
     const admins = await db.user.findMany({
-      where: { churchId, role: { in: ["Owner", "Admin", "Pastor"] } },
+      where: opts.userIds?.length ? { churchId, id: { in: opts.userIds } } : { churchId, role: { in: ["Owner", "Admin", "Pastor"] } },
       select: { phone: true, email: true },
     });
 
