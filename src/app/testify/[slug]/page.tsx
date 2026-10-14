@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { TestimonyForm } from "./testimony-form";
+import { DynamicJoinForm } from "@/app/join/[slug]/dynamic-join-form";
+import { FORM_KINDS } from "@/lib/forms/kinds";
+import { submitPublicTestimony } from "@/app/actions/public-submissions";
+
 import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -14,7 +17,7 @@ export default async function TestifyPage({ params }: { params: Promise<{ slug: 
   const { slug } = await params;
   const church = await db.church.findUnique({
     where: { slug },
-    select: { id: true, name: true, slug: true, isDemo: true, logoUrl: true, accentColor: true },
+    select: { id: true, name: true, slug: true, isDemo: true, logoUrl: true, accentColor: true, testimonyFormFields: true },
   });
   if (!church || church.isDemo) notFound();
 
@@ -29,7 +32,15 @@ export default async function TestifyPage({ params }: { params: Promise<{ slug: 
           <h1 className="font-display text-3xl font-bold text-[#1c1a16]">Share a Testimony</h1>
           <p className="mt-2 text-sm text-[#6b6560]">{church.name} - tell us what God has done. We&rsquo;ll review it before sharing.</p>
         </div>
-        <TestimonyForm churchSlug={church.slug} accentColor={church.accentColor} />
+        <DynamicJoinForm
+          churchSlug={church.slug}
+          churchName={church.name}
+          accentColor={church.accentColor}
+          fields={FORM_KINDS.testimony.resolve(church.testimonyFormFields)}
+          action={submitPublicTestimony}
+          submitLabel={FORM_KINDS.testimony.submitLabel}
+          footerNote={null}
+        />
       </div>
     </div>
   );

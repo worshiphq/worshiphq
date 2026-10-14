@@ -1,6 +1,9 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { CounselForm } from "./counsel-form";
+import { DynamicJoinForm } from "@/app/join/[slug]/dynamic-join-form";
+import { FORM_KINDS } from "@/lib/forms/kinds";
+import { submitCounselingRequest } from "@/app/actions/public-submissions";
+
 import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
@@ -14,7 +17,7 @@ export default async function CounselPage({ params }: { params: Promise<{ slug: 
   const { slug } = await params;
   const church = await db.church.findUnique({
     where: { slug },
-    select: { id: true, name: true, slug: true, isDemo: true, logoUrl: true, accentColor: true },
+    select: { id: true, name: true, slug: true, isDemo: true, logoUrl: true, accentColor: true, counselFormFields: true },
   });
   if (!church || church.isDemo) notFound();
 
@@ -29,7 +32,15 @@ export default async function CounselPage({ params }: { params: Promise<{ slug: 
           <h1 className="font-display text-3xl font-bold text-[#1c1a16]">Request Counselling</h1>
           <p className="mt-2 text-sm text-[#6b6560]">{church.name} - you&rsquo;re not alone. Reach out and a pastor will follow up privately.</p>
         </div>
-        <CounselForm churchSlug={church.slug} accentColor={church.accentColor} />
+        <DynamicJoinForm
+          churchSlug={church.slug}
+          churchName={church.name}
+          accentColor={church.accentColor}
+          fields={FORM_KINDS.counsel.resolve(church.counselFormFields)}
+          action={submitCounselingRequest}
+          submitLabel={FORM_KINDS.counsel.submitLabel}
+          footerNote={null}
+        />
       </div>
     </div>
   );

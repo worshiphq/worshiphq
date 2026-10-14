@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   Check, ExternalLink, HandHeart, Heart, Link2, MessageCircleHeart, QrCode as QrIcon, Settings2, Sparkles,
@@ -16,8 +17,8 @@ export type LinkTile = {
   description: string;
   path: string;
   icon: "member" | "visitor" | "children" | "teens" | "prayer" | "testimony" | "counsel" | "give" | "book";
-  /** When present the tile gets a "Customize form" button that opens this builder. */
-  builder?: React.ReactNode;
+  /** When present the tile gets a "Customize form" button that opens the full page form builder. */
+  customize?: string;
 };
 
 const ICONS: Record<LinkTile["icon"], LucideIcon> = {
@@ -42,7 +43,6 @@ export function LinksTab({
 }) {
   const origin = useOrigin();
   const [qrFor, setQrFor] = useState<LinkTile | null>(null);
-  const [builderFor, setBuilderFor] = useState<LinkTile | null>(null);
 
   return (
     <div className="space-y-6">
@@ -52,7 +52,7 @@ export function LinksTab({
         <SectionHead title="Sign-up forms" note="People fill these in themselves and appear in your lists automatically." />
         <div className="grid gap-3 md:grid-cols-2">
           {forms.map((t) => (
-            <Tile key={t.key} tile={t} origin={origin} onQr={() => setQrFor(t)} onBuilder={t.builder ? () => setBuilderFor(t) : undefined} />
+            <Tile key={t.key} tile={t} origin={origin} onQr={() => setQrFor(t)} />
           ))}
         </div>
       </section>
@@ -76,11 +76,6 @@ export function LinksTab({
         </Overlay>
       )}
 
-      {builderFor && (
-        <Drawer onClose={() => setBuilderFor(null)} title={`${builderFor.title}: customize`}>
-          {builderFor.builder}
-        </Drawer>
-      )}
     </div>
   );
 }
@@ -94,7 +89,7 @@ function SectionHead({ title, note }: { title: string; note: string }) {
   );
 }
 
-function Tile({ tile, origin, onQr, onBuilder }: { tile: LinkTile; origin: string; onQr: () => void; onBuilder?: () => void }) {
+function Tile({ tile, origin, onQr }: { tile: LinkTile; origin: string; onQr: () => void }) {
   const Icon = ICONS[tile.icon] ?? Heart;
   const [copied, setCopied] = useState(false);
   const url = `${origin}${tile.path}`;
@@ -128,8 +123,10 @@ function Tile({ tile, origin, onQr, onBuilder }: { tile: LinkTile; origin: strin
         <a href={tile.path} target="_blank" rel="noopener noreferrer">
           <Button type="button" variant="ghost" size="sm"><ExternalLink /> Open</Button>
         </a>
-        {onBuilder && (
-          <Button type="button" size="sm" className="ml-auto" onClick={onBuilder}><Settings2 /> Customize form</Button>
+        {tile.customize && (
+          <Link href={tile.customize} className="ml-auto">
+            <Button type="button" size="sm"><Settings2 /> Customize form</Button>
+          </Link>
         )}
       </div>
     </Card>
@@ -156,21 +153,5 @@ function Overlay({ onClose, title, children, narrow }: { onClose: () => void; ti
         <div className="p-4">{children}</div>
       </Card>
     </div>
-  );
-}
-
-function Drawer({ onClose, title, children }: { onClose: () => void; title: string; children: React.ReactNode }) {
-  useEscape(onClose);
-  return (
-    <>
-      <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed inset-y-0 right-0 z-50 flex w-full max-w-3xl flex-col border-l border-line bg-base shadow-2xl">
-        <div className="flex items-center justify-between border-b border-line bg-surface px-5 py-4">
-          <h3 className="font-display text-lg font-semibold">{title}</h3>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-faint hover:bg-surface-2" aria-label="Close"><X className="size-5" /></button>
-        </div>
-        <div className="flex-1 overflow-y-auto overscroll-contain p-5">{children}</div>
-      </div>
-    </>
   );
 }

@@ -16,11 +16,15 @@ export type FieldType =
   | "select"
   | "radio"
   | "checkbox"
-  | "image";
+  | "image"
+  /** Not a question: starts a new step. Fields after it belong to that step until the next one. */
+  | "step";
 
 export interface FieldCondition {
   fieldId: string; // show this field only when…
   equals: string; // …another field's value equals this
+  /** Reverse it: show the field unless the other value equals this. */
+  not?: boolean;
 }
 
 export interface FormField {
@@ -29,6 +33,8 @@ export interface FormField {
   type: FieldType;
   required?: boolean;
   placeholder?: string;
+  /** Small helper text shown under the question. For a step, the line under its title. */
+  help?: string;
   options?: string[]; // for select
   showIf?: FieldCondition;
   system?: boolean; // maps to a Person column (id is the column key)
@@ -139,7 +145,7 @@ export const DEFAULT_FORM: FormField[] = [
   { id: "emergencyPhone", label: "Emergency contact phone", type: "tel", system: true },
 ];
 
-const VALID_TYPES: FieldType[] = ["text", "textarea", "number", "date", "tel", "email", "select", "radio", "checkbox", "image"];
+const VALID_TYPES: FieldType[] = ["text", "textarea", "number", "date", "tel", "email", "select", "radio", "checkbox", "image", "step"];
 
 /** Coerce one stored object into a valid FormField (defensive against bad JSON). */
 function coerceField(raw: unknown): FormField | null {
@@ -152,13 +158,14 @@ function coerceField(raw: unknown): FormField | null {
   const field: FormField = { id, label, type };
   if (r.required) field.required = true;
   if (typeof r.placeholder === "string") field.placeholder = r.placeholder;
+  if (typeof r.help === "string" && r.help.trim()) field.help = r.help.slice(0, 300);
   if (Array.isArray(r.options)) field.options = r.options.filter((o) => typeof o === "string") as string[];
   if (r.system) field.system = true;
   if (r.locked) field.locked = true;
   if (r.showIf && typeof r.showIf === "object") {
     const s = r.showIf as Record<string, unknown>;
     if (typeof s.fieldId === "string" && typeof s.equals === "string") {
-      field.showIf = { fieldId: s.fieldId, equals: s.equals };
+      field.showIf = { fieldId: s.fieldId, equals: s.equals, ...(s.not ? { not: true } : {}) };
     }
   }
   return field;
@@ -181,6 +188,41 @@ function unwrapStored(raw: unknown): unknown {
     return raw;
   }
 }
+
+
+/** Keep a leading step marker, then the two locked name fields, then everything else. */
+export function lockNames(fields: FormField[], defaults: FormField[]): FormField[] {
+  const lead = fields[0]?.type === "step" ? [fields[0]] : [];
+  const body = lead.length ? fields.slice(1) : fields;
+  const first = { ...(body.find((f) => f.id === "firstName") ?? defaults[0]), required: true, locked: true, system: true };
+  const last = { ...(body.find((f) => f.id === "lastName") ?? defaults[1]), required: true, locked: true, system: true };
+  const rest = body.filter((f) => f.id !== "firstName" && f.id !== "lastName");
+  return [...lead, first, last, ...rest];
+}
+
+export interface FormStep { id: string; title: string; description?: string; fields: FormField[] }
+
+export const hasSteps = (fields: FormField[]) => fields.some((f) => f.type === "step");
+
+/** Group a field list into steps. A form with no step markers is a single step. */
+export function splitSteps(fields: FormField[]): FormStep[] {
+  if (!hasSteps(fields)) return [{ id: "all", title: "", fields }];
+  const steps: FormStep[] = [];
+  let cur: FormStep | null = null;
+  for (const f of fields) {
+    if (f.type === "step") {
+      cur = { id: f.id, title: f.label, description: f.help, fields: [] };
+      steps.push(cur);
+    } else {
+      if (!cur) { cur = { id: "step-start", title: "Step 1", fields: [] }; steps.push(cur); }
+      cur.fields.push(f);
+    }
+  }
+  return steps.filter((st, i) => st.fields.length > 0 || i === steps.length - 1);
+}
+
+/** The question fields only (step markers removed). */
+export const questionFields = (fields: FormField[]) => fields.filter((f) => f.type !== "step");
 
 /**
  * Resolve the stored value into a usable FormField[].
@@ -210,12 +252,7 @@ export function getFormDefinition(rawInput: unknown): FormField[] {
   }
 
   // Guarantee locked name fields exist and lead.
-  const ensure = (id: string, fallback: FormField) =>
-    fields.find((f) => f.id === id) ?? fallback;
-  const first = { ...ensure("firstName", DEFAULT_FORM[0]), required: true, locked: true, system: true };
-  const last = { ...ensure("lastName", DEFAULT_FORM[1]), required: true, locked: true, system: true };
-  const rest = fields.filter((f) => f.id !== "firstName" && f.id !== "lastName");
-  return [first, last, ...rest];
+  return lockNames(fields, DEFAULT_FORM);
 }
 
 // ── Visitor form ────────────────────────────────────────────
@@ -237,14 +274,7 @@ export function getVisitorFormDefinition(rawInput: unknown): FormField[] {
   const raw = unwrapStored(rawInput);
   if (Array.isArray(raw)) {
     const fields = raw.map(coerceField).filter((f): f is FormField => f !== null);
-    if (fields.length > 0) {
-      const ensure = (id: string, fallback: FormField) =>
-        fields.find((f) => f.id === id) ?? fallback;
-      const first = { ...ensure("firstName", DEFAULT_VISITOR_FORM[0]), required: true, locked: true, system: true };
-      const last = { ...ensure("lastName", DEFAULT_VISITOR_FORM[1]), required: true, locked: true, system: true };
-      const rest = fields.filter((f) => f.id !== "firstName" && f.id !== "lastName");
-      return [first, last, ...rest];
-    }
+    if (fields.length > 0) return lockNames(fields, DEFAULT_VISITOR_FORM);
   }
   return DEFAULT_VISITOR_FORM;
 }
@@ -266,14 +296,7 @@ export function getChildrenFormDefinition(rawInput: unknown): FormField[] {
   const raw = unwrapStored(rawInput);
   if (Array.isArray(raw)) {
     const fields = raw.map(coerceField).filter((f): f is FormField => f !== null);
-    if (fields.length > 0) {
-      const ensure = (id: string, fallback: FormField) =>
-        fields.find((f) => f.id === id) ?? fallback;
-      const first = { ...ensure("firstName", DEFAULT_CHILDREN_FORM[0]), required: true, locked: true, system: true };
-      const last = { ...ensure("lastName", DEFAULT_CHILDREN_FORM[1]), required: true, locked: true, system: true };
-      const rest = fields.filter((f) => f.id !== "firstName" && f.id !== "lastName");
-      return [first, last, ...rest];
-    }
+    if (fields.length > 0) return lockNames(fields, DEFAULT_CHILDREN_FORM);
   }
   return DEFAULT_CHILDREN_FORM;
 }
@@ -297,14 +320,7 @@ export function getTeensFormDefinition(rawInput: unknown): FormField[] {
   const raw = unwrapStored(rawInput);
   if (Array.isArray(raw)) {
     const fields = raw.map(coerceField).filter((f): f is FormField => f !== null);
-    if (fields.length > 0) {
-      const ensure = (id: string, fallback: FormField) =>
-        fields.find((f) => f.id === id) ?? fallback;
-      const first = { ...ensure("firstName", DEFAULT_TEENS_FORM[0]), required: true, locked: true, system: true };
-      const last = { ...ensure("lastName", DEFAULT_TEENS_FORM[1]), required: true, locked: true, system: true };
-      const rest = fields.filter((f) => f.id !== "firstName" && f.id !== "lastName");
-      return [first, last, ...rest];
-    }
+    if (fields.length > 0) return lockNames(fields, DEFAULT_TEENS_FORM);
   }
   return DEFAULT_TEENS_FORM;
 }

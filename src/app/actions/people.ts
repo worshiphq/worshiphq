@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
-import { getFormDefinition } from "@/lib/forms/registration";
+import { getFormDefinition, questionFields } from "@/lib/forms/registration";
 import { buildPersonData } from "@/lib/forms/person-data";
 import { nextMemberId, resolveDepartmentIds } from "@/lib/members/helpers";
 import { logAudit } from "@/lib/audit";
@@ -17,7 +17,7 @@ async function formFields(churchId: string) {
     where: { id: churchId },
     select: { registrationFields: true },
   });
-  return getFormDefinition(church?.registrationFields ?? null);
+  return questionFields(getFormDefinition(church?.registrationFields ?? null));
 }
 
 export async function createPerson(formData: FormData) {

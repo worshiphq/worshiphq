@@ -1,6 +1,8 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { PrayerForm } from "./prayer-form";
+import { DynamicJoinForm } from "@/app/join/[slug]/dynamic-join-form";
+import { FORM_KINDS } from "@/lib/forms/kinds";
+import { submitPublicPrayerRequest } from "@/app/actions/prayer-public";
 import type { Metadata } from "next";
 
 export async function generateMetadata({
@@ -25,7 +27,7 @@ export default async function PrayPage({
   const { slug } = await params;
   const church = await db.church.findUnique({
     where: { slug },
-    select: { id: true, name: true, slug: true, isDemo: true, logoUrl: true, accentColor: true },
+    select: { id: true, name: true, slug: true, isDemo: true, logoUrl: true, accentColor: true, prayerFormFields: true },
   });
 
   if (!church || church.isDemo) notFound();
@@ -50,7 +52,15 @@ export default async function PrayPage({
           </p>
         </div>
 
-        <PrayerForm churchSlug={church.slug} accentColor={church.accentColor} />
+        <DynamicJoinForm
+          churchSlug={church.slug}
+          churchName={church.name}
+          accentColor={church.accentColor}
+          fields={FORM_KINDS.prayer.resolve(church.prayerFormFields)}
+          action={submitPublicPrayerRequest}
+          submitLabel={FORM_KINDS.prayer.submitLabel}
+          footerNote={null}
+        />
       </div>
     </div>
   );

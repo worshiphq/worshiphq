@@ -3,7 +3,7 @@
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { getFormDefinition, getChildrenFormDefinition, getTeensFormDefinition } from "@/lib/forms/registration";
+import { getFormDefinition, getChildrenFormDefinition, getTeensFormDefinition, questionFields } from "@/lib/forms/registration";
 import { buildPersonData } from "@/lib/forms/person-data";
 import { nextMemberId, resolveDepartmentIds } from "@/lib/members/helpers";
 import { sendChurchSms } from "@/lib/sms/credits";
@@ -23,7 +23,7 @@ export async function selfRegister(formData: FormData) {
   });
   if (!church || church.isDemo) return;
 
-  const fields = getFormDefinition(church.registrationFields);
+  const fields = questionFields(getFormDefinition(church.registrationFields));
   const { data, customFields, departmentNames } = await buildPersonData(fields, formData);
   if (!data.firstName || !data.lastName) return;
 
@@ -86,7 +86,7 @@ export async function registerChild(formData: FormData) {
   });
   if (!church || church.isDemo) return;
 
-  const fields = getChildrenFormDefinition(church.childrenFormFields);
+  const fields = questionFields(getChildrenFormDefinition(church.childrenFormFields));
   const { data, customFields } = await buildPersonData(fields, formData);
   if (!data.firstName || !data.lastName) return;
 
@@ -119,7 +119,7 @@ export async function registerTeen(formData: FormData) {
   });
   if (!church || church.isDemo) return;
 
-  const fields = getTeensFormDefinition(church.teensFormFields);
+  const fields = questionFields(getTeensFormDefinition(church.teensFormFields));
   const { data, customFields, departmentNames } = await buildPersonData(fields, formData);
   if (!data.firstName || !data.lastName) return;
 

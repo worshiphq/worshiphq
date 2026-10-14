@@ -133,6 +133,12 @@ model Church {
   // JSON config: children & teens registration forms
   childrenFormFields Json?
   teensFormFields    Json?
+  // The other public forms a church can customise (same builder as the sign-up forms).
+  prayerFormFields   Json?
+  testimonyFormFields Json?
+  counselFormFields  Json?
+  giveFormFields     Json?
+  bookingFormFields  Json?
 
   // Customizable SMS receipt templates (use {name}, {amount}, {church} placeholders)
   titheReceiptTemplate   String?
@@ -724,6 +730,7 @@ model Gift {
   // specifically (see src/lib/automations/run.ts) - distinct from receiptSent,
   // which is the immediate instant receipt sent at the time the gift is recorded.
   thanksSentAt  DateTime?
+  extra         Json?    // answers to the church's own extra giving questions: [{ label, value }]
 
   @@index([churchId])
   @@index([churchId, date])
@@ -1265,6 +1272,7 @@ model PrayerRequest {
   isAnonymous Boolean  @default(false)
   status      String   @default("active") // "active" (new) | "prayed" (prayed for) | "archived"
   prayerCount Int      @default(0) // no longer used
+  extra       Json?    // answers to the church's own extra questions: [{ label, value }]
   prayedAt    DateTime?
   prayedBy    String?
   createdAt   DateTime @default(now())
@@ -1476,7 +1484,8 @@ model Facility {
   location  String?
   description String?  @db.Text
   imageUrl  String?  @db.Text // uploaded photo (data URL or storage URL)
-  rate      Decimal? @db.Decimal(12, 2) // usual price per booking, used to pre-fill the amount
+  rate      Decimal? @db.Decimal(12, 2) // the price, used to pre-fill the amount
+  rateUnit  String   @default("event") // what the price is for: event (flat per booking) | day | hour
   publicBookable Boolean @default(true) // appears on the public booking link
   isActive  Boolean  @default(true)
   createdAt DateTime @default(now())
@@ -1501,6 +1510,7 @@ model Booking {
   contactPhone String?
   contactEmail String?
   amount     Decimal? @db.Decimal(12, 2) // the agreed charge, if any
+  extra      Json?    // answers to the church's own extra questions: [{ label, value }]
   payments   BookingPayment[]
   createdAt  DateTime @default(now())
 
@@ -1556,6 +1566,7 @@ model Testimony {
   category  String   @default("praise") // praise, healing, provision, deliverance, salvation, other
   status    String   @default("pending") // pending, approved, featured
   anonymous Boolean  @default(false)
+  extra     Json?    // answers to the church's own extra questions: [{ label, value }]
   date      DateTime @default(now())
   createdAt DateTime @default(now())
 
@@ -1586,6 +1597,7 @@ model CounselingSession {
   scheduledAt    DateTime?
   reminderSentAt DateTime?
   textUpdates    Boolean  @default(false)
+  extra          Json?    // answers to the church's own extra questions: [{ label, value }]
   messages       CounselingMessage[]
   createdAt    DateTime @default(now())
 

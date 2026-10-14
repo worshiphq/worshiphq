@@ -2,7 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
-import { getVisitorFormDefinition } from "@/lib/forms/registration";
+import { getVisitorFormDefinition, questionFields } from "@/lib/forms/registration";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { DEFAULT_TEMPLATES } from "@/lib/automations/run";
 import { templateFor, renderTemplate as renderRegistryTemplate } from "@/lib/messages/registry";
@@ -77,7 +77,7 @@ export async function submitVisitorForm(formData: FormData) {
   });
   if (!church || church.isDemo) return;
 
-  const fields = getVisitorFormDefinition(church.visitorFormFields);
+  const fields = questionFields(getVisitorFormDefinition(church.visitorFormFields));
 
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();

@@ -15,7 +15,7 @@ const labelOf = (o: SelectOption) => (typeof o === "string" ? o : o.label);
  * typed their own last time) it opens on "Other" with that text filled in.
  */
 export function OtherSelect({
-  name, options, defaultValue, required, className, inputClassName, onValueChange, otherPlaceholder = "Please specify…",
+  name, options, defaultValue, required, className, inputClassName, onValueChange, otherPlaceholder = "Please specify…", emptyLabel,
 }: {
   name: string;
   options: SelectOption[];
@@ -26,13 +26,15 @@ export function OtherSelect({
   /** Called with the value that will be submitted (typed text when Other). */
   onValueChange?: (value: string) => void;
   otherPlaceholder?: string;
+  /** Adds a blank first choice with this label (so nothing is chosen until the person picks). */
+  emptyLabel?: string;
 }) {
   const otherOpt = options.find(isOther);
   const known = new Set(options.map(valueOf));
   const initial = defaultValue == null ? "" : String(defaultValue);
   const custom = !!otherOpt && initial !== "" && !known.has(initial);
 
-  const [sel, setSel] = useState(custom ? valueOf(otherOpt!) : initial || (options[0] ? valueOf(options[0]) : ""));
+  const [sel, setSel] = useState(custom ? valueOf(otherOpt!) : initial || (emptyLabel !== undefined ? "" : options[0] ? valueOf(options[0]) : ""));
   const [text, setText] = useState(custom ? initial : "");
   const showText = !!otherOpt && sel === valueOf(otherOpt);
 
@@ -49,6 +51,7 @@ export function OtherSelect({
           onValueChange?.(otherOpt && e.target.value === valueOf(otherOpt) ? text : e.target.value);
         }}
       >
+        {emptyLabel !== undefined && <option value="">{emptyLabel}</option>}
         {options.map((o) => (
           <option key={valueOf(o)} value={valueOf(o)}>{labelOf(o)}</option>
         ))}

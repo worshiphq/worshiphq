@@ -26,13 +26,12 @@ import {
   createCustomRole, deleteCustomRole, updateCustomRole, requestSenderId,
   updateRolePermissions, changePlan, redeemPlanBypass, verifyPlanUpgrade, previewCoupon,
   previewPlanChangeAction, cancelScheduledChange,
-  saveVisitorForm, saveChildrenForm, saveTeensForm, updateSlug, inviteBudgetLeader,
+  updateSlug, inviteBudgetLeader,
 } from "@/app/actions/settings";
 import { ALL_MODULES, MODULE_LABELS } from "@/lib/permissions";
 import { RoleMatrix } from "@/components/app/role-matrix";
 import { BrandingForm } from "@/components/app/branding-form";
 import { BackupsPanel } from "@/components/app/backups-panel";
-import { FormBuilder } from "@/components/app/form-builder";
 import { LinksTab } from "@/components/app/links-tab";
 import { MessageCenter } from "@/components/app/message-center";
 import type { MessageCenterData } from "@/lib/messages/load";
@@ -516,61 +515,17 @@ export function SettingsClient({
           <LinksTab
             slugEditor={<SlugEditor slug={church?.slug ?? ""} ro={ro} isAdmin={isAdmin} />}
             forms={[
-              {
-                key: "member", icon: "member", title: "Member registration",
-                description: "Members fill in their own details and appear in your People list automatically.",
-                path: `/join/${church?.slug ?? ""}`,
-                builder: isAdmin ? <FormBuilder initial={getFormDefinition(church?.registrationFields ?? null)} readOnly={ro} /> : undefined,
-              },
-              {
-                key: "visitor", icon: "visitor", title: "Visitor form",
-                description: "A simple form for first-time visitors: name, phone, purpose of visit, prayer requests.",
-                path: `/visit/${church?.slug ?? ""}`,
-                builder: isAdmin ? (
-                  <FormBuilder
-                    initial={getVisitorFormDefinition(church?.visitorFormFields ?? null)}
-                    readOnly={ro}
-                    saveAction={saveVisitorForm}
-                    title="Visitor form builder"
-                    description="Customise the fields first-time visitors fill in. Name fields are always required."
-                  />
-                ) : undefined,
-              },
-              {
-                key: "children", icon: "children", title: "Children's registration",
-                description: "Register children with guardian details, school and class.",
-                path: `/children/${church?.slug ?? ""}`,
-                builder: isAdmin ? (
-                  <FormBuilder
-                    initial={getChildrenFormDefinition(church?.childrenFormFields ?? null)}
-                    readOnly={ro}
-                    saveAction={saveChildrenForm}
-                    title="Children's form builder"
-                    description="Customise the fields for children's registration. Guardian details are included by default."
-                  />
-                ) : undefined,
-              },
-              {
-                key: "teens", icon: "teens", title: "Teens registration",
-                description: "Teens register with guardian info and choose the department they serve in.",
-                path: `/teens/${church?.slug ?? ""}`,
-                builder: isAdmin ? (
-                  <FormBuilder
-                    initial={getTeensFormDefinition(church?.teensFormFields ?? null)}
-                    readOnly={ro}
-                    saveAction={saveTeensForm}
-                    title="Teens form builder"
-                    description="Customise the fields for teen registration. Includes department selection so teens can join ministries."
-                  />
-                ) : undefined,
-              },
+              { key: "member", icon: "member", title: "Member registration", description: "Members fill in their own details and appear in your People list automatically.", path: `/join/${church?.slug ?? ""}`, customize: isAdmin ? "/app/settings/forms/join" : undefined },
+              { key: "visitor", icon: "visitor", title: "Visitor form", description: "A simple form for first-time visitors: name, phone, purpose of visit, prayer requests.", path: `/visit/${church?.slug ?? ""}`, customize: isAdmin ? "/app/settings/forms/visitor" : undefined },
+              { key: "children", icon: "children", title: "Children's registration", description: "Register children with guardian details, school and class.", path: `/children/${church?.slug ?? ""}`, customize: isAdmin ? "/app/settings/forms/children" : undefined },
+              { key: "teens", icon: "teens", title: "Teens registration", description: "Teens register with guardian info and choose the department they serve in.", path: `/teens/${church?.slug ?? ""}`, customize: isAdmin ? "/app/settings/forms/teens" : undefined },
             ]}
             share={[
-              { key: "pray", icon: "prayer", title: "Prayer requests", description: "Members submit prayer requests online.", path: `/pray/${church?.slug ?? ""}` },
-              { key: "testify", icon: "testimony", title: "Testimonies", description: "Members share testimonies. You review each one before it is published.", path: `/testify/${church?.slug ?? ""}` },
-              { key: "counsel", icon: "counsel", title: "Counselling requests", description: "Members privately request counselling. Your admins are notified.", path: `/counsel/${church?.slug ?? ""}` },
-              { key: "give", icon: "give", title: "Online giving", description: "Mobile Money and card giving page.", path: `/give/${church?.slug ?? ""}` },
-              { key: "book", icon: "book", title: "Facility booking", description: "People request a hall or room for an event.", path: `/book/${church?.slug ?? ""}` },
+              { key: "pray", icon: "prayer", title: "Prayer requests", description: "Members submit prayer requests online.", path: `/pray/${church?.slug ?? ""}`, customize: isAdmin ? "/app/settings/forms/prayer" : undefined },
+              { key: "testify", icon: "testimony", title: "Testimonies", description: "Members share testimonies. You review each one before it is published.", path: `/testify/${church?.slug ?? ""}`, customize: isAdmin ? "/app/settings/forms/testimony" : undefined },
+              { key: "counsel", icon: "counsel", title: "Counselling requests", description: "Members privately request counselling. Your admins are notified.", path: `/counsel/${church?.slug ?? ""}`, customize: isAdmin ? "/app/settings/forms/counsel" : undefined },
+              { key: "give", icon: "give", title: "Online giving", description: "Mobile Money and card giving page.", path: `/give/${church?.slug ?? ""}`, customize: isAdmin ? "/app/settings/forms/give" : undefined },
+              { key: "book", icon: "book", title: "Facility booking", description: "People request a hall or room for an event.", path: `/book/${church?.slug ?? ""}`, customize: isAdmin ? "/app/settings/forms/book" : undefined },
             ]}
           />
         )}

@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { PeopleClient } from "@/components/app/people-client";
 import { JoinLinkCard } from "@/components/app/join-link-card";
 import { PageTips } from "@/components/app/page-tips";
-import { getFormDefinition } from "@/lib/forms/registration";
+import { getFormDefinition, questionFields } from "@/lib/forms/registration";
 import { getCategoriesForForm } from "@/lib/members/categories";
 
 export const metadata = { title: "People" };
@@ -36,7 +36,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
     }),
     getCategoriesForForm(session.churchId),
   ]);
-  const formFields = getFormDefinition(church?.registrationFields ?? null);
+  const formFields = questionFields(getFormDefinition(church?.registrationFields ?? null));
   return (
     <div className="space-y-5">
       <PageTips

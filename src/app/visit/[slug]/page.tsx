@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
-import { VisitorForm } from "./visitor-form";
+import { DynamicJoinForm } from "@/app/join/[slug]/dynamic-join-form";
+import { submitVisitorForm } from "@/app/actions/visit";
 import { getVisitorFormDefinition } from "@/lib/forms/registration";
 import type { Metadata } from "next";
 
@@ -61,11 +62,13 @@ export default async function VisitPage({
           </p>
         </div>
 
-        <VisitorForm
+        <DynamicJoinForm
           churchSlug={church.slug}
           churchName={church.name}
           accentColor={church.accentColor}
           fields={fields}
+          action={submitVisitorForm}
+          submitLabel="Submit"
         />
       </div>
     </div>
