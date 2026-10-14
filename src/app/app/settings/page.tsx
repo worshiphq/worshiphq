@@ -66,6 +66,7 @@ export default async function SettingsPage() {
       country: church.country ?? "Ghana",
       address: church.address ?? "",
       notifySubmissions: church.notifySubmissions ?? true,
+      hideAmounts: church.hideAmounts ?? true,
       birthdayDigestOn: church.birthdayDigestOn ?? true,
       birthdayDigestDay: church.birthdayDigestDay ?? 1,
       accentColor: church.accentColor ?? "#0d7377",

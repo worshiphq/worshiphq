@@ -54,6 +54,7 @@ type Church = {
   country: string;
   address: string;
   notifySubmissions?: boolean;
+  hideAmounts?: boolean;
   birthdayDigestOn?: boolean;
   birthdayDigestDay?: number;
   accentColor: string;
@@ -202,6 +203,14 @@ export function SettingsClient({
                 <span>
                   <span className="font-medium text-ink">Notify admins of new submissions</span> - text &amp; email your admins when a member sends a
                   prayer request, testimony or counselling request.
+                </span>
+              </label>
+              <label className="mt-3 flex items-start gap-2 rounded-xl border border-line bg-surface-2/40 p-3 text-sm text-ink-muted">
+                <input type="checkbox" name="hideAmounts" defaultChecked={church?.hideAmounts ?? true} disabled={ro} className="mt-0.5 size-4 rounded border-line accent-primary" />
+                <span>
+                  <span className="font-medium text-ink">Hide amounts on screen</span> - money shows as *** on the dashboard, giving, accounting,
+                  expenses and other finance pages until someone taps the eye icon, so nobody can read it over your shoulder. Applies to everyone,
+                  owners included. Switch off if you do not need it.
                 </span>
               </label>
               <div className="mt-3 rounded-xl border border-line bg-surface-2/40 p-3 text-sm text-ink-muted">

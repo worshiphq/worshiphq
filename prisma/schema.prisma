@@ -74,6 +74,8 @@ model Church {
   // Notify admins (SMS + email) when a member submits a prayer request,
   // testimony or counselling request. Editable in Settings.
   notifySubmissions Boolean @default(true)
+  // Show money as *** on finance screens until someone taps the eye icon (shoulder-surfing protection).
+  hideAmounts       Boolean @default(true)
   // ── Automations: timezone + birthday suite ──
   timezone          String  @default("Africa/Accra") // IANA tz; send-hours are local to this
   birthdaySendHour  Int     @default(8)   // local hour (0-23) birthday messages go out

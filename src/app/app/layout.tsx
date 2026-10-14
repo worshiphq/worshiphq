@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { AppShell } from "@/components/app/app-shell";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { TourProvider } from "@/components/app/tour";
+import { AmountPrivacy } from "@/components/app/amount-privacy";
 import { RecycleBinProvider } from "@/components/app/recycle-bin-provider";
 import { binCutoff } from "@/lib/recycle-bin";
 import { getActiveAnnouncements } from "@/lib/data/announcements";
@@ -28,7 +29,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     getActiveAnnouncements(),
     db.church.findUnique({
       where: { id: session.churchId },
-      select: { suspended: true, logoUrl: true, accentColor: true },
+      select: { suspended: true, logoUrl: true, accentColor: true, hideAmounts: true },
     }),
     getRecentNotifications(session.churchId),
     getChurchPlan(session.churchId),
@@ -60,7 +61,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       planTable={platformConfig.planTable}
     >
       <RecycleBinProvider canManage={session.canDelete} initialCount={binCount}>
-        <TourProvider>{children}</TourProvider>
+        <TourProvider>
+          <AmountPrivacy enabled={church?.hideAmounts ?? true}>{children}</AmountPrivacy>
+        </TourProvider>
       </RecycleBinProvider>
     </AppShell>
   );
