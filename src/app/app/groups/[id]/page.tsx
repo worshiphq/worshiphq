@@ -35,6 +35,11 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
     take: 3000,
   });
 
+  const [me, churchSettings] = await Promise.all([
+    db.user.findUnique({ where: { id: session.userId }, select: { personId: true } }),
+    db.church.findUnique({ where: { id: session.churchId }, select: { leaderMessagingOn: true } }),
+  ]);
+  const iLead = !!churchSettings?.leaderMessagingOn && !!me?.personId && me.personId === group.leaderId;
   const memberIds = new Set(group.members.map((m) => m.id));
   const schedule = (() => {
     const s = parseSchedule(group.meetingSchedule);
@@ -44,6 +49,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
   return (
     <GroupDetailClient
       canWrite={canEdit(session, "groups")}
+      leaderOf={iLead ? [group.id] : []}
       group={{
         id: group.id,
         name: group.name,

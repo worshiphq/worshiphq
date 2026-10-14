@@ -33,7 +33,7 @@ export default async function SmsCreditsPage({ searchParams }: { searchParams: P
   const [church, transactions, sms] = await Promise.all([
     db.church.findUnique({
       where: { id: session.churchId },
-      select: { smsCredits: true, smsWelcomeMember: true, smsWelcomeVisitor: true },
+      select: { smsCredits: true, smsWelcomeMember: true, smsWelcomeVisitor: true, leaderMessagingOn: true },
     }),
     db.smsTransaction.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     smsBundlesForChurch(session.churchId),
@@ -55,6 +55,7 @@ export default async function SmsCreditsPage({ searchParams }: { searchParams: P
         canWrite={canEdit(session, "communications")}
         bundles={sms.bundles}
         tier={sms.tier}
+        leaderMessagingOn={church?.leaderMessagingOn ?? false}
       />
 
       {/* History */}

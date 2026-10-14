@@ -78,6 +78,8 @@ model Church {
   notifySubmissions Boolean @default(true)
   // Show money as *** on finance screens until someone taps the eye icon (shoulder-surfing protection).
   hideAmounts       Boolean @default(false)
+  // Group leaders may text their own group (sent from the church's sender ID, with the group name at the front).
+  leaderMessagingOn Boolean @default(false)
   // "Thank you for coming" text to every member who checked in, offered when a service is ended. Off by default.
   thankAfterService  Boolean  @default(false)
   thankServiceNames  String[] @default([])   // services (by name) where the thank-you is ticked by default

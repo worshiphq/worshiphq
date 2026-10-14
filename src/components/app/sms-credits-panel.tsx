@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SMS_RATE, MIN_CUSTOM_CREDITS, MAX_CUSTOM_CREDITS, creditsForAmount, priceForCredits, type SmsBundle, type SmsTier } from "@/config/sms";
 import { buySmsCredits, buyCustomSmsCredits, setWelcomeSms, setWelcomeVisitorSms } from "@/app/actions/sms-credits";
+import { setLeaderMessaging } from "@/app/actions/leader-messages";
 import { Input } from "@/components/ui/input";
 import { useFeedback } from "@/components/ui/feedback";
 import { usePaystack } from "@/components/payments/use-paystack";
@@ -19,6 +20,7 @@ export function SmsCreditsPanel({
   canWrite,
   bundles,
   tier,
+  leaderMessagingOn = false,
 }: {
   balance: number;
   welcomeOn: boolean;
@@ -26,6 +28,7 @@ export function SmsCreditsPanel({
   canWrite: boolean;
   bundles: SmsBundle[];
   tier: SmsTier;
+  leaderMessagingOn?: boolean;
 }) {
   const { run, toast } = useFeedback();
   const { start } = usePaystack();
@@ -215,6 +218,28 @@ export function SmsCreditsPanel({
         >
           <span className={cn("absolute top-0.5 grid size-4 place-items-center rounded-full bg-white transition-all", welcomeVisitorOn ? "left-[1.45rem]" : "left-0.5")}>
             {welcomeVisitorOn && <Check className="size-3 text-primary" />}
+          </span>
+        </button>
+      </Card>
+
+      {/* Group leaders texting their own group */}
+      <Card className="flex items-center justify-between p-5">
+        <div className="pr-4">
+          <div className="text-sm font-semibold text-ink">Let group leaders message their own group</div>
+          <p className="text-xs text-ink-muted">
+            The leader of a cell, ministry or committee can text just their group. It goes out from your church&apos;s sender ID, starts with the group&apos;s name and ends with the leader&apos;s name, so members know who is checking on them. It uses your credits, and a leader can send 3 a day per group. They need access to the Groups page and must be set as the group&apos;s leader.
+          </p>
+        </div>
+        <button
+          type="button"
+          role="switch"
+          aria-checked={leaderMessagingOn}
+          disabled={!canWrite}
+          onClick={() => run(() => setLeaderMessaging(!leaderMessagingOn), { pending: "Saving…", success: leaderMessagingOn ? "Leaders can no longer message" : "Leaders can message their groups" })}
+          className={cn("relative h-6 w-11 shrink-0 rounded-full border border-line transition-colors disabled:opacity-50", leaderMessagingOn ? "bg-primary" : "bg-surface-2")}
+        >
+          <span className={cn("absolute top-0.5 grid size-4 place-items-center rounded-full bg-white transition-all", leaderMessagingOn ? "left-[1.45rem]" : "left-0.5")}>
+            {leaderMessagingOn && <Check className="size-3 text-primary" />}
           </span>
         </button>
       </Card>

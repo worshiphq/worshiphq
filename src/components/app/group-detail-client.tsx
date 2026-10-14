@@ -30,8 +30,8 @@ const clock = (hm: string | null) => {
 };
 
 export function GroupDetailClient({
-  group, members, people, canWrite,
-}: { group: GroupInfo; members: MemberInfo[]; people: PersonOpt[]; canWrite: boolean }) {
+  group, members, people, canWrite, leaderOf = [],
+}: { group: GroupInfo; members: MemberInfo[]; people: PersonOpt[]; canWrite: boolean; leaderOf?: string[] }) {
   const router = useRouter();
   const { toast } = useFeedback();
   const [search, setSearch] = useState("");
@@ -79,6 +79,11 @@ export function GroupDetailClient({
           </div>
           {group.description && <p className="mt-1 max-w-2xl text-sm text-ink-muted">{group.description}</p>}
         </div>
+        {!canWrite && leaderOf.includes(group.id) && (
+          <div className="flex flex-wrap items-center gap-2">
+            <GroupMessageDialog groupId={group.id} groupName={group.name} memberCount={members.length} label="Message group" asLeader />
+          </div>
+        )}
         {canWrite && (
           <div className="flex flex-wrap items-center gap-2">
             <GroupMessageDialog groupId={group.id} groupName={group.name} memberCount={members.length} label="Message group" />

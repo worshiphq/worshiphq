@@ -18,7 +18,7 @@ const GROUP_TYPE_SUGGESTIONS = ["Small group", "Ministry", "Committee", "Fellows
 export default async function GroupsPage() {
   const session = await requireModule("groups");
 
-  const [groups, people, church, inGroups, teenCount, childCount, zoneCount] = await Promise.all([
+  const [groups, people, church, inGroups, teenCount, childCount, zoneCount, me] = await Promise.all([
     db.group.findMany({
       where: { churchId: session.churchId },
       include: {
@@ -34,11 +34,12 @@ export default async function GroupsPage() {
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
       take: 500,
     }),
-    db.church.findUnique({ where: { id: session.churchId }, select: { timezone: true } }),
+    db.church.findUnique({ where: { id: session.churchId }, select: { timezone: true, leaderMessagingOn: true } }),
     db.person.count({ where: { churchId: session.churchId, groups: { some: { isActive: true } } } }),
     db.person.count({ where: { churchId: session.churchId, ageGroup: "teen" } }),
     db.person.count({ where: { churchId: session.churchId, ageGroup: "child" } }),
     db.memberCategory.count({ where: { churchId: session.churchId, options: { some: {} } } }),
+    db.user.findUnique({ where: { id: session.userId }, select: { personId: true } }),
   ]);
 
   const peopleOpts = people.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`.trim() }));
@@ -64,6 +65,7 @@ export default async function GroupsPage() {
       <GroupSuggestions existing={groups.map((g) => g.name)} ctx={{ hasTeens: teenCount > 0, hasChildren: childCount > 0 }} canWrite={canEdit(session, "groups")} hasZones={zoneCount > 0} />
 
       <GroupsClient
+        leaderOf={church?.leaderMessagingOn && me?.personId ? groups.filter((g) => g.leaderId === me.personId).map((g) => g.id) : []}
         canWrite={canEdit(session, "groups")}
         stats={{
           groups: groups.length,

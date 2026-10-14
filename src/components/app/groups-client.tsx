@@ -1,5 +1,6 @@
 "use client";
 
+import { sendLeaderGroupMessage } from "@/app/actions/leader-messages";
 import { useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -68,11 +69,13 @@ const toneFor = (type: string) => {
   return TONES[h % TONES.length];
 };
 
-export function GroupsClient({ items, people, typeSuggestions, canWrite, stats }: {
+export function GroupsClient({ items, people, typeSuggestions, canWrite, stats, leaderOf = [] }: {
   items: GroupRow[];
   people: PersonOpt[];
   typeSuggestions: string[];
   canWrite: boolean;
+  /** Groups this person leads and may text, when the church has switched that on. */
+  leaderOf?: string[];
   stats: { groups: number; inGroups: number; onForms: number; meetingThisWeek: number };
 }) {
   const [search, setSearch] = useState("");
@@ -234,6 +237,7 @@ export function GroupsClient({ items, people, typeSuggestions, canWrite, stats }
                   <Link href={`/app/groups/${g.id}`} className="flex-1">
                     <Button variant="secondary" size="sm" className="w-full" type="button"><Users2 /> Members</Button>
                   </Link>
+                  {!canWrite && leaderOf.includes(g.id) && <GroupMessageDialog groupId={g.id} groupName={g.name} memberCount={g.memberCount} asLeader />}
                   {canWrite && (
                     <>
                       <GroupMessageDialog groupId={g.id} groupName={g.name} memberCount={g.memberCount} />
@@ -278,7 +282,7 @@ export function EditGroupDialog({ g, people, typeSuggestions }: {
 
 /** Manual, one-off message to everyone in the group - separate from the
  *  scheduled meeting reminder and from Reminders & automations. */
-export function GroupMessageDialog({ groupId, groupName, memberCount, label }: { groupId: string; groupName: string; memberCount: number; label?: string }) {
+export function GroupMessageDialog({ groupId, groupName, memberCount, label, asLeader = false }: { groupId: string; groupName: string; memberCount: number; label?: string; asLeader?: boolean }) {
   const [open, setOpen] = useState(false);
   const [channel, setChannel] = useState<"SMS" | "Email">("SMS");
   const [message, setMessage] = useState("");
@@ -288,6 +292,14 @@ export function GroupMessageDialog({ groupId, groupName, memberCount, label }: {
 
   function send() {
     if (!message.trim()) return;
+    if (asLeader) {
+      start(async () => {
+        const r = await sendLeaderGroupMessage({ groupId, message });
+        if (r.ok) { toast(`Sent to ${r.sent} ${r.sent === 1 ? "person" : "people"}`, "success"); setOpen(false); setMessage(""); router.refresh(); }
+        else toast(r.error, "error");
+      });
+      return;
+    }
     const fd = new FormData();
     fd.set("name", `${groupName} message`);
     fd.set("channel", channel);
@@ -318,7 +330,8 @@ export function GroupMessageDialog({ groupId, groupName, memberCount, label }: {
         description={`Sends to all ${memberCount} member${memberCount !== 1 ? "s" : ""} with a phone number or email on file. This is manual - it's separate from any automatic reminders.`}
       >
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-2">
+          {asLeader && <p className="rounded-xl bg-surface-2 px-3 py-2 text-xs text-ink-muted">It goes out as an SMS from your church, starting with &ldquo;{groupName}:&rdquo; and ending with your name, so people know it is their group checking in on them.</p>}
+          <div className={cn("grid grid-cols-2 gap-2", asLeader && "hidden")}>
             {(["SMS", "Email"] as const).map((c) => (
               <button
                 key={c}

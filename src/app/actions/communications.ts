@@ -41,6 +41,7 @@ export async function sendBroadcast(formData: FormData) {
   const target = String(formData.get("target") ?? "all");
   let recipientObjs: Recipient[] = [];
   let segmentLabel = "All members";
+  let groupLabel: string | null = null;
 
   const pick = (
     people: { id: string; firstName: string; lastName: string; phone: string | null; email: string | null }[],
@@ -111,6 +112,8 @@ export async function sendBroadcast(formData: FormData) {
       where.groups = { some: { id } };
       const group = await db.group.findFirst({ where: { id, churchId: session.churchId }, select: { name: true } });
       segmentLabel = group ? `${group.name} group` : "Group";
+      // One sender ID for the whole church, so a group's message says which group is calling.
+      if (group) groupLabel = group.name;
     }
     const people = await db.person.findMany({ where, select: PERSON_SELECT });
     recipientObjs = pick(people);
@@ -124,8 +127,9 @@ export async function sendBroadcast(formData: FormData) {
   // {name} means each recipient needs their own rendered message, so this
   // sends one at a time instead of one shared batch call - same pattern the
   // automations use for personalized texts.
-  const personalize = message.includes("{name}");
-  const renderFor = (recipientName: string) => message.replace(/\{name\}/g, recipientName || "there");
+  const outMessage = groupLabel && channel === "SMS" ? `${groupLabel}: ${message}` : message;
+  const personalize = outMessage.includes("{name}");
+  const renderFor = (recipientName: string) => outMessage.replace(/\{name\}/g, recipientName || "there");
 
   if (recipients.length) {
     if (channel === "Email") {
@@ -152,7 +156,7 @@ export async function sendBroadcast(formData: FormData) {
       sent = results.filter(Boolean).length;
       if (sent === 0) redirect("/app/communications?error=credits");
     } else {
-      const result = await sendChurchSms(session.churchId, recipients, message, { note: name });
+      const result = await sendChurchSms(session.churchId, recipients, outMessage, { note: name });
       if (result.insufficient) {
         redirect("/app/communications?error=credits");
       }
