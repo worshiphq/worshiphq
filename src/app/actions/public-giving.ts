@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { initializePayment, newPaymentReference, SETTLEMENT_CURRENCY, grossUpForFee } from "@/lib/integrations/paystack";
 import { recordOnlineGift } from "@/lib/giving/record";
+import { FORM_KINDS, collectExtraAnswers } from "@/lib/forms/kinds";
 
 /**
  * Public online giving: a member/visitor gives via the church's shareable link.
@@ -34,7 +35,7 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
 
   const church = await db.church.findUnique({
     where: { slug: churchSlug },
-    select: { id: true, isDemo: true, paystackSubaccountCode: true, givingBlocked: true },
+    select: { id: true, isDemo: true, paystackSubaccountCode: true, givingBlocked: true, giveFormFields: true },
   });
   if (!church || church.isDemo) return giftError("This church can't receive gifts right now.");
   if (church.givingBlocked) return giftError("Online giving is temporarily unavailable for this church. Please contact the church directly.");
@@ -46,6 +47,8 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
   const email = String(formData.get("email") ?? "").trim() || null;
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const fundName = String(formData.get("fund") ?? "").trim() || "General";
+  // Answers to the church's own extra giving questions travel with the payment and land on the gift.
+  const extra = collectExtraAnswers(FORM_KINDS.give.resolve(church.giveFormFields), (id) => formData.getAll(id).map(String));
   // No payment-method picker on the form - Paystack's own checkout lets the
   // donor choose Mobile Money or card.
 
@@ -83,6 +86,7 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
       email,
       phone,
       fundName,
+      extra: extra.length ? JSON.stringify(extra) : undefined,
       // The amount the donor meant to give (what the church receives + what the
       // receipt shows) - distinct from the grossed-up amount actually charged.
       intendedAmount: amount,
@@ -99,6 +103,7 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
       email,
       phone,
       fundName,
+      extra: extra.length ? extra : undefined,
     });
   }
 

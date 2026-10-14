@@ -7,6 +7,7 @@ import { PageHeader } from "@/components/app/page-header";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { Plus } from "lucide-react";
 import { headers } from "next/headers";
+import { asExtra } from "@/components/app/extra-answers";
 
 export const metadata = { title: "Prayer requests" };
 
@@ -60,6 +61,7 @@ export default async function PrayerRequestsPage() {
           request: r.request,
           isAnonymous: r.isAnonymous,
           status: r.status,
+          extra: asExtra(r.extra),
           prayedAt: r.prayedAt?.toISOString() ?? null,
           prayedBy: r.prayedBy,
           createdAt: r.createdAt.toISOString(),

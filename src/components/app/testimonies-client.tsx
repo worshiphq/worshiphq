@@ -5,6 +5,7 @@ import { Search, Trash2, Star, Eye, EyeOff, Sparkles, Heart, HandHeart, Shield, 
 import { deleteTestimony, toggleTestimonyStatus } from "@/app/actions/testimonies";
 import { useFeedback } from "@/components/ui/feedback";
 import { formatDate } from "@/lib/utils";
+import { ExtraAnswers, asExtra, type ExtraAnswer } from "@/components/app/extra-answers";
 import { confirmBinDelete } from "@/lib/recycle-bin-events";
 import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
@@ -16,6 +17,7 @@ interface Testimony {
   status: string;
   anonymous: boolean;
   memberName: string | null;
+  extra: ExtraAnswer[] | null;
   date: string;
 }
 
@@ -87,7 +89,7 @@ export function TestimoniesClient({ testimonies }: { testimonies: Testimony[] })
                 <div className="flex items-start justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <Icon className={`size-4 ${cfg.color}`} />
-                    <span className="text-xs font-medium text-ink-muted">{cfg.label}</span>
+                    <span className="text-xs font-medium capitalize text-ink-muted">{CATEGORY_CONFIG[t.category] ? cfg.label : t.category}</span>
                     {t.status === "featured" && <Star className="size-3.5 fill-gold text-gold" />}
                   </div>
                   <div className="flex gap-1">
@@ -105,6 +107,7 @@ export function TestimoniesClient({ testimonies }: { testimonies: Testimony[] })
                 </div>
                 <h3 className="mt-2 font-semibold">{t.title}</h3>
                 <p className="mt-1 line-clamp-3 text-sm text-ink-muted">{t.body}</p>
+                <ExtraAnswers items={t.extra} className="mt-2" />
                 <div className="mt-3 flex items-center justify-between text-xs text-ink-faint">
                   <span>{t.anonymous ? "Anonymous" : t.memberName ?? "-"}</span>
                   <span>{formatDate(t.date)}</span>

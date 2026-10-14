@@ -2,6 +2,9 @@ import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
 import { BookingRequestForm } from "./booking-form";
+import { FORM_KINDS } from "@/lib/forms/kinds";
+import { asRateUnit } from "@/lib/bookings/pricing";
+import { ymdInTz } from "@/lib/time/tz";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
@@ -14,7 +17,7 @@ export default async function BookFacilityPage({ params }: { params: Promise<{ s
   const { slug } = await params;
   const church = await db.church.findUnique({
     where: { slug },
-    select: { id: true, name: true, slug: true, isDemo: true, suspended: true, logoUrl: true, accentColor: true, publicBookingOn: true, bookingNote: true },
+    select: { id: true, name: true, slug: true, isDemo: true, suspended: true, logoUrl: true, accentColor: true, publicBookingOn: true, bookingNote: true, bookingFormFields: true, timezone: true },
   });
   if (!church || church.isDemo || church.suspended) notFound();
 
@@ -35,7 +38,7 @@ export default async function BookFacilityPage({ params }: { params: Promise<{ s
     db.facility.findMany({
       where: { churchId: church.id, isActive: true, publicBookable: true },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, capacity: true, location: true, description: true, imageUrl: true, rate: true },
+      select: { id: true, name: true, capacity: true, location: true, description: true, imageUrl: true, rate: true, rateUnit: true },
     }),
     db.booking.findMany({
       where: { churchId: church.id, status: "confirmed", endTime: { gte: new Date() }, startTime: { lte: new Date(Date.now() + 120 * 86400000) } },
@@ -67,7 +70,9 @@ export default async function BookFacilityPage({ params }: { params: Promise<{ s
           <BookingRequestForm
             churchSlug={church.slug}
             accent={accent}
-            facilities={facilities.map((f) => ({ ...f, rate: f.rate ? Number(f.rate) : null }))}
+            facilities={facilities.map((f) => ({ ...f, rate: f.rate ? Number(f.rate) : null, rateUnit: asRateUnit(f.rateUnit) }))}
+            fields={FORM_KINDS.book.resolve(church.bookingFormFields)}
+            today={ymdInTz(new Date(), church.timezone)}
             busy={busy.map((b) => ({ facilityId: b.facilityId, start: b.startTime.toISOString(), end: b.endTime.toISOString() }))}
           />
         )}

@@ -163,12 +163,23 @@ export async function POST(request: NextRequest) {
       phone,
       fundName: meta.fundName ?? null,
       method: methodFromPaystackChannel(data.channel, data.authorization?.bank),
+      extra: parseExtra(meta.extra),
     });
     return Response.json({ received: true, created: result.created });
   } catch (e) {
     console.error("[Paystack webhook] failed to record gift:", e);
     // 500 → Paystack will retry, which is safe because recording is idempotent.
     return new Response("Processing error", { status: 500 });
+  }
+}
+
+function parseExtra(raw: unknown): { label: string; value: string }[] | undefined {
+  if (typeof raw !== "string" || !raw) return undefined;
+  try {
+    const v = JSON.parse(raw);
+    return Array.isArray(v) ? v.filter((x) => x && typeof x.label === "string" && typeof x.value === "string").slice(0, 40) : undefined;
+  } catch {
+    return undefined;
   }
 }
 
@@ -179,6 +190,7 @@ interface GiftMetadata {
   email?: string;
   phone?: string;
   fundName?: string;
+  extra?: string;
   intendedAmount?: number | string;
   credits?: number | string;
   bundleId?: string;

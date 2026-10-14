@@ -32,6 +32,8 @@ export interface OnlineGiftInput {
   phone?: string | null;
   fundName?: string | null;
   method?: GiftMethod;
+  /** Answers to the church's own extra giving questions. */
+  extra?: { label: string; value: string }[];
 }
 
 /**
@@ -84,6 +86,7 @@ export async function recordOnlineGift(
       currency: "GHS",
       reference,
       receiptSent: false,
+      ...(input.extra?.length ? { extra: input.extra } : {}),
     },
   });
 

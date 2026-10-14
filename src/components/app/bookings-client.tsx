@@ -20,16 +20,18 @@ import {
 import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 import { formatCurrency } from "@/config/brand";
 import { cn } from "@/lib/utils";
+import { ExtraAnswers, asExtra, type ExtraAnswer } from "@/components/app/extra-answers";
+import { priceFor, RATE_UNITS, rateUnitLabel, type RateUnit } from "@/lib/bookings/pricing";
 
 type FacilityRow = {
   id: string; name: string; capacity: number | null; location: string | null; description: string | null;
-  imageUrl: string | null; rate: number | null; publicBookable: boolean;
+  imageUrl: string | null; rate: number | null; rateUnit: RateUnit; publicBookable: boolean;
 };
 type PaymentRow = { id: string; amount: number; method: string; accountName: string | null; date: string; note: string | null };
 type BookingRow = {
   id: string; title: string; facilityId: string; facilityName: string; bookedBy: string;
   contactPhone: string | null; contactEmail: string | null; startTime: string; endTime: string;
-  status: string; source: string; notes: string | null; amount: number | null; payments: PaymentRow[];
+  status: string; source: string; notes: string | null; extra: ExtraAnswer[] | null; amount: number | null; payments: PaymentRow[];
 };
 
 const METHOD_LABEL: Record<string, string> = { Cash: "Cash", MTN_MoMo: "MTN MoMo", Telecel_Cash: "Telecel Cash", AirtelTigo: "AirtelTigo", Card: "Card", Bank: "Bank transfer" };
@@ -206,6 +208,7 @@ export function BookingsClient({ facilities, bookings, accounts, canWrite, slug,
                           {b.contactPhone && <a href={`tel:${b.contactPhone}`} className="flex items-center gap-1 hover:text-primary"><Phone className="size-3" /> {b.contactPhone}</a>}
                         </div>
                         {b.notes && <p className="mt-1 text-xs text-ink-muted">{b.notes}</p>}
+                        <ExtraAnswers items={b.extra} className="mt-1.5" />
 
                         {/* Money */}
                         {b.status !== "pending" && b.status !== "declined" && (
@@ -285,7 +288,7 @@ export function BookingsClient({ facilities, bookings, accounts, canWrite, slug,
                       <div className="mt-1 flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-ink-faint">
                         {f.capacity ? <span className="flex items-center gap-1"><Users className="size-3" /> {f.capacity}</span> : null}
                         {f.location && <span className="flex items-center gap-1"><MapPin className="size-3" /> {f.location}</span>}
-                        {f.rate ? <span className="flex items-center gap-1"><CircleDollarSign className="size-3" /> {formatCurrency(f.rate)}</span> : null}
+                        {f.rate ? <span className="flex items-center gap-1"><CircleDollarSign className="size-3" /> {formatCurrency(f.rate)} {rateUnitLabel(f.rateUnit)}</span> : null}
                       </div>
                     </div>
                     {canWrite && (
@@ -410,12 +413,17 @@ function BookingDialog({ booking, facilities, onClose }: { booking: BookingRow |
   const [facilityId, setFacilityId] = useState(booking?.facilityId ?? facilities[0]?.id ?? "");
   const [amount, setAmount] = useState(booking?.amount != null ? String(booking.amount) : "");
   const [amountTouched, setAmountTouched] = useState(booking?.amount != null);
+  const [startAt, setStartAt] = useState(booking ? toLocalInput(booking.startTime) : "");
+  const [endAt, setEndAt] = useState(booking ? toLocalInput(booking.endTime) : "");
 
-  const pickFacility = (id: string) => {
-    setFacilityId(id);
-    const f = facilities.find((x) => x.id === id);
-    if (!amountTouched && f?.rate) setAmount(String(f.rate));
-  };
+  // The charge follows the facility's price, per day or per hour, until it is typed over.
+  const chosen = facilities.find((x) => x.id === facilityId);
+  const auto = chosen?.rate && startAt.length >= 16 && endAt.length >= 16
+    ? priceFor({ unit: chosen.rateUnit, rate: chosen.rate, startDate: startAt.slice(0, 10), startTime: startAt.slice(11, 16), endDate: endAt.slice(0, 10), endTime: endAt.slice(11, 16) })
+    : null;
+  const shownAmount = amountTouched ? amount : auto?.amount != null ? String(auto.amount) : chosen?.rate && chosen.rateUnit === "event" ? String(chosen.rate) : "";
+
+  const pickFacility = (id: string) => setFacilityId(id);
 
   const submit = (fd: FormData) => {
     setError("");
@@ -442,13 +450,13 @@ function BookingDialog({ booking, facilities, onClose }: { booking: BookingRow |
           <div><Label htmlFor="b-ph">Phone (optional)</Label><Input id="b-ph" name="contactPhone" type="tel" defaultValue={booking?.contactPhone ?? ""} /></div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <div><Label htmlFor="b-s">Start</Label><Input id="b-s" name="startTime" type="datetime-local" defaultValue={booking ? toLocalInput(booking.startTime) : ""} required /></div>
-          <div><Label htmlFor="b-e">End</Label><Input id="b-e" name="endTime" type="datetime-local" defaultValue={booking ? toLocalInput(booking.endTime) : ""} required /></div>
+          <div><Label htmlFor="b-s">Start</Label><Input id="b-s" name="startTime" type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} required /></div>
+          <div><Label htmlFor="b-e">End</Label><Input id="b-e" name="endTime" type="datetime-local" value={endAt} onChange={(e) => setEndAt(e.target.value)} required /></div>
         </div>
         <div>
           <Label htmlFor="b-amt">Charge (₵, optional)</Label>
-          <Input id="b-amt" name="amount" type="number" min="0" step="0.01" value={amount} onChange={(e) => { setAmount(e.target.value); setAmountTouched(true); }} placeholder="Leave empty if free" />
-          <p className="mt-1 text-[11px] text-ink-faint">Set a price to track what has been paid and what is still owed.</p>
+          <Input id="b-amt" name="amount" type="number" min="0" step="0.01" value={shownAmount} onChange={(e) => { setAmount(e.target.value); setAmountTouched(true); }} placeholder="Leave empty if free" />
+          <p className="mt-1 text-[11px] text-ink-faint">{!amountTouched && auto?.amount != null ? `Worked out from the price: ${auto.detail}. You can type a different amount.` : "Set a price to track what has been paid and what is still owed."}</p>
         </div>
         <div><Label htmlFor="b-n">Notes (optional)</Label><Input id="b-n" name="notes" defaultValue={booking?.notes ?? ""} placeholder="Setup, sound system, number of guests…" /></div>
         {error && <p className="rounded-xl border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">{error}</p>}
@@ -542,7 +550,14 @@ function FacilityDialog({ facility, onClose }: { facility: FacilityRow | null; o
         <div><Label htmlFor="f-name">Name</Label><Input id="f-name" name="name" defaultValue={facility?.name} placeholder="e.g. Main hall" required /></div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div><Label htmlFor="f-cap">Capacity</Label><Input id="f-cap" name="capacity" type="number" min="0" defaultValue={facility?.capacity ?? ""} placeholder="People it holds" /></div>
-          <div><Label htmlFor="f-rate">Usual price (₵)</Label><Input id="f-rate" name="rate" type="number" min="0" step="0.01" defaultValue={facility?.rate ?? ""} placeholder="Optional" /></div>
+          <div><Label htmlFor="f-rate">Price (₵)</Label><Input id="f-rate" name="rate" type="number" min="0" step="0.01" defaultValue={facility?.rate ?? ""} placeholder="Optional" /></div>
+        </div>
+        <div>
+          <Label htmlFor="f-unit">The price is</Label>
+          <select id="f-unit" name="rateUnit" defaultValue={facility?.rateUnit ?? "event"} className={sel}>
+            {RATE_UNITS.map((u) => <option key={u.value} value={u.value}>{u.label}</option>)}
+          </select>
+          <p className="mt-1 text-[11px] text-ink-faint">Per day: a booking over three days costs three times the price. Per hour: it is worked out from the start and end time.</p>
         </div>
         <div><Label htmlFor="f-loc">Location</Label><Input id="f-loc" name="location" defaultValue={facility?.location ?? ""} placeholder="Building or floor" /></div>
         <div>

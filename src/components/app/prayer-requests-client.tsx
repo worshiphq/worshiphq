@@ -10,6 +10,7 @@ import { updatePrayerRequestStatus, deletePrayerRequest, markPrayerRequestsPraye
 import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 import { PERIODS, periodStart, filterSelectCls, Pager } from "@/components/app/list-filters";
 import { useFeedback } from "@/components/ui/feedback";
+import { ExtraAnswers, asExtra, type ExtraAnswer } from "@/components/app/extra-answers";
 
 type PrayerRow = {
   id: string;
@@ -19,6 +20,7 @@ type PrayerRow = {
   status: string;
   prayedAt: string | null;
   prayedBy: string | null;
+  extra: ExtraAnswer[] | null;
   createdAt: string;
 };
 
@@ -169,6 +171,7 @@ export function PrayerRequestsClient({ items, prayUrl, canWrite }: { items: Pray
                   <Icon className={`mt-0.5 size-5 shrink-0 ${meta.color}`} />
                   <div className="min-w-0 flex-1">
                     <p className={`text-sm ${p.status === "archived" ? "text-ink-muted" : ""}`}>{p.request}</p>
+                    <ExtraAnswers items={p.extra} className="mt-2" />
                     <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
                       <span className="flex items-center gap-1"><User className="size-3" /> {p.isAnonymous ? "Anonymous" : p.name}</span>
                       <span className="flex items-center gap-1"><Calendar className="size-3" /> {fmt(p.createdAt)}</span>

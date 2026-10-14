@@ -16,6 +16,7 @@ import { SearchSelect } from "@/components/app/search-select";
 import { OtherSelect } from "@/components/app/other-select";
 import { PERIODS, periodStart, filterSelectCls, Pager } from "@/components/app/list-filters";
 import { formatDate } from "@/lib/utils";
+import { ExtraAnswers, asExtra, type ExtraAnswer } from "@/components/app/extra-answers";
 import { confirmBinDelete } from "@/lib/recycle-bin-events";
 import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
@@ -44,6 +45,7 @@ export interface CounselingRow {
   textUpdates: boolean;
   reminderSent: boolean;
   messageCount: number;
+  extra: ExtraAnswer[] | null;
 }
 
 type Member = { id: string; name: string; phone: string | null };
@@ -232,6 +234,7 @@ export function CounselingClient({
 
                 {who && <p className="mt-2 text-sm font-semibold">{who}{s.memberName ? "" : " (not a member)"}</p>}
                 <p className={`${who ? "mt-0.5" : "mt-2"} text-sm ${who ? "text-ink-muted" : "font-medium"}`}>{s.summary}</p>
+                <ExtraAnswers items={s.extra} className="mt-2" />
 
                 {s.scheduledLabel && (
                   <p className="mt-2 inline-flex items-center gap-1.5 rounded-lg bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">

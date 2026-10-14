@@ -4,6 +4,8 @@ import { db } from "@/lib/db";
 import { BookingsClient } from "@/components/app/bookings-client";
 import { PageHeader } from "@/components/app/page-header";
 import { getAccountOptions } from "@/lib/data/accounts";
+import { asRateUnit } from "@/lib/bookings/pricing";
+import { asExtra } from "@/components/app/extra-answers";
 
 export const metadata = { title: "Facility bookings" };
 
@@ -46,6 +48,7 @@ export default async function BookingsPage() {
           description: f.description,
           imageUrl: f.imageUrl,
           rate: f.rate ? Number(f.rate) : null,
+          rateUnit: asRateUnit(f.rateUnit),
           publicBookable: f.publicBookable,
         }))}
         bookings={bookings.map((b) => ({
@@ -61,6 +64,7 @@ export default async function BookingsPage() {
           status: b.status,
           source: b.source,
           notes: b.notes,
+          extra: asExtra(b.extra),
           amount: b.amount ? Number(b.amount) : null,
           payments: b.payments.map((p) => ({
             id: p.id,

@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { CounselingClient } from "@/components/app/counseling-client";
 import { PageHeader } from "@/components/app/page-header";
 import { hmInTz, whenInTz, ymdInTz } from "@/lib/time/tz";
+import { asExtra } from "@/components/app/extra-answers";
 
 export const metadata = { title: "Counseling" };
 
@@ -66,6 +67,7 @@ export default async function CounselingPage() {
           scheduledHm: s.scheduledAt ? hmInTz(s.scheduledAt, tz) : "",
           scheduledLabel: s.scheduledAt ? whenInTz(s.scheduledAt, tz) : null,
           textUpdates: s.textUpdates,
+          extra: asExtra(s.extra),
           reminderSent: !!s.reminderSentAt,
           messageCount: s._count.messages,
         }))}

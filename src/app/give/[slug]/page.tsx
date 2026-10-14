@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { GiveForm } from "./give-form";
+import { FORM_KINDS } from "@/lib/forms/kinds";
 import { HandCoins } from "lucide-react";
 import type { Metadata } from "next";
 
@@ -35,6 +36,7 @@ export default async function GivePage({
       logoUrl: true,
       accentColor: true,
       funds: { select: { name: true }, orderBy: { name: "asc" } },
+      giveFormFields: true,
     },
   });
 
@@ -81,6 +83,7 @@ export default async function GivePage({
             churchName={church.name}
             accentColor={church.accentColor}
             funds={funds}
+            fields={FORM_KINDS.give.resolve(church.giveFormFields)}
           />
         )}
       </div>

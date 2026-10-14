@@ -36,6 +36,7 @@ export async function saveFacility(formData: FormData): Promise<Result> {
     location: str(formData.get("location")) || null,
     description: str(formData.get("description")) || null,
     rate: num(formData.get("rate")),
+    rateUnit: (["day", "hour"].includes(str(formData.get("rateUnit"))) ? str(formData.get("rateUnit")) : "event"),
     publicBookable: formData.get("publicBookable") === "on",
   };
 

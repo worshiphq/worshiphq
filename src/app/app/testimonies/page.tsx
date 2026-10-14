@@ -1,5 +1,6 @@
 import { requireModule } from "@/lib/auth";
 import { canEdit } from "@/lib/permissions";
+import { asExtra } from "@/components/app/extra-answers";
 import { db } from "@/lib/db";
 import { TestimoniesClient } from "@/components/app/testimonies-client";
 import { createTestimony } from "@/app/actions/testimonies";
@@ -68,6 +69,7 @@ export default async function TestimoniesPage() {
           status: t.status,
           anonymous: t.anonymous,
           memberName: t.person ? `${t.person.firstName} ${t.person.lastName}` : null,
+          extra: asExtra(t.extra),
           date: t.date.toISOString(),
         }))}
       />
