@@ -1,11 +1,12 @@
 "use client";
 
-import { useTransition } from "react";
+import { useState, useTransition } from "react";
 import { submitCounselingRequest } from "@/app/actions/public-submissions";
 import { phoneValidityMessage } from "@/lib/phone";
 
 export function CounselForm({ churchSlug, accentColor }: { churchSlug: string; accentColor: string | null }) {
   const [pending, start] = useTransition();
+  const [type, setType] = useState("general");
   const accent = accentColor ?? "#0d7377";
   const field = "w-full rounded-xl border border-[#e5e0db] bg-white px-4 py-3 text-sm text-[#1c1a16] shadow-sm outline-none focus:ring-2";
 
@@ -21,7 +22,7 @@ export function CounselForm({ churchSlug, accentColor }: { churchSlug: string; a
       </div>
       <div>
         <label className="mb-1 block text-sm font-medium text-[#1c1a16]">What is it about?</label>
-        <select name="type" className={field}>
+        <select name="type" value={type} onChange={(e) => setType(e.target.value)} className={field}>
           <option value="general">General / not sure</option>
           <option value="marriage">Marriage / family</option>
           <option value="spiritual">Spiritual growth</option>
@@ -30,6 +31,9 @@ export function CounselForm({ churchSlug, accentColor }: { churchSlug: string; a
           <option value="health">Health</option>
           <option value="other">Other</option>
         </select>
+        {type === "other" && (
+          <input name="typeOther" required maxLength={60} placeholder="Please tell us what it is about" className={`${field} mt-2`} style={{ "--tw-ring-color": accent } as React.CSSProperties} />
+        )}
       </div>
       <div>
         <label className="mb-1 block text-sm font-medium text-[#1c1a16]">Briefly, how can we help? *</label>

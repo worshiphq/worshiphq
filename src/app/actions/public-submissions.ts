@@ -57,14 +57,18 @@ export async function submitCounselingRequest(formData: FormData) {
 
   const name = String(formData.get("name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();
-  const type = String(formData.get("type") ?? "general").trim();
+  let type = String(formData.get("type") ?? "general").trim();
+  const typeOther = String(formData.get("typeOther") ?? "").trim().slice(0, 60);
+  if (type === "other" && typeOther) type = typeOther;
   const reason = String(formData.get("reason") ?? "").trim();
   if (!name || !reason) return;
 
   await db.counselingSession.create({
     data: {
       churchId: church.id,
-      summary: `[Request] ${name}${phone ? ` (${phone})` : ""}: ${reason}`,
+      summary: `[Request] ${reason}`,
+      counseleeName: name.slice(0, 120),
+      counseleePhone: phone || null,
       type,
       status: "open",
       confidential: true,
