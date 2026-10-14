@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { getServiceRoles } from "@/lib/data/rosters";
 import { getSmsBalance } from "@/lib/sms/credits";
@@ -126,7 +127,7 @@ export default async function RostersPage() {
           minute: church?.rosterRemindMinute ?? 0,
           weekday: church?.rosterRemindWeekday ?? null,
         }}
-        canWrite={!session.isDemo}
+        canWrite={canEdit(session, "volunteers")}
       />
     </div>
   );

@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { DevotionalsClient } from "@/components/app/devotionals-client";
 import { createDevotional } from "@/app/actions/devotionals";
@@ -30,7 +31,7 @@ export default async function DevotionalsPage() {
           description="Write a devotional or Bible study note to share."
           submitLabel="Save"
           action={createDevotional}
-          disabled={session.isDemo}
+          disabled={!canEdit(session, "devotionals")}
         >
           <Field label="Title" name="title" placeholder="Devotional title" required />
           <Field label="Scripture" name="scripture" placeholder="e.g. Psalm 23:1-6" />

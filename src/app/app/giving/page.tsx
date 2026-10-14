@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { getGiving, getTitheData } from "@/lib/data/giving";
 import { getAccountOptions } from "@/lib/data/accounts";
 import { GivingClient } from "@/components/app/giving-client";
@@ -57,13 +58,13 @@ export default async function GivingPage({
         </div>
       )}
       <div data-tour="giving-body">
-        <GivingClient {...data} accounts={accounts} canWrite={!session.isDemo} canDelete={session.canDelete && !session.isDemo} />
+        <GivingClient {...data} accounts={accounts} canWrite={canEdit(session, "giving")} canDelete={session.canDelete && canEdit(session, "giving")} />
       </div>
       <div data-tour="tithe-body">
         <TitheClient
           {...titheData}
           accounts={accounts}
-          canWrite={!session.isDemo}
+          canWrite={canEdit(session, "giving")}
           titheTemplate={church?.titheReceiptTemplate ?? null}
           customFunds={customFunds}
         />

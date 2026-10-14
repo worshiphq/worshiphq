@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { SermonsClient } from "@/components/app/sermons-client";
 import { createSermon } from "@/app/actions/sermons";
@@ -30,7 +31,7 @@ export default async function SermonsPage() {
           description="Record a sermon with notes and media links."
           submitLabel="Save"
           action={createSermon}
-          disabled={session.isDemo}
+          disabled={!canEdit(session, "sermons")}
         >
           <Field label="Title" name="title" placeholder="Sermon title" required />
           <Field label="Preacher" name="preacher" placeholder="Pastor name" />

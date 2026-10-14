@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { getPeople, getAllPeopleStats } from "@/lib/data/people";
 import { db } from "@/lib/db";
 import { PeopleClient } from "@/components/app/people-client";
@@ -54,7 +55,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
         <PeopleClient
           people={allPeople}
           stats={stats}
-          canWrite={!session.isDemo}
+          canWrite={canEdit(session, "people")}
           departments={departments}
           formFields={formFields}
           adults={adults}

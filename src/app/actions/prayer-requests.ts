@@ -1,12 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModule } from "@/lib/auth";
+import { requireModule, requireManage } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { RecycleBin } from "@/lib/recycle-bin";
 
 export async function createPrayerRequest(formData: FormData) {
-  const session = await requireModule("people");
+  const session = await requireManage("prayer-requests");
   if (session.isDemo) return;
 
   const name = String(formData.get("name") ?? "").trim();
@@ -27,7 +27,7 @@ export async function createPrayerRequest(formData: FormData) {
 }
 
 export async function updatePrayerRequestStatus(formData: FormData) {
-  const session = await requireModule("people");
+  const session = await requireManage("prayer-requests");
   const id = String(formData.get("id"));
   const status = String(formData.get("status"));
   if (!["active", "answered", "archived"].includes(status)) return;
@@ -44,7 +44,7 @@ export async function updatePrayerRequestStatus(formData: FormData) {
 }
 
 export async function incrementPrayerCount(formData: FormData) {
-  const session = await requireModule("people");
+  const session = await requireManage("prayer-requests");
   const id = String(formData.get("id"));
 
   await db.prayerRequest.updateMany({
@@ -56,7 +56,7 @@ export async function incrementPrayerCount(formData: FormData) {
 }
 
 export async function deletePrayerRequest(formData: FormData) {
-  const session = await requireModule("people");
+  const session = await requireManage("prayer-requests");
   const id = String(formData.get("id"));
 
   await RecycleBin.capturePrayerRequest(session, id);

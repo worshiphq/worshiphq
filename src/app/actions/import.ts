@@ -52,7 +52,7 @@ export interface ImportResult {
 
 export async function importCSV(formData: FormData): Promise<ImportResult> {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "people");
 
   const file = formData.get("file") as File | null;
   if (!file || !file.name) {

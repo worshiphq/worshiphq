@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModule } from "@/lib/auth";
+import { requireModule, requireManage } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
 import { audit } from "@/lib/audit";
@@ -23,7 +23,7 @@ function fill(tpl: string, vars: Record<string, string>): string {
  *  with no personal start). Cleared = dues aren't calculated until each member
  *  gets a start (set manually or auto-captured on their first recorded dues). */
 export async function setChurchWelfareStart(formData: FormData) {
-  const session = await requireModule("giving");
+  const session = await requireManage("welfare");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const dateStr = String(formData.get("welfareStart") ?? "").trim();
   await db.church.update({
@@ -37,7 +37,7 @@ export async function setChurchWelfareStart(formData: FormData) {
 
 /** Set (or clear) the date a member starts owing welfare dues. */
 export async function setMemberWelfareStart(formData: FormData) {
-  const session = await requireModule("giving");
+  const session = await requireManage("welfare");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const personId = String(formData.get("personId") ?? "").trim();
   const dateStr = String(formData.get("welfareStart") ?? "").trim();
@@ -53,7 +53,7 @@ export async function setMemberWelfareStart(formData: FormData) {
 
 /** Correct a single month's dues amount (human-error fix). */
 export async function editWelfareDue(formData: FormData) {
-  const session = await requireModule("giving");
+  const session = await requireManage("welfare");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const id = String(formData.get("id") ?? "");
   const amount = parseFloat(String(formData.get("amount") ?? "0"));
@@ -65,7 +65,7 @@ export async function editWelfareDue(formData: FormData) {
 
 /** Save the editable welfare SMS templates (receipt + reminder). */
 export async function saveWelfareTemplates(formData: FormData) {
-  const session = await requireModule("giving");
+  const session = await requireManage("welfare");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const receipt = String(formData.get("receipt") ?? "").trim();
   const reminder = String(formData.get("reminder") ?? "").trim();
@@ -82,7 +82,7 @@ export async function saveWelfareTemplates(formData: FormData) {
 
 /** Set (or update) the monthly welfare-dues rate for a given year. */
 export async function setWelfareRate(formData: FormData) {
-  const session = await requireModule("giving");
+  const session = await requireManage("welfare");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const year = parseInt(String(formData.get("year") ?? ""), 10);
   const amount = parseFloat(String(formData.get("amount") ?? "0"));
@@ -104,7 +104,7 @@ export async function setWelfareRate(formData: FormData) {
  * total as income into an account, and optionally texts the member.
  */
 export async function recordWelfareDues(formData: FormData) {
-  const session = await requireModule("giving");
+  const session = await requireManage("welfare");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
 
   const personId = String(formData.get("personId") ?? "").trim();
@@ -212,7 +212,7 @@ export async function recordWelfareDues(formData: FormData) {
 }
 
 export async function deleteWelfareDue(formData: FormData) {
-  const session = await requireModule("giving");
+  const session = await requireManage("welfare");
   if (session.isDemo) return;
   const id = String(formData.get("id"));
   await moveToBin(session, "welfareDue", "WelfareDue", id);
@@ -222,7 +222,7 @@ export async function deleteWelfareDue(formData: FormData) {
 
 /** Full welfare history for one member (for the drill-down view). */
 export async function memberDuesDetail(personId: string) {
-  const session = await requireModule("giving");
+  const session = await requireModule("welfare");
   const { getMemberDuesDetail } = await import("@/lib/data/welfare");
   return getMemberDuesDetail(session.churchId, personId);
 }
@@ -254,7 +254,7 @@ async function buildOwingMessages(churchId: string, onlyPersonId?: string) {
 }
 
 export async function previewOwingReminders(onlyPersonId?: string) {
-  const session = await requireModule("giving");
+  const session = await requireModule("welfare");
   const { segmentsFor } = await import("@/config/sms");
   const { getSmsBalance } = await import("@/lib/sms/credits");
   const [messages, balance] = await Promise.all([
@@ -266,7 +266,7 @@ export async function previewOwingReminders(onlyPersonId?: string) {
 }
 
 export async function sendOwingReminders(onlyPersonId?: string) {
-  const session = await requireModule("giving");
+  const session = await requireManage("welfare");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const messages = await buildOwingMessages(session.churchId, onlyPersonId);
   if (messages.length === 0) return { ok: false as const, error: "No members owe dues (or none have a phone)." };
@@ -287,7 +287,7 @@ export async function sendOwingReminders(onlyPersonId?: string) {
 }
 
 export async function createWelfareRecord(formData: FormData) {
-  const session = await requireModule("giving");
+  const session = await requireManage("welfare");
   if (session.isDemo) return;
 
   const kind = String(formData.get("kind") ?? "aid") === "dues" ? "dues" : "aid";
@@ -340,7 +340,7 @@ export async function createWelfareRecord(formData: FormData) {
 }
 
 export async function deleteWelfareRecord(formData: FormData) {
-  const session = await requireModule("giving");
+  const session = await requireManage("welfare");
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));

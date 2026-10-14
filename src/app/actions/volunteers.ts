@@ -15,7 +15,7 @@ export async function deleteAssignment(id: string) {
 
 export async function scheduleAssignment(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "volunteers");
 
   const personName = String(formData.get("person") ?? "").trim();
   const team = String(formData.get("team") ?? "").trim();
@@ -38,7 +38,7 @@ export async function scheduleAssignment(formData: FormData) {
 
 export async function toggleAssignment(id: string, confirmed: boolean) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "volunteers");
   await db.volunteerAssignment.updateMany({
     where: { id, churchId: session.churchId },
     data: { confirmed },

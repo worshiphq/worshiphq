@@ -18,7 +18,7 @@ export async function deleteEvent(id: string) {
 
 export async function createEvent(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "events");
 
   const title = String(formData.get("title") ?? "").trim();
   if (!title) return;

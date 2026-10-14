@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModule } from "@/lib/auth";
+import { requireModule, requireManage } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
 import { segmentsFor } from "@/config/sms";
@@ -16,7 +16,7 @@ function devotionalSms(d: { title: string; scripture: string | null; body: strin
 
 /** Preview what a devotional SMS blast will cost before sending. */
 export async function previewDevotionalBlast(id: string) {
-  const session = await requireModule("communications");
+  const session = await requireModule("devotionals");
   const [dev, members, church] = await Promise.all([
     db.devotional.findFirst({ where: { id, churchId: session.churchId }, select: { title: true, scripture: true, body: true } }),
     db.person.findMany({ where: { churchId: session.churchId, status: { not: "inactive" }, phone: { not: null } }, select: { id: true } }),
@@ -41,7 +41,7 @@ export async function previewDevotionalBlast(id: string) {
 
 /** Send a devotional by SMS to every active member with a phone. */
 export async function blastDevotional(id: string) {
-  const session = await requireModule("communications");
+  const session = await requireManage("devotionals");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
 
   const [dev, members, church] = await Promise.all([
@@ -65,7 +65,7 @@ export async function blastDevotional(id: string) {
 }
 
 export async function createDevotional(formData: FormData) {
-  const session = await requireModule("communications");
+  const session = await requireManage("devotionals");
   if (session.isDemo) return;
 
   const title = String(formData.get("title") ?? "").trim();
@@ -91,7 +91,7 @@ export async function createDevotional(formData: FormData) {
 }
 
 export async function deleteDevotional(formData: FormData) {
-  const session = await requireModule("communications");
+  const session = await requireManage("devotionals");
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
@@ -101,7 +101,7 @@ export async function deleteDevotional(formData: FormData) {
 }
 
 export async function toggleDevotionalPublished(formData: FormData) {
-  const session = await requireModule("communications");
+  const session = await requireManage("devotionals");
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));

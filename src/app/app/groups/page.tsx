@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { GroupsClient } from "@/components/app/groups-client";
 import { createGroup } from "@/app/actions/groups";
@@ -48,14 +49,14 @@ export default async function GroupsPage() {
           description="Add a new group to your church."
           submitLabel="Create"
           action={createGroup}
-          disabled={session.isDemo}
+          disabled={!canEdit(session, "groups")}
         >
           <GroupFields people={peopleOpts} typeSuggestions={GROUP_TYPE_SUGGESTIONS} />
         </ActionDialog>
       </PageHeader>
 
       <GroupsClient
-        canWrite={!session.isDemo}
+        canWrite={canEdit(session, "groups")}
         people={peopleOpts}
         typeSuggestions={GROUP_TYPE_SUGGESTIONS}
         items={groups.map((g) => {

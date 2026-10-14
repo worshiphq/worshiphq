@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
-import { requireModule } from "@/lib/auth";
+import { requireModule, requireManage } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 
 /**
@@ -13,7 +13,7 @@ import { audit } from "@/lib/audit";
  */
 
 export async function createFund(formData: FormData) {
-  const session = await requireModule("giving");
+  const session = await requireManage("giving");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { ok: false as const, error: "Give the fund a name." };
@@ -30,7 +30,7 @@ export async function createFund(formData: FormData) {
 }
 
 export async function renameFund(formData: FormData) {
-  const session = await requireModule("giving");
+  const session = await requireManage("giving");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const id = String(formData.get("id") ?? "");
   const name = String(formData.get("name") ?? "").trim();
@@ -52,7 +52,7 @@ export async function renameFund(formData: FormData) {
  * must be moved to another fund first, so no giving history is orphaned.
  */
 export async function deleteFund(formData: FormData) {
-  const session = await requireModule("giving");
+  const session = await requireManage("giving");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const id = String(formData.get("id") ?? "");
   if (!id) return { ok: false as const, error: "Fund required." };

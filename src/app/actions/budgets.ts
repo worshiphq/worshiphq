@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModule } from "@/lib/auth";
+import { requireModule, requireManage } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
 import { logAudit } from "@/lib/audit";
@@ -12,7 +12,7 @@ function isLeader(session: { budgetDepartmentId?: string | null }) {
 }
 
 export async function createBudget(formData: FormData) {
-  const session = await requireModule("budgets");
+  const session = await requireManage("budgets");
   if (session.isDemo || isLeader(session)) return;
 
   const name = String(formData.get("name") ?? "").trim();
@@ -43,7 +43,7 @@ export async function createBudget(formData: FormData) {
 }
 
 export async function addBudgetItem(formData: FormData) {
-  const session = await requireModule("budgets");
+  const session = await requireManage("budgets");
   if (session.isDemo || isLeader(session)) return;
 
   const budgetId = String(formData.get("budgetId") ?? "").trim();
@@ -63,7 +63,7 @@ export async function addBudgetItem(formData: FormData) {
 
 /** Change a budget's allocated amount after creation (admin only). */
 export async function setBudgetAmount(formData: FormData) {
-  const session = await requireModule("budgets");
+  const session = await requireManage("budgets");
   if (session.isDemo || isLeader(session)) return;
 
   const id = String(formData.get("id") ?? "").trim();
@@ -77,7 +77,7 @@ export async function setBudgetAmount(formData: FormData) {
 /** Log actual income or expense against a budget. Available to admins AND the
  *  department's budget leaders (scoped to their own department's budgets). */
 export async function addBudgetEntry(formData: FormData) {
-  const session = await requireModule("budgets");
+  const session = await requireManage("budgets");
   if (session.isDemo) return { ok: false, error: "Read-only demo." };
 
   const budgetId = String(formData.get("budgetId") ?? "").trim();
@@ -131,7 +131,7 @@ export async function addBudgetEntry(formData: FormData) {
 }
 
 export async function deleteBudgetEntry(formData: FormData) {
-  const session = await requireModule("budgets");
+  const session = await requireManage("budgets");
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
@@ -148,7 +148,7 @@ export async function deleteBudgetEntry(formData: FormData) {
 }
 
 export async function deleteBudget(formData: FormData) {
-  const session = await requireModule("budgets");
+  const session = await requireManage("budgets");
   if (session.isDemo || isLeader(session)) return;
 
   const id = String(formData.get("id"));
@@ -160,7 +160,7 @@ export async function deleteBudget(formData: FormData) {
 }
 
 export async function deleteBudgetItem(formData: FormData) {
-  const session = await requireModule("budgets");
+  const session = await requireManage("budgets");
   if (session.isDemo || isLeader(session)) return;
 
   const id = String(formData.get("id"));

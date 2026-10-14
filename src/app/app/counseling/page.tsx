@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { CounselingClient } from "@/components/app/counseling-client";
 import { createCounselingSession } from "@/app/actions/counseling";
@@ -43,7 +44,7 @@ export default async function CounselingPage() {
           description="Record a counseling or pastoral care session."
           submitLabel="Save"
           action={createCounselingSession}
-          disabled={session.isDemo}
+          disabled={!canEdit(session, "counseling")}
         >
           <Field label="Type" name="type" type="select" options={[
             { label: "General", value: "general" },

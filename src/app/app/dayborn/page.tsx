@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { getDayBornData } from "@/lib/data/dayborn";
 import { getAccountOptions } from "@/lib/data/accounts";
 import { DayBornClient } from "@/components/app/dayborn-client";
@@ -16,8 +17,8 @@ export default async function DayBornPage() {
     <DayBornClient
       {...data}
       accounts={accounts}
-      canWrite={!session.isDemo}
-      canDelete={session.canDelete && !session.isDemo}
+      canWrite={canEdit(session, "dayborn")}
+      canDelete={session.canDelete && canEdit(session, "dayborn")}
     />
   );
 }

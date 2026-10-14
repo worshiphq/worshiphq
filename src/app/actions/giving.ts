@@ -38,7 +38,7 @@ function formDate(v: FormDataEntryValue | string | null | undefined): Date {
 
 export async function recordGift(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "giving");
 
   const donorName = String(formData.get("donor") ?? "").trim() || "Anonymous";
   const amount = Number(formData.get("amount") ?? 0);
@@ -96,7 +96,7 @@ export interface CollectionLine { method: string; amount: number; accountId?: st
 
 export async function recordCollection(input: { fund: string; date: string; note?: string; lines: CollectionLine[] }) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "giving");
   if (session.isDemo) return { ok: false as const, error: "This is the read-only demo." };
 
   const fundName = (input.fund ?? "").trim();
@@ -133,7 +133,7 @@ export async function recordCollection(input: { fund: string; date: string; note
 
 export async function saveTitheTemplate(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "giving");
   const template = String(formData.get("template") ?? "").trim();
   if (!template) return { ok: false, error: "Template cannot be empty." };
   await db.church.update({
@@ -154,7 +154,7 @@ export interface TitheEntry {
 
 export async function recordGivingBatch(fundName: string, entries: TitheEntry[]) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "giving");
   if (!entries.length) return { ok: false, error: "No entries to record." };
   if (!fundName.trim()) return { ok: false, error: "Fund name required." };
 
@@ -199,7 +199,7 @@ export async function recordGivingBatch(fundName: string, entries: TitheEntry[])
 
 export async function recordTitheBatch(entries: TitheEntry[]) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "giving");
   if (!entries.length) return { ok: false, error: "No entries to record." };
 
   const titheFund =

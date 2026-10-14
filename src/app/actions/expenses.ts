@@ -1,13 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModule } from "@/lib/auth";
+import { requireModule, requireManage } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { logAudit } from "@/lib/audit";
 import { RecycleBin } from "@/lib/recycle-bin";
 
 export async function createExpense(formData: FormData) {
-  const session = await requireModule("accounting");
+  const session = await requireManage("expenses");
   if (session.isDemo) return;
 
   const description = String(formData.get("description") ?? "").trim();
@@ -56,7 +56,7 @@ export async function createExpense(formData: FormData) {
 }
 
 export async function deleteExpense(formData: FormData) {
-  const session = await requireModule("accounting");
+  const session = await requireManage("expenses");
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));

@@ -326,6 +326,9 @@ model CustomRole {
   sections       String[] // fine section keys this role can SEE
   manageSections String[] @default([]) // subset this role can add/edit (manage)
   canDelete      Boolean  @default(false)
+  // false = a legacy role saved before View/Manage existed: it manages everything it can see.
+  // Every role saved from now on is true, so an empty Manage list really means view-only.
+  manageSplit    Boolean  @default(true)
   createdAt      DateTime @default(now())
 
   users User[]

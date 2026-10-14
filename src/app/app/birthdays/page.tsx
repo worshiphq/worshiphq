@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { BirthdaysClient } from "@/components/app/birthdays-client";
 import { BirthdaySettings } from "@/components/app/birthday-settings";
@@ -81,7 +82,7 @@ export default async function BirthdaysPage() {
         membersWithPhone={membersWithPhone}
         adminCount={adminCount}
         messageTemplates={(church?.messageTemplates as Record<string, string> | null) ?? {}}
-        canWrite={!session.isDemo}
+        canWrite={canEdit(session, "birthdays")}
       />
       <div className="mt-4">
         <BirthdaysClient items={items} today={today} />

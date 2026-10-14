@@ -1,13 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModule } from "@/lib/auth";
+import { requireModule, requireManage } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
 import { logAudit } from "@/lib/audit";
 
 export async function createCounselingSession(formData: FormData) {
-  const session = await requireModule("people");
+  const session = await requireManage("counseling");
   if (session.isDemo) return;
 
   let summary = String(formData.get("summary") ?? "").trim();
@@ -51,7 +51,7 @@ export async function createCounselingSession(formData: FormData) {
 }
 
 export async function deleteCounselingSession(formData: FormData) {
-  const session = await requireModule("people");
+  const session = await requireManage("counseling");
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
@@ -62,7 +62,7 @@ export async function deleteCounselingSession(formData: FormData) {
 }
 
 export async function updateCounselingStatus(formData: FormData) {
-  const session = await requireModule("people");
+  const session = await requireManage("counseling");
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));

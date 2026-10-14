@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { hasSection } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { CalendarClient } from "@/components/app/calendar-client";
@@ -100,7 +101,7 @@ export default async function CalendarPage() {
   return (
     <div>
       <PageHeader title="Calendar" description="Your church calendar - click any day to add an event." />
-      <CalendarClient events={calendarEvents} canWrite={!session.isDemo} />
+      <CalendarClient events={calendarEvents} canWrite={canEdit(session, "calendar")} />
     </div>
   );
 }

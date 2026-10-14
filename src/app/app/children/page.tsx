@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { getPeople, getChildrenStats } from "@/lib/data/people";
 import { db } from "@/lib/db";
 import { ChildrenClient } from "@/components/app/children-client";
@@ -27,7 +28,7 @@ export default async function ChildrenPage() {
       people={children}
       stats={stats}
       adults={adults}
-      canWrite={!session.isDemo}
+      canWrite={canEdit(session, "people")}
     />
   );
 }

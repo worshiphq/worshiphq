@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { canEdit } from "@/lib/permissions";
 import { MessageSquare, Mail, Users, BarChart3, Wallet, AlertTriangle } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { StatCard } from "@/components/app/stat-card";
@@ -59,7 +60,7 @@ export default async function CommunicationsPage({
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-2"><Composer departments={departments} groups={groups} canWrite={!session.isDemo} /></div>
+        <div className="lg:col-span-2"><Composer departments={departments} groups={groups} canWrite={canEdit(session, "communications")} /></div>
 
         <CampaignHistory campaigns={campaigns} />
       </div>

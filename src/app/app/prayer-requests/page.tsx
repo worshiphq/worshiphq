@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { PrayerRequestsClient } from "@/components/app/prayer-requests-client";
 import { createPrayerRequest } from "@/app/actions/prayer-requests";
@@ -42,7 +43,7 @@ export default async function PrayerRequestsPage() {
           description="Add a prayer request on behalf of a member."
           submitLabel="Submit"
           action={createPrayerRequest}
-          disabled={session.isDemo}
+          disabled={!canEdit(session, "prayer-requests")}
         >
           <Field label="Name" name="name" placeholder="Full name" required />
           <Field label="Prayer request" name="request" placeholder="What would you like prayer for?" required />

@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { FollowUpsClient } from "@/components/app/follow-ups-client";
 import { createFollowUp, saveFollowUpSettings } from "@/app/actions/follow-ups";
@@ -64,7 +65,7 @@ export default async function FollowUpsPage() {
           description="New visitors get a follow-up automatically. Choose who it goes to."
           submitLabel="Save"
           action={saveFollowUpSettings}
-          disabled={session.isDemo}
+          disabled={!canEdit(session, "follow-ups")}
         >
           <Field
             label="Assign new follow-ups to"
@@ -88,7 +89,7 @@ export default async function FollowUpsPage() {
           description="Add a pastoral care or visitor follow-up task."
           submitLabel="Create"
           action={createFollowUp}
-          disabled={session.isDemo}
+          disabled={!canEdit(session, "follow-ups")}
         >
           <Field label="Title" name="title" placeholder="Call visitor John" required />
           <Field label="Type" name="type" options={TYPE_OPTIONS} defaultValue="custom" />
@@ -105,7 +106,7 @@ export default async function FollowUpsPage() {
 
       <FollowUpsClient
         me={session.userId}
-        canWrite={!session.isDemo}
+        canWrite={canEdit(session, "follow-ups")}
         canManage={canManage(session, "follow-ups")}
         users={users}
         items={items.map((f) => ({

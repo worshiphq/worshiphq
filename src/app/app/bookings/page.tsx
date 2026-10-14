@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { BookingsClient } from "@/components/app/bookings-client";
 import { PageHeader } from "@/components/app/page-header";
@@ -31,7 +32,7 @@ export default async function BookingsPage() {
       <PageHeader title="Facility bookings" description="Rooms and halls people can book. Confirmed bookings also show on your calendar." />
 
       <BookingsClient
-        canWrite={!session.isDemo}
+        canWrite={canEdit(session, "bookings")}
         slug={church?.slug ?? ""}
         isDemo={church?.isDemo ?? session.isDemo}
         publicOn={church?.publicBookingOn ?? false}

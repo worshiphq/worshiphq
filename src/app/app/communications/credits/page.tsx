@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { canEdit } from "@/lib/permissions";
 import { ArrowLeft } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { Card } from "@/components/ui/card";
@@ -36,7 +37,7 @@ export default async function SmsCreditsPage() {
         balance={church?.smsCredits ?? 0}
         welcomeOn={church?.smsWelcomeMember ?? true}
         welcomeVisitorOn={church?.smsWelcomeVisitor ?? true}
-        canWrite={!session.isDemo}
+        canWrite={canEdit(session, "communications")}
         bundles={sms.bundles}
       />
 

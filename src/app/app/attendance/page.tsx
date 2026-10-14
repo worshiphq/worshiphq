@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { canEdit } from "@/lib/permissions";
 import { QrCode, UserCheck, TrendingUp, CalendarCheck2, Plus, ChevronRight, Users } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { StatCard } from "@/components/app/stat-card";
@@ -52,7 +53,7 @@ export default async function AttendancePage() {
             pendingLabel="Saving…"
             successMessage="Attendance recorded"
             action={recordService}
-            disabled={session.isDemo}
+            disabled={!canEdit(session, "attendance")}
           >
             <Field label="Service" name="serviceName" placeholder="Sunday 1st Service" defaultValue="Sunday Service" required />
             <Field label="Date" name="date" type="date" required />

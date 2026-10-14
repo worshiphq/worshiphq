@@ -185,6 +185,14 @@ export function hasSection(
   return granted(session.sections, module, session.exactSections);
 }
 
+/** Can this person make changes in a section? False for the read-only demo and for view-only roles. */
+export function canEdit(
+  session: Pick<Session, "manageSections" | "isDemo"> & { exactSections?: boolean },
+  module: string,
+): boolean {
+  return !session.isDemo && canManage(session, module);
+}
+
 /** Whether a session can MANAGE (add/edit) a given section. */
 export function canManage(
   session: Pick<Session, "manageSections"> & { exactSections?: boolean },

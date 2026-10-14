@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
-import { requireModule } from "@/lib/auth";
+import { requireModule, requireManage } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { RecycleBin } from "@/lib/recycle-bin";
@@ -38,7 +38,7 @@ function readGroupFields(formData: FormData) {
 }
 
 export async function createGroup(formData: FormData) {
-  const session = await requireModule("people");
+  const session = await requireManage("groups");
   if (session.isDemo) return;
 
   const f = readGroupFields(formData);
@@ -53,7 +53,7 @@ export async function createGroup(formData: FormData) {
 }
 
 export async function updateGroup(formData: FormData) {
-  const session = await requireModule("people");
+  const session = await requireManage("groups");
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
@@ -72,7 +72,7 @@ export async function updateGroup(formData: FormData) {
 
 /** Send this group's meeting reminder to its members now (manual). */
 export async function sendGroupMeetingReminder(groupId: string) {
-  const session = await requireModule("people");
+  const session = await requireManage("groups");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
 
   const [group, church] = await Promise.all([
@@ -108,7 +108,7 @@ export async function sendGroupMeetingReminder(groupId: string) {
 }
 
 export async function deleteGroup(formData: FormData) {
-  const session = await requireModule("people");
+  const session = await requireManage("groups");
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
@@ -124,7 +124,7 @@ export async function deleteGroup(formData: FormData) {
 }
 
 export async function addGroupMember(formData: FormData) {
-  const session = await requireModule("people");
+  const session = await requireManage("groups");
   if (session.isDemo) return;
 
   const groupId = String(formData.get("groupId"));
@@ -139,7 +139,7 @@ export async function addGroupMember(formData: FormData) {
 }
 
 export async function removeGroupMember(formData: FormData) {
-  const session = await requireModule("people");
+  const session = await requireManage("groups");
   if (session.isDemo) return;
 
   const groupId = String(formData.get("groupId"));

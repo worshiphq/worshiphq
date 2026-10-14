@@ -9,7 +9,7 @@ import { saveMemberCategoryChoices } from "@/lib/members/categories";
 
 export async function createChild(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "people");
 
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
@@ -66,7 +66,7 @@ export async function createChildState(_prev: unknown, formData: FormData) {
 
 export async function updateChild(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "people");
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 
@@ -127,7 +127,7 @@ export async function updateChild(formData: FormData) {
 
 export async function assignParent(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "people");
 
   const childId = String(formData.get("childId") ?? "");
   const parentId = String(formData.get("parentId") ?? "").trim();

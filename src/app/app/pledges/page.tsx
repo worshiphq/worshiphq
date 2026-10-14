@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { getAccountOptions } from "@/lib/data/accounts";
 import { PledgesClient } from "@/components/app/pledges-client";
@@ -59,7 +60,7 @@ export default async function PledgesPage() {
             description="Set a fundraising goal for your church."
             submitLabel="Create"
             action={createCampaign}
-            disabled={session.isDemo}
+            disabled={!canEdit(session, "pledges")}
           >
             <Field label="Campaign name" name="name" placeholder="e.g. Building fund" required />
             <Field label="Goal (GHS)" name="goal" type="number" placeholder="10000" required />
@@ -67,7 +68,7 @@ export default async function PledgesPage() {
           </ActionDialog>
 
           <PledgeRecorder
-            disabled={session.isDemo}
+            disabled={!canEdit(session, "pledges")}
             members={members.map((m) => ({
               id: m.id,
               name: `${m.firstName} ${m.lastName}`.trim(),

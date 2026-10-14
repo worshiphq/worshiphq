@@ -21,7 +21,7 @@ const CATEGORY_FIELD: Record<AttendanceCategory, "adults" | "teens" | "children"
 /** Create a service session with demographic headcounts. */
 export async function recordService(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "attendance");
 
   const serviceName = String(formData.get("serviceName") ?? "Service").trim() || "Service";
   const dateStr = String(formData.get("date") ?? "");
@@ -55,7 +55,7 @@ export async function recordService(formData: FormData) {
  */
 export async function startCheckIn(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "attendance");
   const typed = String(formData.get("serviceName") ?? "").trim();
   if (!typed) {
     const current = await resolveServiceSession(session.churchId, session.branchId ?? null);
@@ -80,7 +80,7 @@ export async function startCheckIn(formData: FormData) {
 /** Staff checks a member in to a session (increments the matching category). */
 export async function checkInMember(sessionId: string, personId: string) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "attendance");
 
   const [sess, person, existing] = await Promise.all([
     db.attendanceSession.findFirst({ where: { id: sessionId, churchId: session.churchId } }),
@@ -125,7 +125,7 @@ export async function checkInMember(sessionId: string, personId: string) {
  *  session has been ended already. */
 export async function checkInVisitorNow(personId: string) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "attendance");
 
   const person = await db.person.findFirst({
     where: { id: personId, churchId: session.churchId },
@@ -187,7 +187,7 @@ export async function checkInByMemberId(
   rawCode: string,
 ): Promise<{ ok: boolean; name?: string; message: string }> {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "attendance");
 
   const memberId = rawCode.trim().toUpperCase();
   if (!memberId) return { ok: false, message: "Empty code" };
@@ -228,7 +228,7 @@ export async function checkInByMemberId(
 /** Remove a check-in and decrement the matching category. */
 export async function undoCheckIn(recordId: string) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "attendance");
   const rec = await db.attendanceRecord.findFirst({
     where: { id: recordId, churchId: session.churchId },
   });
@@ -251,7 +251,7 @@ export async function undoCheckIn(recordId: string) {
  */
 export async function endService(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "attendance");
 
   const sessionId = String(formData.get("sessionId") ?? "");
   const toAdmins = truthy(formData.get("toAdmins"));
@@ -326,7 +326,7 @@ export async function endService(formData: FormData) {
  *  updates the name stored on each check-in record so history stays consistent. */
 export async function renameService(sessionId: string, rawName: string) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "attendance");
   const serviceName = rawName.trim().slice(0, 120);
   if (!serviceName) return { ok: false as const, error: "Name can't be empty" };
 
@@ -344,7 +344,7 @@ export async function renameService(sessionId: string, rawName: string) {
 /** Reopen a service that was ended by mistake (keeps checking people in). */
 export async function reopenService(sessionId: string) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "attendance");
   await db.attendanceSession.updateMany({
     where: { id: sessionId, churchId: session.churchId },
     data: { endedAt: null },
@@ -355,7 +355,7 @@ export async function reopenService(sessionId: string) {
 
 export async function deleteSession(sessionId: string) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "attendance");
   await moveToBin(session, "attendanceSession", "AttendanceSession", sessionId);
   await db.attendanceSession.deleteMany({ where: { id: sessionId, churchId: session.churchId } });
   revalidatePath("/app/attendance");

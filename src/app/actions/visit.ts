@@ -51,7 +51,7 @@ async function sendVisitorWelcomeNow(opts: {
 export async function sendVisitorReturnMessage(id: string) {
   const { requireSession, assertCanWrite } = await import("@/lib/auth");
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "visitors");
 
   const visitor = await db.visitor.findFirst({ where: { id, churchId: session.churchId } });
   if (!visitor) return { ok: false as const, error: "Visitor not found." };
@@ -175,7 +175,7 @@ export async function submitVisitorForm(formData: FormData) {
 export async function addVisitor(formData: FormData) {
   const { requireSession, assertCanWrite } = await import("@/lib/auth");
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "visitors");
 
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
@@ -250,7 +250,7 @@ export async function addVisitor(formData: FormData) {
 export async function updateVisitor(formData: FormData) {
   const { requireSession, assertCanWrite } = await import("@/lib/auth");
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "visitors");
 
   const id = String(formData.get("id") ?? "").trim();
   if (!id) return;
@@ -301,7 +301,7 @@ export async function updateVisitor(formData: FormData) {
 export async function deleteVisitor(id: string) {
   const { requireSession, assertCanWrite } = await import("@/lib/auth");
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "visitors");
 
   const v = await db.visitor.findFirst({ where: { id, churchId: session.churchId }, select: { firstName: true, lastName: true, personId: true } });
   const { moveToBin } = await import("@/lib/recycle-bin");
@@ -323,7 +323,7 @@ export async function deleteVisitor(id: string) {
 export async function convertVisitorToMember(id: string) {
   const { requireSession, assertCanWrite } = await import("@/lib/auth");
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "visitors");
 
   const visitor = await db.visitor.findFirst({ where: { id, churchId: session.churchId } });
   if (!visitor) return;
@@ -366,7 +366,7 @@ export async function convertVisitorToMember(id: string) {
 export async function toggleRegular(id: string) {
   const { requireSession, assertCanWrite } = await import("@/lib/auth");
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "visitors");
 
   const v = await db.visitor.findFirst({ where: { id, churchId: session.churchId }, select: { isRegular: true } });
   if (!v) return;

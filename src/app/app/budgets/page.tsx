@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { getAccountOptions } from "@/lib/data/accounts";
 import { BudgetsClient } from "@/components/app/budgets-client";
@@ -51,7 +52,7 @@ export default async function BudgetsPage() {
             description="Set up a new annual or quarterly budget, optionally for a department."
             submitLabel="Create"
             action={createBudget}
-            disabled={session.isDemo}
+            disabled={!canEdit(session, "budgets")}
           >
             <Field label="Budget name" name="name" placeholder="e.g. 2026 Youth Ministry" required />
             <Field label="Allocated amount (₵)" name="amount" type="number" placeholder="e.g. 5000" required hint="The funds this budget is given. Income & expenses are tracked live against it." />

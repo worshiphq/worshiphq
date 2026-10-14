@@ -14,7 +14,7 @@ import type { ImportResult } from "./import";
  */
 export async function importVisitorsCSV(formData: FormData): Promise<ImportResult> {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "visitors");
 
   const file = formData.get("file") as File | null;
   if (!file || !file.name) {

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModule } from "@/lib/auth";
+import { requireModule, requireManage } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { audit } from "@/lib/audit";
@@ -24,7 +24,7 @@ const METHOD_FROM_LABEL: Record<string, GiftMethod> = {
 };
 
 export async function createCampaign(formData: FormData) {
-  const session = await requireModule("pledges");
+  const session = await requireManage("pledges");
   if (session.isDemo) return;
 
   const name = String(formData.get("name") ?? "").trim();
@@ -46,7 +46,7 @@ export async function createCampaign(formData: FormData) {
 }
 
 export async function deleteCampaign(formData: FormData) {
-  const session = await requireModule("pledges");
+  const session = await requireManage("pledges");
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
@@ -61,7 +61,7 @@ export async function deleteCampaign(formData: FormData) {
  * Sends an editable SMS confirmation, just like tithes.
  */
 export async function createPledge(formData: FormData) {
-  const session = await requireModule("pledges");
+  const session = await requireManage("pledges");
   if (session.isDemo) return { ok: false, error: "Read-only demo." };
 
   const donorType = String(formData.get("donorType") ?? "member").trim() === "visitor" ? "visitor" : "member";
@@ -131,7 +131,7 @@ export async function createPledge(formData: FormData) {
 
 /** Record a part-payment against a pledge, keep the ledger, and text a receipt. */
 export async function recordPledgePayment(formData: FormData) {
-  const session = await requireModule("pledges");
+  const session = await requireManage("pledges");
   if (session.isDemo) return { ok: false, error: "Read-only demo." };
 
   const id = String(formData.get("id"));
@@ -193,7 +193,7 @@ export async function recordPledgePayment(formData: FormData) {
 }
 
 export async function deletePledge(formData: FormData) {
-  const session = await requireModule("pledges");
+  const session = await requireManage("pledges");
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
@@ -206,7 +206,7 @@ export async function deletePledge(formData: FormData) {
 
 /** Admin settings: when to auto-remind, and the message wording. */
 export async function savePledgeSettings(formData: FormData) {
-  const session = await requireModule("pledges");
+  const session = await requireManage("pledges");
   if (session.isDemo) return;
 
   const days = formData
@@ -229,7 +229,7 @@ export async function savePledgeSettings(formData: FormData) {
 
 /** Manually nudge a single pledge now. */
 export async function sendPledgeReminder(formData: FormData) {
-  const session = await requireModule("pledges");
+  const session = await requireManage("pledges");
   if (session.isDemo) return { ok: false, error: "Read-only demo." };
 
   const id = String(formData.get("id"));

@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { TestimoniesClient } from "@/components/app/testimonies-client";
 import { createTestimony } from "@/app/actions/testimonies";
@@ -40,7 +41,7 @@ export default async function TestimoniesPage() {
           description="Record a testimony or praise report."
           submitLabel="Save"
           action={createTestimony}
-          disabled={session.isDemo}
+          disabled={!canEdit(session, "testimonies")}
         >
           <Field label="Title" name="title" placeholder="e.g. Miraculous healing" required />
           <Field label="Category" name="category" type="select" options={[

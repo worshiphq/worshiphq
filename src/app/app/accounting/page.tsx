@@ -1,4 +1,5 @@
 import { Plus, Download } from "lucide-react";
+import { canEdit } from "@/lib/permissions";
 import { PageHeader } from "@/components/app/page-header";
 import { Button } from "@/components/ui/button";
 import { requireModule } from "@/lib/auth";
@@ -70,7 +71,7 @@ export default async function AccountingPage({
           description="Log income or an expense that isn't recorded in Giving or Expenses."
           submitLabel="Save transaction"
           action={createTransaction}
-          disabled={session.isDemo}
+          disabled={!canEdit(session, "accounting")}
         >
           <Field label="Description" name="description" placeholder="e.g. Hall rental, bank interest" required />
           <div className="grid grid-cols-2 gap-3">
@@ -94,8 +95,8 @@ export default async function AccountingPage({
         funds={fundRows}
         unassigned={unassigned}
         notBanked={notBanked}
-        canWrite={!session.isDemo}
-        canDelete={session.canDelete && !session.isDemo}
+        canWrite={canEdit(session, "accounting")}
+        canDelete={session.canDelete && canEdit(session, "accounting")}
       />
     </div>
   );

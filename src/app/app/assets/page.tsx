@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { AssetsClient } from "@/components/app/assets-client";
 import { createAsset } from "@/app/actions/assets";
@@ -35,7 +36,7 @@ export default async function AssetsPage() {
           description="Register a piece of church equipment or property."
           submitLabel="Save"
           action={createAsset}
-          disabled={session.isDemo}
+          disabled={!canEdit(session, "assets")}
         >
           <Field label="Name" name="name" placeholder="e.g. Yamaha keyboard" required />
           <Field label="Category" name="category" options={CATEGORIES} />

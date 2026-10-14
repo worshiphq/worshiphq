@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModule } from "@/lib/auth";
+import { requireModule, requireManage } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { RecycleBin, moveToBin } from "@/lib/recycle-bin";
@@ -10,7 +10,7 @@ import { REPORT_METHODS, REPORT_OUTCOMES, outcomeLabel } from "@/lib/follow-ups/
 import { canManage } from "@/lib/permissions";
 
 export async function createFollowUp(formData: FormData) {
-  const session = await requireModule("follow-ups");
+  const session = await requireManage("follow-ups");
   const title = String(formData.get("title") ?? "").trim();
   if (!title) return;
 
@@ -49,7 +49,7 @@ export async function createFollowUp(formData: FormData) {
 }
 
 export async function updateFollowUpStatus(formData: FormData) {
-  const session = await requireModule("follow-ups");
+  const session = await requireManage("follow-ups");
   const id = String(formData.get("id") ?? "");
   const status = String(formData.get("status") ?? "");
   if (!id || !["open", "in_progress", "done"].includes(status)) return;
@@ -68,7 +68,7 @@ export async function updateFollowUpStatus(formData: FormData) {
 
 /** Hand a follow-up to someone else (or nobody). The new person is told. */
 export async function assignFollowUp(id: string, assigneeId: string | null) {
-  const session = await requireModule("follow-ups");
+  const session = await requireManage("follow-ups");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
 
   const followUp = await db.followUp.findFirst({
@@ -98,7 +98,7 @@ export async function assignFollowUp(id: string, assigneeId: string | null) {
 }
 
 export async function setFollowUpDue(id: string, date: string | null) {
-  const session = await requireModule("follow-ups");
+  const session = await requireManage("follow-ups");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const dueDate = date && /^\d{4}-\d{2}-\d{2}$/.test(date) ? new Date(`${date}T00:00:00`) : null;
   await db.followUp.updateMany({ where: { id, churchId: session.churchId }, data: { dueDate } });
@@ -112,7 +112,7 @@ export async function setFollowUpDue(id: string, date: string | null) {
  * open task to "in progress", or to "done" when the reporter says it is finished.
  */
 export async function addFollowUpReport(input: { followUpId: string; method: string; outcome: string; note?: string; markDone?: boolean }) {
-  const session = await requireModule("follow-ups");
+  const session = await requireManage("follow-ups");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   if (!REPORT_METHODS.some((m) => m.value === input.method)) return { ok: false as const, error: "Choose how you reached out." };
   if (!REPORT_OUTCOMES.some((o) => o.value === input.outcome)) return { ok: false as const, error: "Choose what happened." };
@@ -151,7 +151,7 @@ export async function addFollowUpReport(input: { followUpId: string; method: str
 
 /** Remove a report (its author, or anyone who manages follow-ups). */
 export async function deleteFollowUpReport(id: string) {
-  const session = await requireModule("follow-ups");
+  const session = await requireManage("follow-ups");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const report = await db.followUpReport.findFirst({ where: { id, churchId: session.churchId }, select: { authorId: true } });
   if (!report) return { ok: false as const, error: "Report not found." };
@@ -168,7 +168,7 @@ export async function deleteFollowUpReport(id: string) {
 
 /** Edit the task's details. */
 export async function setFollowUpNote(id: string, note: string) {
-  const session = await requireModule("follow-ups");
+  const session = await requireManage("follow-ups");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const clean = note.trim().slice(0, 2000) || null;
   const res = await db.followUp.updateMany({ where: { id, churchId: session.churchId }, data: { note: clean } });
@@ -180,7 +180,7 @@ export async function setFollowUpNote(id: string, note: string) {
 
 /** Who auto-created follow-ups go to, and whether new members get one too. */
 export async function saveFollowUpSettings(formData: FormData) {
-  const session = await requireModule("follow-ups");
+  const session = await requireManage("follow-ups");
   if (session.isDemo) return;
 
   const raw = String(formData.get("assigneeId") ?? "").trim();
@@ -197,7 +197,7 @@ export async function saveFollowUpSettings(formData: FormData) {
 }
 
 export async function deleteFollowUp(formData: FormData) {
-  const session = await requireModule("follow-ups");
+  const session = await requireManage("follow-ups");
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   await RecycleBin.captureFollowUp(session, id);

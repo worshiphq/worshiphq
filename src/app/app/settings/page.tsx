@@ -26,7 +26,7 @@ export default async function SettingsPage() {
     db.customRole.findMany({
       where: { churchId: session.churchId },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, sections: true, manageSections: true, canDelete: true },
+      select: { id: true, name: true, sections: true, manageSections: true, manageSplit: true, canDelete: true },
     }),
     db.subscription.findUnique({
       where: { churchId: session.churchId },
@@ -90,7 +90,7 @@ export default async function SettingsPage() {
         church={churchData}
         users={users}
         departments={departments}
-        customRoles={customRoles}
+        customRoles={customRoles.map(({ manageSplit, ...r }) => ({ ...r, manageSections: manageSplit ? r.manageSections : r.sections }))}
         subscription={sub}
         platformPricing={platformConfig}
         payments={planPayments.map((p) => ({

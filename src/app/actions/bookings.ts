@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModule } from "@/lib/auth";
+import { requireModule, requireManage } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
 import { logAudit } from "@/lib/audit";
@@ -23,7 +23,7 @@ const str = (v: FormDataEntryValue | null) => String(v ?? "").trim();
 /** Create or update a facility. Photos arrive as a resized data URL and are stored
  *  in the image bucket; leaving the photo untouched keeps the current one. */
 export async function saveFacility(formData: FormData): Promise<Result> {
-  const session = await requireModule("bookings");
+  const session = await requireManage("bookings");
   if (session.isDemo) return { ok: false, error: "This is the read-only demo." };
 
   const id = str(formData.get("id"));
@@ -66,7 +66,7 @@ export async function createFacility(formData: FormData) {
 }
 
 export async function deleteFacility(formData: FormData) {
-  const session = await requireModule("bookings");
+  const session = await requireManage("bookings");
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
@@ -81,7 +81,7 @@ export async function deleteFacility(formData: FormData) {
 }
 
 export async function savePublicBookingSettings(formData: FormData): Promise<Result> {
-  const session = await requireModule("bookings");
+  const session = await requireManage("bookings");
   if (session.isDemo) return { ok: false, error: "This is the read-only demo." };
   await db.church.update({
     where: { id: session.churchId },
@@ -96,7 +96,7 @@ export async function savePublicBookingSettings(formData: FormData): Promise<Res
 
 /** Create or update a booking. Refuses to double-book a facility. */
 export async function saveBooking(formData: FormData): Promise<Result> {
-  const session = await requireModule("bookings");
+  const session = await requireManage("bookings");
   if (session.isDemo) return { ok: false, error: "This is the read-only demo." };
 
   const id = str(formData.get("id"));
@@ -153,7 +153,7 @@ export async function createBooking(formData: FormData) {
 
 /** Approve or decline a request that came in through the public booking link. */
 export async function decideBooking(id: string, decision: "confirmed" | "declined"): Promise<Result> {
-  const session = await requireModule("bookings");
+  const session = await requireManage("bookings");
   if (session.isDemo) return { ok: false, error: "This is the read-only demo." };
 
   const b = await db.booking.findFirst({ where: { id, churchId: session.churchId }, include: { facility: { select: { name: true } } } });
@@ -188,7 +188,7 @@ async function paymentTransactionIds(churchId: string, bookingIds: string[]): Pr
 }
 
 export async function deleteBooking(formData: FormData) {
-  const session = await requireModule("bookings");
+  const session = await requireManage("bookings");
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
@@ -214,7 +214,7 @@ const METHODS: Record<string, GiftMethod> = {
  * accounting ledger stay right without any double entry.
  */
 export async function recordBookingPayment(formData: FormData): Promise<Result> {
-  const session = await requireModule("bookings");
+  const session = await requireManage("bookings");
   if (session.isDemo) return { ok: false, error: "This is the read-only demo." };
 
   const bookingId = str(formData.get("bookingId"));
@@ -253,7 +253,7 @@ export async function recordBookingPayment(formData: FormData): Promise<Result> 
 }
 
 export async function deleteBookingPayment(paymentId: string): Promise<Result> {
-  const session = await requireModule("bookings");
+  const session = await requireManage("bookings");
   if (session.isDemo) return { ok: false, error: "This is the read-only demo." };
 
   const pay = await db.bookingPayment.findFirst({ where: { id: paymentId, churchId: session.churchId }, select: { id: true, transactionId: true, bookingId: true } });

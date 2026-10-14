@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { ExpensesClient } from "@/components/app/expenses-client";
 import { createExpense } from "@/app/actions/expenses";
@@ -73,7 +74,7 @@ export default async function ExpensesPage({
           description="Log a church expense or payment."
           submitLabel="Record"
           action={createExpense}
-          disabled={session.isDemo}
+          disabled={!canEdit(session, "expenses")}
         >
           <Field label="Description" name="description" placeholder="What was purchased or paid for" required />
           <Field label="Amount (GHS)" name="amount" type="number" placeholder="0" required />
@@ -93,8 +94,8 @@ export default async function ExpensesPage({
         accounts={accounts.map((a) => ({ id: a.id, name: a.name, isDefault: a.isDefault }))}
         details={Object.fromEntries(details.map((d) => [d.id, { description: d.description, vendor: d.vendor, receiptRef: d.receiptRef, approvedBy: d.approvedBy }]))}
         payees={payees.map((p) => ({ name: p.vendor ?? "", total: Number(p._sum.amount ?? 0), count: p._count }))}
-        canWrite={!session.isDemo}
-        canDelete={session.canDelete && !session.isDemo}
+        canWrite={canEdit(session, "expenses")}
+        canDelete={session.canDelete && canEdit(session, "expenses")}
       />
     </div>
   );

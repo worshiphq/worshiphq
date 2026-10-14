@@ -1,12 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModule } from "@/lib/auth";
+import { requireModule, requireManage } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
 
 export async function createNotice(formData: FormData) {
-  const session = await requireModule("communications");
+  const session = await requireManage("notices");
   if (session.isDemo) return;
 
   const title = String(formData.get("title") ?? "").trim();
@@ -23,7 +23,7 @@ export async function createNotice(formData: FormData) {
 }
 
 export async function togglePinNotice(formData: FormData) {
-  const session = await requireModule("communications");
+  const session = await requireManage("notices");
   const id = String(formData.get("id"));
 
   const notice = await db.churchNotice.findFirst({
@@ -41,7 +41,7 @@ export async function togglePinNotice(formData: FormData) {
 }
 
 export async function deleteNotice(formData: FormData) {
-  const session = await requireModule("communications");
+  const session = await requireManage("notices");
   const id = String(formData.get("id"));
 
   await moveToBin(session, "notice", "ChurchNotice", id);

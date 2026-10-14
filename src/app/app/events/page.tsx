@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { canEdit } from "@/lib/permissions";
 import { Plus, MapPin, Users, Ticket, QrCode, CalendarDays } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { StatCard } from "@/components/app/stat-card";
@@ -18,7 +19,7 @@ export const metadata = { title: "Events" };
 export default async function EventsPage() {
   const session = await requireModule("events");
   const events = await getEvents(session.churchId);
-  const canDelete = session.canDelete && !session.isDemo;
+  const canDelete = session.canDelete && canEdit(session, "events");
   const totalRegistered = events.reduce((s, e) => s + e.registered, 0);
 
   return (
@@ -32,7 +33,7 @@ export default async function EventsPage() {
           description="Add a service, seminar or camp."
           submitLabel="Create event"
           action={createEvent}
-          disabled={session.isDemo}
+          disabled={!canEdit(session, "events")}
         >
           <Field label="Event title" name="title" placeholder="Sunday Celebration Service" required />
           <Field label="Type" name="type" options={["Service", "Seminar", "Camp", "Special", "Retreat", "Conference"]} />

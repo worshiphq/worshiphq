@@ -8,7 +8,7 @@ import { audit } from "@/lib/audit";
 
 export async function createDepartment(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "settings");
 
   const name = String(formData.get("name") ?? "").trim();
   const description = String(formData.get("description") ?? "").trim() || null;
@@ -31,7 +31,7 @@ export async function createDepartment(formData: FormData) {
 
 export async function deleteDepartment(id: string) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "settings");
   const dept = await db.department.findFirst({ where: { id, churchId: session.churchId }, select: { name: true } });
   await moveToBin(session, "department", "Department", id);
   // Unlink people first, then delete

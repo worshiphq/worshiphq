@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { getAccountOptions } from "@/lib/data/accounts";
 import { getWelfareData } from "@/lib/data/welfare";
@@ -71,7 +72,7 @@ export default async function WelfarePage({
           description="Support given out - financial, food, medical, etc. Deducts from the account."
           submitLabel="Record aid"
           action={createWelfareRecord}
-          disabled={session.isDemo}
+          disabled={!canEdit(session, "welfare")}
         >
           <input type="hidden" name="kind" value="aid" />
           <Field label="Recipient name" name="recipientName" placeholder="Full name" required />
@@ -97,7 +98,7 @@ export default async function WelfarePage({
           receipt: church?.welfareDuesReceiptTemplate ?? null,
           reminder: church?.welfareDuesReminderTemplate ?? null,
         }}
-        canWrite={!session.isDemo}
+        canWrite={canEdit(session, "welfare")}
       />
     </div>
   );

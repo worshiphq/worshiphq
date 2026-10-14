@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { NoticesClient } from "@/components/app/notices-client";
 import { createNotice } from "@/app/actions/notices";
@@ -27,7 +28,7 @@ export default async function NoticesPage() {
           description="Create an announcement visible to all team members."
           submitLabel="Post"
           action={createNotice}
-          disabled={session.isDemo}
+          disabled={!canEdit(session, "notices")}
         >
           <Field label="Title" name="title" placeholder="e.g. Church cleanup this Saturday" required />
           <Field label="Body" name="body" placeholder="Details..." required />

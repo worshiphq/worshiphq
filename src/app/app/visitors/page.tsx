@@ -1,4 +1,5 @@
 import { requireModule } from "@/lib/auth";
+import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { VisitorsClient } from "@/components/app/visitors-client";
 
@@ -38,7 +39,7 @@ export default async function VisitorsPage() {
     ? `/visit/${church.slug}`
     : null;
 
-  const canWrite = !session.isDemo;
+  const canWrite = canEdit(session, "visitors");
 
   return (
     <VisitorsClient

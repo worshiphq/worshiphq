@@ -15,7 +15,7 @@ export async function deleteBranch(id: string) {
 
 export async function createBranch(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "settings");
 
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;

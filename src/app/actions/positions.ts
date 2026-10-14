@@ -12,7 +12,7 @@ const VALID_POSITIONS = [
 
 export async function addPosition(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "leaders");
   if (session.role !== "Owner" && session.role !== "Admin" && session.role !== "Pastor") return;
 
   const personId = String(formData.get("personId") ?? "").trim();
@@ -39,7 +39,7 @@ export async function addPosition(formData: FormData) {
 
 export async function removePosition(id: string) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "leaders");
   if (session.role !== "Owner" && session.role !== "Admin" && session.role !== "Pastor") return;
 
   await moveToBin(session, "position", "DepartmentPosition", id);

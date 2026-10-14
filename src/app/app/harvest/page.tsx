@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { canEdit } from "@/lib/permissions";
 import { PageHeader } from "@/components/app/page-header";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -42,7 +43,7 @@ export default async function HarvestPage({
         {...data}
         year={year}
         accounts={accounts}
-        canWrite={!session.isDemo}
+        canWrite={canEdit(session, "harvest")}
         harvestTemplate={church?.harvestReceiptTemplate ?? null}
       />
 

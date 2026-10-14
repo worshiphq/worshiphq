@@ -531,8 +531,8 @@ export async function createCustomRole(formData: FormData) {
 
   await db.customRole.upsert({
     where: { churchId_name: { churchId: session.churchId, name } },
-    create: { churchId: session.churchId, name, sections, manageSections, canDelete },
-    update: { sections, manageSections, canDelete },
+    create: { churchId: session.churchId, name, sections, manageSections, canDelete, manageSplit: true },
+    update: { sections, manageSections, canDelete, manageSplit: true },
   });
 
   await audit(session, "create", "role", `Saved custom role "${name}"`);
@@ -588,7 +588,7 @@ export async function updateCustomRole(formData: FormData) {
 
   await db.customRole.update({
     where: { id },
-    data: { name, sections, manageSections, canDelete },
+    data: { name, sections, manageSections, canDelete, manageSplit: true },
   });
 
   revalidatePath("/app/settings");

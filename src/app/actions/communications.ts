@@ -28,7 +28,7 @@ const MISSING_NATIONAL_ID_ADULTS = {
 /** Send (or stub-send) a broadcast and log it as a campaign. */
 export async function sendBroadcast(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "communications");
 
   const name = String(formData.get("name") ?? "Broadcast").trim() || "Broadcast";
   const channel = (String(formData.get("channel") ?? "SMS") as Channel) || "SMS";
@@ -212,7 +212,7 @@ export async function getCampaignRecipients(communicationId: string) {
 /** Send an SMS to a single member from their profile. Billed to credits. */
 export async function sendSmsToPerson(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "communications");
 
   const personId = String(formData.get("personId") ?? "");
   const message = String(formData.get("message") ?? "").trim();

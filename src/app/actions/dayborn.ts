@@ -16,7 +16,7 @@ function getMonday(d: Date): Date {
 
 export async function saveDayBornAmounts(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "dayborn");
 
   const weekOfStr = String(formData.get("weekOf") ?? "");
   if (!weekOfStr) return;
@@ -51,7 +51,7 @@ export async function saveDayBornAmounts(formData: FormData) {
 
 export async function addDayBornEntry(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "dayborn");
 
   const weekOfStr = String(formData.get("weekOf") ?? "");
   const day = String(formData.get("day") ?? "");
@@ -97,7 +97,7 @@ export async function addDayBornEntry(formData: FormData) {
 
 export async function deleteDayBornEntry(entryId: string) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "dayborn");
 
   const entry = await db.dayBornEntry.findUnique({
     where: { id: entryId },
@@ -127,7 +127,7 @@ export async function deleteDayBornWeek(weekId: string) {
 
 export async function postDayBornToAccounting(weekId: string, accountId?: string | null) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "dayborn");
 
   const week = await db.dayBornWeek.findFirst({
     where: { id: weekId, churchId: session.churchId },

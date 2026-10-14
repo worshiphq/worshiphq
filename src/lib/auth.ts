@@ -267,8 +267,10 @@ async function _getSession(): Promise<Session | null> {
   // Built-in roles manage everything they can see; custom roles manage only the
   // subset explicitly granted (falling back to all sections for legacy roles
   // saved before the View/Manage split existed).
+  // An empty Manage list on a role saved with the View/Manage split means VIEW-ONLY. Only roles that
+  // pre-date the split (manageSplit = false) keep managing everything they can see.
   const manageSections = user.customRole
-    ? (user.customRole.manageSections.length ? user.customRole.manageSections : user.customRole.sections)
+    ? (user.customRole.manageSplit ? user.customRole.manageSections : user.customRole.sections)
     : sections;
   const canDelete = user.customRole ? user.customRole.canDelete : true;
 
@@ -309,8 +311,10 @@ export class DemoReadOnlyError extends Error {
     super("This is the read-only demo. Create a free account to make changes.");
   }
 }
-export function assertCanWrite(session: Session) {
+export function assertCanWrite(session: Session, module?: string) {
   if (session.isDemo) throw new DemoReadOnlyError();
+  // Given a section, the person must be allowed to MANAGE it, not just see it.
+  if (module && !canManage(session, module)) throw new Error("Your role can view this but not make changes to it.");
 }
 
 /** Guard for delete actions - blocked for demo and for roles without delete rights. */

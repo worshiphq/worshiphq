@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModule } from "@/lib/auth";
+import { requireModule, requireManage } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
 import { logAudit } from "@/lib/audit";
@@ -17,7 +17,7 @@ function parseWeekday(v: FormDataEntryValue | null): number | null {
 }
 
 export async function createRoster(formData: FormData) {
-  const session = await requireModule("volunteers");
+  const session = await requireManage("volunteers");
   if (session.isDemo) return;
 
   const name = String(formData.get("name") ?? "").trim();
@@ -45,7 +45,7 @@ export async function createRoster(formData: FormData) {
 }
 
 export async function addSlot(formData: FormData) {
-  const session = await requireModule("volunteers");
+  const session = await requireManage("volunteers");
   if (session.isDemo) return;
 
   const rosterId = String(formData.get("rosterId") ?? "").trim();
@@ -104,7 +104,7 @@ async function overrideForDb(v: unknown) {
 /** Save a roster sheet that can cover one OR several services (each with its own
  *  date/time + assignments), plus an optional per-roster announcement schedule. */
 export async function saveServiceSheet(formData: FormData) {
-  const session = await requireModule("volunteers");
+  const session = await requireManage("volunteers");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
 
   const sheetId = String(formData.get("sheetId") ?? "").trim() || null;
@@ -228,7 +228,7 @@ export async function saveServiceSheet(formData: FormData) {
 }
 
 export async function deleteRoster(formData: FormData) {
-  const session = await requireModule("volunteers");
+  const session = await requireManage("volunteers");
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
@@ -241,7 +241,7 @@ export async function deleteRoster(formData: FormData) {
 
 /** Restore a soft-deleted roster sheet. */
 export async function restoreRoster(formData: FormData) {
-  const session = await requireModule("volunteers");
+  const session = await requireManage("volunteers");
   if (session.isDemo) return { ok: false as const };
   const id = String(formData.get("id"));
   await db.volunteerRoster.updateMany({ where: { id, churchId: session.churchId }, data: { deletedAt: null } });
@@ -252,7 +252,7 @@ export async function restoreRoster(formData: FormData) {
 
 /** Permanently delete a soft-deleted roster sheet (and its slots). */
 export async function purgeRoster(formData: FormData) {
-  const session = await requireModule("volunteers");
+  const session = await requireManage("volunteers");
   if (session.isDemo) return { ok: false as const };
   const id = String(formData.get("id"));
   await db.volunteerRoster.deleteMany({ where: { id, churchId: session.churchId, deletedAt: { not: null } } });
@@ -262,7 +262,7 @@ export async function purgeRoster(formData: FormData) {
 }
 
 export async function deleteSlot(formData: FormData) {
-  const session = await requireModule("volunteers");
+  const session = await requireManage("volunteers");
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
@@ -274,7 +274,7 @@ export async function deleteSlot(formData: FormData) {
 /* ── Service roles (editable preset: Word Ministration, Prayer Leader, …) ── */
 
 export async function addServiceRole(formData: FormData) {
-  const session = await requireModule("volunteers");
+  const session = await requireManage("volunteers");
   if (session.isDemo) return;
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
@@ -288,7 +288,7 @@ export async function addServiceRole(formData: FormData) {
 }
 
 export async function deleteServiceRole(formData: FormData) {
-  const session = await requireModule("volunteers");
+  const session = await requireManage("volunteers");
   if (session.isDemo) return;
   const id = String(formData.get("id"));
   await moveToBin(session, "serviceRole", "ServiceRole", id);
@@ -394,7 +394,7 @@ export async function previewRosterAnnounce(rosterId: string) {
 
 /** Send the sheet announcement to the group now (manual). */
 export async function announceRoster(rosterId: string) {
-  const session = await requireModule("volunteers");
+  const session = await requireManage("volunteers");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const { text, phones } = await buildAnnouncement(session.churchId, rosterId);
   if (phones.length === 0) return { ok: false as const, error: "No recipients - pick a group with phone numbers for this roster (or in Announcement settings)." };
@@ -409,7 +409,7 @@ export async function announceRoster(rosterId: string) {
 
 /** Save the roster-announcement schedule/recipient settings. */
 export async function saveRosterAnnounceSettings(formData: FormData) {
-  const session = await requireModule("volunteers");
+  const session = await requireManage("volunteers");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const audienceRaw = String(formData.get("audience") ?? "group");
   const audience = audienceRaw === "church" || audienceRaw === "department" ? audienceRaw : "group";
@@ -437,7 +437,7 @@ export async function saveRosterAnnounceSettings(formData: FormData) {
 
 /** Save the personal roster-reminder schedule (day-before "your duty" texts). */
 export async function saveRosterReminderSettings(formData: FormData) {
-  const session = await requireModule("volunteers");
+  const session = await requireManage("volunteers");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const leadDays = Math.min(14, Math.max(0, parseInt(String(formData.get("leadDays") ?? "1"), 10) || 0));
   const hour = Math.min(23, Math.max(0, parseInt(String(formData.get("hour") ?? "18"), 10) || 18));
@@ -480,7 +480,7 @@ export async function previewRosterNotify(rosterId: string) {
 
 /** Text each assigned member their duties for this roster (credit-checked). */
 export async function notifyRoster(rosterId: string) {
-  const session = await requireModule("volunteers");
+  const session = await requireManage("volunteers");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
 
   const { messages, rosterName } = await buildRosterMessages(session.churchId, rosterId);

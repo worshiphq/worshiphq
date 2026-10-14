@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModule } from "@/lib/auth";
+import { requireModule, requireManage } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
 import { logAudit } from "@/lib/audit";
@@ -10,7 +10,7 @@ const ACCOUNT_TYPES = ["bank", "mobile-money", "cash"];
 
 /** Create a financial account (like a bank account) money is tracked in. */
 export async function createAccount(formData: FormData) {
-  const session = await requireModule("accounting");
+  const session = await requireManage("accounting");
   if (session.isDemo) return;
 
   const name = String(formData.get("name") ?? "").trim();
@@ -37,7 +37,7 @@ export async function createAccount(formData: FormData) {
 }
 
 export async function updateAccount(formData: FormData) {
-  const session = await requireModule("accounting");
+  const session = await requireManage("accounting");
   if (session.isDemo) return;
 
   const id = String(formData.get("id") ?? "").trim();
@@ -63,7 +63,7 @@ export async function updateAccount(formData: FormData) {
 
 /** Make one account the default (single default per church). */
 export async function setDefaultAccount(id: string) {
-  const session = await requireModule("accounting");
+  const session = await requireManage("accounting");
   if (session.isDemo) return;
   const own = await db.churchAccount.findFirst({ where: { id, churchId: session.churchId }, select: { id: true } });
   if (!own) return;
@@ -76,7 +76,7 @@ export async function setDefaultAccount(id: string) {
 }
 
 export async function deleteAccount(id: string) {
-  const session = await requireModule("accounting");
+  const session = await requireManage("accounting");
   if (session.isDemo) return;
   const acc = await db.churchAccount.findFirst({ where: { id, churchId: session.churchId }, select: { id: true, name: true } });
   if (!acc) return;
@@ -89,7 +89,7 @@ export async function deleteAccount(id: string) {
 
 /** Move money between two accounts (records a paired out/in transaction). */
 export async function transferBetweenAccounts(formData: FormData) {
-  const session = await requireModule("accounting");
+  const session = await requireManage("accounting");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
 
   const fromId = String(formData.get("fromId") ?? "").trim();

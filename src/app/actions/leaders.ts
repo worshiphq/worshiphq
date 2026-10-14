@@ -6,7 +6,7 @@ import { requireSession, assertCanWrite } from "@/lib/auth";
 
 export async function reorderLeaders(orderedIds: string[]) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "leaders");
 
   await Promise.all(
     orderedIds.map((id, i) =>
@@ -22,7 +22,7 @@ export async function reorderLeaders(orderedIds: string[]) {
 
 export async function updateFeaturedLeaderCount(count: number) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "leaders");
 
   const clamped = Math.max(1, Math.min(50, count));
   await db.church.update({

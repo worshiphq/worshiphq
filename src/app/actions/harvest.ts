@@ -18,7 +18,7 @@ const METHOD_FROM_LABEL: Record<string, GiftMethod> = {
 
 export async function setHarvestDate(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "harvest");
 
   const year = Number(formData.get("year"));
   const title = String(formData.get("title") ?? "Annual Harvest").trim() || "Annual Harvest";
@@ -50,7 +50,7 @@ export interface HarvestEntry {
 
 export async function recordHarvestContributions(year: number, entries: HarvestEntry[], accountId?: string | null) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "harvest");
   if (!entries.length) return { ok: false, error: "No entries." };
 
   const harvest = await db.harvest.findUnique({
@@ -125,7 +125,7 @@ export async function recordHarvestTotal(
   accountId?: string | null,
 ) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "harvest");
 
   const amount = Math.round(Number(input.amount) * 100) / 100;
   if (!Number.isFinite(amount) || amount <= 0) return { ok: false, error: "Enter the total amount counted." };
@@ -171,7 +171,7 @@ export async function recordHarvestTotal(
 
 export async function createVisitorForHarvest(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "harvest");
 
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
@@ -210,7 +210,7 @@ export async function createVisitorForHarvest(formData: FormData) {
 
 export async function saveHarvestTemplate(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "harvest");
   const template = String(formData.get("template") ?? "").trim();
   if (!template) return { ok: false, error: "Template cannot be empty." };
   await db.church.update({
@@ -245,7 +245,7 @@ export async function deleteHarvestContribution(id: string) {
 
 export async function editHarvestContribution(id: string, formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "harvest");
 
   const contribution = await db.harvestContribution.findFirst({
     where: { id, churchId: session.churchId },

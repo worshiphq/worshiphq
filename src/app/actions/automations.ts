@@ -10,14 +10,14 @@ import type { Channel } from "@prisma/client";
 
 export async function toggleAutomation(id: string, active: boolean) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "reminders");
   await db.automation.updateMany({ where: { id, churchId: session.churchId }, data: { active } });
   revalidatePath("/app/reminders");
 }
 
 export async function createAutomation(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "reminders");
 
   const trigger = String(formData.get("trigger") ?? "birthday");
   const channel = (String(formData.get("channel") ?? "SMS") as Channel) || "SMS";
@@ -80,7 +80,7 @@ export async function updateAutomationSettings(
   opts: { messageTemplate: string; delayDays: number; sendHour: number | null },
 ) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "reminders");
   const trimmed = opts.messageTemplate.trim();
   if (!trimmed) return { ok: false, error: "Template cannot be empty." };
 
@@ -106,7 +106,7 @@ export async function deleteAutomation(id: string) {
 
 export async function updateAutomationTemplate(id: string, template: string) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "reminders");
   const trimmed = template.trim();
   if (!trimmed) return { ok: false, error: "Template cannot be empty." };
   await db.automation.updateMany({
@@ -119,7 +119,7 @@ export async function updateAutomationTemplate(id: string, template: string) {
 
 export async function runAutomationNow(id: string) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "reminders");
   const result = await runSingleAutomation(id, session.churchId);
   revalidatePath("/app/reminders");
   return result;
@@ -128,7 +128,7 @@ export async function runAutomationNow(id: string) {
 /** Save the built-in birthday automation settings (toggles, send hour, tz, digest day). */
 export async function saveBirthdaySettings(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "reminders");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
 
   const hour = Math.min(23, Math.max(0, parseInt(String(formData.get("sendHour") ?? "8"), 10) || 8));

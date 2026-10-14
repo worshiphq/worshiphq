@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { canEdit } from "@/lib/permissions";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Users, Clock } from "lucide-react";
 import { requireModule } from "@/lib/auth";
@@ -70,7 +71,7 @@ export default async function AttendanceSessionPage({
             smsBalance={smsBalance}
             isDemo={session.isDemo}
           />
-          {!session.isDemo && (
+          {canEdit(session, "attendance") && (
             <DeleteForm
               action={deleteSession.bind(null, data.id)}
               confirm="Delete this service and all its check-ins?"
@@ -81,7 +82,7 @@ export default async function AttendanceSessionPage({
         </div>
       </div>
 
-      {switchTo && !session.isDemo && (
+      {switchTo && canEdit(session, "attendance") && (
         <form action={startCheckIn} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-info/30 bg-info/10 px-4 py-3">
           <input type="hidden" name="serviceName" value="" />
           <p className="flex items-center gap-2 text-sm text-ink">
@@ -93,7 +94,7 @@ export default async function AttendanceSessionPage({
 
       {/* Header */}
       <div>
-        <EditableServiceName sessionId={data.id} name={data.serviceName} canWrite={!session.isDemo} />
+        <EditableServiceName sessionId={data.id} name={data.serviceName} canWrite={canEdit(session, "attendance")} />
         <p className="mt-1 text-sm text-ink-muted">
           {new Date(data.date).toLocaleDateString("en-GH", { weekday: "long", day: "numeric", month: "long", year: "numeric" })}
           {data.branch ? ` · ${data.branch}` : ""}
@@ -134,7 +135,7 @@ export default async function AttendanceSessionPage({
         candidates={candidates}
         attendees={data.attendees}
         checkInUrl={checkInUrl}
-        canWrite={!session.isDemo}
+        canWrite={canEdit(session, "attendance")}
         groupings={groupingLabels}
       />
 

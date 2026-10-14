@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModule } from "@/lib/auth";
+import { requireModule, requireManage } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
 import { logAudit } from "@/lib/audit";
@@ -10,7 +10,7 @@ const CATEGORIES = ["general", "audio-visual", "musical", "furniture", "vehicle"
 const CONDITIONS = ["new", "good", "fair", "poor", "decommissioned"];
 
 export async function createAsset(formData: FormData) {
-  const session = await requireModule("settings");
+  const session = await requireManage("assets");
   if (session.isDemo) return;
 
   const name = String(formData.get("name") ?? "").trim();
@@ -43,7 +43,7 @@ export async function createAsset(formData: FormData) {
 }
 
 export async function deleteAsset(formData: FormData) {
-  const session = await requireModule("settings");
+  const session = await requireManage("assets");
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));

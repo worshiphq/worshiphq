@@ -1,13 +1,13 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModule } from "@/lib/auth";
+import { requireModule, requireManage } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
 import { logAudit } from "@/lib/audit";
 
 export async function createSermon(formData: FormData) {
-  const session = await requireModule("events");
+  const session = await requireManage("sermons");
   if (session.isDemo) return;
 
   const title = String(formData.get("title") ?? "").trim();
@@ -40,7 +40,7 @@ export async function createSermon(formData: FormData) {
 }
 
 export async function deleteSermon(formData: FormData) {
-  const session = await requireModule("events");
+  const session = await requireManage("sermons");
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
@@ -52,7 +52,7 @@ export async function deleteSermon(formData: FormData) {
 }
 
 export async function toggleSermonPublished(formData: FormData) {
-  const session = await requireModule("events");
+  const session = await requireManage("sermons");
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));

@@ -22,7 +22,7 @@ async function formFields(churchId: string) {
 
 export async function createPerson(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "people");
 
   const fields = await formFields(session.churchId);
   const { data, customFields, departmentNames } = await buildPersonData(fields, formData);
@@ -65,7 +65,7 @@ export async function createPersonState(_prev: unknown, formData: FormData) {
 
 export async function updatePerson(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "people");
   const id = String(formData.get("id") ?? "");
   if (!id) return;
 

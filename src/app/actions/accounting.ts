@@ -43,7 +43,7 @@ export async function loadAccountStatement(accountId: string, from: string | nul
 
 export async function createTransaction(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "accounting");
 
   const description = String(formData.get("description") ?? "").trim();
   if (!description) return;
@@ -91,7 +91,7 @@ export async function deleteTransaction(id: string) {
  */
 export async function moveLedgerEntryAccount(source: "manual" | "giving" | "expense", id: string, accountId: string) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "accounting");
   if (session.isDemo) return { ok: false, error: "Read-only demo." };
 
   // Validate the target account belongs to this church.
@@ -124,7 +124,7 @@ export async function moveLedgerEntryAccount(source: "manual" | "giving" | "expe
 
 export async function editTransaction(id: string, formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "accounting");
 
   const tx = await db.transaction.findFirst({
     where: { id, churchId: session.churchId },
