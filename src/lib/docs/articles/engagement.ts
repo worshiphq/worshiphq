@@ -86,6 +86,7 @@ export const engagement: DocArticle[] = [
         "Tick **Text the member** to send them a kind message. Choose how many times at most (**once**, 2 or 3 times) and, if more than once, how many weeks to wait between texts.",
         "Tick **Tell my team** to send one text and email listing who has not been seen. Tick **Open a follow-up for each person** to create a task for each of them in **Follow-ups**.",
         "Under **Who receives this**, tick the team members who should get the alert and the follow-ups, for example your evangelism head. Tick nobody to use every admin.",
+        "When you switch it on, WorshipHQ tells you how many people are **already** away and asks what to do: **Look after them too** (they are texted and followed up at the next check, between 8am and 8pm) or **Leave them alone** (only people who start missing church from now on are looked after). Leaving them alone is pre-selected, so switching it on never surprises anyone with a text.",
         "Choose **Save**. The list on the right, **Away right now**, shows who is away, how long, and whether they have already been told.",
       ] },
       { list: [

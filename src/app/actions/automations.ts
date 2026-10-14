@@ -6,6 +6,7 @@ import { moveToBin } from "@/lib/recycle-bin";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { TRIGGER_CATALOG, DEFAULT_TEMPLATES, runSingleAutomation } from "@/lib/automations/run";
 import { audit } from "@/lib/audit";
+import { absentMembers } from "@/lib/automations/absence";
 import type { Channel } from "@prisma/client";
 
 export async function toggleAutomation(id: string, active: boolean) {
@@ -156,6 +157,8 @@ export async function saveBirthdaySettings(formData: FormData) {
 export async function saveAbsenceSettings(input: {
   on: boolean; weeks: number; textMember: boolean; alertAdmins: boolean;
   maxTexts: number; repeatWeeks: number; createFollowUp: boolean; notifyUserIds: string[];
+  /** People who are already away when this is switched on: look after them too, or leave them alone and only catch new absences. */
+  existing?: "include" | "skip";
 }) {
   const session = await requireSession();
   assertCanWrite(session, "reminders");
@@ -175,7 +178,26 @@ export async function saveAbsenceSettings(input: {
       absenceNotifyUserIds: users.map((u) => u.id),
     },
   });
-  await audit(session, "update", "settings", input.on ? `Switched on "not seen in a while" after ${weeks} week(s)` : 'Switched off "not seen in a while"');
+  // "Skip": mark everyone already away as dealt with, so only people who start missing from now on are looked after.
+  let skipped = 0;
+  if (input.on && input.existing === "skip") {
+    const church = await db.church.findUnique({ where: { id: session.churchId }, select: { timezone: true } });
+    const away = await absentMembers(session.churchId, weeks, church?.timezone ?? "Africa/Accra");
+    if (away.length) {
+      const now = new Date();
+      await db.person.updateMany({ where: { id: { in: away.map((m) => m.id) } }, data: { lapsedAlertedAt: now, lapsedSmsSentAt: now, lapsedSmsCount: maxTexts } });
+      skipped = away.length;
+    }
+  }
+  await audit(session, "update", "settings", input.on ? `Switched on "not seen in a while" after ${weeks} week(s)${input.existing === "skip" ? `, leaving the ${skipped} already away alone` : input.existing === "include" ? ", including people already away" : ""}` : 'Switched off "not seen in a while"');
   revalidatePath("/app/reminders");
-  return { ok: true as const };
+  return { ok: true as const, skipped };
+}
+
+/** How many members are already away for this many weeks (so the choice can show real numbers). */
+export async function previewAbsence(weeks: number) {
+  const session = await requireSession();
+  const church = await db.church.findUnique({ where: { id: session.churchId }, select: { timezone: true } });
+  const away = await absentMembers(session.churchId, Math.min(52, Math.max(1, Math.trunc(weeks) || 3)), church?.timezone ?? "Africa/Accra");
+  return { total: away.length, long: away.filter((m) => m.stale).length, withPhone: away.filter((m) => !m.stale && m.phone).length };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { UserRoundSearch, Loader2, MessageSquareText, Check, Phone, ClipboardList } from "lucide-react";
@@ -8,7 +8,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { useFeedback } from "@/components/ui/feedback";
-import { saveAbsenceSettings } from "@/app/actions/automations";
+import { saveAbsenceSettings, previewAbsence } from "@/app/actions/automations";
 import { cn } from "@/lib/utils";
 
 export type AbsenceData = {
@@ -40,6 +40,16 @@ export function AbsenceCard({ data, canWrite }: { data: AbsenceData; canWrite: b
   const [createFollowUp, setCreateFollowUp] = useState(data.createFollowUp);
   const [notifyIds, setNotifyIds] = useState<string[]>(data.notifyUserIds);
   const [showAll, setShowAll] = useState(false);
+  // When switching on (or widening the net), people already away need a decision.
+  const [existing, setExisting] = useState<"include" | "skip">("skip");
+  const [preview, setPreview] = useState<{ total: number; long: number; withPhone: number } | null>(null);
+  const needsChoice = on && (!data.on || weeks < data.weeks);
+  useEffect(() => {
+    if (!needsChoice) return;
+    let live = true;
+    void previewAbsence(weeks).then((p) => { if (live) setPreview(p); });
+    return () => { live = false; };
+  }, [needsChoice, weeks]);
 
   const dirty = on !== data.on || weeks !== data.weeks || textMember !== data.textMember || alertAdmins !== data.alertAdmins ||
     maxTexts !== data.maxTexts || repeatWeeks !== data.repeatWeeks || createFollowUp !== data.createFollowUp ||
@@ -48,8 +58,8 @@ export function AbsenceCard({ data, canWrite }: { data: AbsenceData; canWrite: b
 
   const save = () =>
     start(async () => {
-      const res = await saveAbsenceSettings({ on, weeks, textMember, alertAdmins, maxTexts, repeatWeeks, createFollowUp, notifyUserIds: notifyIds });
-      if (res.ok) { toast(on ? "Saved. Away members will be looked after automatically." : "Saved. This is switched off.", "success"); router.refresh(); }
+      const res = await saveAbsenceSettings({ on, weeks, textMember, alertAdmins, maxTexts, repeatWeeks, createFollowUp, notifyUserIds: notifyIds, existing: needsChoice ? existing : undefined });
+      if (res.ok) { toast(on ? (needsChoice && existing === "skip" ? `Saved. The ${res.skipped} already away are left alone; only new absences are looked after.` : "Saved. Away members will be looked after automatically.") : "Saved. This is switched off.", "success"); router.refresh(); }
       else toast(res.error, "error");
     });
 
@@ -138,6 +148,19 @@ export function AbsenceCard({ data, canWrite }: { data: AbsenceData; canWrite: b
                   </label>
                 ))}
               </div>
+            </div>
+          )}
+          {needsChoice && preview && preview.total > 0 && (
+            <div className="space-y-2 rounded-lg border border-gold/30 bg-gold-soft p-3 text-xs">
+              <p className="font-semibold text-gold">{preview.total} {preview.total === 1 ? "person has" : "people have"} already been away for {weeks} week{weeks === 1 ? "" : "s"} or more. What should happen to them?</p>
+              <label className="flex items-start gap-2">
+                <input type="radio" name="existing" checked={existing === "include"} onChange={() => setExisting("include")} disabled={!canWrite} className="mt-0.5 accent-primary" />
+                <span><span className="font-medium text-ink">Look after them too.</span> {textMember ? `${preview.withPhone} will be texted` : "They are included"} at the next check (between 8am and 8pm){createFollowUp ? ", and each gets a follow-up" : ""}.{preview.long > 0 ? ` ${preview.long} who have been away for a very long time are listed but not texted.` : ""}</span>
+              </label>
+              <label className="flex items-start gap-2">
+                <input type="radio" name="existing" checked={existing === "skip"} onChange={() => setExisting("skip")} disabled={!canWrite} className="mt-0.5 accent-primary" />
+                <span><span className="font-medium text-ink">Leave them alone.</span> Only people who start missing church from now on are looked after. They stay in the Away right now list.</span>
+              </label>
             </div>
           )}
           <div className="flex flex-wrap items-center gap-2 pt-1">
