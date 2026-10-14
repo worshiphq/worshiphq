@@ -114,6 +114,28 @@ export const people: DocArticle[] = [
     ],
   },
   {
+    slug: "families",
+    section: "people",
+    title: "Families and couples",
+    summary: "Group members into families or married couples, and record wedding dates for anniversary wishes.",
+    appPath: "/app/people",
+    who: "People who manage members",
+    body: [
+      { p: "Open a member and find **Family and marriage**. It is quiet and optional: nothing is asked of members, and a person only appears in a family when you put them there." },
+      { steps: [
+        "Choose **Group with a family or spouse**, give it a name (for example the Mensah family), choose **Family** or **Married couple**, and optionally enter the **wedding date**. Choose **Create**.",
+        "Under **Add someone**, search for a member by name or phone, pick their role (**Head of family**, **Spouse or partner**, **Child**, **Other relative**) and choose **Add**.",
+        "Use **Edit** to rename it, switch between family and couple, or change or clear the wedding date.",
+        "Use the **X** beside a name to take someone out. A family with nobody left is removed.",
+      ] },
+      { list: [
+        "The wedding date is saved on both partners (the head and the spouse), so each gets the anniversary wish and both show on **Birthdays**.",
+        "You can also ask for it with the **Wedding anniversary** question on your join form (add it in **Settings**, **Forms**).",
+        "The member export now includes **Wedding Anniversary** and **Family** columns.",
+      ] },
+    ],
+  },
+  {
     slug: "departments",
     section: "people",
     title: "Departments",
@@ -280,7 +302,7 @@ export const people: DocArticle[] = [
     summary: "See upcoming birthdays and anniversaries, and send birthday wishes automatically.",
     appPath: "/app/birthdays",
     body: [
-      { p: "**Birthdays** shows who is celebrating today (marked **Today!**) and who's coming up. Birthdays come from members' date of birth." },
+      { p: "**Birthdays** shows who is celebrating today (marked **Today!**) and who's coming up. Birthdays come from members' date of birth. Anniversaries are wedding anniversaries: add the wedding date on a member's profile under **Family and marriage**, or ask for it with the **Wedding anniversary** question on your join form. Both partners get the anniversary wish, if you switch **Anniversary** on under **Reminders**." },
       { h: "Find people quickly" },
       { list: [
         "**Today** and **Next 30 days** show who is coming up soon.",
