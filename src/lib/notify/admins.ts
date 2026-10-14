@@ -11,14 +11,14 @@ import { sendEmail } from "@/lib/integrations/email";
  */
 export async function notifyChurchAdmins(
   churchId: string,
-  opts: { subject: string; sms: string; emailHtml?: string },
+  opts: { subject: string; sms: string; emailHtml?: string; /** Send even if the church switched submission alerts off. */ force?: boolean },
 ) {
   try {
     const church = await db.church.findUnique({
       where: { id: churchId },
       select: { name: true, notifySubmissions: true },
     });
-    if (!church || church.notifySubmissions === false) return;
+    if (!church || (church.notifySubmissions === false && !opts.force)) return;
 
     const admins = await db.user.findMany({
       where: { churchId, role: { in: ["Owner", "Admin", "Pastor"] } },

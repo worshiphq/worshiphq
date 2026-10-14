@@ -13,6 +13,7 @@ import { ActionDialog } from "@/components/app/action-dialog";
 import { DeleteForm } from "@/components/app/delete-form";
 import { toggleAutomation, createAutomation, deleteAutomation, updateAutomationTemplate, updateAutomationSettings, runAutomationNow } from "@/app/actions/automations";
 import { cn } from "@/lib/utils";
+import { AbsenceCard, type AbsenceData } from "@/components/app/absence-card";
 
 type Automation = { id: string; name: string; description: string; trigger: string; channel: string; active: boolean; runs: number; messageTemplate: string | null; delayDays: number; sendHour: number | null; lastRunAt: string | null };
 
@@ -38,6 +39,7 @@ export function RemindersClient({
   canWrite,
   canDelete = false,
   departments = [],
+  absence,
 }: {
   automations: Automation[];
   upcoming: Upcoming[];
@@ -45,6 +47,7 @@ export function RemindersClient({
   canWrite: boolean;
   canDelete?: boolean;
   departments?: { id: string; name: string }[];
+  absence: AbsenceData;
 }) {
   const [pending, start] = useTransition();
   const { toast } = useFeedback();
@@ -148,6 +151,8 @@ export function RemindersClient({
           </p>
         </div>
       </Card>
+
+      <AbsenceCard data={absence} canWrite={canWrite} />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-3 lg:col-span-2">

@@ -153,6 +153,11 @@ model Church {
   serviceGraceMinutes   Int     @default(60) // early/late arrivals within this many minutes join the nearest service
   /** Editable system-SMS overrides, keyed by template id (see src/lib/messages/registry). */
   messageTemplates           Json?
+  // "We have not seen you in a while": who counts as away, and who is told.
+  absenceOn          Boolean @default(false)
+  absenceWeeks       Int     @default(3)
+  absenceTextMember  Boolean @default(true)
+  absenceAlertAdmins Boolean @default(true)
   /** Days before a pledge due date to auto-remind, e.g. [30, 7, 3]. */
   pledgeReminderDays     Int[]   @default([30, 7, 3])
   pledgePayments         PledgePayment[]
@@ -404,6 +409,7 @@ model Person {
 
   // ── Automation dedupe guards (see src/lib/automations/run.ts) ──
   newMemberWelcomeSentAt DateTime? // set once the "new member" automation has texted them
+  lapsedAlertedAt        DateTime? // admins were told this person has been away; re-arms when they attend again
   lapsedSmsSentAt        DateTime? // set once the "we miss you" automation has texted them; cleared when status returns to active so a future lapse can fire again
 
   // ── Leadership ──

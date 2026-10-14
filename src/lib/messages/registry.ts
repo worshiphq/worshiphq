@@ -59,6 +59,20 @@ export const MESSAGE_TEMPLATES: MessageTemplate[] = [
     default: "Hi {name}, your counselling appointment at {church} with {counselor} has been updated. It is now {when}. God bless you.",
   },
   {
+    key: "absent_member",
+    label: "We have not seen you in a while (to the member)",
+    description: "Texted once to a member who has not been to church for the number of weeks you set. Attending again resets it.",
+    placeholders: ["name", "church", "weeks"],
+    default: "Hi {name}, we have missed you at {church}. You are always welcome, and we would love to see you again. Is there any way we can pray with you or support you? God bless you.",
+  },
+  {
+    key: "absent_admin",
+    label: "Members not seen in a while (to admins)",
+    description: "Texted and emailed to your admins when members have been away for the number of weeks you set.",
+    placeholders: ["count", "church", "list", "weeks"],
+    default: "{count} member(s) at {church} have not been seen for {weeks} week(s) or more: {list}. Please reach out to them.",
+  },
+  {
     key: "visitor_return",
     label: "Good to see you again (returning visitor)",
     description: "Send this from a visitor's profile when they check in or visit again - it's never sent automatically.",

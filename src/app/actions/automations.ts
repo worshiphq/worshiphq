@@ -151,3 +151,18 @@ export async function saveBirthdaySettings(formData: FormData) {
   revalidatePath("/app/birthdays");
   return { ok: true as const };
 }
+
+/** Save the "we have not seen you in a while" settings. */
+export async function saveAbsenceSettings(input: { on: boolean; weeks: number; textMember: boolean; alertAdmins: boolean }) {
+  const session = await requireSession();
+  assertCanWrite(session, "reminders");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  const weeks = Math.min(52, Math.max(1, Math.trunc(input.weeks) || 3));
+  await db.church.update({
+    where: { id: session.churchId },
+    data: { absenceOn: !!input.on, absenceWeeks: weeks, absenceTextMember: !!input.textMember, absenceAlertAdmins: !!input.alertAdmins },
+  });
+  await audit(session, "update", "settings", input.on ? `Switched on "not seen in a while" after ${weeks} week(s)` : 'Switched off "not seen in a while"');
+  revalidatePath("/app/reminders");
+  return { ok: true as const };
+}

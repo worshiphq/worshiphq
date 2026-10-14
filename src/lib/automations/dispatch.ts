@@ -8,6 +8,7 @@ import { runRosterAnnouncements } from "./roster-announce";
 import { runRosterReminders } from "./roster-reminders";
 import { runGroupMeetingReminders } from "./group-meetings";
 import { runCounselingReminders } from "./counseling-reminders";
+import { runAbsenceCheck } from "./absence";
 import { runScheduledBackups } from "@/lib/backups/run";
 import { runFollowUpDigest } from "@/lib/follow-ups/digest";
 
@@ -54,6 +55,7 @@ export async function runDailyAutomations(now = new Date(), precise = false) {
   summary.rosterReminders = await safe("rosterReminders", () => runRosterReminders(now, ignoreHour, smsDeadline));
   summary.groupMeetings = await safe("groupMeetings", () => runGroupMeetingReminders(now, ignoreHour, smsDeadline));
   summary.counselingReminders = await safe("counselingReminders", () => runCounselingReminders(now, ignoreHour, smsDeadline));
+  summary.absence = await safe("absence", () => runAbsenceCheck(now, ignoreHour, smsDeadline));
   summary.followUpDigest = await safe("followUpDigest", () => runFollowUpDigest(now, ignoreHour, smsDeadline));
 
   // 3) Welcome / we-miss-you / thank-you / anniversary / visitor follow-up texts.
