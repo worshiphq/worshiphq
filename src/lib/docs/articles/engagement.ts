@@ -79,7 +79,7 @@ export const engagement: DocArticle[] = [
       ] },
       { note: "SMS automations use your SMS credits." },
       { h: "We haven't seen you in a while" },
-      { p: "At the top of **Reminders**, this looks at check-ins. Anyone who has attended before but has not checked in for the weeks you choose is gently texted, your team is told, and you can have a follow-up opened so someone checks on them. People who have never attended are not counted, and children are left out. (It replaces the older \"We miss you\" reminder, which only looked at members marked inactive. That older one is hidden once this is switched on.)" },
+      { p: "At the top of **Reminders**, this looks at check-ins. Anyone who has attended before but has not checked in for the weeks you choose is gently texted, your team is told, and you can have a follow-up opened so someone checks on them. People who have never attended are not counted, and children are left out. (It replaces the older \"We miss you\" reminder, which only looked at members marked inactive. That older one has been retired.)" },
       { steps: [
         "Switch it **On**.",
         "Under **Count someone as away after**, choose how many weeks: 1 week means they missed a Sunday, 3 weeks is a common choice.",

@@ -28,8 +28,7 @@ export default async function RemindersPage() {
     team: team.map((u) => ({ id: u.id, name: u.name, role: String(u.role) })),
     members: away.map((m) => ({ id: m.id, name: m.name, phone: m.phone, lastSeen: m.lastSeen.toISOString(), weeksAway: m.weeksAway, texted: m.texted, textCount: m.textCount, alerted: m.alerted, stale: m.stale })),
   };
-  // The attendance based check replaces the older "We miss you" reminder, so hide that one once it is on.
-  const legacyMissYou = data.automations.some((a) => a.trigger === "lapsed" && a.active);
-  const shown = church?.absenceOn ? { ...data, automations: data.automations.filter((a) => a.trigger !== "lapsed") } : data;
-  return <RemindersClient {...shown} absence={{ ...absence, legacyMissYou }} canWrite={canEdit(session, "reminders")} canDelete={session.canDelete && canEdit(session, "reminders")} departments={departments} />;
+  // The attendance based check replaces the older "We miss you" reminder, which is now retired.
+  const shown = { ...data, automations: data.automations.filter((a) => a.trigger !== "lapsed") };
+  return <RemindersClient {...shown} absence={absence} canWrite={canEdit(session, "reminders")} canDelete={session.canDelete && canEdit(session, "reminders")} departments={departments} />;
 }

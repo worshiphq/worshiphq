@@ -99,8 +99,8 @@ export async function runAutomations(now = new Date(), opts: { only?: string[]; 
     for (const a of automations) {
       // Birthdays are handled by the built-in, timezone-aware runBirthdays now.
       if (a.trigger === "birthday") continue;
-      // The attendance based "we have not seen you" check replaces the old inactive-status trigger.
-      if (a.trigger === "lapsed" && church.absenceOn) continue;
+      // Retired: the attendance based "we have not seen you in a while" check replaces the old "We miss you" trigger.
+      if (a.trigger === "lapsed") continue;
       if (opts.only && !opts.only.includes(a.trigger)) continue;
       // Hourly pass: no soft texts at night (visitor follow-up has its own hour).
       if (nightTime && a.trigger !== "visitor_followup") continue;

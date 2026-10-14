@@ -21,8 +21,6 @@ export type AbsenceData = {
   createFollowUp: boolean;
   notifyUserIds: string[];
   team: { id: string; name: string; role: string }[];
-  /** The older status based "We miss you" reminder is still switched on. */
-  legacyMissYou?: boolean;
   members: { id: string; name: string; phone: string | null; lastSeen: string; weeksAway: number; texted: boolean; textCount: number; alerted: boolean; stale: boolean }[];
 };
 
@@ -76,13 +74,6 @@ export function AbsenceCard({ data, canWrite }: { data: AbsenceData; canWrite: b
           {on ? "On" : "Off"}
         </label>
       </div>
-
-      {data.legacyMissYou && !data.on && (
-        <p className="mt-3 rounded-xl border border-gold/30 bg-gold-soft px-3 py-2 text-sm text-gold">
-          You also have the older &quot;We miss you&quot; reminder switched on below. It only looks at members you marked inactive. Switching this on replaces it,
-          and it is the better one: it uses real check-ins, and you choose how many weeks.
-        </p>
-      )}
 
       <div className="mt-4 grid gap-4 md:grid-cols-[1fr_1fr]">
         <div className="space-y-3 rounded-xl border border-line p-4">
