@@ -13,6 +13,7 @@ import { DepartmentTrend } from "@/components/app/department-trend";
 import { recordService, startCheckIn } from "@/app/actions/attendance";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { PageTips } from "@/components/app/page-tips";
+import { ServiceThanksCard } from "@/components/app/service-thanks-card";
 
 export const metadata = { title: "Attendance" };
 
@@ -103,6 +104,8 @@ export default async function AttendancePage() {
           </Card>
         </Link>
       )}
+
+      <div className="mt-4"><ServiceThanksCard canWrite={canEdit(session, "attendance")} compact /></div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2">

@@ -45,7 +45,7 @@ const REGISTRY_GROUP: Record<string, GroupId> = {
   followup_assigned: "care", counseling_scheduled: "care", counseling_reminder: "care", counseling_update: "care",
   visitor_return: "members",
   birthday_wish: "birthdays", birthday_admin_today: "birthdays", birthday_digest: "birthdays",
-  absent_member: "attendance", absent_admin: "attendance",
+  absent_member: "attendance", absent_admin: "attendance", service_thanks: "attendance",
 };
 const ADMIN_KEYS = new Set(["birthday_admin_today", "birthday_digest", "absent_admin", "followup_assigned"]);
 

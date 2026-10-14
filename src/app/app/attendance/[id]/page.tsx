@@ -15,6 +15,9 @@ import { Card } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { CheckInPanel } from "@/components/app/check-in-panel";
 import { EndServiceButton } from "@/components/app/end-service-dialog";
+import { db } from "@/lib/db";
+import { countThankRecipients, thankDefault } from "@/lib/attendance/thanks";
+import { renderTemplate, templateFor } from "@/lib/messages/registry";
 import { EditableServiceName } from "@/components/app/editable-service-name";
 import { DeleteForm } from "@/components/app/delete-form";
 
@@ -27,6 +30,11 @@ export default async function AttendanceSessionPage({
 }) {
   const { id } = await params;
   const session = await requireModule("attendance");
+  const [thankRow, thankChurch, thankRecipients] = await Promise.all([
+    db.attendanceSession.findFirst({ where: { id, churchId: session.churchId }, select: { slotId: true, serviceName: true, thankRequested: true, thankSentCount: true } }),
+    db.church.findUnique({ where: { id: session.churchId }, select: { thankAfterService: true, thankServiceNames: true, thankOtherPrograms: true, messageTemplates: true, name: true } }),
+    countThankRecipients(id, session.churchId),
+  ]);
   const [data, candidates, reportConfig, smsBalance, breakdown, groupingLabels] = await Promise.all([
     getAttendanceSession(session.churchId, id),
     getCheckInCandidates(session.churchId, id),
@@ -70,6 +78,13 @@ export default async function AttendanceSessionPage({
             }}
             smsBalance={smsBalance}
             isDemo={session.isDemo}
+            thanks={{
+              defaultOn: thankChurch && thankRow ? thankDefault(thankChurch, thankRow) : false,
+              recipients: thankRecipients,
+              requested: thankRow?.thankRequested ?? false,
+              sentCount: thankRow?.thankSentCount ?? 0,
+              preview: renderTemplate(templateFor(thankChurch?.messageTemplates, "service_thanks"), { name: "Ama", church: thankChurch?.name ?? "Church", service: thankRow?.serviceName ?? "Service" }),
+            }}
           />
           {canEdit(session, "attendance") && (
             <DeleteForm

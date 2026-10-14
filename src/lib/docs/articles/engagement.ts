@@ -144,7 +144,9 @@ export const engagement: DocArticle[] = [
       { p: "The lead is texted (and emailed) each time a follow-up arrives, with the person's name and number. Every morning, team members are emailed the follow-ups due or overdue, and admins are emailed any that nobody is assigned to." },
       { h: "Working through the list" },
       { list: [
-        "Filter by **Active**, **Mine**, **Overdue**, **Done** or **All**.",
+        "Filter by **Active**, **Mine**, **Overdue**, **Done** or **All**, then narrow further by **Kind**, by who it is **Assigned to** (or **Not assigned yet**), and by a date range. Choose whether the dates mean **Due date**, **Created** or **Completed**.",
+        "**Sort** by soonest due, newest, oldest, name or recently completed.",
+        "Long lists are shown 15 at a time with **Previous** and **Next**, so there is no endless scrolling. **Clear filters** resets the narrowing.",
         "Each task shows the person's phone number with **Call** and **WhatsApp** buttons.",
         "Change the status (**Open**, **In progress**, **Done**) or the due date.",
         "**Add note** for details about the task.",

@@ -76,6 +76,10 @@ model Church {
   notifySubmissions Boolean @default(true)
   // Show money as *** on finance screens until someone taps the eye icon (shoulder-surfing protection).
   hideAmounts       Boolean @default(true)
+  // "Thank you for coming" text to every member who checked in, offered when a service is ended. Off by default.
+  thankAfterService  Boolean  @default(false)
+  thankServiceNames  String[] @default([])   // services (by name) where the thank-you is ticked by default
+  thankOtherPrograms Boolean  @default(false) // also ticked by default for one-off programs that are not a regular service
   // ── Automations: timezone + birthday suite ──
   timezone          String  @default("Africa/Accra") // IANA tz; send-hours are local to this
   birthdaySendHour  Int     @default(8)   // local hour (0-23) birthday messages go out
@@ -426,6 +430,7 @@ model Person {
 
   // ── Automation dedupe guards (see src/lib/automations/run.ts) ──
   newMemberWelcomeSentAt DateTime? // set once the "new member" automation has texted them
+  lastThankedAt          DateTime? // last "thank you for coming" text (never text twice on the same day)
   lapsedSmsCount         Int       @default(0) // texts sent for the current absence (counts again from 0 after they attend)
   lapsedAlertedAt        DateTime? // admins were told this person has been away; re-arms when they attend again
   lapsedSmsSentAt        DateTime? // set once the "we miss you" automation has texted them; cleared when status returns to active so a future lapse can fire again
@@ -587,6 +592,8 @@ model AttendanceSession {
   children    Int      @default(0)
   visitors    Int      @default(0)
   endedAt     DateTime? // set when the service is ended (report sent)
+  thankRequested Boolean  @default(false) // the person ending the service chose to thank everyone who came
+  thankSentCount Int       @default(0)
   reportSentTo Int      @default(0) // how many recipients the end-of-service report reached
   createdAt   DateTime @default(now())
   // Set when the session was opened automatically from the church's service
@@ -618,6 +625,7 @@ model AttendanceRecord {
   serviceName String
   date        DateTime
   method      String   @default("qr") // qr | manual | self
+  thankedAt   DateTime? // the thank-you text for this check-in has been handled
 
   @@index([churchId])
   @@index([date])

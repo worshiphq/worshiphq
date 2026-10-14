@@ -3,11 +3,12 @@
 import { useMemo, useState, useTransition } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Flag, X, Send, MessageSquare, Users, Phone, RotateCcw, CheckCircle2, Loader2 } from "lucide-react";
+import { Flag, X, Send, MessageSquare, Users, Phone, RotateCcw, CheckCircle2, Loader2, HeartHandshake } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { useFeedback } from "@/components/ui/feedback";
-import { endService, reopenService } from "@/app/actions/attendance";
+import { endService, reopenService, thankAttendees } from "@/app/actions/attendance";
+import Link from "next/link";
 import {
   DEFAULT_ATTENDANCE_REPORT,
   ATTENDANCE_REPORT_PLACEHOLDERS,
@@ -17,10 +18,12 @@ import {
 import { cn } from "@/lib/utils";
 
 interface Counts { adults: number; teens: number; children: number; visitors: number }
+/** The optional "thank you for coming" text to every member who checked in. */
+export interface ThanksInfo { defaultOn: boolean; recipients: number; requested: boolean; sentCount: number; preview: string }
 
 export function EndServiceButton({
   sessionId, serviceName, date, churchName, counts, endedAt, reportSentTo,
-  config, smsBalance, isDemo,
+  config, smsBalance, isDemo, thanks,
 }: {
   sessionId: string;
   serviceName: string;
@@ -32,11 +35,13 @@ export function EndServiceButton({
   config: { template: string | null; numbers: string; toAdmins: boolean; toLeaders: boolean; adminCount: number; leaderCount: number };
   smsBalance: number;
   isDemo: boolean;
+  thanks: ThanksInfo;
 }) {
   const router = useRouter();
   const { toast } = useFeedback();
   const [open, setOpen] = useState(false);
   const [reopening, startReopen] = useTransition();
+  const [thanking, startThank] = useTransition();
 
   if (endedAt) {
     return (
@@ -45,6 +50,24 @@ export function EndServiceButton({
           <CheckCircle2 className="size-4" /> Service ended
           {reportSentTo > 0 && <span className="text-success/80">· report sent to {reportSentTo}</span>}
         </span>
+        {!isDemo && !thanks.requested && thanks.recipients > 0 && (
+          <Button
+            variant="secondary" size="sm"
+            disabled={thanking}
+            onClick={() => {
+              if (!window.confirm(`Text a thank-you to the ${thanks.recipients} member${thanks.recipients === 1 ? "" : "s"} who came? This uses SMS credits.`)) return;
+              startThank(async () => {
+                const r = await thankAttendees(sessionId);
+                if (r.ok) toast(r.insufficient ? `Sent ${r.sent}. SMS credits ran out; the rest will go when you top up.` : r.remaining > 0 ? `Sent ${r.sent}. The rest are going out over the next hour.` : `Thank-you sent to ${r.sent}.`, r.insufficient ? "error" : "success");
+                else toast(r.error, "error");
+                router.refresh();
+              });
+            }}
+          >
+            {thanking ? <><Loader2 className="size-4 animate-spin" /> Sending…</> : <><HeartHandshake className="size-4" /> Thank everyone who came</>}
+          </Button>
+        )}
+        {thanks.requested && thanks.sentCount > 0 && <span className="text-xs text-ink-faint">Thanked {thanks.sentCount}</span>}
         {!isDemo && (
           <Button
             variant="ghost" size="sm" className="text-ink-muted"
@@ -72,7 +95,7 @@ export function EndServiceButton({
       {open && (
         <EndServiceDialog
           sessionId={sessionId} serviceName={serviceName} date={date} churchName={churchName}
-          counts={counts} config={config} smsBalance={smsBalance}
+          counts={counts} config={config} smsBalance={smsBalance} thanks={thanks}
           onClose={() => setOpen(false)}
         />
       )}
@@ -81,7 +104,7 @@ export function EndServiceButton({
 }
 
 function EndServiceDialog({
-  sessionId, serviceName, date, churchName, counts, config, smsBalance, onClose,
+  sessionId, serviceName, date, churchName, counts, config, smsBalance, thanks, onClose,
 }: {
   sessionId: string;
   serviceName: string;
@@ -90,6 +113,7 @@ function EndServiceDialog({
   counts: Counts;
   config: { template: string | null; numbers: string; toAdmins: boolean; toLeaders: boolean; adminCount: number; leaderCount: number };
   smsBalance: number;
+  thanks: ThanksInfo;
   onClose: () => void;
 }) {
   const router = useRouter();
@@ -100,6 +124,7 @@ function EndServiceDialog({
   const [toLeaders, setToLeaders] = useState(config.toLeaders);
   const [numbers, setNumbers] = useState(config.numbers ?? "");
   const [template, setTemplate] = useState(config.template ?? DEFAULT_ATTENDANCE_REPORT);
+  const [thank, setThank] = useState(thanks.defaultOn && thanks.recipients > 0);
 
   const total = counts.adults + counts.teens + counts.children + counts.visitors;
   const dateLabel = new Date(date).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -118,12 +143,13 @@ function EndServiceDialog({
   const approxRecipients =
     (toAdmins ? config.adminCount : 0) + (toLeaders ? config.leaderCount : 0) + extraCount;
   const segments = Math.max(1, Math.ceil(preview.length / 160));
-  const estCredits = approxRecipients * segments;
+  const thankSegments = Math.max(1, Math.ceil(thanks.preview.length / 160));
+  const estCredits = approxRecipients * segments + (thank ? thanks.recipients * thankSegments : 0);
   const lowBalance = estCredits > smsBalance;
 
   function submit() {
-    if (approxRecipients === 0) {
-      toast("Choose who should get the report (or add a number).", "error");
+    if (approxRecipients === 0 && !thank) {
+      toast("Choose who should get the report (or add a number), or thank the members who came.", "error");
       return;
     }
     const fd = new FormData();
@@ -132,13 +158,15 @@ function EndServiceDialog({
     fd.set("toLeaders", toLeaders ? "true" : "false");
     fd.set("numbers", numbers);
     fd.set("template", template);
+    fd.set("thank", thank ? "true" : "false");
     start(async () => {
       const res = await endService(fd);
       if (res?.ok) {
         if (res.insufficient) {
           toast("Service ended, but SMS credits ran out before all messages sent.", "error");
         } else {
-          toast(`Service ended · report sent to ${res.sent} recipient${res.sent === 1 ? "" : "s"}.`, "success");
+          const th = thank ? (res.thanksInsufficient ? ` Thank-you sent to ${res.thanked}; credits ran out for the rest.` : res.thanksLeft > 0 ? ` Thank-you sent to ${res.thanked}; the rest go out over the next hour.` : ` Thank-you sent to ${res.thanked} member${res.thanked === 1 ? "" : "s"}.`) : "";
+          toast(`Service ended · report sent to ${res.sent} recipient${res.sent === 1 ? "" : "s"}.${th}`, res.thanksInsufficient ? "error" : "success");
         }
         router.refresh();
         onClose();
@@ -230,6 +258,28 @@ function EndServiceDialog({
             </div>
           </div>
 
+          {/* Thank everyone who came */}
+          <div className="mt-5 rounded-xl border border-line p-3">
+            <label className="flex cursor-pointer items-start gap-3">
+              <input type="checkbox" checked={thank} onChange={(e) => setThank(e.target.checked)} disabled={thanks.recipients === 0} className="mt-0.5 size-4 accent-primary" />
+              <span className="text-sm">
+                <span className="flex items-center gap-1.5 font-semibold"><HeartHandshake className="size-4 text-primary" /> Thank everyone who came</span>
+                <span className="mt-0.5 block text-xs text-ink-muted">
+                  {thanks.recipients === 0
+                    ? "Nobody who checked in has a phone number on file, so there is nobody to text."
+                    : `A warm text to the ${thanks.recipients} member${thanks.recipients === 1 ? "" : "s"} who checked in and have a phone number. Nobody is texted twice in a day.`}
+                </span>
+              </span>
+            </label>
+            {thank && thanks.recipients > 0 && (
+              <div className="mt-2 rounded-lg border border-dashed border-line bg-base p-2.5 text-xs text-ink-muted">
+                <span className="text-[10px] uppercase tracking-wide text-ink-faint">Each member gets</span>
+                <p className="mt-1 whitespace-pre-wrap text-sm text-ink">{thanks.preview}</p>
+                <Link href="/app/messages?focus=service_thanks" className="mt-1 inline-block font-medium text-primary hover:underline">Edit the wording</Link>
+              </div>
+            )}
+          </div>
+
           {/* Cost + actions */}
           <div className="mt-4 flex items-center justify-between text-xs">
             <span className="text-ink-faint">
@@ -245,7 +295,7 @@ function EndServiceDialog({
             <Button variant="secondary" className="flex-1" onClick={onClose} disabled={pending}>Cancel</Button>
             <Button className="flex-1" onClick={submit} disabled={pending}>
               {pending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-              {pending ? "Ending…" : "End & send report"}
+              {pending ? "Ending…" : thank ? "End, send report & thank" : "End & send report"}
             </Button>
           </div>
         </div>

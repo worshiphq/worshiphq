@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { getServiceTimes, setServiceTimesOptions, saveServiceSlot, deleteServiceSlot, type ServiceTimesData } from "@/app/actions/service-times";
 import { cn } from "@/lib/utils";
+import { ServiceThanksCard } from "@/components/app/service-thanks-card";
 import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -196,6 +197,7 @@ export function ServiceTimesTab({ canManage }: { canManage: boolean }) {
           </div>
         )}
       </Card>
+      <ServiceThanksCard canWrite={canManage} />
     </div>
   );
 }

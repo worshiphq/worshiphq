@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 import { categoryForPerson, type AttendanceCategory } from "@/lib/data/attendance";
+import { sendServiceThanks } from "@/lib/attendance/thanks";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { can, granted } from "@/lib/permissions";
 import { DEFAULT_ATTENDANCE_REPORT, renderAttendanceReport } from "@/lib/attendance/report";
@@ -258,6 +259,7 @@ export async function endService(formData: FormData) {
   const toLeaders = truthy(formData.get("toLeaders"));
   const extraNumbers = String(formData.get("numbers") ?? "");
   const template = String(formData.get("template") ?? "").trim() || DEFAULT_ATTENDANCE_REPORT;
+  const thank = truthy(formData.get("thank"));
 
   const sess = await db.attendanceSession.findFirst({ where: { id: sessionId, churchId: session.churchId } });
   if (!sess) return { ok: false as const, error: "Service not found" };
@@ -304,7 +306,7 @@ export async function endService(formData: FormData) {
 
   await db.attendanceSession.update({
     where: { id: sess.id },
-    data: { endedAt: new Date(), reportSentTo: sent },
+    data: { endedAt: new Date(), reportSentTo: sent, ...(thank ? { thankRequested: true } : {}) },
   });
   // Remember the choices for next time.
   await db.church.update({
@@ -317,9 +319,29 @@ export async function endService(formData: FormData) {
     },
   });
 
+  // Thank everyone who came (one text each, within a time budget; the hourly run finishes any that are left).
+  let thanked = 0, thanksLeft = 0, thanksInsufficient = false;
+  if (thank && !session.isDemo) {
+    const t = await sendServiceThanks(sess.id, { budgetMs: 20_000 });
+    thanked = t.sent; thanksLeft = t.remaining; thanksInsufficient = t.insufficient;
+  }
+
   revalidatePath(`/app/attendance/${sess.id}`);
   revalidatePath("/app/attendance");
-  return { ok: true as const, sent, recipients: list.length, insufficient };
+  return { ok: true as const, sent, recipients: list.length, insufficient, thanked, thanksLeft, thanksInsufficient };
+}
+
+/** Thank everyone who came to a service that was already ended (or is still open), without ending it. */
+export async function thankAttendees(sessionId: string) {
+  const session = await requireSession();
+  assertCanWrite(session, "attendance");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  const sess = await db.attendanceSession.findFirst({ where: { id: sessionId, churchId: session.churchId }, select: { id: true } });
+  if (!sess) return { ok: false as const, error: "Service not found" };
+  await db.attendanceSession.update({ where: { id: sess.id }, data: { thankRequested: true } });
+  const t = await sendServiceThanks(sess.id, { budgetMs: 20_000 });
+  revalidatePath(`/app/attendance/${sess.id}`);
+  return { ok: true as const, sent: t.sent, remaining: t.remaining, insufficient: t.insufficient };
 }
 
 /** Rename a service (e.g. "Wednesday Service" → "Convention Day 1"). Also

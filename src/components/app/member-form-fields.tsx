@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Check, UploadCloud, X } from "lucide-react";
+import { Camera, Check, UploadCloud, X } from "lucide-react";
 import { type FormField, DEPARTMENT_FIELD_ID, GROUPS_FIELD_ID, splitSteps, questionFields } from "@/lib/forms/registration";
 import { ImageCropper } from "@/components/ui/image-cropper";
 import { Combobox } from "@/components/ui/combobox";
@@ -308,6 +308,7 @@ function GroupChecks({ groups, selected, onChange }: { groups: { id: string; nam
 
 function PhotoUpload({ value, onChange, name }: { value: string; onChange: (v: string) => void; name: string }) {
   const ref = useRef<HTMLInputElement>(null);
+  const cam = useRef<HTMLInputElement>(null);
   const [editing, setEditing] = useState<string | null>(null);
   function pick(files: FileList | null) {
     const file = files?.[0];
@@ -326,8 +327,12 @@ function PhotoUpload({ value, onChange, name }: { value: string; onChange: (v: s
         <span className="grid size-16 place-items-center rounded-full bg-surface-2 text-ink-faint"><UploadCloud className="size-6" /></span>
       )}
       <div className="flex items-center gap-2">
+        {/* "Take a photo" opens the phone's own camera app (so portrait mode, flash and filters all work) and comes straight back to this form. */}
+        <button type="button" onClick={() => cam.current?.click()} className="inline-flex items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/5 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/10">
+          <Camera className="size-4" /> Take a photo
+        </button>
         <button type="button" onClick={() => ref.current?.click()} className="rounded-lg border border-line px-3 py-1.5 text-sm font-medium text-ink-muted hover:bg-surface-2">
-          {value ? "Replace" : "Upload photo"}
+          {value ? "Replace" : "Upload"}
         </button>
         {value && (
           <button type="button" onClick={() => onChange("")} className="flex items-center gap-1 text-xs text-danger hover:underline">
@@ -336,6 +341,7 @@ function PhotoUpload({ value, onChange, name }: { value: string; onChange: (v: s
         )}
       </div>
       <input ref={ref} type="file" accept="image/*" className="hidden" onChange={(e) => { pick(e.target.files); e.target.value = ""; }} />
+      <input ref={cam} type="file" accept="image/*" capture="user" className="hidden" onChange={(e) => { pick(e.target.files); e.target.value = ""; }} />
       {editing && (
         <ImageCropper src={editing} onCancel={() => setEditing(null)} onConfirm={(d) => { onChange(d); setEditing(null); }} />
       )}
