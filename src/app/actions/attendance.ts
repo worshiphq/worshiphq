@@ -10,7 +10,7 @@ import { sendServiceThanks } from "@/lib/attendance/thanks";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { can, granted } from "@/lib/permissions";
 import { DEFAULT_ATTENDANCE_REPORT, renderAttendanceReport } from "@/lib/attendance/report";
-import { resolveServiceSession, routeAutoSession } from "@/lib/attendance/service-times";
+import { resolveServiceSession } from "@/lib/attendance/service-times";
 
 const CATEGORY_FIELD: Record<AttendanceCategory, "adults" | "teens" | "children" | "visitors"> = {
   adult: "adults",
@@ -382,71 +382,6 @@ export async function deleteSession(sessionId: string) {
   await db.attendanceSession.deleteMany({ where: { id: sessionId, churchId: session.churchId } });
   revalidatePath("/app/attendance");
   redirect("/app/attendance");
-}
-
-/**
- * Public self check-in (QR target). No auth. Matches an existing member by phone
- * or name; otherwise records a visitor. Increments the session category.
- */
-export async function selfCheckIn(formData: FormData) {
-  const linkSessionId = String(formData.get("sessionId") ?? "").trim();
-  if (!linkSessionId) return;
-  const linked = await db.attendanceSession.findUnique({
-    where: { id: linkSessionId },
-    include: { church: { select: { id: true, isDemo: true } } },
-  });
-  if (!linked || linked.church.isDemo) return;
-  // A QR printed for a scheduled service keeps working: the check-in goes to
-  // whichever service is on now (e.g. the English service after the Twi one).
-  const sess = await routeAutoSession(linked);
-  const sessionId = sess.id;
-
-  const name = String(formData.get("name") ?? "").trim();
-  const phone = String(formData.get("phone") ?? "").trim();
-  if (!name) return;
-
-  const churchId = linked.church.id;
-  let person: { id: string; status: string | null; dateOfBirth: Date | null; birthday: string | null } | null = null;
-  if (phone) {
-    person = await db.person.findFirst({
-      where: { churchId, phone },
-      select: { id: true, status: true, dateOfBirth: true, birthday: true },
-    });
-  }
-  if (!person) {
-    const [first, ...rest] = name.split(" ");
-    person = await db.person.findFirst({
-      where: { churchId, firstName: first, lastName: rest.join(" ") || undefined },
-      select: { id: true, status: true, dateOfBirth: true, birthday: true },
-    });
-  }
-
-  // Avoid duplicate self check-ins for a matched member.
-  if (person) {
-    const dup = await db.attendanceRecord.findFirst({ where: { sessionId, personId: person.id } });
-    if (dup) redirect(`/checkin/${sessionId}/done`);
-  }
-
-  const category: AttendanceCategory = person ? categoryForPerson(person) : "visitor";
-  await db.attendanceRecord.create({
-    data: {
-      churchId,
-      branchId: sess.branchId ?? undefined,
-      personId: person?.id,
-      guestName: person ? undefined : name,
-      sessionId,
-      category,
-      serviceName: sess.serviceName,
-      date: new Date(),
-      method: "self",
-    },
-  });
-  await db.attendanceSession.update({
-    where: { id: sessionId },
-    data: { [CATEGORY_FIELD[category]]: { increment: 1 } },
-  });
-
-  redirect(`/checkin/${sessionId}/done`);
 }
 
 function truthy(v: FormDataEntryValue | null): boolean {

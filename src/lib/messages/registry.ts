@@ -66,6 +66,13 @@ export const MESSAGE_TEMPLATES: MessageTemplate[] = [
     default: "Dear {name}, thank you for worshipping with us at {church} today. We were truly blessed to have you. Have a blessed week ahead!",
   },
   {
+    key: "service_welcome_back",
+    label: "Welcome back after service (to a returning visitor)",
+    description: "Texted to a visitor who has been before and checked in again, when you end a service and choose to thank everyone who came. Off unless you tick it.",
+    placeholders: ["name", "church", "service"],
+    default: "Dear {name}, welcome back! It was lovely to see you again at {church} today. You are always welcome with us. Have a blessed week ahead!",
+  },
+  {
     key: "absent_member",
     label: "We have not seen you in a while (to the member)",
     description: "Texted to a member who has not been to church for the number of weeks you set. By default once; you can allow a gentle reminder or two. Attending again resets it.",

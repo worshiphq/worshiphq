@@ -1,8 +1,8 @@
 import { notFound } from "next/navigation";
 import { UserCheck } from "lucide-react";
 import { getPublicSession } from "@/lib/data/attendance";
-import { selfCheckIn } from "@/app/actions/attendance";
-import { SubmitButton } from "@/components/ui/submit-button";
+import { db } from "@/lib/db";
+import { SelfCheckInFlow } from "./self-check-in-flow";
 import type { Metadata } from "next";
 
 export async function generateMetadata({
@@ -24,6 +24,11 @@ export default async function CheckInPage({
   const s = await getPublicSession(id);
   if (!s) notFound();
   const accent = s.church.accentColor;
+  const rulesRow = await db.attendanceSession.findUnique({ where: { id }, select: { church: { select: { qrVerify: true, qrGeoOn: true, qrGeoLat: true } } } });
+  const rules = {
+    verify: (rulesRow?.church.qrVerify === "digits" || rulesRow?.church.qrVerify === "sms" ? rulesRow.church.qrVerify : "none") as "none" | "digits" | "sms",
+    geoOn: !!rulesRow?.church.qrGeoOn && rulesRow.church.qrGeoLat != null,
+  };
 
   return (
     <div className="grid min-h-screen place-items-center bg-[#faf8f4] px-4">
@@ -43,34 +48,7 @@ export default async function CheckInPage({
           </p>
         </div>
 
-        <form action={selfCheckIn} className="space-y-4 rounded-2xl border border-[#e8e2d6] bg-white p-6 shadow-sm">
-          <input type="hidden" name="sessionId" value={s.id} />
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[#6b6560]">Your name</label>
-            <input
-              name="name"
-              required
-              placeholder="Kwame Mensah"
-              className="h-11 w-full rounded-xl border border-[#e8e2d6] bg-white px-3.5 text-sm text-[#1c1a16] placeholder:text-[#a09888] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0d7377]/20"
-            />
-          </div>
-          <div>
-            <label className="mb-1.5 block text-sm font-medium text-[#6b6560]">Phone (optional)</label>
-            <input
-              name="phone"
-              placeholder="+233 24 000 0000"
-              className="h-11 w-full rounded-xl border border-[#e8e2d6] bg-white px-3.5 text-sm text-[#1c1a16] placeholder:text-[#a09888] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0d7377]/20"
-            />
-          </div>
-          <SubmitButton
-            pendingLabel="Checking in…"
-            className="w-full rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90"
-            style={{ backgroundColor: accent }}
-          >
-            I&apos;m here - check me in
-          </SubmitButton>
-          <p className="text-center text-xs text-[#a09888]">Helps {s.church.name} know you were present today.</p>
-        </form>
+        <SelfCheckInFlow sessionId={s.id} accent={accent} verify={rules.verify} geoOn={rules.geoOn} />
       </div>
     </div>
   );

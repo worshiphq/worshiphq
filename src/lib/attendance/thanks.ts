@@ -23,16 +23,24 @@ async function eligible(sessionId: string, churchId: string) {
   const records = await db.attendanceRecord.findMany({
     where: {
       sessionId, churchId, personId: { not: null }, thankedAt: null,
-      person: { status: "active", phone: { not: null }, AND: [{ OR: [{ ageGroup: null }, { ageGroup: { not: "child" } }] }] },
+      person: { status: { in: ["active", "visitor"] }, phone: { not: null }, AND: [{ OR: [{ ageGroup: null }, { ageGroup: { not: "child" } }] }] },
     },
-    select: { id: true, personId: true, person: { select: { id: true, firstName: true, phone: true, lastThankedAt: true } } },
+    select: { id: true, personId: true, person: { select: { id: true, firstName: true, phone: true, lastThankedAt: true, status: true } } },
   });
+  // A first-time visitor already gets their own welcome; only visitors who have been before are welcomed back here.
+  const visitorIds = records.filter((r) => r.person?.status === "visitor").map((r) => r.personId!);
+  const returning = new Set(
+    visitorIds.length
+      ? (await db.visitor.findMany({ where: { personId: { in: visitorIds }, visitCount: { gte: 2 } }, select: { personId: true } })).map((v) => v.personId!)
+      : [],
+  );
   const cutoff = Date.now() - SAME_DAY_MS;
   const seen = new Set<string>();
   const out: typeof records = [];
   const skip: string[] = [];
   for (const r of records) {
     if (!r.person?.phone || !r.personId) continue;
+    if (r.person.status === "visitor" && !returning.has(r.personId)) { skip.push(r.id); continue; }
     if (seen.has(r.personId) || (r.person.lastThankedAt && r.person.lastThankedAt.getTime() > cutoff)) { skip.push(r.id); continue; }
     seen.add(r.personId);
     out.push(r);
@@ -60,12 +68,13 @@ export async function sendServiceThanks(sessionId: string, opts: { budgetMs?: nu
   if (skip.length) await db.attendanceRecord.updateMany({ where: { id: { in: skip } }, data: { thankedAt: new Date() } });
 
   const template = templateFor(sess.church.messageTemplates, "service_thanks");
+  const backTemplate = templateFor(sess.church.messageTemplates, "service_welcome_back");
   const stop = Date.now() + (opts.budgetMs ?? 20_000);
   let sent = 0;
   let insufficient = false;
   for (const r of out) {
     if (Date.now() >= stop) break;
-    const msg = renderTemplate(template, { name: r.person!.firstName, church: sess.church.name, service: sess.serviceName });
+    const msg = renderTemplate(r.person!.status === "visitor" ? backTemplate : template, { name: r.person!.firstName, church: sess.church.name, service: sess.serviceName });
     const res = await sendChurchSms(sess.churchId, r.person!.phone!, msg, { note: "Thank you after service" });
     if (res.insufficient) { insufficient = true; break; }
     if (res.ok) {

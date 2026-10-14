@@ -112,10 +112,12 @@ export const publicPages: DocArticle[] = [
     body: [
       { steps: [
         "Scan the service's check-in QR code with the phone camera.",
-        "Enter **Your name** and phone (optional).",
-        "Tap to check in. A confirmation page shows they're checked in.",
+        "If the church asks for it, allow the phone to share its location so we can see you are at church.",
+        "Type your name or phone number, then tap your name in the list.",
+        "Tap **Yes, that is me**. Depending on the church's rules you may also type the last 3 digits of your phone number, or the 6-digit code we text you.",
+        "A confirmation page shows you are checked in.",
       ] },
-      { p: "If we recognise them, they're checked in as themselves; otherwise they're recorded as a visitor. Checking in twice doesn't count twice." },
+      { p: "New here? Tap **I am new here**, enter your name and phone number, and you are checked in and welcomed. If we already know your number, search for your name instead. Checking in twice doesn't count twice." },
     ],
   },
 ];

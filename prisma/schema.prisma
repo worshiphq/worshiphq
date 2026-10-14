@@ -82,6 +82,13 @@ model Church {
   thankAfterService  Boolean  @default(false)
   thankServiceNames  String[] @default([])   // services (by name) where the thank-you is ticked by default
   thankOtherPrograms Boolean  @default(false) // also ticked by default for one-off programs that are not a regular service
+  // ── Self check-in (QR) rules ──
+  qrVerify     String  @default("none") // none | digits (last digits of their phone) | sms (a one-time code, costs credits)
+  qrGeoOn      Boolean @default(false)  // only allow QR check-in from near the church
+  qrGeoLat     Float?
+  qrGeoLng     Float?
+  qrGeoRadius  Int     @default(250)    // metres
+  qrDeviceLimit Int    @default(0)      // people one phone may check in per service (0 = no limit)
   // ── Automations: timezone + birthday suite ──
   timezone          String  @default("Africa/Accra") // IANA tz; send-hours are local to this
   birthdaySendHour  Int     @default(8)   // local hour (0-23) birthday messages go out
@@ -628,6 +635,8 @@ model AttendanceRecord {
   date        DateTime
   method      String   @default("qr") // qr | manual | self
   thankedAt   DateTime? // the thank-you text for this check-in has been handled
+  deviceId    String?   // anonymous id of the phone that did a self check-in (for the per-device limit)
+  verifiedBy  String?   // how a self check-in was confirmed: digits | sms
 
   @@index([churchId])
   @@index([date])
@@ -1872,4 +1881,18 @@ model BiometricCredential {
   @@index([personId])
   @@index([churchId])
   @@index([churchId, type])
+}
+
+/** A one-time code texted to a member to confirm a QR self check-in. Only a hash is kept. */
+model SelfCheckInCode {
+  id        String   @id @default(cuid())
+  churchId  String
+  personId  String
+  sessionId String
+  codeHash  String
+  attempts  Int      @default(0)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+
+  @@index([churchId, personId])
 }
