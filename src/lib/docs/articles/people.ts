@@ -252,6 +252,8 @@ export const people: DocArticle[] = [
     appPath: "/app/groups",
     body: [
       { p: "Groups are for people who meet together: small groups, ministries, committees, fellowships and cells. The Groups page shows how many groups you have, how many people are in one, which meet regularly and which are open to sign-ups. Filter by type, search, and sort by name or size." },
+      { h: "Smart suggestions" },
+      { p: "When you have no groups yet, the Groups page offers **Start with the groups most churches use**: ministries and teams (Choir, Ushers, Media, Prayer Warriors), fellowships (Men's, Women's, Youth, Singles, Couples), student communities (Basic School, SHS, Tertiary, Young Professionals), home cells and committees. Tap the ones you want and choose **Create**. Later, an **Ideas for your church** strip offers groups you do not have yet; tap one to create it. If you have teens or children, it suggests a Teens Fellowship and Sunday School. If you already use zones or fellowships, it links you to turn them into groups." },
       { h: "Create a group" },
       { steps: [
         "Go to **Groups** and choose **New group**.",

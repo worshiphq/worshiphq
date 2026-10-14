@@ -2,6 +2,7 @@ import { requireModule } from "@/lib/auth";
 import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { GroupsClient } from "@/components/app/groups-client";
+import { GroupSuggestions } from "@/components/app/group-suggestions";
 import { createGroup } from "@/app/actions/groups";
 import { GroupFields } from "@/components/app/group-fields";
 import { PageHeader } from "@/components/app/page-header";
@@ -17,7 +18,7 @@ const GROUP_TYPE_SUGGESTIONS = ["Small group", "Ministry", "Committee", "Fellows
 export default async function GroupsPage() {
   const session = await requireModule("groups");
 
-  const [groups, people, church, inGroups] = await Promise.all([
+  const [groups, people, church, inGroups, teenCount, childCount, zoneCount] = await Promise.all([
     db.group.findMany({
       where: { churchId: session.churchId },
       include: {
@@ -35,6 +36,9 @@ export default async function GroupsPage() {
     }),
     db.church.findUnique({ where: { id: session.churchId }, select: { timezone: true } }),
     db.person.count({ where: { churchId: session.churchId, groups: { some: { isActive: true } } } }),
+    db.person.count({ where: { churchId: session.churchId, ageGroup: "teen" } }),
+    db.person.count({ where: { churchId: session.churchId, ageGroup: "child" } }),
+    db.memberCategory.count({ where: { churchId: session.churchId, options: { some: {} } } }),
   ]);
 
   const peopleOpts = people.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`.trim() }));
@@ -56,6 +60,8 @@ export default async function GroupsPage() {
           <GroupFields people={peopleOpts} typeSuggestions={GROUP_TYPE_SUGGESTIONS} />
         </ActionDialog>
       </PageHeader>
+
+      <GroupSuggestions existing={groups.map((g) => g.name)} ctx={{ hasTeens: teenCount > 0, hasChildren: childCount > 0 }} canWrite={canEdit(session, "groups")} hasZones={zoneCount > 0} />
 
       <GroupsClient
         canWrite={canEdit(session, "groups")}

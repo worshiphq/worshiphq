@@ -53,6 +53,26 @@ export async function createGroup(formData: FormData) {
   revalidatePath("/app/groups");
 }
 
+/** Create several suggested groups at once (anything with the same name is skipped). */
+export async function createSuggestedGroups(items: { name: string; type: string }[]) {
+  const session = await requireManage("groups");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  const wanted = items.map((i) => ({ name: String(i.name ?? "").trim().slice(0, 80), type: String(i.type ?? "").trim().slice(0, 40) || "small_group" })).filter((i) => i.name).slice(0, 40);
+  if (wanted.length === 0) return { ok: false as const, error: "Choose at least one group." };
+  const existing = await db.group.findMany({ where: { churchId: session.churchId }, select: { name: true } });
+  const have = new Set(existing.map((g) => g.name.trim().toLowerCase()));
+  let created = 0;
+  for (const w of wanted) {
+    if (have.has(w.name.toLowerCase())) continue;
+    have.add(w.name.toLowerCase());
+    await db.group.create({ data: { churchId: session.churchId, name: w.name, type: w.type } });
+    created++;
+  }
+  await audit(session, "create", "group", `Created ${created} suggested group${created === 1 ? "" : "s"}`);
+  revalidatePath("/app/groups");
+  return { ok: true as const, created };
+}
+
 export async function updateGroup(formData: FormData) {
   const session = await requireManage("groups");
   if (session.isDemo) return;
