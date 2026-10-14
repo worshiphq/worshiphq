@@ -84,9 +84,13 @@ model Church {
   parentChurchId   String?
   parentChurch     Church?  @relation("ChurchLinks", fields: [parentChurchId], references: [id], onDelete: SetNull)
   linkedChurches   Church[] @relation("ChurchLinks")
+  baptisms         Baptism[]
+  certificateTemplates CertificateTemplate[]
   linkKind         String?  // teens_chapel | branch | partner (what THIS church is to its parent)
   linkShare        String[] @default([]) // what this church lets its parent see: headcount, attendance, finances
   autoAcceptTransfers Boolean @default(false) // accept people sent from linked churches without waiting
+  // Certificates: which design is used and the wording/signers, e.g. { template: "classic", signer1: "Officiating Minister", signer2: "Senior Pastor", signer1Name: "", signer2Name: "" }
+  certSettings Json?
   // "Thank you for coming" text to every member who checked in, offered when a service is ended. Off by default.
   thankAfterService  Boolean  @default(false)
   thankServiceNames  String[] @default([])   // services (by name) where the thank-you is ticked by default
@@ -452,6 +456,7 @@ model Person {
   joinedAt    DateTime     @default(now())
   notes       String?
   customFields Json?
+  baptisms     Baptism[]
 
   // ── Automation dedupe guards (see src/lib/automations/run.ts) ──
   newMemberWelcomeSentAt DateTime? // set once the "new member" automation has texted them
@@ -1944,4 +1949,40 @@ model PersonTransfer {
 
   @@index([toChurchId, status])
   @@index([fromChurchId])
+}
+
+/** A baptism: either someone preparing for it (candidate) or the record of one that took place. */
+model Baptism {
+  id            String   @id @default(cuid())
+  churchId      String
+  church        Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  personId      String?
+  person        Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  name          String   // kept so the record survives if the member is removed, and for people who are not members
+  status        String   @default("baptised") // candidate | baptised
+  date          DateTime?
+  place         String?
+  officiant     String?
+  certificateNo String?
+  notes         String?
+  createdAt     DateTime @default(now())
+
+  @@unique([churchId, certificateNo])
+  @@index([churchId, status])
+  @@index([personId])
+}
+
+/** A certificate design the church uploaded: a picture of the blank certificate and where each detail is printed on it. */
+model CertificateTemplate {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  kind      String   @default("baptism")
+  name      String
+  imageUrl  String   @db.Text
+  paper     String   @default("a4-landscape") // a4-landscape | a4-portrait
+  fields    Json     // [{ key, x, y, w, size, font, color, align, bold }] with x, y, w as percentages of the picture
+  createdAt DateTime @default(now())
+
+  @@index([churchId, kind])
 }

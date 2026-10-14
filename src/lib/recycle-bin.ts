@@ -19,6 +19,7 @@ import { RECYCLE_BIN_DAYS } from "@/lib/recycle-bin-config";
 
 export const ENTITY_LABELS: Record<string, string> = {
   person: "Member",
+  baptism: "Baptism record",
   visitor: "Visitor",
   group: "Group",
   gift: "Gift",

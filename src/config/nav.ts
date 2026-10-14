@@ -35,6 +35,7 @@ import {
   Baby,
   Sun,
   Download,
+  Droplets,
 } from "lucide-react";
 
 export interface NavItem {
@@ -77,6 +78,7 @@ export const nav: NavSection[] = [
       { key: "events", label: "Calendar", href: "/app/calendar", icon: Calendar },
       { key: "people", label: "Groups", href: "/app/groups", icon: Users2 },
       { key: "people", label: "Visitors", href: "/app/visitors", icon: UserRoundPlus },
+      { key: "people", label: "Baptisms", href: "/app/baptisms", icon: Droplets, section: "people" },
       { key: "people", label: "Birthdays", href: "/app/birthdays", icon: Cake },
       { key: "people", label: "Directory", href: "/app/directory", icon: BookUser },
       { key: "events", label: "Bookings", href: "/app/bookings", icon: DoorOpen },
