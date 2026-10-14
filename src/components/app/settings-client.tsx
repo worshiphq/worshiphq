@@ -4,7 +4,7 @@ import { useState, useTransition, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   Building, Palette, Users2, CreditCard, Plug, Check, Pencil, CircleDot,
-  Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, Shield, MessageSquare,
+  Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, Shield, MessageSquare, MessageSquareText,
   ExternalLink, Rocket, Wallet, Loader2 as Spinner, Clock, CheckCircle2, X, Receipt, DatabaseBackup, Tags,
 } from "lucide-react";
 import { OnFormComplete } from "@/components/ui/form-effects";
@@ -34,6 +34,8 @@ import { BrandingForm } from "@/components/app/branding-form";
 import { BackupsPanel } from "@/components/app/backups-panel";
 import { FormBuilder } from "@/components/app/form-builder";
 import { LinksTab } from "@/components/app/links-tab";
+import { MessageCenter } from "@/components/app/message-center";
+import type { MessageCenterData } from "@/lib/messages/load";
 import { getFormDefinition, getVisitorFormDefinition, getChildrenFormDefinition, getTeensFormDefinition } from "@/lib/forms/registration";
 import { createDepartment, deleteDepartment } from "@/app/actions/departments";
 import { plans as defaultPlans } from "@/config/pricing";
@@ -111,6 +113,7 @@ const tabs = [
   { key: "registration", label: "Links & forms", icon: Link2 },
   { key: "billing", label: "Billing", icon: CreditCard },
   { key: "online-payments", label: "Online Payments", icon: Wallet },
+  { key: "messages", label: "Messages", icon: MessageSquareText },
   { key: "sms", label: "SMS Settings", icon: MessageSquare },
   { key: "backups", label: "Data backups", icon: DatabaseBackup },
 ] as const;
@@ -140,6 +143,7 @@ export function SettingsClient({
   subscription,
   platformPricing,
   payments = [],
+  messageCenter,
 }: {
   session: Session;
   features: FeatureMap;
@@ -150,6 +154,7 @@ export function SettingsClient({
   subscription: SubscriptionData;
   platformPricing?: PlatformPricing;
   payments?: PlanPaymentRow[];
+  messageCenter: MessageCenterData;
 }) {
   const [tab, setTab] = useState<(typeof tabs)[number]["key"]>("church");
   const [editingRole, setEditingRole] = useState<CustomRoleRow | null>(null);
@@ -581,6 +586,10 @@ export function SettingsClient({
         {tab === "service-times" && <ServiceTimesTab canManage={!ro && canManageSection(session, "attendance")} />}
 
         {tab === "backups" && <BackupsPanel />}
+
+        {tab === "messages" && (
+          <MessageCenter values={messageCenter.values} automations={messageCenter.automations} canWrite={!ro && isAdmin} />
+        )}
 
         {tab === "sms" && (
           <Card className="p-6">

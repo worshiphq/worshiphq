@@ -4,6 +4,7 @@ import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { features } from "@/lib/env";
 import { getPlatformConfig } from "@/lib/data/platform-config";
+import { loadMessageCenter } from "@/lib/messages/load";
 
 export const metadata = { title: "Settings" };
 export const maxDuration = 60; // restoring a backup runs inside this page's server action
@@ -11,7 +12,7 @@ export const maxDuration = 60; // restoring a backup runs inside this page's ser
 export default async function SettingsPage() {
   const session = await requireModule("settings");
 
-  const [church, users, departments, customRoles, subscription, platformConfig, planPayments] = await Promise.all([
+  const [church, users, departments, customRoles, subscription, platformConfig, planPayments, messageCenter] = await Promise.all([
     db.church.findUnique({ where: { id: session.churchId } }),
     db.user.findMany({
       where: { churchId: session.churchId },
@@ -38,6 +39,7 @@ export default async function SettingsPage() {
       orderBy: { paidAt: "desc" },
       take: 50,
     }),
+    loadMessageCenter(session.churchId),
   ]);
 
   // Auto-provision subscription for churches created before subscriptions existed
@@ -92,6 +94,7 @@ export default async function SettingsPage() {
         departments={departments}
         customRoles={customRoles.map(({ manageSplit, ...r }) => ({ ...r, manageSections: manageSplit ? r.manageSections : r.sections }))}
         subscription={sub}
+        messageCenter={messageCenter}
         platformPricing={platformConfig}
         payments={planPayments.map((p) => ({
           id: p.id,

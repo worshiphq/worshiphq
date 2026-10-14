@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
  *   "all"        every member who is not inactive and has a phone
  *   "active"     active members only
  *   "leaders"    anyone with a leadership title
+ *   "people"     exactly the people you pick (pass their ids)
  *   "dept:<id>"  a department
  *   "group:<id>" a group / ministry
  */
@@ -22,12 +23,13 @@ export async function audienceOptions(churchId: string) {
     { value: "all", label: "Everyone in the church" },
     { value: "active", label: "Active members only" },
     { value: "leaders", label: "Church leaders" },
+    { value: "people", label: "Choose specific people..." },
     ...departments.map((d) => ({ value: `dept:${d.id}`, label: `Department: ${d.name}` })),
     ...groups.map((g) => ({ value: `group:${g.id}`, label: `Group: ${g.name}` })),
   ];
 }
 
-export async function resolveAudience(churchId: string, audience: AudienceKey) {
+export async function resolveAudience(churchId: string, audience: AudienceKey, personIds: string[] = []) {
   const where: Record<string, unknown> = { churchId, phone: { not: null } };
   let label = "Everyone in the church";
 
@@ -38,6 +40,9 @@ export async function resolveAudience(churchId: string, audience: AudienceKey) {
     where.status = { not: "inactive" };
     where.leaderTitle = { not: null };
     label = "Church leaders";
+  } else if (audience === "people") {
+    where.id = { in: personIds.slice(0, 2000) };
+    label = `${personIds.length} chosen ${personIds.length === 1 ? "person" : "people"}`;
   } else if (audience.startsWith("dept:")) {
     const id = audience.slice(5);
     const dept = await db.department.findFirst({ where: { id, churchId }, select: { name: true } });

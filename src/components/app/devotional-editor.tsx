@@ -11,6 +11,7 @@ import { useFeedback } from "@/components/ui/feedback";
 import { LongText } from "@/components/app/long-text";
 import { ScriptureInput } from "@/components/app/scripture-input";
 import { DevotionalSendDialog, type AudienceOption } from "@/components/app/devotional-send-dialog";
+import type { PickerOption } from "@/components/app/multi-picker";
 import { saveDevotional } from "@/app/actions/devotionals";
 
 export type DevotionalDraft = {
@@ -31,8 +32,8 @@ const Label = ({ children, hint }: { children: React.ReactNode; hint?: string })
 );
 
 /** Full-page devotional writer, with a one-click way to text it to the church. */
-export function DevotionalEditor({ initial, canWrite, audiences, authorSuggestions }: {
-  initial: DevotionalDraft; canWrite: boolean; audiences: AudienceOption[]; authorSuggestions: string[];
+export function DevotionalEditor({ initial, canWrite, audiences, members, authorSuggestions }: {
+  initial: DevotionalDraft; canWrite: boolean; audiences: AudienceOption[]; members: PickerOption[]; authorSuggestions: string[];
 }) {
   const router = useRouter();
   const { toast } = useFeedback();
@@ -134,7 +135,7 @@ export function DevotionalEditor({ initial, canWrite, audiences, authorSuggestio
         </div>
       </div>
 
-      {sendFor && <DevotionalSendDialog devotional={sendFor} audiences={audiences} onClose={() => setSendFor(null)} />}
+      {sendFor && <DevotionalSendDialog devotional={sendFor} audiences={audiences} members={members} onClose={() => setSendFor(null)} />}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import { Search, BookHeart, Trash2, Calendar, User, BookOpen, Eye, EyeOff, Send,
 import { deleteDevotional, toggleDevotionalPublished } from "@/app/actions/devotionals";
 import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 import { DevotionalSendDialog, type AudienceOption } from "@/components/app/devotional-send-dialog";
+import type { PickerOption } from "@/components/app/multi-picker";
 import { filterSelectCls, Pager } from "@/components/app/list-filters";
 import { splitScriptures } from "@/components/app/scripture-input";
 
@@ -24,8 +25,8 @@ type DevotionalRow = {
 };
 
 export function DevotionalsClient({
-  devotionals, audiences, canWrite,
-}: { devotionals: DevotionalRow[]; audiences: AudienceOption[]; canWrite: boolean }) {
+  devotionals, audiences, members, canWrite,
+}: { devotionals: DevotionalRow[]; audiences: AudienceOption[]; members: PickerOption[]; canWrite: boolean }) {
   const [search, setSearch] = useState("");
   const [author, setAuthor] = useState("");
   const [year, setYear] = useState("");
@@ -160,7 +161,7 @@ export function DevotionalsClient({
         </div>
       )}
 
-      {sendFor && <DevotionalSendDialog devotional={sendFor} audiences={audiences} onClose={() => setSendFor(null)} />}
+      {sendFor && <DevotionalSendDialog devotional={sendFor} audiences={audiences} members={members} onClose={() => setSendFor(null)} />}
     </div>
   );
 }

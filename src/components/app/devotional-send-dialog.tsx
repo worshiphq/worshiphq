@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle2, Loader2, Send, Wallet, X } from "lucide-re
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { previewDevotionalBlast, blastDevotional } from "@/app/actions/devotionals";
+import { MultiPicker, type PickerOption } from "@/components/app/multi-picker";
 
 export type AudienceOption = { value: string; label: string };
 
@@ -21,13 +22,17 @@ type Preview = {
 
 /** Text a devotional to the whole church (or a department / group) by SMS. */
 export function DevotionalSendDialog({
-  devotional, audiences, onClose,
+  devotional, audiences, members = [], onClose,
 }: {
   devotional: { id: string; title: string };
   audiences: AudienceOption[];
+  /** Members with a phone number, for choosing specific people. */
+  members?: PickerOption[];
   onClose: () => void;
 }) {
   const [audience, setAudience] = useState("all");
+  const [people, setPeople] = useState<string[]>([]);
+  const [confirming, setConfirming] = useState(false);
   const [message, setMessage] = useState<string | null>(null); // null = use the generated text
   const [got, setGot] = useState<{ key: string; p: Preview } | null>(null);
   const [sending, setSending] = useState(false);
@@ -35,31 +40,31 @@ export function DevotionalSendDialog({
   const generated = useRef<string | null>(null);
 
   // Re-price whenever the audience or the text changes (debounced for typing).
-  const key = `${audience}|${message ?? ""}`;
+  const key = `${audience}|${audience === "people" ? people.join(",") : ""}|${message ?? ""}`;
   useEffect(() => {
     if (message !== null && message === generated.current && got?.key === key) return;
     let live = true;
     const t = setTimeout(async () => {
-      const res = await previewDevotionalBlast(devotional.id, audience, message ?? undefined);
+      const res = await previewDevotionalBlast(devotional.id, audience, message ?? undefined, people);
       if (!live) return;
       if (res.ok) {
         if (message === null) {
           generated.current = res.message;
           setMessage(res.message);
-          setGot({ key: `${audience}|${res.message}`, p: res });
+          setGot({ key: `${audience}|${audience === "people" ? people.join(",") : ""}|${res.message}`, p: res });
         } else setGot({ key, p: res });
       } else setResult({ ok: false, text: res.error });
     }, message === null ? 0 : 350);
     return () => { live = false; clearTimeout(t); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [devotional.id, audience, message]);
+  }, [devotional.id, audience, message, people]);
 
   const preview = got?.p ?? null;
   const loading = got?.key !== key;
 
   async function send() {
     setSending(true);
-    const res = await blastDevotional(devotional.id, audience, message ?? undefined);
+    const res = await blastDevotional(devotional.id, audience, message ?? undefined, people);
     setSending(false);
     setResult(res.ok
       ? { ok: true, text: `Sent to ${res.sent} ${res.sent === 1 ? "person" : "people"} (${res.audienceLabel}).` }
@@ -93,12 +98,23 @@ export function DevotionalSendDialog({
                 <label className="mb-1.5 block text-sm font-medium text-ink-muted">Send to</label>
                 <select
                   value={audience}
-                  onChange={(e) => setAudience(e.target.value)}
+                  onChange={(e) => { setAudience(e.target.value); setConfirming(false); }}
                   disabled={sending}
                   className="h-11 w-full rounded-xl border border-line bg-surface px-3.5 text-sm text-ink focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                 >
                   {audiences.map((a) => <option key={a.value} value={a.value}>{a.label}</option>)}
                 </select>
+                {audience === "people" && (
+                  <div className="mt-2">
+                    <MultiPicker
+                      options={members}
+                      defaultValue={people}
+                      onChange={(v) => { setPeople(v); setConfirming(false); }}
+                      placeholder="Search your members..."
+                      emptyLabel="Pick who should receive it"
+                    />
+                  </div>
+                )}
               </div>
 
               <div>
@@ -108,7 +124,7 @@ export function DevotionalSendDialog({
                 </label>
                 <textarea
                   value={message ?? ""}
-                  onChange={(e) => setMessage(e.target.value)}
+                  onChange={(e) => { setMessage(e.target.value); setConfirming(false); }}
                   rows={8}
                   disabled={sending || message === null}
                   maxLength={1200}
@@ -145,10 +161,22 @@ export function DevotionalSendDialog({
             <Button variant="secondary" size="sm" onClick={onClose}>Done</Button>
           ) : (
             <>
-              <Button variant="ghost" size="sm" onClick={close} disabled={sending}>Cancel</Button>
-              <Button size="sm" onClick={send} disabled={sending || loading || !preview || !preview.enough || preview.recipients === 0 || !(message ?? "").trim()}>
-                {sending ? <><Loader2 className="animate-spin" /> Sending to {preview?.recipients ?? ""}…</> : <><Send /> Send now</>}
-              </Button>
+              {confirming && preview ? (
+                <>
+                  <span className="mr-auto text-sm font-medium">Send to {preview.recipients} {preview.recipients === 1 ? "person" : "people"} for {preview.cost.toLocaleString()} credits?</span>
+                  <Button variant="ghost" size="sm" onClick={() => setConfirming(false)} disabled={sending}>Go back</Button>
+                  <Button size="sm" onClick={send} disabled={sending}>
+                    {sending ? <><Loader2 className="animate-spin" /> Sending to {preview.recipients}…</> : <><Send /> Yes, send it</>}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button variant="ghost" size="sm" onClick={close} disabled={sending}>Cancel</Button>
+                  <Button size="sm" onClick={() => setConfirming(true)} disabled={sending || loading || !preview || !preview.enough || preview.recipients === 0 || !(message ?? "").trim()}>
+                    <Send /> Send now
+                  </Button>
+                </>
+              )}
             </>
           )}
         </div>

@@ -16,12 +16,12 @@ function devotionalSms(d: { title: string; scripture: string | null; body: strin
 }
 
 /** Preview the text, audience and cost of texting a devotional before sending. */
-export async function previewDevotionalBlast(id: string, audience = "all", customMessage?: string) {
+export async function previewDevotionalBlast(id: string, audience = "all", customMessage?: string, personIds: string[] = []) {
   const session = await requireModule("devotionals");
   const [dev, church, aud] = await Promise.all([
     db.devotional.findFirst({ where: { id, churchId: session.churchId }, select: { title: true, scripture: true, body: true } }),
     db.church.findUnique({ where: { id: session.churchId }, select: { name: true, smsCredits: true } }),
-    resolveAudience(session.churchId, audience),
+    resolveAudience(session.churchId, audience, personIds),
   ]);
   if (!dev) return { ok: false as const, error: "Devotional not found." };
 
@@ -44,14 +44,14 @@ export async function previewDevotionalBlast(id: string, audience = "all", custo
 }
 
 /** Text a devotional to the chosen part of the congregation. */
-export async function blastDevotional(id: string, audience = "all", customMessage?: string) {
+export async function blastDevotional(id: string, audience = "all", customMessage?: string, personIds: string[] = []) {
   const session = await requireManage("devotionals");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
 
   const [dev, church, aud] = await Promise.all([
     db.devotional.findFirst({ where: { id, churchId: session.churchId }, select: { title: true, scripture: true, body: true } }),
     db.church.findUnique({ where: { id: session.churchId }, select: { name: true } }),
-    resolveAudience(session.churchId, audience),
+    resolveAudience(session.churchId, audience, personIds),
   ]);
   if (!dev) return { ok: false as const, error: "Devotional not found." };
   const phones = aud.recipients.map((m) => m.phone!).filter(Boolean);

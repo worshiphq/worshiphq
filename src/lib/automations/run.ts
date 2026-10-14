@@ -4,6 +4,7 @@ import { sendChurchSms } from "@/lib/sms/credits";
 import { timeReached, localParts, mmddInTz, ymdInTz } from "@/lib/time/tz";
 import { forEachChurch, type Deadline } from "@/lib/automations/pool";
 import type { Channel, Automation } from "@prisma/client";
+import { DEFAULT_TEMPLATES } from "@/lib/messages/automation-defaults";
 
 function todayMMDD(now = new Date()): string {
   return `${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
@@ -16,20 +17,7 @@ interface AutomationOutcome {
   sent: number;
 }
 
-export const DEFAULT_TEMPLATES: Record<string, string> = {
-  birthday:
-    "Happy birthday, {name}! 🎉 The whole family at {church} is celebrating you today. May God bless your new year. - {church}",
-  anniversary:
-    "Happy anniversary, {name}! {church} celebrates God's faithfulness in your union. May your love keep growing. 💍",
-  visitor_followup:
-    "Hi {name}, it was a joy to have you at {church}! We'd love to see you again. Have an amazing week. God bless you.",
-  lapsed:
-    "Hi {name}, we've missed you at {church}. You're always welcome - we'd love to reconnect. Is there any way we can support you? 🙏",
-  new_member:
-    "Welcome to {church}, {name}! We're so glad you've joined the family. God bless you richly! 🙌",
-  giving_thanks:
-    "Thank you for your generous giving, {name}. Your support helps {church} carry out its mission. God bless you! 🙏",
-};
+export { DEFAULT_TEMPLATES };
 
 export const TRIGGER_CATALOG: Record<string, { name: string; description: string }> = {
   birthday: { name: "Birthday blessings", description: "Wishes a member happy birthday on the day." },

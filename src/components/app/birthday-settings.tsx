@@ -7,7 +7,7 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useFeedback } from "@/components/ui/feedback";
 import { saveBirthdaySettings } from "@/app/actions/automations";
-import { SystemMessagesDialog } from "@/components/app/system-messages-dialog";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
@@ -38,7 +38,6 @@ export function BirthdaySettings({ settings, membersWithPhone, adminCount, canWr
   const { toast } = useFeedback();
   const [pending, start] = useTransition();
   const [s, setS] = useState(settings);
-  const [showMessages, setShowMessages] = useState(false);
   const set = (patch: Partial<Settings>) => setS((prev) => ({ ...prev, ...patch }));
 
   const save = () => {
@@ -67,7 +66,7 @@ export function BirthdaySettings({ settings, membersWithPhone, adminCount, canWr
           </div>
         </div>
         {canWrite && (
-          <Button variant="secondary" size="sm" onClick={() => setShowMessages(true)}><MessageSquare className="size-4" /> Edit messages</Button>
+          <Link href="/app/messages?focus=birthdays"><Button variant="secondary" size="sm" type="button"><MessageSquare className="size-4" /> Edit messages</Button></Link>
         )}
       </div>
 
@@ -151,7 +150,6 @@ export function BirthdaySettings({ settings, membersWithPhone, adminCount, canWr
         </div>
       )}
 
-      {showMessages && <SystemMessagesDialog saved={messageTemplates ?? {}} onClose={() => setShowMessages(false)} />}
     </Card>
   );
 }

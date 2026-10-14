@@ -14,7 +14,7 @@ import {
   previewRosterNotify, notifyRoster,
   previewRosterAnnounce, announceRoster, saveRosterAnnounceSettings, saveRosterReminderSettings,
 } from "@/app/actions/rosters";
-import { SystemMessagesDialog } from "@/components/app/system-messages-dialog";
+import Link from "next/link";
 import { MessageSquare, Megaphone, Users, Clock, Bell } from "lucide-react";
 import { WEEKDAY_OPTIONS, WEEKDAY_LABELS } from "@/lib/automations/weekdays";
 import { Segmented } from "@/components/ui/segmented";
@@ -88,7 +88,6 @@ export function RostersClient({ sheets, members, roles, smsBalance, messageTempl
   const [editing, setEditing] = useState<Sheet | null>(null);
   const [creating, setCreating] = useState(false);
   const [showRoles, setShowRoles] = useState(false);
-  const [showMessages, setShowMessages] = useState(false);
   const [showAnnounce, setShowAnnounce] = useState(false);
 
   return (
@@ -97,7 +96,7 @@ export function RostersClient({ sheets, members, roles, smsBalance, messageTempl
         <p className="text-sm text-ink-muted">{sheets.length} service sheet{sheets.length === 1 ? "" : "s"}</p>
         <div className="flex items-center gap-2">
           {canWrite && <Button variant="secondary" size="sm" onClick={() => setShowAnnounce(true)}><Megaphone className="size-4" /> Announcement</Button>}
-          {canWrite && <Button variant="secondary" size="sm" onClick={() => setShowMessages(true)}><MessageSquare className="size-4" /> Messages</Button>}
+          {canWrite && <Link href="/app/messages?focus=rosters"><Button variant="secondary" size="sm" type="button"><MessageSquare className="size-4" /> Messages</Button></Link>}
           <Button variant="secondary" size="sm" onClick={() => setShowRoles(true)}><Settings2 className="size-4" /> Manage roles</Button>
           {canWrite && <Button size="sm" onClick={() => setCreating(true)}><Plus className="size-4" /> New service sheet</Button>}
         </div>
@@ -132,7 +131,6 @@ export function RostersClient({ sheets, members, roles, smsBalance, messageTempl
         />
       )}
       {showRoles && <RolesManager roles={roles} canWrite={canWrite} onClose={() => setShowRoles(false)} />}
-      {showMessages && <SystemMessagesDialog saved={messageTemplates} onClose={() => setShowMessages(false)} />}
       {showAnnounce && <AnnounceSettingsDialog announce={announce} remind={remind} groups={groups} departments={departments} onClose={() => setShowAnnounce(false)} />}
     </div>
   );
