@@ -12,7 +12,7 @@ export const maxDuration = 60; // restoring a backup runs inside this page's ser
 export default async function SettingsPage() {
   const session = await requireModule("settings");
 
-  const [church, users, departments, customRoles, subscription, platformConfig, planPayments, messageCenter] = await Promise.all([
+  const [church, users, departments, customRoles, subscription, platformConfig, planPayments, messageCenter, memberCount, smsTopups] = await Promise.all([
     db.church.findUnique({ where: { id: session.churchId } }),
     db.user.findMany({
       where: { churchId: session.churchId },
@@ -40,6 +40,8 @@ export default async function SettingsPage() {
       take: 50,
     }),
     loadMessageCenter(session.churchId),
+    db.person.count({ where: { churchId: session.churchId } }),
+    db.smsTransaction.findMany({ where: { churchId: session.churchId, kind: { in: ["topup", "bonus"] } }, orderBy: { createdAt: "desc" }, take: 100, select: { id: true, createdAt: true, credits: true, amountGhs: true, kind: true, note: true } }),
   ]);
 
   // Auto-provision subscription for churches created before subscriptions existed
@@ -97,6 +99,17 @@ export default async function SettingsPage() {
         subscription={sub}
         messageCenter={messageCenter}
         platformPricing={platformConfig}
+        billingUsage={(() => {
+          const limits = platformConfig.planTable[(sub?.plan ?? "free") as keyof typeof platformConfig.planTable];
+          return {
+            members: memberCount,
+            memberLimit: limits && Number.isFinite(limits.members) ? limits.members : null,
+            teamUsers: users.length,
+            teamLimit: limits && Number.isFinite(limits.teamUsers) ? limits.teamUsers : null,
+            smsCredits: church?.smsCredits ?? 0,
+          };
+        })()}
+        smsTopups={smsTopups.map((t) => ({ id: t.id, at: t.createdAt.toISOString(), credits: t.credits, amountGhs: t.amountGhs, kind: t.kind, note: t.note }))}
         payments={planPayments.map((p) => ({
           id: p.id,
           reference: p.reference,
@@ -108,6 +121,9 @@ export default async function SettingsPage() {
           status: p.status,
           paidAt: p.paidAt.toISOString(),
           periodEnd: p.periodEnd.toISOString(),
+          source: p.source,
+          note: p.note,
+          termMonths: p.termMonths,
         }))}
       />
     </div>

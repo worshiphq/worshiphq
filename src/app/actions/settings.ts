@@ -978,6 +978,15 @@ export async function redeemPlanBypass(code: string) {
     },
   });
 
+  // A gift is part of the billing history too (so the church and the SuperAdmin can both see what happened).
+  await db.planPayment.create({
+    data: {
+      churchId: session.churchId, reference: `GIFT-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      plan: sub.bypassPlan, interval: "yearly", amountUsd: 0, amountGhs: 0, usdToGhsRate: 1, kind: "new",
+      periodStart: new Date(), periodEnd: renewsAt, source: "granted", termMonths: 12, note: "Gift from WorshipHQ",
+    },
+  });
+
   const { plans } = await import("@/config/pricing");
   const planConfig = plans.find((p) => p.id === sub.bypassPlan);
   await sendUpgradeReceipt(session.churchId, planConfig?.name ?? sub.bypassPlan, "Free (SuperAdmin gift)", "yearly", `BYPASS-${Date.now()}`);

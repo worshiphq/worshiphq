@@ -657,3 +657,86 @@ export async function setChurchSmsTier(churchId: string, tier: string) {
   revalidatePath("/admin");
   return { ok: true as const };
 }
+
+/**
+ * Put a church on a plan for a stated length of time, and record it in their billing history either as a gift or
+ * as money received outside the app (cash, bank transfer, Mobile Money to you directly). The term can be any number
+ * of months, so 3 years is 36 and 5 years is 60. If the church is already on that plan the time is added to the end
+ * of what they have, so nobody loses days.
+ */
+export async function recordChurchPlan(input: {
+  churchId: string;
+  plan: string;
+  months: number;
+  mode: "gift" | "paid";
+  /** What was actually received, in GHS (only for mode "paid"). */
+  amountGhs?: number;
+  /** How it was paid, for example "Mobile Money" or "Bank transfer". */
+  method?: string;
+  note?: string;
+}): Promise<{ ok: true; renewsAt: string } | { ok: false; error: string }> {
+  await requireSuperAdmin();
+  const plans = ["starter", "pro", "max"];
+  if (!plans.includes(input.plan)) return { ok: false, error: "Choose a plan." };
+  const months = Math.round(Number(input.months));
+  if (!Number.isFinite(months) || months < 1 || months > 120) return { ok: false, error: "Choose a length between 1 and 120 months." };
+  const church = await db.church.findUnique({ where: { id: input.churchId }, select: { id: true, name: true } });
+  if (!church) return { ok: false, error: "Church not found." };
+  const paid = input.mode === "paid";
+  const amountGhs = paid ? Math.round((Number(input.amountGhs) || 0) * 100) / 100 : 0;
+  if (paid && amountGhs <= 0) return { ok: false, error: "Enter how much they paid." };
+
+  const config = await db.platformConfig.findUnique({ where: { id: "default" }, select: { usdToGhsRate: true, planPrices: true } });
+  const rate = config?.usdToGhsRate ?? 12;
+  const prices = ((config?.planPrices as Record<string, { monthly: number; yearly: number }> | null) ?? {})[input.plan];
+  const listUsd = prices ? (months >= 12 ? (prices.yearly / 12) * months : prices.monthly * months) : 0;
+
+  const sub = await db.subscription.findUnique({ where: { churchId: church.id } });
+  const now = new Date();
+  const sameAndActive = sub && sub.plan === input.plan && sub.renewsAt && sub.renewsAt > now;
+  const start = sameAndActive ? sub!.renewsAt! : now;
+  const end = new Date(start);
+  end.setMonth(end.getMonth() + months);
+
+  await db.subscription.upsert({
+    where: { churchId: church.id },
+    create: { churchId: church.id, plan: input.plan, interval: months >= 12 ? "yearly" : "monthly", status: "active", periodStart: now, renewsAt: end },
+    update: {
+      plan: input.plan, interval: months >= 12 ? "yearly" : "monthly", status: "active",
+      periodStart: sameAndActive ? sub!.periodStart ?? now : now, renewsAt: end,
+      bypassPlan: null, bypassCode: null, scheduledPlan: null, scheduledAt: null, cancelAtPeriodEnd: false,
+    },
+  });
+
+  await db.planPayment.create({
+    data: {
+      churchId: church.id,
+      reference: `${paid ? "OFFLINE" : "GIFT"}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      plan: input.plan,
+      interval: months >= 12 ? "yearly" : "monthly",
+      amountUsd: paid ? amountGhs / rate : listUsd, // for a gift this is the value given away
+      amountGhs,
+      usdToGhsRate: rate,
+      kind: "new",
+      periodStart: start,
+      periodEnd: end,
+      source: paid ? "offline" : "granted",
+      termMonths: months,
+      note: [paid ? (input.method ? `Paid by ${input.method}` : "Paid outside the app") : "Gift from WorshipHQ", input.note?.trim()].filter(Boolean).join(". "),
+    },
+  });
+
+  revalidatePath("/admin");
+  revalidatePath("/admin/revenue");
+  return { ok: true, renewsAt: end.toISOString() };
+}
+
+/** What the SMS provider charges per credit, used for the SMS profit figures. */
+export async function setSmsCostPerCredit(cost: number) {
+  await requireSuperAdmin();
+  const n = Math.round(Number(cost) * 10000) / 10000;
+  if (!Number.isFinite(n) || n <= 0 || n > 5) return { ok: false as const, error: "Enter a cost between 0 and 5 cedis." };
+  await db.platformConfig.upsert({ where: { id: "default" }, update: { smsCostPerCredit: n }, create: { id: "default", smsCostPerCredit: n } });
+  revalidatePath("/admin/revenue");
+  return { ok: true as const };
+}

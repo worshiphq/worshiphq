@@ -36,10 +36,11 @@ export const billing: DocArticle[] = [
       { list: [
         "Prices may be shown in US dollars and are charged in cedis at the day's exchange rate.",
         "We don't charge your card automatically. We remind you before your plan ends, and you choose to renew.",
-        "**Billing history** lists every payment with its date, plan, amount, status and reference.",
+        "At the top of **Billing** you see your plan, its price, when it renews and how much of the period is left, plus how many members, team logins and SMS credits you have against what your plan allows.",
+        "**Payments and receipts** lists every plan payment, gift and SMS top-up with its date, amount, how it was paid (online, directly to us, or a gift) and a note. Filter it by **Plan** or **SMS credits**; it shows 8 at a time with **Newer** and **Older** buttons.",
       ] },
       { h: "Gifted upgrades" },
-      { p: "If WorshipHQ gives your church a free upgrade, you'll get a code by SMS. Enter it in **Billing** to activate it." },
+      { p: "If WorshipHQ gives your church a free upgrade, you'll get a code by SMS. Enter it in **Billing** to activate it. Gifts, and payments made directly to WorshipHQ outside the app, are recorded in **Payments and receipts** too, marked **Gift** or **Paid directly**, for as long a term as was agreed (for example 3 or 5 years)." },
     ],
   },
   {
@@ -67,7 +68,7 @@ export const billing: DocArticle[] = [
     appPath: "/app/settings",
     body: [
       { steps: [
-        "Go to **Settings**, then **Billing**, and find the payment under **Billing history**.",
+        "Go to **Settings**, then **Billing**, and find the payment under **Payments and receipts**.",
         "Choose **Request refund**. We check whether it's still within the refund window.",
         "Tell us briefly why, and choose **Submit refund request**.",
       ] },

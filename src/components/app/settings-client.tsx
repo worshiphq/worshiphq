@@ -17,6 +17,7 @@ import type { Session } from "@/lib/permissions";
 import { ROLE_PERMISSIONS } from "@/lib/permissions";
 import { OnlinePaymentsTab } from "@/components/app/online-payments-tab";
 import { ServiceTimesTab } from "@/components/app/service-times-tab";
+import { PlanHero, UsageTiles, PaymentHistory, type PaymentItem } from "@/components/app/billing-parts";
 import { MemberCategoriesTab } from "@/components/app/member-categories-tab";
 import { canManage as canManageSection } from "@/lib/permissions";
 import { checkRefundEligibility, requestRefund } from "@/app/actions/refunds";
@@ -101,7 +102,12 @@ export type PlanPaymentRow = {
   status: string;
   paidAt: string;
   periodEnd: string;
+  source?: string;
+  note?: string | null;
+  termMonths?: number;
 };
+export type BillingUsage = { members: number; memberLimit: number | null; teamUsers: number; teamLimit: number | null; smsCredits: number };
+export type SmsTopupRow = { id: string; at: string; credits: number; amountGhs: number | null; kind: string; note: string | null };
 
 const tabs = [
   { key: "church", label: "Church profile", icon: Building },
@@ -143,6 +149,8 @@ export function SettingsClient({
   subscription,
   platformPricing,
   payments = [],
+  billingUsage,
+  smsTopups = [],
   messageCenter,
 }: {
   session: Session;
@@ -154,6 +162,8 @@ export function SettingsClient({
   subscription: SubscriptionData;
   platformPricing?: PlatformPricing;
   payments?: PlanPaymentRow[];
+  billingUsage?: BillingUsage;
+  smsTopups?: SmsTopupRow[];
   messageCenter: MessageCenterData;
 }) {
   const [tab, setTab] = useState<(typeof tabs)[number]["key"]>("church");
@@ -540,7 +550,7 @@ export function SettingsClient({
         )}
 
         {/* ── Billing ── */}
-        {tab === "billing" && <BillingTab subscription={subscription} features={features} ro={ro} platformPricing={platformPricing} payments={payments} />}
+        {tab === "billing" && <BillingTab subscription={subscription} features={features} ro={ro} platformPricing={platformPricing} payments={payments} usage={billingUsage} smsTopups={smsTopups} />}
 
         {/* ── Online Payments ── */}
         {tab === "online-payments" && <OnlinePaymentsTab canManage={isAdmin && !ro} />}
@@ -897,7 +907,7 @@ function UpgradeCelebration({ planName, newFeatures, onDone }: { planName: strin
   );
 }
 
-function BillingTab({ subscription, features, ro, platformPricing, payments = [] }: { subscription: SubscriptionData; features: FeatureMap; ro: boolean; platformPricing?: PlatformPricing; payments?: PlanPaymentRow[] }) {
+function BillingTab({ subscription, features, ro, platformPricing, payments = [], usage, smsTopups = [] }: { subscription: SubscriptionData; features: FeatureMap; ro: boolean; platformPricing?: PlatformPricing; payments?: PlanPaymentRow[]; usage?: BillingUsage; smsTopups?: SmsTopupRow[] }) {
   const router = useRouter();
   const plans = defaultPlans.map((p) => {
     const dbPrice = platformPricing?.prices[p.id];
@@ -1027,57 +1037,30 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
         </div>
       )}
 
+      <PlanHero
+        planName={currentPlan.name}
+        members={currentPlan.members}
+        priceText={isGrace ? "Free forever" : currentPlanId === "free" ? "Free" : `${fmtPrice(price)}/mo`}
+        status={isGrace ? "grace" : currentPlanId === "free" ? "free" : "active"}
+        renewsAt={subscription?.renewsAt ? String(subscription.renewsAt) : null}
+        interval={subscription?.interval ?? "monthly"}
+        isFree={currentPlanId === "free"}
+        canChange={!ro}
+        onChange={() => setShowPlans(!showPlans)}
+      />
+
+      {usage && <UsageTiles {...usage} />}
+
       <Card className="p-6">
-        <h3 className="font-display text-lg font-semibold">Billing & subscription</h3>
-        <p className="text-sm text-ink-muted">Powered by Paystack. Billed in {platformPricing?.currency ?? "GHS"}.</p>
-
-        <div className="mt-5 flex items-center justify-between rounded-2xl border border-primary/30 bg-primary/10 p-5">
-          <div>
-            <div className="flex items-center gap-2">
-              <Sparkles className="size-4 text-primary-bright" />
-              <span className="font-display text-lg font-semibold">{currentPlan.name} plan</span>
-              {isGrace && <Badge variant="success">Gift of Grace</Badge>}
-            </div>
-            <div className="mt-1 text-sm text-ink-muted">{currentPlan.members}</div>
-          </div>
-          <div className="text-right">
-            {isGrace ? (
-              <div className="font-display text-2xl font-bold text-success">Free forever</div>
-            ) : (
-              <>
-                <div className="font-display text-2xl font-bold">
-                  {fmtPrice(price)}
-                  <span className="text-sm font-normal text-ink-faint">/mo</span>
-                </div>
-                {currentPlanId !== "free" && subscription?.renewsAt && (
-                  <div className="text-xs text-ink-faint">
-                    Renews {new Date(subscription.renewsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                  </div>
-                )}
-                {currentPlanId === "free" && <div className="text-xs text-ink-faint">Upgrade anytime</div>}
-              </>
-            )}
-          </div>
-        </div>
-
-        <div className="mt-4 space-y-2">
-          <h4 className="text-sm font-medium text-ink-muted">Your plan includes:</h4>
-          <ul className="grid gap-1 sm:grid-cols-2">
-            {currentPlan.features.map((f) => (
-              <li key={f} className="flex items-center gap-2 text-sm text-ink">
-                <Check className="size-3.5 shrink-0 text-success" /> {f}
-              </li>
-            ))}
-          </ul>
-        </div>
-
-        <div className="mt-5 flex gap-2">
-          {!isGrace && (
-            <Button variant="secondary" disabled={ro} onClick={() => setShowPlans(!showPlans)}>
-              {showPlans ? "Hide plans" : currentPlanId === "free" ? "Upgrade plan" : "Change plan"}
-            </Button>
-          )}
-        </div>
+        <h3 className="font-display text-[1rem] font-semibold">Your plan includes</h3>
+        <ul className="mt-3 grid gap-1.5 sm:grid-cols-2">
+          {currentPlan.features.map((f) => (
+            <li key={f} className="flex items-center gap-2 text-sm text-ink">
+              <Check className="size-3.5 shrink-0 text-success" /> {f}
+            </li>
+          ))}
+        </ul>
+        <p className="mt-4 text-xs text-ink-faint">Billed in {platformPricing?.currency ?? "GHS"} through Paystack. Need a longer term, like 3 or 5 years? Contact us and we will set it up for you.</p>
 
         {subscription?.bypassPlan && (
           <div className="mt-4 rounded-xl border border-success/30 bg-success/10 p-4">
@@ -1199,68 +1182,30 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
       )}
 
       {/* Upgrade confirmation dialog */}
-      {/* ── Billing history ── */}
-      <Card className="mt-6 p-6">
-        <h3 className="flex items-center gap-2 font-display text-[1rem] font-semibold">
-          <Receipt className="size-4" /> Billing history
-        </h3>
-        {payments.length === 0 ? (
-          <p className="mt-2 text-sm text-ink-muted">
-            No payments yet. Once you subscribe, every charge and receipt shows up here.
-          </p>
-        ) : (
-          <div className="mt-4 overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b border-line text-left text-xs uppercase tracking-wide text-ink-faint">
-                  <th className="pb-2 pr-3">Date</th>
-                  <th className="pb-2 pr-3">Plan</th>
-                  <th className="pb-2 pr-3 text-right">Paid</th>
-                  <th className="pb-2 pr-3">Status</th>
-                  <th className="pb-2 pr-3">Reference</th>
-                  <th className="pb-2" />
-                </tr>
-              </thead>
-              <tbody>
-                {payments.map((p) => (
-                  <tr key={p.id} className="border-b border-line/50">
-                    <td className="py-2 pr-3 whitespace-nowrap">
-                      {new Date(p.paidAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}
-                    </td>
-                    <td className="py-2 pr-3 capitalize">
-                      {p.plan}
-                      <span className="ml-1 text-xs text-ink-faint">({p.interval})</span>
-                    </td>
-                    <td className="py-2 pr-3 text-right whitespace-nowrap">
-                      {sym}{p.amountUsd.toLocaleString()}
-                      {p.discountUsd > 0 && (
-                        <span className="ml-1 text-xs text-success">−{sym}{p.discountUsd.toLocaleString()}</span>
-                      )}
-                      <div className="text-[11px] text-ink-faint">₵{p.amountGhs.toLocaleString()}</div>
-                    </td>
-                    <td className="py-2 pr-3">
-                      <span className={cn(
-                        "rounded-full px-2 py-0.5 text-[11px] font-medium",
-                        p.status === "refunded" ? "bg-ink-faint/10 text-ink-faint" : "bg-success/10 text-success",
-                      )}>
-                        {p.status === "refunded" ? "Refunded" : "Paid"}
-                      </span>
-                    </td>
-                    <td className="py-2 pr-3 font-mono text-[11px] text-ink-faint">{p.reference}</td>
-                    <td className="py-2 text-right">
-                      {p.status !== "refunded" && p.amountUsd > 0 && (
-                        <Button size="sm" variant="ghost" className="text-xs" onClick={() => openRefund(p)}>
-                          Request refund
-                        </Button>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      {/* ── Payments and receipts ── */}
+      <PaymentHistory
+        sym={sym}
+        onRefund={(id) => { const row = payments.find((x) => x.id === id); if (row) openRefund(row); }}
+        items={[
+          ...payments.map((p): PaymentItem => {
+            const src = (p.source === "granted" || p.source === "offline" ? p.source : "paystack") as PaymentItem["source"];
+            const term = p.termMonths ? (p.termMonths % 12 === 0 ? `${p.termMonths / 12} year${p.termMonths === 12 ? "" : "s"}` : `${p.termMonths} month${p.termMonths === 1 ? "" : "s"}`) : p.interval;
+            return {
+              id: p.id, kind: "plan", at: p.paidAt, title: `${p.plan} plan · ${term}`,
+              detail: p.note || (src === "paystack" ? p.reference : ""),
+              amountDisplay: src === "granted" ? 0 : p.amountUsd, amountGhs: p.amountGhs, discountDisplay: p.discountUsd,
+              source: src, status: p.status === "refunded" ? "refunded" : "paid",
+              canRefund: src === "paystack" && p.amountUsd > 0,
+            };
+          }),
+          ...smsTopups.map((t): PaymentItem => ({
+            id: `sms-${t.id}`, kind: "sms", at: t.at, title: `${t.credits.toLocaleString()} SMS credits`,
+            detail: t.kind === "bonus" ? (t.note ?? "Gift from WorshipHQ") : "Top-up",
+            amountDisplay: null, amountGhs: t.amountGhs ?? 0,
+            source: t.kind === "bonus" ? "granted" : "paystack", status: "paid",
+          })),
+        ]}
+      />
 
       {/* ── Refund request drawer ── */}
       {refundFor && (
