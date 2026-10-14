@@ -37,3 +37,18 @@ export async function resolveDepartmentIds(churchId: string, names: string[]): P
   });
   return depts.map((d) => d.id);
 }
+
+/**
+ * Keep only real groups of this church. From a public form, only groups marked
+ * "show on sign-up forms" may be chosen, so nobody can add themselves to a
+ * private committee by editing the page.
+ */
+export async function resolveGroupIds(churchId: string, ids: string[], opts: { onlyOnForms?: boolean } = {}): Promise<string[]> {
+  const unique = [...new Set(ids.filter(Boolean))].slice(0, 100);
+  if (unique.length === 0) return [];
+  const rows = await db.group.findMany({
+    where: { churchId, id: { in: unique }, ...(opts.onlyOnForms ? { onForms: true, isActive: true } : {}) },
+    select: { id: true },
+  });
+  return rows.map((g) => g.id);
+}

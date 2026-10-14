@@ -124,14 +124,14 @@ export function resolveSimple(raw: unknown, defaults: FormField[]): FormField[] 
 const joinCatalog = SYSTEM_FIELD_CATALOG;
 const visitorCatalog: FormField[] = [
   ...DEFAULT_VISITOR_FORM.filter((d) => !["firstName", "lastName"].includes(d.id)),
-  ...SYSTEM_FIELD_CATALOG.filter((c) => !DEFAULT_VISITOR_FORM.some((d) => d.id === c.id)),
+  ...SYSTEM_FIELD_CATALOG.filter((c) => !DEFAULT_VISITOR_FORM.some((d) => d.id === c.id) && c.id !== "groups"),
 ];
 
 export const FORM_KINDS: Record<FormKind, FormKindInfo> = {
   join: {
     kind: "join", label: "Member registration", description: "Members fill in their own details and appear in your People list.",
     column: "registrationFields", path: (s) => `/join/${s}`, defaults: DEFAULT_FORM, catalog: joinCatalog,
-    resolve: getFormDefinition, special: ["department"], simple: false, submitLabel: "Submit registration",
+    resolve: getFormDefinition, special: ["department", "groups"], simple: false, submitLabel: "Submit registration",
   },
   visitor: {
     kind: "visitor", label: "Visitor form", description: "A simple form for first time visitors.",
@@ -146,7 +146,7 @@ export const FORM_KINDS: Record<FormKind, FormKindInfo> = {
   teens: {
     kind: "teens", label: "Teens registration", description: "Teens register with guardian info and choose their department.",
     column: "teensFormFields", path: (s) => `/teens/${s}`, defaults: DEFAULT_TEENS_FORM, catalog: joinCatalog,
-    resolve: getTeensFormDefinition, special: ["department"], simple: false, submitLabel: "Register",
+    resolve: getTeensFormDefinition, special: ["department", "groups"], simple: false, submitLabel: "Register",
   },
   prayer: {
     kind: "prayer", label: "Prayer requests", description: "Members send prayer requests from their phones.",

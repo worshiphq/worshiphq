@@ -35,6 +35,7 @@ export default async function ChildrenPage({
       logoUrl: true,
       accentColor: true,
       childrenFormFields: true,
+      groups: { where: { onForms: true, isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } },
     },
   });
 
@@ -70,6 +71,7 @@ export default async function ChildrenPage({
           churchName={church.name}
           accentColor={church.accentColor}
           fields={fields}
+          groups={church.groups}
           action={registerChild}
           submitLabel="Register child"
           requireGuardianConsent

@@ -13,7 +13,7 @@ export const metadata = { title: "People" };
 export default async function PeoplePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q } = await searchParams;
   const session = await requireModule("people");
-  const [allPeople, stats, departments, church, adults, categories] = await Promise.all([
+  const [allPeople, stats, departments, church, adults, categories, groups] = await Promise.all([
     getPeople(session.churchId),
     getAllPeopleStats(session.churchId),
     db.department.findMany({
@@ -35,6 +35,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
       take: 500,
     }),
     getCategoriesForForm(session.churchId),
+    db.group.findMany({ where: { churchId: session.churchId, isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
   const formFields = questionFields(getFormDefinition(church?.registrationFields ?? null));
   return (
@@ -57,6 +58,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
           stats={stats}
           canWrite={canEdit(session, "people")}
           departments={departments}
+          groups={groups}
           formFields={formFields}
           adults={adults}
           categories={categories}

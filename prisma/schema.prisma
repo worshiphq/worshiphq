@@ -543,6 +543,8 @@ model Group {
   meetingReminderLastSent String? // local YYYY-MM-DD guard so auto-send never doubles up in a day
   meetingReminderSent     Json?   // per-meeting-day guard for days with their own reminder timing: { "Wednesday": "2026-10-14" } (the meeting date that was reminded)
   isActive    Boolean  @default(true)
+  // People can pick this group themselves on the sign-up forms.
+  onForms     Boolean  @default(false)
   createdAt   DateTime @default(now())
   members     Person[] @relation("GroupMembers")
 

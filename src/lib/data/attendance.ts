@@ -117,6 +117,7 @@ export async function getAttendanceSession(churchId: string, id: string) {
               departments: { select: { name: true } },
               department: { select: { name: true } },
               categoryOptions: { select: { name: true, categoryId: true } },
+              groups: { where: { isActive: true }, select: { name: true } },
             },
           },
         },
@@ -210,6 +211,7 @@ export async function getCheckInCandidates(churchId: string, sessionId: string) 
         departments: { select: { name: true } },
         department: { select: { name: true } },
         categoryOptions: { select: { name: true, categoryId: true } },
+        groups: { where: { isActive: true }, select: { name: true } },
       },
     }),
     db.attendanceRecord.findMany({ where: { sessionId }, select: { personId: true } }),
@@ -241,8 +243,10 @@ function personGroups(p: {
   departments: { name: string }[];
   department: { name: string } | null;
   categoryOptions: { name: string; categoryId: string }[];
+  groups?: { name: string }[];
 }): Record<string, string[]> {
   const out: Record<string, string[]> = { departments: departmentNames(p) };
+  if (p.groups?.length) out.groups = p.groups.map((g) => g.name);
   for (const o of p.categoryOptions) (out[o.categoryId] ??= []).push(o.name);
   for (const k of Object.keys(out)) out[k].sort((a, b) => a.localeCompare(b));
   return out;
@@ -258,7 +262,7 @@ type Grouping = { key: string; label: string; groups: { id: string; name: string
  */
 async function groupingsWithMembers(churchId: string): Promise<Grouping[]> {
   const memberSelect = { id: true, firstName: true, lastName: true, photoUrl: true, gender: true, status: true } as const;
-  const [departments, categories] = await Promise.all([
+  const [departments, categories, churchGroups] = await Promise.all([
     db.department.findMany({
       where: { churchId },
       orderBy: { name: "asc" },
@@ -272,6 +276,7 @@ async function groupingsWithMembers(churchId: string): Promise<Grouping[]> {
         options: { orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true, members: { select: memberSelect } } },
       },
     }),
+    db.group.findMany({ where: { churchId, isActive: true }, orderBy: { name: "asc" }, select: { id: true, name: true, members: { select: memberSelect } } }),
   ]);
   const deptGroups = departments.map((d) => {
     const byId = new Map<string, GroupMember>();
@@ -280,6 +285,7 @@ async function groupingsWithMembers(churchId: string): Promise<Grouping[]> {
   });
   return [
     { key: "departments", label: "Departments", groups: deptGroups },
+    ...(churchGroups.length > 0 ? [{ key: "groups", label: "Groups", groups: churchGroups.map((g) => ({ id: g.id, name: g.name, members: g.members })) }] : []),
     ...categories
       .filter((c) => c.options.length > 0)
       .map((c) => ({ key: c.id, label: c.name, groups: c.options.map((o) => ({ id: o.id, name: o.name, members: o.members })) })),
@@ -347,7 +353,8 @@ export async function getGroupingLabels(churchId: string) {
     orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
     select: { id: true, name: true },
   });
-  return [{ key: "departments", label: "Department" }, ...cats.map((c) => ({ key: c.id, label: c.name }))];
+  const hasGroups = (await db.group.count({ where: { churchId, isActive: true } })) > 0;
+  return [{ key: "departments", label: "Department" }, ...(hasGroups ? [{ key: "groups", label: "Group" }] : []), ...cats.map((c) => ({ key: c.id, label: c.name }))];
 }
 
 /**

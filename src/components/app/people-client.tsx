@@ -21,6 +21,7 @@ import { updateChild, assignParent, createChildState } from "@/app/actions/child
 import { sendSmsToPerson } from "@/app/actions/communications";
 import { BiometricRegisterButton } from "@/components/app/biometric-register";
 import { MemberFormFields, type MemberDefaults } from "@/components/app/member-form-fields";
+import { MemberGroupFields } from "@/components/app/member-group-fields";
 import { MemberCategoryFields, type FormCategory } from "@/components/app/member-category-fields";
 import type { PersonRow } from "@/lib/data/people";
 import type { FormField } from "@/lib/forms/registration";
@@ -54,9 +55,9 @@ type Dept = { id: string; name: string };
 type Adult = { id: string; firstName: string; lastName: string };
 
 export function PeopleClient({
-  people, stats, canWrite, departments, formFields, adults, categories = [], initialQuery = "",
+  people, stats, canWrite, departments, groups = [], formFields, adults, categories = [], initialQuery = "",
 }: {
-  people: PersonRow[]; stats: AllStats; canWrite: boolean; departments: Dept[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; initialQuery?: string;
+  people: PersonRow[]; stats: AllStats; canWrite: boolean; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; initialQuery?: string;
 }) {
   const [ageTab, setAgeTab] = useState<AgeTab>("adult");
   const [query, setQuery] = useState(initialQuery);
@@ -66,6 +67,7 @@ export function PeopleClient({
   const [creating, setCreating] = useState(false);
   const [view, setView] = useState<"list" | "grid">("list");
   const [deptFilter, setDeptFilter] = useState("");
+  const [groupFilter, setGroupFilter] = useState("");
   const [engFilter, setEngFilter] = useState("");
   const [catFilter, setCatFilter] = useState(""); // a category option id
   const filterableCategories = categories.filter((c) => c.options.length > 0);
@@ -79,6 +81,7 @@ export function PeopleClient({
       if (pAge !== ageTab) return false;
       if (isAdultTab && segment !== "all" && p.status !== segment) return false;
       if (isAdultTab && deptFilter && !p.departments.some((d) => d === deptFilter)) return false;
+      if (groupFilter && !p.groupIds.includes(groupFilter)) return false;
       if (isAdultTab && engFilter && p.engagement !== engFilter) return false;
       if (catFilter && !p.categoryOptionIds.includes(catFilter)) return false;
       if (query) {
@@ -107,7 +110,7 @@ export function PeopleClient({
       }
     });
     return list;
-  }, [people, query, segment, deptFilter, engFilter, catFilter, sortBy, ageTab, isAdultTab]);
+  }, [people, query, segment, deptFilter, groupFilter, engFilter, catFilter, sortBy, ageTab, isAdultTab]);
 
   const addLabel = ageTab === "child" ? "Add child" : ageTab === "teen" ? "Add teen" : "Add member";
 
@@ -229,6 +232,17 @@ export function PeopleClient({
               ))}
             </select>
           )}
+          {groups.length > 0 && (
+            <select
+              value={groupFilter}
+              onChange={(e) => setGroupFilter(e.target.value)}
+              className="h-9 rounded-lg border border-line bg-surface px-2.5 text-xs text-ink focus-visible:border-primary/50 focus-visible:outline-none"
+              aria-label="Group"
+            >
+              <option value="">All groups</option>
+              {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+            </select>
+          )}
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value as typeof sortBy)}
@@ -239,8 +253,8 @@ export function PeopleClient({
             <option value="newest">Newest first</option>
             <option value="oldest">Oldest first</option>
           </select>
-          {(deptFilter || engFilter || catFilter) && (
-            <button onClick={() => { setDeptFilter(""); setEngFilter(""); setCatFilter(""); }} className="text-xs text-primary-bright hover:underline">
+          {(deptFilter || engFilter || catFilter || groupFilter) && (
+            <button onClick={() => { setDeptFilter(""); setEngFilter(""); setCatFilter(""); setGroupFilter(""); }} className="text-xs text-primary-bright hover:underline">
               Clear filters
             </button>
           )}
@@ -397,6 +411,7 @@ export function PeopleClient({
         <PersonForm
           person={editing}
           departments={departments}
+          groups={groups}
           formFields={formFields}
           adults={adults}
           categories={categories}
@@ -706,9 +721,9 @@ function buildDefaults(fields: FormField[], person: PersonRow): MemberDefaults {
 type AddResult = { ok: boolean; personId?: string; name?: string } | null;
 
 function PersonForm({
-  person, departments, formFields, adults, categories = [], ageTab, onClose,
+  person, departments, groups = [], formFields, adults, categories = [], ageTab, onClose,
 }: {
-  person: PersonRow | null; departments: Dept[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; ageTab: AgeTab; onClose: () => void;
+  person: PersonRow | null; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; ageTab: AgeTab; onClose: () => void;
 }) {
   const isEdit = !!person;
   const personAge = person ? (person.ageGroup ?? "adult") : ageTab;
@@ -780,6 +795,9 @@ function PersonForm({
 
           {/* Zones, fellowships and any other categories the church has set up */}
           <MemberCategoryFields categories={categories} selected={person?.categoryOptionIds ?? []} />
+
+          {/* Groups: small groups, ministries, committees */}
+          <MemberGroupFields groups={groups} selected={person?.groupIds ?? []} />
 
           {/* Youth-specific: age group selector + school + parent */}
           {isYouth && (

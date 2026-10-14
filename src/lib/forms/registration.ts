@@ -119,6 +119,7 @@ export const SYSTEM_FIELD_CATALOG: FormField[] = [
   { id: "emergencyEmail", label: "Emergency contact email", type: "email", system: true },
   { id: "emergencyAddress", label: "Emergency contact address", type: "text", system: true },
   { id: "department", label: "Department / ministry", type: "select", system: true },
+  { id: "groups", label: "Groups you would like to join", type: "select", system: true },
   { id: "guardianName", label: "Parent / guardian name", type: "text", system: true },
   { id: "guardianPhone", label: "Parent / guardian phone", type: "tel", system: true },
   { id: "school", label: "School", type: "text", system: true },
@@ -127,6 +128,9 @@ export const SYSTEM_FIELD_CATALOG: FormField[] = [
 
 /** Department is a system field whose options come from the church's departments. */
 export const DEPARTMENT_FIELD_ID = "department";
+
+/** Groups the church marked "show on sign-up forms" (people can pick several). */
+export const GROUPS_FIELD_ID = "groups";
 
 /** The default form shown to churches that haven't customised it. */
 export const DEFAULT_FORM: FormField[] = [

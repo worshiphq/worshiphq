@@ -6,7 +6,7 @@ import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { getFormDefinition, questionFields } from "@/lib/forms/registration";
 import { buildPersonData } from "@/lib/forms/person-data";
-import { nextMemberId, resolveDepartmentIds } from "@/lib/members/helpers";
+import { nextMemberId, resolveDepartmentIds, resolveGroupIds } from "@/lib/members/helpers";
 import { logAudit } from "@/lib/audit";
 import { RecycleBin } from "@/lib/recycle-bin";
 import { saveMemberCategoryChoices } from "@/lib/members/categories";
@@ -32,6 +32,7 @@ export async function createPerson(formData: FormData) {
   const leaderTitle = String(formData.get("leaderTitle") ?? "").trim() || null;
   const featured = formData.get("featured") === "true";
   const deptIds = await resolveDepartmentIds(session.churchId, departmentNames);
+  const adminGroups = await resolveGroupIds(session.churchId, formData.getAll("groups").map(String));
   const memberId = await nextMemberId(session.churchId);
 
   const person = await db.person.create({
@@ -47,6 +48,7 @@ export async function createPerson(formData: FormData) {
       ...(deptIds.length
         ? { departments: { connect: deptIds.map((id) => ({ id })) }, department: { connect: { id: deptIds[0] } } }
         : {}),
+      ...(adminGroups.length ? { groups: { connect: adminGroups.map((id) => ({ id })) } } : {}),
     },
   });
 
@@ -79,6 +81,10 @@ export async function updatePerson(formData: FormData) {
   const leaderTitle = String(formData.get("leaderTitle") ?? "").trim() || null;
   const featured = formData.get("featured") === "true";
   const deptIds = await resolveDepartmentIds(session.churchId, departmentNames);
+  // The edit form always includes the groups section, so what it sends is the full list.
+  const groupSet = formData.get("groupsForm")
+    ? { groups: { set: (await resolveGroupIds(session.churchId, formData.getAll("groups").map(String))).map((g) => ({ id: g })) } }
+    : {};
 
   // Admin-editable member ID (unique per church).
   const memberId = String(formData.get("memberId") ?? "").trim() || null;
@@ -99,6 +105,7 @@ export async function updatePerson(formData: FormData) {
         ...(Object.keys(customFields).length ? { customFields } : {}),
         departments: { set: deptIds.map((d) => ({ id: d })) },
         department: deptIds.length ? { connect: { id: deptIds[0] } } : { disconnect: true },
+        ...groupSet,
       },
     });
   } catch {
@@ -113,6 +120,7 @@ export async function updatePerson(formData: FormData) {
         ...(Object.keys(customFields).length ? { customFields } : {}),
         departments: { set: deptIds.map((d) => ({ id: d })) },
         department: deptIds.length ? { connect: { id: deptIds[0] } } : { disconnect: true },
+        ...groupSet,
       },
     });
   }

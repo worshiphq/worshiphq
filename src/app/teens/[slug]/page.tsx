@@ -36,6 +36,7 @@ export default async function TeensPage({
       accentColor: true,
       teensFormFields: true,
       departments: { select: { id: true, name: true }, orderBy: { name: "asc" } },
+      groups: { where: { onForms: true, isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } },
     },
   });
 
@@ -72,6 +73,7 @@ export default async function TeensPage({
           accentColor={church.accentColor}
           fields={fields}
           departments={church.departments}
+          groups={church.groups}
           action={registerTeen}
           submitLabel="Register teen"
           requireGuardianConsent

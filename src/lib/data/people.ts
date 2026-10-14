@@ -19,6 +19,8 @@ export interface PersonRow {
   household: string | null;
   departments: string[]; // department names (many-to-many)
   departmentIds: string[];
+  /** Groups the person belongs to. */
+  groupIds: string[];
   /** Zone / fellowship / etc. option ids (see member categories). */
   categoryOptionIds: string[];
   location: string | null;
@@ -90,7 +92,7 @@ export async function getPeople(churchId: string, ageFilter?: "adults" | "childr
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     include: {
       branch: { select: { name: true } },
-      groups: { select: { name: true } },
+      groups: { select: { id: true, name: true } },
       household: { select: { name: true } },
       departments: { select: { id: true, name: true } },
       categoryOptions: { select: { id: true } },
@@ -116,6 +118,7 @@ export async function getPeople(churchId: string, ageFilter?: "adults" | "childr
     household: p.household?.name ?? null,
     departments: p.departments.map((d) => d.name),
     departmentIds: p.departments.map((d) => d.id),
+    groupIds: p.groups.map((g) => g.id),
     categoryOptionIds: p.categoryOptions.map((o) => o.id),
     location: p.location,
     birthday: p.birthday,

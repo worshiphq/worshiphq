@@ -5,7 +5,7 @@ import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { getFormDefinition, getChildrenFormDefinition, getTeensFormDefinition, questionFields } from "@/lib/forms/registration";
 import { buildPersonData } from "@/lib/forms/person-data";
-import { nextMemberId, resolveDepartmentIds } from "@/lib/members/helpers";
+import { nextMemberId, resolveDepartmentIds, resolveGroupIds } from "@/lib/members/helpers";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { saveMemberCategoryChoices } from "@/lib/members/categories";
 
@@ -24,10 +24,11 @@ export async function selfRegister(formData: FormData) {
   if (!church || church.isDemo) return;
 
   const fields = questionFields(getFormDefinition(church.registrationFields));
-  const { data, customFields, departmentNames } = await buildPersonData(fields, formData);
+  const { data, customFields, departmentNames, groupIds } = await buildPersonData(fields, formData);
   if (!data.firstName || !data.lastName) return;
 
   const deptIds = await resolveDepartmentIds(church.id, departmentNames);
+  const pickedGroups = await resolveGroupIds(church.id, groupIds, { onlyOnForms: true });
   const memberId = await nextMemberId(church.id);
 
   const created = await db.person.create({
@@ -42,6 +43,7 @@ export async function selfRegister(formData: FormData) {
       ...(deptIds.length
         ? { departments: { connect: deptIds.map((id) => ({ id })) }, department: { connect: { id: deptIds[0] } } }
         : {}),
+      ...(pickedGroups.length ? { groups: { connect: pickedGroups.map((id) => ({ id })) } } : {}),
     },
   });
 
@@ -120,10 +122,11 @@ export async function registerTeen(formData: FormData) {
   if (!church || church.isDemo) return;
 
   const fields = questionFields(getTeensFormDefinition(church.teensFormFields));
-  const { data, customFields, departmentNames } = await buildPersonData(fields, formData);
+  const { data, customFields, departmentNames, groupIds } = await buildPersonData(fields, formData);
   if (!data.firstName || !data.lastName) return;
 
   const deptIds = await resolveDepartmentIds(church.id, departmentNames);
+  const pickedGroups = await resolveGroupIds(church.id, groupIds, { onlyOnForms: true });
   const memberId = await nextMemberId(church.id);
 
   await db.person.create({
@@ -137,6 +140,7 @@ export async function registerTeen(formData: FormData) {
       ...(deptIds.length
         ? { departments: { connect: deptIds.map((id) => ({ id })) }, department: { connect: { id: deptIds[0] } } }
         : {}),
+      ...(pickedGroups.length ? { groups: { connect: pickedGroups.map((id) => ({ id })) } } : {}),
     },
   });
 

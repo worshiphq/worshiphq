@@ -8,7 +8,7 @@ export const metadata = { title: "Member directory" };
 export default async function DirectoryPage() {
   const session = await requireModule("directory");
 
-  const [people, departments] = await Promise.all([
+  const [people, departments, groups] = await Promise.all([
     db.person.findMany({
       where: { churchId: session.churchId, status: "active" },
       select: {
@@ -22,6 +22,7 @@ export default async function DirectoryPage() {
         occupation: true,
         memberId: true,
         departments: { select: { id: true, name: true } },
+        groups: { where: { isActive: true }, select: { id: true } },
       },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     }),
@@ -30,6 +31,7 @@ export default async function DirectoryPage() {
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    db.group.findMany({ where: { churchId: session.churchId, isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
   return (
@@ -48,8 +50,10 @@ export default async function DirectoryPage() {
           memberId: p.memberId,
           occupation: p.occupation,
           departments: p.departments.map((d) => d.name),
+          groupIds: p.groups.map((g) => g.id),
         }))}
         departments={departments.map((d) => ({ id: d.id, name: d.name }))}
+        groups={groups}
       />
     </div>
   );

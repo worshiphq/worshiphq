@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { Check, UploadCloud, X } from "lucide-react";
-import { type FormField, DEPARTMENT_FIELD_ID, splitSteps, questionFields } from "@/lib/forms/registration";
+import { type FormField, DEPARTMENT_FIELD_ID, GROUPS_FIELD_ID, splitSteps, questionFields } from "@/lib/forms/registration";
 import { ImageCropper } from "@/components/ui/image-cropper";
 import { Combobox } from "@/components/ui/combobox";
 import { OtherSelect } from "@/components/app/other-select";
@@ -33,6 +33,7 @@ const input =
 export function MemberFormFields({
   fields,
   departments,
+  groups = [],
   defaults,
   stepped = false,
   accent = "#0d7377",
@@ -41,6 +42,8 @@ export function MemberFormFields({
 }: {
   fields: FormField[];
   departments: { id: string; name: string }[];
+  /** Groups people may choose (those marked to show on sign-up forms). */
+  groups?: { id: string; name: string }[];
   defaults?: MemberDefaults;
   stepped?: boolean;
   accent?: string;
@@ -49,16 +52,17 @@ export function MemberFormFields({
 }) {
   const [values, setValues] = useState<Record<string, string>>(defaults?.scalars ?? {});
   const [depts, setDepts] = useState<string[]>(defaults?.departments ?? []);
+  const [pickedGroups, setPickedGroups] = useState<string[]>([]);
   const [photo, setPhoto] = useState<string>(defaults?.photoUrl ?? "");
   const [active, setActive] = useState(0);
   const root = useRef<HTMLDivElement>(null);
   const setValue = (id: string, v: string) => setValues((s) => ({ ...s, [id]: v }));
 
-  const groups = stepped
+  const steps = stepped
     ? splitSteps(fields)
     : [{ id: "all", title: "", description: undefined as string | undefined, fields: questionFields(fields) }];
-  const multi = groups.length > 1;
-  const cur = Math.min(active, groups.length - 1);
+  const multi = steps.length > 1;
+  const cur = Math.min(active, steps.length - 1);
 
   const visible = (f: FormField) => {
     if (!f.showIf) return true;
@@ -84,12 +88,12 @@ export function MemberFormFields({
     requestAnimationFrame(() => root.current?.scrollIntoView({ behavior: "smooth", block: "start" }));
   }
   const next = () => {
-    if (validate(cur)) go(Math.min(cur + 1, groups.length - 1));
+    if (validate(cur)) go(Math.min(cur + 1, steps.length - 1));
   };
 
   const renderField = (f: FormField) => {
     const sp = special?.[f.id];
-    const full = f.type === "textarea" || f.type === "image" || f.id === DEPARTMENT_FIELD_ID || !!sp;
+    const full = f.type === "textarea" || f.type === "image" || f.id === DEPARTMENT_FIELD_ID || f.id === GROUPS_FIELD_ID || !!sp;
     const inlineCheckbox = f.type === "checkbox" && !sp;
     return (
       <div key={f.id} className={full || inlineCheckbox ? "sm:col-span-2" : undefined}>
@@ -103,6 +107,8 @@ export function MemberFormFields({
           sp({ field: f, value: values[f.id] ?? "", setValue: (v) => setValue(f.id, v), values })
         ) : f.id === DEPARTMENT_FIELD_ID ? (
           <DepartmentChecks departments={departments} selected={depts} onChange={setDepts} />
+        ) : f.id === GROUPS_FIELD_ID ? (
+          <GroupChecks groups={groups} selected={pickedGroups} onChange={setPickedGroups} />
         ) : f.type === "image" ? (
           <PhotoUpload value={photo} onChange={setPhoto} name={f.id} />
         ) : f.type === "select" && (f.options?.length ?? 0) >= 10 ? (
@@ -159,15 +165,15 @@ export function MemberFormFields({
       ref={root}
       onKeyDown={(e) => {
         // Enter should move to the next step, not submit a half finished form.
-        if (multi && cur < groups.length - 1 && e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") {
+        if (multi && cur < steps.length - 1 && e.key === "Enter" && (e.target as HTMLElement).tagName === "INPUT") {
           e.preventDefault();
           next();
         }
       }}
     >
-      {multi && <StepTracker steps={groups.map((g) => g.title)} current={cur} accent={accent} />}
+      {multi && <StepTracker steps={steps.map((g) => g.title)} current={cur} accent={accent} />}
 
-      {groups.map((g, i) => (
+      {steps.map((g, i) => (
         <div key={g.id} data-step={i} hidden={multi && i !== cur} className={multi ? "animate-fade-up" : undefined}>
           {multi && (
             <div className="mb-4">
@@ -188,7 +194,7 @@ export function MemberFormFields({
           >
             Back
           </button>
-          {cur < groups.length - 1 && (
+          {cur < steps.length - 1 && (
             <button
               type="button"
               onClick={next}
@@ -201,7 +207,7 @@ export function MemberFormFields({
         </div>
       )}
 
-      {(!multi || cur === groups.length - 1) && finalSlot && <div className="mt-5">{finalSlot}</div>}
+      {(!multi || cur === steps.length - 1) && finalSlot && <div className="mt-5">{finalSlot}</div>}
     </div>
   );
 }
@@ -266,6 +272,30 @@ function DepartmentChecks({
             )}
           >
             {d.name}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
+function GroupChecks({ groups, selected, onChange }: { groups: { id: string; name: string }[]; selected: string[]; onChange: (v: string[]) => void }) {
+  if (groups.length === 0) return <p className="text-xs text-ink-faint">No groups are open to join yet.</p>;
+  const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter((x) => x !== id) : [...selected, id]);
+  return (
+    <div className="flex flex-wrap gap-2">
+      {selected.map((id) => <input key={id} type="hidden" name={GROUPS_FIELD_ID} value={id} />)}
+      {groups.map((g) => {
+        const on = selected.includes(g.id);
+        return (
+          <button
+            key={g.id}
+            type="button"
+            onClick={() => toggle(g.id)}
+            aria-pressed={on}
+            className={cn("rounded-full border px-3 py-1.5 text-sm font-medium transition-colors", on ? "border-primary bg-primary/10 text-primary-bright" : "border-line text-ink-muted hover:bg-surface-2")}
+          >
+            {g.name}
           </button>
         );
       })}

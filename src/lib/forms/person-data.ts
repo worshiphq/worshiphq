@@ -1,5 +1,5 @@
 import "server-only";
-import { type FormField, isSystemColumn, DEPARTMENT_FIELD_ID } from "./registration";
+import { type FormField, isSystemColumn, DEPARTMENT_FIELD_ID, GROUPS_FIELD_ID } from "./registration";
 
 const DATE_FIELDS = new Set(["dateOfBirth", "dateOfMembership"]);
 const pad = (n: number) => String(n).padStart(2, "0");
@@ -9,6 +9,8 @@ export interface BuiltPerson {
   data: Record<string, unknown>;
   customFields: Record<string, string>;
   departmentNames: string[];
+  /** Group ids the person picked (check them with resolveGroupIds before saving). */
+  groupIds: string[];
 }
 
 /**
@@ -20,12 +22,18 @@ export async function buildPersonData(fields: FormField[], formData: FormData): 
   const data: Record<string, unknown> = {};
   const customFields: Record<string, string> = {};
   const departmentNames: string[] = [];
+  const groupIds: string[] = [];
 
   for (const field of fields) {
     if (field.id === DEPARTMENT_FIELD_ID) {
       departmentNames.push(
         ...formData.getAll(field.id).map((v) => String(v).trim()).filter(Boolean),
       );
+      continue;
+    }
+
+    if (field.id === GROUPS_FIELD_ID) {
+      groupIds.push(...formData.getAll(field.id).map((v) => String(v).trim()).filter(Boolean));
       continue;
     }
 
@@ -67,5 +75,5 @@ export async function buildPersonData(fields: FormField[], formData: FormData): 
     data.photoUrl = await storeImage(data.photoUrl, "members");
   }
 
-  return { data, customFields, departmentNames };
+  return { data, customFields, departmentNames, groupIds };
 }

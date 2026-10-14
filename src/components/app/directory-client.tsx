@@ -17,6 +17,7 @@ type MemberRow = {
   memberId: string | null;
   occupation: string | null;
   departments: string[];
+  groupIds: string[];
 };
 
 type Dept = { id: string; name: string };
@@ -24,16 +25,20 @@ type Dept = { id: string; name: string };
 export function DirectoryClient({
   members,
   departments,
+  groups = [],
 }: {
   members: MemberRow[];
   departments: Dept[];
+  groups?: Dept[];
 }) {
   const [search, setSearch] = useState("");
   const [deptFilter, setDeptFilter] = useState<string>("all");
+  const [groupFilter, setGroupFilter] = useState<string>("all");
   const [layout, setLayout] = useState<"grid" | "list">("grid");
 
   const filtered = members.filter((m) => {
     if (deptFilter !== "all" && !m.departments.includes(deptFilter)) return false;
+    if (groupFilter !== "all" && !m.groupIds.includes(groupFilter)) return false;
     if (!search) return true;
     const q = search.toLowerCase();
     return (
@@ -57,6 +62,17 @@ export function DirectoryClient({
           />
         </div>
 
+        {groups.length > 0 && (
+          <select
+            value={groupFilter}
+            onChange={(e) => setGroupFilter(e.target.value)}
+            className="h-11 rounded-xl border border-line bg-surface px-3 text-sm text-ink"
+            aria-label="Group"
+          >
+            <option value="all">All groups</option>
+            {groups.map((g) => <option key={g.id} value={g.id}>{g.name}</option>)}
+          </select>
+        )}
         {departments.length > 0 && (
           <select
             value={deptFilter}

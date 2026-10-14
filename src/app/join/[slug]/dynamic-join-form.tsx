@@ -12,6 +12,7 @@ export function DynamicJoinForm({
   accentColor,
   fields,
   departments = [],
+  groups = [],
   categories = [],
   action,
   submitLabel = "Submit registration",
@@ -23,6 +24,8 @@ export function DynamicJoinForm({
   accentColor: string;
   fields: FormField[];
   departments?: { id: string; name: string }[];
+  /** Groups people may pick on this form. */
+  groups?: { id: string; name: string }[];
   /** Zones, fellowships, etc. the church asks about (empty = nothing extra shown). */
   categories?: FormCategory[];
   action?: (formData: FormData) => Promise<void>;
@@ -43,6 +46,7 @@ export function DynamicJoinForm({
       <MemberFormFields
         fields={fields}
         departments={departments}
+        groups={groups}
         stepped
         accent={accentColor}
         finalSlot={

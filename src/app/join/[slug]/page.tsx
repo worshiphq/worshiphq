@@ -36,6 +36,7 @@ export default async function JoinPage({
       accentColor: true,
       registrationFields: true,
       departments: { select: { id: true, name: true }, orderBy: { name: "asc" } },
+      groups: { where: { onForms: true, isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } },
     },
   });
 
@@ -68,6 +69,7 @@ export default async function JoinPage({
           accentColor={church.accentColor}
           fields={fields}
           departments={church.departments}
+          groups={church.groups}
           categories={categories}
         />
       </div>
