@@ -7,16 +7,17 @@ const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "
 export type AttendanceCategory = "adult" | "teen" | "child" | "visitor";
 
 /** Derive an attendance category from a person's DOB/birthday + status. */
-export function categoryForPerson(p: {
-  status?: string | null;
-  dateOfBirth?: Date | null;
-  birthday?: string | null;
-}): AttendanceCategory {
+export function categoryForPerson(
+  p: { status?: string | null; dateOfBirth?: Date | null; birthday?: string | null; ageGroup?: string | null },
+  cfg: { childMax: number; teenMax: number } = { childMax: 12, teenMax: 17 },
+): AttendanceCategory {
   if (p.status === "visitor") return "visitor";
+  // Someone already filed as a child or teen counts as one, even without a date of birth.
+  if (p.ageGroup === "child" || p.ageGroup === "teen") return p.ageGroup;
   const age = ageFrom(p.dateOfBirth ?? null);
   if (age === null) return "adult";
-  if (age < 13) return "child";
-  if (age < 18) return "teen";
+  if (age <= cfg.childMax) return "child";
+  if (age <= cfg.teenMax) return "teen";
   return "adult";
 }
 

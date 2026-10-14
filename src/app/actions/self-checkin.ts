@@ -9,6 +9,7 @@ import { audit } from "@/lib/audit";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { routeAutoSession } from "@/lib/attendance/service-times";
 import { categoryForPerson, type AttendanceCategory } from "@/lib/data/attendance";
+import { getAgeConfig } from "@/lib/data/age";
 import { phoneKey } from "@/lib/search";
 import { DEFAULT_TEMPLATES } from "@/lib/automations/run";
 
@@ -165,7 +166,7 @@ export async function completeCheckIn(input: { sessionId: string; personId: stri
   if (!ctx) return { ok: false, error: "This check-in link is not available." };
   const person = await db.person.findFirst({
     where: { id: input.personId, churchId: ctx.church.id, status: { in: ["active", "visitor"] } },
-    select: { id: true, status: true, dateOfBirth: true, birthday: true, phone: true },
+    select: { id: true, status: true, dateOfBirth: true, birthday: true, phone: true, ageGroup: true },
   });
   if (!person) return { ok: false, error: "We could not find you. Please try again or ask an usher." };
 
@@ -191,7 +192,7 @@ export async function completeCheckIn(input: { sessionId: string; personId: stri
     verifiedBy = "sms";
   }
 
-  const category = categoryForPerson(person);
+  const category = categoryForPerson(person, await getAgeConfig(ctx.church.id));
   await db.attendanceRecord.create({
     data: {
       churchId: ctx.church.id, branchId: ctx.sess.branchId ?? undefined, personId: person.id, sessionId: ctx.sess.id,
@@ -251,9 +252,9 @@ export async function checkInNewVisitor(input: { sessionId: string; firstName: s
 async function completeCheckInForNew(ctx: Ctx, personId: string, where: Where): Promise<{ ok: true; sessionId: string } | { ok: false; error: string }> {
   const dup = await db.attendanceRecord.findFirst({ where: { sessionId: ctx.sess.id, personId }, select: { id: true } });
   if (dup) return { ok: true, sessionId: ctx.sess.id };
-  const person = await db.person.findUnique({ where: { id: personId }, select: { id: true, status: true, dateOfBirth: true, birthday: true } });
+  const person = await db.person.findUnique({ where: { id: personId }, select: { id: true, status: true, dateOfBirth: true, birthday: true, ageGroup: true } });
   if (!person) return { ok: false, error: "Please try again." };
-  const category = categoryForPerson(person);
+  const category = categoryForPerson(person, await getAgeConfig(ctx.church.id));
   await db.attendanceRecord.create({
     data: { churchId: ctx.church.id, branchId: ctx.sess.branchId ?? undefined, personId, sessionId: ctx.sess.id, category, serviceName: ctx.sess.serviceName, date: new Date(), method: "self", deviceId: clean(where.deviceId, 64) || null },
   });

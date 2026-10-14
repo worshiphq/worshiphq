@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { routeAutoSession } from "@/lib/attendance/service-times";
+import { categoryForPerson } from "@/lib/data/attendance";
+import { getAgeConfig } from "@/lib/data/age";
 
 export const dynamic = "force-dynamic";
 
@@ -14,7 +16,7 @@ export async function POST(req: NextRequest) {
 
   const person = await db.person.findFirst({
     where: { id: personId, churchId: session.churchId },
-    select: { id: true, firstName: true, lastName: true, status: true, dateOfBirth: true, birthday: true, photoUrl: true, gender: true },
+    select: { id: true, firstName: true, lastName: true, status: true, dateOfBirth: true, birthday: true, photoUrl: true, gender: true, ageGroup: true },
   });
   if (!person) return NextResponse.json({ ok: false, message: "Member not found" }, { status: 404 });
 
@@ -36,16 +38,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, ...who, alreadyIn: true, sessionId: sess.id, serviceName: sess.serviceName, message: `Already checked in to ${sess.serviceName}` });
   }
 
-  let category = "adult";
-  if (person.status === "visitor") category = "visitor";
-  else if (person.dateOfBirth || person.birthday) {
-    const dob = person.dateOfBirth ?? (person.birthday ? new Date(`2000-${person.birthday}`) : null);
-    if (dob) {
-      const age = Math.floor((Date.now() - new Date(dob).getTime()) / 31557600000);
-      if (age < 13) category = "child";
-      else if (age < 20) category = "teen";
-    }
-  }
+  // Same age bands as every other check-in (set in Settings, Age groups).
+  const category = categoryForPerson({ status: person.status, dateOfBirth: person.dateOfBirth, birthday: person.birthday, ageGroup: person.ageGroup }, await getAgeConfig(session.churchId));
 
   const catField: Record<string, string> = { adult: "adults", teen: "teens", child: "children", visitor: "visitors" };
 

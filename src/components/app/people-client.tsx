@@ -32,6 +32,7 @@ import { confirmBinDelete } from "@/lib/recycle-bin-events";
 import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
 import { matchesPerson } from "@/lib/search";
+import { ageOf } from "@/lib/age";
 const ageGroupTabs = [
   { key: "adult", label: "Adults", icon: Users },
   { key: "teen", label: "Teens", icon: GraduationCap },
@@ -57,9 +58,9 @@ type Dept = { id: string; name: string };
 type Adult = { id: string; firstName: string; lastName: string };
 
 export function PeopleClient({
-  people, stats, canWrite, departments, groups = [], formFields, adults, categories = [], initialQuery = "",
+  people, stats, canWrite, departments, groups = [], formFields, adults, categories = [], initialQuery = "", youth = null,
 }: {
-  people: PersonRow[]; stats: AllStats; canWrite: boolean; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; initialQuery?: string;
+  people: PersonRow[]; stats: AllStats; canWrite: boolean; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; initialQuery?: string; youth?: { label: string; min: number; max: number } | null;
 }) {
   const [ageTab, setAgeTab] = useState<AgeTab>("adult");
   const [query, setQuery] = useState(initialQuery);
@@ -72,6 +73,7 @@ export function PeopleClient({
   const [groupFilter, setGroupFilter] = useState("");
   const [engFilter, setEngFilter] = useState("");
   const [catFilter, setCatFilter] = useState(""); // a category option id
+  const [youthOnly, setYouthOnly] = useState(false);
   const filterableCategories = categories.filter((c) => c.options.length > 0);
   const [sortBy, setSortBy] = useState<"name-az" | "name-za" | "newest" | "oldest">("name-az");
 
@@ -85,6 +87,10 @@ export function PeopleClient({
       if (isAdultTab && deptFilter && !p.departments.some((d) => d === deptFilter)) return false;
       if (groupFilter && !p.groupIds.includes(groupFilter)) return false;
       if (isAdultTab && engFilter && p.engagement !== engFilter) return false;
+      if (isAdultTab && youth && youthOnly) {
+        const a = ageOf(p.dateOfBirth);
+        if (a === null || a < youth.min || a > youth.max) return false;
+      }
       if (catFilter && !p.categoryOptionIds.includes(catFilter)) return false;
       if (query) {
         const q = query.toLowerCase();
@@ -111,7 +117,7 @@ export function PeopleClient({
       }
     });
     return list;
-  }, [people, query, segment, deptFilter, groupFilter, engFilter, catFilter, sortBy, ageTab, isAdultTab]);
+  }, [people, query, segment, deptFilter, groupFilter, engFilter, catFilter, sortBy, ageTab, isAdultTab, youth, youthOnly]);
 
   const addLabel = ageTab === "child" ? "Add child" : ageTab === "teen" ? "Add teen" : "Add member";
 
@@ -194,6 +200,15 @@ export function PeopleClient({
               {s.label}
             </button>
           ))}
+          {isAdultTab && youth && (
+            <button
+              onClick={() => setYouthOnly((v) => !v)}
+              aria-pressed={youthOnly}
+              className={cn("rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-200", youthOnly ? "bg-gold/15 text-gold shadow-sm" : "text-ink-muted hover:bg-surface-2")}
+            >
+              {youth.label} ({youth.min} to {youth.max})
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {isAdultTab && (

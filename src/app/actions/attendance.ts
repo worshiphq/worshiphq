@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 import { categoryForPerson, type AttendanceCategory } from "@/lib/data/attendance";
+import { getAgeConfig } from "@/lib/data/age";
 import { sendServiceThanks } from "@/lib/attendance/thanks";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { can, granted } from "@/lib/permissions";
@@ -87,14 +88,14 @@ export async function checkInMember(sessionId: string, personId: string) {
     db.attendanceSession.findFirst({ where: { id: sessionId, churchId: session.churchId } }),
     db.person.findFirst({
       where: { id: personId, churchId: session.churchId },
-      select: { id: true, status: true, dateOfBirth: true, birthday: true },
+      select: { id: true, status: true, dateOfBirth: true, birthday: true, ageGroup: true },
     }),
     db.attendanceRecord.findFirst({ where: { sessionId, personId } }),
   ]);
   if (!sess || !person) return { ok: false as const, reason: "not-found" as const };
   if (existing) return { ok: false as const, reason: "already" as const, recordId: existing.id };
 
-  const category = categoryForPerson(person);
+  const category = categoryForPerson(person, await getAgeConfig(session.churchId));
   const record = await db.attendanceRecord.create({
     data: {
       churchId: session.churchId,
@@ -130,7 +131,7 @@ export async function checkInVisitorNow(personId: string) {
 
   const person = await db.person.findFirst({
     where: { id: personId, churchId: session.churchId },
-    select: { id: true, status: true, dateOfBirth: true, birthday: true },
+    select: { id: true, status: true, dateOfBirth: true, birthday: true, ageGroup: true },
   });
   if (!person) return { ok: false as const, reason: "not-found" as const };
 
@@ -154,7 +155,7 @@ export async function checkInVisitorNow(personId: string) {
   const existing = await db.attendanceRecord.findFirst({ where: { sessionId: sess.id, personId } });
   if (existing) return { ok: true as const, already: true as const, sessionId: sess.id, sessionName: sess.serviceName };
 
-  const category = categoryForPerson(person);
+  const category = categoryForPerson(person, await getAgeConfig(session.churchId));
   await db.attendanceRecord.create({
     data: {
       churchId: session.churchId,
@@ -195,7 +196,7 @@ export async function checkInByMemberId(
 
   const person = await db.person.findFirst({
     where: { churchId: session.churchId, memberId },
-    select: { id: true, firstName: true, lastName: true, status: true, dateOfBirth: true, birthday: true },
+    select: { id: true, firstName: true, lastName: true, status: true, dateOfBirth: true, birthday: true, ageGroup: true },
   });
   if (!person) return { ok: false, message: `No member with ID ${memberId}` };
 
@@ -205,7 +206,7 @@ export async function checkInByMemberId(
   const dup = await db.attendanceRecord.findFirst({ where: { sessionId, personId: person.id } });
   if (dup) return { ok: true, name: `${person.firstName} ${person.lastName}`, message: "Already checked in" };
 
-  const category = categoryForPerson(person);
+  const category = categoryForPerson(person, await getAgeConfig(session.churchId));
   await db.attendanceRecord.create({
     data: {
       churchId: session.churchId,

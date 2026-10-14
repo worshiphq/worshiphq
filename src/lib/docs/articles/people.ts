@@ -137,6 +137,29 @@ export const people: DocArticle[] = [
     ],
   },
   {
+    slug: "age-groups",
+    section: "people",
+    title: "Age groups: children, teens and youth",
+    summary: "Set where children and teens end for your church, add a Youth group, and move people up automatically.",
+    who: "People who manage members",
+    appPath: "/app/settings",
+    body: [
+      { p: "Every church draws the lines differently, so you choose them. The ages you set decide which **People** tab someone is on, how they are counted in attendance, and how fingerprint, QR and staff check-in count them." },
+      { steps: [
+        "Go to **Settings**, then **Age groups**.",
+        "Type the age where **Children** end and where **Teens** end. Everyone older is an adult.",
+        "If you have a youth group, tick **Have a youth group among the adults**, type what you call it (Youth, Young Adults, Pre-youth) and the age it runs to. On the **People** page, the Adults tab then has a filter with that name.",
+        "Tick **Move people up a group automatically** if you want it done for you, then **Save age groups**.",
+      ] },
+      { list: [
+        "When automatic moves are on, every day a child who passes the children age moves to Teens, and a teen who passes the teen age moves to Adults, from their date of birth. Anyone with no date of birth is left alone, and nobody is ever moved down.",
+        "Before you save, the screen lists who is already past their group and would move.",
+        "This only changes the age group someone is counted in. It does not move anyone to another church or branch.",
+        "The Youth group is a label among the adults, worked out from the date of birth, so it is always up to date.",
+      ] },
+    ],
+  },
+  {
     slug: "departments",
     section: "people",
     title: "Departments",

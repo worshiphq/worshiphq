@@ -89,6 +89,13 @@ model Church {
   qrGeoLng     Float?
   qrGeoRadius  Int     @default(250)    // metres
   qrDeviceLimit Int    @default(0)      // people one phone may check in per service (0 = no limit)
+  // ── Age groups ──
+  ageChildMax   Int     @default(12)    // children are up to this age
+  ageTeenMax    Int     @default(17)    // teens are up to this age (adults are older)
+  ageYouthOn    Boolean @default(false) // show a Youth group among the adults
+  ageYouthMax   Int     @default(35)    // youth are adults up to this age
+  ageYouthLabel String  @default("Youth") // what this church calls it, e.g. Youth or Young Adults
+  ageAutoOn     Boolean @default(false) // move children and teens up a group when they pass these ages (from their date of birth)
   // ── Automations: timezone + birthday suite ──
   timezone          String  @default("Africa/Accra") // IANA tz; send-hours are local to this
   birthdaySendHour  Int     @default(8)   // local hour (0-23) birthday messages go out

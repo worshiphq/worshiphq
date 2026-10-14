@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   Building, Palette, Users2, CreditCard, Plug, Check, Pencil, CircleDot,
   Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, Shield, MessageSquare, MessageSquareText,
-  ExternalLink, Rocket, Wallet, Loader2 as Spinner, Clock, CheckCircle2, X, Receipt, DatabaseBackup, Tags,
+  ExternalLink, Rocket, Wallet, Loader2 as Spinner, Clock, CheckCircle2, X, Receipt, DatabaseBackup, Tags, Baby,
 } from "lucide-react";
 import { OnFormComplete } from "@/components/ui/form-effects";
 import { Card } from "@/components/ui/card";
@@ -19,6 +19,7 @@ import { OnlinePaymentsTab } from "@/components/app/online-payments-tab";
 import { ServiceTimesTab } from "@/components/app/service-times-tab";
 import { PlanHero, UsageTiles, PaymentHistory, type PaymentItem } from "@/components/app/billing-parts";
 import { MemberCategoriesTab } from "@/components/app/member-categories-tab";
+import { AgeGroupsTab } from "@/components/app/age-groups-tab";
 import { canManage as canManageSection } from "@/lib/permissions";
 import { checkRefundEligibility, requestRefund } from "@/app/actions/refunds";
 import {
@@ -115,6 +116,7 @@ const tabs = [
   { key: "team", label: "Users & roles", icon: Users2 },
   { key: "departments", label: "Departments", icon: Layers },
   { key: "categories", label: "Zones & fellowships", icon: Tags },
+  { key: "age-groups", label: "Age groups", icon: Baby },
   { key: "service-times", label: "Service times", icon: Clock },
   { key: "registration", label: "Links & forms", icon: Link2 },
   { key: "billing", label: "Billing", icon: CreditCard },
@@ -556,6 +558,8 @@ export function SettingsClient({
         {tab === "online-payments" && <OnlinePaymentsTab canManage={isAdmin && !ro} />}
 
         {tab === "categories" && <MemberCategoriesTab canManage={!ro && canManageSection(session, "people")} />}
+
+        {tab === "age-groups" && <AgeGroupsTab canManage={!ro && canManageSection(session, "people")} />}
 
         {tab === "service-times" && <ServiceTimesTab canManage={!ro && canManageSection(session, "attendance")} />}
 
