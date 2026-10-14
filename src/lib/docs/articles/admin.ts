@@ -62,7 +62,7 @@ export const admin: DocArticle[] = [
         ["**Volunteer**", "Helpers, e.g. check-in at the door."],
       ] } },
       { h: "Change what a role can do" },
-      { p: "Under the built-in roles, choose **Edit** on a role to see every section of WorshipHQ. For each section choose **View** (can see it) or **Manage** (can add and change things). Use **All view** or **Clear** to set everything at once." },
+      { p: "Under the built-in roles, choose **Edit** on a role to see every section of WorshipHQ. For each section choose **View** (can see it) or **Manage** (can add and change things). A person with only **View** sees the information but cannot add, edit or delete anything, and the buttons for it are switched off. Use **All view** or **Clear** to set everything at once." },
       { h: "Custom roles" },
       { steps: [
         "Under **Custom roles**, type a **Role name**, e.g. \"Finance - Day Born\".",
@@ -97,7 +97,7 @@ export const admin: DocArticle[] = [
     who: "Owners and Admins",
     appPath: "/app/settings",
     body: [
-      { p: "Go to **Settings**, then **Join link**. Each form has its own builder: member self-registration, visitor form, children's registration and teens' registration." },
+      { p: "Go to **Settings**, then **Links & forms**. Each sign-up form has a **Customize form** button that opens its builder: member self-registration, visitor form, children's registration and teens' registration. Every link also has **Copy link**, **QR** and **Open**." },
       { steps: [
         "Open the form's builder.",
         "Switch fields on or off, and mark them **Required** or not.",
@@ -118,7 +118,7 @@ export const admin: DocArticle[] = [
     appPath: "/app/settings",
     body: [
       { p: "Your church link is the short name in all your shared links, e.g. worshiphq.app/join/**gracetemple**. It's used for membership, visitor, prayer, giving and other forms." },
-      { steps: ["Go to **Settings**, then **Join link**.", "Under **Your church link**, choose **Edit**.", "Type the new short name and check the **Preview**.", "Save."] },
+      { steps: ["Go to **Settings**, then **Links & forms**.", "Under **Your church link name**, choose **Edit**.", "Type the new short name and check the **Preview**.", "Save."] },
       { note: "Changing it changes every link at once. Links and QR codes you've already printed or shared with the old name will stop working." },
     ],
   },
@@ -158,6 +158,7 @@ export const admin: DocArticle[] = [
         "**Download everything**: one Excel file with every table you can access, each on its own sheet. You can also download it as a zip of CSV files.",
         "**Download a single table**: e.g. members, giving or attendance, as Excel or CSV.",
       ] },
+      { p: "Every Excel download is a finished report: your church name and the report title at the top, the period and date it was made, a coloured header row, neat banded rows, proper money and date formats, filters on the headings and print settings. It uses your church colour." },
       { tip: "CSV files can be edited and brought back in through Import." },
       { note: "Downloading everything at once needs a higher plan. Single tables are available on your plan wherever that section is." },
     ],

@@ -26,7 +26,7 @@ export const giving: DocArticle[] = [
       ] },
       { h: "Reading the page" },
       { p: "Pick the month at the top, and filter the list to **Tithes**, **Offertory** or **Other funds**. The cards show the month's giving (and the change from last month), tithes, offertory and Mobile Money. **Giving by fund** and **How it came in** show where it came from. The list is shown 15 at a time with **Newer** and **Older** buttons. Gifts made online appear here automatically." },
-      { list: ["**Export CSV** downloads all giving.", "Delete a gift or an offertory part with its bin button. It goes to the Recycle bin, where you can restore it for 7 days."] },
+      { list: ["**Export Excel** downloads all giving as a finished report with your church name and a title.", "Delete a gift or an offertory part with its bin button. It goes to the Recycle bin, where you can restore it for 7 days."] },
     ],
   },
   {
@@ -60,7 +60,7 @@ export const giving: DocArticle[] = [
       { h: "Records and reports" },
       { list: [
         "**Weekly records**: what was recorded each week, and whether each receipt was **Sent**.",
-        "**Monthly report**: **Total collected**, **Unique payers**, **Avg per payer**, a **Weekly breakdown** and a **Payer summary**. **Export CSV** downloads it.",
+        "**Monthly report**: **Total collected**, **Unique payers**, **Avg per payer**, a **Weekly breakdown** and a **Payer summary**. **Export Excel** downloads it.",
         "**SMS receipt template**: edit the receipt wording, or choose **Reset to default**.",
       ] },
     ],
@@ -172,7 +172,7 @@ export const giving: DocArticle[] = [
       { h: "Contributions, report and receipts" },
       { list: [
         "**Contributions**: every entry. Edit an amount or name with the pencil, or delete it.",
-        "**Report**: total raised, from members, from visitors, from envelopes, goal progress, and a contributor summary. **Export CSV** downloads it.",
+        "**Report**: total raised, from members, from visitors, from envelopes, goal progress, and a contributor summary. **Export Excel** downloads it.",
         "**Edit harvest receipt message** changes the SMS receipt wording.",
       ] },
     ],

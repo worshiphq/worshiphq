@@ -97,7 +97,7 @@ export const gettingStarted: DocArticle[] = [
         "**Departments**: Choir, Ushering, Youth and so on (Settings, Departments).",
         "**Zones & fellowships** (optional): any other ways you group members (Settings, Zones & fellowships).",
         "**Your team**: invite the people who will help run WorshipHQ and choose their roles (Settings, Users & roles).",
-        "**Join link and forms**: choose what new members fill in (Settings, Join link).",
+        "**Join link and forms**: choose what new members fill in (Settings, Links & forms).",
         "**Members**: import your existing list from Excel, add them one by one, or share your join link.",
         "**SMS**: request your church's SMS name (sender ID) and buy SMS credits (Settings, SMS Settings).",
         "**Online giving** (optional): connect where giving is paid (Settings, Online Payments).",

@@ -8,7 +8,7 @@ export const publicPages: DocArticle[] = [
     summary: "The links members and visitors use, where to find them, and how to share them.",
     appPath: "/app/settings",
     body: [
-      { p: "Your church has a set of public pages that anyone can open on their phone, with no login. Most are in **Settings**, then **Join link**, each with **Copy** and **Open**. The giving link is at the top of **Giving** (with a QR code), and each service's check-in link and QR code are on that service's page." },
+      { p: "Your church has a set of public pages that anyone can open on their phone, with no login. Most are in **Settings**, then **Links & forms**, each with **Copy** and **Open**. The giving link is at the top of **Giving** (with a QR code), and each service's check-in link and QR code are on that service's page." },
       { table: { head: ["Link", "What it's for"], rows: [
         ["**Join**", "New members register themselves."],
         ["**Visit**", "First-time visitors leave their details."],
@@ -65,7 +65,7 @@ export const publicPages: DocArticle[] = [
     summary: "Let parents register their children, and teens register themselves.",
     body: [
       { p: "Share the **Children's registration** link with parents. It collects the child's details plus guardian details, school and class. The **Teens registration** link lets teens register and choose the departments they serve in." },
-      { p: "Both forms can be customised in **Settings**, **Join link**. A parent or guardian must confirm consent before a child's details are saved." },
+      { p: "Both forms can be customised in **Settings**, **Links & forms**. A parent or guardian must confirm consent before a child's details are saved." },
     ],
   },
   {
