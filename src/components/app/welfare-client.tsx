@@ -1,5 +1,6 @@
 "use client";
 
+import { SearchSelect } from "@/components/app/search-select";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -468,10 +469,14 @@ function RecordDuesForm({ members, accounts, rates, currentYear }: {
       <div className="mb-1 flex items-center gap-2 text-sm font-semibold"><HandCoins className="size-4 text-success" /> Record dues (across months & years)</div>
       <p className="mb-3 text-xs text-ink-muted">Backfill any span - e.g. Jan 2021 → this month - and each year uses its own rate (or set one amount for all months below).</p>
       <div className="grid gap-2 sm:grid-cols-2">
-        <select value={personId} onChange={(e) => setPersonId(e.target.value)} className={inputCls}>
-          <option value="">- Member -</option>
-          {members.map((m) => <option key={m.id} value={m.id}>{m.name}{m.hasPhone ? "" : " (no phone)"}</option>)}
-        </select>
+        <SearchSelect
+          value={personId}
+          onChange={setPersonId}
+          compact
+          placeholder="Search or choose a member…"
+          searchPlaceholder="Type a member's name…"
+          options={members.map((m) => ({ value: m.id, label: m.name, hint: m.hasPhone ? undefined : "no phone" }))}
+        />
         <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)}
           placeholder="Amount / month (optional - else uses each year's rate)" className={inputCls} />
       </div>
@@ -759,9 +764,31 @@ function TemplatesDialog({ templates, onClose }: { templates: Templates; onClose
 function AidTab({ data, canWrite }: { data: WelfareData; canWrite: boolean }) {
   const { toast } = useFeedback();
   const [search, setSearch] = useState("");
+  const [type, setType] = useState("");
+  const [year, setYear] = useState("");
+  const [month, setMonth] = useState("");
+  const [page, setPage] = useState(1);
   const [pending, start] = useTransition();
+  const PAGE_SIZE = 15;
 
-  const filtered = data.aid.filter((r) => !search || r.recipientName.toLowerCase().includes(search.toLowerCase()) || r.description?.toLowerCase().includes(search.toLowerCase()));
+  const years = [...new Set(data.aid.map((r) => new Date(r.date).getFullYear()))].sort((x, y) => y - x);
+  const types = [...new Set(data.aid.map((r) => r.type))].sort();
+  const q = search.trim().toLowerCase();
+
+  const filtered = data.aid.filter((r) => {
+    const d = new Date(r.date);
+    if (type && r.type !== type) return false;
+    if (year && d.getFullYear() !== Number(year)) return false;
+    if (month && d.getMonth() + 1 !== Number(month)) return false;
+    if (!q) return true;
+    return r.recipientName.toLowerCase().includes(q) || !!r.description?.toLowerCase().includes(q) || !!r.personName?.toLowerCase().includes(q);
+  });
+  const total = filtered.reduce((sum, r) => sum + (r.amount ?? 0), 0);
+  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+  const cur = Math.min(page, pages);
+  const shown = filtered.slice((cur - 1) * PAGE_SIZE, cur * PAGE_SIZE);
+  const filtering = !!(search || type || year || month);
+  const sel = "h-9 rounded-lg border border-line bg-surface px-2 text-sm text-ink-muted outline-none focus:border-primary/50";
 
   const del = (id: string) => {
     if (!confirmBinDelete("Delete this aid record?")) return;
@@ -771,16 +798,42 @@ function AidTab({ data, canWrite }: { data: WelfareData; canWrite: boolean }) {
 
   return (
     <div className="space-y-3">
-      <div className="relative">
-        <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-        <Input placeholder="Search aid records…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="relative min-w-[14rem] flex-1">
+          <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
+          <Input placeholder="Search recipient or details…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="pl-10" />
+        </div>
+        <select value={type} onChange={(e) => { setType(e.target.value); setPage(1); }} className={sel} aria-label="Type of aid">
+          <option value="">All types</option>
+          {types.map((t) => <option key={t} value={t}>{(TYPE_META[t] ?? { label: t }).label}</option>)}
+        </select>
+        <select value={year} onChange={(e) => { setYear(e.target.value); setPage(1); }} className={sel} aria-label="Year">
+          <option value="">All years</option>
+          {years.map((y) => <option key={y} value={y}>{y}</option>)}
+        </select>
+        <select value={month} onChange={(e) => { setMonth(e.target.value); setPage(1); }} className={sel} aria-label="Month">
+          <option value="">Every month</option>
+          {MONTHS.map((m, i) => <option key={m} value={i + 1}>{m}</option>)}
+        </select>
+        {filtering && (
+          <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setType(""); setYear(""); setMonth(""); setPage(1); }}>
+            <X className="size-3.5" /> Clear
+          </Button>
+        )}
       </div>
+
+      {data.aid.length > 0 && (
+        <p className="text-xs text-ink-muted">
+          {filtered.length} record{filtered.length === 1 ? "" : "s"}{filtering ? " match" : ""} · <b className="text-ink">{ghs(total)}</b> given out
+        </p>
+      )}
+
       {filtered.length === 0 ? (
-        <Card className="p-12 text-center"><Heart className="mx-auto size-10 text-ink-faint" /><p className="mt-3 text-sm text-ink-muted">No aid records yet. Use “Record aid” above.</p></Card>
+        <Card className="p-12 text-center"><Heart className="mx-auto size-10 text-ink-faint" /><p className="mt-3 text-sm text-ink-muted">{filtering ? "No aid records match those filters." : "No aid records yet. Use \“Record aid\” above."}</p></Card>
       ) : (
         <div className={cn("space-y-2", pending && "opacity-60")}>
-          {filtered.map((r) => {
-            const meta = TYPE_META[r.type] ?? TYPE_META.other; const Icon = meta.icon;
+          {shown.map((r) => {
+            const meta = TYPE_META[r.type] ?? { ...TYPE_META.other, label: r.type }; const Icon = meta.icon;
             return (
               <Card key={r.id} className="p-4">
                 <div className="flex items-start gap-3">
@@ -788,8 +841,8 @@ function AidTab({ data, canWrite }: { data: WelfareData; canWrite: boolean }) {
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="text-sm font-medium">{r.recipientName}</span>
-                      <Badge variant="default" className="text-[10px]">{meta.label}</Badge>
-                      {r.amount && r.amount > 0 && <span className="text-sm font-bold text-danger">−{ghs(r.amount)}</span>}
+                      <Badge variant="default" className="text-[10px] capitalize">{meta.label}</Badge>
+                      {r.amount && r.amount > 0 && <span className="text-sm font-bold text-danger">\−{ghs(r.amount)}</span>}
                     </div>
                     {r.description && <p className="mt-1 text-xs text-ink-muted">{r.description}</p>}
                     <div className="mt-1.5 flex flex-wrap gap-x-4 text-xs text-ink-faint">
@@ -802,6 +855,15 @@ function AidTab({ data, canWrite }: { data: WelfareData; canWrite: boolean }) {
               </Card>
             );
           })}
+          {pages > 1 && (
+            <div className="flex items-center justify-between pt-1 text-xs text-ink-muted">
+              <span>Page {cur} of {pages}</span>
+              <div className="flex gap-1.5">
+                <Button size="sm" variant="secondary" disabled={cur <= 1} onClick={() => setPage(cur - 1)}>Previous</Button>
+                <Button size="sm" variant="secondary" disabled={cur >= pages} onClick={() => setPage(cur + 1)}>Next</Button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

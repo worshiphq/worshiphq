@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Modal } from "@/components/ui/modal";
+import { OtherSelect } from "@/components/app/other-select";
+import { SearchSelect } from "@/components/app/search-select";
 
 /**
  * A button that opens a modal with a form bound to a server action.
@@ -91,6 +93,7 @@ export function Field({
   step,
   hint,
   rows,
+  searchable,
 }: {
   label: string;
   name: string;
@@ -104,6 +107,8 @@ export function Field({
   step?: string;
   hint?: string;
   rows?: number;
+  /** A select you can type into to narrow the list (use for members and other long lists). */
+  searchable?: boolean;
 }) {
   const base =
     "flex h-11 w-full rounded-xl border border-line bg-surface px-3.5 text-sm text-ink placeholder:text-ink-faint focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30";
@@ -111,18 +116,16 @@ export function Field({
   return (
     <div>
       <label className="mb-1.5 block text-sm font-medium text-ink-muted">{label}</label>
-      {options ? (
-        <select name={name} defaultValue={defaultValue} className={base} required={required}>
-          {options.map((o) => {
-            const val = typeof o === "string" ? o : o.value;
-            const lbl = typeof o === "string" ? o : o.label;
-            return (
-              <option key={val} value={val}>
-                {lbl}
-              </option>
-            );
-          })}
-        </select>
+      {options && searchable ? (
+        <SearchSelect
+          name={name}
+          required={required}
+          defaultValue={defaultValue == null ? "" : String(defaultValue)}
+          options={options.map((o) => (typeof o === "string" ? { value: o, label: o } : o))}
+          placeholder={placeholder ?? "Select…"}
+        />
+      ) : options ? (
+        <OtherSelect name={name} options={options} defaultValue={defaultValue} className={base} required={required} />
       ) : suggestions ? (
         <>
           <input

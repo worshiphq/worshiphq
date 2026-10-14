@@ -84,7 +84,7 @@ export default async function WelfarePage({
           )}
           <Field label="Description" name="description" placeholder="Details of aid given..." />
           <Field label="Date" name="date" type="date" />
-          <Field label="Link to member (optional)" name="personId"
+          <Field label="Link to member (optional)" name="personId" searchable
             options={[{ label: "- None -", value: "" }, ...memberOptions]} />
         </ActionDialog>
       </PageHeader>

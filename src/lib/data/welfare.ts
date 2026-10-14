@@ -111,7 +111,7 @@ export async function getWelfareData(churchId: string, year?: number, range?: We
       where: { churchId, kind: "aid" },
       include: { person: { select: { firstName: true, lastName: true } } },
       orderBy: { date: "desc" },
-      take: 200,
+      take: 3000,
     }),
     db.church.findUnique({ where: { id: churchId }, select: { welfareStart: true } }),
   ]);

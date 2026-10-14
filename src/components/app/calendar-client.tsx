@@ -1,5 +1,6 @@
 "use client";
 
+import { OtherSelect } from "@/components/app/other-select";
 import { useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
@@ -164,9 +165,7 @@ export function CalendarClient({ events, canWrite }: { events: CalEvent[]; canWr
               <div className="sm:col-span-2"><Label>Event title</Label><Input name="title" placeholder="e.g. Youth Conference" required /></div>
               <div>
                 <Label>Type</Label>
-                <select name="type" defaultValue="Service" className={inputCls}>
-                  {["Service","Conference","Program","Meeting","Outreach","Rehearsal","Other"].map((t) => <option key={t}>{t}</option>)}
-                </select>
+                <OtherSelect name="type" defaultValue="Service" className={inputCls} options={["Service","Conference","Program","Meeting","Outreach","Rehearsal","Other"]} otherPlaceholder="What kind of event?" />
               </div>
               <div><Label>Start time</Label><Input name="time" type="time" defaultValue="09:00" /></div>
               <div><Label>End date (multi-day, optional)</Label><Input name="endDate" type="date" min={selectedDate} /></div>
