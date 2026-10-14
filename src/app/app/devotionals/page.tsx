@@ -2,9 +2,9 @@ import { requireModule } from "@/lib/auth";
 import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { DevotionalsClient } from "@/components/app/devotionals-client";
-import { createDevotional } from "@/app/actions/devotionals";
 import { PageHeader } from "@/components/app/page-header";
-import { ActionDialog, Field } from "@/components/app/action-dialog";
+import { PendingLink } from "@/components/ui/pending-link";
+import { audienceOptions } from "@/lib/sms/audience";
 import { Plus } from "lucide-react";
 
 export const metadata = { title: "Devotionals" };
@@ -12,36 +12,29 @@ export const metadata = { title: "Devotionals" };
 export default async function DevotionalsPage() {
   const session = await requireModule("devotionals");
 
-  const devotionals = await db.devotional.findMany({
-    where: { churchId: session.churchId },
-    orderBy: { date: "desc" },
-    take: 100,
-  });
+  const [devotionals, audiences] = await Promise.all([
+    db.devotional.findMany({
+      where: { churchId: session.churchId },
+      orderBy: { date: "desc" },
+      take: 1000,
+    }),
+    audienceOptions(session.churchId),
+  ]);
 
   return (
     <div>
       <PageHeader
         title="Devotionals"
-        description="Share daily devotionals and Bible study notes with your congregation."
+        description="Write devotionals and Bible study notes, and text them to your church."
       >
-        <ActionDialog
-          triggerLabel="Add devotional"
-          triggerIcon={<Plus />}
-          title="Add devotional"
-          description="Write a devotional or Bible study note to share."
-          submitLabel="Save"
-          action={createDevotional}
-          disabled={!canEdit(session, "devotionals")}
-        >
-          <Field label="Title" name="title" placeholder="Devotional title" required />
-          <Field label="Scripture" name="scripture" placeholder="e.g. Psalm 23:1-6" />
-          <Field label="Author" name="author" placeholder="Writer's name" />
-          <Field label="Date" name="date" type="date" />
-          <Field label="Body" name="body" placeholder="Write your devotional here..." required />
-        </ActionDialog>
+        {canEdit(session, "devotionals") && (
+          <PendingLink href="/app/devotionals/new" variant="primary" icon={<Plus />} pendingLabel="Opening…">Add devotional</PendingLink>
+        )}
       </PageHeader>
 
       <DevotionalsClient
+        canWrite={canEdit(session, "devotionals")}
+        audiences={audiences}
         devotionals={devotionals.map((d) => ({
           id: d.id,
           title: d.title,

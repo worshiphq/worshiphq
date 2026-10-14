@@ -2,9 +2,8 @@ import { requireModule } from "@/lib/auth";
 import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { SermonsClient } from "@/components/app/sermons-client";
-import { createSermon } from "@/app/actions/sermons";
 import { PageHeader } from "@/components/app/page-header";
-import { ActionDialog, Field } from "@/components/app/action-dialog";
+import { PendingLink } from "@/components/ui/pending-link";
 import { Plus } from "lucide-react";
 
 export const metadata = { title: "Sermons" };
@@ -15,7 +14,7 @@ export default async function SermonsPage() {
   const sermons = await db.sermon.findMany({
     where: { churchId: session.churchId },
     orderBy: { date: "desc" },
-    take: 200,
+    take: 1000,
   });
 
   return (
@@ -24,27 +23,13 @@ export default async function SermonsPage() {
         title="Sermons"
         description="Manage sermon notes, audio, and video for your congregation."
       >
-        <ActionDialog
-          triggerLabel="Add sermon"
-          triggerIcon={<Plus />}
-          title="Add sermon"
-          description="Record a sermon with notes and media links."
-          submitLabel="Save"
-          action={createSermon}
-          disabled={!canEdit(session, "sermons")}
-        >
-          <Field label="Title" name="title" placeholder="Sermon title" required />
-          <Field label="Preacher" name="preacher" placeholder="Pastor name" />
-          <Field label="Series" name="series" placeholder="Series name (optional)" />
-          <Field label="Scripture" name="scripture" placeholder="e.g. John 3:16" />
-          <Field label="Date" name="date" type="date" />
-          <Field label="Audio URL" name="audioUrl" placeholder="https://..." />
-          <Field label="Video URL" name="videoUrl" placeholder="https://youtube.com/..." />
-          <Field label="Notes" name="notes" placeholder="Sermon notes or outline..." />
-        </ActionDialog>
+        {canEdit(session, "sermons") && (
+          <PendingLink href="/app/sermons/new" variant="primary" icon={<Plus />} pendingLabel="Opening…">Add sermon</PendingLink>
+        )}
       </PageHeader>
 
       <SermonsClient
+        canWrite={canEdit(session, "sermons")}
         sermons={sermons.map((s) => ({
           id: s.id,
           title: s.title,

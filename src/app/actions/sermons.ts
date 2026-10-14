@@ -39,6 +39,42 @@ export async function createSermon(formData: FormData) {
   revalidatePath("/app/sermons");
 }
 
+/** Create or update a sermon (the editor page saves through this). */
+export async function saveSermon(input: {
+  id?: string; title: string; preacher: string; series: string; scripture: string; date: string;
+  audioUrl: string; videoUrl: string; notes: string; published: boolean;
+}) {
+  const session = await requireManage("sermons");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+
+  const title = input.title.trim();
+  if (!title) return { ok: false as const, error: "Give the sermon a title." };
+  const url = (v: string) => v.trim() || null;
+  const data = {
+    title,
+    preacher: input.preacher.trim() || null,
+    series: input.series.trim() || null,
+    scripture: input.scripture.trim() || null,
+    notes: input.notes.trim() || null,
+    audioUrl: url(input.audioUrl),
+    videoUrl: url(input.videoUrl),
+    published: input.published,
+    ...(input.date && /^\d{4}-\d{2}-\d{2}$/.test(input.date) ? { date: new Date(`${input.date}T12:00:00`) } : {}),
+  };
+
+  let id = input.id;
+  if (id) {
+    const res = await db.sermon.updateMany({ where: { id, churchId: session.churchId }, data });
+    if (res.count === 0) return { ok: false as const, error: "Sermon not found." };
+  } else {
+    const created = await db.sermon.create({ data: { churchId: session.churchId, ...data } });
+    id = created.id;
+  }
+  await logAudit({ churchId: session.churchId, userId: session.userId, action: input.id ? "update" : "create", entity: "sermon", entityId: id, detail: `${input.id ? "Updated" : "Added"} sermon "${title}"` });
+  revalidatePath("/app/sermons");
+  return { ok: true as const, id };
+}
+
 export async function deleteSermon(formData: FormData) {
   const session = await requireManage("sermons");
   if (session.isDemo) return;
