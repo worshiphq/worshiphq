@@ -28,6 +28,7 @@ export interface TitheMember {
   firstName: string;
   lastName: string;
   phone: string | null;
+  memberId: string | null;
   photoUrl: string | null;
 }
 
@@ -96,7 +97,7 @@ export async function getTitheData(churchId: string, year: number, month: number
     db.person.findMany({
       where: { churchId, status: { in: ["active", "visitor"] } },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-      select: { id: true, firstName: true, lastName: true, phone: true, photoUrl: true },
+      select: { id: true, firstName: true, lastName: true, phone: true, memberId: true, photoUrl: true },
     }),
     titheFund
       ? db.gift.findMany({

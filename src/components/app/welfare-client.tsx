@@ -26,6 +26,7 @@ import { cn } from "@/lib/utils";
 import { confirmBinDelete } from "@/lib/recycle-bin-events";
 import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
+import { matchesPerson } from "@/lib/search";
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const MONTHS_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -122,7 +123,7 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
   const years = wideYears();
   const owedOf = (m: (typeof data.members)[number]) => (rangeMode ? m.rangeOwed : m.owed);
   const paidOf = (m: (typeof data.members)[number]) => (rangeMode ? m.rangePaid : m.paidTotal);
-  const matches = data.members.filter((m) => !search || m.name.toLowerCase().includes(search.toLowerCase()));
+  const matches = data.members.filter((m) => matchesPerson(search, m));
   const counts = { all: matches.length, owing: matches.filter((m) => owedOf(m) > 0).length, paid: matches.filter((m) => owedOf(m) <= 0).length };
   const filtered = matches
     .filter((m) => (status === "owing" ? owedOf(m) > 0 : status === "paid" ? owedOf(m) <= 0 : true))
@@ -238,7 +239,7 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
           <div className="mb-3 flex flex-wrap items-center gap-2">
             <div className="relative min-w-48 flex-1">
               <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-              <Input placeholder="Search members…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="pl-10" />
+              <Input placeholder="Search by name, phone or member ID…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="pl-10" />
             </div>
             <div className="flex gap-1 rounded-xl bg-surface-2 p-1">
               {([["all", "Everyone"], ["owing", "Owing"], ["paid", "Paid up"]] as const).map(([k, label]) => (

@@ -15,6 +15,7 @@ import { addGroupMembers, removeGroupMember } from "@/app/actions/groups";
 import { type ScheduleEntry } from "@/lib/groups/meeting-reminder";
 import { cn } from "@/lib/utils";
 
+import { matchesPerson } from "@/lib/search";
 type GroupInfo = Pick<GroupRow, "id" | "name" | "type" | "description" | "schedule" | "meetingDays" | "location" | "isActive" | "onForms" | "leaderId" | "meetingReminderOn" | "meetingReminderAuto" | "meetingReminderLeadDays" | "meetingReminderHour" | "meetingReminderMinute" | "meetingReminderWeekday" | "meetingReminderText"> & {
   leader: { id: string; name: string; phone: string | null } | null;
 };
@@ -40,7 +41,7 @@ export function GroupDetailClient({
   const [removing, setRemoving] = useState<string | null>(null);
 
   const q = search.trim().toLowerCase();
-  const shown = members.filter((m) => !q || m.name.toLowerCase().includes(q) || (m.phone ?? "").includes(q));
+  const shown = members.filter((m) => !q || matchesPerson(q, m));
   const candidates = people.filter((p) => !p.member).map((p) => ({ value: p.id, label: p.name, hint: p.phone ?? undefined }));
   const reachable = members.filter((m) => m.phone).length;
 

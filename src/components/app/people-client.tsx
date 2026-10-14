@@ -31,6 +31,7 @@ import { formatDate, cn } from "@/lib/utils";
 import { confirmBinDelete } from "@/lib/recycle-bin-events";
 import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
+import { matchesPerson } from "@/lib/search";
 const ageGroupTabs = [
   { key: "adult", label: "Adults", icon: Users },
   { key: "teen", label: "Teens", icon: GraduationCap },
@@ -90,8 +91,7 @@ export function PeopleClient({
         return (
           p.fullName.toLowerCase().includes(q) ||
           (p.email ?? "").toLowerCase().includes(q) ||
-          (p.memberId ?? "").toLowerCase().includes(q) ||
-          (p.phone ?? "").toLowerCase().includes(q) ||
+          matchesPerson(query, { name: p.fullName, phone: p.phone, memberId: p.memberId, email: p.email }) ||
           p.departments.some((d) => d.toLowerCase().includes(q)) ||
           p.ministries.some((m) => m.toLowerCase().includes(q)) ||
           (p.school ?? "").toLowerCase().includes(q) ||
@@ -278,7 +278,7 @@ export function PeopleClient({
             <input
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              placeholder={`Search ${ageTab === "adult" ? "people" : ageTab === "teen" ? "teens" : "children"}...`}
+              placeholder={`Search ${ageTab === "adult" ? "people" : ageTab === "teen" ? "teens" : "children"} by name, phone or ID...`}
               className="h-10 w-full rounded-xl border border-line bg-surface pl-9 pr-3 text-sm placeholder:text-ink-faint focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 sm:w-64"
             />
           </div>

@@ -11,12 +11,15 @@ import { useFeedback } from "@/components/ui/feedback";
 import { checkInMember, checkInByMemberId, undoCheckIn } from "@/app/actions/attendance";
 import { cn } from "@/lib/utils";
 
+import { matchesPerson } from "@/lib/search";
 interface Candidate {
   id: string;
   name: string;
   gender: string | null;
   photoUrl?: string | null;
   status: string;
+  phone?: string | null;
+  memberId?: string | null;
   checkedIn?: boolean;
   groups?: Record<string, string[]>;
 }
@@ -99,7 +102,7 @@ export function CheckInPanel({
   const isIn = (c: Candidate) => Boolean(c.checkedIn) || optimisticIn.has(c.id);
 
   const filtered = q
-    ? candidates.filter((c) => c.name.toLowerCase().includes(q.toLowerCase())).slice(0, 8)
+    ? candidates.filter((c) => matchesPerson(q, c)).slice(0, 8)
     : [];
 
   /**
@@ -213,7 +216,7 @@ export function CheckInPanel({
               ref={searchRef}
               value={q}
               onChange={(e) => setQ(e.target.value)}
-              placeholder="Start typing a name…"
+              placeholder="Type a name, phone number or member ID…"
               className="h-11 w-full rounded-xl border border-line bg-base pl-10 pr-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
             />
             {filtered.length > 0 && (

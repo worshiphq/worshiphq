@@ -22,6 +22,7 @@ import { formatCurrency } from "@/config/brand";
 import { formatDate, cn } from "@/lib/utils";
 import type { TitheMember, WeekGroup } from "@/lib/data/giving";
 
+import { matchesPerson } from "@/lib/search";
 const methods = ["MTN MoMo", "Telecel Cash", "AirtelTigo", "Card", "Bank", "Cash"] as const;
 const methodIcon: Record<string, typeof Smartphone> = {
   "MTN MoMo": Smartphone, "Telecel Cash": Smartphone, AirtelTigo: Smartphone, Card: CreditCard, Bank: Landmark, Cash: Banknote,
@@ -260,10 +261,7 @@ function BatchRecorder({ members, fundType, activeFundName, accounts }: { member
 
   const filtered = useMemo(() => {
     if (!search.trim()) return members.slice(0, 20);
-    const q = search.toLowerCase();
-    return members.filter((m) =>
-      `${m.firstName} ${m.lastName}`.toLowerCase().includes(q),
-    ).slice(0, 20);
+    return members.filter((m) => matchesPerson(search, { name: `${m.firstName} ${m.lastName}`, phone: m.phone, memberId: m.memberId })).slice(0, 20);
   }, [members, search]);
 
   const addEntry = (member: TitheMember) => {
@@ -384,7 +382,7 @@ function BatchRecorder({ members, fundType, activeFundName, accounts }: { member
             value={search}
             onChange={(e) => { setSearch(e.target.value); setShowList(true); }}
             onFocus={() => setShowList(true)}
-            placeholder="Search member to add…"
+            placeholder="Search by name, phone or member ID…"
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-ink-faint"
           />
         </div>

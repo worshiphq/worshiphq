@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, FileText, Printer, ChevronRight, ArrowLeft, HandCoins } from "lucide-react";
 
+import { matchesPerson } from "@/lib/search";
 type GiftLine = {
   id: string;
   amount: number;
@@ -48,8 +49,7 @@ export function StatementsClient({
 
   const filtered = donors.filter((d) => {
     if (!search) return true;
-    const q = search.toLowerCase();
-    return d.name.toLowerCase().includes(q) || d.memberId?.toLowerCase().includes(q);
+    return matchesPerson(search, { name: d.name, phone: d.phone, memberId: d.memberId, email: d.email });
   });
 
   const handlePrint = () => {
@@ -154,7 +154,7 @@ export function StatementsClient({
       <div className="relative">
         <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
         <Input
-          placeholder="Search donors by name or ID..."
+          placeholder="Search donors by name, phone or ID..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
           className="pl-10"

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { matchesPerson } from "@/lib/search";
 export type SearchOption = { value: string; label: string; hint?: string };
 
 /**
@@ -40,7 +41,7 @@ export function SearchSelect({
   const empty = options.find((o) => o.value === "");
   const real = options.filter((o) => o.value !== "");
   const q = query.trim().toLowerCase();
-  const shown = (q ? real.filter((o) => `${o.label} ${o.hint ?? ""}`.toLowerCase().includes(q)) : real).slice(0, 100);
+  const shown = (q ? real.filter((o) => matchesPerson(q, { name: o.label, text: o.hint })) : real).slice(0, 100);
   const chosen = real.find((o) => o.value === current);
 
   function pick(v: string) {

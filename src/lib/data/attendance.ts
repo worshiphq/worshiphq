@@ -207,7 +207,7 @@ export async function getCheckInCandidates(churchId: string, sessionId: string) 
       where: { churchId },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
       select: {
-        id: true, firstName: true, lastName: true, gender: true, status: true, photoUrl: true,
+        id: true, firstName: true, lastName: true, gender: true, status: true, photoUrl: true, phone: true, memberId: true,
         departments: { select: { name: true } },
         department: { select: { name: true } },
         categoryOptions: { select: { name: true, categoryId: true } },
@@ -223,6 +223,8 @@ export async function getCheckInCandidates(churchId: string, sessionId: string) 
   return people.map((p) => ({
     id: p.id,
     name: `${p.firstName} ${p.lastName}`,
+    phone: p.phone,
+    memberId: p.memberId,
     gender: p.gender,
     photoUrl: p.photoUrl,
     status: p.status,

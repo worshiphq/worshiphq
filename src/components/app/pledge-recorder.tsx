@@ -10,6 +10,7 @@ import { createPledge } from "@/app/actions/pledges";
 import { phoneValidityMessage } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 
+import { matchesPerson } from "@/lib/search";
 export interface MemberOption {
   id: string;
   name: string;
@@ -40,7 +41,7 @@ export function PledgeRecorder({
     const q = query.trim().toLowerCase();
     if (!q) return members.slice(0, 8);
     return members
-      .filter((m) => m.name.toLowerCase().includes(q) || m.phone?.includes(q) || m.memberId?.toLowerCase().includes(q))
+      .filter((m) => matchesPerson(q, m))
       .slice(0, 8);
   }, [query, members]);
 

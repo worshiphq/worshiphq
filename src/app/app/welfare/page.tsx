@@ -47,7 +47,7 @@ export default async function WelfarePage({
     getWelfareData(session.churchId, year, range),
     db.person.findMany({
       where: { churchId: session.churchId, status: { not: "inactive" } },
-      select: { id: true, firstName: true, lastName: true, phone: true },
+      select: { id: true, firstName: true, lastName: true, phone: true, memberId: true },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     }),
     getAccountOptions(session.churchId),
@@ -56,7 +56,7 @@ export default async function WelfarePage({
   ]);
 
   const accountField = accounts.length > 1;
-  const memberOptions = people.map((p) => ({ label: `${p.firstName} ${p.lastName}`, value: p.id }));
+  const memberOptions = people.map((p) => ({ label: `${p.firstName} ${p.lastName}`, value: p.id, hint: [p.memberId, p.phone].filter(Boolean).join(" · ") || undefined }));
 
   return (
     <div>

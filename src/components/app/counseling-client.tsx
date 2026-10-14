@@ -349,10 +349,10 @@ function SessionForm({ row, members, counselors, me, onClose }: {
               value={personId}
               onChange={(v) => { setPersonId(v); if (v) { setName(""); } }}
               placeholder="Search for a member…"
-              searchPlaceholder="Type a member's name…"
+              searchPlaceholder="Name, phone or member ID…"
               options={[
                 { value: "", label: "Not a member (type a name below)" },
-                ...members.map((m) => ({ value: m.id, label: m.name, hint: m.phone ? undefined : "no phone" })),
+                ...members.map((m) => ({ value: m.id, label: m.name, hint: m.phone ?? "no phone" })),
               ]}
             />
             {!personId && (

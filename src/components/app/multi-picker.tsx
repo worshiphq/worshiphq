@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
+import { matchesPerson } from "@/lib/search";
 export type PickerOption = { value: string; label: string; hint?: string };
 
 /**
@@ -27,7 +28,7 @@ export function MultiPicker({
 
   const label = new Map(options.map((o) => [o.value, o.label]));
   const q = query.trim().toLowerCase();
-  const shown = (q ? options.filter((o) => `${o.label} ${o.hint ?? ""}`.toLowerCase().includes(q)) : options).slice(0, 80);
+  const shown = (q ? options.filter((o) => matchesPerson(q, { name: o.label, text: o.hint })) : options).slice(0, 80);
 
   function toggle(v: string) {
     const next = selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v];

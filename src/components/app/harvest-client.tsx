@@ -25,6 +25,7 @@ import { DEFAULT_HARVEST_RECEIPT } from "@/lib/harvest/receipt";
 import { BIN_TOAST, RECYCLE_BIN_DAYS } from "@/lib/recycle-bin-config";
 import { confirmBinDelete } from "@/lib/recycle-bin-events";
 
+import { matchesPerson } from "@/lib/search";
 const methods = ["MTN MoMo", "Telecel Cash", "AirtelTigo", "Card", "Cash"] as const;
 const methodIcon: Record<string, typeof Smartphone> = {
   "MTN MoMo": Smartphone, "Telecel Cash": Smartphone, AirtelTigo: Smartphone, Card: CreditCard, Cash: Banknote,
@@ -425,8 +426,7 @@ function ContributionRecorder({ members, year, accounts }: { members: HarvestDat
 
   const filtered = useMemo(() => {
     if (!search.trim()) return members.slice(0, 20);
-    const q = search.toLowerCase();
-    return members.filter((m) => `${m.firstName} ${m.lastName}`.toLowerCase().includes(q)).slice(0, 20);
+    return members.filter((m) => matchesPerson(search, { name: `${m.firstName} ${m.lastName}`, phone: m.phone, memberId: m.memberId })).slice(0, 20);
   }, [members, search]);
 
   const addMember = (m: typeof members[0]) => {
@@ -524,7 +524,7 @@ function ContributionRecorder({ members, year, accounts }: { members: HarvestDat
           <div className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3.5 py-2.5">
             <Search className="size-4 text-ink-faint" />
             <input value={search} onChange={(e) => { setSearch(e.target.value); setShowList(true); }} onFocus={() => setShowList(true)}
-              placeholder="Search church member…" className="flex-1 bg-transparent text-sm outline-none placeholder:text-ink-faint" />
+              placeholder="Search by name, phone or member ID…" className="flex-1 bg-transparent text-sm outline-none placeholder:text-ink-faint" />
           </div>
           {showList && (
             <>

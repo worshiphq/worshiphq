@@ -1,3 +1,4 @@
+import { phoneKey } from "@/lib/search";
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -24,17 +25,23 @@ export async function GET(req: NextRequest) {
 
   const churchId = session.churchId;
   const contains = { contains: q, mode: "insensitive" as const };
+  // A phone number typed with spaces ("024 123 4567") is one search, not three.
+  const tokens = /^[+\d][\d\s\-()]*$/.test(q) ? [q.replace(/[\s\-()]/g, "")] : q.split(/\s+/).filter(Boolean);
 
   const [people, groups, events] = await Promise.all([
     db.person.findMany({
       where: {
         churchId,
-        OR: [
-          { firstName: contains },
-          { lastName: contains },
-          { phone: contains },
-          { memberId: contains },
-        ],
+        // Every word typed must match something about the person, so "Kofi Mensah" and "0241234567" both work.
+        AND: tokens.map((tok) => ({
+          OR: [
+            { firstName: { contains: tok, mode: "insensitive" as const } },
+            { lastName: { contains: tok, mode: "insensitive" as const } },
+            { otherNames: { contains: tok, mode: "insensitive" as const } },
+            { memberId: { contains: tok, mode: "insensitive" as const } },
+            ...(phoneKey(tok).length >= 3 && /^[+\d][\d\-()]*$/.test(tok) ? [{ phone: { contains: phoneKey(tok) } }] : []),
+          ],
+        })),
       },
       select: { id: true, firstName: true, lastName: true, phone: true, memberId: true, photoUrl: true, gender: true, status: true },
       orderBy: [{ firstName: "asc" }],

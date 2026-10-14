@@ -37,7 +37,7 @@ export interface HarvestData {
   /** Counted lump sums (anonymous envelopes): total amount and envelopes. */
   anonymousTotal: number;
   envelopeCount: number;
-  members: { id: string; firstName: string; lastName: string; phone: string | null; photoUrl: string | null }[];
+  members: { id: string; firstName: string; lastName: string; phone: string | null; memberId: string | null; photoUrl: string | null }[];
 }
 
 export async function getHarvestData(churchId: string, year: number): Promise<HarvestData> {
@@ -54,7 +54,7 @@ export async function getHarvestData(churchId: string, year: number): Promise<Ha
     db.person.findMany({
       where: { churchId, status: { in: ["active", "visitor"] } },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-      select: { id: true, firstName: true, lastName: true, phone: true, photoUrl: true },
+      select: { id: true, firstName: true, lastName: true, phone: true, memberId: true, photoUrl: true },
     }),
   ]);
 

@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { MemberAvatar } from "@/components/ui/member-avatar";
 import { Search, LayoutGrid, List, Phone, Mail, Briefcase } from "lucide-react";
 
+import { matchesPerson } from "@/lib/search";
 type MemberRow = {
   id: string;
   name: string;
@@ -42,8 +43,7 @@ export function DirectoryClient({
     if (!search) return true;
     const q = search.toLowerCase();
     return (
-      m.name.toLowerCase().includes(q) ||
-      m.phone?.includes(q) ||
+      matchesPerson(search, m) ||
       m.email?.toLowerCase().includes(q) ||
       m.occupation?.toLowerCase().includes(q)
     );
@@ -55,7 +55,7 @@ export function DirectoryClient({
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
           <Input
-            placeholder="Search by name, phone, email..."
+            placeholder="Search by name, phone, member ID or email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"

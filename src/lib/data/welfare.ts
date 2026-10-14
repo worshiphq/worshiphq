@@ -6,6 +6,8 @@ export interface WelfareMemberRow {
   id: string;
   name: string;
   hasPhone: boolean;
+  phone: string | null;
+  memberId: string | null;
   monthsPaidInYear: number[]; // 1-12, for the selected year
   paidTotal: number;          // all-time dues paid
   owed: number;               // computed against yearly rates, from member's start, up to current month
@@ -102,7 +104,7 @@ export async function getWelfareData(churchId: string, year?: number, range?: We
   const [members, rateRows, dues, aidRows, church] = await Promise.all([
     db.person.findMany({
       where: { churchId, status: { not: "inactive" } },
-      select: { id: true, firstName: true, lastName: true, phone: true, welfareStart: true },
+      select: { id: true, firstName: true, lastName: true, phone: true, memberId: true, welfareStart: true },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     }),
     db.welfareRate.findMany({ where: { churchId }, orderBy: { year: "desc" }, select: { year: true, amount: true } }),
@@ -154,6 +156,8 @@ export async function getWelfareData(churchId: string, year?: number, range?: We
       id: m.id,
       name: `${m.firstName} ${m.lastName}`.trim(),
       hasPhone: !!m.phone,
+      phone: m.phone,
+      memberId: m.memberId,
       monthsPaidInYear: (e?.monthsInYear ?? []).sort((a, b) => a - b),
       paidTotal: e?.total ?? 0,
       owed,
