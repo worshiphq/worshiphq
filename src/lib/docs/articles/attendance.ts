@@ -33,7 +33,7 @@ export const attendance: DocArticle[] = [
       ] },
       { p: "Everyone is sorted into Adults, Teens, Children and Visitors automatically from their date of birth and status. Use **Group by** above the Present list to group by department, zone or fellowship instead." },
       { list: [
-        "Search shows everyone, including people already checked in (marked **Checked in**), so nobody is checked in twice. Children are checked in the same way by their teachers, as long as they are registered; the search also finds them by their guardian's details on their profile.",
+        "Search shows everyone, including people already checked in (marked **Checked in**), so nobody is checked in twice. Children are checked in the same way by their teachers, as long as they are registered.",
         "Visitors appear with a **visitor** label.",
         "Rename a service by tapping its name at the top, e.g. \"Convention Day 1\".",
       ] },
