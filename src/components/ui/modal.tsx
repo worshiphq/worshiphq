@@ -8,12 +8,15 @@ export function Modal({
   onClose,
   title,
   description,
+  wide,
   children,
 }: {
   open: boolean;
   onClose: () => void;
   title: string;
   description?: string;
+  /** A wider dialog, for tables and wizards. */
+  wide?: boolean;
   children: React.ReactNode;
 }) {
   useEffect(() => {
@@ -27,7 +30,7 @@ export function Modal({
   return (
     <>
       <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-2rem)] max-w-md -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-2xl border border-line bg-surface p-6 shadow-2xl animate-fade-up">
+      <div className={`fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-2rem)] ${wide ? "max-w-3xl" : "max-w-md"} -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-2xl border border-line bg-surface p-6 shadow-2xl animate-fade-up`}>
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h2 className="font-display text-xl font-bold">{title}</h2>
