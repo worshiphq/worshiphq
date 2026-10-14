@@ -117,7 +117,7 @@ export function PeopleClient({
         {canWrite && isAdultTab && <ImportModal />}
         {isAdultTab && (
           <>
-            <a href="/api/export/people">
+            <a href="/api/export/people?format=csv">
               <Button size="sm" variant="secondary"><Download className="size-4" /> CSV</Button>
             </a>
             <a href="/api/export/people?format=xlsx">

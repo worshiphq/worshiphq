@@ -659,7 +659,7 @@ function MonthlyReport({
             <p className="text-sm text-ink-muted">{uniquePayers.size} unique payers · {allRecords.length} transactions · {withReceipt} receipts sent</p>
           </div>
           <a href={`/api/export/tithes?year=${year}&month=${month}`}>
-            <Button variant="secondary" size="sm"><Download className="size-4" /> Export CSV</Button>
+            <Button variant="secondary" size="sm"><Download className="size-4" /> Export Excel</Button>
           </a>
         </div>
 

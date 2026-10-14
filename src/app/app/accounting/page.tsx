@@ -63,7 +63,7 @@ export default async function AccountingPage({
   return (
     <div>
       <PageHeader title="Accounting" description="Every cedi in and out of your church: giving, expenses and other entries, across your bank, Mobile Money and cash accounts.">
-        <a href={`/api/export/transactions?${exportQs}`}><Button variant="secondary" size="sm"><Download /> Export CSV</Button></a>
+        <a href={`/api/export/transactions?${exportQs}`}><Button variant="secondary" size="sm"><Download /> Export Excel</Button></a>
         <ActionDialog
           triggerLabel="New transaction"
           triggerIcon={<Plus />}

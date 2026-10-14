@@ -865,7 +865,7 @@ function HarvestReport({
             <p className="text-sm text-ink-muted">{contributorCount} contributors · {formatCurrency(totalRaised)} raised</p>
           </div>
           <a href={`/api/export/harvest?year=${year}`}>
-            <Button variant="secondary" size="sm"><Download className="size-4" /> Export CSV</Button>
+            <Button variant="secondary" size="sm"><Download className="size-4" /> Export Excel</Button>
           </a>
         </div>
 

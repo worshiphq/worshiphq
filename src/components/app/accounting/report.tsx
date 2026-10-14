@@ -27,7 +27,7 @@ export function ReportView({ ledger }: { ledger: Ledger }) {
             <p className="text-sm text-ink-muted">{ledger.label}{ledger.activeFilters > 0 ? " · filtered" : ""} · {totals.count.toLocaleString()} entries</p>
           </div>
           <div className="flex gap-2">
-            <a href={`/api/export/transactions?${qs}`}><Button variant="secondary" size="sm"><Download className="size-4" /> CSV</Button></a>
+            <a href={`/api/export/transactions?${qs}&format=csv`}><Button variant="secondary" size="sm"><Download className="size-4" /> CSV</Button></a>
             <a href={`/api/export/transactions?${qs}&format=xlsx`}><Button variant="secondary" size="sm"><FileSpreadsheet className="size-4" /> Excel</Button></a>
           </div>
         </div>

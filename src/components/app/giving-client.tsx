@@ -79,7 +79,7 @@ export function GivingClient({ year, month, kind, entries, pageInfo, funds, stat
   return (
     <div>
       <PageHeader title="Giving & donations" description="Tithes, offertory and Mobile Money giving, all in ₵. Offertory is counted together, so it shows as one total.">
-        <a href="/api/export/giving"><Button variant="secondary" size="sm"><Download /> Export CSV</Button></a>
+        <a href="/api/export/giving"><Button variant="secondary" size="sm"><Download /> Export Excel</Button></a>
         <Button variant="secondary" size="sm" onClick={() => setRecording("gift")} disabled={!canWrite}><Plus /> Record a gift</Button>
         <Button size="sm" onClick={() => setRecording("collection")} disabled={!canWrite}><HandCoins /> Record offertory</Button>
       </PageHeader>

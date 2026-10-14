@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { getFormDefinition } from "@/lib/forms/registration";
 import { hasSection } from "@/lib/permissions";
 import { DATASETS } from "@/lib/export/datasets";
-import ExcelJS from "exceljs";
+import { buildWorkbook } from "@/lib/export/workbook";
 
 export const dynamic = "force-dynamic";
 
@@ -24,38 +24,20 @@ function fmtDate(d: Date): string {
   return d.toISOString().slice(0, 10);
 }
 
-async function toXlsx(title: string, headers: string[], rows: unknown[][]): Promise<Buffer> {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "WorshipHQ";
-  const ws = wb.addWorksheet(title);
-  ws.addRow(headers);
-  const headerRow = ws.getRow(1);
-  headerRow.font = { bold: true };
-  headerRow.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF2563EB" } };
-  headerRow.font = { bold: true, color: { argb: "FFFFFFFF" } };
-  for (const row of rows) {
-    if (row.length === 0) continue;
-    ws.addRow(row.map((v) => (v === null || v === undefined ? "" : v)));
-  }
-  headers.forEach((_, i) => {
-    const col = ws.getColumn(i + 1);
-    col.width = Math.max(12, headers[i].length + 4);
-  });
-  return Buffer.from(await wb.xlsx.writeBuffer());
-}
-
 export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[type]">) {
   const session = await getSession();
   if (!session || session.isDemo) return new Response("Unauthorized", { status: 401 });
   const { type } = await ctx.params;
   const churchId = session.churchId;
   const reqUrl = new URL(_req.url);
-  const format = reqUrl.searchParams.get("format") ?? "csv";
+  const format = reqUrl.searchParams.get("format") === "csv" ? "csv" : "xlsx";
 
   let baseName = "export";
   let headers: string[] = [];
   let rows: unknown[][] = [];
   let sheetTitle = "Export";
+  let reportTitle = "";
+  let subtitle = "";
 
   if (type === "people") {
     if (!session.sections.includes("people")) return new Response("Forbidden", { status: 403 });
@@ -70,6 +52,8 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
     const categories = await db.memberCategory.findMany({ where: { churchId }, orderBy: [{ sortOrder: "asc" }, { name: "asc" }], select: { id: true, name: true } });
     baseName = "members";
     sheetTitle = "Members";
+    reportTitle = "Members register";
+    subtitle = `${people.length} member${people.length === 1 ? "" : "s"}`;
 
     const customLabels = getFormDefinition(church?.registrationFields ?? null)
       .filter((f) => !f.system && f.id !== "department")
@@ -111,6 +95,8 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
     });
     baseName = "giving";
     sheetTitle = "Giving";
+    reportTitle = "Giving records";
+    subtitle = `${gifts.length} record${gifts.length === 1 ? "" : "s"}, ${gifts.reduce((t, g) => t + Number(g.amount), 0).toLocaleString("en-GH", { style: "currency", currency: "GHS" })}`;
     headers = ["Date", "Donor", "Amount", "Currency", "Fund", "Method", "Recurring", "Reference"];
     rows = gifts.map((g) => [
       fmtDate(g.date), g.donorName, Number(g.amount).toFixed(2), g.currency, g.fund?.name,
@@ -138,6 +124,8 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
 
     baseName = `tithes-${monthNames[month]}-${year}`;
     sheetTitle = `Tithes ${monthNames[month]} ${year}`;
+    reportTitle = `Tithes: ${monthNames[month]} ${year}`;
+    subtitle = `${gifts.length} payment${gifts.length === 1 ? "" : "s"} recorded`;
     headers = ["Date", "Name", "Phone", "Amount (GHS)", "Method", "Receipt Sent"];
     const total = gifts.reduce((s, g) => s + Number(g.amount), 0);
     rows = [
@@ -162,6 +150,8 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
     const ledger = await getLedgerRows(churchId, parsed.period, parsed.filters);
     baseName = `accounting-${ledger.label.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "")}`;
     sheetTitle = "Accounting";
+    reportTitle = "Accounting statement";
+    subtitle = `${ledger.label}, ${ledger.rows.length} entr${ledger.rows.length === 1 ? "y" : "ies"}`;
     headers = ["Date", "Description", "Type", "Category", "Fund", "Source", "Paid by", "Account", "Income", "Expense"];
     rows = ledger.rows.map((r) => [
       fmtDate(new Date(r.date)), r.description, r.amount >= 0 ? "Income" : "Expense", r.category, r.fund,
@@ -187,6 +177,8 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
     });
     baseName = `harvest-${hYear}`;
     sheetTitle = `Harvest ${hYear}`;
+    reportTitle = `Harvest ${hYear}`;
+    subtitle = harvest ? harvest.title : "";
     headers = ["Date", "Name", "Type", "Phone", "Amount (GHS)", "Method"];
     if (!harvest || harvest.contributions.length === 0) {
       rows = [];
@@ -214,12 +206,20 @@ export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[typ
     const data = await ds.fetch(churchId);
     baseName = ds.key;
     sheetTitle = ds.label;
+    reportTitle = ds.label;
+    subtitle = `${data.rows.length} record${data.rows.length === 1 ? "" : "s"}`;
     headers = data.headers;
     rows = data.rows;
   }
 
   if (format === "xlsx") {
-    const buf = await toXlsx(sheetTitle, headers, rows);
+    const church = await db.church.findUnique({ where: { id: churchId }, select: { name: true, accentColor: true } });
+    const buf = await buildWorkbook({
+      churchName: church?.name ?? "Church",
+      color: church?.accentColor,
+      preparedBy: session.name || undefined,
+      sheets: [{ name: sheetTitle, title: reportTitle || sheetTitle, subtitle, headers, rows }],
+    });
     return new Response(new Uint8Array(buf), {
       headers: {
         "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

@@ -1,5 +1,4 @@
 import type { NextRequest } from "next/server";
-import ExcelJS from "exceljs";
 import JSZip from "jszip";
 import { getSession } from "@/lib/auth";
 import { hasSection } from "@/lib/permissions";
@@ -7,6 +6,7 @@ import { getChurchPlan } from "@/lib/plan-gate-server";
 import { planRank } from "@/lib/plan-gate";
 import { allowedDatasets, type Dataset } from "@/lib/export/datasets";
 import { db } from "@/lib/db";
+import { buildWorkbook } from "@/lib/export/workbook";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -22,42 +22,27 @@ function toCsv(headers: string[], rows: unknown[][]): string {
   return "﻿" + [headers, ...rows].map((r) => r.map(csvCell).join(",")).join("\r\n");
 }
 
-function styleHeader(ws: ExcelJS.Worksheet, headers: string[]) {
-  const row = ws.getRow(1);
-  row.font = { bold: true, color: { argb: "FFFFFFFF" } };
-  row.fill = { type: "pattern", pattern: "solid", fgColor: { argb: "FF0D7377" } };
-  headers.forEach((h, i) => {
-    ws.getColumn(i + 1).width = Math.max(12, h.length + 4);
-  });
-  ws.views = [{ state: "frozen", ySplit: 1 }];
-}
-
 async function sheetBook(
   sets: { ds: Dataset; data: { headers: string[]; rows: unknown[][] } }[],
-  churchName: string,
+  church: { name: string; color?: string | null; preparedBy?: string },
 ): Promise<Buffer> {
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "WorshipHQ";
-  wb.created = new Date();
-
-  for (const { ds, data } of sets) {
-    // Excel sheet names cap at 31 chars and disallow a few characters.
-    const safe = ds.label.replace(/[\\/*?:[\]]/g, "").slice(0, 31);
-    const ws = wb.addWorksheet(safe || ds.key);
-    ws.addRow(data.headers);
-    for (const r of data.rows) ws.addRow(r.map((v) => (v === null || v === undefined ? "" : v)));
-    styleHeader(ws, data.headers);
-  }
-
-  if (wb.worksheets.length === 0) {
-    const ws = wb.addWorksheet("Export");
-    ws.addRow([`No data available for ${churchName}`]);
-  }
-  return Buffer.from(await wb.xlsx.writeBuffer());
+  return buildWorkbook({
+    churchName: church.name,
+    color: church.color,
+    preparedBy: church.preparedBy,
+    contents: true,
+    sheets: sets.map(({ ds, data }) => ({
+      name: ds.label,
+      title: ds.label,
+      subtitle: `${data.rows.length} record${data.rows.length === 1 ? "" : "s"}`,
+      headers: data.headers,
+      rows: data.rows,
+    })),
+  });
 }
 
-async function oneBook(ds: Dataset, data: { headers: string[]; rows: unknown[][] }): Promise<Buffer> {
-  return sheetBook([{ ds, data }], "");
+async function oneBook(ds: Dataset, data: { headers: string[]; rows: unknown[][] }, church: { name: string; color?: string | null; preparedBy?: string }): Promise<Buffer> {
+  return sheetBook([{ ds, data }], church);
 }
 
 /**
@@ -82,9 +67,10 @@ export async function GET(req: NextRequest) {
 
   const church = await db.church.findUnique({
     where: { id: session.churchId },
-    select: { name: true },
+    select: { name: true, accentColor: true },
   });
   const churchName = church?.name ?? "Church";
+  const branding = { name: churchName, color: church?.accentColor, preparedBy: session.name || undefined };
   const slug = churchName.toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, "") || "church";
   const stamp = new Date().toISOString().slice(0, 10);
 
@@ -101,11 +87,11 @@ export async function GET(req: NextRequest) {
       if (as === "csv") {
         zip.file(`${s.ds.key}.csv`, toCsv(s.data.headers, s.data.rows));
       } else {
-        zip.file(`${s.ds.key}.xlsx`, await oneBook(s.ds, s.data));
+        zip.file(`${s.ds.key}.xlsx`, await oneBook(s.ds, s.data, branding));
       }
     }
     // Always include the everything-in-one workbook too.
-    zip.file(`${slug}-all-data-${stamp}.xlsx`, await sheetBook(sets, churchName));
+    zip.file(`${slug}-all-data-${stamp}.xlsx`, await sheetBook(sets, branding));
     const buf = await zip.generateAsync({ type: "nodebuffer", compression: "DEFLATE" });
     return new Response(new Uint8Array(buf), {
       headers: {
@@ -115,7 +101,7 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  const buf = await sheetBook(sets, churchName);
+  const buf = await sheetBook(sets, branding);
   return new Response(new Uint8Array(buf), {
     headers: {
       "content-type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",

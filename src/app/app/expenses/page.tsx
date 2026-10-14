@@ -66,7 +66,7 @@ export default async function ExpensesPage({
   return (
     <div>
       <PageHeader title="Expenses" description="Everything the church spent, by month and week, with reports.">
-        <a href={`/api/export/transactions?${exportQs}`}><Button variant="secondary" size="sm"><Download /> Export</Button></a>
+        <a href={`/api/export/transactions?${exportQs}`}><Button variant="secondary" size="sm"><Download /> Export Excel</Button></a>
         <ActionDialog
           triggerLabel="Record expense"
           triggerIcon={<Plus />}
