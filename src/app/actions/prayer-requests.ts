@@ -26,33 +26,35 @@ export async function createPrayerRequest(formData: FormData) {
   revalidatePath("/app/prayer-requests");
 }
 
+/** Move a request between New, Prayed for and Archived. */
 export async function updatePrayerRequestStatus(formData: FormData) {
   const session = await requireManage("prayer-requests");
   const id = String(formData.get("id"));
   const status = String(formData.get("status"));
-  if (!["active", "answered", "archived"].includes(status)) return;
+  if (!["active", "prayed", "archived"].includes(status)) return;
 
   await db.prayerRequest.updateMany({
     where: { id, churchId: session.churchId },
-    data: {
-      status,
-      ...(status === "answered" ? {} : {}),
-    },
+    data: status === "prayed"
+      ? { status, prayedAt: new Date(), prayedBy: session.name || null }
+      : status === "active"
+        ? { status, prayedAt: null, prayedBy: null }
+        : { status },
   });
 
   revalidatePath("/app/prayer-requests");
 }
 
-export async function incrementPrayerCount(formData: FormData) {
+/** Mark several requests as prayed for in one go (e.g. after a prayer meeting). */
+export async function markPrayerRequestsPrayed(ids: string[]) {
   const session = await requireManage("prayer-requests");
-  const id = String(formData.get("id"));
-
-  await db.prayerRequest.updateMany({
-    where: { id, churchId: session.churchId },
-    data: { prayerCount: { increment: 1 } },
+  if (session.isDemo || ids.length === 0) return { ok: false as const, count: 0 };
+  const res = await db.prayerRequest.updateMany({
+    where: { id: { in: ids.slice(0, 500) }, churchId: session.churchId, status: "active" },
+    data: { status: "prayed", prayedAt: new Date(), prayedBy: session.name || null },
   });
-
   revalidatePath("/app/prayer-requests");
+  return { ok: true as const, count: res.count };
 }
 
 export async function deletePrayerRequest(formData: FormData) {

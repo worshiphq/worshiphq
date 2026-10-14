@@ -53,13 +53,15 @@ export default async function PrayerRequestsPage() {
 
       <PrayerRequestsClient
         prayUrl={prayUrl}
+        canWrite={canEdit(session, "prayer-requests")}
         items={requests.map((r) => ({
           id: r.id,
           name: r.name,
           request: r.request,
           isAnonymous: r.isAnonymous,
           status: r.status,
-          prayerCount: r.prayerCount,
+          prayedAt: r.prayedAt?.toISOString() ?? null,
+          prayedBy: r.prayedBy,
           createdAt: r.createdAt.toISOString(),
         }))}
       />

@@ -1257,8 +1257,10 @@ model PrayerRequest {
   name        String
   request     String
   isAnonymous Boolean  @default(false)
-  status      String   @default("active") // "active" | "answered" | "archived"
-  prayerCount Int      @default(0)
+  status      String   @default("active") // "active" (new) | "prayed" (prayed for) | "archived"
+  prayerCount Int      @default(0) // no longer used
+  prayedAt    DateTime?
+  prayedBy    String?
   createdAt   DateTime @default(now())
 
   @@index([churchId, status])

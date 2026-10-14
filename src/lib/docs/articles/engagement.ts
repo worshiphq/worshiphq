@@ -152,8 +152,8 @@ export const engagement: DocArticle[] = [
       { list: [
         "**Add request**: enter a **Name** and the **Prayer request**, or tick **Anonymous**.",
         "Share the link shown at the top (**Copy**) so members can send requests from their phones.",
-        "Tap **I prayed for this** to record that you've prayed.",
-        "Mark requests **Answered**, or **Archived** when no longer needed.",
+        "New requests sit under **New**. When you have prayed for one, choose **Prayed for** and it moves to the **Prayed for** list, out of the way of new requests. After a prayer meeting, choose **Mark all as prayed for** to move the whole list at once.",
+        "Choose **Back to new** if you moved one by mistake, or **Archive** to put it away.",
         "Search requests, or delete one with its bin button.",
       ] },
     ],

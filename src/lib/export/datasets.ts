@@ -282,8 +282,8 @@ export const DATASETS: Dataset[] = [
     async fetch(churchId) {
       const rows = await db.prayerRequest.findMany({ where: { churchId }, orderBy: { createdAt: "desc" } });
       return {
-        headers: ["Date", "Name", "Request", "Status", "Prayers"],
-        rows: rows.map((p) => [d(p.createdAt), p.isAnonymous ? "Anonymous" : p.name, p.request, p.status, p.prayerCount]),
+        headers: ["Date", "Name", "Request", "Status", "Prayed for on", "Prayed for by"],
+        rows: rows.map((p) => [d(p.createdAt), p.isAnonymous ? "Anonymous" : p.name, p.request, p.status === "active" ? "New" : p.status === "prayed" ? "Prayed for" : "Archived", d(p.prayedAt), p.prayedBy ?? ""]),
       };
     },
   },
