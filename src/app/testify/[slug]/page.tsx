@@ -40,6 +40,7 @@ export default async function TestifyPage({ params }: { params: Promise<{ slug: 
           action={submitPublicTestimony}
           submitLabel={FORM_KINDS.testimony.submitLabel}
           footerNote={null}
+          columns={1}
         />
       </div>
     </div>

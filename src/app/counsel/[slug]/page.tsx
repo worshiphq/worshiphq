@@ -40,6 +40,7 @@ export default async function CounselPage({ params }: { params: Promise<{ slug: 
           action={submitCounselingRequest}
           submitLabel={FORM_KINDS.counsel.submitLabel}
           footerNote={null}
+          columns={1}
         />
       </div>
     </div>

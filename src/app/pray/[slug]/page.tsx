@@ -60,6 +60,7 @@ export default async function PrayPage({
           action={submitPublicPrayerRequest}
           submitLabel={FORM_KINDS.prayer.submitLabel}
           footerNote={null}
+          columns={1}
         />
       </div>
     </div>

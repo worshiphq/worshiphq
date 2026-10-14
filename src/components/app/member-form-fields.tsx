@@ -36,6 +36,7 @@ export function MemberFormFields({
   groups = [],
   defaults,
   stepped = false,
+  columns = 2,
   accent = "#0d7377",
   finalSlot,
   special,
@@ -46,6 +47,8 @@ export function MemberFormFields({
   groups?: { id: string; name: string }[];
   defaults?: MemberDefaults;
   stepped?: boolean;
+  /** 1 = one question per row (short forms), 2 = two side by side on wider screens. */
+  columns?: 1 | 2;
   accent?: string;
   finalSlot?: React.ReactNode;
   special?: Record<string, SpecialRender>;
@@ -181,7 +184,7 @@ export function MemberFormFields({
               {g.description && <p className="mt-1 text-sm text-ink-muted">{g.description}</p>}
             </div>
           )}
-          <div className="grid gap-4 sm:grid-cols-2">{g.fields.filter(visible).map(renderField)}</div>
+          <div className={cn("grid gap-4", columns === 2 && "sm:grid-cols-2")}>{g.fields.filter(visible).map(renderField)}</div>
         </div>
       ))}
 

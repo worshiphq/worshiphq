@@ -290,6 +290,7 @@ export function FormStudio({
                   fields={fields}
                   departments={departments}
                   stepped
+                  columns={kind === "prayer" || kind === "testimony" || kind === "counsel" ? 1 : 2}
                   accent={accent}
                   special={special}
                   finalSlot={
