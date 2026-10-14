@@ -80,6 +80,13 @@ model Church {
   hideAmounts       Boolean @default(false)
   // Group leaders may text their own group (sent from the church's sender ID, with the group name at the front).
   leaderMessagingOn Boolean @default(false)
+  // ── Linked churches (a teens chapel, a branch church or a partner church with its own account and plan) ──
+  parentChurchId   String?
+  parentChurch     Church?  @relation("ChurchLinks", fields: [parentChurchId], references: [id], onDelete: SetNull)
+  linkedChurches   Church[] @relation("ChurchLinks")
+  linkKind         String?  // teens_chapel | branch | partner (what THIS church is to its parent)
+  linkShare        String[] @default([]) // what this church lets its parent see: headcount, attendance, finances
+  autoAcceptTransfers Boolean @default(false) // accept people sent from linked churches without waiting
   // "Thank you for coming" text to every member who checked in, offered when a service is ended. Off by default.
   thankAfterService  Boolean  @default(false)
   thankServiceNames  String[] @default([])   // services (by name) where the thank-you is ticked by default
@@ -1904,4 +1911,37 @@ model SelfCheckInCode {
   createdAt DateTime @default(now())
 
   @@index([churchId, personId])
+}
+
+/** A code the main church gives to another church so the two accounts can be linked. */
+model ChurchLinkInvite {
+  id           String   @id @default(cuid())
+  parentChurchId String
+  code         String   @unique
+  kind         String   @default("teens_chapel")
+  label        String?  // what the main church calls it, for example "Teens Chapel"
+  expiresAt    DateTime
+  usedByChurchId String?
+  createdAt    DateTime @default(now())
+
+  @@index([parentChurchId])
+}
+
+/** A person sent from a linked church (for example a teen graduating from the Teens Chapel) to the main church. */
+model PersonTransfer {
+  id           String   @id @default(cuid())
+  fromChurchId String
+  toChurchId   String
+  fromPersonId String?
+  status       String   @default("pending") // pending | accepted | declined
+  name         String
+  payload      Json     // the person's details, and the names of their departments, groups and zones
+  note         String?
+  createdById  String?
+  createdAt    DateTime @default(now())
+  handledAt    DateTime?
+  createdPersonId String?
+
+  @@index([toChurchId, status])
+  @@index([fromChurchId])
 }

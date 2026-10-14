@@ -1,6 +1,7 @@
 import { requireModule } from "@/lib/auth";
 import { canEdit } from "@/lib/permissions";
 import { getPeople, getAllPeopleStats } from "@/lib/data/people";
+import Link from "next/link";
 import { db } from "@/lib/db";
 import { PeopleClient } from "@/components/app/people-client";
 import { JoinLinkCard } from "@/components/app/join-link-card";
@@ -13,7 +14,7 @@ export const metadata = { title: "People" };
 export default async function PeoplePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q } = await searchParams;
   const session = await requireModule("people");
-  const [allPeople, stats, departments, church, adults, categories, groups] = await Promise.all([
+  const [allPeople, stats, departments, church, adults, categories, groups, waiting] = await Promise.all([
     getPeople(session.churchId),
     getAllPeopleStats(session.churchId),
     db.department.findMany({
@@ -36,6 +37,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
     }),
     getCategoriesForForm(session.churchId),
     db.group.findMany({ where: { churchId: session.churchId, isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    db.personTransfer.count({ where: { toChurchId: session.churchId, status: "pending" } }),
   ]);
   const formFields = questionFields(getFormDefinition(church?.registrationFields ?? null));
   return (
@@ -47,6 +49,12 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
           { target: "people-list", title: "Your whole congregation", body: "Search, filter and switch between grid and list. Click anyone to open their full profile, or add a member manually." },
         ]}
       />
+      {waiting > 0 && (
+        <Link href="/app/settings?tab=linked" className="flex items-center justify-between gap-3 rounded-xl border border-primary/30 bg-primary/5 px-4 py-3 text-sm">
+          <span><b>{waiting}</b> {waiting === 1 ? "person is" : "people are"} waiting to join from a linked church.</span>
+          <span className="font-semibold text-primary">Review</span>
+        </Link>
+      )}
       {church && !church.isDemo && (
         <div data-tour="people-invite">
           <JoinLinkCard slug={church.slug} />
