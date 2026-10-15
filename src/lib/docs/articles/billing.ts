@@ -12,7 +12,7 @@ export const billing: DocArticle[] = [
         ["**Free**", "New and small fellowships", "The essentials, for a small number of members."],
         ["**Starter**", "Growing churches", "SMS, reminders, member IDs and QR codes, custom forms, import and export, automatic receipts, follow-ups."],
         ["**Pro**", "Established ministries", "Rosters, harvest, pledges, welfare, sermons, devotionals, testimonies, bookings and custom roles."],
-        ["**Max**", "Large and multi-site churches", "Fingerprint check-in, automations, full accounting (budgets, expenses, assets), counselling, the audit log and unlimited members."],
+        ["**Max**", "Large and multi-site churches", "Fingerprint, face and palm check-in, automations, full accounting (budgets, expenses, assets), counselling, the audit log and unlimited members."],
       ] } },
       { p: "See the current prices and member limits on the **Pricing** page. Every guide in this manual shows which plan it needs." },
       { tip: "Start on Free and upgrade when you need more. You only pay the difference when you upgrade mid-way through a period." },

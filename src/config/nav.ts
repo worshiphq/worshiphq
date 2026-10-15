@@ -36,6 +36,7 @@ import {
   Sun,
   Download,
   Droplets,
+  ScanFace,
 } from "lucide-react";
 
 export interface NavItem {
@@ -74,6 +75,7 @@ export const nav: NavSection[] = [
       { key: "people", label: "People", href: "/app/people", icon: Users },
       { key: "people", label: "Leaders", href: "/app/leaders", icon: Crown },
       { key: "attendance", label: "Attendance", href: "/app/attendance", icon: CalendarCheck2 },
+      { key: "attendance", label: "Devices", href: "/app/devices", icon: ScanFace, section: "attendance" },
       { key: "events", label: "Events", href: "/app/events", icon: CalendarDays },
       { key: "events", label: "Calendar", href: "/app/calendar", icon: Calendar },
       { key: "people", label: "Groups", href: "/app/groups", icon: Users2 },

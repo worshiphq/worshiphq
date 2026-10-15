@@ -94,7 +94,7 @@ export const FEATURE_LABELS: Record<string, string> = {
   bookings: "Facility bookings", accounting: "Accounting", budgets: "Budgets",
   expenses: "Expenses", "fund-accounting": "Fund accounting", assets: "Assets",
   "api-access": "API access", "audit-log": "Audit log",
-  fingerprint: "Fingerprint check-in",
+  fingerprint: "Biometric check-in (fingerprint, face, palm)",
 };
 
 /** Map nav item hrefs to plan feature keys. */
@@ -114,6 +114,7 @@ const ROUTE_FEATURE_MAP: Record<string, string> = {
   "/app/assets": "assets",
   "/app/audit-log": "audit-log",
   "/app/follow-ups": "follow-ups",
+  "/app/devices": "fingerprint",
   "/app/sermons": "sermons",
   "/app/devotionals": "devotionals",
   "/app/testimonies": "testimonies",

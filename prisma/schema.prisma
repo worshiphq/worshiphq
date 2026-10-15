@@ -175,6 +175,7 @@ model Church {
   giveFormFields     Json?
   bookingFormFields  Json?
   baptismFormFields  Json?
+  biometricDevices   BiometricDevice[]
 
   // Customizable SMS receipt templates (use {name}, {amount}, {church} placeholders)
   titheReceiptTemplate   String?
@@ -1987,4 +1988,59 @@ model CertificateTemplate {
   createdAt DateTime @default(now())
 
   @@index([churchId, kind])
+}
+
+// ── Biometric devices (face, palm and fingerprint terminals) ────────────
+// A terminal pushes each scan to us (ZKTeco "cloud server" / ADMS protocol), or any
+// device or software posts to the church's webhook. The device's user ID is the
+// number at the end of the member's ID (GBC-0042 is 42).
+model BiometricDevice {
+  id         String   @id @default(cuid())
+  churchId   String
+  church     Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name       String
+  brand      String   @default("zkteco") // zkteco | webhook
+  modes      String[] // fingerprint | face | palm
+  serial     String   @unique // the device's serial number, or a generated id for a webhook
+  secret     String   // token used by the webhook
+  enabled    Boolean  @default(true)
+  lastSeenAt DateTime?
+  lastScanAt DateTime?
+  info       String?  // model and firmware as the device reports them
+  createdAt  DateTime @default(now())
+
+  events   BiometricDeviceEvent[]
+  commands BiometricDeviceCommand[]
+
+  @@index([churchId])
+}
+
+/** Recent scans from a device, so a church can see what happened (kept short). */
+model BiometricDeviceEvent {
+  id         String   @id @default(cuid())
+  deviceId   String
+  device     BiometricDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  churchId   String
+  pin        String
+  at         DateTime
+  mode       String?
+  result     String   // checked_in | already_in | unknown_id | too_old | not_active
+  personName String?
+  createdAt  DateTime @default(now())
+
+  @@index([deviceId, createdAt])
+  @@index([churchId])
+}
+
+/** Things to send to a device the next time it calls in (such as members to add). */
+model BiometricDeviceCommand {
+  id        Int      @id @default(autoincrement())
+  deviceId  String
+  device    BiometricDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
+  body      String
+  createdAt DateTime @default(now())
+  sentAt    DateTime?
+  doneAt    DateTime?
+
+  @@index([deviceId, sentAt])
 }
