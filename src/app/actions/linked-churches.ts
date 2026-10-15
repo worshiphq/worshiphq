@@ -1,5 +1,6 @@
 "use server";
 
+import { LINK_KINDS } from "@/lib/linked-church-kinds";
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
@@ -14,7 +15,6 @@ import { getAgeConfig } from "@/lib/data/age";
 type Session = Awaited<ReturnType<typeof requireSession>>;
 export type ShareKey = "headcount" | "attendance" | "finances";
 const SHARE: ShareKey[] = ["headcount", "attendance", "finances"];
-export const LINK_KINDS = { teens_chapel: "Teens Chapel", branch: "Branch church", partner: "Partner church" } as const;
 type Kind = keyof typeof LINK_KINDS;
 
 function requireOwnerOrAdmin(session: Session) {

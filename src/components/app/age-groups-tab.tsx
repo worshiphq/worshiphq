@@ -20,12 +20,14 @@ export function AgeGroupsTab({ canManage }: { canManage: boolean }) {
   const [info, setInfo] = useState<AgeSettings | null>(null);
   const [busy, setBusy] = useState(false);
   const seq = useRef(0);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let live = true;
-    void getAgeSettings().then((s) => { if (live) { setSaved(s.config); setCfg(s.config); setInfo(s); } });
+    getAgeSettings().then((s) => { if (live) { setFailed(false); setSaved(s.config); setCfg(s.config); setInfo(s); } }).catch(() => { if (live) setFailed(true); });
     return () => { live = false; };
-  }, []);
+  }, [attempt]);
 
   // Show who a change would move before it is saved.
   useEffect(() => {
@@ -38,6 +40,7 @@ export function AgeGroupsTab({ canManage }: { canManage: boolean }) {
     return () => clearTimeout(t);
   }, [cfg, saved]);
 
+  if (failed && (!saved || !info)) return <Card className="flex items-center justify-between gap-2 p-6 text-sm text-ink-muted">We could not load this. <Button size="sm" variant="secondary" onClick={() => { setFailed(false); setAttempt((n) => n + 1); }}>Try again</Button></Card>;
   if (!saved || !info) return <Card className="flex items-center gap-2 p-6 text-sm text-ink-muted"><Loader2 className="size-4 animate-spin" /> Loading…</Card>;
 
   const dirty = JSON.stringify(cfg) !== JSON.stringify(saved);

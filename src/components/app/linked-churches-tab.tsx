@@ -8,9 +8,10 @@ import { Input } from "@/components/ui/input";
 import { useFeedback } from "@/components/ui/feedback";
 import {
   getLinkedChurches, createLinkInvite, deleteLinkInvite, acceptLinkCode, setLinkShare, setAutoAcceptTransfers, unlinkChurch,
-  sendToParent, acceptTransfer, acceptAllTransfers, declineTransfer, listSendable, LINK_KINDS,
+  sendToParent, acceptTransfer, acceptAllTransfers, declineTransfer, listSendable,
   type LinkedData, type ShareKey,
 } from "@/app/actions/linked-churches";
+import { LINK_KINDS } from "@/lib/linked-church-kinds";
 import { cn } from "@/lib/utils";
 
 const KIND_LABEL: Record<string, string> = { teens_chapel: "Teens Chapel", branch: "Branch church", partner: "Partner church" };
@@ -38,11 +39,13 @@ export function LinkedChurchesTab({ canManage }: { canManage: boolean }) {
   const [note, setNote] = useState("");
 
   const load = async () => setData(await getLinkedChurches());
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     let live = true;
-    void getLinkedChurches().then((d) => { if (live) setData(d); });
+    getLinkedChurches().then((d) => { if (live) { setFailed(false); setData(d); } }).catch(() => { if (live) setFailed(true); });
     return () => { live = false; };
-  }, []);
+  }, [attempt]);
   useEffect(() => {
     if (data?.parent && sendable === null) void listSendable().then(setSendable);
   }, [data?.parent, sendable]);
@@ -64,6 +67,7 @@ export function LinkedChurchesTab({ canManage }: { canManage: boolean }) {
     finally { setBusy(null); }
   }
 
+  if (!data && failed) return <Card className="flex items-center justify-between gap-2 p-6 text-sm text-ink-muted">We could not load this. <Button size="sm" variant="secondary" onClick={() => { setFailed(false); setAttempt((n) => n + 1); }}>Try again</Button></Card>;
   if (!data) return <Card className="flex items-center gap-2 p-6 text-sm text-ink-muted"><Loader2 className="size-4 animate-spin" /> Loading…</Card>;
   const can = canManage && data.isAdmin;
   const toggleShare = (k: ShareKey) => {
