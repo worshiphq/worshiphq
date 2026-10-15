@@ -205,13 +205,19 @@ export async function updateChurch(formData: FormData) {
   revalidatePath("/app/settings");
   revalidatePath("/app", "layout");
 }
-export async function requestSenderId(formData: FormData) {
+export async function requestSenderId(input: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const session = await requireSession();
   assertCanWrite(session);
+  if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the owner or an admin can request a sender ID." };
 
-  const senderId = String(formData.get("senderId") ?? "").trim();
+  // SMS and a custom sender name are paid features: a free church cannot ask for one.
+  const sub = await db.subscription.findUnique({ where: { churchId: session.churchId }, select: { plan: true } });
+  if (!sub || sub.plan === "free") return { ok: false, error: "A custom sender ID is part of the paid plans. Upgrade to request one." };
 
-  if (!senderId) return;
+  const senderId = String(input ?? "").trim();
+  if (!/^[A-Za-z0-9]{3,11}$/.test(senderId) || /^\d+$/.test(senderId)) {
+    return { ok: false, error: "Use 3 to 11 letters and numbers, with no spaces or symbols, and at least one letter." };
+  }
 
   await db.church.update({
     where: { id: session.churchId },
@@ -236,6 +242,7 @@ Requested ID: ${senderId}`,
   );
 
   revalidatePath("/app/settings");
+  return { ok: true };
 }
 export async function updateBranding(formData: FormData) {
   const session = await requireSession();

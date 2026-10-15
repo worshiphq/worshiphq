@@ -11,6 +11,7 @@ import { OnFormComplete } from "@/components/ui/form-effects";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
+import { SenderIdCard } from "@/components/app/sender-id-card";
 import { Badge } from "@/components/ui/badge";
 import { Input, Label } from "@/components/ui/input";
 import type { Session } from "@/lib/permissions";
@@ -26,7 +27,7 @@ import { checkRefundEligibility, requestRefund } from "@/app/actions/refunds";
 import {
   updateChurch, inviteTeammate,
   changeUserRole, removeTeamMember,
-  createCustomRole, deleteCustomRole, updateCustomRole, requestSenderId,
+  createCustomRole, deleteCustomRole, updateCustomRole,
   updateRolePermissions, changePlan, redeemPlanBypass, verifyPlanUpgrade, previewCoupon,
   previewPlanChangeAction, cancelScheduledChange,
   updateSlug, inviteBudgetLeader,
@@ -574,41 +575,7 @@ export function SettingsClient({
         )}
 
         {tab === "sms" && (
-          <Card className="p-6">
-            <h3 className="font-display text-lg font-semibold">SMS Settings</h3>
-
-            <p className="text-sm text-ink-muted">
-              Request a custom Sender ID for your church.
-            </p>
-
-            <form action={requestSenderId}>
-              <div className="mt-4">
-                <Label>Sender ID</Label>
-
-                <Input
-                  name="senderId"
-                  defaultValue={church?.smsSenderId ?? ""}
-                  placeholder="GraceTemple"
-                  maxLength={11}
-                />
-
-                <p className="mt-2 text-xs text-ink-faint">
-                  Maximum 11 characters. Letters and numbers only.
-                </p>
-              </div>
-
-              <div className="mt-4">
-                Status{" "}
-                <Badge variant="default">
-                  {church?.smsSenderIdStatus ?? "pending"}
-                </Badge>
-              </div>
-
-              <SubmitButton className="mt-5">
-                Submit Request
-              </SubmitButton>
-            </form>
-          </Card>
+          <SenderIdCard current={church?.smsSenderId ?? null} status={church?.smsSenderIdStatus ?? null} paid={(subscription?.plan ?? "free") !== "free"} canManage={!ro && isAdmin} />
         )}
       </div>
     </div>
