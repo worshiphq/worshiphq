@@ -9,7 +9,7 @@ import type { FormField } from "@/lib/forms/registration";
 
 const PUBLIC_ROOT: Record<string, string> = {
   join: "/join", visitor: "/visit", children: "/children", teens: "/teens", prayer: "/pray",
-  testimony: "/testify", counsel: "/counsel", give: "/give", book: "/book",
+  testimony: "/testify", counsel: "/counsel", give: "/give", book: "/book", baptism: "/app/baptisms",
 };
 
 /**

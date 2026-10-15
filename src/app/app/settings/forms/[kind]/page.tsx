@@ -18,7 +18,7 @@ export default async function FormStudioPage({ params }: { params: Promise<{ kin
     select: {
       name: true, slug: true, accentColor: true,
       registrationFields: true, visitorFormFields: true, childrenFormFields: true, teensFormFields: true,
-      prayerFormFields: true, testimonyFormFields: true, counselFormFields: true, giveFormFields: true, bookingFormFields: true,
+      prayerFormFields: true, testimonyFormFields: true, counselFormFields: true, giveFormFields: true, bookingFormFields: true, baptismFormFields: true,
       departments: { select: { id: true, name: true }, orderBy: { name: "asc" } },
     },
   });

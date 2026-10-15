@@ -181,9 +181,11 @@ export function FormStudio({
         </div>
         <div className="flex items-center gap-2">
           <span className="hidden text-xs text-ink-faint sm:inline">{readOnly ? "View only" : dirty ? "Unsaved changes" : "All changes saved"}</span>
-          <a href={info.path(slug)} target="_blank" rel="noopener noreferrer">
-            <Button variant="secondary" size="sm" type="button"><ExternalLink /> Open live form</Button>
-          </a>
+          {!info.internal && (
+            <a href={info.path(slug)} target="_blank" rel="noopener noreferrer">
+              <Button variant="secondary" size="sm" type="button"><ExternalLink /> Open live form</Button>
+            </a>
+          )}
           <Button size="sm" onClick={save} disabled={readOnly || pending || !dirty}>
             {pending ? <><Loader2 className="animate-spin" /> Saving…</> : <><Save /> Save form</>}
           </Button>
@@ -290,7 +292,7 @@ export function FormStudio({
                   fields={fields}
                   departments={departments}
                   stepped
-                  columns={kind === "prayer" || kind === "testimony" || kind === "counsel" ? 1 : 2}
+                  columns={kind === "prayer" || kind === "testimony" || kind === "counsel" || kind === "baptism" ? 1 : 2}
                   accent={accent}
                   special={special}
                   finalSlot={
@@ -493,6 +495,7 @@ function OptionsEditor({ label, options, onChange }: { label: string; options: s
 /** Stand-ins for the widgets that the real page draws itself, so the preview looks right. */
 function previewSpecials(kind: FormKind): Record<string, SpecialRender> | undefined {
   const box = "flex h-11 w-full items-center rounded-xl border border-line bg-surface px-3.5 text-sm text-ink-faint";
+  if (kind === "baptism") return { name: () => <div className={box}>Choose a member or type a name</div> };
   if (kind === "give") {
     return {
       amount: () => <div className={box}>₵ Enter amount</div>,

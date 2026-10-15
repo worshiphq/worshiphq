@@ -141,6 +141,8 @@ export const people: DocArticle[] = [
       { p: "Each person then moves to the **Register** with a certificate number, and their member record is marked as baptised." },
       { h: "Record a baptism that already happened" },
       { p: "Choose **Add a baptism**, search for the member (or type a name), then enter the date, place and who baptised them. Use this to bring old baptisms onto the register." },
+      { h: "Change the questions" },
+      { p: "The questions you fill in for each baptism can be changed. Owners and Admins choose **Edit the baptism form** at the top of the Baptisms page. There you can rename the standard questions (date, place, who baptised them, notes), remove the ones you do not use, reorder them, and add your own, such as a godparent or sponsor, a baptism class completed, or a church of origin. Answers to your own questions are saved with each baptism and show when you edit it. This form is for your team to use inside WorshipHQ for now, and it can become a public form later." },
       { h: "Print certificates" },
       { steps: [
         "On the **Register**, tick one or many people (or choose the printer icon on a row).",

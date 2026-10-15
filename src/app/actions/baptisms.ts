@@ -8,10 +8,14 @@ import { audit } from "@/lib/audit";
 import { moveToBin } from "@/lib/recycle-bin";
 import { matchesPerson } from "@/lib/search";
 import { DEFAULT_CERT_SETTINGS } from "@/lib/baptism-defaults";
+import { FORM_KINDS } from "@/lib/forms/kinds";
+import { questionFields, type FormField } from "@/lib/forms/registration";
 
 export type BaptismRow = {
   id: string; personId: string | null; name: string; status: "candidate" | "baptised";
   date: string | null; place: string | null; officiant: string | null; certificateNo: string | null; notes: string | null;
+  /** Answers to the church's own extra questions. */
+  extra: { id: string; label: string; value: string }[];
 };
 export type CertField = { key: string; x: number; y: number; w: number; size: number; font: string; color: string; align: "left" | "center" | "right"; bold?: boolean };
 export type TemplateRow = { id: string; name: string; imageUrl: string; paper: string; fields: CertField[] };
@@ -21,9 +25,12 @@ export type BaptismData = {
   rows: BaptismRow[];
   templates: TemplateRow[];
   settings: CertSettings;
+  /** The questions the church asks for each baptism (it can change these in the form builder). */
+  formFields: FormField[];
   church: { name: string; logoUrl: string | null };
   stats: { thisYear: number; candidates: number; total: number; membersBaptisedPct: number };
   canWrite: boolean;
+  isAdmin: boolean;
 };
 
 const iso = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
@@ -33,6 +40,21 @@ const parseDay = (v: string | null | undefined): Date | null => {
   return isNaN(d.getTime()) ? null : d;
 };
 const clean = (v: unknown, max = 120) => String(v ?? "").trim().replace(/\s+/g, " ").slice(0, max);
+
+const readExtra = (v: unknown): { id: string; label: string; value: string }[] =>
+  Array.isArray(v) ? v.filter((x) => x && typeof x.id === "string" && typeof x.label === "string").map((x) => ({ id: x.id, label: x.label, value: String(x.value ?? "") })) : [];
+
+/** Keep only answers to the church's own questions that are still on the form, cleaned and capped. */
+async function extraAnswers(churchId: string, answers: Record<string, string> | undefined) {
+  if (!answers) return undefined;
+  const c = await db.church.findUnique({ where: { id: churchId }, select: { baptismFormFields: true } });
+  const out: { id: string; label: string; value: string }[] = [];
+  for (const q of questionFields(FORM_KINDS.baptism.resolve(c?.baptismFormFields)).filter((x) => !x.system)) {
+    const value = clean(answers[q.id], 2000);
+    if (value) out.push({ id: q.id, label: q.label, value });
+  }
+  return out.slice(0, 40);
+}
 
 function guardWrite(session: Awaited<ReturnType<typeof requireSession>>) {
   assertCanWrite(session, "people");
@@ -46,7 +68,7 @@ export async function getBaptisms(): Promise<BaptismData> {
   const [rows, templates, church, thisYear, candidates, total, people, baptisedMembers] = await Promise.all([
     db.baptism.findMany({ where: { churchId }, orderBy: [{ date: "desc" }, { createdAt: "desc" }], take: 1500 }),
     db.certificateTemplate.findMany({ where: { churchId, kind: "baptism" }, orderBy: { createdAt: "desc" } }),
-    db.church.findUnique({ where: { id: churchId }, select: { name: true, logoUrl: true, certSettings: true } }),
+    db.church.findUnique({ where: { id: churchId }, select: { name: true, logoUrl: true, certSettings: true, baptismFormFields: true } }),
     db.baptism.count({ where: { churchId, status: "baptised", date: { gte: new Date(Date.UTC(year, 0, 1)), lt: new Date(Date.UTC(year + 1, 0, 1)) } } }),
     db.baptism.count({ where: { churchId, status: "candidate" } }),
     db.baptism.count({ where: { churchId, status: "baptised" } }),
@@ -55,12 +77,14 @@ export async function getBaptisms(): Promise<BaptismData> {
   ]);
   const saved = (church?.certSettings as Partial<CertSettings> | null) ?? {};
   return {
-    rows: rows.map((r) => ({ id: r.id, personId: r.personId, name: r.name, status: r.status === "candidate" ? "candidate" : "baptised", date: iso(r.date), place: r.place, officiant: r.officiant, certificateNo: r.certificateNo, notes: r.notes })),
+    rows: rows.map((r) => ({ id: r.id, personId: r.personId, name: r.name, status: r.status === "candidate" ? "candidate" : "baptised", date: iso(r.date), place: r.place, officiant: r.officiant, certificateNo: r.certificateNo, notes: r.notes, extra: readExtra(r.extra) })),
     templates: templates.map((t) => ({ id: t.id, name: t.name, imageUrl: t.imageUrl, paper: t.paper, fields: (t.fields as unknown as CertField[]) ?? [] })),
     settings: { ...DEFAULT_CERT_SETTINGS, ...saved },
+    formFields: FORM_KINDS.baptism.resolve(church?.baptismFormFields),
     church: { name: church?.name ?? "", logoUrl: church?.logoUrl ?? null },
     stats: { thisYear, candidates, total, membersBaptisedPct: people ? Math.round((baptisedMembers / people) * 100) : 0 },
     canWrite: !session.isDemo,
+    isAdmin: session.role === "Owner" || session.role === "Admin",
   };
 }
 
@@ -111,7 +135,7 @@ export async function addCandidates(input: { personIds?: string[]; names?: strin
   return { ok: true as const, added };
 }
 
-type Details = { date?: string | null; place?: string | null; officiant?: string | null };
+type Details = { date?: string | null; place?: string | null; officiant?: string | null; extra?: Record<string, string> };
 
 /** Put a date, place and officiant on candidates (the baptism service is planned). */
 export async function scheduleCandidates(ids: string[], d: Details) {
@@ -158,7 +182,7 @@ export async function addBaptismRecord(input: { personId?: string; name?: string
   const date = parseDay(input.date);
   if (!date) return { ok: false as const, error: "Enter the date of the baptism." };
   const no = await nextCertificateNo(session.churchId, date.getUTCFullYear());
-  await db.baptism.create({ data: { churchId: session.churchId, personId, name, status: "baptised", date, place: clean(input.place) || null, officiant: clean(input.officiant) || null, certificateNo: no, notes: clean(input.notes, 300) || null } });
+  await db.baptism.create({ data: { churchId: session.churchId, personId, name, status: "baptised", date, place: clean(input.place) || null, officiant: clean(input.officiant) || null, certificateNo: no, notes: clean(input.notes, 300) || null, extra: (await extraAnswers(session.churchId, input.extra)) ?? Prisma.JsonNull } });
   if (personId) await db.person.updateMany({ where: { id: personId, churchId: session.churchId }, data: { baptized: true } });
   revalidatePath("/app/baptisms");
   return { ok: true as const };
@@ -169,9 +193,10 @@ export async function updateBaptism(id: string, d: Details & { name?: string; no
   guardWrite(session);
   const cur = await db.baptism.findFirst({ where: { id, churchId: session.churchId }, select: { id: true } });
   if (!cur) return { ok: false as const, error: "Not found." };
+  const extra = await extraAnswers(session.churchId, d.extra);
   await db.baptism.update({
     where: { id },
-    data: { ...(d.name ? { name: clean(d.name, 80) } : {}), date: parseDay(d.date), place: clean(d.place) || null, officiant: clean(d.officiant) || null, notes: clean(d.notes, 300) || null },
+    data: { ...(d.name ? { name: clean(d.name, 80) } : {}), ...(extra ? { extra } : {}), date: parseDay(d.date), place: clean(d.place) || null, officiant: clean(d.officiant) || null, notes: clean(d.notes, 300) || null },
   });
   revalidatePath("/app/baptisms");
   return { ok: true as const };

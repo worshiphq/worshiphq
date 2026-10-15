@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Droplets, Plus, Printer, Search, Trash2, Check, Loader2, CalendarDays, Pencil, Palette, UserPlus } from "lucide-react";
+import { Droplets, Plus, Printer, Search, Trash2, Check, Loader2, CalendarDays, Pencil, Palette, UserPlus, ListChecks } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { StatCard } from "@/components/app/stat-card";
 import { Card } from "@/components/ui/card";
@@ -17,6 +18,7 @@ import {
 import { BUILT_IN, SAMPLE, type CertCtx, type CertData } from "@/components/app/certificate";
 import { ScaledCert, PrintCertificates, useCertFonts } from "@/components/app/certificate-tools";
 import { CertificateDesigner } from "@/components/app/certificate-designer";
+import { questionFields, type FormField } from "@/lib/forms/registration";
 import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 import { cn } from "@/lib/utils";
 
@@ -73,6 +75,7 @@ export function BaptismsClient({ data }: { data: BaptismData }) {
   return (
     <div>
       <PageHeader title="Baptisms" description="Your baptism register, the people preparing for baptism, and certificates ready to print.">
+        {data.isAdmin && <Link href="/app/settings/forms/baptism"><Button variant="secondary" size="sm" type="button"><ListChecks /> Edit the baptism form</Button></Link>}
         <Button variant="secondary" size="sm" onClick={() => setDialog("designer")} disabled={!canWrite}><Palette /> Certificate designs</Button>
         <Button size="sm" onClick={() => setDialog("record")} disabled={!canWrite}><Plus /> Add a baptism</Button>
       </PageHeader>
@@ -162,19 +165,19 @@ export function BaptismsClient({ data }: { data: BaptismData }) {
       </Card>
 
       {/* ── Add a baptism that already happened ── */}
-      {dialog === "record" && <RecordDialog onClose={() => setDialog(null)} busy={busy === "record"} onSave={(v) => act("record", () => addBaptismRecord(v), "Recorded.", () => setDialog(null))} />}
+      {dialog === "record" && <RecordDialog fields={data.formFields} onClose={() => setDialog(null)} busy={busy === "record"} onSave={(v) => act("record", () => addBaptismRecord(v), "Recorded.", () => setDialog(null))} />}
 
       {dialog === "schedule" && (
-        <DetailsDialog title="Set the date and place" cta="Save" busy={busy === "sched"} defaultDate="" onClose={() => setDialog(null)}
+        <DetailsDialog title="Set the date and place" cta="Save" bulk fields={data.formFields} busy={busy === "sched"} defaultDate="" onClose={() => setDialog(null)}
           onSave={(v) => act("sched", () => scheduleCandidates(chosen.map((c) => c.id), v), "Saved.", () => { setDialog(null); setSel(new Set()); })} />
       )}
       {dialog === "baptise" && (
-        <DetailsDialog title={`${chosen.length} baptised`} intro="They go onto the register with a certificate number, and their member record is marked as baptised." cta="Record the baptism" busy={busy === "bap"} defaultDate={today()}
+        <DetailsDialog title={`${chosen.length} baptised`} intro="They go onto the register with a certificate number, and their member record is marked as baptised." cta="Record the baptism" bulk fields={data.formFields} busy={busy === "bap"} defaultDate={today()}
           defaults={{ place: chosen[0]?.place ?? "", officiant: chosen[0]?.officiant ?? "" }} onClose={() => setDialog(null)}
           onSave={(v) => act("bap", () => markBaptised(chosen.map((c) => c.id), v), "Recorded. You can print their certificates from the Register.", () => { setDialog(null); setSel(new Set()); setTab("register"); })} />
       )}
       {typeof dialog === "object" && dialog && "edit" in dialog && (
-        <DetailsDialog title={`Edit ${dialog.edit.name}`} cta="Save" busy={busy === "edit"} defaultDate={dialog.edit.date ?? ""} defaults={{ place: dialog.edit.place ?? "", officiant: dialog.edit.officiant ?? "" }} onClose={() => setDialog(null)}
+        <DetailsDialog title={`Edit ${dialog.edit.name}`} cta="Save" fields={data.formFields} busy={busy === "edit"} defaultDate={dialog.edit.date ?? ""} defaults={{ place: dialog.edit.place ?? "", officiant: dialog.edit.officiant ?? "", notes: dialog.edit.notes ?? "", extra: Object.fromEntries(dialog.edit.extra.map((x) => [x.id, x.value])) }} onClose={() => setDialog(null)}
           onSave={(v) => act("edit", () => updateBaptism((dialog as { edit: BaptismRow }).edit.id, v), "Saved.", () => setDialog(null))} />
       )}
 
@@ -230,36 +233,69 @@ function CandidateAdder({ onAdd, busy, disabled }: { onAdd: (ids: string[], name
   );
 }
 
-function DetailsDialog({ title, intro, cta, busy, defaultDate, defaults, onSave, onClose }: {
-  title: string; intro?: string; cta: string; busy: boolean; defaultDate: string; defaults?: { place: string; officiant: string };
-  onSave: (v: { date: string; place: string; officiant: string }) => void; onClose: () => void;
+type Vals = { date: string; place: string; officiant: string; notes: string; extra: Record<string, string> };
+const labelOf = (fields: FormField[], id: string, fallback: string) => fields.find((f) => f.id === id)?.label || fallback;
+
+/** One question, drawn from the church's baptism form (standard or its own). */
+function Question({ f, value, onChange }: { f: FormField; value: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <Label>{f.label}{f.required ? " *" : ""}</Label>
+      {f.type === "textarea" ? <textarea value={value} placeholder={f.placeholder} onChange={(e) => onChange(e.target.value)} rows={3} className="w-full rounded-xl border border-line bg-surface px-3.5 py-2.5 text-sm" />
+        : f.type === "select" || f.type === "radio" ? (
+          <select value={value} onChange={(e) => onChange(e.target.value)} className="h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm">
+            <option value="">Choose…</option>
+            {(f.options ?? []).map((o) => <option key={o} value={o}>{o}</option>)}
+          </select>
+        ) : f.type === "checkbox" ? (
+          <label className="flex h-11 items-center gap-2 text-sm"><input type="checkbox" checked={value === "Yes"} onChange={(e) => onChange(e.target.checked ? "Yes" : "")} className="size-4 accent-primary" /> Yes</label>
+        ) : <Input value={value} placeholder={f.placeholder} type={f.type === "date" ? "date" : f.type === "number" ? "number" : f.type === "tel" ? "tel" : f.type === "email" ? "email" : "text"} onChange={(e) => onChange(e.target.value)} />}
+      {f.help && <p className="mt-1 text-xs text-ink-faint">{f.help}</p>}
+    </div>
+  );
+}
+
+/** The baptism questions. In bulk dialogs only the shared ones show (not notes or your own extra questions). */
+function BaptismQuestions({ fields, v, set, bulk }: { fields: FormField[]; v: Vals; set: (p: Partial<Vals>) => void; bulk?: boolean }) {
+  return (
+    <>
+      {questionFields(fields).filter((f) => f.id !== "name").map((f) => {
+        if (f.id === "date") return <Question key={f.id} f={f} value={v.date} onChange={(x) => set({ date: x })} />;
+        if (f.id === "place") return <Question key={f.id} f={f} value={v.place} onChange={(x) => set({ place: x })} />;
+        if (f.id === "officiant") return <Question key={f.id} f={f} value={v.officiant} onChange={(x) => set({ officiant: x })} />;
+        if (bulk) return null;
+        if (f.id === "notes") return <Question key={f.id} f={f} value={v.notes} onChange={(x) => set({ notes: x })} />;
+        return <Question key={f.id} f={f} value={v.extra[f.id] ?? ""} onChange={(x) => set({ extra: { ...v.extra, [f.id]: x } })} />;
+      })}
+    </>
+  );
+}
+
+function DetailsDialog({ title, intro, cta, busy, defaultDate, defaults, fields, bulk, onSave, onClose }: {
+  title: string; intro?: string; cta: string; busy: boolean; defaultDate: string; fields: FormField[]; bulk?: boolean;
+  defaults?: { place: string; officiant: string; notes?: string; extra?: Record<string, string> };
+  onSave: (v: Vals) => void; onClose: () => void;
 }) {
-  const [date, setDate] = useState(defaultDate);
-  const [place, setPlace] = useState(defaults?.place ?? "");
-  const [officiant, setOfficiant] = useState(defaults?.officiant ?? "");
+  const [v, setV] = useState<Vals>({ date: defaultDate, place: defaults?.place ?? "", officiant: defaults?.officiant ?? "", notes: defaults?.notes ?? "", extra: defaults?.extra ?? {} });
   return (
     <Modal open onClose={onClose} title={title}>
       <div className="space-y-4">
         {intro && <p className="text-sm text-ink-muted">{intro}</p>}
-        <div><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-        <div><Label>Place</Label><Input value={place} onChange={(e) => setPlace(e.target.value)} placeholder="e.g. Grace Chapel, or the river" /></div>
-        <div><Label>Who baptised them</Label><Input value={officiant} onChange={(e) => setOfficiant(e.target.value)} placeholder="e.g. Pastor Daniel Owusu" /></div>
+        <BaptismQuestions fields={fields} v={v} set={(p) => setV((x) => ({ ...x, ...p }))} bulk={bulk} />
         <div className="flex gap-2">
           <Button variant="secondary" className="flex-1" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button className="flex-1" disabled={busy} onClick={() => onSave({ date, place, officiant })}>{busy ? <Loader2 className="size-4 animate-spin" /> : null} {cta}</Button>
+          <Button className="flex-1" disabled={busy} onClick={() => onSave(v)}>{busy ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : cta}</Button>
         </div>
       </div>
     </Modal>
   );
 }
 
-function RecordDialog({ onSave, onClose, busy }: { onSave: (v: { personId?: string; name?: string; date: string; place: string; officiant: string }) => void; onClose: () => void; busy: boolean }) {
+function RecordDialog({ fields, onSave, onClose, busy }: { fields: FormField[]; onSave: (v: { personId?: string; name?: string } & Vals) => void; onClose: () => void; busy: boolean }) {
   const [q, setQ] = useState("");
   const [found, setFound] = useState<{ id: string; name: string; phone: string | null }[]>([]);
   const [person, setPerson] = useState<{ id: string; name: string } | null>(null);
-  const [date, setDate] = useState(today());
-  const [place, setPlace] = useState("");
-  const [officiant, setOfficiant] = useState("");
+  const [v, setV] = useState<Vals>({ date: today(), place: "", officiant: "", notes: "", extra: {} });
   useEffect(() => {
     if (person || q.trim().length < 2) return;
     let live = true;
@@ -270,7 +306,7 @@ function RecordDialog({ onSave, onClose, busy }: { onSave: (v: { personId?: stri
     <Modal open onClose={onClose} title="Add a baptism" description="For a baptism that already happened, or someone baptised in your church who is not on your list.">
       <div className="space-y-4">
         <div>
-          <Label>Who</Label>
+          <Label>{labelOf(fields, "name", "Name")}</Label>
           {person ? (
             <div className="flex items-center justify-between rounded-xl border border-primary/30 bg-primary/5 px-3 py-2.5 text-sm"><span>{person.name}</span><button type="button" className="text-xs text-primary hover:underline" onClick={() => { setPerson(null); setQ(""); }}>Change</button></div>
           ) : (
@@ -284,15 +320,11 @@ function RecordDialog({ onSave, onClose, busy }: { onSave: (v: { personId?: stri
             </>
           )}
         </div>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div><Label>Date</Label><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
-          <div><Label>Place</Label><Input value={place} onChange={(e) => setPlace(e.target.value)} /></div>
-        </div>
-        <div><Label>Who baptised them</Label><Input value={officiant} onChange={(e) => setOfficiant(e.target.value)} /></div>
+        <BaptismQuestions fields={fields} v={v} set={(p) => setV((x) => ({ ...x, ...p }))} />
         <div className="flex gap-2">
           <Button variant="secondary" className="flex-1" onClick={onClose} disabled={busy}>Cancel</Button>
-          <Button className="flex-1" disabled={busy || (!person && q.trim().length < 2)} onClick={() => onSave(person ? { personId: person.id, date, place, officiant } : { name: q, date, place, officiant })}>
-            {busy ? <Loader2 className="size-4 animate-spin" /> : null} Record it
+          <Button className="flex-1" disabled={busy || (!person && q.trim().length < 2)} onClick={() => onSave(person ? { personId: person.id, ...v } : { name: q, ...v })}>
+            {busy ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : "Record it"}
           </Button>
         </div>
       </div>

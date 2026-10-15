@@ -9,12 +9,12 @@ import {
  * Every public form a church can customise, in one place: where it is stored,
  * what it starts as, and what the builder may add. Client-safe.
  */
-export type FormKind = "join" | "visitor" | "children" | "teens" | "prayer" | "testimony" | "counsel" | "give" | "book";
+export type FormKind = "join" | "visitor" | "children" | "teens" | "prayer" | "testimony" | "counsel" | "give" | "book" | "baptism";
 
 /** Column on Church that stores the definition. */
 export type FormColumn =
   | "registrationFields" | "visitorFormFields" | "childrenFormFields" | "teensFormFields"
-  | "prayerFormFields" | "testimonyFormFields" | "counselFormFields" | "giveFormFields" | "bookingFormFields";
+  | "prayerFormFields" | "testimonyFormFields" | "counselFormFields" | "giveFormFields" | "bookingFormFields" | "baptismFormFields";
 
 export interface FormKindInfo {
   kind: FormKind;
@@ -31,6 +31,8 @@ export interface FormKindInfo {
   /** The kind keeps its standard fields, and the builder mostly adds your own questions. */
   simple: boolean;
   submitLabel: string;
+  /** Used inside the app only (no public page yet). */
+  internal?: boolean;
 }
 
 const f = (x: FormField): FormField => ({ system: true, ...x });
@@ -74,6 +76,14 @@ export const DEFAULT_BOOKING_FORM: FormField[] = [
   f({ id: "phone", label: "Phone number", type: "tel", required: true, locked: true, placeholder: "024 000 0000" }),
   f({ id: "email", label: "Email (optional)", type: "email" }),
   f({ id: "notes", label: "Anything else we should know?", type: "textarea", placeholder: "Number of guests, setup you need, sound system..." }),
+];
+
+export const DEFAULT_BAPTISM_FORM: FormField[] = [
+  f({ id: "name", label: "Name", type: "text", required: true, locked: true }),
+  f({ id: "date", label: "Date of baptism", type: "date", locked: true }),
+  f({ id: "place", label: "Place", type: "text", placeholder: "e.g. Grace Chapel, or the river" }),
+  f({ id: "officiant", label: "Who baptised them", type: "text", placeholder: "e.g. Pastor Daniel Owusu" }),
+  f({ id: "notes", label: "Notes", type: "textarea" }),
 ];
 
 function coerceList(raw: unknown): FormField[] | null {
@@ -172,6 +182,11 @@ export const FORM_KINDS: Record<FormKind, FormKindInfo> = {
     kind: "book", label: "Facility booking", description: "People ask to book your hall or rooms.",
     column: "bookingFormFields", path: (s) => `/book/${s}`, defaults: DEFAULT_BOOKING_FORM, catalog: DEFAULT_BOOKING_FORM,
     resolve: (r) => resolveSimple(r, DEFAULT_BOOKING_FORM), special: ["facility", "when"], simple: true, submitLabel: "Send booking request",
+  },
+  baptism: {
+    kind: "baptism", label: "Baptism record", description: "The questions you fill in for each baptism. Add your own, or remove the ones you do not use.",
+    column: "baptismFormFields", path: () => "", defaults: DEFAULT_BAPTISM_FORM, catalog: DEFAULT_BAPTISM_FORM,
+    resolve: (r) => resolveSimple(r, DEFAULT_BAPTISM_FORM), special: ["name"], simple: true, submitLabel: "Save", internal: true,
   },
 };
 
