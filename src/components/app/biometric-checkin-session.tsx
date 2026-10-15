@@ -124,7 +124,7 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
 
   return createPortal(
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/50 p-4">
-      <div className="flex w-full max-w-md flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
+      <div className="flex w-full max-w-xl flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl">
         <div className="flex items-center justify-between border-b border-line p-4">
           <div className="flex items-center gap-2">
             <Fingerprint className="size-5 text-primary" />
@@ -133,7 +133,7 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
           <button onClick={close} className="rounded-lg p-1 text-ink-faint hover:bg-surface-2"><X className="size-5" /></button>
         </div>
 
-        <div className="grid place-items-center p-6 text-center" style={{ minHeight: 260 }}>
+        <div className="grid place-items-center p-6 text-center" style={{ minHeight: phase === "welcome" ? 460 : 280 }}>
           {phase === "connecting" && (
             <><Loader2 className="size-8 animate-spin text-ink-faint" /><p className="mt-3 text-sm text-ink-muted">{hint}</p></>
           )}
@@ -162,12 +162,12 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
 
           {phase === "welcome" && welcome && (
             <div className="animate-fade-up">
-              <MemberAvatar name={welcome.name} photoUrl={welcome.photoUrl} gender={welcome.gender} size="xl" className="mx-auto ring-4 ring-success/40" />
+              <MemberAvatar name={welcome.name} photoUrl={welcome.photoUrl} gender={welcome.gender} size="xl" className="mx-auto !size-60 ring-4 ring-success/40 sm:!size-72 [&_svg]:!size-full" />
               <div className="mt-3 flex items-center justify-center gap-1.5 text-success">
                 <CheckCircle2 className="size-5" />
                 <span className="text-sm font-semibold">{welcome.alreadyIn ? "Already checked in" : "Welcome!"}</span>
               </div>
-              <h4 className="mt-1 font-display text-2xl font-bold">{welcome.name}</h4>
+              <h4 className="mt-1 font-display text-3xl font-bold">{welcome.name}</h4>
               {welcome.category && !welcome.alreadyIn && <p className="text-xs capitalize text-ink-faint">{welcome.category}</p>}
               {welcome.serviceName && <p className="mt-1 text-sm font-medium text-primary-bright">{welcome.serviceName}</p>}
             </div>
