@@ -107,7 +107,7 @@ const sections = [
       },
       {
         name: "Custom sender ID",
-        desc: "Request a custom SMS sender ID (e.g. your church name) in Settings → SMS Settings. Once approved, your messages appear with your church's name instead of a random number.",
+        desc: "On the Pro plan and above, request a custom SMS sender ID (e.g. your church name) in Settings → SMS Settings. Once approved, your messages appear with your church's name instead of a random number.",
       },
     ],
   },

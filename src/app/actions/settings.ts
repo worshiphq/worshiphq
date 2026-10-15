@@ -15,6 +15,7 @@ import type { Role } from "@prisma/client";
 import { sendEmail } from "@/lib/integrations/email";
 import { audit } from "@/lib/audit";
 import { getBaseUrl } from "@/lib/url";
+import { planRank, type PlanId } from "@/lib/plan-gate";
 
 /** Update the signed-in user's own name, email and profile photo. */
 export async function updateProfile(formData: FormData) {
@@ -210,9 +211,9 @@ export async function requestSenderId(input: string): Promise<{ ok: true } | { o
   assertCanWrite(session);
   if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the owner or an admin can request a sender ID." };
 
-  // SMS and a custom sender name are paid features: a free church cannot ask for one.
+  // A custom sender name is a Pro feature (each one needs approval from the networks).
   const sub = await db.subscription.findUnique({ where: { churchId: session.churchId }, select: { plan: true } });
-  if (!sub || sub.plan === "free") return { ok: false, error: "A custom sender ID is part of the paid plans. Upgrade to request one." };
+  if (!sub || planRank(sub.plan as PlanId) < planRank("pro")) return { ok: false, error: "A custom sender ID is part of the Pro plan and above. Upgrade to request one." };
 
   const senderId = String(input ?? "").trim();
   if (!/^[A-Za-z0-9]{3,11}$/.test(senderId) || /^\d+$/.test(senderId)) {

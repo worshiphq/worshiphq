@@ -74,6 +74,7 @@ export const plans: Plan[] = [
       "Sermons, devotionals & testimonies library",
       "Facility & room bookings + welfare records",
       "Custom roles & free assisted migration",
+      "Your own SMS sender name",
     ],
     upgradeTips: [
       "Schedule volunteers and build service rosters",
@@ -142,6 +143,7 @@ export const comparison: { group: string; rows: { label: string; values: (boolea
     rows: [
       { label: "Email broadcasts", values: [true, true, true, true] },
       { label: "SMS broadcasts", values: [false, true, true, true] },
+      { label: "Your own SMS sender name", values: [false, false, true, true] },
       { label: "Birthday & anniversary reminders", values: [false, true, true, true] },
       { label: "Visitor follow-ups", values: [false, true, true, true] },
       { label: "Welfare & counseling records", values: [false, false, "Welfare", "All"] },

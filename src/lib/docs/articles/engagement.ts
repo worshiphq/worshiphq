@@ -51,7 +51,7 @@ export const engagement: DocArticle[] = [
         "Type your **Sender ID**: 3 to 11 letters and numbers with no spaces or symbols, e.g. GraceTemple.",
         "Choose **Submit request**. The status shows **pending** until it's approved, and you'll get an SMS when it is.",
       ] },
-      { note: "Only the Owner or an Admin can request a sender ID, and it needs a paid plan (Starter or higher). On the Free plan, SMS Settings shows an upgrade prompt instead." },
+      { note: "Only the Owner or an Admin can request a sender ID, and it needs the Pro plan or higher. On Free and Starter, SMS Settings shows an upgrade prompt instead, and your texts go out with your church's name at the start." },
       { tip: "Long messages use more than one credit. Keep texts short to save credits." },
     ],
   },

@@ -43,7 +43,7 @@ import { getFormDefinition, getVisitorFormDefinition, getChildrenFormDefinition,
 import { createDepartment, deleteDepartment } from "@/app/actions/departments";
 import { plans as defaultPlans } from "@/config/pricing";
 import type { PlanPrices } from "@/lib/data/platform-config";
-import { getPlanLimits, type PlanId } from "@/lib/plan-gate";
+import { getPlanLimits, planRank, type PlanId } from "@/lib/plan-gate";
 import { usePaystack } from "@/components/payments/use-paystack";
 import { phoneValidityMessage } from "@/lib/phone";
 import { cn } from "@/lib/utils";
@@ -575,7 +575,7 @@ export function SettingsClient({
         )}
 
         {tab === "sms" && (
-          <SenderIdCard current={church?.smsSenderId ?? null} status={church?.smsSenderIdStatus ?? null} paid={(subscription?.plan ?? "free") !== "free"} canManage={!ro && isAdmin} />
+          <SenderIdCard current={church?.smsSenderId ?? null} status={church?.smsSenderIdStatus ?? null} paid={planRank((subscription?.plan ?? "free") as PlanId) >= planRank("pro")} canManage={!ro && isAdmin} />
         )}
       </div>
     </div>
