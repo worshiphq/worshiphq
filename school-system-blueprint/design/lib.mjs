@@ -1,0 +1,143 @@
+// Tiny wireframe kit: string templates → HTML. Used by pages-*.mjs and build-wireframes.mjs.
+
+export const css = `
+:root{--ink:#1f2937;--muted:#6b7280;--line:#e5e7eb;--bg:#f1f3f5;--card:#fff;--brand:#0f766e;--brand-d:#115e59;--brand-s:#ccfbf1;
+--good:#15803d;--good-s:#dcfce7;--warn:#b45309;--warn-s:#fef3c7;--bad:#b91c1c;--bad-s:#fee2e2;--info:#1d4ed8;--info-s:#dbeafe;--nav:#0f172a}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font:14px/1.45 "Inter","Segoe UI",system-ui,-apple-system,"Liberation Sans","DejaVu Sans",sans-serif;color:var(--ink);background:var(--bg)}
+.tag{background:#111827;color:#fde68a;padding:7px 16px;font:12px/1.4 ui-monospace,Menlo,Consolas,monospace;display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.tag b{color:#fff}.tag i{font-style:normal;color:#9ca3af}
+.app{display:flex;min-height:720px}
+.side{width:224px;background:var(--nav);color:#cbd5e1;padding:16px 12px;flex:none}
+.logo{display:flex;gap:10px;align-items:center;color:#fff;font-weight:700;font-size:15px;padding:4px 8px 16px}
+.logo span{width:28px;height:28px;border-radius:8px;background:var(--brand);display:grid;place-items:center;font-size:14px}
+.side small{display:block;text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;color:#64748b;margin:14px 8px 4px}
+.side a{display:flex;gap:9px;align-items:center;padding:7px 10px;border-radius:8px;color:#cbd5e1;font-size:13.5px}
+.side a:before{content:"";width:8px;height:8px;border-radius:2px;background:#475569}
+.side a.on{background:#134e4a;color:#fff}.side a.on:before{background:#5eead4}
+.main{flex:1;min-width:0;display:flex;flex-direction:column}
+.top{background:#fff;border-bottom:1px solid var(--line);padding:10px 24px;display:flex;align-items:center;gap:16px}
+.top .school{font-weight:600}.top .sp{flex:1}
+.pill{border:1px solid var(--line);border-radius:999px;padding:3px 11px;font-size:12px;color:var(--muted);background:#fff}
+.me{display:flex;gap:8px;align-items:center;font-size:13px}
+.av{width:30px;height:30px;border-radius:50%;background:var(--brand-s);color:var(--brand-d);display:grid;place-items:center;font-weight:700;font-size:12px;flex:none}
+.content{padding:20px 24px 28px;flex:1}
+.ph{display:flex;align-items:flex-end;gap:12px;margin-bottom:16px}
+.ph h1{font-size:21px;line-height:1.2}.ph .crumb{color:var(--muted);font-size:12.5px;margin-bottom:3px}.ph .sp{flex:1}
+.btn{display:inline-flex;align-items:center;gap:6px;border-radius:8px;padding:7px 14px;font-size:13px;font-weight:600;border:1px solid var(--line);background:#fff;color:var(--ink);white-space:nowrap}
+.btn.p{background:var(--brand);border-color:var(--brand);color:#fff}.btn.d{background:var(--bad);border-color:var(--bad);color:#fff}.btn.s{padding:4px 10px;font-size:12px}.btn.l{padding:11px 18px;font-size:15px}.btn.w{width:100%;justify-content:center}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px}
+.card>h3,.card .h{font-size:14px;font-weight:700;margin-bottom:10px;display:flex;align-items:center;gap:8px}.card .h .sp{flex:1}
+.grid{display:grid;gap:14px}.c2{grid-template-columns:repeat(2,1fr)}.c3{grid-template-columns:repeat(3,1fr)}.c4{grid-template-columns:repeat(4,1fr)}.c5{grid-template-columns:repeat(5,1fr)}
+.g21{grid-template-columns:2fr 1fr}.g12{grid-template-columns:1fr 2fr}.g31{grid-template-columns:3fr 1fr}.g13{grid-template-columns:1fr 3fr}
+.row{display:flex;gap:10px;align-items:center}.row.w{flex-wrap:wrap}.sp{flex:1}.mt{margin-top:14px}.mt2{margin-top:8px}.muted{color:var(--muted)}.small{font-size:12px}.b{font-weight:700}.r{text-align:right}.c{text-align:center}
+.stat .v{font-size:26px;font-weight:700;line-height:1.1}.stat .l{color:var(--muted);font-size:12.5px;margin-bottom:4px}.stat .s{font-size:12px;margin-top:4px;color:var(--muted)}
+table{width:100%;border-collapse:collapse;font-size:13px}th{text-align:left;font-size:11.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line);background:#fafafa;white-space:nowrap}
+td{padding:8px 10px;border-bottom:1px solid #f0f1f3;vertical-align:middle}tr:last-child td{border-bottom:0}td.r,th.r{text-align:right}td.c,th.c{text-align:center}
+.tbl{border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#fff}.tbl table{margin:0}
+.badge{display:inline-block;border-radius:999px;padding:2px 9px;font-size:11.5px;font-weight:600;background:#e5e7eb;color:#374151;white-space:nowrap}
+.badge.good{background:var(--good-s);color:var(--good)}.badge.warn{background:var(--warn-s);color:var(--warn)}.badge.bad{background:var(--bad-s);color:var(--bad)}.badge.info{background:var(--info-s);color:var(--info)}.badge.brand{background:var(--brand-s);color:var(--brand-d)}
+.field{margin-bottom:10px}.field label{display:block;font-size:12px;font-weight:600;color:#374151;margin-bottom:3px}
+.inp{border:1px solid #cbd5e1;border-radius:8px;padding:8px 10px;background:#fff;min-height:36px;font-size:13.5px;color:var(--ink);display:flex;align-items:center}
+.inp.ph0{color:#9ca3af}.inp.sel:after{content:"▾";margin-left:auto;color:#6b7280}.inp.area{min-height:72px;align-items:flex-start}.inp.err{border-color:var(--bad);background:#fff7f7}
+.hint{font-size:11.5px;color:var(--muted);margin-top:2px}.hint.err{color:var(--bad)}
+.tabs{display:flex;gap:2px;border-bottom:1px solid var(--line);margin-bottom:14px}.tabs a{padding:8px 14px;font-size:13px;color:var(--muted);border-bottom:2px solid transparent;margin-bottom:-1px}.tabs a.on{color:var(--brand-d);border-color:var(--brand);font-weight:700}
+.bar{height:8px;background:#e5e7eb;border-radius:99px;overflow:hidden;min-width:60px}.bar i{display:block;height:100%;background:var(--brand);border-radius:99px}.bar.good i{background:#16a34a}.bar.warn i{background:#d97706}.bar.bad i{background:#dc2626}
+.filters{display:flex;gap:8px;margin-bottom:12px;flex-wrap:wrap;align-items:center}.filters .inp{min-height:34px;padding:6px 10px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}.chip{border:1px solid var(--line);border-radius:999px;padding:3px 10px;font-size:12px;background:#fff}.chip.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.notes{margin:0 24px 22px;background:#fffbeb;border:1px dashed #d97706;border-radius:10px;padding:12px 16px}.notes h4{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:#92400e;margin-bottom:6px}
+.notes ol{margin-left:18px;font-size:12.5px;color:#451a03}.notes li{margin:2px 0}.reqs{margin-top:8px;display:flex;gap:6px;flex-wrap:wrap}.reqs span{font:11px ui-monospace,Menlo,monospace;background:#fef3c7;border:1px solid #fcd34d;border-radius:5px;padding:1px 6px;color:#78350f}
+.n{display:inline-grid;place-items:center;width:18px;height:18px;border-radius:50%;background:#d97706;color:#fff;font-size:11px;font-weight:700;margin-right:4px;vertical-align:1px}
+.empty{border:2px dashed #cbd5e1;border-radius:10px;padding:18px;text-align:center;color:var(--muted)}
+.kv{display:grid;grid-template-columns:130px 1fr;gap:6px 12px;font-size:13px}.kv dt{color:var(--muted)}
+.sq{width:14px;height:14px;border-radius:3px;display:inline-block}.sq.P{background:#16a34a}.sq.A{background:#dc2626}.sq.L{background:#d97706}.sq.E{background:#2563eb}.sq.X{background:#e5e7eb}
+.seg{display:inline-flex;border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}.seg b{padding:5px 12px;font-size:12.5px;font-weight:600;color:var(--muted)}.seg b.on{background:var(--brand);color:#fff}
+.sheet{background:#fff;box-shadow:0 2px 14px rgba(0,0,0,.15);margin:24px auto;padding:34px 40px;color:#111}
+.hr{height:1px;background:var(--line);margin:12px 0}.dot{width:8px;height:8px;border-radius:50%;display:inline-block;background:#9ca3af;margin-right:6px}
+/* phone */
+.phonewrap{display:flex;justify-content:center;background:#e5e7eb;padding:26px 0}
+.phone{width:390px;background:#f8fafc;border-radius:34px;border:10px solid #111827;overflow:hidden;box-shadow:0 8px 30px rgba(0,0,0,.25);display:flex;flex-direction:column}
+.sb{display:flex;justify-content:space-between;padding:8px 20px 4px;font-size:11.5px;font-weight:700;background:#fff}
+.ph-h{background:var(--brand);color:#fff;padding:14px 16px}.ph-h h2{font-size:18px}.ph-h small{opacity:.85}
+.pb{padding:14px;display:flex;flex-direction:column;gap:12px;flex:1}
+.bn{display:flex;border-top:1px solid var(--line);background:#fff;margin-top:auto}.bn a{flex:1;text-align:center;padding:9px 0 11px;font-size:11px;color:var(--muted)}.bn a.on{color:var(--brand-d);font-weight:700}.bn a:before{content:"";display:block;width:20px;height:5px;border-radius:3px;background:#cbd5e1;margin:0 auto 6px}.bn a.on:before{background:var(--brand)}
+.phone .card{padding:12px;border-radius:12px}.phone .btn.l{width:100%;justify-content:center}
+.row-s{display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #f0f1f3}.row-s:last-child{border-bottom:0}
+.stu{display:flex;align-items:center;gap:10px;background:#fff;border:1px solid var(--line);border-radius:12px;padding:8px 10px}
+.stu .nm{font-weight:600;flex:1}.stu .tap{min-width:92px;text-align:center;border-radius:9px;padding:9px 0;font-weight:700;font-size:13px}
+.tap.P{background:var(--good-s);color:var(--good)}.tap.A{background:var(--bad-s);color:var(--bad)}.tap.L{background:var(--warn-s);color:var(--warn)}.tap.E{background:var(--info-s);color:var(--info)}
+`;
+
+const esc = (s) => String(s);
+
+export const badge = (t, tone = "") => `<span class="badge ${tone}">${esc(t)}</span>`;
+export const btn = (t, k = "") => `<span class="btn ${k}">${esc(t)}</span>`;
+export const av = (name) => `<span class="av">${name.split(" ").map((w) => w[0]).slice(0, 2).join("")}</span>`;
+export const bar = (pct, tone = "") => `<div class="bar ${tone}"><i style="width:${pct}%"></i></div>`;
+export const stat = (l, v, s = "", tone = "") => `<div class="card stat"><div class="l">${l}</div><div class="v" ${tone ? `style="color:var(--${tone})"` : ""}>${v}</div>${s ? `<div class="s">${s}</div>` : ""}</div>`;
+export const card = (title, body, right = "") => `<div class="card"><div class="h">${title}<span class="sp"></span>${right}</div>${body}</div>`;
+export const field = (label, value = "", o = {}) =>
+  `<div class="field" ${o.style ? `style="${o.style}"` : ""}><label>${label}</label><div class="inp ${value ? "" : "ph0"} ${o.sel ? "sel" : ""} ${o.area ? "area" : ""} ${o.err ? "err" : ""}">${value || o.ph || ""}</div>${o.hint ? `<div class="hint ${o.err ? "err" : ""}">${o.hint}</div>` : ""}</div>`;
+export const tabs = (items, on = 0) => `<div class="tabs">${items.map((t, i) => `<a class="${i === on ? "on" : ""}">${t}</a>`).join("")}</div>`;
+export const chips = (items, on = 0) => `<div class="chips">${items.map((t, i) => `<span class="chip ${i === on ? "on" : ""}">${t}</span>`).join("")}</div>`;
+export const seg = (items, on = 0) => `<span class="seg">${items.map((t, i) => `<b class="${i === on ? "on" : ""}">${t}</b>`).join("")}</span>`;
+export const filters = (arr) => `<div class="filters">${arr.map((f) => (f.startsWith("<") ? f : `<div class="inp sel">${f}</div>`)).join("")}</div>`;
+export const n = (i) => `<span class="n">${i}</span>`;
+
+export function table(head, rows, { cls = [], foot = "" } = {}) {
+  const th = head.map((h, i) => `<th class="${cls[i] || ""}">${h}</th>`).join("");
+  const tr = rows.map((r) => `<tr>${r.map((c, i) => `<td class="${cls[i] || ""}">${c}</td>`).join("")}</tr>`).join("");
+  return `<div class="tbl"><table><thead><tr>${th}</tr></thead><tbody>${tr}</tbody>${foot}</table></div>`;
+}
+
+const NAV = {
+  admin: [
+    ["Overview", ["Dashboard"]],
+    ["People", ["Students", "Admissions", "Staff"]],
+    ["Attendance", ["Today", "Class reports"]],
+    ["Results", ["Score entry", "Completion", "Broadsheet", "Report cards"]],
+    ["Fees", ["Fee structure", "Invoices", "Payments", "Debtors", "Collections"]],
+    ["Communicate", ["Messages"]],
+    ["School", ["Setup", "Users & roles", "Settings", "Audit log"]],
+  ],
+  bursar: [
+    ["Overview", ["Dashboard"]],
+    ["Fees", ["Fee structure", "Invoices", "Payments", "Debtors", "Collections", "Daily cash-up"]],
+    ["People", ["Students"]],
+    ["Communicate", ["Messages"]],
+  ],
+  teacher: [["My day", ["Dashboard", "Attendance"]], ["Results", ["Score entry", "Remarks"]], ["Class", ["My students"]]],
+  platform: [["Platform", ["Schools", "Plans", "Billing", "Support access", "SMS pricing"]]],
+};
+
+export function shell({ role = "admin", active = "", title, crumb = "", actions = "", content, who = "Ama Boateng", whoRole = "School admin" }) {
+  const groups = NAV[role]
+    .map(([g, items]) => `<small>${g}</small>${items.map((i) => `<a class="${i === active ? "on" : ""}">${i}</a>`).join("")}`)
+    .join("");
+  const school = role === "platform" ? "SchoolOS Platform" : "Bright Future Academy";
+  return `<div class="app"><aside class="side"><div class="logo"><span>S</span>SchoolOS</div>${groups}</aside>
+<div class="main"><div class="top"><span class="school">${school}</span><span class="pill">Term 2 · 2026/2027</span><span class="sp"></span><span class="pill">Search…  ⌘K</span><span class="me">${av(who)}<span><b>${who}</b><br><span class="muted small">${whoRole}</span></span></span></div>
+<div class="content"><div class="ph"><div><div class="crumb">${crumb}</div><h1>${title}</h1></div><span class="sp"></span>${actions}</div>${content}</div></div></div>`;
+}
+
+export function phone({ title, sub = "", body, nav = null, onNav = 0, time = "07:42", head = true }) {
+  const bn = nav ? `<div class="bn">${nav.map((t, i) => `<a class="${i === onNav ? "on" : ""}">${t}</a>`).join("")}</div>` : "";
+  return `<div class="phonewrap"><div class="phone"><div class="sb"><span>${time}</span><span>4G ▮▮▮</span></div>${head ? `<div class="ph-h"><h2>${title}</h2><small>${sub}</small></div>` : ""}<div class="pb">${body}</div>${bn}</div></div>`;
+}
+
+export const notesBox = (items, reqs = []) =>
+  `<div class="notes"><h4>Design notes</h4><ol>${items.map((i) => `<li>${i}</li>`).join("")}</ol>${reqs.length ? `<div class="reqs">${reqs.map((r) => `<span>${r}</span>`).join("")}</div>` : ""}</div>`;
+
+/** page = { id, group, title, route, roles, width, kind: 'app'|'phone'|'sheet', html, notes, reqs } */
+export function wrap(p) {
+  const tag = `<div class="tag"><b>${p.id}</b><span>${p.title}</span><i>route</i> ${p.route}<i>roles</i> ${p.roles}</div>`;
+  return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>${p.id} ${p.title}</title><style>${css}</style></head><body>${tag}${p.html}${p.notes ? notesBox(p.notes, p.reqs) : ""}</body></html>`;
+}
+
+// ── sample data (fictional) ──
+export const KIDS = [
+  ["Kwame Mensah", "BFA-0412"], ["Akosua Boateng", "BFA-0413"], ["Kofi Owusu", "BFA-0415"], ["Ama Serwaa", "BFA-0419"],
+  ["Yaw Asante", "BFA-0421"], ["Abena Osei", "BFA-0422"], ["Nana Yaa Frimpong", "BFA-0426"], ["Kojo Adjei", "BFA-0430"],
+  ["Efua Quaye", "BFA-0433"], ["Fiifi Annan", "BFA-0437"], ["Adwoa Darko", "BFA-0440"], ["Kwesi Badu", "BFA-0444"],
+];
+export const ghs = (n) => "GH₵ " + Number(n).toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
