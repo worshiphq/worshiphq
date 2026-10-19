@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ScanFace, Fingerprint, Hand, Plus, Wifi, WifiOff, Trash2, Copy, Check, Loader2, Users, Webhook, Usb, Radio, X } from "lucide-react";
+import { ScanFace, Fingerprint, Hand, Plus, Wifi, WifiOff, Trash2, Copy, Check, Loader2, Users, Webhook, Usb, Radio, X, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -58,6 +58,12 @@ export function DevicesClient({ data: initial }: { data: DevicesData }) {
   const [open, setOpen] = useState<DeviceRow | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
+  const [refreshing, setRefreshing] = useState(false);
+  function refreshNow() {
+    setRefreshing(true);
+    getDevices().then((fresh) => setPolled({ base: initial, fresh })).catch(() => toast("Could not refresh. Try again.", "error")).finally(() => setRefreshing(false));
+  }
+
   // Keep "online" and the recent scans fresh while the page is open, once a minute and only while it is on screen.
   useEffect(() => {
     const t = setInterval(() => {
@@ -85,6 +91,9 @@ export function DevicesClient({ data: initial }: { data: DevicesData }) {
   return (
     <div>
       <PageHeader title="Biometric devices" description="Check people in with a face, palm or fingerprint scan. Add the devices your church uses and watch the scans come in.">
+        <Button size="sm" variant="secondary" disabled={refreshing} onClick={refreshNow}>
+          {refreshing ? <Loader2 className="animate-spin" /> : <RefreshCw />} Refresh
+        </Button>
         <Button size="sm" onClick={() => setAdding(true)} disabled={!can}><Plus /> Add a device</Button>
       </PageHeader>
 
