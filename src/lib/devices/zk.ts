@@ -30,8 +30,11 @@ export async function touch(deviceId: string, info?: string | null) {
 export function settingsFor(sn: string) {
   return [
     `GET OPTION FROM: ${sn}`,
-    "ErrorDelay=30",
-    "Delay=10",
+    "ErrorDelay=60",
+    // How often the device asks "anything for me?" (seconds). Scans are pushed the moment they happen (Realtime=1),
+    // so this only affects how fast "send members to device" arrives. Every 10 seconds would cost about 260,000
+    // function calls a month per device; every 2 minutes costs about 21,000.
+    "Delay=120",
     "TransTimes=00:00;14:05",
     "TransInterval=1",
     "TransFlag=TransData AttLog\tOpLog",
@@ -41,7 +44,7 @@ export function settingsFor(sn: string) {
 }
 
 /** Read the scans a device posted: tab-separated lines of user ID, time, status, verify type. */
-export async function handleAttLog(device: { id: string; churchId: string }, body: string) {
+export async function handleAttLog(device: Parameters<typeof recordPunch>[0], body: string) {
   if (!(await deviceChurchAllowed(device.churchId))) return 0;
   const church = await db.church.findUnique({ where: { id: device.churchId }, select: { timezone: true } });
   const tz = church?.timezone ?? "Africa/Accra";

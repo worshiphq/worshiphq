@@ -2005,6 +2005,11 @@ model BiometricDevice {
   serial     String   @unique // the device's serial number, or a generated id for a webhook
   secret     String   // token used by the webhook
   enabled    Boolean  @default(true)
+  // When scans count: during the church's service times, only at custom hours, or always.
+  scanRule    String  @default("service-times") // service-times | custom | always
+  windowDays  Int[]   @default([])               // custom hours: 0 = Sunday ... 6 = Saturday (empty = every day)
+  windowStart String?                            // custom hours, "06:00"
+  windowEnd   String?                            // custom hours, "13:00"
   lastSeenAt DateTime?
   lastScanAt DateTime?
   info       String?  // model and firmware as the device reports them

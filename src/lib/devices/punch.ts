@@ -1,12 +1,42 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { resolveServiceSession, WEEKDAY_NAMES } from "@/lib/attendance/service-times";
+import { describeCurrentService, resolveServiceSession, WEEKDAY_NAMES } from "@/lib/attendance/service-times";
 import { categoryForPerson } from "@/lib/data/attendance";
 import { getAgeConfig } from "@/lib/data/age";
 import { localParts, ymdInTz, zonedToUtc } from "@/lib/time/tz";
 
-export type PunchResult = "checked_in" | "already_in" | "unknown_id" | "too_old";
-type Device = { id: string; churchId: string };
+export type PunchResult = "checked_in" | "already_in" | "unknown_id" | "too_old" | "outside_hours";
+/** A device and the hours it should count scans (see "When should scans count?" on the Devices page). */
+type Device = { id: string; churchId: string; scanRule?: string; windowDays?: number[]; windowStart?: string | null; windowEnd?: string | null };
+
+const toMinutes = (hm: string | null | undefined) => {
+  const m = /^(\d{1,2}):(\d{2})$/.exec(hm ?? "");
+  return m ? Number(m[1]) * 60 + Number(m[2]) : null;
+};
+
+/**
+ * Should a scan at `at` count? Keeps a cleaner, a late-night visitor or a Tuesday walk-through out of attendance.
+ *  - "service-times": only during a service (and its grace period). If the church has not set service times, everything counts.
+ *  - "custom": only on the chosen days, between the chosen hours (church time).
+ *  - "always": every scan counts.
+ */
+export async function scanAllowed(device: Device, at: Date): Promise<boolean> {
+  const rule = device.scanRule ?? "service-times";
+  if (rule === "always") return true;
+  if (rule === "custom") {
+    const church = await db.church.findUnique({ where: { id: device.churchId }, select: { timezone: true } });
+    const { weekday, hour, minute } = localParts(at, church?.timezone ?? "Africa/Accra");
+    const days = device.windowDays ?? [];
+    if (days.length > 0 && !days.includes(weekday)) return false;
+    const start = toMinutes(device.windowStart);
+    const end = toMinutes(device.windowEnd);
+    if (start === null || end === null) return true; // days only
+    const now = hour * 60 + minute;
+    return start <= end ? now >= start && now <= end : now >= start || now <= end; // an overnight window wraps past midnight
+  }
+  const current = await describeCurrentService(device.churchId, null, at);
+  return current === null || current.slot !== null; // null = service times are off, so nothing to check against
+}
 
 /** What the device says it used. ZKTeco verify codes: 1 fingerprint, 15 face, 25 palm (others are cards or passwords). */
 export function modeFromVerify(code: string | number | null | undefined): string | null {
@@ -62,10 +92,18 @@ export async function recordPunch(device: Device, input: { pin: string; at: Date
   const now = new Date();
   let at = input.at;
   if (at.getTime() > now.getTime() + 10 * 60000) at = now; // a clock that runs fast
+  const pin = input.pin.slice(0, 40);
   const log = (result: PunchResult, name: string | null) =>
-    db.biometricDeviceEvent.create({ data: { deviceId: device.id, churchId: device.churchId, pin: input.pin.slice(0, 40), at, mode: input.mode ?? null, result, personName: name } }).catch(() => {});
+    db.biometricDeviceEvent.create({ data: { deviceId: device.id, churchId: device.churchId, pin, at, mode: input.mode ?? null, result, personName: name } }).catch(() => {});
+  // Someone who keeps walking past would fill the list: note a repeat (or an off-hours pass) once per half hour.
+  const logOnce = async (result: PunchResult, name: string | null) => {
+    const recent = await db.biometricDeviceEvent.findFirst({ where: { deviceId: device.id, pin, result, createdAt: { gt: new Date(now.getTime() - 30 * 60000) } }, select: { id: true } });
+    if (!recent) await log(result, name);
+  };
 
   if (now.getTime() - at.getTime() > 36 * 3600000) { await log("too_old", null); return { result: "too_old", name: null }; }
+
+  if (!(await scanAllowed(device, at))) { await logOnce("outside_hours", null); return { result: "outside_hours", name: null }; }
 
   const person = await personForPin(device.churchId, input.pin);
   if (!person) { await log("unknown_id", null); return { result: "unknown_id", name: null }; }
@@ -73,7 +111,7 @@ export async function recordPunch(device: Device, input: { pin: string; at: Date
 
   const sess = await sessionForDevice(device.churchId, at);
   const dup = await db.attendanceRecord.findFirst({ where: { sessionId: sess.id, personId: person.id }, select: { id: true } });
-  if (dup) { await log("already_in", name); await db.biometricDevice.update({ where: { id: device.id }, data: { lastScanAt: now } }); return { result: "already_in", name }; }
+  if (dup) { await logOnce("already_in", name); await db.biometricDevice.update({ where: { id: device.id }, data: { lastScanAt: now } }); return { result: "already_in", name }; }
 
   const category = categoryForPerson(
     { status: person.status, dateOfBirth: person.dateOfBirth, birthday: person.birthday, ageGroup: person.ageGroup },

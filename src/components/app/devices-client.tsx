@@ -23,6 +23,7 @@ const RESULT_TEXT: Record<string, { text: string; tone: string }> = {
   already_in: { text: "Already in", tone: "text-ink-muted" },
   unknown_id: { text: "ID not matched to a member", tone: "text-danger" },
   too_old: { text: "Too old, ignored", tone: "text-ink-faint" },
+  outside_hours: { text: "Outside scan hours, ignored", tone: "text-ink-faint" },
 };
 
 const ago = (iso: string | null) => {
@@ -104,8 +105,8 @@ export function DevicesClient({ data: initial }: { data: DevicesData }) {
         <Card className="p-5">
           <div className="flex items-center gap-2"><ScanFace className="size-5 text-primary" /><Hand className="size-5 text-primary" /><Fingerprint className="size-5 text-primary" /></div>
           <h3 className="mt-3 font-semibold">Face, palm and fingerprint terminals</h3>
-          <p className="mt-1 text-sm text-ink-muted">ZKTeco and compatible terminals (SpeedFace, ProFace, MB and iClock families, and many rebranded ones). They connect to WorshipHQ by themselves through their built-in cloud server setting. No computer to leave switched on.</p>
-          <p className="mt-2 text-xs text-ink-faint">When buying, look for &ldquo;Cloud server&rdquo;, &ldquo;ADMS&rdquo; or &ldquo;Push&rdquo; in the specifications.</p>
+          <p className="mt-1 text-sm text-ink-muted">ZKTeco and compatible terminals (SpeedFace, ProFace, MB and iClock families, and many rebranded ones). They connect to WorshipHQ through their built-in cloud server setting, straight over the internet when they can use a web address and HTTPS, or through a small bridge program on a computer in your building when they cannot.</p>
+          <p className="mt-2 text-xs text-ink-faint">When buying, look for &ldquo;Cloud server&rdquo;, &ldquo;ADMS&rdquo; or &ldquo;Push&rdquo; in the specifications, and ask the seller if it can send to a web address over HTTPS. See the guide below.</p>
         </Card>
         <Card className="p-5">
           <Usb className="size-5 text-primary" />
@@ -119,6 +120,8 @@ export function DevicesClient({ data: initial }: { data: DevicesData }) {
           <p className="mt-1 text-sm text-ink-muted">Anything that can send a web request, such as a gate controller, another brand&apos;s software, or a small bridge program, can send a check-in using a private link we give you.</p>
         </Card>
       </div>
+
+      <Guide startOpen={data.devices.length === 0} />
 
       {/* Devices */}
       <h2 className="mb-2 font-display text-lg font-semibold">Your devices</h2>
@@ -141,6 +144,7 @@ export function DevicesClient({ data: initial }: { data: DevicesData }) {
                 {d.modes.map((m) => { const M = MODE_META[m]; return M ? <span key={m} className="inline-flex items-center gap-1 rounded-full border border-line px-2 py-0.5 text-xs"><M.icon className="size-3.5" /> {M.label}</span> : null; })}
               </div>
               <p className="mt-3 text-xs text-ink-muted">Last contact: {ago(d.lastSeenAt)}. Last scan: {ago(d.lastScanAt)}.{d.pending > 0 ? ` ${d.pending} member${d.pending === 1 ? "" : "s"} waiting to be sent.` : ""}</p>
+              {d.enabled && !d.lastSeenAt && d.brand === "zkteco" && <p className="mt-2 rounded-lg bg-warning/10 px-3 py-2 text-xs text-ink">Waiting for the device to contact WorshipHQ. Open <b>Setup and details</b> for the steps.</p>}
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button size="sm" variant="secondary" onClick={() => setOpen(d)}>Setup and details</Button>
                 {can && d.brand === "zkteco" && (
@@ -185,6 +189,8 @@ export function DevicesClient({ data: initial }: { data: DevicesData }) {
       {openDevice && (
         <Modal open onClose={() => setOpen(null)} title={openDevice.name} wide>
           <Setup device={openDevice} data={data} />
+          <ScanHours key={`${openDevice.id}-${openDevice.scanRule}-${openDevice.windowDays.join()}-${openDevice.windowStart}-${openDevice.windowEnd}`} device={openDevice} serviceTimesOn={data.serviceTimesOn} canEdit={can} busy={busy === `hours-${openDevice.id}`}
+            onSave={(v) => run(`hours-${openDevice.id}`, () => updateDevice(openDevice.id, v), () => "Scan hours saved.")} />
           {can && (
             <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-line pt-4">
               <Button size="sm" variant="secondary" disabled={busy === `tog-${openDevice.id}`}
@@ -207,8 +213,79 @@ function Step({ n, children }: { n: number; children: React.ReactNode }) {
   return <li className="flex gap-3"><span className="mt-0.5 grid size-6 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{n}</span><div className="min-w-0 flex-1 text-sm">{children}</div></li>;
 }
 
+/** Where this device is in getting set up: added, then it contacts us, then its first scan. */
+function Progress({ device }: { device: DeviceRow }) {
+  const rows: { done: boolean; text: string; hint?: string }[] = [
+    { done: true, text: "Device added to WorshipHQ" },
+    { done: !!device.lastSeenAt, text: device.lastSeenAt ? `The device has contacted WorshipHQ (${ago(device.lastSeenAt)})` : "Waiting for the device to contact WorshipHQ", hint: "Follow the steps below, then press Refresh. A device checks in about every 2 minutes. If nothing happens, see Troubleshooting in the guide on this page." },
+    { done: !!device.lastScanAt, text: device.lastScanAt ? `First scan received (last one ${ago(device.lastScanAt)})` : "Waiting for the first scan", hint: "Enrol a face, palm or finger on the device, then scan it." },
+  ];
+  const firstOpen = rows.findIndex((r) => !r.done);
+  return (
+    <ul className="space-y-1.5 rounded-xl bg-surface-2 p-3 text-sm">
+      {rows.map((r, i) => (
+        <li key={i} className="flex items-start gap-2">
+          {r.done ? <Check className="mt-0.5 size-4 shrink-0 text-success" /> : <span className="mt-1.5 size-2.5 shrink-0 rounded-full border border-ink-faint" />}
+          <span className={cn(r.done ? "text-ink" : "text-ink-muted")}>{r.text}{!r.done && i === firstOpen && r.hint ? <span className="mt-0.5 block text-xs text-ink-faint">{r.hint}</span> : null}</span>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+const DAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+/** When should this device's scans count? Keeps a cleaner or a mid-week visitor out of attendance. */
+function ScanHours({ device, serviceTimesOn, canEdit, onSave, busy }: { device: DeviceRow; serviceTimesOn: boolean; canEdit: boolean; busy: boolean; onSave: (v: { scanRule: string; windowDays: number[]; windowStart: string; windowEnd: string }) => void }) {
+  const [rule, setRule] = useState<DeviceRow["scanRule"]>(device.scanRule);
+  const [days, setDays] = useState<number[]>(device.windowDays);
+  const [start, setStart] = useState(device.windowStart ?? "06:00");
+  const [end, setEnd] = useState(device.windowEnd ?? "13:00");
+  const dirty = rule !== device.scanRule || (rule === "custom" && (start !== (device.windowStart ?? "06:00") || end !== (device.windowEnd ?? "13:00") || days.join() !== device.windowDays.join()));
+  const opt = (k: DeviceRow["scanRule"], title: string, text: string) => (
+    <label className={cn("flex cursor-pointer gap-3 rounded-xl border p-3 text-sm", rule === k ? "border-primary bg-primary/5" : "border-line hover:bg-surface-2")}>
+      <input type="radio" name={`rule-${device.id}`} checked={rule === k} onChange={() => setRule(k)} disabled={!canEdit} className="mt-1 accent-primary" />
+      <span><span className="font-medium">{title}</span><span className="block text-xs text-ink-muted">{text}</span></span>
+    </label>
+  );
+  return (
+    <div className="mt-6 border-t border-line pt-5">
+      <h4 className="font-semibold">When should scans count?</h4>
+      <p className="mt-1 text-sm text-ink-muted">A scan outside these hours is ignored, so a cleaner or someone passing on a Tuesday is not counted as attendance. It still shows under Recent scans.</p>
+      <div className="mt-3 space-y-2">
+        {opt("service-times", "During my service times (recommended)", "Counts from a little before a service starts to a little after it ends, using the grace time in Settings, Service times.")}
+        {rule === "service-times" && !serviceTimesOn && (
+          <p className="rounded-lg bg-warning/10 p-3 text-xs text-ink">You have not set up service times yet, so for now every scan counts. Add them in <Link href="/app/settings?tab=service-times" className="font-medium text-primary underline">Settings, Service times</Link>, or choose your own hours below.</p>
+        )}
+        {opt("custom", "Only these days and hours", "For example Sundays from 06:00 to 13:00.")}
+        {rule === "custom" && (
+          <div className="space-y-3 rounded-xl bg-surface-2 p-3">
+            <div className="flex flex-wrap gap-1.5">
+              {DAYS.map((d, i) => (
+                <button key={d} type="button" disabled={!canEdit} onClick={() => setDays((x) => (x.includes(i) ? x.filter((y) => y !== i) : [...x, i].sort()))}
+                  className={cn("rounded-lg border px-3 py-1 text-sm", days.includes(i) ? "border-primary bg-primary/10 text-primary" : "border-line text-ink-muted")}>{d}</button>
+              ))}
+              <span className="self-center text-xs text-ink-faint">{days.length === 0 ? "No day ticked means every day." : ""}</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              From <Input type="time" value={start} onChange={(e) => setStart(e.target.value)} disabled={!canEdit} className="w-32" /> to <Input type="time" value={end} onChange={(e) => setEnd(e.target.value)} disabled={!canEdit} className="w-32" />
+            </div>
+          </div>
+        )}
+        {opt("always", "Any time", "Every scan counts. Not recommended for a door that people use all week.")}
+      </div>
+      {canEdit && (
+        <Button size="sm" className="mt-3" disabled={!dirty || busy} onClick={() => onSave({ scanRule: rule, windowDays: days, windowStart: start, windowEnd: end })}>
+          {busy ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : "Save scan hours"}
+        </Button>
+      )}
+    </div>
+  );
+}
+
 /** How to connect this device, written for someone standing in front of it. */
 function Setup({ device, data }: { device: DeviceRow; data: DevicesData }) {
+  const [route, setRoute] = useState<"direct" | "bridge">("direct");
   if (device.brand === "webhook") {
     const url = `${data.baseUrl}/api/devices/event`;
     return (
@@ -219,15 +296,97 @@ function Setup({ device, data }: { device: DeviceRow; data: DevicesData }) {
       </ol>
     );
   }
+  const reads = device.modes.map((m) => MODE_META[m]?.label.toLowerCase() ?? m).join(", ") || "face, palm or finger";
   return (
-    <ol className="space-y-4">
-      <Step n={1}>On the device, open the menu and find <b>Communication</b> (sometimes <b>Comm.</b>), then <b>Cloud Server Setting</b> (some models say <b>ADMS</b>).</Step>
-      <Step n={2}>Set the server address to this, with no &ldquo;https://&rdquo; and no path:<div className="mt-1.5"><CopyBox value={data.host} /></div>Set the port to <b>443</b> and switch <b>HTTPS</b> on if the device has that option.</Step>
-      <Step n={3}>Save. Within a minute this page should show the device as <b>Online</b>. Its serial number must be exactly <code>{device.serial}</code>.</Step>
-      <Step n={4}>Put members on the device. The easy way: choose <b>Send members to device</b> on this page, then on the device pick each person and enrol their {device.modes.map((m) => MODE_META[m]?.label.toLowerCase() ?? m).join(", ") || "face, palm or finger"}. Or add them on the device by hand, using the number at the end of their member ID as the User ID (42 for GBC-0042).</Step>
-      <Step n={5}>Scan. The person is checked in to the service that is on, and the scan appears under Recent scans.</Step>
-      <p className="rounded-xl bg-surface-2 p-3 text-xs text-ink-muted">The device&apos;s clock should show your local time. If the device only supports plain HTTP and cannot use HTTPS, it cannot reach WorshipHQ directly. Tell us the model and we will help.</p>
-    </ol>
+    <div className="space-y-4">
+      <Progress device={device} />
+
+      <div>
+        <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">How will the device reach WorshipHQ?</div>
+        <div className="grid gap-2 sm:grid-cols-2">
+          {([["direct", "Directly (most devices)", "The device can send to a web address over HTTPS."], ["bridge", "Through a bridge computer", "The device can only send to an IP address, or only over plain HTTP."]] as const).map(([k, t, s]) => (
+            <button key={k} type="button" onClick={() => setRoute(k)} className={cn("rounded-xl border p-3 text-left transition-colors", route === k ? "border-primary ring-2 ring-primary/30" : "border-line hover:bg-surface-2")}>
+              <div className="text-sm font-semibold">{t}</div><div className="text-xs text-ink-muted">{s}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {route === "direct" ? (
+        <ol className="space-y-4">
+          <Step n={1}>On the device, open the menu and find <b>Communication</b> (sometimes <b>Comm.</b>), then <b>Cloud Server Setting</b> (some models say <b>ADMS</b> or <b>Server</b>).</Step>
+          <Step n={2}>Set the server address to this, with no &ldquo;https://&rdquo; and no path:<div className="mt-1.5"><CopyBox value={data.host} /></div>Set the port to <b>443</b> and switch <b>HTTPS</b> on.<p className="mt-1 text-xs text-ink-faint">If the device will only accept an IP address, or has no HTTPS option, choose &ldquo;Through a bridge computer&rdquo; above.</p></Step>
+          <Step n={3}>Set the device&apos;s <b>date, time and time zone</b> to your local time. Scan times come from the device&apos;s own clock.</Step>
+          <Step n={4}>Save. The device should show as <b>Online</b> above within a couple of minutes. Its serial number must be exactly <code>{device.serial}</code>.</Step>
+        </ol>
+      ) : (
+        <ol className="space-y-4">
+          <Step n={1}>Choose a Windows computer that will be <b>switched on during services</b> and is on the <b>same Wi-Fi or router</b> as the device. Install Python 3 on it from python.org if it is not there (tick &ldquo;Add Python to PATH&rdquo;).</Step>
+          <Step n={2}>Download both files into one folder:
+            <div className="mt-1.5 flex flex-wrap gap-2">
+              <a href="/device-bridge/whq-device-bridge.bat" download className="inline-flex items-center rounded-lg border border-line px-3 py-1.5 text-xs font-medium hover:bg-surface-2">whq-device-bridge.bat</a>
+              <a href="/device-bridge/whq-device-bridge.py" download className="inline-flex items-center rounded-lg border border-line px-3 py-1.5 text-xs font-medium hover:bg-surface-2">whq-device-bridge.py</a>
+            </div>
+            Then double-click the <b>.bat</b> file. A window opens and shows the computer&apos;s address, like 192.168.1.20. Leave it open.</Step>
+          <Step n={3}>On the device, open <b>Communication</b>, then <b>Cloud Server Setting</b> (or <b>ADMS</b>). Set the server address to the address the bridge window shows, the port to <b>8081</b>, and switch <b>HTTPS off</b>.</Step>
+          <Step n={4}>Set the device&apos;s <b>date, time and time zone</b> to your local time, then save. The device should show as <b>Online</b> above within a couple of minutes. Its serial number must be exactly <code>{device.serial}</code>.</Step>
+          <p className="rounded-xl bg-surface-2 p-3 text-xs text-ink-muted">Tip: ask your router to always give that computer the same address (a &ldquo;reserved&rdquo; or &ldquo;static&rdquo; IP), or the address may change and the device will lose it. The bridge only passes on the device&apos;s own messages, and stores nothing. If the computer is off or asleep, the device keeps its scans and sends them when it reconnects (up to 36 hours later).</p>
+        </ol>
+      )}
+
+      <ol className="space-y-4" start={5}>
+        <Step n={5}>Put members on the device. The easy way is <b>Send members to device</b> on this page: they appear by name within a couple of minutes. Then, on the device, pick each person and enrol their {reads}. Or add people on the device by hand, using the number at the end of their member ID as the User ID (42 for GBC-0042).</Step>
+        <Step n={6}>Scan. The person is checked in to the service that is on, and the scan appears under Recent scans.</Step>
+      </ol>
+    </div>
+  );
+}
+
+function Item({ title, open, children }: { title: string; open?: boolean; children: React.ReactNode }) {
+  return (
+    <details open={open} className="group rounded-xl border border-line bg-surface">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-2 px-4 py-3 text-sm font-semibold">{title}<span className="text-ink-faint transition-transform group-open:rotate-45">+</span></summary>
+      <div className="space-y-2 border-t border-line px-4 py-3 text-sm text-ink-muted [&_b]:text-ink [&_li]:ml-4 [&_li]:list-disc">{children}</div>
+    </details>
+  );
+}
+
+/** Advice for choosing, connecting and fixing a device, so a church can work it out without us. */
+function Guide({ startOpen }: { startOpen: boolean }) {
+  return (
+    <div className="mb-6 space-y-2">
+      <h2 className="font-display text-lg font-semibold">Guide</h2>
+      <Item title="Choosing a device" open={startOpen}>
+        <ul className="space-y-1.5">
+          <li>It must have a <b>cloud server</b>, <b>ADMS</b> or <b>push</b> setting. Ask the seller to confirm this in writing before you pay.</li>
+          <li>Ask: <b>&ldquo;Can it send to a web address over HTTPS?&rdquo;</b> If yes, it connects straight to WorshipHQ. If it only takes an IP address or plain HTTP, it still works through the small <b>Device Bridge</b> program on a computer in your building.</li>
+          <li>Choose what it reads: face, palm, fingerprint, or a mix. Check how many people it holds. Face models usually hold a few thousand.</li>
+          <li>Most face terminals are for indoors or covered entrances. Check the weather rating if yours is open to rain.</li>
+          <li>It needs power, and Ethernet or Wi-Fi to reach the internet (or your bridge computer).</li>
+          <li><b>Buy one first</b> and try it at your real entrance before buying more. Distances and speeds in a brochure are best case. Recognition works best when the person faces the camera, within about a metre, in good light, with no strong light behind them.</li>
+        </ul>
+      </Item>
+      <Item title="How scans are counted">
+        <ul className="space-y-1.5">
+          <li>A person&apos;s <b>first scan</b> at a service checks them in. Scanning again at the same service changes nothing, so walking past twice is fine.</li>
+          <li>When two or more people are recognised together, each is counted separately.</li>
+          <li>Only people whose User ID matches a member are counted. Anyone else shows under Recent scans as &ldquo;ID not matched&rdquo;.</li>
+          <li><b>Scan hours</b>: scans outside the hours you choose are ignored, so a cleaner or someone passing mid-week is not counted. Set this on each device under Setup and details.</li>
+          <li>Visitors are not enrolled on the device. Check them in by name or with a QR code.</li>
+          <li>Face, palm and fingerprint data is sensitive. Tell members and get their consent before enrolling them, and a parent&apos;s or guardian&apos;s consent for children.</li>
+        </ul>
+      </Item>
+      <Item title="Troubleshooting">
+        <ul className="space-y-1.5">
+          <li><b>The device never shows Online:</b> check the device has internet, the serial number here matches the device exactly, and the server address has no &ldquo;https://&rdquo;. Directly: port 443 with HTTPS on. Through the bridge: the bridge computer&apos;s address, port 8081, HTTPS off. Make sure the date and time are right. Then press Refresh, as devices check in about every 2 minutes.</li>
+          <li><b>Online, but scans do not count:</b> look at Recent scans. &ldquo;ID not matched&rdquo; means the User ID on the device is not the number at the end of the member&apos;s ID. &ldquo;Outside scan hours&rdquo; means the scan was ignored because of the hours you set.</li>
+          <li><b>Members did not appear after &ldquo;Send members to device&rdquo;:</b> the device picks them up the next time it checks in, which can take a couple of minutes. If they still do not appear, add them on the device by hand.</li>
+          <li><b>Scan times are wrong:</b> set the device&apos;s date, time and time zone. WorshipHQ uses the device&apos;s clock.</li>
+          <li><b>Using the bridge:</b> its window must stay open and the computer on. If it was off, the device sends the missed scans when it reconnects (up to 36 hours later).</li>
+          <li><b>Nothing at all after checking everything:</b> the device may not support this way of connecting. Tell us the model and we will help.</li>
+        </ul>
+      </Item>
+    </div>
   );
 }
 

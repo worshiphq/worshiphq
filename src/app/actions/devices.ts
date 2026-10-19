@@ -11,10 +11,13 @@ import { deviceChurchAllowed } from "@/lib/devices/punch";
 export type DeviceRow = {
   id: string; name: string; brand: "zkteco" | "webhook"; modes: string[]; serial: string; secret: string | null; enabled: boolean;
   online: boolean; lastSeenAt: string | null; lastScanAt: string | null; info: string | null; pending: number;
+  scanRule: "service-times" | "custom" | "always"; windowDays: number[]; windowStart: string | null; windowEnd: string | null;
 };
 export type DeviceEventRow = { id: string; device: string; at: string; mode: string | null; result: string; name: string | null; pin: string };
 export type DevicesData = {
   devices: DeviceRow[]; events: DeviceEventRow[]; host: string; baseUrl: string; canManage: boolean; planOk: boolean;
+  /** Whether the church has set up service times (the scan-hours rule "during service times" needs them). */
+  serviceTimesOn: boolean;
 };
 
 const MODES = ["fingerprint", "face", "palm"];
@@ -27,23 +30,25 @@ function guard(session: Awaited<ReturnType<typeof requireSession>>) {
 
 export async function getDevices(): Promise<DevicesData> {
   const session = await requireSession();
-  const [devices, events, baseUrl, planOk] = await Promise.all([
+  const [devices, events, baseUrl, planOk, church] = await Promise.all([
     db.biometricDevice.findMany({ where: { churchId: session.churchId }, orderBy: { createdAt: "asc" }, include: { _count: { select: { commands: { where: { sentAt: null } } } } } }),
     db.biometricDeviceEvent.findMany({ where: { churchId: session.churchId }, orderBy: { createdAt: "desc" }, take: 25, include: { device: { select: { name: true } } } }),
     getBaseUrl(),
     deviceChurchAllowed(session.churchId),
+    db.church.findUnique({ where: { id: session.churchId }, select: { serviceTimesOn: true } }),
   ]);
   const admin = session.role === "Owner" || session.role === "Admin";
-  const soon = Date.now() - 3 * 60000;
+  const soon = Date.now() - 6 * 60000; // devices check in about every 2 minutes
   return {
     devices: devices.map((d) => ({
       id: d.id, name: d.name, brand: d.brand === "webhook" ? "webhook" : "zkteco", modes: d.modes, serial: d.brand === "webhook" ? "" : d.serial,
       secret: d.brand === "webhook" && admin ? d.secret : null, enabled: d.enabled,
       online: !!d.lastSeenAt && d.lastSeenAt.getTime() > soon, lastSeenAt: d.lastSeenAt?.toISOString() ?? null, lastScanAt: d.lastScanAt?.toISOString() ?? null,
       info: d.info, pending: d._count.commands,
+      scanRule: d.scanRule === "custom" || d.scanRule === "always" ? d.scanRule : "service-times", windowDays: d.windowDays, windowStart: d.windowStart, windowEnd: d.windowEnd,
     })),
     events: events.map((e) => ({ id: e.id, device: e.device.name, at: e.at.toISOString(), mode: e.mode, result: e.result, name: e.personName, pin: e.pin })),
-    host: new URL(baseUrl).host, baseUrl, canManage: !session.isDemo, planOk,
+    host: new URL(baseUrl).host, baseUrl, canManage: !session.isDemo, planOk, serviceTimesOn: !!church?.serviceTimesOn,
   };
 }
 
@@ -71,14 +76,21 @@ export async function addDevice(input: { name: string; brand: "zkteco" | "webhoo
   return { ok: true as const, id: d.id };
 }
 
-export async function updateDevice(id: string, input: { name?: string; modes?: string[]; enabled?: boolean }) {
+export async function updateDevice(id: string, input: { name?: string; modes?: string[]; enabled?: boolean; scanRule?: string; windowDays?: number[]; windowStart?: string | null; windowEnd?: string | null }) {
   const session = await requireSession();
   guard(session);
   const cur = await db.biometricDevice.findFirst({ where: { id, churchId: session.churchId }, select: { id: true } });
   if (!cur) return { ok: false as const, error: "Not found." };
+  const hm = /^([01]?\d|2[0-3]):[0-5]\d$/;
+  if (input.scanRule !== undefined && !["service-times", "custom", "always"].includes(input.scanRule)) return { ok: false as const, error: "Choose when scans should count." };
+  if (input.scanRule === "custom" && (!input.windowStart || !input.windowEnd || !hm.test(input.windowStart) || !hm.test(input.windowEnd))) return { ok: false as const, error: "Enter a start and end time, like 06:00 and 13:00." };
   await db.biometricDevice.update({
     where: { id },
     data: {
+      ...(input.scanRule !== undefined ? { scanRule: input.scanRule } : {}),
+      ...(input.windowDays ? { windowDays: [...new Set(input.windowDays.filter((n) => Number.isInteger(n) && n >= 0 && n <= 6))].sort() } : {}),
+      ...(input.windowStart !== undefined ? { windowStart: input.windowStart && hm.test(input.windowStart) ? input.windowStart : null } : {}),
+      ...(input.windowEnd !== undefined ? { windowEnd: input.windowEnd && hm.test(input.windowEnd) ? input.windowEnd : null } : {}),
       ...(input.name !== undefined && clean(input.name, 60) ? { name: clean(input.name, 60) } : {}),
       ...(input.modes ? { modes: input.modes.filter((m) => MODES.includes(m)) } : {}),
       ...(input.enabled !== undefined ? { enabled: input.enabled } : {}),
