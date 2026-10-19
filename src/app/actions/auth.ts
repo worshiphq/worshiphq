@@ -1,6 +1,7 @@
 "use server";
 
 import { redirect } from "next/navigation";
+import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
@@ -163,6 +164,16 @@ export async function completeSignup(formData: FormData) {
       emailVerified: verifiedByEmail,
       role: "Owner",
     },
+  });
+
+  // Welcome email to the new owner. Runs after the response is sent, and can never break or slow signup.
+  after(async () => {
+    try {
+      const { sendWelcome } = await import("@/lib/outreach/send");
+      await sendWelcome(church.id, true);
+    } catch (e) {
+      console.error("[welcome email]", (e as Error).message);
+    }
   });
 
   store.delete(SIGNUP_VID);

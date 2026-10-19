@@ -176,6 +176,7 @@ model Church {
   bookingFormFields  Json?
   baptismFormFields  Json?
   biometricDevices   BiometricDevice[]
+  outreach           OutreachMessage[]
 
   // Customizable SMS receipt templates (use {name}, {amount}, {church} placeholders)
   titheReceiptTemplate   String?
@@ -2043,4 +2044,26 @@ model BiometricDeviceCommand {
   doneAt    DateTime?
 
   @@index([deviceId, sentAt])
+}
+
+// ── SuperAdmin outreach ────────────────────────────────
+// Every email or SMS the platform owner (or the automatic signup welcome) sends to a church contact.
+model OutreachMessage {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  userId    String?  // the church contact it went to
+  toName    String?
+  to        String   // email address or phone number
+  channel   String   // email | sms
+  template  String   // welcome | getting-started | check-in | upgrade | custom ...
+  subject   String?
+  body      String   @db.Text
+  status    String   // sent | failed | stubbed (no provider configured)
+  error     String?
+  auto      Boolean  @default(false) // sent automatically at signup, not by hand
+  createdAt DateTime @default(now())
+
+  @@index([churchId, createdAt])
+  @@index([channel, template, status])
 }

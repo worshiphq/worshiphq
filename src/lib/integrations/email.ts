@@ -14,6 +14,8 @@ export async function sendEmail(opts: {
   subject: string;
   html: string;
   from?: string;
+  /** Where replies go (the default sender is a no-reply address). */
+  replyTo?: string;
   /**
    * Record this send in the church's communications history (shows up
    * alongside broadcasts on the Communications page). Omit entirely for
@@ -49,6 +51,7 @@ export async function sendEmail(opts: {
             to,
             subject: opts.subject,
             html: opts.html,
+            ...(opts.replyTo ? { reply_to: opts.replyTo } : {}),
             ...(opts.attachments?.length
               ? { attachments: opts.attachments.map((a) => ({ filename: a.filename, content: a.content.toString("base64") })) }
               : {}),
@@ -70,6 +73,7 @@ export async function sendEmail(opts: {
           to: to.join(","),
           subject: opts.subject,
           html: opts.html,
+          ...(opts.replyTo ? { replyTo: opts.replyTo } : {}),
           attachments: opts.attachments,
         });
         result = { ok: true, provider, stubbed: false };

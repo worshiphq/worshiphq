@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, Building2, FileText, Megaphone, LogOut, ShieldCheck, CreditCard, Wallet, Undo2, DatabaseBackup, KeyRound, TrendingUp } from "lucide-react";
+import { LayoutDashboard, Building2, FileText, Megaphone, LogOut, ShieldCheck, CreditCard, Wallet, Undo2, DatabaseBackup, KeyRound, TrendingUp, Mail } from "lucide-react";
 import { superAdminSignOut } from "@/app/actions/admin";
 
 const NAV = [
@@ -11,6 +11,7 @@ const NAV = [
   { href: "/admin/access", label: "Access log", icon: KeyRound },
   { href: "/admin/backups", label: "Backups", icon: DatabaseBackup },
   { href: "/admin/content", label: "Site content", icon: FileText },
+  { href: "/admin/outreach", label: "Outreach", icon: Mail },
   { href: "/admin/broadcast", label: "Broadcast", icon: Megaphone },
 ];
 
