@@ -10,7 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { useFeedback } from "@/components/ui/feedback";
-import { addDevice, updateDevice, deleteDevice, sendMembersToDevice, type DevicesData, type DeviceRow } from "@/app/actions/devices";
+import { addDevice, updateDevice, deleteDevice, sendMembersToDevice, getDevices, type DevicesData, type DeviceRow } from "@/app/actions/devices";
 import { cn } from "@/lib/utils";
 
 const MODE_META: Record<string, { label: string; icon: typeof Fingerprint }> = {
@@ -48,18 +48,24 @@ function CopyBox({ value }: { value: string }) {
 }
 
 /** Face, palm and fingerprint devices: what works, the devices a church has added, and what they have been scanning. */
-export function DevicesClient({ data }: { data: DevicesData }) {
+export function DevicesClient({ data: initial }: { data: DevicesData }) {
   const router = useRouter();
+  // While the page is open we refresh just the device list (a small request), never the whole page.
+  const [polled, setPolled] = useState<{ base: DevicesData; fresh: DevicesData } | null>(null);
+  const data = polled && polled.base === initial ? polled.fresh : initial;
   const { toast } = useFeedback();
   const [adding, setAdding] = useState(false);
   const [open, setOpen] = useState<DeviceRow | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
-  // Keep "online" and the recent scans fresh while the page is open.
+  // Keep "online" and the recent scans fresh while the page is open, once a minute and only while it is on screen.
   useEffect(() => {
-    const t = setInterval(() => { if (document.visibilityState === "visible") router.refresh(); }, 15000);
+    const t = setInterval(() => {
+      if (document.visibilityState !== "visible") return;
+      getDevices().then((fresh) => setPolled({ base: initial, fresh })).catch(() => {});
+    }, 60000);
     return () => clearInterval(t);
-  }, [router]);
+  }, [initial]);
 
   const can = data.canManage && data.planOk;
   const openDevice = open ? data.devices.find((d) => d.id === open.id) ?? null : null;
