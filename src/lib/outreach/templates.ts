@@ -146,7 +146,7 @@ export function renderEmailHtml(opts: { subject: string; body: string; church: s
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f4f6;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden">
-<tr><td style="background:#0d7377;padding:22px 28px"><span style="font-size:22px;font-weight:700;letter-spacing:-0.3px;color:#ffffff">WorshipHQ</span></td></tr>
+<tr><td style="background:#ffffff;padding:22px 28px 18px;border-bottom:3px solid #0d7377"><a href="${url}" style="text-decoration:none"><img src="${url}/email-logo.png" width="240" height="65" alt="WorshipHQ" style="display:block;width:240px;max-width:100%;height:auto;border:0;font-size:22px;font-weight:700;color:#12386f"></a></td></tr>
 <tr><td style="padding:28px 28px 8px">${bodyToHtml(opts.body)}</td></tr>
 <tr><td style="padding:0 28px 28px"><a href="${url}/sign-in" style="display:inline-block;background:#0d7377;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px">Open WorshipHQ</a></td></tr>
 <tr><td style="padding:18px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;font-size:12px;line-height:1.5;color:#6b7280">You are receiving this because ${esc(opts.church)} has an account on WorshipHQ. Questions? Reply to this email or write to <a href="mailto:${esc(opts.contact)}" style="color:#0d7377">${esc(opts.contact)}</a>.</td></tr>
