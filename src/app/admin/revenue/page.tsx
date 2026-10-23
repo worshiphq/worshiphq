@@ -76,7 +76,7 @@ export default async function AdminRevenuePage() {
             <div className="flex justify-between"><dt className="text-slate-400">The credits sold cost you ({rev.sms.creditsSold.toLocaleString()} x {money(rev.costPerCredit)})</dt><dd className="font-medium">- {money(rev.sms.creditsSold * rev.costPerCredit)}</dd></div>
             <div className="flex justify-between border-t border-white/10 pt-2"><dt className="font-medium text-slate-200">Profit</dt><dd className="font-bold text-teal-300">{money(rev.sms.profit)}</dd></div>
             <div className="flex justify-between text-xs"><dt className="text-slate-500">This month</dt><dd className="text-slate-300">{money(rev.sms.profitThisMonth)}</dd></div>
-            <div className="flex justify-between text-xs"><dt className="text-slate-500">Standard price per credit vs cost</dt><dd className="text-slate-300">{money(SMS_RATE.D)} - {money(rev.costPerCredit)} = {money(perCreditProfit)}</dd></div>
+            <div className="flex justify-between text-xs"><dt className="text-slate-500">Standard price per credit vs cost</dt><dd className="text-slate-300">₵{SMS_RATE.D.toFixed(4)} - ₵{rev.costPerCredit.toFixed(4)} = ₵{perCreditProfit.toFixed(4)}</dd></div>
             <div className="flex justify-between text-xs"><dt className="text-slate-500">Credits churches have actually sent</dt><dd className="text-slate-300">{rev.sms.creditsUsed.toLocaleString()} (cost {money(rev.sms.costOfSent)})</dd></div>
           </dl>
           {rev.sms.estimatedTopups > 0 && (

@@ -14,27 +14,32 @@ export interface SmsBundle {
 
 /**
  * Pricing tiers the SuperAdmin can switch between. Every tier is a flat price per credit, so any number of credits
- * costs credits x rate, and a bundle is just a handy round number. "D" (GH₵0.10 per credit, 500 credits for
- * GH₵50) is the standard price. Provider cost is about GH₵0.03 per credit (see PlatformConfig.smsCostPerCredit).
+ * costs credits x rate, and a bundle is just a handy round number. "D" is the standard price: GH₵100 buys 1,500
+ * credits (GH₵0.0667 each). "C" is 10% below standard and "B" 20% below. Provider cost is about GH₵0.03 per credit
+ * (see PlatformConfig.smsCostPerCredit).
  */
 export type SmsTier = "B" | "C" | "D";
+const STANDARD_RATE = 1 / 15;
 /** GHS per credit. */
-export const SMS_RATE: Record<SmsTier, number> = { B: 0.08, C: 0.09, D: 0.1 };
+export const SMS_RATE: Record<SmsTier, number> = { B: STANDARD_RATE * 0.8, C: STANDARD_RATE * 0.9, D: STANDARD_RATE };
+/** What a credit cost before the October 2026 price cut (GH₵100 bought 1,000). Used to value old top-ups that never recorded what was paid. */
+export const LEGACY_SMS_RATE = 0.1;
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
-const BUNDLE_CREDITS = [500, 2000, 5000, 10000, 25000];
+const BUNDLE_CREDITS = [750, 3000, 7500, 15000, 37500]; // GH₵50, 200, 500, 1,000 and 2,500 at the standard price
 const BUNDLE_IDS = ["starter", "growth", "church", "campus", "cathedral"];
 
 function bundlesAt(rate: number): SmsBundle[] {
-  return BUNDLE_CREDITS.map((credits, i) => ({ id: BUNDLE_IDS[i], credits, priceGhs: round2(credits * rate), popular: credits === 2000 }));
+  return BUNDLE_CREDITS.map((credits, i) => ({ id: BUNDLE_IDS[i], credits, priceGhs: round2(credits * rate), popular: i === 1 }));
 }
 
 export const SMS_TIERS: Record<SmsTier, SmsBundle[]> = { B: bundlesAt(SMS_RATE.B), C: bundlesAt(SMS_RATE.C), D: bundlesAt(SMS_RATE.D) };
 
+const per100 = (rate: number) => Math.floor((100 + 1e-9) / rate).toLocaleString("en-GH");
 export const SMS_TIER_META: Record<SmsTier, { label: string; note: string }> = {
-  B: { label: "Lowest", note: `GH₵${SMS_RATE.B.toFixed(2)} per credit` },
-  C: { label: "Reduced", note: `GH₵${SMS_RATE.C.toFixed(2)} per credit` },
-  D: { label: "Standard", note: `GH₵${SMS_RATE.D.toFixed(2)} per credit (500 credits for GH₵50)` },
+  B: { label: "Lowest", note: `GH₵100 buys ${per100(SMS_RATE.B)} credits` },
+  C: { label: "Reduced", note: `GH₵100 buys ${per100(SMS_RATE.C)} credits` },
+  D: { label: "Standard", note: `GH₵100 buys ${per100(SMS_RATE.D)} credits` },
 };
 
 /** Smallest and largest custom purchase. */

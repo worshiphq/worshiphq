@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { SMS_RATE } from "@/config/sms";
+import { LEGACY_SMS_RATE } from "@/config/sms";
 
 const monthKey = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
 const monthLabel = (d: Date) => d.toLocaleDateString("en-GB", { month: "short", year: "2-digit" });
@@ -79,7 +79,7 @@ export async function getRevenueOverview(): Promise<RevenueOverview> {
 
   const sms = { revenue: 0, thisMonth: 0, creditsSold: 0, creditsUsed: Math.abs(usageAgg._sum.credits ?? 0), profit: 0, profitThisMonth: 0, costOfSent: 0, estimatedTopups: 0, grantedCredits: granted._sum.credits ?? 0 };
   for (const t of topups) {
-    const amount = t.amountGhs ?? t.credits * SMS_RATE.D;
+    const amount = t.amountGhs ?? t.credits * LEGACY_SMS_RATE;
     if (t.amountGhs == null) sms.estimatedTopups++;
     const profit = amount - t.credits * cost;
     sms.revenue += amount;
@@ -100,7 +100,7 @@ export async function getRevenueOverview(): Promise<RevenueOverview> {
     })),
     ...topups.slice(0, 25).map((t) => ({
       id: `s-${t.id}`, at: t.createdAt.toISOString(), church: t.church.name, kind: "SMS",
-      label: `${t.credits.toLocaleString()} credits`, amountGhs: t.amountGhs ?? t.credits * SMS_RATE.D, source: t.amountGhs == null ? "estimated" : "paystack",
+      label: `${t.credits.toLocaleString()} credits`, amountGhs: t.amountGhs ?? t.credits * LEGACY_SMS_RATE, source: t.amountGhs == null ? "estimated" : "paystack",
     })),
   ].sort((a, b) => b.at.localeCompare(a.at)).slice(0, 30);
 

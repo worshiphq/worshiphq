@@ -87,7 +87,7 @@ export function SmsCreditsPanel({
         </div>
         <div className="text-right text-xs text-ink-faint">
           1 credit = 1 SMS<br />(per 160 characters, per recipient)<br />
-          <span className="font-medium text-ink-muted">₵{rate.toFixed(2)} per credit</span>
+          <span className="font-medium text-ink-muted">₵100 buys {creditsForAmount(100, tier).toLocaleString()} credits</span>
         </div>
       </Card>
 
