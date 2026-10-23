@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Check, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -12,6 +12,7 @@ export type PickerOption = { value: string; label: string; hint?: string };
  * as chips on top; every selected value is submitted as its own hidden input
  * under `name`, so it works inside a plain <form action={...}>. Pass `onChange`
  * to use it outside a form.
+ * Keyboard: type to search, Down arrow into the list, Up/Down/Home/End to move, Space or Enter to tick, Escape back to the search.
  */
 export function MultiPicker({
   name, options, defaultValue = [], onChange, placeholder = "Search…", emptyLabel = "Nobody selected",
@@ -25,6 +26,23 @@ export function MultiPicker({
 }) {
   const [selected, setSelected] = useState<string[]>(defaultValue);
   const [query, setQuery] = useState("");
+  const listRef = useRef<HTMLUListElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const optionButtons = () => [...(listRef.current?.querySelectorAll<HTMLButtonElement>("button[data-option]") ?? [])];
+
+  function onListKey(e: React.KeyboardEvent<HTMLUListElement>) {
+    const items = optionButtons();
+    const at = items.indexOf(document.activeElement as HTMLButtonElement);
+    let to = -1;
+    if (e.key === "ArrowDown") to = Math.min(at + 1, items.length - 1);
+    else if (e.key === "ArrowUp") { if (at <= 0) { e.preventDefault(); inputRef.current?.focus(); return; } to = at - 1; }
+    else if (e.key === "Home") to = 0;
+    else if (e.key === "End") to = items.length - 1;
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); inputRef.current?.focus(); return; }
+    if (to < 0) return;
+    e.preventDefault();
+    items[to]?.focus();
+  }
 
   const label = new Map(options.map((o) => [o.value, o.label]));
   const q = query.trim().toLowerCase();
@@ -37,7 +55,7 @@ export function MultiPicker({
   }
 
   return (
-    <div className="rounded-xl border border-line bg-surface">
+    <div className="rounded-xl border border-line bg-surface focus-within:ring-2 focus-within:ring-primary/30">
       {name && selected.map((v) => <input key={v} type="hidden" name={name} value={v} />)}
       <div className="flex min-h-11 flex-wrap items-center gap-1.5 border-b border-line px-2.5 py-2">
         {selected.length === 0 ? (
@@ -59,21 +77,30 @@ export function MultiPicker({
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
-          onKeyDown={(e) => { if (e.key === "Enter") e.preventDefault(); }}
+          ref={inputRef}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") e.preventDefault();
+            if (e.key === "ArrowDown") { e.preventDefault(); optionButtons()[0]?.focus(); }
+          }}
+          aria-label={placeholder}
           placeholder={placeholder}
           className="h-10 w-full bg-transparent pl-9 pr-3 text-sm text-ink outline-none placeholder:text-ink-faint"
         />
       </div>
-      <ul className="max-h-48 divide-y divide-line overflow-y-auto border-t border-line">
+      <ul ref={listRef} role="listbox" aria-multiselectable aria-label={placeholder} onKeyDown={onListKey} className="max-h-48 divide-y divide-line overflow-y-auto border-t border-line">
         {shown.length === 0 && <li className="px-3 py-3 text-sm text-ink-faint">No match.</li>}
         {shown.map((o) => {
           const on = selected.includes(o.value);
           return (
-            <li key={o.value}>
+            <li key={o.value} role="presentation">
               <button
                 type="button"
+                data-option
+                role="option"
+                aria-selected={on}
+                tabIndex={-1}
                 onClick={() => toggle(o.value)}
-                className={cn("flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-surface-2", on && "bg-primary/5")}
+                className={cn("flex w-full items-center gap-2.5 px-3 py-2 text-left text-sm hover:bg-surface-2 focus:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/40", on && "bg-primary/5")}
               >
                 <span className={cn("grid size-4 shrink-0 place-items-center rounded border", on ? "border-primary bg-primary text-white" : "border-line")}>
                   {on && <Check className="size-3" />}

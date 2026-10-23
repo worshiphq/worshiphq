@@ -13,11 +13,12 @@ const ACTIONS = [
   { icon: CalendarPlus, label: "New event", href: "/app/events", color: "text-primary-bright" },
 ];
 
+/** Quick add: a small menu of shortcuts. Arrow keys, Home and End move through it (see KeyboardLayer); Escape closes it. */
 export function QuickAddMenu() {
   const [open, setOpen] = useState(false);
   const [openUpward, setOpenUpward] = useState(false);
-  const [highlighted, setHighlighted] = useState(0);
   const ref = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
   const router = useRouter();
 
   useEffect(() => {
@@ -30,7 +31,6 @@ export function QuickAddMenu() {
 
   useEffect(() => {
     if (!open || !ref.current) return;
-    setHighlighted(0);
     const rect = ref.current.getBoundingClientRect();
     const estimatedHeight = ACTIONS.length * 44 + 12;
     const spaceBelow = window.innerHeight - rect.bottom;
@@ -44,31 +44,35 @@ export function QuickAddMenu() {
 
   function onKeyDown(e: React.KeyboardEvent) {
     if (!open) return;
-    if (e.key === "Escape") { e.preventDefault(); setOpen(false); }
-    else if (e.key === "ArrowDown") { e.preventDefault(); setHighlighted((h) => Math.min(h + 1, ACTIONS.length - 1)); }
-    else if (e.key === "ArrowUp") { e.preventDefault(); setHighlighted((h) => Math.max(h - 1, 0)); }
-    else if (e.key === "Enter") { e.preventDefault(); go(ACTIONS[highlighted].href); }
+    if (e.key === "Escape") { e.preventDefault(); setOpen(false); triggerRef.current?.focus(); }
+    else if (e.key === "Tab") setOpen(false);
+  }
+
+  // Leaving the menu with the keyboard (or a click elsewhere) closes it.
+  function onBlur(e: React.FocusEvent) {
+    if (open && !ref.current?.contains(e.relatedTarget as Node | null)) setOpen(false);
   }
 
   return (
-    <div className="relative" ref={ref} data-tour="quick-add" onKeyDown={onKeyDown}>
-      <Button size="sm" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open}>
-        <Plus className="size-4" /> Quick add
+    <div className="relative" ref={ref} data-tour="quick-add" onKeyDown={onKeyDown} onBlur={onBlur}>
+      <Button ref={triggerRef} size="sm" onClick={() => setOpen((o) => !o)} aria-haspopup="menu" aria-expanded={open}>
+        <Plus className="size-4" aria-hidden /> Quick add
       </Button>
       {open && (
         <div
           role="menu"
+          aria-label="Quick add"
           className={`absolute right-0 z-30 w-52 overflow-hidden rounded-2xl border border-line bg-surface p-1.5 shadow-xl animate-pop-in ${openUpward ? "bottom-full mb-2" : "top-full mt-2"}`}
         >
-          {ACTIONS.map((a, i) => (
+          {ACTIONS.map((a) => (
             <button
               key={a.label}
+              type="button"
               role="menuitem"
-              onMouseEnter={() => setHighlighted(i)}
               onClick={() => go(a.href)}
-              className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors ${i === highlighted ? "bg-surface-2" : "hover:bg-surface-2"}`}
+              className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium transition-colors hover:bg-surface-2 focus:bg-surface-2 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary/50"
             >
-              <a.icon className={`size-4 ${a.color}`} />
+              <a.icon className={`size-4 ${a.color}`} aria-hidden />
               {a.label}
             </button>
           ))}

@@ -3,20 +3,25 @@
 import { cn } from "@/lib/utils";
 
 /** A segmented tab control - a bordered track with a raised active pill and
- *  clearly separated inactive tabs. Used for mode/period switches. */
+ *  clearly separated inactive tabs. Used for mode/period switches.
+ *  Keyboard: one Tab stop (the chosen option); the arrow keys move and choose (see KeyboardLayer). */
 export function Segmented<T extends string | number>({
   options,
   value,
   onChange,
   className,
+  label,
 }: {
   options: { value: T; label: string }[];
   value: T;
   onChange: (v: T) => void;
   className?: string;
+  /** What the choice is about, for screen readers (e.g. "Period"). */
+  label?: string;
 }) {
+  const hasChosen = options.some((o) => o.value === value);
   return (
-    <div className={cn("inline-flex flex-wrap items-center gap-0.5 rounded-xl border border-line bg-base p-1 text-sm", className)}>
+    <div role="radiogroup" aria-label={label} className={cn("inline-flex flex-wrap items-center gap-0.5 rounded-xl border border-line bg-base p-1 text-sm", className)}>
       {options.map((o, i) => {
         const active = o.value === value;
         return (
@@ -25,7 +30,9 @@ export function Segmented<T extends string | number>({
             <button
               type="button"
               onClick={() => onChange(o.value)}
-              aria-pressed={active}
+              role="radio"
+              aria-checked={active}
+              tabIndex={active || (!hasChosen && i === 0) ? 0 : -1}
               className={cn(
                 "rounded-lg px-3 py-1.5 font-medium transition-colors",
                 active ? "bg-primary text-white shadow-sm" : "text-ink-muted hover:bg-surface-2 hover:text-ink",

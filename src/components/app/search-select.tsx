@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronDown, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -37,6 +37,8 @@ export function SearchSelect({
   const root = useRef<HTMLDivElement>(null);
   const input = useRef<HTMLInputElement>(null);
   const list = useRef<HTMLUListElement>(null);
+  const trigger = useRef<HTMLButtonElement>(null);
+  const listId = useId();
 
   const empty = options.find((o) => o.value === "");
   const real = options.filter((o) => o.value !== "");
@@ -49,6 +51,7 @@ export function SearchSelect({
     onChange?.(v);
     setOpen(false);
     setQuery("");
+    trigger.current?.focus(); // the search box goes away with the list, so keep the keyboard on the field
   }
 
   useEffect(() => {
@@ -66,8 +69,17 @@ export function SearchSelect({
   function onKey(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown") { e.preventDefault(); setHi((h) => Math.min(h + 1, shown.length - 1)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setHi((h) => Math.max(h - 1, 0)); }
+    else if (e.key === "PageDown") { e.preventDefault(); setHi((h) => Math.min(h + 8, shown.length - 1)); }
+    else if (e.key === "PageUp") { e.preventDefault(); setHi((h) => Math.max(h - 8, 0)); }
     else if (e.key === "Enter") { e.preventDefault(); if (shown[hi]) pick(shown[hi].value); }
-    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); setOpen(false); }
+    else if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); setOpen(false); setQuery(""); trigger.current?.focus(); }
+    else if (e.key === "Tab") { setOpen(false); setQuery(""); }
+  }
+
+  /** On the closed field: Down or Up opens the list; Delete or Backspace clears a choice (the little x is mouse only). */
+  function onTriggerKey(e: React.KeyboardEvent) {
+    if ((e.key === "ArrowDown" || e.key === "ArrowUp") && !open) { e.preventDefault(); setOpen(true); setHi(0); }
+    else if ((e.key === "Delete" || e.key === "Backspace") && chosen && empty) { e.preventDefault(); pick(""); }
   }
 
   return (
@@ -76,8 +88,13 @@ export function SearchSelect({
       {/* required: a visually hidden text input lets the browser block an empty submit */}
       {required && <input tabIndex={-1} aria-hidden required value={current} onChange={() => {}} className="pointer-events-none absolute inset-0 opacity-0" />}
       <button
+        ref={trigger}
         type="button"
         onClick={() => { setOpen((o) => !o); setHi(0); }}
+        onKeyDown={onTriggerKey}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label={chosen ? undefined : (empty?.label ?? placeholder)}
         className={cn(
           "flex w-full items-center gap-2 rounded-xl border border-line bg-surface px-3.5 text-left text-sm text-ink focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30",
           compact ? "h-9 rounded-lg px-2.5" : "h-11",
@@ -89,8 +106,8 @@ export function SearchSelect({
         {chosen && chosen.hint && <span className="shrink-0 text-xs text-ink-faint">{chosen.hint}</span>}
         {chosen && empty ? (
           <span
-            role="button"
-            aria-label="Clear"
+            aria-hidden
+            title="Clear (or press Delete)"
             onClick={(e) => { e.stopPropagation(); pick(""); }}
             className="rounded p-0.5 text-ink-faint hover:bg-surface-2 hover:text-ink"
           >
@@ -111,15 +128,24 @@ export function SearchSelect({
               onChange={(e) => { setQuery(e.target.value); setHi(0); }}
               onKeyDown={onKey}
               placeholder={searchPlaceholder}
+              role="combobox"
+              aria-label={searchPlaceholder}
+              aria-expanded
+              aria-controls={listId}
+              aria-activedescendant={shown[hi] ? `${listId}-${hi}` : undefined}
               className="h-10 w-full bg-transparent pl-9 pr-3 text-sm outline-none placeholder:text-ink-faint"
             />
           </div>
-          <ul ref={list} className="max-h-60 overflow-y-auto py-1">
+          <ul ref={list} id={listId} role="listbox" className="max-h-60 overflow-y-auto py-1">
             {shown.length === 0 && <li className="px-3.5 py-3 text-sm text-ink-faint">No match for “{query}”.</li>}
             {shown.map((o, i) => (
-              <li key={o.value} data-i={i}>
+              <li key={o.value} data-i={i} role="presentation">
                 <button
                   type="button"
+                  id={`${listId}-${i}`}
+                  role="option"
+                  aria-selected={o.value === current}
+                  tabIndex={-1}
                   onMouseEnter={() => setHi(i)}
                   onClick={() => pick(o.value)}
                   className={cn("flex w-full items-center gap-2 px-3.5 py-2 text-left text-sm", i === hi && "bg-surface-2", o.value === current && "font-medium text-primary")}

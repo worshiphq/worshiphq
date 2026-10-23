@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Building, Palette, Users2, CreditCard, Plug, Check, Pencil, CircleDot,
   Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, Shield, MessageSquare, MessageSquareText,
@@ -171,29 +171,37 @@ export function SettingsClient({
   smsTopups?: SmsTopupRow[];
   messageCenter: MessageCenterData;
 }) {
-  const [tab, setTab] = useState<(typeof tabs)[number]["key"]>("church");
+  // Links such as /app/settings?tab=billing open straight on that tab.
+  const asked = useSearchParams().get("tab");
+  const [tab, setTab] = useState<(typeof tabs)[number]["key"]>(() => (tabs.find((t) => t.key === asked)?.key ?? "church"));
   const [editingRole, setEditingRole] = useState<CustomRoleRow | null>(null);
   const ro = session.isDemo;
   const isAdmin = session.role === "Owner" || session.role === "Admin";
 
   return (
     <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
-      <nav className="flex gap-1 overflow-x-auto lg:flex-col">
+      <nav role="tablist" aria-label="Settings" aria-orientation="vertical" className="flex gap-1 overflow-x-auto lg:flex-col">
         {tabs.map((t) => (
           <button
             key={t.key}
+            type="button"
+            role="tab"
+            id={`settings-tab-${t.key}`}
+            aria-selected={tab === t.key}
+            aria-controls="settings-panel"
+            tabIndex={tab === t.key ? 0 : -1}
             onClick={() => setTab(t.key)}
             className={cn(
               "flex shrink-0 items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
               tab === t.key ? "bg-primary/15 text-primary-bright" : "text-ink-muted hover:bg-surface-2 hover:text-ink",
             )}
           >
-            <t.icon className="size-4" /> {t.label}
+            <t.icon className="size-4" aria-hidden /> {t.label}
           </button>
         ))}
       </nav>
 
-      <div>
+      <div id="settings-panel" role="tabpanel" aria-labelledby={`settings-tab-${tab}`}>
         {ro && (
           <div className="mb-4 rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
             You&rsquo;re viewing the read-only demo. Create a free account to edit your church.

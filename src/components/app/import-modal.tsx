@@ -109,6 +109,10 @@ export function ImportModal({ onImported }: { onImported?: () => void }) {
             </p>
             <div
               onClick={() => inputRef.current?.click()}
+              role="button"
+              aria-label="Choose a file to upload"
+              tabIndex={0}
+              onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); inputRef.current?.click(); } }}
               className="cursor-pointer rounded-2xl border-2 border-dashed border-line p-8 text-center transition-colors hover:border-primary/40 hover:bg-primary/5"
             >
               <input ref={inputRef} type="file" accept=".csv,.tsv,.txt,.xlsx,text/csv" onChange={(e) => choose(e.target.files?.[0])} className="hidden" />

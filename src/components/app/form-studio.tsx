@@ -435,24 +435,24 @@ function Row({
               </label>
               {f.showIf && (
                 <div className="mt-2 grid gap-2 sm:grid-cols-[1fr_7rem_1fr]">
-                  <select value={f.showIf.fieldId} onChange={(e) => onUpdate({ showIf: { fieldId: e.target.value, equals: "" } })} className="h-10 rounded-lg border border-line bg-surface px-2 text-sm focus-visible:outline-none">
+                  <select value={f.showIf.fieldId} onChange={(e) => onUpdate({ showIf: { fieldId: e.target.value, equals: "" } })} className="h-10 rounded-lg border border-line bg-surface px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30">
                     {targets.map((t) => <option key={t.id} value={t.id}>{t.label}</option>)}
                   </select>
                   <select
                     value={f.showIf.not ? "not" : "is"}
                     onChange={(e) => onUpdate({ showIf: { ...f.showIf!, not: e.target.value === "not" || undefined } })}
-                    className="h-10 rounded-lg border border-line bg-surface px-2 text-sm focus-visible:outline-none"
+                    className="h-10 rounded-lg border border-line bg-surface px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
                   >
                     <option value="is">is</option>
                     <option value="not">is not</option>
                   </select>
                   {target?.options?.length ? (
-                    <select value={f.showIf.equals} onChange={(e) => onUpdate({ showIf: { ...f.showIf!, equals: e.target.value } })} className="h-10 rounded-lg border border-line bg-surface px-2 text-sm focus-visible:outline-none">
+                    <select value={f.showIf.equals} onChange={(e) => onUpdate({ showIf: { ...f.showIf!, equals: e.target.value } })} className="h-10 rounded-lg border border-line bg-surface px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30">
                       <option value="">choose…</option>
                       {target.options.map((o) => <option key={o} value={o}>{o}</option>)}
                     </select>
                   ) : target?.type === "checkbox" ? (
-                    <select value={f.showIf.equals} onChange={(e) => onUpdate({ showIf: { ...f.showIf!, equals: e.target.value } })} className="h-10 rounded-lg border border-line bg-surface px-2 text-sm focus-visible:outline-none">
+                    <select value={f.showIf.equals} onChange={(e) => onUpdate({ showIf: { ...f.showIf!, equals: e.target.value } })} className="h-10 rounded-lg border border-line bg-surface px-2 text-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30">
                       <option value="">choose…</option>
                       <option value="yes">ticked</option>
                     </select>

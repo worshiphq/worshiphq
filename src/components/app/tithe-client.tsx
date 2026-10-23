@@ -375,14 +375,15 @@ function BatchRecorder({ members, fundType, activeFundName, accounts }: { member
       </div>
 
       {/* Member search */}
-      <div className="relative mb-4">
-        <div className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3.5 py-2.5">
+      <div className="relative mb-4" data-arrow-list>
+        <div className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3.5 py-2.5 focus-within:border-primary/60 focus-within:ring-2 focus-within:ring-primary/30">
           <Search className="size-4 text-ink-faint" />
           <input
             value={search}
             onChange={(e) => { setSearch(e.target.value); setShowList(true); }}
             onFocus={() => setShowList(true)}
             placeholder="Search by name, phone or member ID…"
+            aria-label="Search members by name, phone or member ID"
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-ink-faint"
           />
         </div>

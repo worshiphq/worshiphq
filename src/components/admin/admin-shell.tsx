@@ -58,7 +58,7 @@ export function AdminShell({
         </nav>
       </header>
 
-      {children}
+      <main id="main-content" tabIndex={-1} className="outline-none">{children}</main>
     </div>
   );
 }

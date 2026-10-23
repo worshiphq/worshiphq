@@ -34,11 +34,37 @@ export function Topbar({
   const [profileOpen, setProfileOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [pending] = useTransition();
+  const notifRef = useRef<HTMLDivElement>(null);
+  const profileRef = useRef<HTMLDivElement>(null);
+
+  // Close a menu on a click anywhere outside it. (A full-screen click-away layer cannot be used here: the header's
+  // blur effect turns "fixed" into "inside the header", so such a layer only covered the header bar.)
+  useEffect(() => {
+    if (!notifOpen && !profileOpen) return;
+    const away = (e: MouseEvent) => {
+      if (notifOpen && !notifRef.current?.contains(e.target as Node)) setNotifOpen(false);
+      if (profileOpen && !profileRef.current?.contains(e.target as Node)) setProfileOpen(false);
+    };
+    document.addEventListener("mousedown", away);
+    return () => document.removeEventListener("mousedown", away);
+  }, [notifOpen, profileOpen]);
+
+  /** Escape closes the menu and puts the keyboard back on its button; tabbing out of the menu closes it too. */
+  function menuKey(e: React.KeyboardEvent, which: "notif" | "profile") {
+    if (e.key !== "Escape") return;
+    e.preventDefault();
+    if (which === "notif") setNotifOpen(false); else setProfileOpen(false);
+    (which === "notif" ? notifRef : profileRef).current?.querySelector<HTMLButtonElement>("button[aria-haspopup]")?.focus();
+  }
+  function menuBlur(e: React.FocusEvent, which: "notif" | "profile") {
+    const wrap = (which === "notif" ? notifRef : profileRef).current;
+    if (!wrap?.contains(e.relatedTarget as Node | null)) { if (which === "notif") setNotifOpen(false); else setProfileOpen(false); }
+  }
 
   return (
     <header className="sticky top-0 z-30 flex h-16 items-center gap-3 border-b border-line bg-base/80 px-4 backdrop-blur-xl">
-      <button onClick={onMenu} className="grid size-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-2 lg:hidden">
-        <Menu className="size-5" />
+      <button type="button" onClick={onMenu} aria-label="Open menu" className="grid size-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-2 lg:hidden">
+        <Menu className="size-5" aria-hidden />
       </button>
 
       {/* Search */}
@@ -48,20 +74,23 @@ export function Topbar({
         <OfflineIndicator />
 
         {/* Notifications */}
-        <div className="relative">
+        <div className="relative" ref={notifRef} onKeyDown={(e) => menuKey(e, "notif")} onBlur={(e) => menuBlur(e, "notif")}>
           <button
+            type="button"
             onClick={() => setNotifOpen((v) => !v)}
+            aria-label={notifications.length > 0 ? `Notifications, ${notifications.length} recent` : "Notifications"}
+            aria-haspopup="menu"
+            aria-expanded={notifOpen}
             className="relative grid size-10 place-items-center rounded-xl border border-line bg-surface text-ink-muted hover:text-ink"
           >
-            <Bell className="size-[1.15rem]" />
+            <Bell className="size-[1.15rem]" aria-hidden />
             {notifications.length > 0 && (
               <span className="absolute right-2.5 top-2.5 size-2 rounded-full bg-primary-bright ring-2 ring-base" />
             )}
           </button>
           {notifOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setNotifOpen(false)} />
-              <div className="absolute right-0 top-12 z-20 w-80 rounded-xl border border-line bg-elevated p-2 shadow-2xl">
+              <div role="menu" aria-label="Notifications" className="absolute right-0 top-12 z-20 w-80 rounded-xl border border-line bg-elevated p-2 shadow-2xl">
                 <div className="flex items-center justify-between px-2.5 py-1.5">
                   <span className="text-sm font-semibold">Notifications</span>
                   <EnableAlerts />
@@ -75,6 +104,7 @@ export function Topbar({
                       return (
                         <button
                           key={n.id}
+                          role="menuitem"
                           onClick={() => { setNotifOpen(false); router.push(n.href); }}
                           className="flex w-full items-start gap-2.5 rounded-lg px-2.5 py-2 text-left hover:bg-surface-2"
                         >
@@ -94,9 +124,13 @@ export function Topbar({
         </div>
 
         {/* Profile */}
-        <div className="relative">
+        <div className="relative" ref={profileRef} onKeyDown={(e) => menuKey(e, "profile")} onBlur={(e) => menuBlur(e, "profile")}>
           <button
+            type="button"
             onClick={() => setProfileOpen((v) => !v)}
+            aria-label="Account menu"
+            aria-haspopup="menu"
+            aria-expanded={profileOpen}
             className={cn("flex items-center gap-2 rounded-xl border border-line bg-surface p-1 pr-2.5", pending && "opacity-60")}
           >
             <MemberAvatar name={session.avatarName} photoUrl={session.avatarUrl} size="sm" />
@@ -104,29 +138,28 @@ export function Topbar({
               <span className="block text-xs font-medium leading-tight">{session.name}</span>
               <span className="block text-[10px] leading-tight text-ink-muted">{session.customRole ?? session.role}</span>
             </span>
-            <ChevronDown className="size-4 text-ink-muted" />
+            <ChevronDown className="size-4 text-ink-muted" aria-hidden />
           </button>
           {profileOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setProfileOpen(false)} />
-              <div className="absolute right-0 top-12 z-20 w-56 rounded-xl border border-line bg-elevated p-1.5 shadow-2xl">
+              <div role="menu" aria-label="Account" className="absolute right-0 top-12 z-20 w-56 rounded-xl border border-line bg-elevated p-1.5 shadow-2xl">
                 <div className="border-b border-line px-2.5 py-2">
                   <div className="text-sm font-medium">{session.name}</div>
                   <div className="text-xs text-ink-muted">{session.email}</div>
                 </div>
-                <a href="/app/account" className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2">
+                <a role="menuitem" href="/app/account" className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2">
                   <UserCircle className="size-4" /> My account
                 </a>
-                <a href="/docs" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2">
+                <a role="menuitem" href="/docs" target="_blank" rel="noopener noreferrer" className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2">
                   <BookOpen className="size-4" /> User manual
                 </a>
                 {session.sections.includes("settings") && (
-                  <a href="/app/settings" className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2">
+                  <a role="menuitem" href="/app/settings" className="flex items-center gap-2 rounded-lg px-2.5 py-2 text-sm hover:bg-surface-2">
                     <Settings className="size-4" /> Settings
                   </a>
                 )}
                 <form action={signOut}>
-                  <button className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-danger hover:bg-danger/10">
+                  <button role="menuitem" className="flex w-full items-center gap-2 rounded-lg px-2.5 py-2 text-sm text-danger hover:bg-danger/10">
                     <LogOut className="size-4" /> Sign out
                   </button>
                 </form>
@@ -147,6 +180,10 @@ function GlobalSearch() {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const boxRef = useRef<HTMLDivElement>(null);
+  const [active, setActive] = useState(-1);
+  const listRef = useRef<HTMLUListElement>(null);
+
+  useEffect(() => { listRef.current?.children[active]?.scrollIntoView({ block: "nearest" }); }, [active]);
 
   useEffect(() => {
     const term = q.trim();
@@ -157,6 +194,7 @@ function GlobalSearch() {
         const r = await fetch(`/api/search?q=${encodeURIComponent(term)}`, { signal: AbortSignal.timeout(8000) });
         const data = await r.json();
         setResults(data.results ?? []);
+        setActive(-1);
       } catch { setResults([]); }
       finally { setLoading(false); }
     }, 220); // debounce
@@ -169,7 +207,23 @@ function GlobalSearch() {
     return () => document.removeEventListener("mousedown", onClick);
   }, []);
 
-  const go = (href: string) => { setOpen(false); setQ(""); setResults([]); router.push(href); };
+  const go = (href: string) => { setOpen(false); setQ(""); setResults([]); setActive(-1); router.push(href); };
+  const showList = open && q.trim().length >= 2;
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      if (results.length === 0) return;
+      e.preventDefault();
+      setOpen(true);
+      setActive((i) => (e.key === "ArrowDown" ? Math.min(i + 1, results.length - 1) : Math.max(i - 1, -1)));
+    } else if (e.key === "Enter") {
+      const pick = results[active] ?? (results.length === 1 ? results[0] : undefined);
+      if (pick) { e.preventDefault(); go(pick.href); }
+    } else if (e.key === "Escape") {
+      if (showList) { e.preventDefault(); setOpen(false); setActive(-1); }
+      else if (q) { e.preventDefault(); setQ(""); }
+    }
+  }
 
   return (
     <div ref={boxRef} className="relative hidden flex-1 md:block">
@@ -178,6 +232,13 @@ function GlobalSearch() {
         value={q}
         onChange={(e) => { setQ(e.target.value); setOpen(true); }}
         onFocus={() => setOpen(true)}
+        onKeyDown={onKeyDown}
+        role="combobox"
+        aria-label="Search members, groups and events"
+        aria-autocomplete="list"
+        aria-expanded={showList}
+        aria-controls="global-search-results"
+        aria-activedescendant={showList && results[active] ? `gs-${active}` : undefined}
         placeholder="Search members, groups, events…"
         className="h-10 w-full max-w-md rounded-xl border border-line bg-surface pl-9 pr-8 text-sm text-ink placeholder:text-ink-faint focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20"
       />
@@ -188,12 +249,12 @@ function GlobalSearch() {
           {results.length === 0 && !loading ? (
             <div className="px-3 py-4 text-center text-sm text-ink-faint">No matches for “{q.trim()}”.</div>
           ) : (
-            <ul className="max-h-96 overflow-y-auto overscroll-contain py-1">
-              {results.map((r) => {
+            <ul ref={listRef} id="global-search-results" role="listbox" aria-label="Search results" className="max-h-96 overflow-y-auto overscroll-contain py-1">
+              {results.map((r, i) => {
                 const Icon = r.type === "member" ? null : RESULT_ICON[r.type];
                 return (
-                  <li key={`${r.type}-${r.id}`}>
-                    <button onClick={() => go(r.href)} className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-surface-2">
+                  <li key={`${r.type}-${r.id}`} role="presentation">
+                    <button id={`gs-${i}`} role="option" aria-selected={i === active} tabIndex={-1} onClick={() => go(r.href)} className={cn("flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-surface-2", i === active && "bg-surface-2")}>
                       {r.type === "member" ? (
                         <MemberAvatar name={r.label} photoUrl={r.photoUrl} gender={r.gender} size="xs" />
                       ) : (

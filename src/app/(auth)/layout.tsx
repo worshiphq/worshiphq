@@ -41,7 +41,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         <div className="absolute left-5 top-5 lg:hidden">
           <Logo href="/" />
         </div>
-        <div className="w-full max-w-sm">{children}</div>
+        <main id="main-content" tabIndex={-1} className="w-full max-w-sm outline-none">{children}</main>
         <div className="mt-8 text-center text-xs text-ink-faint">
           <Link href="/" className="hover:text-ink">
             ← Back to website

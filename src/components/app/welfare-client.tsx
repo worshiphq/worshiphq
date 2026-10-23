@@ -27,6 +27,7 @@ import { confirmBinDelete } from "@/lib/recycle-bin-events";
 import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
 import { matchesPerson } from "@/lib/search";
+import { pressable } from "@/lib/a11y";
 const MONTHS = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
 const MONTHS_FULL = ["January","February","March","April","May","June","July","August","September","October","November","December"];
 
@@ -261,8 +262,10 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
           {rangeMode && rangeBlocked ? null : (
           <div className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line">
             {visible.map((m) => (
-              <button key={m.id} onClick={() => setDetailFor({ id: m.id, name: m.name })}
-                className="flex w-full flex-wrap items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-2/50">
+              <div key={m.id} onClick={() => setDetailFor({ id: m.id, name: m.name })}
+                role="button"
+                {...pressable(() => setDetailFor({ id: m.id, name: m.name }))}
+                className="flex w-full cursor-pointer flex-wrap items-center gap-3 px-4 py-3 text-left transition-colors hover:bg-surface-2/50">
                 <div className="min-w-40 flex-1">
                   <div className="flex items-center gap-2 text-sm font-medium">
                     {m.name}
@@ -295,13 +298,14 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
                   <div className={cn("text-sm font-semibold", (rangeMode ? m.rangeOwed : m.owed) > 0 ? "text-danger" : "text-ink-faint")}>{(rangeMode ? m.rangeOwed : m.owed) > 0 ? ghs(rangeMode ? m.rangeOwed : m.owed) : "-"}</div>
                 </div>
                 {canWrite && (rangeMode ? m.rangeOwed : m.owed) > 0 && m.hasPhone && (
-                  <span onClick={(e) => { e.stopPropagation(); setRemindOne({ id: m.id, name: m.name, hasPhone: m.hasPhone }); }}
+                  <button type="button" onClick={(e) => { e.stopPropagation(); setRemindOne({ id: m.id, name: m.name, hasPhone: m.hasPhone }); }}
                     title="Send reminder"
+                    aria-label={`Send a reminder to ${m.name}`}
                     className="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-primary/10 hover:text-primary">
-                    <Bell className="size-4" />
-                  </span>
+                    <Bell className="size-4" aria-hidden />
+                  </button>
                 )}
-              </button>
+              </div>
             ))}
             {filtered.length === 0 && <p className="py-8 text-center text-sm text-ink-faint">No members found.</p>}
           </div>

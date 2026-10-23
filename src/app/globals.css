@@ -218,6 +218,37 @@
   }
   *::-webkit-scrollbar-thumb:hover { background: var(--color-ink-faint); background-clip: content-box; }
   h1, h2, h3, h4 { font-family: var(--font-display); letter-spacing: -0.02em; }
+
+  /* Keyboard focus: anything you can tab to shows where you are. Components that draw their own ring
+     (Button, Input) keep it, because their utility classes outrank this base rule. */
+  :where(a[href], button, summary, select, [role="button"], [role="tab"], [role="menuitem"], [role="option"], [role="radio"], [tabindex]:not([tabindex="-1"])):focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+  :where(input[type="checkbox"], input[type="radio"]):focus-visible {
+    outline: 2px solid var(--color-primary);
+    outline-offset: 2px;
+  }
+
+  /* "Skip to main content": hidden until a keyboard user tabs to it. */
+  .skip-link {
+    position: fixed;
+    left: 1rem;
+    top: -4rem;
+    z-index: 200;
+    padding: 0.6rem 1rem;
+    border-radius: 0.75rem;
+    background: var(--color-primary);
+    color: #fff;
+    font-weight: 600;
+    font-size: 0.875rem;
+    transition: top 0.15s ease;
+  }
+  .skip-link:focus { top: 1rem; outline: 2px solid #fff; outline-offset: 2px; }
+
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+  }
 }
 
 /* ════════════════════════════════════════════════════════════════

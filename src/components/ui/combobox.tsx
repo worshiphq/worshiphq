@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { Check, ChevronDown, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -39,6 +39,10 @@ export function Combobox({
   const rootRef = useRef<HTMLDivElement>(null);
   const searchRef = useRef<HTMLInputElement>(null);
   const listRef = useRef<HTMLUListElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const listId = useId();
+  const typed = useRef({ text: "", at: 0 });
+  const hasSearch = options.length >= 10;
 
   const filtered = query.trim()
     ? options.filter((o) => o.toLowerCase().includes(query.trim().toLowerCase()))
@@ -81,9 +85,14 @@ export function Combobox({
     listRef.current?.children[highlighted]?.scrollIntoView({ block: "nearest" });
   }, [highlighted]);
 
+  function closeToTrigger() {
+    setOpen(false);
+    triggerRef.current?.focus(); // the search box disappears with the list, so keep the keyboard where it was
+  }
+
   function commit(v: string) {
     onChange(v);
-    setOpen(false);
+    closeToTrigger();
   }
 
   function onKeyDown(e: React.KeyboardEvent) {
@@ -96,7 +105,25 @@ export function Combobox({
     }
     if (e.key === "Escape") {
       e.preventDefault();
-      setOpen(false);
+      closeToTrigger();
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      setHighlighted(0);
+    } else if (e.key === "End") {
+      e.preventDefault();
+      setHighlighted(Math.max(0, filtered.length - 1));
+    } else if (e.key === "PageDown") {
+      e.preventDefault();
+      setHighlighted((h) => Math.min(h + 8, filtered.length - 1));
+    } else if (e.key === "PageUp") {
+      e.preventDefault();
+      setHighlighted((h) => Math.max(h - 8, 0));
+    } else if (!hasSearch && e.key.length === 1 && !e.ctrlKey && !e.metaKey && !e.altKey && e.key !== " ") {
+      // A short list has no search box: typing jumps to the option that starts with those letters.
+      const now = e.timeStamp;
+      typed.current = { text: (now - typed.current.at < 700 ? typed.current.text : "") + e.key.toLowerCase(), at: now };
+      const hit = filtered.findIndex((o) => o.toLowerCase().startsWith(typed.current.text));
+      if (hit >= 0) { e.preventDefault(); setHighlighted(hit); }
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
       setHighlighted((h) => Math.min(h + 1, filtered.length - 1));
@@ -115,6 +142,7 @@ export function Combobox({
     <div ref={rootRef} className="relative" onKeyDown={onKeyDown}>
       {name && <input type="hidden" name={name} value={value} required={required} />}
       <button
+        ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
         className={cn(
@@ -125,8 +153,11 @@ export function Combobox({
           open && "border-primary/60 ring-2 ring-primary/30",
           className,
         )}
+        role="combobox"
         aria-haspopup="listbox"
         aria-expanded={open}
+        aria-controls={open ? listId : undefined}
+        aria-activedescendant={open && !hasSearch && filtered[highlighted] ? `${listId}-${highlighted}` : undefined}
       >
         <span className="truncate">{value || placeholder}</span>
         <ChevronDown className={cn("size-4 shrink-0 text-ink-faint transition-transform duration-150", open && "rotate-180")} />
@@ -139,7 +170,7 @@ export function Combobox({
             openUpward ? "bottom-full mb-1.5" : "top-full mt-1.5",
           )}
         >
-          {options.length >= 10 && (
+          {hasSearch && (
             <div className="flex items-center gap-2 border-b border-line px-3 py-2">
               <Search className="size-3.5 shrink-0 text-ink-faint" />
               <input
@@ -147,17 +178,23 @@ export function Combobox({
                 value={query}
                 onChange={(e) => { setQuery(e.target.value); setHighlighted(0); }}
                 placeholder="Search…"
+                role="combobox"
+                aria-label={`Search ${placeholder.replace(/…$/, "").toLowerCase()}`}
+                aria-expanded
+                aria-controls={listId}
+                aria-activedescendant={filtered[highlighted] ? `${listId}-${highlighted}` : undefined}
                 className="w-full bg-transparent text-sm text-ink outline-none placeholder:text-ink-faint"
               />
             </div>
           )}
-          <ul ref={listRef} role="listbox" className="max-h-56 overflow-y-auto overscroll-contain py-1">
+          <ul ref={listRef} id={listId} role="listbox" aria-label={placeholder.replace(/…$/, "")} className="max-h-56 overflow-y-auto overscroll-contain py-1">
             {filtered.length === 0 ? (
               <li className="px-3.5 py-2.5 text-sm text-ink-faint">No matches.</li>
             ) : (
               filtered.map((o, i) => (
                 <li
                   key={o}
+                  id={`${listId}-${i}`}
                   role="option"
                   aria-selected={o === value}
                   onMouseEnter={() => setHighlighted(i)}

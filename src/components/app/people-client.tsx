@@ -33,6 +33,7 @@ import { BIN_TOAST } from "@/lib/recycle-bin-config";
 
 import { matchesPerson } from "@/lib/search";
 import { ageOf } from "@/lib/age";
+import { pressable } from "@/lib/a11y";
 const ageGroupTabs = [
   { key: "adult", label: "Adults", icon: Users },
   { key: "teen", label: "Teens", icon: GraduationCap },
@@ -310,6 +311,8 @@ export function PeopleClient({
               <div
                 key={p.id}
                 onClick={() => setSelected(p)}
+                role="button"
+                {...pressable(() => setSelected(p))}
                 className="group cursor-pointer rounded-2xl border border-line bg-surface p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/20 hover:shadow-md"
                 style={{ animationDelay: `${i * 30}ms` }}
               >
@@ -366,6 +369,7 @@ export function PeopleClient({
                   <tr
                     key={p.id}
                     onClick={() => setSelected(p)}
+                    {...pressable(() => setSelected(p))}
                     className="group cursor-pointer border-b border-line-soft transition-colors last:border-0 hover:bg-surface-2/50"
                   >
                     <td className="p-4">

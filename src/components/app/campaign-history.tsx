@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
 import { getCampaignRecipients } from "@/app/actions/communications";
 import { formatDate } from "@/lib/utils";
+import { pressable } from "@/lib/a11y";
 
 export interface CampaignRow {
   id: string;
@@ -101,6 +102,7 @@ export function CampaignHistory({ campaigns }: { campaigns: CampaignRow[] }) {
                   <tr
                     key={c.id}
                     onClick={() => setDetail(c)}
+                    {...pressable(() => setDetail(c))}
                     className="cursor-pointer border-b border-line-soft last:border-0 hover:bg-surface-2"
                   >
                     <td className="p-4 font-medium">{c.name}</td>

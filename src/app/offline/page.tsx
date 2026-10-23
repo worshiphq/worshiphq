@@ -6,7 +6,7 @@ export const metadata = { title: "Offline" };
 
 export default function OfflinePage() {
   return (
-    <main className="grid min-h-dvh place-items-center bg-base px-6 text-center">
+    <main id="main-content" className="grid min-h-dvh place-items-center bg-base px-6 text-center">
       <div className="max-w-md">
         <div className="mx-auto mb-8 grid size-16 place-items-center rounded-2xl border border-line bg-surface text-primary-bright">
           <CloudOff className="size-7" />

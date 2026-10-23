@@ -19,6 +19,7 @@ import { phoneValidityMessage } from "@/lib/phone";
 import { formatDate, cn } from "@/lib/utils";
 import { confirmBinDelete } from "@/lib/recycle-bin-events";
 import { BIN_TOAST } from "@/lib/recycle-bin-config";
+import { pressable } from "@/lib/a11y";
 
 const segments = [
   { key: "all", label: "All" },
@@ -146,6 +147,8 @@ export function ChildrenClient({
             <div
               key={p.id}
               onClick={() => setSelected(p)}
+              role="button"
+              {...pressable(() => setSelected(p))}
               className="group cursor-pointer rounded-2xl border border-line bg-surface p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/20 hover:shadow-md"
             >
               <div className="flex flex-col items-center text-center">
@@ -183,6 +186,7 @@ export function ChildrenClient({
                 <tr
                   key={p.id}
                   onClick={() => setSelected(p)}
+                  {...pressable(() => setSelected(p))}
                   className="group cursor-pointer border-b border-line-soft transition-colors last:border-0 hover:bg-surface-2/50"
                 >
                   <td className="p-4">

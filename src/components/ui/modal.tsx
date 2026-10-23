@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useId } from "react";
 import { X } from "lucide-react";
 
 export function Modal({
@@ -19,9 +19,15 @@ export function Modal({
   wide?: boolean;
   children: React.ReactNode;
 }) {
+  const titleId = useId();
   useEffect(() => {
     if (!open) return;
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    // A dropdown or menu inside the dialog uses Escape for itself first; only an unused Escape closes the dialog.
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || e.defaultPrevented) return;
+      e.preventDefault();
+      onClose();
+    };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
@@ -29,15 +35,15 @@ export function Modal({
   if (!open) return null;
   return (
     <>
-      <div className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className={`fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-2rem)] ${wide ? "max-w-3xl" : "max-w-md"} -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-2xl border border-line bg-surface p-6 shadow-2xl animate-fade-up`}>
+      <div data-esc="handled" className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div role="dialog" aria-modal="true" aria-labelledby={titleId} tabIndex={-1} className={`fixed left-1/2 top-1/2 z-50 max-h-[90dvh] w-[calc(100%-2rem)] ${wide ? "max-w-3xl" : "max-w-md"} -translate-x-1/2 -translate-y-1/2 overflow-y-auto overscroll-contain rounded-2xl border border-line bg-surface p-6 shadow-2xl animate-fade-up`}>
         <div className="mb-5 flex items-start justify-between gap-4">
           <div>
-            <h2 className="font-display text-xl font-bold">{title}</h2>
+            <h2 id={titleId} className="font-display text-xl font-bold">{title}</h2>
             {description && <p className="mt-1 text-sm text-ink-muted">{description}</p>}
           </div>
-          <button onClick={onClose} className="grid size-9 shrink-0 place-items-center rounded-lg text-ink-muted hover:bg-surface-2">
-            <X className="size-5" />
+          <button type="button" aria-label="Close" onClick={onClose} className="grid size-9 shrink-0 place-items-center rounded-lg text-ink-muted hover:bg-surface-2">
+            <X className="size-5" aria-hidden />
           </button>
         </div>
         {children}

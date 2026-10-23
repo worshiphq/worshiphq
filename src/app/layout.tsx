@@ -5,6 +5,7 @@ import { brand } from "@/config/brand";
 import { ServiceWorker } from "@/components/pwa/service-worker";
 import { FeedbackProvider } from "@/components/ui/feedback";
 import { NavProgress } from "@/components/ui/nav-progress";
+import { KeyboardLayer } from "@/components/a11y/keyboard-layer";
 import "./globals.css";
 
 // Clean, professional sans - the one typeface for the whole product: UI, body
@@ -73,10 +74,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       className={`${sans.variable} ${mono.variable}`}
     >
       <body className="antialiased">
+        <a href="#main-content" className="skip-link">Skip to main content</a>
         <Suspense fallback={null}>
           <NavProgress />
         </Suspense>
         <FeedbackProvider>{children}</FeedbackProvider>
+        <KeyboardLayer />
         <ServiceWorker />
       </body>
     </html>

@@ -31,7 +31,7 @@ function SmsTierSelect({ church, run }: { church: ChurchRow; run: ReturnType<typ
         })
       }
       title="SMS pricing tier for this church"
-      className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-200 focus:outline-none"
+      className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60"
     >
       <option value="" className="bg-slate-800">SMS: Default</option>
       {SMS_TIERS.map((t) => <option key={t} value={t} className="bg-slate-800">SMS: {t}</option>)}
@@ -154,7 +154,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
               <select
                 defaultValue={c.plan}
                 onChange={(e) => run(() => setChurchPlan(c.id, e.target.value), { pending: "Updating plan…", success: "Plan updated" })}
-                className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs capitalize text-slate-200 focus:outline-none"
+                className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs capitalize text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60"
               >
                 {PLANS.map((p) => <option key={p} value={p} className="bg-slate-800">{p}</option>)}
               </select>
@@ -291,7 +291,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                         success: "Plan updated",
                       })
                     }
-                    className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs capitalize text-slate-200 focus:outline-none"
+                    className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs capitalize text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60"
                   >
                     {PLANS.map((p) => (
                       <option key={p} value={p} className="bg-slate-800">{p}</option>
