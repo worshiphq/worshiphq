@@ -100,7 +100,7 @@ export function SmsCreditsPanel({
       {/* Bundles */}
       <div>
         <h3 className="mb-3 font-display text-lg font-semibold">Buy SMS credits</h3>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
           {bundles.map((b) => (
             <Card key={b.id} className={cn("relative flex flex-col p-5", b.popular && "overflow-visible border-primary/40 ring-1 ring-primary/20")}>
               {b.popular && (

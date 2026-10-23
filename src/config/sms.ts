@@ -26,11 +26,11 @@ export const SMS_RATE: Record<SmsTier, number> = { B: STANDARD_RATE * 0.8, C: ST
 export const LEGACY_SMS_RATE = 0.1;
 
 const round2 = (n: number) => Math.round(n * 100) / 100;
-const BUNDLE_CREDITS = [750, 3000, 7500, 15000, 37500]; // GH₵50, 200, 500, 1,000 and 2,500 at the standard price
-const BUNDLE_IDS = ["starter", "growth", "church", "campus", "cathedral"];
+const BUNDLE_CREDITS = [750, 1500, 3000, 7500, 15000, 37500]; // GH₵50, 100, 200, 500, 1,000 and 2,500 at the standard price
+const BUNDLE_IDS = ["starter", "plus", "growth", "church", "campus", "cathedral"];
 
 function bundlesAt(rate: number): SmsBundle[] {
-  return BUNDLE_CREDITS.map((credits, i) => ({ id: BUNDLE_IDS[i], credits, priceGhs: round2(credits * rate), popular: i === 1 }));
+  return BUNDLE_CREDITS.map((credits, i) => ({ id: BUNDLE_IDS[i], credits, priceGhs: round2(credits * rate), popular: credits === 1500 }));
 }
 
 export const SMS_TIERS: Record<SmsTier, SmsBundle[]> = { B: bundlesAt(SMS_RATE.B), C: bundlesAt(SMS_RATE.C), D: bundlesAt(SMS_RATE.D) };

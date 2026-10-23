@@ -34,7 +34,7 @@ export const engagement: DocArticle[] = [
       { h: "Buy credits" },
       { steps: [
         "Go to **Communications** and choose the **credits · Buy** button at the top (or **Buy more credits** when you run low).",
-        "Under **Buy SMS credits**, pick a bundle, or use **Buy any amount**: type the credits you want, or the money you want to spend, and the other box fills in. The standard price is **GH₵100 for 1,500 credits** (for example 750 credits for GH₵50), and every credit costs the same, so any amount is simply credits times the price. The smallest purchase is 100 credits.",
+        "Under **Buy SMS credits**, pick a bundle (GH₵50, 100, 200, 500, 1,000 or 2,500), or use **Buy any amount**: type the credits you want, or the money you want to spend, and the other box fills in. The standard price is **GH₵100 for 1,500 credits** (for example 750 credits for GH₵50), and every credit costs the same, so any amount is simply credits times the price. The smallest purchase is 100 credits.",
         "Pay securely with Mobile Money or card through Paystack. Credits are added straight away and never expire.",
       ] },
       { p: "Your **SMS credit balance** is shown at the top. You'll be warned when it runs low. The **Credit history** below lists every top-up (with what you paid), gift and sending, 12 at a time, and you can filter it by **Top-ups**, **Gifts** or **Messages sent**." },
