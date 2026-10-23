@@ -28,6 +28,7 @@ const columns = [
       { label: "Features", href: "/features" },
       { label: "Pricing", href: "/pricing" },
       { label: "Solutions", href: "/solutions" },
+      { label: "Check-in devices", href: "/devices" },
     ],
   },
   {

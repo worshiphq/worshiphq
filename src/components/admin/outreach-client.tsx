@@ -65,7 +65,7 @@ export function OutreachClient({ data }: { data: OutreachData }) {
 
       {/* Are messages really going out? */}
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <Status ok={data.emailLive} title="Email" good="Connected. Emails are delivered." bad="Not connected. Emails are only logged, not delivered. Set RESEND_API_KEY (or SMTP) in Vercel." />
+        <Status ok={data.emailLive} title="Email" good="Connected. Emails are delivered." bad="Not connected. The same email settings that send your other emails (EMAIL_PROVIDER and its keys) are not set where this is running, so messages are only logged." />
         <Status ok={data.smsLive} title="SMS" good="Connected. Texts are delivered." bad="Not connected. Texts are only logged, not delivered." />
         <AdminCard className="p-4 text-sm">
           <div className="font-semibold text-slate-200">Replies go to</div>
@@ -276,7 +276,7 @@ function Compose({ data, composer, onClose, onDone }: { data: OutreachData; comp
         {!live && (
           <div className="flex items-start gap-2 rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 text-sm text-amber-200">
             <AlertTriangle className="mt-0.5 size-4 shrink-0" />
-            {mode === "email" ? "Email is not connected, so nothing can be delivered yet. Set RESEND_API_KEY in Vercel first." : "SMS is not connected, so nothing can be delivered yet."}
+            {mode === "email" ? "Email is not connected here, so nothing can be delivered yet. Check the email settings (EMAIL_PROVIDER and its keys) in Vercel." : "SMS is not connected, so nothing can be delivered yet."}
           </div>
         )}
 

@@ -39,14 +39,15 @@ export default function PrivacyPage() {
 
       <LegalSection heading="3. Biometric information">
         <p>
-          Fingerprint check-in is optional and off by default - a church administrator must explicitly turn it on and enrol
-          each member. If your church uses it:
+          Check-in by fingerprint, face or palm is optional and off by default - a church administrator must explicitly turn it
+          on and enrol each member. If your church uses it:
         </p>
         <ul className="list-disc space-y-1.5 pl-5">
-          <li>We store an <strong>encrypted mathematical template</strong>{" "}derived from a fingerprint scan - not a photograph or image of the fingerprint.</li>
-          <li>The template is used <strong>only</strong>{" "}to recognise that person at check-in. It is never used for any other purpose, never sold, and never shared with advertisers or any third party outside the providers strictly needed to run the feature.</li>
+          <li><strong>Face, palm and fingerprint devices at your church (terminals):</strong>{" "}the biometric data stays <strong>on the device</strong>. We do not receive or store face, palm or fingerprint images or templates from these devices. We receive only the member&rsquo;s ID number, the time of the scan and which device it came from, so attendance can be recorded.</li>
+          <li><strong>A USB fingerprint reader used with {brand.name}:</strong>{" "}we store a <strong>mathematical template</strong>{" "}derived from the scan - not a photograph or image of the fingerprint - in our database, protected by access controls.</li>
+          <li>Biometric data is used <strong>only</strong>{" "}to recognise that person at check-in. It is never used for any other purpose, never sold, and never shared with advertisers or any third party outside the providers strictly needed to run the feature.</li>
           <li>It is your church&rsquo;s responsibility to obtain each person&rsquo;s informed consent (or a parent/guardian&rsquo;s consent for a minor) before enrolment, in line with any biometric-privacy law that applies to you.</li>
-          <li>An administrator can delete a member&rsquo;s biometric data at any time from their profile, and it is deleted automatically when the member record itself is deleted.</li>
+          <li>An administrator can delete a member&rsquo;s fingerprint template held by {brand.name} at any time from their profile, and it is deleted automatically when the member record itself is deleted. Data held on a terminal is deleted on the terminal itself.</li>
         </ul>
       </LegalSection>
 
