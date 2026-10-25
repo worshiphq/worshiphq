@@ -255,13 +255,17 @@ export async function issueUpgradeReceipt(a: {
   agreed?: number;
   /** Length bought, in months, so a multi-year term reads "5-year subscription". */
   termMonths?: number;
+  /** Who the receipt is made out to (the person who paid). Left out = the church's Owner. */
+  toName?: string;
+  toEmail?: string | null;
 }): Promise<{ row: Receipt; pdf: Buffer } | null> {
   const church = await db.church.findUnique({ where: { id: a.churchId }, select: { id: true, name: true, isDemo: true } });
   if (!church || church.isDemo) return null;
   const owner =
     (await db.user.findFirst({ where: { churchId: a.churchId, role: "Owner" }, orderBy: { createdAt: "asc" }, select: { name: true, email: true, phone: true } })) ??
     (await db.user.findFirst({ where: { churchId: a.churchId, role: "Admin" }, orderBy: { createdAt: "asc" }, select: { name: true, email: true, phone: true } }));
-  if (!owner) return null;
+  const named = a.toName?.trim();
+  if (!owner && !named) return null;
   let row = await db.receipt.findFirst({ where: { churchId: a.churchId, reference: a.reference, kind: a.kind ?? "upgrade" } });
   if (!row) {
     const day = (d: Date) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Africa/Accra" }).format(d);
@@ -273,7 +277,7 @@ export async function issueUpgradeReceipt(a: {
     const discount = gift ? 0 : round2(a.discount ?? 0);
     row = await createReceipt({
       brand: "worshiphq", sheet: "a4", kind: a.kind ?? "upgrade", churchId: a.churchId,
-      toName: owner.name || church.name, toOrg: church.name, toEmail: owner.email, toPhone: owner.phone,
+      toName: named || owner?.name || church.name, toOrg: church.name, toEmail: named ? a.toEmail ?? null : owner?.email ?? null, toPhone: named ? null : owner?.phone ?? null,
       items: [{
         description: `WorshipHQ ${a.planName} plan${a.prorated ? " (upgrade, prorated)" : ""}`,
         detail: gift ? "Gifted by WODONA" : `${term}${period}`,

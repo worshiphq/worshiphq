@@ -1,18 +1,20 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import type { Receipt } from "@prisma/client";
+import type { Prisma, Receipt } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/auth";
 import { features } from "@/lib/env";
 import { ReceiptOverflowError, renderReceiptPdf } from "@/lib/receipts/pdf";
 import { dateFromYmd, isEmail, manualReceiptSchema, type ManualReceiptInput } from "@/lib/receipts/input";
 import { createReceipt, emailReceipt, getReceiptSettings, itemsOf, pdfForRow, saveReceiptSettings } from "@/lib/receipts/service";
-import { receiptNumber, round2, totalsOf, type ReceiptSettings } from "@/lib/receipts/types";
+import { money, receiptNumber, round2, totalsOf, type ReceiptSettings } from "@/lib/receipts/types";
 
 export type ReceiptRow = {
   id: string; number: string; issuedAt: string; kind: string; brand: string; sheet: string;
-  toName: string; toOrg: string | null; toEmail: string | null; currency: string;
+  toName: string; toOrg: string | null; toEmail: string | null; toPhone: string | null; toAddress: string | null; currency: string;
+  items: { description: string; detail?: string; qty: number; unit: number }[];
+  discount: number; method: string | null; reference: string | null; notes: string | null;
   total: number; paid: number; paidBefore: number;
   /** What is still owed on this sale (0 when cleared, or when a newer receipt already took the balance). */
   balance: number;
@@ -20,65 +22,118 @@ export type ReceiptRow = {
   canPay: boolean;
   /** The number of the first receipt of the sale, when this one follows another. */
   follows: string | null;
+  /** full = everything can be edited; basic = who, date, how paid, reference and note (amounts are tied to other records); none = locked. */
+  editable: "full" | "basic" | "none";
+  editCount: number; lastEditedAt: string | null;
   emailStatus: string | null; emailedAt: string | null; emailError: string | null;
 };
-export type ReceiptChurch = { id: string; name: string; contact: string; email: string; phone: string };
+export type ReceiptPerson = { name: string; role: string; email: string; phone: string };
+export type ReceiptChurch = { id: string; name: string; contact: string; email: string; phone: string; people: ReceiptPerson[] };
+export type ReceiptList = { rows: ReceiptRow[]; total: number; page: number; pages: number; receivedGhs: number };
 export type ReceiptsPageData = {
   settings: ReceiptSettings;
   churches: ReceiptChurch[];
-  receipts: ReceiptRow[];
+  list: ReceiptList;
   emailLive: boolean;
   counts: { registration: number; upgrade: number; manual: number };
 };
 
-const toRow = (r: Receipt, ctx: { latestPaid: Map<string, number>; numbers: Map<string, string> }): ReceiptRow => {
+const PAGE_SIZE = 20;
+
+type RowCtx = { latestPaid: Map<string, number>; numbers: Map<string, string>; hasFollower: Set<string>; edits: Map<string, { n: number; at: Date }> };
+
+const toRow = (r: Receipt, ctx: RowCtx): ReceiptRow => {
   const root = r.relatedId ?? r.id;
   const owes = r.kind === "manual" || r.kind === "upgrade" ? round2(Math.max(r.total - r.paid, 0)) : 0;
   const isLatest = r.paid >= (ctx.latestPaid.get(root) ?? r.paid) - 0.005;
+  const chained = !!r.relatedId || ctx.hasFollower.has(r.id);
+  const edit = ctx.edits.get(r.id);
   return {
-  id: r.id, number: receiptNumber(r), issuedAt: r.issuedAt.toISOString(), kind: r.kind, brand: r.brand, sheet: r.sheet,
-  toName: r.toName, toOrg: r.toOrg, toEmail: r.toEmail, currency: r.currency, total: r.total, paid: r.paid, paidBefore: r.paidBefore,
-  balance: isLatest ? owes : 0, canPay: isLatest && owes > 0, follows: r.relatedId ? ctx.numbers.get(r.relatedId) ?? null : null,
-  emailStatus: r.emailStatus, emailedAt: r.emailedAt?.toISOString() ?? null, emailError: r.emailError,
+    id: r.id, number: receiptNumber(r), issuedAt: r.issuedAt.toISOString(), kind: r.kind, brand: r.brand, sheet: r.sheet,
+    toName: r.toName, toOrg: r.toOrg, toEmail: r.toEmail, toPhone: r.toPhone, toAddress: r.toAddress, currency: r.currency,
+    items: itemsOf(r), discount: r.discount, method: r.method, reference: r.reference, notes: r.notes,
+    total: r.total, paid: r.paid, paidBefore: r.paidBefore,
+    balance: isLatest ? owes : 0, canPay: isLatest && owes > 0, follows: r.relatedId ? ctx.numbers.get(r.relatedId) ?? null : null,
+    editable: r.kind === "registration" ? "none" : r.kind === "manual" && !chained ? "full" : "basic",
+    editCount: edit?.n ?? 0, lastEditedAt: edit?.at.toISOString() ?? null,
+    emailStatus: r.emailStatus, emailedAt: r.emailedAt?.toISOString() ?? null, emailError: r.emailError,
   };
 };
 
-/** For each sale (the first receipt's id), the most that has been paid on it, and the numbers of the first receipts. */
-async function chainContext(rows: Receipt[]) {
+/** What the rows need to know about the other receipts and edits around them. */
+async function rowContext(rows: Receipt[]): Promise<RowCtx> {
   const roots = [...new Set(rows.map((r) => r.relatedId ?? r.id))];
-  const [chain, firsts] = await Promise.all([
+  const [chain, firsts, edits] = await Promise.all([
     db.receipt.findMany({ where: { OR: [{ id: { in: roots } }, { relatedId: { in: roots } }] }, select: { id: true, relatedId: true, paid: true } }),
     db.receipt.findMany({ where: { id: { in: roots } }, select: { id: true, brand: true, year: true, seq: true } }),
+    db.receiptRevision.groupBy({ by: ["receiptId"], where: { receiptId: { in: rows.map((r) => r.id) } }, _count: { _all: true }, _max: { createdAt: true } }),
   ]);
   const latestPaid = new Map<string, number>();
+  const hasFollower = new Set<string>();
   for (const c of chain) {
     const root = c.relatedId ?? c.id;
     latestPaid.set(root, Math.max(latestPaid.get(root) ?? 0, c.paid));
+    if (c.relatedId) hasFollower.add(c.relatedId);
   }
-  return { latestPaid, numbers: new Map(firsts.map((f) => [f.id, receiptNumber(f)])) };
+  return {
+    latestPaid, hasFollower,
+    numbers: new Map(firsts.map((f) => [f.id, receiptNumber(f)])),
+    edits: new Map(edits.map((e) => [e.receiptId, { n: e._count._all, at: e._max.createdAt ?? new Date(0) }])),
+  };
+}
+
+export type ReceiptFilter = { from?: string; to?: string; q?: string; page?: number };
+
+/** One page of receipts for the chosen dates (and name or number), newest first, with how much was received in that range. */
+export async function listReceipts(filter: ReceiptFilter = {}): Promise<ReceiptList> {
+  await requireSuperAdmin();
+  const and: Prisma.ReceiptWhereInput[] = [];
+  const ymd = /^\d{4}-\d{2}-\d{2}$/;
+  if (filter.from && ymd.test(filter.from)) and.push({ issuedAt: { gte: new Date(`${filter.from}T00:00:00Z`) } });
+  if (filter.to && ymd.test(filter.to)) and.push({ issuedAt: { lte: new Date(`${filter.to}T23:59:59.999Z`) } });
+  const q = (filter.q ?? "").trim().slice(0, 80);
+  if (q) {
+    const num = /^(WHQ|WOD)-(\d{4})-(\d{1,6})$/i.exec(q);
+    and.push(num
+      ? { brand: num[1].toUpperCase() === "WOD" ? "wodona" : "worshiphq", year: Number(num[2]), seq: Number(num[3]) }
+      : { OR: [{ toName: { contains: q, mode: "insensitive" } }, { toOrg: { contains: q, mode: "insensitive" } }, { toEmail: { contains: q, mode: "insensitive" } }, { reference: { contains: q, mode: "insensitive" } }] });
+  }
+  const where: Prisma.ReceiptWhereInput = and.length ? { AND: and } : {};
+  const total = await db.receipt.count({ where });
+  const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+  const page = Math.min(Math.max(Math.floor(filter.page ?? 1), 1), pages);
+  const [rows, sums] = await Promise.all([
+    db.receipt.findMany({ where, orderBy: [{ issuedAt: "desc" }, { createdAt: "desc" }], skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
+    db.receipt.aggregate({ where: { AND: [where, { currency: "GHS" }, { kind: { notIn: ["registration", "gift"] } }] }, _sum: { paid: true, paidBefore: true } }),
+  ]);
+  const ctx = await rowContext(rows);
+  return { rows: rows.map((r) => toRow(r, ctx)), total, page, pages, receivedGhs: round2((sums._sum.paid ?? 0) - (sums._sum.paidBefore ?? 0)) };
 }
 
 /** Everything the Receipts page shows: the company details, churches to pick from, and the latest receipts. */
 export async function getReceiptsPage(): Promise<ReceiptsPageData> {
   await requireSuperAdmin();
-  const [settings, churches, receipts, groups] = await Promise.all([
+  const [settings, churches, list, groups] = await Promise.all([
     getReceiptSettings(),
     db.church.findMany({
       where: { isDemo: false },
       orderBy: { name: "asc" },
       take: 600,
-      select: { id: true, name: true, users: { where: { role: { in: ["Owner", "Admin"] } }, orderBy: { createdAt: "asc" }, take: 1, select: { name: true, email: true, phone: true } } },
+      select: { id: true, name: true, users: { orderBy: { createdAt: "asc" }, take: 40, select: { name: true, role: true, email: true, phone: true } } },
     }),
-    db.receipt.findMany({ orderBy: { createdAt: "desc" }, take: 80 }),
+    listReceipts({}),
     db.receipt.groupBy({ by: ["kind"], _count: { _all: true } }),
   ]);
-  const ctx = await chainContext(receipts);
   const n = (k: string) => groups.find((g) => g.kind === k)?._count._all ?? 0;
   return {
     settings,
     emailLive: features.email,
-    churches: churches.map((c) => ({ id: c.id, name: c.name, contact: c.users[0]?.name ?? "", email: c.users[0]?.email ?? "", phone: c.users[0]?.phone ?? "" })),
-    receipts: receipts.map((r) => toRow(r, ctx)),
+    churches: churches.map((c) => {
+      const rank = (r: string) => (r === "Owner" ? 0 : r === "Admin" ? 1 : 2);
+      const people = [...c.users].sort((a, b) => rank(a.role) - rank(b.role)).map((u) => ({ name: u.name ?? "", role: u.role, email: u.email ?? "", phone: u.phone ?? "" }));
+      return { id: c.id, name: c.name, contact: people[0]?.name ?? "", email: people[0]?.email ?? "", phone: people[0]?.phone ?? "", people };
+    }),
+    list,
     counts: { registration: n("registration"), upgrade: n("upgrade") + n("gift"), manual: n("manual") },
   };
 }
@@ -198,4 +253,154 @@ export async function payReceiptBalance(input: { id: string; amount: number; met
   if (!to) return { ok: true, id: row.id, number: receiptNumber(row), email: "none" };
   const out = await emailReceipt(row, to);
   return { ok: true, id: row.id, number: receiptNumber(row), email: out.status, emailError: out.error };
+}
+
+/* ── editing a receipt, with its history ── */
+
+type Change = { label: string; from: string; to: string };
+type Snapshot = {
+  toName: string; toOrg: string | null; toEmail: string | null; toPhone: string | null; toAddress: string | null; currency: string;
+  items: { description: string; detail?: string; qty: number; unit: number }[]; discount: number; total: number; paid: number; paidBefore: number;
+  method: string | null; reference: string | null; notes: string | null; sheet: string; issuedAt: string;
+};
+
+const snapshotOf = (r: Receipt): Snapshot => ({
+  toName: r.toName, toOrg: r.toOrg, toEmail: r.toEmail, toPhone: r.toPhone, toAddress: r.toAddress, currency: r.currency,
+  items: itemsOf(r), discount: r.discount, total: r.total, paid: r.paid, paidBefore: r.paidBefore,
+  method: r.method, reference: r.reference, notes: r.notes, sheet: r.sheet, issuedAt: r.issuedAt.toISOString(),
+});
+
+const linesLabel = (items: Snapshot["items"], currency: string) => items.map((i) => `${i.description}${i.qty !== 1 ? ` x${i.qty}` : ""} ${money(round2(i.qty * i.unit), currency)}`).join("; ") || "none";
+const dayLabel = (iso: string) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Accra" }).format(new Date(iso));
+
+export type EditReceiptInput = {
+  toName: string; toOrg?: string; toEmail?: string; toPhone?: string; toAddress?: string;
+  issuedOn: string; method?: string; reference?: string; notes?: string; sheet?: "a4" | "half";
+  /** Only for a receipt that stands alone (not part of a part-payment chain and not made by the system). */
+  items?: { description: string; detail?: string; qty: number; unit: number }[];
+  discount?: number; paid?: number;
+};
+
+/**
+ * Corrects a saved receipt. It keeps its number. What it looked like before is saved as a revision, so every change can be
+ * seen later and the earlier version can be opened. When a receipt for a church's plan gets a new date, the payment in their
+ * billing history moves to that date too, so Revenue and the receipt agree.
+ */
+export async function editReceipt(id: string, input: EditReceiptInput): Promise<{ ok: true; number: string; changed: number } | { ok: false; error: string }> {
+  await requireSuperAdmin();
+  const row = await db.receipt.findUnique({ where: { id } });
+  if (!row) return { ok: false, error: "That receipt was not found." };
+  if (row.kind === "registration") return { ok: false, error: "Welcome receipts cannot be edited." };
+  const chained = !!row.relatedId || !!(await db.receipt.findFirst({ where: { relatedId: row.id }, select: { id: true } }));
+  const full = row.kind === "manual" && !chained;
+
+  const toName = (input.toName ?? "").trim().slice(0, 120);
+  if (!toName) return { ok: false, error: "Who is the receipt for? Add a name." };
+  const email = (input.toEmail ?? "").trim();
+  if (email && !isEmail(email)) return { ok: false, error: "That email address does not look right." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(input.issuedOn ?? "")) return { ok: false, error: "Choose a valid date." };
+  const issuedAt = dateFromYmd(input.issuedOn);
+  const orNull = (v: string | undefined, max: number) => { const t = (v ?? "").trim().slice(0, max); return t || null; };
+
+  let items = itemsOf(row), discount = row.discount, paid = row.paid;
+  if (full && input.items) {
+    const parsed = manualReceiptSchema.shape.items.safeParse(input.items);
+    if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Please check the lines." };
+    items = parsed.data.map((i) => ({ description: i.description, ...(i.detail ? { detail: i.detail } : {}), qty: i.qty, unit: round2(i.unit) }));
+    discount = round2(Math.max(Number(input.discount) || 0, 0));
+    paid = round2(Math.max(Number(input.paid) || 0, 0));
+    const t = totalsOf(items, discount, paid);
+    if (paid > t.total + 0.005) return { ok: false, error: "The amount paid is more than the total." };
+    if (t.total > 0 && paid <= 0) return { ok: false, error: "Enter the amount paid." };
+  }
+  const totals = totalsOf(items, discount, paid);
+
+  const before = snapshotOf(row);
+  const next: Snapshot = {
+    ...before,
+    toName, toOrg: orNull(input.toOrg, 160), toEmail: email || null, toPhone: orNull(input.toPhone, 40), toAddress: orNull(input.toAddress, 240),
+    method: orNull(input.method, 60),
+    // On a receipt for a church's plan the reference is what ties it to their billing history, so it stays as it is.
+    reference: row.kind === "manual" ? orNull(input.reference, 120) : row.reference,
+    notes: orNull(input.notes, 1200),
+    sheet: input.sheet === "half" ? "half" : input.sheet === "a4" ? "a4" : before.sheet,
+    issuedAt: issuedAt.toISOString(),
+    items, discount: totals.discount, total: totals.total, paid,
+  };
+
+  const changes: Change[] = [];
+  const diff = (label: string, a: unknown, b: unknown, show: (v: unknown) => string = (v) => (v == null || v === "" ? "empty" : String(v))) => {
+    if (JSON.stringify(a ?? null) !== JSON.stringify(b ?? null)) changes.push({ label, from: show(a), to: show(b) });
+  };
+  diff("Received from", before.toName, next.toName);
+  diff("Church or company", before.toOrg, next.toOrg);
+  diff("Email", before.toEmail, next.toEmail);
+  diff("Phone", before.toPhone, next.toPhone);
+  diff("Address", before.toAddress, next.toAddress);
+  if (dateFromYmd(input.issuedOn).toISOString().slice(0, 10) !== before.issuedAt.slice(0, 10)) changes.push({ label: "Date", from: dayLabel(before.issuedAt), to: dayLabel(next.issuedAt) });
+  diff("Paid by", before.method, next.method);
+  diff("Reference", before.reference, next.reference);
+  diff("Note", before.notes, next.notes);
+  diff("Sheet", before.sheet, next.sheet, (v) => (v === "half" ? "half A4" : "full A4"));
+  if (full) {
+    diff("Lines", before.items, next.items, (v) => linesLabel(v as Snapshot["items"], row.currency));
+    diff("Discount", before.discount, next.discount, (v) => money(Number(v), row.currency));
+    diff("Amount paid", before.paid, next.paid, (v) => money(Number(v), row.currency));
+  }
+  if (!changes.length) return { ok: false, error: "Nothing was changed." };
+
+  // Draw it first: if it does not fit its sheet, nothing is saved.
+  const settings = await getReceiptSettings();
+  try {
+    await renderReceiptPdf({
+      brand: row.brand === "wodona" ? "wodona" : "worshiphq", sheet: next.sheet === "half" ? "half" : "a4", kind: row.kind === "manual" ? "manual" : (row.kind as "upgrade" | "gift"), number: receiptNumber(row), issuedAt,
+      toName: next.toName, toOrg: next.toOrg, toEmail: next.toEmail, toPhone: next.toPhone, toAddress: next.toAddress, currency: row.currency,
+      items, discount: next.discount, paid, paidBefore: row.paidBefore, method: next.method, reference: next.reference, notes: next.notes, settings,
+    });
+  } catch (e) {
+    if (e instanceof ReceiptOverflowError) return { ok: false, error: e.message };
+    throw e;
+  }
+
+  const lastRev = await db.receiptRevision.findFirst({ where: { receiptId: id }, orderBy: { n: "desc" }, select: { n: true } });
+  await db.$transaction(async (tx) => {
+    await tx.receiptRevision.create({ data: { receiptId: id, n: (lastRev?.n ?? 0) + 1, before, changes } });
+    await tx.receipt.update({
+      where: { id },
+      data: {
+        toName: next.toName, toOrg: next.toOrg, toEmail: next.toEmail, toPhone: next.toPhone, toAddress: next.toAddress,
+        method: next.method, reference: next.reference, notes: next.notes, sheet: next.sheet, issuedAt,
+        ...(full ? { items, discount: next.discount, total: next.total, paid } : {}),
+      },
+    });
+    // The payment this receipt is for (a church's plan) moves to the same day, so Revenue and the receipt agree.
+    if (before.issuedAt.slice(0, 10) !== next.issuedAt.slice(0, 10) && row.churchId && row.reference && row.kind === "upgrade") {
+      await tx.planPayment.updateMany({ where: { reference: before.reference ?? row.reference, churchId: row.churchId }, data: { paidAt: issuedAt } });
+    }
+    // Who it is made out to is the same for every receipt of one sale.
+    const contact = changes.some((c) => ["Received from", "Church or company", "Email", "Phone", "Address"].includes(c.label));
+    if (contact && chained) {
+      const root = row.relatedId ?? row.id;
+      const siblings = await tx.receipt.findMany({ where: { OR: [{ id: root }, { relatedId: root }], NOT: { id } } });
+      for (const sib of siblings) {
+        const sibBefore = snapshotOf(sib);
+        const sibChanges = changes.filter((c) => ["Received from", "Church or company", "Email", "Phone", "Address"].includes(c.label));
+        const sibLast = await tx.receiptRevision.findFirst({ where: { receiptId: sib.id }, orderBy: { n: "desc" }, select: { n: true } });
+        await tx.receiptRevision.create({ data: { receiptId: sib.id, n: (sibLast?.n ?? 0) + 1, before: sibBefore, changes: sibChanges } });
+        await tx.receipt.update({ where: { id: sib.id }, data: { toName: next.toName, toOrg: next.toOrg, toEmail: next.toEmail, toPhone: next.toPhone, toAddress: next.toAddress } });
+      }
+    }
+  });
+  revalidatePath("/admin/receipts");
+  revalidatePath("/admin/revenue");
+  return { ok: true, number: receiptNumber(row), changed: changes.length };
+}
+
+export type ReceiptRevisionView = { id: string; n: number; at: string; changes: Change[] };
+
+/** The edits made to a receipt, newest first. Each one keeps the earlier version, which can be opened as a PDF. */
+export async function getReceiptHistory(id: string): Promise<ReceiptRevisionView[]> {
+  await requireSuperAdmin();
+  const revs = await db.receiptRevision.findMany({ where: { receiptId: id }, orderBy: { n: "desc" }, take: 50 });
+  return revs.map((r) => ({ id: r.id, n: r.n, at: r.createdAt.toISOString(), changes: Array.isArray(r.changes) ? (r.changes as Change[]) : [] }));
 }

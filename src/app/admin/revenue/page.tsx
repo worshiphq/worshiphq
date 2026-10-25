@@ -13,11 +13,15 @@ const money = (n: number) => `₵${n.toLocaleString("en-GH", { minimumFractionDi
 
 export default async function AdminRevenuePage() {
   const sa = await requireSuperAdmin();
-  const [rev, churches, config] = await Promise.all([
+  const [rev, churches, config, team] = await Promise.all([
     getRevenueOverview(),
     db.church.findMany({ where: { isDemo: false }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     getPlatformConfig(),
+    db.user.findMany({ where: { church: { isDemo: false } }, orderBy: { createdAt: "asc" }, select: { churchId: true, name: true, role: true, email: true } }),
   ]);
+  const rank = (r: string) => (r === "Owner" ? 0 : r === "Admin" ? 1 : 2);
+  const people: Record<string, { name: string; role: string; email: string }[]> = {};
+  for (const u of [...team].sort((a, b) => rank(a.role) - rank(b.role))) (people[u.churchId] ??= []).push({ name: u.name ?? "", role: u.role, email: u.email ?? "" });
   const max = Math.max(1, ...rev.months.map((m) => m.subscriptions + m.sms));
   const margin = rev.sms.revenue > 0 ? Math.round((rev.sms.profit / rev.sms.revenue) * 100) : 0;
   const perCreditProfit = SMS_RATE.D - rev.costPerCredit;
@@ -92,7 +96,7 @@ export default async function AdminRevenuePage() {
         <AdminCard className="p-5">
           <div className="mb-1 text-sm font-semibold text-slate-200">Give a church a plan, or record a payment you received</div>
           <p className="mb-4 text-xs text-slate-400">For a church that paid you directly, or one you are giving a plan to. Choose any length, up to 10 years. It appears in the church&apos;s billing history.</p>
-          <RecordPlanForm churches={churches} prices={config.prices} rate={config.usdToGhsRate} />
+          <RecordPlanForm churches={churches} people={people} prices={config.prices} rate={config.usdToGhsRate} />
         </AdminCard>
 
         <AdminCard className="p-5">

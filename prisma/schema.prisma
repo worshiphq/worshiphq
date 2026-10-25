@@ -2104,6 +2104,21 @@ model Receipt {
   @@index([churchId])
   @@index([relatedId])
   @@index([issuedAt])
+
+  revisions ReceiptRevision[]
+}
+
+/// Every edit made to a receipt keeps what it looked like before, so changes can be audited and the old version viewed.
+model ReceiptRevision {
+  id        String   @id @default(cuid())
+  receiptId String
+  receipt   Receipt  @relation(fields: [receiptId], references: [id], onDelete: Cascade)
+  n         Int      // 1 = the first edit of this receipt
+  before    Json     // the receipt as it was before this edit
+  changes   Json     // [{ label, from, to }]
+  createdAt DateTime @default(now())
+
+  @@index([receiptId])
 }
 
 // ── SuperAdmin outreach ────────────────────────────────

@@ -22,7 +22,7 @@ const gh = (n: number) => `GH₵${n.toLocaleString("en-GB", { minimumFractionDig
 const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
 const num = (v: string) => { const n = parseFloat(v); return Number.isFinite(n) && n > 0 ? n : 0; };
 
-export function RecordPlanForm({ churches, prices, rate }: { churches: { id: string; name: string }[]; prices: Record<string, { monthly: number; yearly: number }>; rate: number }) {
+export function RecordPlanForm({ churches, people, prices, rate }: { churches: { id: string; name: string }[]; people: Record<string, { name: string; role: string; email: string }[]>; prices: Record<string, { monthly: number; yearly: number }>; rate: number }) {
   const { toast } = useFeedback();
   const [q, setQ] = useState("");
   const [churchId, setChurchId] = useState("");
@@ -31,6 +31,8 @@ export function RecordPlanForm({ churches, prices, rate }: { churches: { id: str
   const [mode, setMode] = useState<"paid" | "gift">("paid");
   const [amount, setAmount] = useState("");
   const [paidFull, setPaidFull] = useState(true);
+  const [whoKey, setWhoKey] = useState(""); // which team member paid ("" = the first, "other" = someone typed below)
+  const [whoName, setWhoName] = useState("");
   const [discMode, setDiscMode] = useState<"pct" | "amount" | "price">("amount");
   const [discVal, setDiscVal] = useState("");
   const [done, setDone] = useState<{ church: string; until: string; receipt?: { id: string; number: string; balance: number } } | null>(null);
@@ -42,6 +44,8 @@ export function RecordPlanForm({ churches, prices, rate }: { churches: { id: str
 
   const matches = useMemo(() => churches.filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 8), [churches, q]);
   const chosen = churches.find((c) => c.id === churchId);
+  const team = people[churchId] ?? [];
+  const payer = whoKey === "other" ? { name: whoName.trim(), email: "" } : (team[Number(whoKey || 0)] ?? { name: "", email: "" });
 
   // The standard price of this plan for this term, in cedis, then the discount (typed as a percentage, an amount, or the price they agree).
   const money = useMemo(() => {
@@ -67,13 +71,14 @@ export function RecordPlanForm({ churches, prices, rate }: { churches: { id: str
     const r = await recordChurchPlan({
       churchId, plan, months, mode, amountGhs: mode === "paid" ? money.received : 0, agreedGhs: mode === "paid" ? money.agreed : undefined, discountGhs: mode === "paid" ? money.discount : undefined,
       method: mode === "paid" ? method : undefined, note, extend, sendReceipt,
+      receivedFrom: mode === "paid" ? payer.name || undefined : undefined, receivedFromEmail: mode === "paid" ? payer.email || undefined : undefined,
     });
     setBusy(false);
     if (r.ok) {
       const until = new Date(r.renewsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
       toast(`Done. ${chosen?.name} is on ${plan} until ${until}.`, "success");
       setDone({ church: chosen?.name ?? "", until, receipt: r.receipt });
-      setAmount(""); setNote(""); setDiscVal(""); setDiscMode("amount"); setPaidFull(true);
+      setAmount(""); setNote(""); setDiscVal(""); setDiscMode("amount"); setPaidFull(true); setWhoKey(""); setWhoName("");
     } else toast(r.error, "error");
   }
 
@@ -84,7 +89,7 @@ export function RecordPlanForm({ churches, prices, rate }: { churches: { id: str
         {chosen ? (
           <div className="flex items-center justify-between rounded-lg border border-teal-400/30 bg-teal-500/10 px-3 py-2 text-sm text-slate-100">
             {chosen.name}
-            <button type="button" onClick={() => { setChurchId(""); setQ(""); }} className="text-xs text-teal-300 hover:underline">Change</button>
+            <button type="button" onClick={() => { setChurchId(""); setQ(""); setWhoKey(""); setWhoName(""); }} className="text-xs text-teal-300 hover:underline">Change</button>
           </div>
         ) : (
           <>
@@ -131,6 +136,21 @@ export function RecordPlanForm({ churches, prices, rate }: { churches: { id: str
 
       {mode === "paid" && (
         <div className="space-y-3">
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-400" htmlFor="rp-who">Received from (the name on the receipt)</label>
+              <select id="rp-who" value={whoKey} onChange={(e) => setWhoKey(e.target.value)} className={field} disabled={!churchId}>
+                {team.map((p, i) => <option key={`${p.email}-${i}`} value={String(i)}>{p.name || p.email} ({p.role})</option>)}
+                <option value="other">Someone else (type a name)</option>
+              </select>
+            </div>
+            {whoKey === "other" && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-slate-400" htmlFor="rp-whoname">Name</label>
+                <input id="rp-whoname" value={whoName} onChange={(e) => setWhoName(e.target.value)} placeholder="Pastor, finance officer, anyone who paid" maxLength={120} className={field} />
+              </div>
+            )}
+          </div>
           <div>
             <span className="mb-1 block text-xs font-medium text-slate-400">Discount (optional). Fill in any one, the others work themselves out</span>
             <div className="grid grid-cols-3 gap-2">

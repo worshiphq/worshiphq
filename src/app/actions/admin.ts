@@ -685,6 +685,9 @@ export async function recordChurchPlan(input: {
   agreedGhs?: number;
   /** How much was taken off the standard price (shown on the receipt). */
   discountGhs?: number;
+  /** Who paid, as it should read on the receipt ("Received from"). Left out = the church's Owner. */
+  receivedFrom?: string;
+  receivedFromEmail?: string;
   /** How it was paid, for example "Mobile Money" or "Bank transfer". */
   method?: string;
   note?: string;
@@ -771,6 +774,7 @@ export async function recordChurchPlan(input: {
       const issued = await issueUpgradeReceipt({
         churchId: church.id, planName, interval, reference, amount: amountGhs, discount: discountGhs, agreed: agreedGhs,
         from: start, to: end, kind: "upgrade", method: input.method?.trim() || "Paid directly", termMonths: months,
+        toName: input.receivedFrom?.trim().slice(0, 120) || undefined, toEmail: input.receivedFromEmail?.trim() || null,
       });
       if (issued) receipt = { id: issued.row.id, number: receiptNumber(issued.row), balance: balanceGhs };
     } catch (e) {

@@ -2,12 +2,12 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Receipt, Download, Mail, Plus, Trash2, Loader2, CheckCircle2, AlertTriangle, Send, Eye, Building2, Settings2, Sparkles, PenLine, Upload } from "lucide-react";
+import { Receipt, Download, Mail, Plus, Trash2, Loader2, CheckCircle2, AlertTriangle, Send, Eye, Building2, Settings2, Sparkles, PenLine, Upload, Pencil, History, Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { AdminCard } from "@/components/admin/admin-shell";
 import { useFeedback } from "@/components/ui/feedback";
 import {
-  createManualReceipt, payReceiptBalance, saveReceiptDetails, sendReceiptEmail,
-  type ReceiptsPageData, type ReceiptRow,
+  createManualReceipt, editReceipt, getReceiptHistory, listReceipts, payReceiptBalance, saveReceiptDetails, sendReceiptEmail,
+  type ReceiptsPageData, type ReceiptRow, type ReceiptList, type ReceiptRevisionView,
 } from "@/app/actions/admin-receipts";
 import { CURRENCIES, PAYMENT_METHODS, SIGNATURE_MAX_CHARS, money, round2, type ReceiptBrand, type ReceiptSettings, type ReceiptSheet } from "@/lib/receipts/types";
 import { cn } from "@/lib/utils";
@@ -35,6 +35,12 @@ const blankForm = (): Form => ({
 });
 const num = (v: string) => { const n = parseFloat(v); return Number.isFinite(n) && n > 0 ? n : 0; };
 const dateShort = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric", timeZone: "Africa/Accra" });
+type EditForm = {
+  id: string; number: string; kind: string; editable: "full" | "basic" | "none"; currency: string;
+  toName: string; toOrg: string; toEmail: string; toPhone: string; toAddress: string;
+  issuedOn: string; method: string; reference: string; notes: string; sheet: "a4" | "half";
+  items: FormItem[]; discount: string; paid: string;
+};
 const KIND: Record<string, string> = { manual: "By hand", registration: "Free welcome", upgrade: "Upgrade", gift: "Gift" };
 
 function Segmented<T extends string>({ value, onChange, options, label }: { value: T; onChange: (v: T) => void; options: { value: T; label: string; hint?: string }[]; label: string }) {
@@ -69,6 +75,13 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
   const [resend, setResend] = useState<{ id: string; to: string } | null>(null);
   const [resending, setResending] = useState(false);
   const urlRef = useRef<string | null>(null);
+  const [list, setList] = useState<ReceiptList>(data.list);
+  const [filter, setFilter] = useState<{ preset: string; from: string; to: string; q: string; page: number }>({ preset: "all", from: "", to: "", q: "", page: 1 });
+  const [listing, setListing] = useState(false);
+  const [edit, setEdit] = useState<EditForm | null>(null);
+  const [editing, setEditing] = useState(false);
+  const [editError, setEditError] = useState("");
+  const [history, setHistory] = useState<{ id: string; revisions: ReceiptRevisionView[] | null } | null>(null);
   const [pay, setPay] = useState<{ id: string; amount: string; method: string; reference: string; sendTo: string } | null>(null);
   const [paying, setPaying] = useState(false);
   const [payError, setPayError] = useState("");
@@ -130,6 +143,12 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
   }, [payloadKey]);
   useEffect(() => () => { if (urlRef.current) URL.revokeObjectURL(urlRef.current); }, []);
 
+  function pickPerson(i: string) {
+    const c = data.churches.find((x) => x.id === form.churchId);
+    const p = c?.people[Number(i)];
+    if (p) setForm((f) => ({ ...f, toName: p.name || f.toName, toEmail: p.email, toPhone: p.phone, sendTo: p.email || f.sendTo }));
+  }
+
   function pickChurch(id: string) {
     const c = data.churches.find((x) => x.id === id);
     setForm((f) => c ? { ...f, churchId: id, toName: c.contact || c.name, toOrg: c.name, toEmail: c.email, toPhone: c.phone, sendTo: c.email || f.sendTo } : { ...f, churchId: "" });
@@ -146,6 +165,7 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
       if (!res.ok) { setFormError(res.error); return; }
       setCreated({ id: res.id, number: res.number, email: res.email, emailError: res.emailError });
       toast(res.email === "failed" ? `Receipt ${res.number} saved, but the email failed.` : res.email === "none" ? `Receipt ${res.number} created.` : `Receipt ${res.number} emailed.`, res.email === "failed" ? "error" : "success");
+      void reload();
       router.refresh();
     } catch {
       setFormError("Something went wrong. Please try again.");
@@ -154,12 +174,68 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
     }
   }
 
+  /** Fetch the list again for the current filter (after a change, a new filter or another page). */
+  async function reload(next = filter) {
+    setListing(true);
+    const res = await listReceipts({ from: next.from || undefined, to: next.to || undefined, q: next.q || undefined, page: next.page }).catch(() => null);
+    setListing(false);
+    if (res) { setList(res); if (res.page !== next.page) setFilter({ ...next, page: res.page }); }
+    else toast("Could not load the receipts.", "error");
+  }
+  function applyFilter(patch: Partial<typeof filter>) {
+    const next = { ...filter, page: 1, ...patch };
+    setFilter(next);
+    void reload(next);
+  }
+  function preset(name: string) {
+    const now = new Date();
+    const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+    if (name === "all") return applyFilter({ preset: name, from: "", to: "" });
+    if (name === "month") return applyFilter({ preset: name, from: ymd(new Date(now.getFullYear(), now.getMonth(), 1)), to: ymd(new Date(now.getFullYear(), now.getMonth() + 1, 0)) });
+    if (name === "last") return applyFilter({ preset: name, from: ymd(new Date(now.getFullYear(), now.getMonth() - 1, 1)), to: ymd(new Date(now.getFullYear(), now.getMonth(), 0)) });
+    if (name === "year") return applyFilter({ preset: name, from: `${now.getFullYear()}-01-01`, to: `${now.getFullYear()}-12-31` });
+    return applyFilter({ preset: "custom" });
+  }
+
+  function startEdit(r: ReceiptRow) {
+    setEditError(""); setHistory(null); setPay(null); setResend(null);
+    setEdit({
+      id: r.id, number: r.number, kind: r.kind, editable: r.editable, currency: r.currency,
+      toName: r.toName, toOrg: r.toOrg ?? "", toEmail: r.toEmail ?? "", toPhone: r.toPhone ?? "", toAddress: r.toAddress ?? "",
+      issuedOn: r.issuedAt.slice(0, 10), method: r.method ?? "", reference: r.reference ?? "", notes: r.notes ?? "", sheet: r.sheet === "half" ? "half" : "a4",
+      items: r.items.map((i) => ({ description: i.description, detail: i.detail ?? "", qty: String(i.qty), unit: String(i.unit) })),
+      discount: r.discount ? String(r.discount) : "", paid: String(r.paid),
+    });
+  }
+  async function submitEdit() {
+    if (!edit) return;
+    setEditError("");
+    setEditing(true);
+    const res = await editReceipt(edit.id, {
+      toName: edit.toName, toOrg: edit.toOrg, toEmail: edit.toEmail, toPhone: edit.toPhone, toAddress: edit.toAddress,
+      issuedOn: edit.issuedOn, method: edit.method, reference: edit.reference, notes: edit.notes, sheet: edit.sheet,
+      ...(edit.editable === "full" ? { items: edit.items.filter((i) => i.description.trim()).map((i) => ({ description: i.description, detail: i.detail, qty: num(i.qty) || 1, unit: num(i.unit) })), discount: num(edit.discount), paid: num(edit.paid) } : {}),
+    }).catch(() => ({ ok: false as const, error: "Something went wrong." }));
+    setEditing(false);
+    if (!res.ok) { setEditError(res.error); return; }
+    toast(`Receipt ${res.number} updated. Download or email it again. The earlier version is kept in its history.`, "success");
+    setEdit(null);
+    void reload();
+    router.refresh();
+  }
+  async function openHistory(id: string) {
+    setEdit(null); setPay(null); setResend(null);
+    setHistory({ id, revisions: null });
+    const revisions = await getReceiptHistory(id).catch(() => []);
+    setHistory({ id, revisions });
+  }
+
   async function sendAgain() {
     if (!resend) return;
     setResending(true);
     const res = await sendReceiptEmail(resend.id, resend.to).catch(() => ({ ok: false as const, error: "Something went wrong." }));
     setResending(false);
-    if (res.ok) { toast("Receipt sent.", "success"); setResend(null); router.refresh(); }
+    if (res.ok) { toast("Receipt sent.", "success"); setResend(null); void reload(); router.refresh(); }
     else toast(res.error, "error");
   }
 
@@ -172,6 +248,7 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
     if (!res.ok) { setPayError(res.error); return; }
     toast(res.email === "failed" ? `Receipt ${res.number} saved, but the email failed.` : res.email === "none" ? `Receipt ${res.number} created.` : `Receipt ${res.number} emailed.`, res.email === "failed" ? "error" : "success");
     setPay(null);
+    void reload();
     router.refresh();
     window.open(`/api/admin/receipts/${res.id}/pdf`, "_blank");
   }
@@ -228,6 +305,17 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
                   {data.churches.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
+              {(() => {
+                const team = data.churches.find((x) => x.id === form.churchId)?.people ?? [];
+                return team.length > 1 ? (
+                  <div className="sm:col-span-2">
+                    <label className={labelCls} htmlFor="rc-person">Who paid? Pick a team member, or type any name below</label>
+                    <select id="rc-person" className={input} defaultValue="0" key={form.churchId} onChange={(e) => pickPerson(e.target.value)}>
+                      {team.map((p, i) => <option key={`${p.email}-${i}`} value={String(i)}>{p.name || p.email} ({p.role})</option>)}
+                    </select>
+                  </div>
+                ) : null;
+              })()}
               <div><label className={labelCls} htmlFor="rc-name">Name *</label><input id="rc-name" className={input} value={form.toName} onChange={(e) => set("toName", e.target.value)} placeholder="Full name" /></div>
               <div><label className={labelCls} htmlFor="rc-org">Church or company</label><input id="rc-org" className={input} value={form.toOrg} onChange={(e) => set("toOrg", e.target.value)} placeholder="Church or company name" /></div>
               <div><label className={labelCls} htmlFor="rc-email">Their email</label><input id="rc-email" type="email" className={input} value={form.toEmail} onChange={(e) => set("toEmail", e.target.value)} placeholder="name@church.org" /></div>
@@ -346,9 +434,34 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
 
       {/* ── the latest receipts ── */}
       <AdminCard className="mt-6 overflow-hidden">
-        <div className="border-b border-white/10 px-5 py-3 text-sm font-semibold text-slate-200">Latest receipts</div>
-        {data.receipts.length === 0 ? (
-          <p className="p-6 text-sm text-slate-500">No receipts yet. The first one you make, or the next church that signs up, will show here.</p>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-white/10 px-5 py-3">
+          <div className="text-sm font-semibold text-slate-200">Receipts</div>
+          <div className="text-xs text-slate-400">
+            <b className="text-slate-200">{list.total}</b> {list.total === 1 ? "receipt" : "receipts"}
+            {list.receivedGhs > 0 && <> · <b className="text-teal-300">{money(list.receivedGhs, "GHS")}</b> received{filter.preset === "all" ? "" : " in this range"}</>}
+          </div>
+        </div>
+        <div className="flex flex-wrap items-end gap-2 border-b border-white/10 px-5 py-3">
+          <div className="flex flex-wrap gap-1.5" role="group" aria-label="Date range">
+            {([["all", "All time"], ["month", "This month"], ["last", "Last month"], ["year", "This year"], ["custom", "Pick dates"]] as const).map(([k, label]) => (
+              <button key={k} type="button" aria-pressed={filter.preset === k} onClick={() => preset(k)}
+                className={cn("rounded-lg border px-2.5 py-1.5 text-xs font-medium transition-colors", filter.preset === k ? "border-teal-500/70 bg-teal-500/15 text-teal-200" : "border-white/10 bg-white/5 text-slate-300 hover:bg-white/10")}>{label}</button>
+            ))}
+          </div>
+          {filter.preset === "custom" && (
+            <div className="flex flex-wrap items-end gap-2">
+              <div><label className="mb-1 block text-[11px] text-slate-500" htmlFor="rc-from">From</label><input id="rc-from" type="date" className={`${input} w-40 py-1.5`} value={filter.from} onChange={(e) => applyFilter({ preset: "custom", from: e.target.value })} /></div>
+              <div><label className="mb-1 block text-[11px] text-slate-500" htmlFor="rc-to">To</label><input id="rc-to" type="date" className={`${input} w-40 py-1.5`} value={filter.to} onChange={(e) => applyFilter({ preset: "custom", to: e.target.value })} /></div>
+            </div>
+          )}
+          <form className="ml-auto flex items-end gap-1.5" onSubmit={(e) => { e.preventDefault(); applyFilter({}); }}>
+            <div><label className="mb-1 block text-[11px] text-slate-500" htmlFor="rc-q">Name, number or reference</label><input id="rc-q" className={`${input} w-56 py-1.5`} value={filter.q} onChange={(e) => setFilter({ ...filter, q: e.target.value })} placeholder="e.g. Theophany or WHQ-2026-0001" /></div>
+            <button type="submit" className={`${ghost} py-1.5`} aria-label="Search receipts"><Search className="size-4" /></button>
+          </form>
+          {listing && <Loader2 className="mb-2 size-4 animate-spin text-teal-300" aria-label="Loading" />}
+        </div>
+        {list.rows.length === 0 ? (
+          <p className="p-6 text-sm text-slate-500">{filter.preset === "all" && !filter.q ? "No receipts yet. The first one you make, or the next church that signs up, will show here." : "No receipts match these dates or this search."}</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-sm">
@@ -356,10 +469,10 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
                 <tr><th className="px-5 py-2.5 font-medium">Number</th><th className="px-3 py-2.5 font-medium">Date</th><th className="px-3 py-2.5 font-medium">For</th><th className="px-3 py-2.5 font-medium">Type</th><th className="px-3 py-2.5 text-right font-medium">Paid / balance</th><th className="px-3 py-2.5 font-medium">Email</th><th className="px-5 py-2.5 text-right font-medium">Actions</th></tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {data.receipts.map((r: ReceiptRow) => (
+                {list.rows.map((r: ReceiptRow) => (
                   <tr key={r.id} className="align-top">
                     <td className="px-5 py-3 font-mono text-xs text-slate-200">{r.number}{r.follows && <div className="mt-0.5 font-sans text-[11px] text-slate-500">balance payment on {r.follows}</div>}</td>
-                    <td className="px-3 py-3 text-slate-400">{dateShort(r.issuedAt)}</td>
+                    <td className="px-3 py-3 text-slate-400">{dateShort(r.issuedAt)}{r.editCount > 0 && <div className="text-[11px] text-amber-300">Edited {r.editCount}x</div>}</td>
                     <td className="px-3 py-3"><div className="text-slate-200">{r.toOrg || r.toName}</div>{r.toOrg && <div className="text-xs text-slate-500">{r.toName}</div>}</td>
                     <td className="px-3 py-3 text-xs text-slate-400">{KIND[r.kind] ?? r.kind}<div className="text-slate-500">{r.brand === "wodona" ? "WODONA" : "WorshipHQ"} · {r.sheet === "half" ? "half A4" : "A4"}</div></td>
                     <td className="px-3 py-3 text-right text-slate-200">
@@ -368,7 +481,7 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
                       {r.canPay ? <div className="text-[11px] text-amber-300">Balance {money(r.balance, r.currency)}</div> : r.kind === "manual" && r.paidBefore > 0 && r.paid >= r.total - 0.005 ? <div className="text-[11px] text-teal-300">Paid in full</div> : null}
                     </td>
                     <td className="px-3 py-3 text-xs">
-                      {r.emailStatus === "sent" && <span className="text-teal-300">Sent{r.emailedAt ? ` ${dateShort(r.emailedAt)}` : ""}</span>}
+                      {r.emailStatus === "sent" && <span className="text-teal-300">Sent{r.emailedAt ? ` ${dateShort(r.emailedAt)}` : ""}{r.emailedAt && r.lastEditedAt && r.lastEditedAt > r.emailedAt ? <span className="block text-[11px] text-amber-300">Edited after sending</span> : null}</span>}
                       {r.emailStatus === "stubbed" && <span className="text-amber-300">Test only</span>}
                       {r.emailStatus === "failed" && <span className="text-red-300" title={r.emailError ?? ""}>Failed</span>}
                       {!r.emailStatus && <span className="text-slate-500">Not emailed</span>}
@@ -378,13 +491,98 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
                         <a className={`${ghost} px-2 py-1 text-xs`} href={`/api/admin/receipts/${r.id}/pdf`} target="_blank" rel="noreferrer"><Eye className="size-3.5" /> View</a>
                         <a className={`${ghost} px-2 py-1 text-xs`} href={`/api/admin/receipts/${r.id}/pdf?download=1`}><Download className="size-3.5" /> PDF</a>
                         <button type="button" className={`${ghost} px-2 py-1 text-xs`} onClick={() => setResend({ id: r.id, to: r.toEmail ?? "" })}><Mail className="size-3.5" /> Email</button>
+                        {r.editable !== "none" && <button type="button" className={`${ghost} px-2 py-1 text-xs`} onClick={() => startEdit(r)}><Pencil className="size-3.5" /> Edit</button>}
+                        {r.editCount > 0 && <button type="button" className={`${ghost} px-2 py-1 text-xs`} onClick={() => openHistory(r.id)}><History className="size-3.5" /> History</button>}
                         {r.canPay && <button type="button" className={`${primary} px-2 py-1 text-xs`} onClick={() => { setPayError(""); setPay({ id: r.id, amount: String(r.balance), method: "Mobile Money", reference: "", sendTo: r.toEmail ?? "" }); }}><Receipt className="size-3.5" /> Record balance payment</button>}
                       </div>
                     </td>
                   </tr>
                 ))}
+                {edit && (
+                  <tr className="bg-teal-500/5">
+                    <td colSpan={7} className="px-5 py-4">
+                      <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                        <div className="text-sm font-semibold text-slate-100">Edit receipt {edit.number}</div>
+                        <p className="text-xs text-slate-400">It keeps its number. What it looked like before is saved in its history. Download or email it again afterwards.</p>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-3">
+                        <div><label className={labelCls} htmlFor="re-name">Received from *</label><input id="re-name" className={input} value={edit.toName} maxLength={120} onChange={(e) => setEdit({ ...edit, toName: e.target.value })} /></div>
+                        <div><label className={labelCls} htmlFor="re-org">Church or company</label><input id="re-org" className={input} value={edit.toOrg} maxLength={160} onChange={(e) => setEdit({ ...edit, toOrg: e.target.value })} /></div>
+                        <div><label className={labelCls} htmlFor="re-date">Date paid (the date on the receipt)</label><input id="re-date" type="date" className={input} value={edit.issuedOn} onChange={(e) => setEdit({ ...edit, issuedOn: e.target.value })} /></div>
+                        <div><label className={labelCls} htmlFor="re-email">Email</label><input id="re-email" type="email" className={input} value={edit.toEmail} onChange={(e) => setEdit({ ...edit, toEmail: e.target.value })} /></div>
+                        <div><label className={labelCls} htmlFor="re-phone">Phone</label><input id="re-phone" className={input} value={edit.toPhone} maxLength={40} onChange={(e) => setEdit({ ...edit, toPhone: e.target.value })} /></div>
+                        <div><label className={labelCls} htmlFor="re-addr">Address</label><input id="re-addr" className={input} value={edit.toAddress} maxLength={240} onChange={(e) => setEdit({ ...edit, toAddress: e.target.value })} /></div>
+                        <div><label className={labelCls} htmlFor="re-method">Paid by</label><input id="re-method" className={input} value={edit.method} maxLength={60} onChange={(e) => setEdit({ ...edit, method: e.target.value })} placeholder="Cash, Mobile Money..." /></div>
+                        <div><label className={labelCls} htmlFor="re-ref">Reference{edit.kind !== "manual" ? " (fixed, it links to the billing record)" : ""}</label><input id="re-ref" className={input} value={edit.reference} maxLength={120} disabled={edit.kind !== "manual"} onChange={(e) => setEdit({ ...edit, reference: e.target.value })} /></div>
+                        <div>
+                          <label className={labelCls} htmlFor="re-sheet">Sheet</label>
+                          <select id="re-sheet" className={input} value={edit.sheet} onChange={(e) => setEdit({ ...edit, sheet: e.target.value === "half" ? "half" : "a4" })}><option value="a4">Full A4</option><option value="half">Half A4</option></select>
+                        </div>
+                        <div className="sm:col-span-3"><label className={labelCls} htmlFor="re-notes">Note on the receipt</label><textarea id="re-notes" rows={2} className={input} value={edit.notes} maxLength={1200} onChange={(e) => setEdit({ ...edit, notes: e.target.value })} /></div>
+                      </div>
+                      {edit.editable === "full" ? (
+                        <div className="mt-3 rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                          <span className={labelCls}>Lines</span>
+                          <div className="space-y-2">
+                            {edit.items.map((it, i) => (
+                              <div key={i} className="grid grid-cols-[1fr_5rem_7rem_auto] gap-2">
+                                <input aria-label={`Line ${i + 1} description`} className={input} value={it.description} maxLength={160} onChange={(e) => setEdit({ ...edit, items: edit.items.map((x, idx) => idx === i ? { ...x, description: e.target.value } : x) })} placeholder="Description" />
+                                <input aria-label={`Line ${i + 1} quantity`} className={input} type="number" min="0" value={it.qty} onChange={(e) => setEdit({ ...edit, items: edit.items.map((x, idx) => idx === i ? { ...x, qty: e.target.value } : x) })} />
+                                <input aria-label={`Line ${i + 1} price of one`} className={input} type="number" min="0" step="0.01" value={it.unit} onChange={(e) => setEdit({ ...edit, items: edit.items.map((x, idx) => idx === i ? { ...x, unit: e.target.value } : x) })} />
+                                <button type="button" aria-label={`Remove line ${i + 1}`} disabled={edit.items.length === 1} onClick={() => setEdit({ ...edit, items: edit.items.filter((_, idx) => idx !== i) })} className="rounded-md p-1.5 text-slate-500 hover:bg-red-500/10 hover:text-red-300 disabled:opacity-30"><Trash2 className="size-4" /></button>
+                              </div>
+                            ))}
+                          </div>
+                          <button type="button" className={`${ghost} mt-2`} onClick={() => setEdit({ ...edit, items: [...edit.items, blankItem()] })} disabled={edit.items.length >= 30}><Plus className="size-4" /> Add a line</button>
+                          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                            <div><label className={labelCls} htmlFor="re-disc">Discount ({CURRENCIES[edit.currency] ?? edit.currency})</label><input id="re-disc" className={input} type="number" min="0" step="0.01" value={edit.discount} onChange={(e) => setEdit({ ...edit, discount: e.target.value })} /></div>
+                            <div><label className={labelCls} htmlFor="re-paid">Amount paid ({CURRENCIES[edit.currency] ?? edit.currency})</label><input id="re-paid" className={input} type="number" min="0" step="0.01" value={edit.paid} onChange={(e) => setEdit({ ...edit, paid: e.target.value })} /></div>
+                          </div>
+                        </div>
+                      ) : (
+                        <p className="mt-3 text-xs text-slate-500">The lines, discount and amounts of this receipt are tied to a church&apos;s billing history or to other receipts of the same sale, so they cannot be edited here. The name, date, how it was paid, reference and note can.</p>
+                      )}
+                      <div className="mt-3 flex flex-wrap items-center gap-2">
+                        <button type="button" className={primary} onClick={submitEdit} disabled={editing || !edit.toName.trim()}>{editing ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : <><CheckCircle2 className="size-4" /> Save changes</>}</button>
+                        <button type="button" className={ghost} onClick={() => setEdit(null)} disabled={editing}>Cancel</button>
+                        {editError && <span role="alert" className="flex items-center gap-1.5 text-sm text-red-300"><AlertTriangle className="size-4" /> {editError}</span>}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+                {history && (
+                  <tr className="bg-slate-500/5">
+                    <td colSpan={7} className="px-5 py-4">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <div className="text-sm font-semibold text-slate-100">Edit history of {list.rows.find((x) => x.id === history.id)?.number}</div>
+                        <button type="button" className={ghost} onClick={() => setHistory(null)}>Close</button>
+                      </div>
+                      {history.revisions === null ? (
+                        <p className="flex items-center gap-2 text-sm text-slate-400"><Loader2 className="size-4 animate-spin" /> Loading the history…</p>
+                      ) : history.revisions.length === 0 ? (
+                        <p className="text-sm text-slate-500">No edits yet.</p>
+                      ) : (
+                        <ol className="space-y-3">
+                          {history.revisions.map((rv) => (
+                            <li key={rv.id} className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+                              <div className="flex flex-wrap items-center justify-between gap-2 text-xs text-slate-400">
+                                <span>Edit {rv.n} · {new Date(rv.at).toLocaleString("en-GB", { day: "numeric", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone: "Africa/Accra" })}</span>
+                                <a className={`${ghost} px-2 py-1 text-xs`} href={`/api/admin/receipts/${history.id}/pdf?rev=${rv.id}`} target="_blank" rel="noreferrer"><Eye className="size-3.5" /> See it before this edit</a>
+                              </div>
+                              <ul className="mt-2 space-y-1 text-sm">
+                                {rv.changes.map((c, i) => (
+                                  <li key={i} className="text-slate-300"><span className="text-slate-400">{c.label}:</span> <span className="text-red-300/80 line-through">{c.from}</span> <span className="text-slate-500">to</span> <span className="text-teal-300">{c.to}</span></li>
+                                ))}
+                              </ul>
+                            </li>
+                          ))}
+                        </ol>
+                      )}
+                    </td>
+                  </tr>
+                )}
                 {pay && (() => {
-                  const target = data.receipts.find((x) => x.id === pay.id);
+                  const target = list.rows.find((x) => x.id === pay.id);
                   if (!target) return null;
                   return (
                     <tr className="bg-amber-500/5">
@@ -409,7 +607,7 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
                   <tr className="bg-teal-500/5">
                     <td colSpan={7} className="px-5 py-3">
                       <div className="flex flex-wrap items-center gap-2">
-                        <label className="text-sm text-slate-300" htmlFor="rc-resend">Send {data.receipts.find((x) => x.id === resend.id)?.number} to</label>
+                        <label className="text-sm text-slate-300" htmlFor="rc-resend">Send {list.rows.find((x) => x.id === resend.id)?.number} to</label>
                         <input id="rc-resend" type="email" autoFocus className={`${input} max-w-xs`} value={resend.to} onChange={(e) => setResend({ ...resend, to: e.target.value })} placeholder="name@church.org" />
                         <button type="button" className={primary} onClick={sendAgain} disabled={resending || !resend.to.trim()}>{resending ? <><Loader2 className="size-4 animate-spin" /> Sending…</> : <><Send className="size-4" /> Send PDF</>}</button>
                         <button type="button" className={ghost} onClick={() => setResend(null)} disabled={resending}>Cancel</button>
@@ -419,6 +617,15 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
                 )}
               </tbody>
             </table>
+          </div>
+        )}
+        {list.pages > 1 && (
+          <div className="flex items-center justify-between gap-2 border-t border-white/10 px-5 py-3 text-xs text-slate-400">
+            <span>Page {list.page} of {list.pages}</span>
+            <div className="flex gap-1.5">
+              <button type="button" className={`${ghost} px-2 py-1 text-xs`} disabled={list.page <= 1 || listing} onClick={() => { const next = { ...filter, page: list.page - 1 }; setFilter(next); void reload(next); }}><ChevronLeft className="size-3.5" /> Newer</button>
+              <button type="button" className={`${ghost} px-2 py-1 text-xs`} disabled={list.page >= list.pages || listing} onClick={() => { const next = { ...filter, page: list.page + 1 }; setFilter(next); void reload(next); }}>Older <ChevronRight className="size-3.5" /></button>
+            </div>
           </div>
         )}
       </AdminCard>
