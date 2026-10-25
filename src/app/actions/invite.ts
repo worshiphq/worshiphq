@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { hashPassword, startUserSession } from "@/lib/auth";
 import { sendOtp, verifyOtp } from "@/lib/auth/otp";
+import { passwordMeetsPolicy } from "@/lib/password-policy";
 
 /** Public: the invitee's phone requests a fresh verification code. */
 export async function sendInviteCode(token: string) {
@@ -34,10 +35,10 @@ export async function acceptInvite(formData: FormData) {
   const user = await db.user.findUnique({ where: { inviteToken: token }, select: { id: true, inviteAcceptedAt: true } });
   if (!user || user.inviteAcceptedAt) return { ok: false as const, error: "This invite is no longer valid." };
   if (!name) return { ok: false as const, error: "Please enter your name." };
-  if (password.length < 6) return { ok: false as const, error: "Choose a password of at least 6 characters." };
+  if (!passwordMeetsPolicy(password)) return { ok: false as const, error: "Choose a password with 8+ characters, a capital letter, a number and a symbol." };
   if (!verificationId || !code) return { ok: false as const, error: "Enter the code we texted you." };
 
-  const check = await verifyOtp(verificationId, code);
+  const check = await verifyOtp(verificationId, code, { purpose: "verify-phone", userId: user.id });
   if (!check.ok) return { ok: false as const, error: check.error ?? "That code didn't match." };
 
   let storedPhoto: string | undefined;

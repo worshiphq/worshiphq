@@ -402,6 +402,7 @@ model User {
   email        String   @unique
   name         String
   passwordHash String?
+  sessionVersion Int    @default(0) // bumped on password change/reset: signs out every older session
   role         Role     @default(Volunteer)
   customRoleId String?
   customRole   CustomRole? @relation(fields: [customRoleId], references: [id])
@@ -1112,6 +1113,15 @@ model SmsTransaction {
 // ── Phone verification (OTP) ──────────────────────────────
 // Holds a one-time code sent by SMS. For signup it also stashes the pending
 // account details (as JSON) so the account is created only after verification.
+// One row per attempt at a rate-limited action (sending a code, a public form, a sign-in). Old rows are pruned as new ones arrive.
+model RateHit {
+  id        String   @id @default(cuid())
+  key       String
+  createdAt DateTime @default(now())
+
+  @@index([key, createdAt])
+}
+
 model PhoneVerification {
   id        String   @id @default(cuid())
   phone     String   // destination: a phone number, or an email address when channel = "email"

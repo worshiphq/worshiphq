@@ -18,7 +18,7 @@ export function ResetPasswordForm() {
           id="password"
           name="password"
           placeholder="••••••••"
-          minLength={6}
+          minLength={8}
           required
           value={password}
           onChange={(e: React.ChangeEvent<HTMLInputElement>) => setPassword(e.target.value)}
@@ -31,7 +31,7 @@ export function ResetPasswordForm() {
           id="confirmPassword"
           name="confirmPassword"
           placeholder="••••••••"
-          minLength={6}
+          minLength={8}
           required
         />
       </div>

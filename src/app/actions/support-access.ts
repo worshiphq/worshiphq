@@ -3,8 +3,9 @@
 import crypto from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { env, features } from "@/lib/env";
+import { features } from "@/lib/env";
 import { requireSuperAdmin, startGhostSession } from "@/lib/auth";
+import { authSecret } from "@/lib/auth/tokens";
 import { sendSms } from "@/lib/integrations/sms";
 import { sendEmail } from "@/lib/integrations/email";
 
@@ -20,10 +21,8 @@ const MAX_ATTEMPTS = 5;
 const MAX_REQUESTS_PER_HOUR = 4;
 const CONSENT_SESSION_HOURS = 2;
 
-const SECRET = env.NEXTAUTH_SECRET ?? "dev-insecure-secret-change-me";
-
 const hashCode = (code: string, id: string) =>
-  crypto.createHmac("sha256", SECRET).update(`${id}:${code}`).digest("hex");
+  crypto.createHmac("sha256", authSecret()).update(`${id}:${code}`).digest("hex");
 
 const maskPhone = (p: string) => (p.length <= 4 ? p : `•••• ${p.slice(-4)}`);
 const maskEmail = (e: string) => {

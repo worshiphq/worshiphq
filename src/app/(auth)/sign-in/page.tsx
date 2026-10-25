@@ -56,6 +56,11 @@ export default async function SignInPage({
             <AlertCircle className="size-4 shrink-0" /> No verified phone on this account - use email.
           </div>
         )}
+        {error === "too-many" && (
+          <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+            <AlertCircle className="size-4 shrink-0" /> Too many attempts. Please wait a few minutes and try again.
+          </div>
+        )}
 
         <div className="mt-6 space-y-3">
           <form action={sendLoginCode}>
@@ -104,6 +109,11 @@ export default async function SignInPage({
         {error === "invalid-code" && (
           <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
             <AlertCircle className="size-4 shrink-0" /> Incorrect or expired code. Please try again.
+          </div>
+        )}
+        {error === "too-many" && (
+          <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+            <AlertCircle className="size-4 shrink-0" /> Too many codes requested. Please wait a few minutes and try again.
           </div>
         )}
         {dev && (
@@ -158,6 +168,11 @@ export default async function SignInPage({
           <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
             <AlertCircle className="size-4 shrink-0" />
             Couldn&rsquo;t send the code. Please try again.
+          </div>
+        )}
+        {error === "too-many" && (
+          <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+            <AlertCircle className="size-4 shrink-0" /> Too many attempts. Please wait a few minutes and try again.
           </div>
         )}
 
@@ -241,13 +256,19 @@ export default async function SignInPage({
         </div>
         <h1 className="font-display text-2xl font-bold">Create new password</h1>
         <p className="mt-2 text-sm text-ink-muted">
-          Choose a strong password for your account. Use at least 6 characters.
+          Choose a strong password: at least 8 characters with a capital letter, a number and a symbol.
         </p>
 
         {error === "password-mismatch" && (
           <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
             <AlertCircle className="size-4 shrink-0" />
             Passwords don&rsquo;t match. Please try again.
+          </div>
+        )}
+        {error === "weak" && (
+          <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+            <AlertCircle className="size-4 shrink-0" />
+            That password is too weak. Use 8+ characters with a capital letter, a number and a symbol.
           </div>
         )}
 
@@ -301,7 +322,9 @@ export default async function SignInPage({
           <AlertCircle className="size-4 shrink-0" />
           {error === "sms" || error === "email-send"
             ? "We couldn't send your verification code. Please try again."
-            : "Incorrect email/phone or password. Please try again."}
+            : error === "too-many"
+              ? "Too many attempts. Please wait a few minutes and try again."
+              : "Incorrect email/phone or password. Please try again."}
         </div>
       )}
       {error === "expired" && (

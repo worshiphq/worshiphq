@@ -1,9 +1,12 @@
 import "server-only";
+import crypto from "node:crypto";
 import { db } from "@/lib/db";
 import { sendSms } from "@/lib/integrations/sms";
 import { sendEmail } from "@/lib/integrations/email";
 import { features } from "@/lib/env";
 import { normalisePhone } from "@/lib/phone";
+import { authSecret, safeEqual } from "@/lib/auth/tokens";
+import { rateLimitAll, clientIp, MINUTE, HOUR, DAY } from "@/lib/rate-limit";
 
 export { normalisePhone };
 
@@ -14,7 +17,27 @@ export type OtpChannel = "sms" | "email";
 export type OtpPurpose = "signup" | "login" | "reset-password" | "verify-phone" | "verify-email";
 
 function genCode(): string {
-  return String(Math.floor(100000 + Math.random() * 900000)); // 6 digits
+  return String(crypto.randomInt(100000, 1000000)); // 6 digits from a secure source
+}
+
+/** Codes are stored only as a keyed hash, so a database read never reveals a live code. */
+function hashCode(destination: string, code: string): string {
+  return crypto.createHmac("sha256", authSecret()).update(`otp:${destination}:${code}`).digest("hex");
+}
+
+/**
+ * How often codes may be sent. Each one costs a real SMS or email, so these stop anyone looping
+ * the send button or scripting it against many numbers.
+ */
+async function allowSend(destination: string): Promise<boolean> {
+  const ip = await clientIp();
+  return rateLimitAll([
+    { key: `otp:dest:${destination}`, max: 1, windowMs: 45_000 },
+    { key: `otp:dest-h:${destination}`, max: 5, windowMs: HOUR },
+    { key: `otp:dest-d:${destination}`, max: 10, windowMs: DAY },
+    { key: `otp:ip:${ip}`, max: 15, windowMs: HOUR },
+    { key: `otp:ip-m:${ip}`, max: 4, windowMs: MINUTE },
+  ]);
 }
 
 function isEmail(v: string): boolean {
@@ -38,9 +61,11 @@ export interface SendOtpResult {
   channel?: OtpChannel;
   /** Where the code was sent, masked for display (e.g. "j•••@gmail.com" / "•••• 4821"). */
   sentToMasked?: string;
-  /** In stub mode (no provider keys) we return the code so dev/testing can proceed. */
+  /** In stub mode (no provider keys) we return the code so dev/testing can proceed. Never in production. */
   devCode?: string;
   error?: string;
+  /** True when the send was refused because too many codes were requested. */
+  limited?: boolean;
 }
 
 function maskEmail(email: string): string {
@@ -81,6 +106,10 @@ export async function sendOtp(opts: {
     if (destination.length < 10) return { ok: false, error: "Enter a valid phone number." };
   }
 
+  if (!(await allowSend(destination))) {
+    return { ok: false, limited: true, error: "Too many codes requested. Please wait a few minutes and try again." };
+  }
+
   const code = genCode();
   const expiresAt = new Date(Date.now() + CODE_TTL_MIN * 60_000);
 
@@ -91,7 +120,7 @@ export async function sendOtp(opts: {
     data: {
       phone: destination,
       channel,
-      code,
+      code: hashCode(destination, code),
       purpose: opts.purpose,
       payload: opts.payload ? (opts.payload as object) : undefined,
       userId: opts.userId,
@@ -127,8 +156,8 @@ export async function sendOtp(opts: {
     verificationId: record.id,
     channel,
     sentToMasked: channel === "email" ? maskEmail(destination) : maskPhone(destination),
-    // Only expose the code when the provider is in stub mode (no real keys).
-    devCode: stubbed ? code : undefined,
+    // Only expose the code when the provider is in stub mode (no real keys), and never in production.
+    devCode: stubbed && process.env.NODE_ENV !== "production" ? code : undefined,
   };
 }
 
@@ -140,29 +169,42 @@ export interface VerifyOtpResult {
   userId?: string | null;
 }
 
-/** Check a submitted code against a verification record. Consumes it on success. */
-export async function verifyOtp(verificationId: string, code: string): Promise<VerifyOtpResult> {
+/**
+ * Check a submitted code against a verification record. Consumes it on success.
+ * `expect.purpose` must match the flow the code was sent for, and `expect.userId` (when given) the user
+ * it was sent to, so a code from one flow can never complete another.
+ */
+export async function verifyOtp(
+  verificationId: string,
+  code: string,
+  expect: { purpose: OtpPurpose; userId?: string },
+): Promise<VerifyOtpResult> {
+  const expired = { ok: false, error: "This verification has expired. Please request a new code." } as const;
+  if (!verificationId) return expired;
   const record = await db.phoneVerification.findUnique({ where: { id: verificationId } });
-  if (!record) return { ok: false, error: "This verification has expired. Please request a new code." };
+  if (!record || record.purpose !== expect.purpose) return expired;
+  if (expect.userId !== undefined && record.userId !== expect.userId) return expired;
 
   if (record.expiresAt < new Date()) {
-    await db.phoneVerification.delete({ where: { id: record.id } });
+    await db.phoneVerification.deleteMany({ where: { id: record.id } });
     return { ok: false, error: "The code has expired. Please request a new one." };
   }
-  if (record.attempts >= MAX_ATTEMPTS) {
-    await db.phoneVerification.delete({ where: { id: record.id } });
+  // Claim one attempt atomically, so parallel guesses can't slip past the limit.
+  const claimed = await db.phoneVerification.updateMany({
+    where: { id: record.id, attempts: { lt: MAX_ATTEMPTS }, expiresAt: { gt: new Date() } },
+    data: { attempts: { increment: 1 } },
+  });
+  if (claimed.count === 0) {
+    await db.phoneVerification.deleteMany({ where: { id: record.id } });
     return { ok: false, error: "Too many attempts. Please request a new code." };
   }
-  if (record.code !== code.trim()) {
-    await db.phoneVerification.update({
-      where: { id: record.id },
-      data: { attempts: { increment: 1 } },
-    });
+  if (!safeEqual(record.code, hashCode(record.phone, code.trim()))) {
     return { ok: false, error: "Incorrect code. Please try again." };
   }
 
-  // Success - consume the record.
-  await db.phoneVerification.delete({ where: { id: record.id } });
+  // Success - consume the record (only one request can win this).
+  const consumed = await db.phoneVerification.deleteMany({ where: { id: record.id } });
+  if (consumed.count !== 1) return expired;
   return {
     ok: true,
     payload: (record.payload as Record<string, unknown> | null) ?? null,

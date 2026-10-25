@@ -15,10 +15,14 @@ import {
   mintLoginChallenge,
   getLoginChallengeUserId,
   LOGIN_CHALLENGE_COOKIE,
+  mintResetToken,
+  readResetToken,
+  clearResetToken,
 } from "@/lib/auth";
 import { sendOtp, verifyOtp, normalisePhone } from "@/lib/auth/otp";
 import { phoneVariants } from "@/lib/phone";
-import { sendEmail } from "@/lib/integrations/email";
+import { passwordMeetsPolicy } from "@/lib/password-policy";
+import { rateLimitAll, clientIp, MINUTE } from "@/lib/rate-limit";
 
 const SIGNUP_VID = "whq_signup_vid";
 const RESET_VID = "whq_reset_vid";
@@ -83,7 +87,7 @@ export async function signUp(formData: FormData) {
     : await sendOtp({ channel: "sms", phone, purpose: "signup", payload });
 
   if (!result.ok || !result.verificationId) {
-    redirect("/sign-up?error=sms");
+    redirect(result.limited ? "/sign-up?error=too-many" : "/sign-up?error=sms");
   }
 
   const store = await cookies();
@@ -107,7 +111,7 @@ export async function completeSignup(formData: FormData) {
   const vid = store.get(SIGNUP_VID)?.value;
   if (!vid) redirect("/sign-up?error=expired");
 
-  const result = await verifyOtp(vid, code);
+  const result = await verifyOtp(vid, code, { purpose: "signup" });
   if (!result.ok || !result.payload) {
     redirect(`/sign-up/verify?error=${encodeURIComponent(result.error ?? "Invalid code")}`);
   }
@@ -140,9 +144,12 @@ export async function completeSignup(formData: FormData) {
     include: { branches: true },
   });
 
-  // Create subscription - Grace Baptist gets max plan as an offering
+  // Every new church starts on Free. A paid plan picked at sign-up is only an intent: the Owner is
+  // taken to checkout below and the plan switches on once Paystack confirms the payment.
+  // Grace Baptist gets max plan as an offering.
   const isGraceBaptist = p.email.toLowerCase() === "theophanyhouse@gmail.com";
-  const chosenPlan = isGraceBaptist ? "max" : (p.plan ?? "free");
+  const chosenPlan = isGraceBaptist ? "max" : "free";
+  const intendedPlan = !isGraceBaptist && p.plan && ["starter", "pro", "max"].includes(p.plan) ? p.plan : null;
   await db.subscription.create({
     data: {
       churchId: church.id,
@@ -178,7 +185,7 @@ export async function completeSignup(formData: FormData) {
 
   store.delete(SIGNUP_VID);
   await startUserSession(user.id);
-  redirect("/app");
+  redirect(intendedPlan ? `/app/settings?tab=billing&upgrade=${intendedPlan}` : "/app");
 }
 
 /** Resend the signup verification code. */
@@ -187,7 +194,7 @@ export async function resendSignupOtp() {
   const vid = store.get(SIGNUP_VID)?.value;
   if (!vid) redirect("/sign-up?error=expired");
   const existing = await db.phoneVerification.findUnique({ where: { id: vid } });
-  if (!existing) redirect("/sign-up?error=expired");
+  if (!existing || existing.purpose !== "signup") redirect("/sign-up?error=expired");
 
   const viaEmail = existing.channel === "email";
   const result = await sendOtp({
@@ -207,6 +214,7 @@ export async function resendSignupOtp() {
     });
   }
   const via = viaEmail ? "&via=email" : "";
+  if (result.limited) redirect(`/sign-up/verify?error=${encodeURIComponent(result.error ?? "Too many codes requested.")}${via}`);
   redirect(result.devCode ? `/sign-up/verify?dev=${result.devCode}${via}` : `/sign-up/verify?resent=1${via}`);
 }
 export async function startPasswordReset(formData: FormData) {
@@ -234,7 +242,7 @@ export async function startPasswordReset(formData: FormData) {
       userId: user.id,
     });
     if (!result.ok || !result.verificationId) {
-      redirect("/sign-in?reset=1&error=sms");
+      redirect(result.limited ? "/sign-in?reset=1&error=too-many" : "/sign-in?reset=1&error=sms");
     }
     const store = await cookies();
     store.set(RESET_VID, result.verificationId, {
@@ -246,31 +254,13 @@ export async function startPasswordReset(formData: FormData) {
   }
 
   // If no verified phone, send OTP via email
-  const code = String(Math.floor(100000 + Math.random() * 900000));
-  const expiresAt = new Date(Date.now() + 10 * 60_000);
-
-  // Clear earlier pending codes
-  await db.phoneVerification.deleteMany({ where: { userId: user.id, purpose: "reset-password" } });
-
-  const record = await db.phoneVerification.create({
-    data: {
-      phone: user.email ?? "email",
-      code,
-      purpose: "reset-password",
-      userId: user.id,
-      expiresAt,
-    },
-  });
-
-  // Send code via email
-  await sendEmail({
-    to: user.email!,
-    subject: "Your WorshipHQ verification code",
-    html: `<h2>Password Reset</h2><p>Your verification code is: <strong>${code}</strong></p><p>This code expires in 10 minutes.</p>`,
-  });
+  const result = await sendOtp({ channel: "email", email: user.email, purpose: "reset-password", userId: user.id });
+  if (!result.ok || !result.verificationId) {
+    redirect(result.limited ? "/sign-in?reset=1&error=too-many" : "/sign-in?reset=1&error=sms");
+  }
 
   const store = await cookies();
-  store.set(RESET_VID, record.id, {
+  store.set(RESET_VID, result.verificationId, {
     httpOnly: true, sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/", maxAge: 60 * 15,
@@ -287,19 +277,15 @@ export async function verifyResetCode(formData: FormData) {
     redirect("/sign-in?error=expired");
   }
 
-  const result = await verifyOtp(vid, code);
+  const result = await verifyOtp(vid, code, { purpose: "reset-password" });
 
   if (!result.ok || !result.userId) {
     redirect("/sign-in?reset=verify&error=invalid-code");
   }
 
-  store.set("whq_reset_user", result.userId, {
-    httpOnly: true,
-    sameSite: "lax",
-    secure: process.env.NODE_ENV === "production",
-    path: "/",
-    maxAge: 60 * 15,
-  });
+  // A signed, one-time token (not a plain cookie anyone could write) carries the confirmed user to the next step.
+  store.delete(RESET_VID);
+  await mintResetToken(result.userId);
 
   redirect("/sign-in?reset=new-password");
 }
@@ -307,25 +293,27 @@ export async function completePasswordReset(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   const confirmPassword = String(formData.get("confirmPassword") ?? "");
 
-  if (password !== confirmPassword) {
-    redirect("/sign-in?reset=new-password&error=password-mismatch");
-  }
-
-  const store = await cookies();
-  const userId = store.get("whq_reset_user")?.value;
-
+  const userId = await readResetToken();
   if (!userId) {
     redirect("/sign-in?error=expired");
   }
+  if (password !== confirmPassword) {
+    redirect("/sign-in?reset=new-password&error=password-mismatch");
+  }
+  if (!passwordMeetsPolicy(password)) {
+    redirect("/sign-in?reset=new-password&error=weak");
+  }
 
+  // Bumping sessionVersion signs the account out everywhere and makes this reset token unusable again.
   await db.user.update({
     where: { id: userId },
     data: {
       passwordHash: await hashPassword(password),
+      sessionVersion: { increment: 1 },
     },
   });
-
-  store.delete("whq_reset_user");
+  await db.phoneVerification.deleteMany({ where: { userId, purpose: "reset-password" } });
+  await clearResetToken();
 
   redirect("/sign-in?reset=success");
 }
@@ -343,10 +331,17 @@ export async function signIn(formData: FormData) {
   const password = String(formData.get("password") ?? "");
   if (!identifier || !password) redirect("/sign-in?error=invalid");
 
+  const ip = await clientIp();
+  const allowed = await rateLimitAll([
+    { key: `signin:id:${identifier.toLowerCase()}`, max: 10, windowMs: 15 * MINUTE },
+    { key: `signin:ip:${ip}`, max: 30, windowMs: 15 * MINUTE },
+  ]);
+  if (!allowed) redirect("/sign-in?error=too-many");
+
   const usingEmail = identifier.includes("@");
   const user = usingEmail
     ? await db.user.findUnique({ where: { email: identifier.toLowerCase() } })
-    : await db.user.findFirst({ where: { phone: { in: phoneVariants(identifier) } } });
+    : await db.user.findFirst({ where: { phone: { in: phoneVariants(identifier) } }, orderBy: { phoneVerified: "desc" } });
 
   if (!user || !user.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
     redirect("/sign-in?error=invalid");
@@ -383,7 +378,7 @@ export async function sendLoginCode(formData: FormData) {
     : await sendOtp({ channel: "sms", phone: user.phone!, purpose: "login", userId: user.id });
 
   if (!result.ok || !result.verificationId) {
-    redirect("/sign-in?login=choose&error=send");
+    redirect(result.limited ? "/sign-in?login=choose&error=too-many" : "/sign-in?login=choose&error=send");
   }
 
   const store = await cookies();
@@ -403,9 +398,10 @@ export async function completeSignIn(formData: FormData) {
   const via = String(formData.get("via") ?? "email") === "email" ? "email" : "phone";
   const store = await cookies();
   const vid = store.get(LOGIN_2FA_VID)?.value;
-  if (!vid) redirect("/sign-in?error=expired");
+  const challengeUser = await getLoginChallengeUserId();
+  if (!vid || !challengeUser) redirect("/sign-in?error=expired");
 
-  const result = await verifyOtp(vid, code);
+  const result = await verifyOtp(vid, code, { purpose: "login", userId: challengeUser });
   if (!result.ok || !result.userId) {
     redirect(`/sign-in?login=verify&via=${via}&error=invalid-code`);
   }
@@ -422,7 +418,10 @@ export async function resendLoginOtp() {
   const vid = store.get(LOGIN_2FA_VID)?.value;
   if (!vid) redirect("/sign-in?error=expired");
   const existing = await db.phoneVerification.findUnique({ where: { id: vid } });
-  if (!existing || !existing.userId) redirect("/sign-in?error=expired");
+  const challengeUser = await getLoginChallengeUserId();
+  if (!existing || !existing.userId || existing.purpose !== "login" || existing.userId !== challengeUser) {
+    redirect("/sign-in?error=expired");
+  }
 
   const viaEmail = existing.channel === "email";
   const result = await sendOtp({
@@ -441,6 +440,7 @@ export async function resendLoginOtp() {
   }
   const via = viaEmail ? "email" : "phone";
   const dev = result.devCode ? `&dev=${result.devCode}` : "";
+  if (result.limited) redirect(`/sign-in?login=verify&via=${via}&error=too-many`);
   redirect(`/sign-in?login=verify&via=${via}${dev}&resent=1`);
 }
 
@@ -465,8 +465,10 @@ export async function startPhoneVerify(formData: FormData) {
   const phone = String(formData.get("phone") ?? "").trim();
   if (!phone) redirect("/verify-phone?error=" + encodeURIComponent("Enter your phone number"));
 
-  const result = await sendOtp({ phone, purpose: "login", userId: session!.userId });
-  if (!result.ok || !result.verificationId) redirect("/verify-phone?error=sms");
+  const result = await sendOtp({ phone, purpose: "verify-phone", userId: session!.userId });
+  if (!result.ok || !result.verificationId) {
+    redirect(result.limited ? "/verify-phone?error=" + encodeURIComponent(result.error ?? "Too many codes requested.") : "/verify-phone?error=sms");
+  }
 
   const store = await cookies();
   store.set(LOGIN_VID, result.verificationId, {
@@ -489,7 +491,7 @@ export async function confirmPhoneVerify(formData: FormData) {
   const vid = store.get(LOGIN_VID)?.value;
   if (!vid) redirect("/verify-phone?error=" + encodeURIComponent("Request a new code"));
 
-  const result = await verifyOtp(vid, code);
+  const result = await verifyOtp(vid, code, { purpose: "verify-phone", userId: session!.userId });
   if (!result.ok) redirect(`/verify-phone?error=${encodeURIComponent(result.error ?? "Invalid code")}`);
 
   await db.user.update({

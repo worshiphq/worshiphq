@@ -7,39 +7,60 @@ import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { type Session, can, ROLE_PERMISSIONS, ALL_MODULES, modulesForRole, hasSection, canManage } from "@/lib/permissions";
+import { authSecret, safeEqual, signToken, readToken } from "@/lib/auth/tokens";
 
 export type { Session };
 export { can, ROLE_PERMISSIONS };
 
 const COOKIE = "whq_session";
-const SECRET = env.NEXTAUTH_SECRET ?? "dev-insecure-secret-change-me";
+const USER_SESSION_MS = 30 * 24 * 60 * 60 * 1000;
+const SUPERADMIN_SESSION_MS = 12 * 60 * 60 * 1000;
 
 // ── Signed-cookie helpers (HMAC so the payload can't be tampered) ──
-// - { uid }            → a normal church user
+// - { uid, sv }        → a normal church user (sv = the user's sessionVersion when they signed in)
 // - { demo }           → the read-only demo church
 // - { sa }             → the platform SuperAdmin (uses the /admin area)
 // - { sa, ghost }      → SuperAdmin impersonating a church (ghost = churchId)
+// Every new cookie also carries exp. Cookies from before exp existed stay valid for users and the demo only.
 type Payload =
-  | { uid: string }
+  | { uid: string; sv: number }
   | { demo: true }
   | { sa: true; ghost?: string; until?: number; rid?: string };
 
-function sign(payload: Payload): string {
-  const body = Buffer.from(JSON.stringify(payload)).toString("base64url");
-  const mac = crypto.createHmac("sha256", SECRET).update(body).digest("base64url");
+function sign(payload: Payload, ttlMs: number): string {
+  const body = Buffer.from(JSON.stringify({ ...payload, exp: Date.now() + ttlMs })).toString("base64url");
+  const mac = crypto.createHmac("sha256", authSecret()).update(body).digest("base64url");
   return `${body}.${mac}`;
 }
 
 function verify(token: string): Payload | null {
   const [body, mac] = token.split(".");
   if (!body || !mac) return null;
-  const expected = crypto.createHmac("sha256", SECRET).update(body).digest("base64url");
-  if (!crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(expected))) return null;
+  const expected = crypto.createHmac("sha256", authSecret()).update(body).digest("base64url");
+  if (!safeEqual(mac, expected)) return null;
+  let p: Record<string, unknown>;
   try {
-    return JSON.parse(Buffer.from(body, "base64url").toString());
+    p = JSON.parse(Buffer.from(body, "base64url").toString());
   } catch {
     return null;
   }
+  if (!p || typeof p !== "object") return null;
+  // Only web-session shapes. Anything carrying another token's fields (a desktop login, a plan stamp,
+  // a login challenge) is refused, so it can never be replayed as a browser session.
+  if ("cid" in p || "lc" in p || "rp" in p || "plan" in p) return null;
+  if (typeof p.exp === "number" && p.exp < Date.now()) return null;
+  if (p.demo === true) return { demo: true };
+  if (p.sa === true) {
+    if (typeof p.exp !== "number") return null; // SuperAdmin cookies must expire
+    return {
+      sa: true,
+      ghost: typeof p.ghost === "string" ? p.ghost : undefined,
+      until: typeof p.until === "number" ? p.until : undefined,
+      rid: typeof p.rid === "string" ? p.rid : undefined,
+    };
+  }
+  if (typeof p.uid === "string" && p.uid) return { uid: p.uid, sv: typeof p.sv === "number" ? p.sv : 0 };
+  return null;
 }
 
 // ── Login challenge (interstitial between password and the 2FA code) ──
@@ -49,24 +70,49 @@ const LOGIN_CHALLENGE_COOKIE = "whq_login_challenge";
 const LOGIN_CHALLENGE_TTL = 15 * 60 * 1000;
 
 export function mintLoginChallenge(userId: string): string {
-  const body = Buffer.from(JSON.stringify({ lc: userId, exp: Date.now() + LOGIN_CHALLENGE_TTL })).toString("base64url");
-  const mac = crypto.createHmac("sha256", SECRET).update(body).digest("base64url");
-  return `${body}.${mac}`;
+  return signToken("login-challenge", { lc: userId }, LOGIN_CHALLENGE_TTL);
 }
 
 function readLoginChallenge(token: string | undefined): string | null {
-  if (!token) return null;
-  const [body, mac] = token.split(".");
-  if (!body || !mac) return null;
-  const expected = crypto.createHmac("sha256", SECRET).update(body).digest("base64url");
-  try {
-    if (!crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(expected))) return null;
-    const data = JSON.parse(Buffer.from(body, "base64url").toString()) as { lc?: string; exp?: number };
-    if (!data.lc || !data.exp || data.exp < Date.now()) return null;
-    return data.lc;
-  } catch {
-    return null;
-  }
+  const data = readToken<{ lc?: string }>("login-challenge", token);
+  return typeof data?.lc === "string" ? data.lc : null;
+}
+
+// ── Password reset (after the emailed or texted code is confirmed) ──
+// Signed, short-lived and bound to the user's sessionVersion, which the reset itself bumps,
+// so a reset token works exactly once.
+const RESET_COOKIE = "whq_reset_token";
+const RESET_TTL = 15 * 60 * 1000;
+
+export async function mintResetToken(userId: string) {
+  const user = await db.user.findUnique({ where: { id: userId }, select: { sessionVersion: true } });
+  if (!user) return;
+  const store = await cookies();
+  store.set(RESET_COOKIE, signToken("reset", { rp: userId, sv: user.sessionVersion }, RESET_TTL), {
+    httpOnly: true, sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/", maxAge: RESET_TTL / 1000,
+  });
+}
+
+/** The user a confirmed reset code belongs to, or null if the token is missing, expired or already used. */
+export async function readResetToken(): Promise<string | null> {
+  const store = await cookies();
+  const data = readToken<{ rp?: string; sv?: number }>("reset", store.get(RESET_COOKIE)?.value);
+  if (typeof data?.rp !== "string") return null;
+  const user = await db.user.findUnique({ where: { id: data.rp }, select: { sessionVersion: true } });
+  if (!user || user.sessionVersion !== data.sv) return null;
+  return data.rp;
+}
+
+export async function clearResetToken() {
+  const store = await cookies();
+  store.delete(RESET_COOKIE);
+}
+
+/** Sign the user out of every browser and device: their existing sessions stop working. */
+export async function revokeUserSessions(userId: string) {
+  await db.user.update({ where: { id: userId }, data: { sessionVersion: { increment: 1 } } });
 }
 
 /** userId of the pending login (password verified, code not yet confirmed), or null. */
@@ -96,13 +142,14 @@ export async function getLoginChoices(): Promise<{ email: string; phone: string 
 export { LOGIN_CHALLENGE_COOKIE };
 
 async function setCookie(payload: Payload) {
+  const ttl = "sa" in payload ? SUPERADMIN_SESSION_MS : USER_SESSION_MS;
   const store = await cookies();
-  store.set(COOKIE, sign(payload), {
+  store.set(COOKIE, sign(payload, ttl), {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: 60 * 60 * 24 * 30,
+    maxAge: ttl / 1000,
   });
 }
 
@@ -112,7 +159,8 @@ export const verifyPassword = (pw: string, hash: string) => bcrypt.compare(pw, h
 
 // ── Session lifecycle ──
 export async function startUserSession(userId: string) {
-  await setCookie({ uid: userId });
+  const user = await db.user.findUnique({ where: { id: userId }, select: { sessionVersion: true } });
+  await setCookie({ uid: userId, sv: user?.sessionVersion ?? 0 });
 }
 export async function startDemoSession() {
   await setCookie({ demo: true });
@@ -203,6 +251,13 @@ async function _getSession(): Promise<Session | null> {
   if ("sa" in payload) {
     if (!payload.ghost) return null; // bare superadmin isn't an app session
     if (payload.until && payload.until < Date.now()) return null; // timed entry has lapsed
+    // The entry must still be live on its SupportAccess record, so ending it takes effect at once.
+    if (!payload.rid) return null;
+    const access = await db.supportAccess.findFirst({
+      where: { id: payload.rid, churchId: payload.ghost, status: "active", until: { gt: new Date() } },
+      select: { id: true },
+    });
+    if (!access) return null;
     const church = await db.church.findUnique({ where: { id: payload.ghost } });
     if (!church) return null;
     return {
@@ -227,6 +282,8 @@ async function _getSession(): Promise<Session | null> {
     include: { church: true, branch: true, customRole: true, budgetDepartment: true },
   });
   if (!user) return null;
+  // A password change or reset bumps sessionVersion, which signs out every older cookie.
+  if (user.sessionVersion !== payload.sv) return null;
 
   // A scoped department-budget leader only ever sees their department's budget,
   // expenses and income - regardless of role.

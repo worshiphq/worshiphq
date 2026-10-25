@@ -32,7 +32,9 @@ export default async function SignUpPage({
           ? "We couldn't send the verification SMS. Check the phone number and try again."
           : error === "expired"
             ? "Your verification session expired. Please sign up again."
-            : null;
+            : error === "too-many"
+              ? "Too many codes requested. Please wait a few minutes and try again."
+              : null;
 
   return (
     <SignupWizard

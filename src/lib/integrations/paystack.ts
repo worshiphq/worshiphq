@@ -1,6 +1,7 @@
 import "server-only";
 import crypto from "node:crypto";
 import { env, features } from "@/lib/env";
+import { sealMetadata } from "@/lib/billing/checkout-seal";
 
 /** The currency the Paystack merchant account actually settles in. Prices may be
  *  DISPLAYED in another currency (e.g. USD), but every charge is sent to Paystack
@@ -56,6 +57,11 @@ export async function initializePayment(opts: {
   const subunit = Math.round(amount * 100);
 
   if (!features.payments) {
+    // Stub mode hands out credits, plans and gifts with no payment, so it must never run on the live site.
+    if (process.env.NODE_ENV === "production" && process.env.ALLOW_PAYMENT_STUB !== "1") {
+      console.error("[Paystack] PAYSTACK_SECRET_KEY is missing in production; refusing to start a stub payment.");
+      return { ok: false, stubbed: false, reference, error: "Payments are temporarily unavailable. Please try again later." };
+    }
     console.info(`[Paystack:stub] init ${currency} ${amount} for ${opts.email} (ref ${reference})${opts.subaccount ? ` -> subaccount ${opts.subaccount}` : ""}`);
     return {
       ok: true,
@@ -75,7 +81,7 @@ export async function initializePayment(opts: {
         currency,
         channels: ["mobile_money", "card", "bank"],
         callback_url: opts.callbackUrl ?? env.PAYSTACK_CALLBACK_URL,
-        metadata: opts.metadata,
+        metadata: opts.metadata ? sealMetadata(reference, subunit, currency, opts.metadata) : undefined,
         reference,
         ...(opts.subaccount ? { subaccount: opts.subaccount } : {}),
       }),

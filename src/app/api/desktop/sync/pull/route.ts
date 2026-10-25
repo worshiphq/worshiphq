@@ -1,27 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import crypto from "node:crypto";
-
-const SECRET = process.env.NEXTAUTH_SECRET ?? "dev-insecure-secret-change-me";
-
-function verifyToken(authHeader: string | null): { uid: string; cid: string } | null {
-  if (!authHeader?.startsWith("Bearer ")) return null;
-  const token = authHeader.slice(7);
-  const [body, mac] = token.split(".");
-  if (!body || !mac) return null;
-  const expected = crypto.createHmac("sha256", SECRET).update(body).digest("base64url");
-  try {
-    if (!crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(expected))) return null;
-  } catch {
-    return null;
-  }
-  try {
-    const payload = JSON.parse(Buffer.from(body, "base64url").toString());
-    return { uid: payload.uid, cid: payload.cid };
-  } catch {
-    return null;
-  }
-}
+import { verifyDesktopToken } from "@/lib/desktop-auth";
 
 const COLUMN_RENAMES: Record<string, string> = {
   trigger: "trigger_type",
@@ -72,9 +51,13 @@ async function pullTable(
 
 
 export async function GET(req: Request) {
-  const auth = verifyToken(req.headers.get("authorization"));
+  const auth = await verifyDesktopToken(req.headers.get("authorization"));
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  // A full copy of the church's records (giving, counselling, members) is for the church's admins only.
+  if (auth.role !== "Owner" && auth.role !== "Admin") {
+    return NextResponse.json({ error: "Only an Owner or Admin can sync the desktop app." }, { status: 403 });
   }
 
   const url = new URL(req.url);

@@ -119,7 +119,7 @@ export function AccountForm({
 
   // Forgot password: step 3 - set new password with verified code
   function submitForgotReset() {
-    if (forgotNewPw.length < 6) return;
+    if (forgotNewPw.length < 8) return;
     run(
       async () => {
         const fd = new FormData();
@@ -237,7 +237,8 @@ export function AccountForm({
           </div>
           <div>
             <Label htmlFor="email">Login email</Label>
-            <Input id="email" name="email" type="email" defaultValue={email} />
+            <Input id="email" type="email" defaultValue={email} readOnly disabled />
+            <p className="mt-1 text-xs text-ink-faint">To change it, use Change email address below. We confirm the new address with a code first.</p>
           </div>
           <SubmitButton successMessage="Profile saved">Save profile</SubmitButton>
         </form>
@@ -257,11 +258,11 @@ export function AccountForm({
               </div>
               <div>
                 <Label htmlFor="next">New password</Label>
-                <PasswordInput id="next" name="next" required minLength={6} className={input} value={newPw} onChange={(e) => setNewPw(e.target.value)} />
+                <PasswordInput id="next" name="next" required minLength={8} className={input} value={newPw} onChange={(e) => setNewPw(e.target.value)} />
               </div>
               <div>
                 <Label htmlFor="confirm">Confirm new password</Label>
-                <PasswordInput id="confirm" name="confirm" required minLength={6} className={input} />
+                <PasswordInput id="confirm" name="confirm" required minLength={8} className={input} />
               </div>
               <PasswordStrength password={newPw} />
               <Button type="submit">Update password</Button>
@@ -304,11 +305,11 @@ export function AccountForm({
             </div>
             <div>
               <Label htmlFor="forgotNext">New password</Label>
-              <PasswordInput id="forgotNext" required minLength={6} className={input} value={forgotNewPw} onChange={(e) => setForgotNewPw(e.target.value)} />
+              <PasswordInput id="forgotNext" required minLength={8} className={input} value={forgotNewPw} onChange={(e) => setForgotNewPw(e.target.value)} />
             </div>
             <div>
               <Label htmlFor="forgotConfirm">Confirm new password</Label>
-              <PasswordInput id="forgotConfirm" required minLength={6} className={input} />
+              <PasswordInput id="forgotConfirm" required minLength={8} className={input} />
             </div>
             <PasswordStrength password={forgotNewPw} />
             <div className="flex gap-2">

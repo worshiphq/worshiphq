@@ -954,6 +954,23 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // ?upgrade=<plan> (a paid plan picked at sign-up): open that plan's checkout so it can be paid for.
+  useEffect(() => {
+    if (typeof window === "undefined" || ro) return;
+    const url = new URL(window.location.href);
+    const wanted = url.searchParams.get("upgrade");
+    if (!wanted) return;
+    url.searchParams.delete("upgrade");
+    window.history.replaceState({}, "", url.pathname + (url.search || ""));
+    const plan = plans.find((pl) => pl.id === wanted);
+    if (!plan || plan.id === (subscription?.plan ?? "free")) return;
+    setUpgradePlan(plan);
+    startPreview(async () => {
+      setChangePreview(await previewPlanChangeAction(plan.id, interval));
+    });
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const { start: startPaystack } = usePaystack();
 
   const triggerCelebration = useCallback((newPlanId: string) => {

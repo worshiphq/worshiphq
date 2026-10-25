@@ -2,28 +2,7 @@ import { NextResponse } from "next/server";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
-import crypto from "node:crypto";
-
-const SECRET = process.env.NEXTAUTH_SECRET ?? "dev-insecure-secret-change-me";
-
-function verifyToken(authHeader: string | null): { uid: string; cid: string } | null {
-  if (!authHeader?.startsWith("Bearer ")) return null;
-  const token = authHeader.slice(7);
-  const [body, mac] = token.split(".");
-  if (!body || !mac) return null;
-  const expected = crypto.createHmac("sha256", SECRET).update(body).digest("base64url");
-  try {
-    if (!crypto.timingSafeEqual(Buffer.from(mac), Buffer.from(expected))) return null;
-  } catch {
-    return null;
-  }
-  try {
-    const payload = JSON.parse(Buffer.from(body, "base64url").toString());
-    return { uid: payload.uid, cid: payload.cid };
-  } catch {
-    return null;
-  }
-}
+import { verifyDesktopToken } from "@/lib/desktop-auth";
 
 // Column name mapping: SQLite snake_case → Prisma camelCase (only where the
 // naive snake→camel conversion is wrong).
@@ -124,9 +103,16 @@ const REVERSE_RENAMES: Record<string, string> = {
 
 // Fields the desktop is never allowed to overwrite (server-managed).
 const PROTECTED_FIELDS: Record<string, string[]> = {
-  church: ["smsCredits", "isDemo", "suspended", "slug"],
-  user: ["role"], // role changes for existing users go through the web; inserts keep their role below
+  church: ["smsCredits", "isDemo", "suspended", "slug", "termsAcceptedAt"],
+  user: ["role", "sessionVersion", "inviteToken", "customRoleId", "budgetDepartmentId", "phoneVerified", "emailVerified"],
 };
+
+// On an existing user only the profile basics may change from the desktop. Login details
+// (email, phone, password) change through the account screens, which check a password and a code.
+const USER_UPDATE_BLOCKED = ["email", "phone", "passwordHash"];
+
+// Only these roles may write from the desktop app (the same people who run the church's admin).
+const DESKTOP_WRITE_ROLES = new Set(["Owner", "Admin"]);
 
 /* ── Prisma schema metadata: field types per model, for coercion + stripping ── */
 interface FieldMeta { type: string; isList: boolean }
@@ -224,13 +210,17 @@ function mapColumns(table: string, model: string, data: Record<string, any>): Re
 }
 
 export async function POST(req: Request) {
-  const auth = verifyToken(req.headers.get("authorization"));
+  const auth = await verifyDesktopToken(req.headers.get("authorization"));
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  if (!DESKTOP_WRITE_ROLES.has(auth.role)) {
+    return NextResponse.json({ error: "Your role can view but not change records from the desktop app." }, { status: 403 });
   }
 
   try {
     const { changes } = await req.json();
+    if (!Array.isArray(changes)) return NextResponse.json({ error: "Bad request" }, { status: 400 });
     let applied = 0;
     // Per-change outcome, aligned with the input array, so the client only
     // marks successfully applied changes as synced.
@@ -245,6 +235,15 @@ export async function POST(req: Request) {
         continue;
       }
       const hasChurchId = MODEL_FIELDS[model]?.has("churchId") ?? false;
+      // Rows with no churchId of their own can't be scoped to a church by id, so they are never written from here.
+      if (!hasChurchId && table !== "church") {
+        results.push({ ok: false, error: `${table} can't be changed from the desktop app` });
+        continue;
+      }
+      if (typeof recordId !== "string" || !recordId) {
+        results.push({ ok: false, error: "missing record id" });
+        continue;
+      }
 
       try {
         if (table === "church" && recordId !== auth.cid) {
@@ -258,35 +257,54 @@ export async function POST(req: Request) {
             results.push({ ok: false, error: "church delete not allowed" });
             continue;
           }
-          if (hasChurchId) {
-            await prismaModel.deleteMany({ where: { id: recordId, churchId: auth.cid } });
-          } else {
-            await prismaModel.deleteMany({ where: { id: recordId } });
+          if (table === "user" && recordId === auth.uid) {
+            results.push({ ok: false, error: "you can't remove your own account" });
+            continue;
           }
+          await prismaModel.deleteMany({ where: { id: recordId, churchId: auth.cid } });
           applied++;
           results.push({ ok: true });
         } else if (action === "insert") {
           const mapped = mapColumns(table, model, data);
-          if (hasChurchId) mapped.churchId = auth.cid; // enforce tenant, never trust client
-          if (table === "user") await prepareUserWrite(mapped, true);
-          await prismaModel.upsert({
-            where: { id: recordId },
-            create: { id: recordId, ...mapped },
-            update: mapped,
-          });
+          if (table === "church") {
+            // Only ever this church's own row (checked above): treat it as an update.
+            delete mapped.id;
+            await db.church.update({ where: { id: auth.cid }, data: mapped });
+            applied++;
+            results.push({ ok: true });
+            continue;
+          }
+          mapped.churchId = auth.cid; // enforce tenant, never trust client
+          // An id that already exists must belong to this church: an "insert" can never take over another church's row.
+          const existing = await prismaModel.findUnique({ where: { id: recordId }, select: { churchId: true } });
+          if (existing && existing.churchId !== auth.cid) {
+            results.push({ ok: false, error: "cross-tenant write rejected" });
+            continue;
+          }
+          if (existing) {
+            delete mapped.id;
+            delete mapped.churchId;
+            if (table === "user") {
+              for (const f of USER_UPDATE_BLOCKED) delete mapped[f];
+            }
+            await prismaModel.updateMany({ where: { id: recordId, churchId: auth.cid }, data: mapped });
+          } else {
+            if (table === "user") await prepareUserWrite(mapped, true);
+            await prismaModel.create({ data: { ...mapped, id: recordId } });
+          }
           applied++;
           results.push({ ok: true });
         } else if (action === "update") {
           const mapped = mapColumns(table, model, data);
           delete mapped.id;
-          if (hasChurchId) delete mapped.churchId; // can't be moved between tenants
-          if (table === "user") await prepareUserWrite(mapped, false);
+          delete mapped.churchId; // can't be moved between tenants
+          if (table === "user") {
+            for (const f of USER_UPDATE_BLOCKED) delete mapped[f];
+          }
           if (table === "church") {
             await db.church.update({ where: { id: auth.cid }, data: mapped });
-          } else if (hasChurchId) {
-            await prismaModel.updateMany({ where: { id: recordId, churchId: auth.cid }, data: mapped });
           } else {
-            await prismaModel.update({ where: { id: recordId }, data: mapped });
+            await prismaModel.updateMany({ where: { id: recordId, churchId: auth.cid }, data: mapped });
           }
           applied++;
           results.push({ ok: true });
@@ -313,8 +331,8 @@ async function prepareUserWrite(mapped: Record<string, any>, isInsert: boolean) 
   const pw = mapped.passwordHash;
   if (typeof pw === "string" && pw.length > 0 && !pw.startsWith("$2")) {
     mapped.passwordHash = await hashPassword(pw);
-  } else if (!isInsert) {
-    // Never overwrite an existing hash with empty/unknown material on update.
+  } else if (!isInsert || (typeof pw === "string" && pw.startsWith("$2"))) {
+    // Never accept a ready-made hash (it would let the desktop set a known password) or overwrite one on update.
     delete mapped.passwordHash;
   }
 }

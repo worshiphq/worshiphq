@@ -2,7 +2,8 @@ import type { NextRequest } from "next/server";
 import { verifyPaystackSignature } from "@/lib/integrations/paystack";
 import { recordOnlineGift, methodFromPaystackChannel } from "@/lib/giving/record";
 import { addCredits } from "@/lib/sms/credits";
-import { recordPlanPayment } from "@/lib/billing/payments";
+import { activatePlanPayment } from "@/lib/billing/activate-plan";
+import { openSealedMetadata, rawMetadata } from "@/lib/billing/checkout-seal";
 import { db } from "@/lib/db";
 
 // Webhooks must never be statically cached and always run on the server.
@@ -64,15 +65,23 @@ export async function POST(request: NextRequest) {
   }
 
   const data = event.data ?? {};
-  const meta = (data.metadata ?? {}) as GiftMetadata;
+  // Value-granting fields are only trusted when our seal matches this exact reference and amount.
+  const sealed = openSealedMetadata(data) as GiftMetadata | null;
+  const meta = (sealed ?? rawMetadata(data)) as GiftMetadata;
 
   // SMS credit top-up → add credits to the church wallet (idempotent on reference).
   if (meta.kind === "sms_topup" && meta.churchId && data.reference) {
     try {
-      const credits = Number(meta.credits ?? 0);
+      // Paystack reports the amount in the smallest unit (pesewas).
+      const paid = Number(data.amount ?? 0) / 100;
+      let credits = sealed ? Number(meta.credits ?? 0) : 0;
+      if (!sealed && paid > 0) {
+        // Unsealed: give exactly what the money paid buys at this church's rate.
+        const { creditsForAmount } = await import("@/config/sms");
+        const { resolveSmsTier } = await import("@/lib/sms/tier");
+        credits = creditsForAmount(paid, await resolveSmsTier(meta.churchId));
+      }
       if (credits > 0) {
-        // Paystack reports the amount in the smallest unit (pesewas).
-        const paid = Number(data.amount ?? 0) / 100;
         await addCredits(meta.churchId, credits, "topup", {
           reference: data.reference,
           note: `${credits.toLocaleString()} SMS credits`,
@@ -87,56 +96,12 @@ export async function POST(request: NextRequest) {
     }
   }
 
-  // Plan upgrade → activate the subscription.
-  if (meta.kind === "plan_upgrade" && meta.churchId && meta.plan && data.reference) {
+  // Plan upgrade → activate the subscription (shared with verifyPlanUpgrade; once per reference).
+  if (meta.kind === "plan_upgrade" && data.reference) {
     try {
-      const validPlans = ["starter", "pro", "max"];
-      const plan = String(meta.plan);
-      const interval = meta.interval === "yearly" ? "yearly" : "monthly";
-      if (!validPlans.includes(plan)) return Response.json({ received: true, ignored: true });
-
-      const periodStart = new Date();
-      const renewsAt = new Date();
-      renewsAt.setMonth(renewsAt.getMonth() + (interval === "yearly" ? 12 : 1));
-
-      await db.subscription.upsert({
-        where: { churchId: meta.churchId },
-        create: {
-          churchId: meta.churchId,
-          plan,
-          interval,
-          status: "active",
-          renewsAt,
-          paystackCustomerCode: data.customer?.email ?? null,
-        },
-        update: {
-          plan,
-          interval,
-          status: "active",
-          renewsAt,
-          paystackCustomerCode: data.customer?.email ?? null,
-        },
-      });
-
-      // Ledger entry - de-dupes on reference against verifyPlanUpgrade().
-      // Paystack sends the charged amount in subunits (pesewas).
-      const amountGhs = typeof data.amount === "number" ? data.amount / 100 : 0;
-      const rate = Number(meta.usdToGhsRate) || 0;
-      await recordPlanPayment({
-        churchId: meta.churchId,
-        reference: String(data.reference),
-        plan,
-        interval,
-        amountUsd: Number(meta.displayAmountUsd) || (rate ? amountGhs / rate : 0),
-        amountGhs,
-        usdToGhsRate: rate,
-        couponId: meta.couponId ? String(meta.couponId) : null,
-        discountUsd: Math.max(0, (Number(meta.listAmountUsd) || 0) - (Number(meta.displayAmountUsd) || 0)),
-        periodStart,
-        periodEnd: renewsAt,
-      });
-
-      return Response.json({ received: true, kind: "plan_upgrade", plan });
+      const res = await activatePlanPayment({ ...data, status: "success" });
+      if (!res.ok) return Response.json({ received: true, ignored: true, reason: res.error });
+      return Response.json({ received: true, kind: "plan_upgrade", plan: res.plan });
     } catch (e) {
       console.error("[Paystack webhook] failed to activate plan:", e);
       return new Response("Processing error", { status: 500 });
@@ -156,8 +121,10 @@ export async function POST(request: NextRequest) {
     // Record the amount the donor meant to give. When the donor bears Paystack's
     // fee we charge a grossed-up amount, so prefer the intended amount from
     // metadata; fall back to the charged amount for older/plain charges.
-    const intended = Number(meta.intendedAmount);
-    const amountGhs = Number.isFinite(intended) && intended > 0 ? intended : (data.amount ?? 0) / 100;
+    // Only a sealed intended amount is trusted, and never more than what was actually charged.
+    const charged = (data.amount ?? 0) / 100;
+    const intended = sealed ? Number(meta.intendedAmount) : NaN;
+    const amountGhs = Number.isFinite(intended) && intended > 0 && intended <= charged ? intended : charged;
     const result = await recordOnlineGift({
       churchId: meta.churchId,
       reference: data.reference,
@@ -211,6 +178,7 @@ interface PaystackEvent {
   data?: {
     reference?: string;
     amount?: number;
+    currency?: string;
     channel?: string;
     customer?: { email?: string; phone?: string };
     authorization?: { mobile_money_number?: string; bank?: string };

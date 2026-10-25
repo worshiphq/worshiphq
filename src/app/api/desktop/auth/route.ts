@@ -1,23 +1,27 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth";
-import crypto from "node:crypto";
-
-const SECRET = process.env.NEXTAUTH_SECRET ?? "dev-insecure-secret-change-me";
-
-function signDesktopToken(userId: string, churchId: string): string {
-  const payload = JSON.stringify({ uid: userId, cid: churchId, t: Date.now() });
-  const body = Buffer.from(payload).toString("base64url");
-  const mac = crypto.createHmac("sha256", SECRET).update(body).digest("base64url");
-  return `${body}.${mac}`;
-}
+import { signDesktopToken, signPlanStamp } from "@/lib/desktop-auth";
+import { rateLimitAll, ipFromRequest, MINUTE } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   try {
-    const { email, password } = await req.json();
+    const body = await req.json();
+    const email = String(body.email ?? "").toLowerCase().trim();
+    const password = String(body.password ?? "");
 
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password required" }, { status: 400 });
+    }
+
+    // Limit password guessing, per account and per address.
+    const ip = ipFromRequest(req);
+    const allowed = await rateLimitAll([
+      { key: `desk-signin:id:${email}`, max: 10, windowMs: 15 * MINUTE },
+      { key: `desk-signin:ip:${ip}`, max: 30, windowMs: 15 * MINUTE },
+    ]);
+    if (!allowed) {
+      return NextResponse.json({ error: "Too many attempts. Please wait a few minutes and try again." }, { status: 429 });
     }
 
     const user = await db.user.findUnique({
@@ -25,7 +29,7 @@ export async function POST(req: Request) {
       include: { church: true },
     });
 
-    if (!user || !user.passwordHash) {
+    if (!user || !user.passwordHash || user.church.suspended) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
 
@@ -34,7 +38,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid email or password" }, { status: 401 });
     }
 
-    const token = signDesktopToken(user.id, user.churchId);
+    const token = signDesktopToken(user.id, user.churchId, user.sessionVersion);
 
     // Fetch subscription for plan enforcement
     const sub = await db.subscription.findUnique({ where: { churchId: user.churchId } });
@@ -43,10 +47,7 @@ export async function POST(req: Request) {
     const subStatus = sub?.status ?? "active";
 
     // Server-signed expiry payload to prevent client-side tampering
-    const expiryPayload = JSON.stringify({ cid: user.churchId, plan, renewsAt, status: subStatus, ts: Date.now() });
-    const expiryBody = Buffer.from(expiryPayload).toString("base64url");
-    const expirySig = crypto.createHmac("sha256", SECRET).update(expiryBody).digest("base64url");
-    const signedExpiry = `${expiryBody}.${expirySig}`;
+    const signedExpiry = signPlanStamp({ cid: user.churchId, plan, renewsAt, status: subStatus });
 
     return NextResponse.json({
       token,

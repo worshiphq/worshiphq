@@ -3,7 +3,6 @@
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { env } from "@/lib/env";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { sendChurchSms } from "@/lib/sms/credits";
@@ -12,6 +11,7 @@ import { categoryForPerson, type AttendanceCategory } from "@/lib/data/attendanc
 import { getAgeConfig } from "@/lib/data/age";
 import { phoneKey } from "@/lib/search";
 import { DEFAULT_TEMPLATES } from "@/lib/automations/run";
+import { authSecret } from "@/lib/auth/tokens";
 
 const CATEGORY_FIELD: Record<AttendanceCategory, "adults" | "teens" | "children" | "visitors"> = {
   adult: "adults", teen: "teens", child: "children", visitor: "visitors",
@@ -104,7 +104,7 @@ async function guard(ctx: Ctx, where: Where, adding = true): Promise<string | nu
 
 const clean = (v: unknown, max = 80) => String(v ?? "").trim().replace(/\s+/g, " ").slice(0, max);
 const shortName = (first: string, last: string) => `${first}${last ? ` ${last.charAt(0).toUpperCase()}.` : ""}`;
-const hashCode = (personId: string, code: string) => crypto.createHmac("sha256", env.NEXTAUTH_SECRET ?? "dev").update(`${personId}:${code}`).digest("hex");
+const hashCode = (personId: string, code: string) => crypto.createHmac("sha256", authSecret()).update(`${personId}:${code}`).digest("hex");
 
 export type Candidate = { id: string; name: string; hint: string | null; visitor: boolean };
 

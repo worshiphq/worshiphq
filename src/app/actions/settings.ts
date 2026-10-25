@@ -3,12 +3,13 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
-import { requireSession, assertCanWrite, hashPassword, verifyPassword } from "@/lib/auth";
+import { requireSession, assertCanWrite, hashPassword, verifyPassword, startUserSession } from "@/lib/auth";
+import { passwordMeetsPolicy } from "@/lib/password-policy";
 import { getFormDefinition, getVisitorFormDefinition } from "@/lib/forms/registration";
 import crypto from "node:crypto";
 import { sendSms } from "@/lib/integrations/sms";
 import { sendOtp, verifyOtp } from "@/lib/auth/otp";
-import { normalisePhone } from "@/lib/phone";
+import { normalisePhone, phoneVariants } from "@/lib/phone";
 import { initializePayment, newPaymentReference, SETTLEMENT_CURRENCY } from "@/lib/integrations/paystack";
 import { env } from "@/lib/env";
 import type { Role } from "@prisma/client";
@@ -16,8 +17,9 @@ import { sendEmail } from "@/lib/integrations/email";
 import { audit } from "@/lib/audit";
 import { getBaseUrl } from "@/lib/url";
 import { planRank, type PlanId } from "@/lib/plan-gate";
+import { sendUpgradeReceipt } from "@/lib/billing/receipt";
 
-/** Update the signed-in user's own name, email and profile photo. */
+/** Update the signed-in user's own name and profile photo. The login email only changes through startEmailChange (password + code). */
 export async function updateProfile(formData: FormData) {
   const session = await requireSession();
   // Demo and impersonation sessions aren't backed by a real user row.
@@ -26,14 +28,7 @@ export async function updateProfile(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
 
-  const email = String(formData.get("email") ?? "").toLowerCase().trim();
-  const data: { name: string; email?: string; photoUrl?: string | null } = { name };
-
-  // Allow changing email only if it isn't taken by someone else.
-  if (email && email !== session.email) {
-    const taken = await db.user.findUnique({ where: { email } });
-    if (!taken) data.email = email;
-  }
+  const data: { name: string; photoUrl?: string | null } = { name };
 
   // Profile photo (data URL or empty to clear). Uploaded to Storage → URL.
   if (formData.has("photoUrl")) {
@@ -58,14 +53,19 @@ export async function changePassword(formData: FormData) {
 
   const current = String(formData.get("current") ?? "");
   const next = String(formData.get("next") ?? "");
-  if (next.length < 6) return { ok: false, error: "New password must be at least 6 characters." };
+  if (!passwordMeetsPolicy(next)) return { ok: false, error: "Password needs 8+ characters with a capital letter, a number and a symbol." };
 
   const user = await db.user.findUnique({ where: { id: session.userId }, select: { passwordHash: true } });
   if (!user?.passwordHash || !(await verifyPassword(current, user.passwordHash))) {
     return { ok: false, error: "Your current password is incorrect." };
   }
 
-  await db.user.update({ where: { id: session.userId }, data: { passwordHash: await hashPassword(next) } });
+  // A new password signs out every other browser and device; this one gets a fresh session.
+  await db.user.update({
+    where: { id: session.userId },
+    data: { passwordHash: await hashPassword(next), sessionVersion: { increment: 1 } },
+  });
+  await startUserSession(session.userId);
   return { ok: true };
 }
 
@@ -77,7 +77,7 @@ export async function sendPasswordResetOtp() {
   if (!user?.phone || !user.phoneVerified) return { ok: false, error: "No verified phone on this account." };
 
   const result = await sendOtp({ phone: user.phone, purpose: "reset-password", userId: session.userId });
-  if (!result.ok) return { ok: false, error: "Couldn't send SMS." };
+  if (!result.ok) return { ok: false, error: result.limited ? result.error : "Couldn't send SMS." };
   return { ok: true, verificationId: result.verificationId };
 }
 
@@ -88,12 +88,16 @@ export async function resetPasswordWithOtp(formData: FormData) {
   const vid = String(formData.get("verificationId") ?? "");
   const code = String(formData.get("code") ?? "").trim();
   const next = String(formData.get("next") ?? "");
-  if (next.length < 6) return { ok: false, error: "Password must be at least 6 characters." };
+  if (!passwordMeetsPolicy(next)) return { ok: false, error: "Password needs 8+ characters with a capital letter, a number and a symbol." };
 
-  const result = await verifyOtp(vid, code);
+  const result = await verifyOtp(vid, code, { purpose: "reset-password", userId: session.userId });
   if (!result.ok) return { ok: false, error: result.error ?? "Invalid code." };
 
-  await db.user.update({ where: { id: session.userId }, data: { passwordHash: await hashPassword(next) } });
+  await db.user.update({
+    where: { id: session.userId },
+    data: { passwordHash: await hashPassword(next), sessionVersion: { increment: 1 } },
+  });
+  await startUserSession(session.userId);
   return { ok: true };
 }
 
@@ -110,11 +114,11 @@ export async function startPhoneChange(formData: FormData) {
     return { ok: false, error: "Incorrect password." };
   }
 
-  const taken = await db.user.findFirst({ where: { phone: newPhone, id: { not: session.userId } } });
+  const taken = await db.user.findFirst({ where: { phone: { in: phoneVariants(newPhone) }, id: { not: session.userId } } });
   if (taken) return { ok: false, error: "This phone number is already in use." };
 
   const result = await sendOtp({ phone: newPhone, purpose: "verify-phone", userId: session.userId });
-  if (!result.ok) return { ok: false, error: "Couldn't send verification SMS." };
+  if (!result.ok) return { ok: false, error: result.limited ? result.error : "Couldn't send verification SMS." };
   return { ok: true, verificationId: result.verificationId };
 }
 
@@ -124,14 +128,16 @@ export async function confirmPhoneChange(formData: FormData) {
 
   const vid = String(formData.get("verificationId") ?? "");
   const code = String(formData.get("code") ?? "").trim();
-  const newPhone = String(formData.get("newPhone") ?? "").trim();
 
-  const result = await verifyOtp(vid, code);
-  if (!result.ok) return { ok: false, error: result.error ?? "Invalid code." };
+  // Save the number the code actually went to, never one sent back with the form.
+  const result = await verifyOtp(vid, code, { purpose: "verify-phone", userId: session.userId });
+  if (!result.ok || !result.phone) return { ok: false, error: result.error ?? "Invalid code." };
+  const taken = await db.user.findFirst({ where: { phone: { in: phoneVariants(result.phone) }, id: { not: session.userId } } });
+  if (taken) return { ok: false, error: "This phone number is already in use." };
 
   await db.user.update({
     where: { id: session.userId },
-    data: { phone: newPhone, phoneVerified: true },
+    data: { phone: result.phone, phoneVerified: true },
   });
   revalidatePath("/app/account");
   return { ok: true };
@@ -153,8 +159,8 @@ export async function startEmailChange(formData: FormData) {
   const taken = await db.user.findUnique({ where: { email: newEmail } });
   if (taken) return { ok: false, error: "This email is already in use." };
 
-  const result = await sendOtp({ phone: newEmail, purpose: "verify-email", userId: session.userId });
-  if (!result.ok) return { ok: false, error: "Couldn't send verification email." };
+  const result = await sendOtp({ channel: "email", email: newEmail, purpose: "verify-email", userId: session.userId });
+  if (!result.ok) return { ok: false, error: result.limited ? result.error : "Couldn't send verification email." };
   return { ok: true, verificationId: result.verificationId };
 }
 
@@ -164,14 +170,17 @@ export async function confirmEmailChange(formData: FormData) {
 
   const vid = String(formData.get("verificationId") ?? "");
   const code = String(formData.get("code") ?? "").trim();
-  const newEmail = String(formData.get("newEmail") ?? "").toLowerCase().trim();
 
-  const result = await verifyOtp(vid, code);
-  if (!result.ok) return { ok: false, error: result.error ?? "Invalid code." };
+  // Save the address the code actually went to, never one sent back with the form.
+  const result = await verifyOtp(vid, code, { purpose: "verify-email", userId: session.userId });
+  if (!result.ok || !result.phone) return { ok: false, error: result.error ?? "Invalid code." };
+  const newEmail = result.phone;
+  const taken = await db.user.findUnique({ where: { email: newEmail } });
+  if (taken && taken.id !== session.userId) return { ok: false, error: "This email is already in use." };
 
   await db.user.update({
     where: { id: session.userId },
-    data: { email: newEmail },
+    data: { email: newEmail, emailVerified: true },
   });
   revalidatePath("/app/account");
   return { ok: true };
@@ -547,49 +556,6 @@ export async function removeTeamMember(formData: FormData) {
   revalidatePath("/app/settings");
 }
 
-async function sendUpgradeReceipt(churchId: string, planName: string, amount: string, interval: string, reference: string) {
-  const admin = await db.user.findFirst({
-    where: { churchId, role: "Owner" },
-    select: { email: true, phone: true, name: true },
-  });
-  const church = await db.church.findUnique({ where: { id: churchId }, select: { name: true } });
-  if (!admin) return;
-
-  const appUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
-  const date = new Date().toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" });
-
-  if (admin.email) {
-    await sendEmail({
-      to: admin.email,
-      subject: `WorshipHQ - Upgraded to ${planName}!`,
-      html: `
-        <div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto">
-          <h2 style="color:#0d7377">🚀 You're on the ${planName} plan!</h2>
-          <p>Hi ${admin.name ?? "there"},</p>
-          <p>Your church <strong>${church?.name ?? ""}</strong> has been upgraded to the <strong>${planName}</strong> plan. All new features are now unlocked.</p>
-          <table style="width:100%;border-collapse:collapse;margin:16px 0">
-            <tr><td style="padding:8px 0;color:#666">Plan</td><td style="padding:8px 0;font-weight:600">${planName}</td></tr>
-            <tr><td style="padding:8px 0;color:#666">Amount</td><td style="padding:8px 0;font-weight:600">${amount}</td></tr>
-            <tr><td style="padding:8px 0;color:#666">Billing</td><td style="padding:8px 0">${interval === "yearly" ? "Yearly" : "Monthly"}</td></tr>
-            <tr><td style="padding:8px 0;color:#666">Date</td><td style="padding:8px 0">${date}</td></tr>
-            <tr><td style="padding:8px 0;color:#666">Reference</td><td style="padding:8px 0;font-family:monospace;font-size:13px">${reference}</td></tr>
-          </table>
-          <p style="margin-top:24px"><a href="${appUrl}/app/settings?tab=billing" style="background:#0d7377;color:#fff;padding:10px 24px;border-radius:8px;text-decoration:none;font-weight:600">View your plan</a></p>
-          <p style="margin-top:32px;color:#999;font-size:12px">This is your payment receipt. Keep it for your records.</p>
-        </div>`,
-      log: { churchId, name: `Plan upgrade receipt: ${planName}`, segment: "receipt" },
-    });
-  }
-
-  if (admin.phone) {
-    await sendSms(
-      admin.phone,
-      `✅ ${church?.name ?? "Your church"} has been upgraded to the ${planName} plan! Amount: ${amount} (${interval}). Ref: ${reference}. Log in to see your new features.`,
-      { heading: null },
-    );
-  }
-}
-
 /** Undo a scheduled downgrade before it takes effect. */
 export async function cancelScheduledChange() {
   const session = await requireSession();
@@ -838,6 +804,7 @@ export async function changePlan(
       listAmountUsd: listAmount,
       couponId,
       usdToGhsRate: platformConfig.usdToGhsRate,
+      prorated: isProratedUpgrade,
     },
   });
 
@@ -881,78 +848,41 @@ export async function changePlan(
   return { error: init.error ?? "Could not start payment. Please try again." };
 }
 
+/**
+ * Back from Paystack checkout: confirm the charge with Paystack and switch the plan on. The plan,
+ * interval and church come from the charge's own sealed metadata (see activatePlanPayment), so the
+ * arguments are only used to tell the client what happened. Each reference only ever counts once.
+ */
 export async function verifyPlanUpgrade(
   reference: string,
-  plan: string,
-  interval: string,
-  couponId?: string | null,
+  _plan: string,
+  _interval: string,
+  _couponId?: string | null,
 ) {
   const session = await requireSession();
+  assertCanWrite(session);
+  if (session.impersonating) return { error: "Support sessions can't confirm payments." };
+  if (!reference || !/^[A-Za-z0-9_.=-]{6,100}$/.test(reference)) return { error: "Invalid payment reference." };
+  if (!env.PAYSTACK_SECRET_KEY) return { error: "Payments are not configured." };
 
-  const validPlans = ["starter", "pro", "max"];
-  if (!validPlans.includes(plan)) return { error: "Invalid plan" };
-
-  const sub = await db.subscription.findUnique({ where: { churchId: session.churchId } });
-  if (sub?.plan === plan && sub?.status === "active") {
-    return { ok: true, alreadyActive: true };
-  }
-
-  if (env.PAYSTACK_SECRET_KEY) {
-    try {
-      const res = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
-        headers: { authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}` },
-      });
-      const data = await res.json();
-      if (!data?.data || data.data.status !== "success") {
-        return { error: "Payment not confirmed yet. Please wait a moment and refresh." };
-      }
-    } catch {
-      return { error: "Could not verify payment. Please refresh the page." };
+  let txn;
+  try {
+    const res = await fetch(`https://api.paystack.co/transaction/verify/${encodeURIComponent(reference)}`, {
+      headers: { authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}` },
+    });
+    const data = await res.json();
+    txn = data?.data;
+    if (!txn || txn.status !== "success") {
+      return { error: "Payment not confirmed yet. Please wait a moment and refresh." };
     }
+  } catch {
+    return { error: "Could not verify payment. Please refresh the page." };
   }
 
-  // Payment confirmed - burn the coupon now (atomic, so it can never be reused).
-  if (couponId) {
-    const { redeemCoupon } = await import("@/lib/billing/coupons");
-    await redeemCoupon(couponId, session.churchId);
-  }
-
-  const billingInterval = interval === "yearly" ? "yearly" : "monthly";
-  // If they were mid-way through a paid period, this was a prorated upgrade -
-  // they bought the remainder, so the renewal date must not move.
-  const wasMidPaidPeriod = !!sub && sub.plan !== "free" && !!sub.renewsAt && sub.renewsAt.getTime() > Date.now();
-  const periodStart = wasMidPaidPeriod ? (sub!.periodStart ?? new Date()) : new Date();
-  const renewsAt = wasMidPaidPeriod
-    ? sub!.renewsAt!
-    : (() => { const d = new Date(); d.setMonth(d.getMonth() + (billingInterval === "yearly" ? 12 : 1)); return d; })();
-
-  await db.subscription.upsert({
-    where: { churchId: session.churchId },
-    create: { churchId: session.churchId, plan, interval: billingInterval, status: "active", renewsAt, periodStart },
-    update: { plan, interval: billingInterval, status: "active", renewsAt, periodStart, scheduledPlan: null, cancelAtPeriodEnd: false },
-  });
-
-  const { plans } = await import("@/config/pricing");
-  const planConfig = plans.find((p) => p.id === plan);
-  const { getPlatformConfig } = await import("@/lib/data/platform-config");
-  const platformConfig = await getPlatformConfig();
-  const sym = platformConfig.currencySymbol;
-  const dbPrice = platformConfig.prices[plan];
-  const amount = billingInterval === "yearly" ? (dbPrice?.yearly ?? planConfig?.yearly ?? 0) : (dbPrice?.monthly ?? planConfig?.monthly ?? 0);
-  const chargedGhs = Math.round(amount * platformConfig.usdToGhsRate);
-
-  // Ledger entry. De-dupes on `reference`, so if the webhook already recorded
-  // this charge we simply no-op here.
-  const { recordPlanPayment } = await import("@/lib/billing/payments");
-  await recordPlanPayment({
-    churchId: session.churchId,
-    reference, plan, interval: billingInterval,
-    amountUsd: amount, amountGhs: chargedGhs,
-    usdToGhsRate: platformConfig.usdToGhsRate,
-    periodStart, periodEnd: renewsAt,
-  });
-
-  await sendUpgradeReceipt(session.churchId, planConfig?.name ?? plan, `${sym}${amount.toLocaleString()} (₵${chargedGhs.toLocaleString()})`, billingInterval, reference);
+  const { activatePlanPayment } = await import("@/lib/billing/activate-plan");
+  const result = await activatePlanPayment(txn, session.churchId);
+  if (!result.ok) return { error: result.error };
+  if (result.alreadyProcessed) return { ok: true, alreadyActive: true };
 
   revalidatePath("/app/settings");
   revalidatePath("/app", "layout");
