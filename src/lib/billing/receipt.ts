@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { sendEmail } from "@/lib/integrations/email";
 import { sendSms } from "@/lib/integrations/sms";
+import { escapeHtml } from "@/lib/html";
 
 /** Email + SMS receipt to the church Owner after a plan is switched on. */
 export async function sendUpgradeReceipt(churchId: string, planName: string, amount: string, interval: string, reference: string) {
@@ -23,8 +24,8 @@ export async function sendUpgradeReceipt(churchId: string, planName: string, amo
       html: `
         <div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto">
           <h2 style="color:#0d7377">🚀 You're on the ${planName} plan!</h2>
-          <p>Hi ${admin.name ?? "there"},</p>
-          <p>Your church <strong>${church?.name ?? ""}</strong> has been upgraded to the <strong>${planName}</strong> plan. All new features are now unlocked.</p>
+          <p>Hi ${escapeHtml(admin.name ?? "there")},</p>
+          <p>Your church <strong>${escapeHtml(church?.name ?? "")}</strong> has been upgraded to the <strong>${planName}</strong> plan. All new features are now unlocked.</p>
           <table style="width:100%;border-collapse:collapse;margin:16px 0">
             <tr><td style="padding:8px 0;color:#666">Plan</td><td style="padding:8px 0;font-weight:600">${planName}</td></tr>
             <tr><td style="padding:8px 0;color:#666">Amount</td><td style="padding:8px 0;font-weight:600">${amount}</td></tr>

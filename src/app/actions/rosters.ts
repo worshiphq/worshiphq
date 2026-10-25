@@ -7,6 +7,7 @@ import { moveToBin } from "@/lib/recycle-bin";
 import { logAudit } from "@/lib/audit";
 import type { Prisma } from "@prisma/client";
 import { parseRemindOverride } from "@/lib/rosters/remind";
+import { ownedId } from "@/lib/tenant";
 
 /** "" / invalid → null (relative mode); "0".."6" → that weekday (absolute mode). */
 function parseWeekday(v: FormDataEntryValue | null): number | null {
@@ -48,8 +49,8 @@ export async function addSlot(formData: FormData) {
   const session = await requireManage("volunteers");
   if (session.isDemo) return;
 
-  const rosterId = String(formData.get("rosterId") ?? "").trim();
-  const personId = String(formData.get("personId") ?? "").trim() || null;
+  const rosterId = await ownedId("volunteerRoster", String(formData.get("rosterId") ?? "").trim(), session.churchId);
+  let personId = String(formData.get("personId") ?? "").trim() || null;
   const role = String(formData.get("role") ?? "").trim();
   const service = String(formData.get("service") ?? "").trim() || null;
   const dateStr = String(formData.get("date") ?? "").trim();
@@ -61,6 +62,7 @@ export async function addSlot(formData: FormData) {
   if (personId) {
     const member = await db.person.findFirst({ where: { id: personId, churchId: session.churchId }, select: { firstName: true, lastName: true } });
     if (member) personName = `${member.firstName} ${member.lastName}`.trim();
+    else personId = null; // not one of this church's people
   }
 
   await db.volunteerSlot.create({
@@ -212,8 +214,9 @@ export async function saveServiceSheet(formData: FormData) {
         role: a.role,
         service: s.service,
         date: toDate(s.date, s.time),
-        personId: a.personId || null,
-        personName: a.personId ? (nameById.get(a.personId) ?? null) : (String(a.personName ?? "").trim() || null),
+        // Only this church's members (nameById is built from the church's own people).
+        personId: a.personId && nameById.has(a.personId) ? a.personId : null,
+        personName: a.personId && nameById.has(a.personId) ? (nameById.get(a.personId) ?? null) : (String(a.personName ?? "").trim() || null),
         remindOverride: serviceRemind[i],
       };
       const was = carried.get(slotKey(row));

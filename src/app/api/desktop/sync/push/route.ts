@@ -103,7 +103,15 @@ const REVERSE_RENAMES: Record<string, string> = {
 
 // Fields the desktop is never allowed to overwrite (server-managed).
 const PROTECTED_FIELDS: Record<string, string[]> = {
-  church: ["smsCredits", "isDemo", "suspended", "slug", "termsAcceptedAt"],
+  // Billing, payouts, sender approval, church links and permissions are set by WorshipHQ or through
+  // the web screens that check them, never by a sync.
+  church: [
+    "smsCredits", "isDemo", "suspended", "slug", "termsAcceptedAt", "givingBlocked",
+    "paystackSubaccountCode", "smsTier", "smsSenderId", "smsSenderIdStatus", "smsSenderIdRequestedAt",
+    "smsSenderIdApprovedAt", "smsSenderIdApprovedBy", "parentChurchId", "linkKind", "linkShare",
+    "autoAcceptTransfers", "rolePermissions", "logoUrl", "createdAt", "updatedAt", "lastBackupAt",
+    "lastBackupAttemptAt", "followUpAssigneeId", "rosterAnnounceGroupId", "absenceNotifyUserIds",
+  ],
   user: ["role", "sessionVersion", "inviteToken", "customRoleId", "budgetDepartmentId", "phoneVerified", "emailVerified"],
 };
 
@@ -117,13 +125,36 @@ const DESKTOP_WRITE_ROLES = new Set(["Owner", "Admin"]);
 /* ── Prisma schema metadata: field types per model, for coercion + stripping ── */
 interface FieldMeta { type: string; isList: boolean }
 const MODEL_FIELDS: Record<string, Map<string, FieldMeta>> = {};
+const lowerFirst = (n: string) => n.charAt(0).toLowerCase() + n.slice(1);
+// For each model: foreign-key field -> the model it points at, when that model belongs to a church.
+const CHURCH_FKS: Record<string, Map<string, string>> = {};
+const HAS_CHURCH = new Set(
+  Prisma.dmmf.datamodel.models.filter((m) => m.fields.some((f) => f.name === "churchId")).map((m) => m.name),
+);
 for (const m of Prisma.dmmf.datamodel.models) {
-  const name = m.name.charAt(0).toLowerCase() + m.name.slice(1);
+  const name = lowerFirst(m.name);
   MODEL_FIELDS[name] = new Map(
     m.fields
       .filter((f) => f.kind === "scalar" || f.kind === "enum")
       .map((f) => [f.name, { type: f.type, isList: f.isList }]),
   );
+  const fks = new Map<string, string>();
+  for (const f of m.fields) {
+    if (f.kind !== "object" || !f.relationFromFields?.length || !HAS_CHURCH.has(f.type)) continue;
+    if (f.relationFromFields.length === 1 && f.relationFromFields[0] !== "churchId") fks.set(f.relationFromFields[0], lowerFirst(f.type));
+  }
+  CHURCH_FKS[name] = fks;
+}
+
+/** Every id in the row that points at another record must point at one of this church's records. */
+async function foreignKeysOwned(model: string, mapped: Record<string, any>, churchId: string): Promise<boolean> {
+  for (const [field, target] of CHURCH_FKS[model] ?? []) {
+    const value = mapped[field];
+    if (value === null || value === undefined || value === "") continue;
+    const row = await (db as any)[target]?.findFirst({ where: { id: String(value), churchId }, select: { id: true } });
+    if (!row) return false;
+  }
+  return true;
 }
 
 function toCamelCase(s: string): string {
@@ -275,6 +306,10 @@ export async function POST(req: Request) {
             continue;
           }
           mapped.churchId = auth.cid; // enforce tenant, never trust client
+          if (!(await foreignKeysOwned(model, mapped, auth.cid))) {
+            results.push({ ok: false, error: "points at a record outside this church" });
+            continue;
+          }
           // An id that already exists must belong to this church: an "insert" can never take over another church's row.
           const existing = await prismaModel.findUnique({ where: { id: recordId }, select: { churchId: true } });
           if (existing && existing.churchId !== auth.cid) {
@@ -298,6 +333,10 @@ export async function POST(req: Request) {
           const mapped = mapColumns(table, model, data);
           delete mapped.id;
           delete mapped.churchId; // can't be moved between tenants
+          if (!(await foreignKeysOwned(model, mapped, auth.cid))) {
+            results.push({ ok: false, error: "points at a record outside this church" });
+            continue;
+          }
           if (table === "user") {
             for (const f of USER_UPDATE_BLOCKED) delete mapped[f];
           }
@@ -313,7 +352,7 @@ export async function POST(req: Request) {
         }
       } catch (err: any) {
         console.error(`[sync:push] Failed to apply ${action} on ${table}/${recordId}:`, err?.message);
-        results.push({ ok: false, error: err?.message?.slice(0, 200) ?? "unknown error" });
+        results.push({ ok: false, error: "could not be saved" });
       }
     }
 

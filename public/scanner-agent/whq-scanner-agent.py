@@ -378,11 +378,35 @@ def match_probe_fast(probe_b64):
 
 # ─── HTTP Server ──────────────────────────────────────────
 
+# Only the WorshipHQ site (and a developer's own machine) may talk to the agent. Any other web page
+# the church computer opens gets no access, so it can't read fingerprints or swap the loaded templates.
+ALLOWED_ORIGINS = {
+    "https://worshiphq.app",
+    "https://www.worshiphq.app",
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+}
+
+
+def _origin_allowed(origin):
+    return origin in ALLOWED_ORIGINS
+
+
 class AgentHandler(BaseHTTPRequestHandler):
     def _cors(self):
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
+        origin = self.headers.get("Origin")
+        if origin and _origin_allowed(origin):
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            # Chrome asks before a public site may reach a program on this computer.
+            self.send_header("Access-Control-Allow-Private-Network", "true")
+
+    def _foreign(self):
+        """A browser request from some other website. Programs on this computer send no Origin."""
+        origin = self.headers.get("Origin")
+        return bool(origin) and not _origin_allowed(origin)
 
     def _json(self, code, data):
         body = json.dumps(data).encode()
@@ -394,7 +418,7 @@ class AgentHandler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_OPTIONS(self):
-        self.send_response(204)
+        self.send_response(204 if not self._foreign() else 403)
         self._cors()
         self.end_headers()
 
@@ -410,7 +434,7 @@ class AgentHandler(BaseHTTPRequestHandler):
                 "connected": scanner is not None and scanner_type != "dummy",
                 "scanner": scanner_type or "none",
                 "python_bits": struct.calcsize("P") * 8,
-                "version": "1.2.0",
+                "version": "1.3.0",
                 "agent": "WorshipHQ Scanner Agent",
             })
         else:
@@ -418,8 +442,15 @@ class AgentHandler(BaseHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
-        content_len = int(self.headers.get("Content-Length", 0))
-        body = json.loads(self.rfile.read(content_len)) if content_len > 0 else {}
+        if self._foreign():
+            self._json(403, {"error": "Not allowed from this website."})
+            return
+        content_len = min(int(self.headers.get("Content-Length", 0)), 20_000_000)
+        try:
+            body = json.loads(self.rfile.read(content_len)) if content_len > 0 else {}
+        except ValueError:
+            self._json(400, {"error": "Bad request"})
+            return
 
         if path == "/capture":
             if not scanner:
@@ -512,7 +543,7 @@ def main():
     self_update()  # pull the latest before opening the device
 
     print("=" * 50)
-    print("  WorshipHQ Fingerprint Scanner Agent v1.2")
+    print("  WorshipHQ Fingerprint Scanner Agent v1.3")
     print("=" * 50)
     print()
 
@@ -530,7 +561,18 @@ def main():
     # Threaded so /status answers instantly even while a /capture is waiting for
     # a finger — otherwise the site's status poll queues behind the scan, times
     # out, and wrongly shows "scanner not found / download".
-    server = ThreadingHTTPServer(("0.0.0.0", PORT), AgentHandler)
+    # Listen on this computer only (never the network), on both loopback addresses browsers use for "localhost".
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), AgentHandler)
+    try:
+        import socket
+
+        class _V6Server(ThreadingHTTPServer):
+            address_family = socket.AF_INET6
+
+        v6 = _V6Server(("::1", PORT), AgentHandler)
+        threading.Thread(target=v6.serve_forever, daemon=True).start()
+    except Exception as e:
+        log(f"IPv6 loopback not available: {e}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

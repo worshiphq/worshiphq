@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { sendSms } from "@/lib/integrations/sms";
 import { sendEmail } from "@/lib/integrations/email";
 import type { GiftMethod } from "@prisma/client";
+import { escapeHtml } from "@/lib/html";
 
 /** Map a human label (form value / Paystack metadata) to the Gift method enum. */
 export const GIFT_METHOD_FROM_LABEL: Record<string, GiftMethod> = {
@@ -58,14 +59,18 @@ export async function recordOnlineGift(
   const amount = input.amountGhs;
   if (!amount || amount <= 0) return { created: false };
 
-  // Resolve fund (create on the fly if it doesn't exist yet for this church).
+  // Resolve the fund. Only the church's own funds count: the name comes from a public form, so an
+  // unknown one goes to General instead of creating a new fund (or landing in a receipt text).
   let fundId: string | undefined;
-  const fundName = input.fundName?.trim();
-  if (fundName) {
+  let fundName: string | undefined;
+  const wanted = input.fundName?.trim().slice(0, 80);
+  if (wanted) {
     const fund =
-      (await db.fund.findFirst({ where: { churchId, name: fundName } })) ??
-      (await db.fund.create({ data: { churchId, name: fundName } }));
+      (await db.fund.findFirst({ where: { churchId, name: { equals: wanted, mode: "insensitive" } } })) ??
+      (await db.fund.findFirst({ where: { churchId, name: { equals: "General", mode: "insensitive" } } })) ??
+      (await db.fund.create({ data: { churchId, name: "General" } }));
     fundId = fund.id;
+    fundName = fund.name;
   }
 
   // Try to match an existing member by name.
@@ -75,20 +80,28 @@ export async function recordOnlineGift(
     select: { id: true },
   });
 
-  const gift = await db.gift.create({
-    data: {
-      churchId,
-      personId: person?.id,
-      donorName,
-      fundId,
-      amount,
-      method: input.method ?? "MTN_MoMo",
-      currency: "GHS",
-      reference,
-      receiptSent: false,
-      ...(input.extra?.length ? { extra: input.extra } : {}),
-    },
-  });
+  // The unique (churchId, reference) index makes this the claim: a second delivery at the same moment fails here.
+  let created;
+  try {
+    created = await db.gift.create({
+      data: {
+        churchId,
+        personId: person?.id,
+        donorName,
+        fundId,
+        amount,
+        method: input.method ?? "MTN_MoMo",
+        currency: "GHS",
+        reference,
+        receiptSent: false,
+        ...(input.extra?.length ? { extra: input.extra } : {}),
+      },
+    });
+  } catch {
+    const again = await db.gift.findFirst({ where: { churchId, reference }, select: { id: true } });
+    return { created: false, giftId: again?.id };
+  }
+  const gift = created;
 
   // ── Send a receipt (SMS + email). Stub mode just logs. ──
   const church = await db.church.findUnique({
@@ -136,6 +149,13 @@ function receiptHtml(o: {
   fundName?: string | null;
   reference: string;
 }): string {
+  o = {
+    churchName: escapeHtml(o.churchName),
+    donorName: escapeHtml(o.donorName),
+    amountStr: escapeHtml(o.amountStr),
+    fundName: o.fundName ? escapeHtml(o.fundName) : o.fundName,
+    reference: escapeHtml(o.reference),
+  };
   return `
   <div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px;color:#1c1a16">
     <h2 style="margin:0 0 4px;color:#0d7377">Thank you, ${o.donorName}</h2>

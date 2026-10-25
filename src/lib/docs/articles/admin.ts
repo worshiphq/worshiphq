@@ -213,6 +213,7 @@ export const admin: DocArticle[] = [
       ] },
       { p: "Every Excel download is a finished report: your church name and the report title at the top, the period and date it was made, a coloured header row, neat banded rows, proper money and date formats, filters on the headings and print settings. It uses your church colour." },
       { tip: "CSV files can be edited and brought back in through Import." },
+      { note: "In a CSV file, any text that starts with =, +, - or @ (for example a name someone typed on a public form) has a ' added in front, so a spreadsheet shows it as text instead of running it as a formula. Numbers are left as they are." },
       { note: "Downloading everything at once needs a higher plan. Single tables are available on your plan wherever that section is." },
       { h: "Members, with every detail" },
       { p: "The **Members** download includes every detail you collect, not just the basics: member ID, names, age group, contacts, date of birth, marital status, occupation, employer, addresses, emergency contact, departments, groups, zones and fellowships, status, notes and your own form questions. Next to it, choose **All members**, **Adults**, **Teens** or **Children** to download just one age group. The **People** page downloads the age group you are looking at." },

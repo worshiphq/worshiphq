@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Search, FileText, Printer, ChevronRight, ArrowLeft, HandCoins } from "lucide-react";
 
 import { matchesPerson } from "@/lib/search";
+import { escapeHtml } from "@/lib/html";
 type GiftLine = {
   id: string;
   amount: number;
@@ -57,7 +58,7 @@ export function StatementsClient({
     const w = window.open("", "_blank");
     if (!w) return;
     w.document.write(`
-      <html><head><title>Giving Statement - ${selected?.name}</title>
+      <html><head><title>Giving Statement - ${escapeHtml(selected?.name)}</title>
       <style>
         body { font-family: system-ui, sans-serif; padding: 40px; max-width: 700px; margin: 0 auto; color: #1c1a16; }
         h1 { font-size: 20px; margin-bottom: 4px; }

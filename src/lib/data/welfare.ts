@@ -205,7 +205,7 @@ export async function getMemberDuesDetail(churchId: string, personId: string) {
   const currentYear = now.getFullYear();
   const currentMonth = now.getMonth() + 1;
   const [person, rateRows, dues, church] = await Promise.all([
-    db.person.findUnique({ where: { id: personId }, select: { firstName: true, lastName: true, welfareStart: true, joinedAt: true } }),
+    db.person.findFirst({ where: { id: personId, churchId }, select: { firstName: true, lastName: true, welfareStart: true, joinedAt: true } }),
     db.welfareRate.findMany({ where: { churchId }, select: { year: true, amount: true } }),
     db.welfareDue.findMany({ where: { churchId, personId }, orderBy: [{ year: "desc" }, { month: "asc" }], select: { id: true, year: true, month: true, amount: true } }),
     db.church.findUnique({ where: { id: churchId }, select: { welfareStart: true } }),

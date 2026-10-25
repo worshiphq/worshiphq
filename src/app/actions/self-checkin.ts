@@ -11,7 +11,7 @@ import { categoryForPerson, type AttendanceCategory } from "@/lib/data/attendanc
 import { getAgeConfig } from "@/lib/data/age";
 import { phoneKey } from "@/lib/search";
 import { DEFAULT_TEMPLATES } from "@/lib/automations/run";
-import { authSecret } from "@/lib/auth/tokens";
+import { authSecret, signToken, readToken } from "@/lib/auth/tokens";
 import { smsSafeName, firstWelcomeTo } from "@/lib/public-guard";
 
 const CATEGORY_FIELD: Record<AttendanceCategory, "adults" | "teens" | "children" | "visitors"> = {
@@ -118,6 +118,14 @@ async function allowCheckIn(step: string, ctx: Ctx, perHour: number): Promise<bo
   ]);
 }
 
+// Search results carry a short-lived signed token, never the member's real record id, so the public
+// page can't be used to collect ids. The token only works for the church and service it came from.
+const pickToken = (personId: string, churchId: string) => signToken("checkin-pick", { p: personId, c: churchId }, 30 * 60_000);
+function pickedPerson(token: string, churchId: string): string {
+  const data = readToken<{ p?: string; c?: string }>("checkin-pick", token);
+  return data && data.c === churchId && typeof data.p === "string" ? data.p : "";
+}
+
 export type Candidate = { id: string; name: string; hint: string | null; visitor: boolean };
 
 /** Find yourself by name or phone. Only a short name and the end of the phone number are shown, never the whole roster. */
@@ -152,7 +160,7 @@ export async function findForCheckIn(input: { sessionId: string; query: string }
   });
   return {
     ok: true,
-    people: rows.map((p) => ({ id: p.id, name: shortName(p.firstName, p.lastName), hint: showHint && p.phone ? `phone ends ${phoneKey(p.phone).slice(-3)}` : null, visitor: p.status === "visitor" })),
+    people: rows.map((p) => ({ id: pickToken(p.id, ctx.church.id), name: shortName(p.firstName, p.lastName), hint: showHint && p.phone ? `phone ends ${phoneKey(p.phone).slice(-3)}` : null, visitor: p.status === "visitor" })),
   };
 }
 
@@ -162,7 +170,7 @@ export async function sendCheckInCode(input: { sessionId: string; personId: stri
   if (!ctx) return { ok: false, error: "This check-in link is not available." };
   const bad = await guard(ctx, input);
   if (bad) return { ok: false, error: bad };
-  const person = await db.person.findFirst({ where: { id: input.personId, churchId: ctx.church.id, status: { in: ["active", "visitor"] } }, select: { id: true, phone: true } });
+  const person = await db.person.findFirst({ where: { id: pickedPerson(input.personId, ctx.church.id), churchId: ctx.church.id, status: { in: ["active", "visitor"] } }, select: { id: true, phone: true } });
   if (!person?.phone) return { ok: false, error: "We do not have a phone number for you. Please ask an usher to check you in." };
 
   if (!(await allowCheckIn("code", ctx, 30))) return { ok: false, error: "Too many codes requested from this connection. Please ask an usher." };
@@ -181,7 +189,7 @@ export async function completeCheckIn(input: { sessionId: string; personId: stri
   const ctx = await load(input.sessionId);
   if (!ctx) return { ok: false, error: "This check-in link is not available." };
   const person = await db.person.findFirst({
-    where: { id: input.personId, churchId: ctx.church.id, status: { in: ["active", "visitor"] } },
+    where: { id: pickedPerson(input.personId, ctx.church.id), churchId: ctx.church.id, status: { in: ["active", "visitor"] } },
     select: { id: true, status: true, dateOfBirth: true, birthday: true, phone: true, ageGroup: true },
   });
   if (!person) return { ok: false, error: "We could not find you. Please try again or ask an usher." };

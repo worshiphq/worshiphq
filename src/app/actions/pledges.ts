@@ -14,6 +14,7 @@ import {
   fill,
 } from "@/lib/pledges/templates";
 import type { GiftMethod } from "@prisma/client";
+import { ownedId } from "@/lib/tenant";
 
 const METHOD_FROM_LABEL: Record<string, GiftMethod> = {
   "MTN MoMo": "MTN_MoMo",
@@ -85,8 +86,8 @@ export async function createPledge(formData: FormData) {
   }
   if (!donorName) return { ok: false, error: "Enter the pledger's name." };
 
-  const campaignId = String(formData.get("campaignId") ?? "").trim() || null;
-  const harvestId = String(formData.get("harvestId") ?? "").trim() || null;
+  const campaignId = await ownedId("campaign", String(formData.get("campaignId") ?? "").trim() || null, session.churchId);
+  const harvestId = await ownedId("harvest", String(formData.get("harvestId") ?? "").trim() || null, session.churchId);
   const dueAtStr = String(formData.get("dueAt") ?? "").trim();
   const notes = String(formData.get("notes") ?? "").trim() || null;
   const notify = String(formData.get("notify") ?? "on") !== "off";
@@ -156,8 +157,8 @@ export async function recordPledgePayment(formData: FormData) {
   await db.pledge.update({ where: { id }, data: { fulfilled: newFulfilled } });
 
   if (pledge.campaignId) {
-    await db.campaign.update({
-      where: { id: pledge.campaignId },
+    await db.campaign.updateMany({
+      where: { id: pledge.campaignId, churchId: session.churchId },
       data: { raised: { increment: payment } },
     });
   }

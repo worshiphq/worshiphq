@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { escapeHtml, textToHtml } from "@/lib/html";
 
 /**
  * Tell a team member a follow-up has been assigned to them (SMS if they have a
@@ -19,8 +20,8 @@ export async function notifyFollowUpAssignee(opts: {
   try {
     const [assignee, person, visitor, church] = await Promise.all([
       db.user.findFirst({ where: { id: opts.assigneeId, churchId: opts.churchId }, select: { name: true, phone: true, email: true } }),
-      opts.personId ? db.person.findUnique({ where: { id: opts.personId }, select: { firstName: true, lastName: true, phone: true } }) : Promise.resolve(null),
-      opts.visitorId ? db.visitor.findUnique({ where: { id: opts.visitorId }, select: { firstName: true, lastName: true, phone: true } }) : Promise.resolve(null),
+      opts.personId ? db.person.findFirst({ where: { id: opts.personId, churchId: opts.churchId }, select: { firstName: true, lastName: true, phone: true } }) : Promise.resolve(null),
+      opts.visitorId ? db.visitor.findFirst({ where: { id: opts.visitorId, churchId: opts.churchId }, select: { firstName: true, lastName: true, phone: true } }) : Promise.resolve(null),
       db.church.findUnique({ where: { id: opts.churchId }, select: { name: true, messageTemplates: true } }),
     ]);
     if (!assignee || (!assignee.phone && !assignee.email)) return;
@@ -46,7 +47,7 @@ export async function notifyFollowUpAssignee(opts: {
       await sendEmail({
         to: assignee.email,
         subject: `Follow-up assigned - ${opts.title}`,
-        html: `<p>${msg}</p>${opts.note ? `<p>${opts.note}</p>` : ""}`,
+        html: `<p>${textToHtml(msg)}</p>${opts.note ? `<p>${textToHtml(opts.note)}</p>` : ""}`,
         log: { churchId: opts.churchId, name: `Follow-up assigned: ${opts.title}`, segment: "follow-up" },
       });
     }

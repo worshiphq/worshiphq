@@ -6,6 +6,7 @@ import { requireSession, assertCanWrite } from "@/lib/auth";
 import { nextMemberId } from "@/lib/members/helpers";
 import { logAudit } from "@/lib/audit";
 import { saveMemberCategoryChoices } from "@/lib/members/categories";
+import { ownedId } from "@/lib/tenant";
 
 export async function createChild(formData: FormData) {
   const session = await requireSession();
@@ -22,7 +23,7 @@ export async function createChild(formData: FormData) {
   const grade = String(formData.get("grade") ?? "").trim() || null;
   const guardianName = String(formData.get("guardianName") ?? "").trim() || null;
   const guardianPhone = String(formData.get("guardianPhone") ?? "").trim() || null;
-  const parentId = String(formData.get("parentId") ?? "").trim() || null;
+  const parentId = await ownedId("person", String(formData.get("parentId") ?? "").trim() || null, session.churchId);
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const memberId = await nextMemberId(session.churchId);
 
@@ -82,7 +83,7 @@ export async function updateChild(formData: FormData) {
   const grade = String(formData.get("grade") ?? "").trim() || null;
   const guardianName = String(formData.get("guardianName") ?? "").trim() || null;
   const guardianPhone = String(formData.get("guardianPhone") ?? "").trim() || null;
-  const parentId = String(formData.get("parentId") ?? "").trim() || null;
+  const parentId = await ownedId("person", String(formData.get("parentId") ?? "").trim() || null, session.churchId);
   const phone = String(formData.get("phone") ?? "").trim() || null;
   const rawPhoto = String(formData.get("photoUrl") ?? "").trim();
   const MAX_PHOTO = 2 * 1024 * 1024;

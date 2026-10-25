@@ -8,6 +8,7 @@ import { RecycleBin, moveToBin } from "@/lib/recycle-bin";
 import { notifyFollowUpAssignee } from "@/lib/follow-ups/notify";
 import { REPORT_METHODS, REPORT_OUTCOMES, outcomeLabel } from "@/lib/follow-ups/outcomes";
 import { canManage } from "@/lib/permissions";
+import { ownedId } from "@/lib/tenant";
 
 type Session = Awaited<ReturnType<typeof requireModule>>;
 
@@ -45,6 +46,8 @@ export async function createFollowUp(formData: FormData) {
   // Only assign to people who actually belong to this church.
   const wanted = [...new Set([...formData.getAll("assigneeIds"), formData.get("assigneeId")].map((v) => String(v ?? "").trim()).filter(Boolean))];
   const assigneeIds = await validUserIds(session.churchId, wanted);
+  const ownPersonId = await ownedId("person", personId, session.churchId);
+  const ownVisitorId = await ownedId("visitor", visitorId, session.churchId);
 
   const created = await db.followUp.create({
     data: {
@@ -55,13 +58,13 @@ export async function createFollowUp(formData: FormData) {
       dueDate,
       ...(assigneeIds[0] ? { assignee: { connect: { id: assigneeIds[0] } } } : {}),
       ...(assigneeIds.length ? { assignees: { create: assigneeIds.map((userId) => ({ userId })) } } : {}),
-      ...(personId ? { person: { connect: { id: personId } } } : {}),
-      ...(visitorId ? { visitor: { connect: { id: visitorId } } } : {}),
+      ...(ownPersonId ? { person: { connect: { id: ownPersonId } } } : {}),
+      ...(ownVisitorId ? { visitor: { connect: { id: ownVisitorId } } } : {}),
     },
   });
 
   for (const assigneeId of assigneeIds) {
-    await notifyFollowUpAssignee({ churchId: session.churchId, assigneeId, title, note, dueDate, personId, visitorId });
+    await notifyFollowUpAssignee({ churchId: session.churchId, assigneeId, title, note, dueDate, personId: ownPersonId, visitorId: ownVisitorId });
   }
 
   const assigneeCount = assigneeIds.length;

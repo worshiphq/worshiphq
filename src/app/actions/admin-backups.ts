@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/auth";
 import { createBackup, runScheduledBackups, deleteBackup, getBackupFile } from "@/lib/backups/run";
 import { sendEmail } from "@/lib/integrations/email";
+import { escapeHtml } from "@/lib/html";
 
 export async function adminBackUpChurch(churchId: string): Promise<{ ok: boolean; error?: string }> {
   await requireSuperAdmin();
@@ -68,7 +69,7 @@ export async function adminEmailBackup(id: string): Promise<{ ok: boolean; error
   const res = await sendEmail({
     to,
     subject: `Your WorshipHQ backup - ${church.name}`,
-    html: `<p>Hello,</p><p>Attached is a backup of ${church.name}'s WorshipHQ data from ${stamp}.</p><p>It is encrypted, so it can only be read by WorshipHQ. Keep it somewhere safe. To go back to a saved point, open Settings, then Data backups in WorshipHQ.</p>`,
+    html: `<p>Hello,</p><p>Attached is a backup of ${escapeHtml(church.name)}'s WorshipHQ data from ${stamp}.</p><p>It is encrypted, so it can only be read by WorshipHQ. Keep it somewhere safe. To go back to a saved point, open Settings, then Data backups in WorshipHQ.</p>`,
     attachments: [{ filename: `worshiphq-backup-${file.slug}-${stamp}.whqb`, content: file.sealed }],
     log: { churchId: file.churchId, name: "Backup file sent", segment: "backup" },
   });

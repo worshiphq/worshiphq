@@ -10,7 +10,10 @@ export const dynamic = "force-dynamic";
 
 function cell(v: unknown): string {
   if (v === null || v === undefined) return "";
-  const s = String(v);
+  let s = String(v);
+  // A cell starting with = + - @ runs as a formula in Excel. Text like that (from a public form) is
+  // prefixed with ' so it shows as plain text; real numbers such as -50 are left alone.
+  if (typeof v !== "number" && /^[=+\-@\t\r]/.test(s) && !/^-?\d+(\.\d+)?$/.test(s)) s = `'${s}`;
   return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
 }
 

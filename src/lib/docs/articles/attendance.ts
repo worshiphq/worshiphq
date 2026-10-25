@@ -137,6 +137,7 @@ export const attendance: DocArticle[] = [
       ] },
       { note: "Unplugging the scanner while it's scanning can make it stop responding. If that happens, unplug it, wait a few seconds and plug it back in." },
       { tip: "To remove the scanner software later, use the uninstaller offered in the same setup screen." },
+      { p: "The scanner software only listens on that computer (never the network), only answers WorshipHQ, and updates itself the next time the computer starts. Only people who manage attendance, on a plan with biometric check-in, can register or load fingerprints." },
     ],
   },
   {

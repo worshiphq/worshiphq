@@ -46,3 +46,7 @@ build.log
 apps/media/src-tauri/target/
 apps/media/src-tauri/resources/bibles/*.db
 scripts/image-migration-rollback.json
+
+# Python bytecode (never served from public/)
+__pycache__/
+*.pyc

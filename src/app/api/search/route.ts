@@ -1,6 +1,7 @@
 import { phoneKey } from "@/lib/search";
 import { NextRequest, NextResponse } from "next/server";
 import { getSession } from "@/lib/auth";
+import { hasSection } from "@/lib/permissions";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -28,8 +29,12 @@ export async function GET(req: NextRequest) {
   // A phone number typed with spaces ("024 123 4567") is one search, not three.
   const tokens = /^[+\d][\d\s\-()]*$/.test(q) ? [q.replace(/[\s\-()]/g, "")] : q.split(/\s+/).filter(Boolean);
 
+  // Only search what this person's role may open.
+  const canPeople = hasSection(session, "people") || hasSection(session, "directory");
+  const canGroups = hasSection(session, "groups");
+  const canEvents = hasSection(session, "events");
   const [people, groups, events] = await Promise.all([
-    db.person.findMany({
+    !canPeople ? [] : db.person.findMany({
       where: {
         churchId,
         // Every word typed must match something about the person, so "Kofi Mensah" and "0241234567" both work.
@@ -47,12 +52,12 @@ export async function GET(req: NextRequest) {
       orderBy: [{ firstName: "asc" }],
       take: 6,
     }),
-    db.group.findMany({
+    !canGroups ? [] : db.group.findMany({
       where: { churchId, name: contains },
       select: { id: true, name: true, type: true, _count: { select: { members: true } } },
       take: 4,
     }),
-    db.event.findMany({
+    !canEvents ? [] : db.event.findMany({
       where: { churchId, title: contains },
       select: { id: true, title: true, startsAt: true, location: true },
       orderBy: { startsAt: "desc" },
@@ -66,7 +71,7 @@ export async function GET(req: NextRequest) {
     results.push({
       id: p.id,
       label: `${p.firstName} ${p.lastName}`.trim(),
-      sublabel: p.status === "visitor" ? "Visitor" : p.memberId || p.phone || "Member",
+      sublabel: p.status === "visitor" ? "Visitor" : p.memberId || "Member",
       type: "member",
       href: `/app/people?q=${encodeURIComponent(`${p.firstName} ${p.lastName}`.trim())}`,
       photoUrl: p.photoUrl,

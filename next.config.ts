@@ -22,6 +22,24 @@ const nextConfig: NextConfig = {
   images: {
     remotePatterns: [{ protocol: "https", hostname: "images.unsplash.com" }],
   },
+  poweredByHeader: false,
+  // Security headers on every page: no other site may show WorshipHQ inside a frame (so nobody can
+  // trick a signed-in admin into clicking hidden buttons), browsers don't guess file types, and full
+  // page addresses aren't leaked to other sites.
+  async headers() {
+    return [
+      {
+        source: "/(.*)",
+        headers: [
+          { key: "X-Frame-Options", value: "SAMEORIGIN" },
+          { key: "Content-Security-Policy", value: "frame-ancestors 'self'; base-uri 'self'; object-src 'none'" },
+          { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          { key: "Strict-Transport-Security", value: "max-age=31536000" },
+        ],
+      },
+    ];
+  },
   experimental: {
     staleTimes: {
       dynamic: 300,

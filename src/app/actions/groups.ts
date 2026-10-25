@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { RecycleBin } from "@/lib/recycle-bin";
 import { DEFAULT_MEETING_REMINDER, renderMeetingReminder, parseSchedule } from "@/lib/groups/meeting-reminder";
+import { ownedId } from "@/lib/tenant";
 
 /** Parse the shared group fields (create + edit) from the form. */
 function readGroupFields(formData: FormData) {
@@ -43,6 +44,7 @@ export async function createGroup(formData: FormData) {
   if (session.isDemo) return;
 
   const f = readGroupFields(formData);
+  f.leaderId = await ownedId("person", f.leaderId, session.churchId);
   if (!f.name) return;
 
   const group = await db.group.create({
@@ -79,6 +81,7 @@ export async function updateGroup(formData: FormData) {
 
   const id = String(formData.get("id"));
   const f = readGroupFields(formData);
+  f.leaderId = await ownedId("person", f.leaderId, session.churchId);
   if (!f.name) return;
 
   await db.group.updateMany({

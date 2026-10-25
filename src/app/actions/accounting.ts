@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { ownedId } from "@/lib/tenant";
 
 /** Every ledger entry (all-time) with NO bank account attached, so the admin can
  *  assign each one. Newest first. */
@@ -52,7 +53,7 @@ export async function createTransaction(formData: FormData) {
   const type = String(formData.get("type") ?? "Income");
   const amount = type === "Expense" ? -rawAmount : rawAmount;
 
-  const accountId = String(formData.get("accountId") ?? "").trim() || null;
+  const accountId = await ownedId("churchAccount", String(formData.get("accountId") ?? "").trim() || null, session.churchId);
   await db.transaction.create({
     data: {
       churchId: session.churchId,

@@ -5,6 +5,7 @@ import { requireModule, requireManage } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
 import { logAudit } from "@/lib/audit";
+import { ownedId } from "@/lib/tenant";
 
 /** Budget leaders are scoped to their own department and can't create/delete budgets. */
 function isLeader(session: { budgetDepartmentId?: string | null }) {
@@ -51,6 +52,7 @@ export async function addBudgetItem(formData: FormData) {
   const description = String(formData.get("description") ?? "").trim();
   const amount = parseFloat(String(formData.get("amount") ?? "0"));
   if (!budgetId || !category || !description || !amount) return;
+  if (!(await ownedId("budget", budgetId, session.churchId))) return;
 
   await db.budgetItem.create({
     data: { churchId: session.churchId, budgetId, category, description, amount },

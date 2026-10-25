@@ -205,6 +205,6 @@ export async function GET(req: Request) {
     return NextResponse.json({ changes, count: changes.length, fullTables });
   } catch (err: any) {
     console.error("[sync:pull]", err?.message || err, err?.stack);
-    return NextResponse.json({ error: "Pull failed", detail: err?.message || String(err) }, { status: 500 });
+    return NextResponse.json({ error: "Pull failed" }, { status: 500 });
   }
 }

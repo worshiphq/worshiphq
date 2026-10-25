@@ -25,7 +25,7 @@ export const giving: DocArticle[] = [
         "Choose the account the money goes into, if you use accounts, then **Record gift**.",
       ] },
       { h: "Reading the page" },
-      { p: "Pick the month at the top, and filter the list to **Tithes**, **Offertory** or **Other funds**. The cards show the month's giving (and the change from last month), tithes, offertory and Mobile Money. **Giving by fund** and **How it came in** show where it came from. The list is shown 15 at a time with **Newer** and **Older** buttons. Gifts made online appear here automatically." },
+      { p: "Pick the month at the top, and filter the list to **Tithes**, **Offertory** or **Other funds**. The cards show the month's giving (and the change from last month), tithes, offertory and Mobile Money. **Giving by fund** and **How it came in** show where it came from. The list is shown 15 at a time with **Newer** and **Older** buttons. Gifts made online appear here automatically, under the fund the donor chose (a fund name your church doesn't have goes to **General**)." },
       { list: ["**Export Excel** downloads all giving as a finished report with your church name and a title.", "Delete a gift or an offertory part with its bin button. It goes to the Recycle bin, where you can restore it for 7 days."] },
     ],
   },

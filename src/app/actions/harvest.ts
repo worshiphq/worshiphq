@@ -7,6 +7,7 @@ import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { sendChurchSms } from "@/lib/sms/credits";
 import type { GiftMethod } from "@prisma/client";
 import { DEFAULT_HARVEST_RECEIPT } from "@/lib/harvest/receipt";
+import { ownedId } from "@/lib/tenant";
 
 const METHOD_FROM_LABEL: Record<string, GiftMethod> = {
   "MTN MoMo": "MTN_MoMo",
@@ -70,7 +71,7 @@ export async function recordHarvestContributions(year: number, entries: HarvestE
       data: {
         harvestId: harvest.id,
         churchId: session.churchId,
-        personId: entry.personId || null,
+        personId: await ownedId("person", entry.personId || null, session.churchId),
         donorName: entry.donorName,
         donorPhone: entry.donorPhone || null,
         donorType: entry.donorType,

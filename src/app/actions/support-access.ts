@@ -8,6 +8,7 @@ import { requireSuperAdmin, startGhostSession } from "@/lib/auth";
 import { authSecret } from "@/lib/auth/tokens";
 import { sendSms } from "@/lib/integrations/sms";
 import { sendEmail } from "@/lib/integrations/email";
+import { escapeHtml } from "@/lib/html";
 
 /**
  * Consent-based support access. The platform owner asks to enter a church; a
@@ -87,7 +88,7 @@ export async function requestSupportAccess(churchId: string, reason: string): Pr
     const mail = await sendEmail({
       to: owner.email,
       subject: "WorshipHQ Support access code",
-      html: `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px"><p>${body.split(" Code: ")[0]}.</p><div style="font-size:32px;font-weight:700;letter-spacing:8px;background:#f4f4f5;border-radius:12px;padding:16px;text-align:center">${code}</div><p style="color:#888;font-size:13px">Only share this code if you asked us for help. It expires in ${CODE_TTL_MIN} minutes.</p></div>`,
+      html: `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px"><p>${escapeHtml(body.split(" Code: ")[0])}.</p><div style="font-size:32px;font-weight:700;letter-spacing:8px;background:#f4f4f5;border-radius:12px;padding:16px;text-align:center">${code}</div><p style="color:#888;font-size:13px">Only share this code if you asked us for help. It expires in ${CODE_TTL_MIN} minutes.</p></div>`,
     });
     delivered = mail.ok;
     stubbed = mail.stubbed;

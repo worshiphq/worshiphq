@@ -5,6 +5,7 @@ import { requireModule, requireManage } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
 import { logAudit } from "@/lib/audit";
+import { ownedId } from "@/lib/tenant";
 
 export async function createTestimony(formData: FormData) {
   const session = await requireManage("testimonies");
@@ -17,7 +18,7 @@ export async function createTestimony(formData: FormData) {
   let category = String(formData.get("category") ?? "praise").trim();
   const categoryOther = String(formData.get("categoryOther") ?? "").trim();
   if (category === "other" && categoryOther) category = categoryOther;
-  const personId = String(formData.get("personId") ?? "").trim() || null;
+  const personId = await ownedId("person", String(formData.get("personId") ?? "").trim() || null, session.churchId);
   const anonymous = formData.get("anonymous") === "on";
   const dateStr = String(formData.get("date") ?? "").trim();
 

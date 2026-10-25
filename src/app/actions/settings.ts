@@ -18,6 +18,8 @@ import { audit } from "@/lib/audit";
 import { getBaseUrl } from "@/lib/url";
 import { planRank, type PlanId } from "@/lib/plan-gate";
 import { sendUpgradeReceipt } from "@/lib/billing/receipt";
+import { ownedId } from "@/lib/tenant";
+import { escapeHtml } from "@/lib/html";
 
 /** Update the signed-in user's own name and profile photo. The login email only changes through startEmailChange (password + code). */
 export async function updateProfile(formData: FormData) {
@@ -316,7 +318,9 @@ export async function inviteTeammate(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   const emailRaw = String(formData.get("email") ?? "").toLowerCase().trim();
   const phone = normalisePhone(String(formData.get("phone") ?? ""));
-  const { role, customRoleId } = parseRoleValue(String(formData.get("role") ?? "Volunteer"));
+  const parsedRole = parseRoleValue(String(formData.get("role") ?? "Volunteer"));
+  const role = parsedRole.role;
+  const customRoleId = await ownedId("customRole", parsedRole.customRoleId, session.churchId);
   if (!name || phone.length < 10) return;
 
   // Email is the login identifier but optional to type - synthesize a stable
@@ -367,10 +371,10 @@ export async function inviteTeammate(formData: FormData) {
       to: emailRaw,
       subject: `You've been invited to ${churchName}`,
       html: `
-        <h2>Welcome to ${churchName}</h2>
+        <h2>Welcome to ${escapeHtml(churchName)}</h2>
         <p>You've been invited to join the team on WorshipHQ${role ? ` as <strong>${role}</strong>` : ""}.</p>
         <p><a href="${acceptUrl}">Accept your invite & set up your account →</a></p>
-        ${tempPassword ? `<p>Or sign in with <strong>${email}</strong> and the temporary password you were given.</p>` : ""}
+        ${tempPassword ? `<p>Or sign in with <strong>${escapeHtml(email)}</strong> and the temporary password you were given.</p>` : ""}
       `,
       log: { churchId: session.churchId, name: `Team invite: ${name}`, segment: "invite" },
     });
@@ -454,9 +458,15 @@ export async function changeUserRole(formData: FormData) {
 
   // Can't change your own role
   if (userId === session.userId) return;
-  const { role, customRoleId } = parseRoleValue(value);
+  const parsedRole = parseRoleValue(value);
+  const role = parsedRole.role;
+  const customRoleId = await ownedId("customRole", parsedRole.customRoleId, session.churchId);
+  if (parsedRole.customRoleId && !customRoleId) return;
   // Only Owner can make someone else Owner
   if (role === "Owner" && session.role !== "Owner") return;
+  // Only an Owner can change an Owner's role.
+  const current = await db.user.findFirst({ where: { id: userId, churchId: session.churchId }, select: { role: true } });
+  if (current?.role === "Owner" && session.role !== "Owner") return;
 
   const target = await db.user.findFirst({ where: { id: userId, churchId: session.churchId }, select: { name: true } });
   await db.user.updateMany({

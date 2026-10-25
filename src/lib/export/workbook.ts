@@ -22,20 +22,42 @@ export interface SheetSpec {
 
 export interface LogoImage { buffer: Buffer; width: number; height: number }
 
-/** Fetch the church logo (data URL or web address) and shrink it to a small PNG. Null if anything fails. */
+function isOurStorage(url: string): boolean {
+  try {
+    const host = new URL(url).hostname;
+    const ours = [process.env.R2_PUBLIC_URL, process.env.SUPABASE_URL, process.env.NEXT_PUBLIC_SUPABASE_URL]
+      .filter(Boolean)
+      .map((u) => { try { return new URL(String(u)).hostname; } catch { return ""; } });
+    return url.startsWith("https://") && ours.includes(host);
+  } catch {
+    return false;
+  }
+}
+
+/** PNG, JPEG, GIF or WebP, judged by the file's own first bytes rather than its name. */
+function isRaster(b: Buffer): boolean {
+  const hex = b.subarray(0, 4).toString("hex");
+  return hex === "89504e47" || hex.startsWith("ffd8ff") || hex.startsWith("47494638")
+    || (b.subarray(0, 4).toString() === "RIFF" && b.subarray(8, 12).toString() === "WEBP");
+}
+
+/** Fetch the church logo (data URL or our own storage) and shrink it to a small PNG. Null if anything fails. */
 export async function loadLogo(logoUrl?: string | null): Promise<LogoImage | null> {
   if (!logoUrl) return null;
   try {
     let raw: Buffer;
     if (logoUrl.startsWith("data:")) {
       raw = Buffer.from(logoUrl.slice(logoUrl.indexOf(",") + 1), "base64");
-    } else if (/^https?:\/\//.test(logoUrl)) {
-      const res = await fetch(logoUrl, { signal: AbortSignal.timeout(4000) });
+    } else if (isOurStorage(logoUrl)) {
+      // Only our own image storage is fetched: a logo address can't make the server call anywhere else.
+      const res = await fetch(logoUrl, { signal: AbortSignal.timeout(4000), redirect: "error" });
       if (!res.ok) return null;
       raw = Buffer.from(await res.arrayBuffer());
     } else return null;
+    // Only plain raster images are decoded (never SVG or other formats), and never a huge one.
+    if (raw.length > 5_000_000 || !isRaster(raw)) return null;
     const sharp = (await import("sharp")).default;
-    const out = await sharp(raw).resize({ width: 320, height: 320, fit: "inside" }).png().toBuffer({ resolveWithObject: true });
+    const out = await sharp(raw, { limitInputPixels: 16_000_000 }).resize({ width: 320, height: 320, fit: "inside" }).png().toBuffer({ resolveWithObject: true });
     return { buffer: out.data, width: out.info.width, height: out.info.height };
   } catch {
     return null;

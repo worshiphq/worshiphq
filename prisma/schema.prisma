@@ -795,6 +795,7 @@ model Gift {
   @@index([churchId, date])
   @@index([churchId, branchId])
   @@index([date])
+  @@unique([churchId, reference]) // an online gift is recorded once per Paystack reference
 }
 
 model Campaign {
@@ -1108,6 +1109,7 @@ model SmsTransaction {
 
   @@index([churchId])
   @@index([churchId, createdAt])
+  @@unique([churchId, reference]) // a Paystack top-up is credited once, even if the webhook arrives twice at the same moment
 }
 
 // ── Phone verification (OTP) ──────────────────────────────

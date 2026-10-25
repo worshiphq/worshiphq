@@ -18,16 +18,31 @@ export async function addCredits(
   kind: "topup" | "bonus" | "refund",
   opts?: { note?: string; reference?: string; amountGhs?: number; source?: "paystack" | "granted" | "manual" },
 ): Promise<{ balance: number; created: boolean }> {
-  // Idempotency: don't double-credit a Paystack reference on webhook retries.
+  // Idempotency: a Paystack reference is credited once. The ledger row is written first and the unique
+  // (churchId, reference) index makes it the claim, so two deliveries at the same moment can't both credit.
   if (opts?.reference) {
-    const existing = await db.smsTransaction.findFirst({
-      where: { churchId, reference: opts.reference },
-      select: { id: true },
-    });
-    if (existing) {
-      const bal = await getSmsBalance(churchId);
-      return { balance: bal, created: false };
+    let claimId: string;
+    try {
+      const claim = await db.smsTransaction.create({
+        data: {
+          churchId, kind, credits, balanceAfter: 0,
+          note: opts.note, reference: opts.reference,
+          amountGhs: opts.amountGhs ?? null,
+          source: opts.source ?? (kind === "bonus" ? "granted" : null),
+        },
+        select: { id: true },
+      });
+      claimId = claim.id;
+    } catch {
+      return { balance: await getSmsBalance(churchId), created: false };
     }
+    const after = await db.church.update({
+      where: { id: churchId },
+      data: { smsCredits: { increment: credits } },
+      select: { smsCredits: true },
+    });
+    await db.smsTransaction.update({ where: { id: claimId }, data: { balanceAfter: after.smsCredits } });
+    return { balance: after.smsCredits, created: true };
   }
 
   const updated = await db.church.update({
