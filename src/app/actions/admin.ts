@@ -679,8 +679,12 @@ export async function recordChurchPlan(input: {
   plan: string;
   months: number;
   mode: "gift" | "paid";
-  /** What was actually received, in GHS (only for mode "paid"). */
+  /** What was actually received now, in GHS (only for mode "paid"). */
   amountGhs?: number;
+  /** The price agreed for the whole term, after any discount. More than amountGhs means a balance is still owed. Left out = paid in full. */
+  agreedGhs?: number;
+  /** How much was taken off the standard price (shown on the receipt). */
+  discountGhs?: number;
   /** How it was paid, for example "Mobile Money" or "Bank transfer". */
   method?: string;
   note?: string;
@@ -691,7 +695,7 @@ export async function recordChurchPlan(input: {
   extend?: boolean;
   /** Email (and text) the church a PDF receipt for this. */
   sendReceipt?: boolean;
-}): Promise<{ ok: true; renewsAt: string } | { ok: false; error: string }> {
+}): Promise<{ ok: true; renewsAt: string; receipt?: { id: string; number: string; balance: number } } | { ok: false; error: string }> {
   await requireSuperAdmin();
   const plans = ["starter", "pro", "max"];
   if (!plans.includes(input.plan)) return { ok: false, error: "Choose a plan." };
@@ -702,6 +706,10 @@ export async function recordChurchPlan(input: {
   const paid = input.mode === "paid";
   const amountGhs = paid ? Math.round((Number(input.amountGhs) || 0) * 100) / 100 : 0;
   if (paid && amountGhs <= 0) return { ok: false, error: "Enter how much they paid." };
+  const agreedGhs = paid ? Math.round((Number(input.agreedGhs) || amountGhs) * 100) / 100 : 0;
+  const discountGhs = paid ? Math.max(0, Math.round((Number(input.discountGhs) || 0) * 100) / 100) : 0;
+  if (paid && amountGhs > agreedGhs + 0.005) return { ok: false, error: "They cannot have paid more than the price for this term." };
+  const balanceGhs = paid ? Math.round(Math.max(agreedGhs - amountGhs, 0) * 100) / 100 : 0;
 
   const config = await db.platformConfig.findUnique({ where: { id: "default" }, select: { usdToGhsRate: true, planPrices: true } });
   const rate = config?.usdToGhsRate ?? 12;
@@ -737,19 +745,39 @@ export async function recordChurchPlan(input: {
       interval: months >= 12 ? "yearly" : "monthly",
       amountUsd: paid ? amountGhs / rate : listUsd, // for a gift this is the value given away
       amountGhs,
+      discountUsd: paid ? discountGhs / rate : 0,
       usdToGhsRate: rate,
       kind: "new",
       periodStart: start,
       periodEnd: end,
       source: paid ? "offline" : "granted",
       termMonths: months,
-      note: [paid ? (input.method ? `Paid by ${input.method}` : "Paid outside the app") : "Gift from WorshipHQ", input.note?.trim()].filter(Boolean).join(". "),
+      note: [
+        paid ? (input.method ? `Paid by ${input.method}` : "Paid outside the app") : "Gift from WorshipHQ",
+        paid && balanceGhs > 0 ? `Part payment of GH₵${amountGhs.toLocaleString("en-GB", { minimumFractionDigits: 2 })} towards GH₵${agreedGhs.toLocaleString("en-GB", { minimumFractionDigits: 2 })}` : "",
+        input.note?.trim(),
+      ].filter(Boolean).join(". "),
     },
   });
 
+  const planName = input.plan.charAt(0).toUpperCase() + input.plan.slice(1);
+  const interval = months >= 12 ? "yearly" : "monthly";
+  // A payment you received always gets a receipt you can open and hand over; emailing it is a separate choice.
+  let receipt: { id: string; number: string; balance: number } | undefined;
+  if (paid) {
+    try {
+      const { issueUpgradeReceipt } = await import("@/lib/receipts/service");
+      const { receiptNumber } = await import("@/lib/receipts/types");
+      const issued = await issueUpgradeReceipt({
+        churchId: church.id, planName, interval, reference, amount: amountGhs, discount: discountGhs, agreed: agreedGhs,
+        from: start, to: end, kind: "upgrade", method: input.method?.trim() || "Paid directly", termMonths: months,
+      });
+      if (issued) receipt = { id: issued.row.id, number: receiptNumber(issued.row), balance: balanceGhs };
+    } catch (e) {
+      console.error("[record plan receipt]", (e as Error).message);
+    }
+  }
   if (input.sendReceipt) {
-    const planName = input.plan.charAt(0).toUpperCase() + input.plan.slice(1);
-    const interval = months >= 12 ? "yearly" : "monthly";
     const label = months % 12 === 0 ? `${months / 12} year${months === 12 ? "" : "s"}` : `${months} month${months === 1 ? "" : "s"}`;
     try {
       const { sendUpgradeReceipt } = await import("@/lib/billing/receipt");
@@ -764,7 +792,7 @@ export async function recordChurchPlan(input: {
   revalidatePath("/admin");
   revalidatePath("/admin/revenue");
   revalidatePath("/admin/receipts");
-  return { ok: true, renewsAt: end.toISOString() };
+  return { ok: true, renewsAt: end.toISOString(), receipt };
 }
 
 /** What the SMS provider charges per credit, used for the SMS profit figures. */

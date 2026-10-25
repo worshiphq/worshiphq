@@ -33,7 +33,7 @@ export type ReceiptsPageData = {
 
 const toRow = (r: Receipt, ctx: { latestPaid: Map<string, number>; numbers: Map<string, string> }): ReceiptRow => {
   const root = r.relatedId ?? r.id;
-  const owes = r.kind === "manual" ? round2(Math.max(r.total - r.paid, 0)) : 0;
+  const owes = r.kind === "manual" || r.kind === "upgrade" ? round2(Math.max(r.total - r.paid, 0)) : 0;
   const isLatest = r.paid >= (ctx.latestPaid.get(root) ?? r.paid) - 0.005;
   return {
   id: r.id, number: receiptNumber(r), issuedAt: r.issuedAt.toISOString(), kind: r.kind, brand: r.brand, sheet: r.sheet,
@@ -157,7 +157,7 @@ export async function sendReceiptEmail(id: string, to: string): Promise<{ ok: tr
 export async function payReceiptBalance(input: { id: string; amount: number; method?: string; reference?: string; issuedOn?: string; sendTo?: string }): Promise<CreateReceiptResult> {
   await requireSuperAdmin();
   const prev = await db.receipt.findUnique({ where: { id: input.id } });
-  if (!prev || prev.kind !== "manual") return { ok: false, error: "That receipt was not found." };
+  if (!prev || (prev.kind !== "manual" && prev.kind !== "upgrade")) return { ok: false, error: "That receipt was not found." };
   const root = prev.relatedId ?? prev.id;
   const newest = await db.receipt.findFirst({ where: { OR: [{ id: root }, { relatedId: root }] }, orderBy: { paid: "desc" }, select: { id: true, paid: true } });
   if (newest && newest.paid > prev.paid + 0.005) return { ok: false, error: "A newer receipt already took payments on this sale. Use the newest one." };
@@ -169,11 +169,30 @@ export async function payReceiptBalance(input: { id: string; amount: number; met
   const to = (input.sendTo ?? "").trim();
   if (to && !isEmail(to)) return { ok: false, error: "That email address does not look right." };
 
+  // A balance on a church's plan is also money received: write it into their billing history and Revenue.
+  let reference = input.reference ?? null;
+  if (prev.kind === "upgrade") {
+    if (!prev.churchId) return { ok: false, error: "That receipt is not linked to a church." };
+    const first = await db.receipt.findUnique({ where: { id: root }, select: { reference: true } });
+    const original = first?.reference ? await db.planPayment.findUnique({ where: { reference: first.reference } }) : null;
+    if (!original) return { ok: false, error: "The original payment for this plan was not found." };
+    const rate = original.usdToGhsRate || 12;
+    reference = `OFFLINE-BAL-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    await db.planPayment.create({
+      data: {
+        churchId: prev.churchId, reference, plan: original.plan, interval: original.interval, amountUsd: amount / rate, amountGhs: amount, usdToGhsRate: rate,
+        kind: "balance", periodStart: original.periodStart, periodEnd: original.periodEnd, source: "offline", termMonths: 0,
+        note: [input.method ? `Paid by ${input.method}` : "Paid outside the app", `Balance payment towards ${receiptNumber(prev)}`].join(". "),
+      },
+    });
+    revalidatePath("/admin/revenue");
+  }
+
   const row = await createReceipt({
-    brand: prev.brand === "wodona" ? "wodona" : "worshiphq", sheet: prev.sheet === "half" ? "half" : "a4", kind: "manual", churchId: prev.churchId,
+    brand: prev.brand === "wodona" ? "wodona" : "worshiphq", sheet: prev.sheet === "half" ? "half" : "a4", kind: prev.kind === "upgrade" ? "upgrade" : "manual", churchId: prev.churchId,
     toName: prev.toName, toOrg: prev.toOrg, toEmail: to || prev.toEmail, toPhone: prev.toPhone, toAddress: prev.toAddress,
     currency: prev.currency, items: itemsOf(prev), discount: prev.discount, paid: round2(prev.paid + amount), paidBefore: prev.paid, relatedId: root,
-    method: input.method ?? prev.method, reference: input.reference ?? null, notes: prev.notes, issuedAt: dateFromYmd(input.issuedOn),
+    method: input.method ?? prev.method, reference, notes: prev.notes, issuedAt: dateFromYmd(input.issuedOn),
   });
   revalidatePath("/admin/receipts");
   if (!to) return { ok: true, id: row.id, number: receiptNumber(row), email: "none" };

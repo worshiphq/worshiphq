@@ -251,6 +251,10 @@ export async function issueUpgradeReceipt(a: {
   kind?: "upgrade" | "gift";
   method?: string;
   prorated?: boolean;
+  /** The price agreed for the whole term (after the discount). When more than `amount`, the receipt shows a balance. */
+  agreed?: number;
+  /** Length bought, in months, so a multi-year term reads "5-year subscription". */
+  termMonths?: number;
 }): Promise<{ row: Receipt; pdf: Buffer } | null> {
   const church = await db.church.findUnique({ where: { id: a.churchId }, select: { id: true, name: true, isDemo: true } });
   if (!church || church.isDemo) return null;
@@ -263,6 +267,8 @@ export async function issueUpgradeReceipt(a: {
     const day = (d: Date) => new Intl.DateTimeFormat("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: "Africa/Accra" }).format(d);
     const period = a.from && a.to ? `, ${day(a.from)} to ${day(a.to)}` : "";
     const cadence = a.interval === "yearly" ? "Yearly" : "Monthly";
+    const m = a.termMonths ?? 0;
+    const term = m >= 24 && m % 12 === 0 ? `${m / 12}-year subscription` : m > 1 && m < 12 ? `${m}-month subscription` : `${cadence} subscription`;
     const gift = a.kind === "gift";
     const discount = gift ? 0 : round2(a.discount ?? 0);
     row = await createReceipt({
@@ -270,8 +276,8 @@ export async function issueUpgradeReceipt(a: {
       toName: owner.name || church.name, toOrg: church.name, toEmail: owner.email, toPhone: owner.phone,
       items: [{
         description: `WorshipHQ ${a.planName} plan${a.prorated ? " (upgrade, prorated)" : ""}`,
-        detail: gift ? "Gifted by WODONA" : `${cadence} subscription${period}`,
-        qty: 1, unit: gift ? 0 : round2(a.amount + discount),
+        detail: gift ? "Gifted by WODONA" : `${term}${period}`,
+        qty: 1, unit: gift ? 0 : round2((a.agreed ?? a.amount) + discount),
       }],
       discount, paid: gift ? 0 : round2(a.amount),
       method: a.method ?? (a.reference.startsWith("COUPON-") ? "Coupon" : gift ? "Gift" : "Paystack (Mobile Money or card)"),

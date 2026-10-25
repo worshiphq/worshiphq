@@ -2,6 +2,7 @@ import { Wallet, MessageSquareText, TrendingUp, Gift } from "lucide-react";
 import { requireSuperAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getRevenueOverview } from "@/lib/data/revenue";
+import { getPlatformConfig } from "@/lib/data/platform-config";
 import { AdminShell, AdminCard } from "@/components/admin/admin-shell";
 import { RecordPlanForm, SmsCostForm } from "@/components/admin/record-plan-form";
 import { SMS_RATE } from "@/config/sms";
@@ -12,9 +13,10 @@ const money = (n: number) => `₵${n.toLocaleString("en-GH", { minimumFractionDi
 
 export default async function AdminRevenuePage() {
   const sa = await requireSuperAdmin();
-  const [rev, churches] = await Promise.all([
+  const [rev, churches, config] = await Promise.all([
     getRevenueOverview(),
     db.church.findMany({ where: { isDemo: false }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    getPlatformConfig(),
   ]);
   const max = Math.max(1, ...rev.months.map((m) => m.subscriptions + m.sms));
   const margin = rev.sms.revenue > 0 ? Math.round((rev.sms.profit / rev.sms.revenue) * 100) : 0;
@@ -90,7 +92,7 @@ export default async function AdminRevenuePage() {
         <AdminCard className="p-5">
           <div className="mb-1 text-sm font-semibold text-slate-200">Give a church a plan, or record a payment you received</div>
           <p className="mb-4 text-xs text-slate-400">For a church that paid you directly, or one you are giving a plan to. Choose any length, up to 10 years. It appears in the church&apos;s billing history.</p>
-          <RecordPlanForm churches={churches} />
+          <RecordPlanForm churches={churches} prices={config.prices} rate={config.usdToGhsRate} />
         </AdminCard>
 
         <AdminCard className="p-5">

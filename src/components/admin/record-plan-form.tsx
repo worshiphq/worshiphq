@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Loader2, Check } from "lucide-react";
+import Link from "next/link";
+import { Loader2, Check, Eye, Download, Receipt } from "lucide-react";
 import { recordChurchPlan, setSmsCostPerCredit } from "@/app/actions/admin";
 import { useFeedback } from "@/components/ui/feedback";
 
@@ -17,7 +18,11 @@ const TERMS = [
 ];
 
 /** Put a church on a plan for a stated term and write it into their billing history as a gift or as money you received yourself. */
-export function RecordPlanForm({ churches }: { churches: { id: string; name: string }[] }) {
+const gh = (n: number) => `GH₵${n.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+const round2 = (n: number) => Math.round((n + Number.EPSILON) * 100) / 100;
+const num = (v: string) => { const n = parseFloat(v); return Number.isFinite(n) && n > 0 ? n : 0; };
+
+export function RecordPlanForm({ churches, prices, rate }: { churches: { id: string; name: string }[]; prices: Record<string, { monthly: number; yearly: number }>; rate: number }) {
   const { toast } = useFeedback();
   const [q, setQ] = useState("");
   const [churchId, setChurchId] = useState("");
@@ -25,6 +30,10 @@ export function RecordPlanForm({ churches }: { churches: { id: string; name: str
   const [months, setMonths] = useState(12);
   const [mode, setMode] = useState<"paid" | "gift">("paid");
   const [amount, setAmount] = useState("");
+  const [paidFull, setPaidFull] = useState(true);
+  const [discMode, setDiscMode] = useState<"pct" | "amount" | "price">("amount");
+  const [discVal, setDiscVal] = useState("");
+  const [done, setDone] = useState<{ church: string; until: string; receipt?: { id: string; number: string; balance: number } } | null>(null);
   const [method, setMethod] = useState("Mobile Money");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
@@ -34,14 +43,37 @@ export function RecordPlanForm({ churches }: { churches: { id: string; name: str
   const matches = useMemo(() => churches.filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 8), [churches, q]);
   const chosen = churches.find((c) => c.id === churchId);
 
+  // The standard price of this plan for this term, in cedis, then the discount (typed as a percentage, an amount, or the price they agree).
+  const money = useMemo(() => {
+    const p = prices[plan];
+    const usd = p ? (months >= 12 ? (p.yearly / 12) * months : p.monthly * months) : 0;
+    const list = round2(usd * rate);
+    const wanted = discMode === "pct" ? (list * Math.min(num(discVal), 100)) / 100 : discMode === "price" ? (discVal.trim() === "" ? 0 : list - num(discVal)) : num(discVal);
+    const discount = round2(Math.min(Math.max(wanted, 0), list));
+    const agreed = round2(list - discount);
+    const received = paidFull ? agreed : round2(Math.min(num(amount), agreed));
+    return { list, discount, agreed, received, balance: round2(Math.max(agreed - received, 0)), pct: list > 0 ? round2((discount / list) * 100) : 0 };
+  }, [prices, plan, months, rate, discMode, discVal, paidFull, amount]);
+  const shown = {
+    pct: discMode === "pct" ? discVal : money.discount > 0 ? String(money.pct) : "",
+    amount: discMode === "amount" ? discVal : money.discount > 0 ? String(money.discount) : "",
+    price: discMode === "price" ? discVal : money.discount > 0 ? String(money.agreed) : "",
+  };
+
   async function save() {
     if (!churchId) { toast("Choose a church first.", "error"); return; }
     setBusy(true);
-    const r = await recordChurchPlan({ churchId, plan, months, mode, amountGhs: mode === "paid" ? Number(amount) : 0, method: mode === "paid" ? method : undefined, note, extend, sendReceipt });
+    if (mode === "paid" && money.received <= 0) { setBusy(false); toast("Enter how much they paid now.", "error"); return; }
+    const r = await recordChurchPlan({
+      churchId, plan, months, mode, amountGhs: mode === "paid" ? money.received : 0, agreedGhs: mode === "paid" ? money.agreed : undefined, discountGhs: mode === "paid" ? money.discount : undefined,
+      method: mode === "paid" ? method : undefined, note, extend, sendReceipt,
+    });
     setBusy(false);
     if (r.ok) {
-      toast(`Done. ${chosen?.name} is on ${plan} until ${new Date(r.renewsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.`, "success");
-      setAmount(""); setNote("");
+      const until = new Date(r.renewsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+      toast(`Done. ${chosen?.name} is on ${plan} until ${until}.`, "success");
+      setDone({ church: chosen?.name ?? "", until, receipt: r.receipt });
+      setAmount(""); setNote(""); setDiscVal(""); setDiscMode("amount"); setPaidFull(true);
     } else toast(r.error, "error");
   }
 
@@ -98,14 +130,34 @@ export function RecordPlanForm({ churches }: { churches: { id: string; name: str
       </div>
 
       {mode === "paid" && (
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="space-y-3">
           <div>
-            <label className="mb-1 block text-xs font-medium text-slate-400">Amount received (GHS)</label>
-            <input inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))} placeholder="e.g. 2400" className={field} />
+            <span className="mb-1 block text-xs font-medium text-slate-400">Discount (optional). Fill in any one, the others work themselves out</span>
+            <div className="grid grid-cols-3 gap-2">
+              <div><label className="mb-1 block text-[11px] text-slate-500" htmlFor="rp-pct">Percent off (%)</label><input id="rp-pct" inputMode="decimal" value={shown.pct} onChange={(e) => { setDiscMode("pct"); setDiscVal(e.target.value.replace(/[^\d.]/g, "")); }} placeholder="0" className={field} /></div>
+              <div><label className="mb-1 block text-[11px] text-slate-500" htmlFor="rp-amt">Amount off (GH₵)</label><input id="rp-amt" inputMode="decimal" value={shown.amount} onChange={(e) => { setDiscMode("amount"); setDiscVal(e.target.value.replace(/[^\d.]/g, "")); }} placeholder="0.00" className={field} /></div>
+              <div><label className="mb-1 block text-[11px] text-slate-500" htmlFor="rp-price">Price they pay (GH₵)</label><input id="rp-price" inputMode="decimal" value={shown.price} onChange={(e) => { setDiscMode("price"); setDiscVal(e.target.value.replace(/[^\d.]/g, "")); }} placeholder={money.list ? String(money.list) : "0.00"} className={field} /></div>
+            </div>
           </div>
-          <div>
-            <label className="mb-1 block text-xs font-medium text-slate-400">How they paid</label>
-            <input value={method} onChange={(e) => setMethod(e.target.value)} placeholder="Mobile Money, bank, cash…" className={field} />
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-400" htmlFor="rp-recv">Amount received now (GHS)</label>
+              <input id="rp-recv" inputMode="decimal" disabled={paidFull} value={paidFull ? String(money.agreed) : amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.]/g, ""))} placeholder="e.g. 4000" className={field} />
+              <label className="mt-1.5 flex items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={paidFull} onChange={(e) => setPaidFull(e.target.checked)} /> Paid in full</label>
+            </div>
+            <div>
+              <label className="mb-1 block text-xs font-medium text-slate-400" htmlFor="rp-method">How they paid</label>
+              <input id="rp-method" value={method} onChange={(e) => setMethod(e.target.value)} placeholder="Mobile Money, bank, cash…" className={field} />
+            </div>
+          </div>
+          <div className="rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-sm" aria-live="polite">
+            <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1">
+              <span className="text-slate-400">Standard <b className="text-slate-300">{gh(money.list)}</b></span>
+              <span className="text-slate-400">Agreed price <b className="text-slate-100">{gh(money.agreed)}</b>{money.discount > 0 && <span className="text-slate-500"> ({gh(money.discount)} off, {money.pct}%)</span>}</span>
+              <span className="text-slate-400">Received <b className="text-slate-100">{gh(money.received)}</b></span>
+              <span className={money.balance > 0 ? "text-amber-300" : "text-teal-300"}>{money.balance > 0 ? <>Balance <b>{gh(money.balance)}</b></> : "Fully paid"}</span>
+            </div>
+            {money.balance > 0 && <p className="mt-1.5 text-xs text-slate-500">The plan is switched on for the whole term now. When they pay the balance, press <b>Record balance payment</b> beside this receipt on the Receipts page. It adds the money to Revenue and makes a second receipt that says paid in full.</p>}
           </div>
         </div>
       )}
@@ -123,6 +175,21 @@ export function RecordPlanForm({ churches }: { churches: { id: string; name: str
       <button onClick={save} disabled={busy || !churchId} className="inline-flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-slate-950 hover:bg-teal-400 disabled:opacity-50">
         {busy ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : <><Check className="size-4" /> Record it</>}
       </button>
+      {done && (
+        <div className="rounded-lg border border-teal-500/30 bg-teal-500/10 p-3 text-sm">
+          <div className="flex items-center gap-2 font-medium text-teal-200"><Check className="size-4" /> {done.church} is on the plan until {done.until}.</div>
+          {done.receipt ? (
+            <>
+              <p className="mt-1 text-xs text-slate-300">Receipt {done.receipt.number} is ready to hand over.{done.receipt.balance > 0 ? ` A balance of ${gh(done.receipt.balance)} is still owed. Record it from the Receipts page when they pay.` : ""}</p>
+              <div className="mt-2 flex flex-wrap gap-2">
+                <a href={`/api/admin/receipts/${done.receipt.id}/pdf`} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-white/10"><Eye className="size-3.5" /> View receipt</a>
+                <a href={`/api/admin/receipts/${done.receipt.id}/pdf?download=1`} className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-white/10"><Download className="size-3.5" /> Download PDF</a>
+                <Link href="/admin/receipts" className="inline-flex items-center gap-1.5 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-xs font-medium text-slate-200 hover:bg-white/10"><Receipt className="size-3.5" /> All receipts</Link>
+              </div>
+            </>
+          ) : mode === "paid" ? <p className="mt-1 text-xs text-slate-300">No receipt was made because this church has no Owner or Admin user to address it to. You can make one by hand on the Receipts page.</p> : null}
+        </div>
+      )}
       <p className="text-xs text-slate-500">If the church is already on this plan, the time is added to the end of what they have. It shows in their Billing history and here.</p>
     </div>
   );
