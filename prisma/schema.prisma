@@ -30,6 +30,8 @@ model PlatformConfig {
   // Shape per plan: { name, tagline, membersLabel, memberLimit, teamUsers,
   //                   featured, cta, marketingFeatures: [], features: [] }
   planDefs Json?
+  // WODONA / WorshipHQ details printed on receipts (address, phone, email, registration number, who issues them).
+  receiptSettings Json?
   // ── Refund policy (surfaced in the Refund Policy page and enforced in code) ──
   /** Days a church may request a refund on their FIRST paid subscription. */
   refundWindowFirstDays   Int @default(14)
@@ -286,6 +288,7 @@ model Church {
   followUpDigestSent  String?  // local YYYY-MM-DD the daily due/overdue email last went out
   // SuperAdmin can block a church's online giving outright (e.g. suspected scam).
   givingBlocked       Boolean  @default(false)
+  receipts Receipt[]
 }
 
 /// One encrypted snapshot of a church's data, stored in R2 (objectKey). Rows
@@ -2061,6 +2064,43 @@ model BiometricDeviceCommand {
   doneAt    DateTime?
 
   @@index([deviceId, sentAt])
+}
+
+// ── Receipts ─────────────────────────────────────────────
+// A PDF receipt WODONA / WorshipHQ gave out: automatic ones (a church registered, a church upgraded) and ones made by hand
+// in /admin/receipts. The PDF itself is not stored: it is drawn again from these fields, so a receipt can always be re-sent.
+model Receipt {
+  id        String   @id @default(cuid())
+  brand     String   // "worshiphq" (a WODONA product) | "wodona"
+  year      Int      // numbering restarts each year
+  seq       Int      // 1, 2, 3 ... within the brand and year
+  kind      String   // manual | registration | upgrade | gift
+  sheet     String   @default("a4") // a4 | half (half = the top or bottom half of an A4)
+  churchId  String?
+  church    Church?  @relation(fields: [churchId], references: [id], onDelete: SetNull)
+  toName    String
+  toOrg     String?
+  toEmail   String?
+  toPhone   String?
+  toAddress String?
+  currency  String   @default("GHS")
+  items     Json     // [{ description, detail?, qty, unit }]
+  discount  Float    @default(0)
+  total     Float
+  paid      Float
+  method    String?
+  reference String?
+  notes     String?
+  signatureLines Boolean @default(false)
+  issuedAt  DateTime @default(now())
+  emailedAt DateTime?
+  emailStatus String? // sent | failed | stubbed
+  emailError  String?
+  createdAt DateTime @default(now())
+
+  @@unique([brand, year, seq])
+  @@index([churchId])
+  @@index([issuedAt])
 }
 
 // ── SuperAdmin outreach ────────────────────────────────

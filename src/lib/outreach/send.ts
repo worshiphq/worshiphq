@@ -4,6 +4,8 @@ import { env } from "@/lib/env";
 import { sendEmail } from "@/lib/integrations/email";
 import { sendSms } from "@/lib/integrations/sms";
 import { firstName, mergeFields, renderEmailHtml, templateById, type OutreachChannel } from "@/lib/outreach/templates";
+import { issueRegistrationReceipt } from "@/lib/receipts/service";
+import { receiptNumber } from "@/lib/receipts/types";
 
 /** Replies to our emails and the contact shown in them: the platform owner's inbox. */
 export const outreachContact = () => env.SUPERADMIN_EMAIL;
@@ -20,6 +22,10 @@ type SendInput = {
   subject?: string;
   body?: string;
   auto?: boolean;
+  /** Files to attach to an email (the welcome email carries the free-forever receipt). */
+  attachments?: { filename: string; content: Buffer }[];
+  /** A line added at the end of the email body. */
+  appendBody?: string;
 };
 
 /** Send one email or text to one church contact and keep a record of it. */
@@ -34,7 +40,10 @@ export async function sendOutreach(input: SendInput): Promise<OutreachResult> {
   const contact = outreachContact();
   const merge = { name: firstName(user.name), church: church.name, contact };
   const subject = mergeFields(input.subject ?? tpl?.subject ?? "A message from WorshipHQ", merge).trim();
-  const body = mergeFields(input.body ?? tpl?.body ?? "", merge).trim();
+  const written = mergeFields(input.body ?? tpl?.body ?? "", merge).trim();
+  const body = written && input.appendBody ? `${written}
+
+${input.appendBody}` : written;
   if (!body) return { ok: false, status: "failed", error: "The message is empty." };
 
   let status: OutreachStatus;
@@ -45,7 +54,7 @@ export async function sendOutreach(input: SendInput): Promise<OutreachResult> {
     to = user.email;
     if (!to) return { ok: false, status: "failed", error: "This contact has no email address." };
     if (!subject) return { ok: false, status: "failed", error: "Add a subject." };
-    const r = await sendEmail({ to, subject, html: renderEmailHtml({ subject, body, church: church.name, contact }), replyTo: contact });
+    const r = await sendEmail({ to, subject, html: renderEmailHtml({ subject, body, church: church.name, contact }), replyTo: contact, ...(input.attachments?.length ? { attachments: input.attachments } : {}) });
     status = r.stubbed ? "stubbed" : r.ok ? "sent" : "failed";
     if (!r.ok) error = r.error ?? "The email provider refused it.";
   } else {
@@ -76,5 +85,28 @@ export async function sendWelcome(churchId: string, auto: boolean): Promise<Outr
   const owner = await db.user.findFirst({ where: { churchId, role: "Owner" }, orderBy: { createdAt: "asc" }, select: { id: true } })
     ?? await db.user.findFirst({ where: { churchId, role: "Admin" }, orderBy: { createdAt: "asc" }, select: { id: true } });
   if (!owner) return { ok: false, status: "failed", error: "This church has no owner or admin." };
-  return sendOutreach({ churchId, userId: owner.id, channel: "email", template: "welcome", auto });
+
+  // A church on the free plan gets its free-forever welcome receipt (PDF) with the email. A failure here never stops the welcome.
+  let receipt: Awaited<ReturnType<typeof issueRegistrationReceipt>> = null;
+  try {
+    receipt = await issueRegistrationReceipt(churchId);
+  } catch (e) {
+    console.error("[welcome receipt]", (e as Error).message);
+  }
+  const result = await sendOutreach({
+    churchId, userId: owner.id, channel: "email", template: "welcome", auto,
+    ...(receipt
+      ? {
+          attachments: [{ filename: `Receipt ${receiptNumber(receipt.row)}.pdf`, content: receipt.pdf }],
+          appendBody: "P.S. Your free-forever welcome receipt is attached as a PDF, for your records. Your account is free, and it stays free.",
+        }
+      : {}),
+  });
+  if (receipt) {
+    await db.receipt.update({
+      where: { id: receipt.row.id },
+      data: { emailStatus: result.status, emailError: result.error ?? null, ...(result.ok ? { emailedAt: new Date() } : {}) },
+    }).catch(() => {});
+  }
+  return result;
 }

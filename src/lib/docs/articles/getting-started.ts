@@ -20,6 +20,7 @@ export const gettingStarted: DocArticle[] = [
         "**Plans & billing**: choosing, paying for and changing your plan.",
       ] },
       { p: "Every guide shows which plan it needs (when it isn't on every plan), who in your team can do it, and a link that opens that part of WorshipHQ." },
+      { p: "When you create your account, we email you a welcome message with a PDF receipt attached. On the free plan it is your free forever receipt: your account is free, and it stays free." },
       { h: "Where to begin" },
       { steps: [
         "Create your church account (see **Create your church account**).",

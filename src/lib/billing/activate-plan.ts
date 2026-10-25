@@ -96,7 +96,13 @@ export async function activatePlanPayment(txn: PaystackTxn, expectChurchId?: str
     const { plans } = await import("@/config/pricing");
     const { sendUpgradeReceipt } = await import("@/lib/billing/receipt");
     const name = plans.find((p) => p.id === plan)?.name ?? plan;
-    await sendUpgradeReceipt(churchId, name, `₵${amountGhs.toLocaleString()}`, interval, reference);
+    await sendUpgradeReceipt(churchId, name, `₵${amountGhs.toLocaleString()}`, interval, reference, {
+      amountGhs,
+      discountGhs: couponId ? Math.max(0, Math.round(((Number(sealed?.listAmountUsd) || 0) - displayUsd) * rate)) : 0,
+      from: periodStart,
+      to: renewsAt,
+      prorated,
+    });
   } catch (e) {
     console.error("[billing] upgrade receipt failed:", (e as Error).message);
   }

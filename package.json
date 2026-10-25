@@ -18,6 +18,7 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.1144.0",
     "@paystack/inline-js": "^2.24.0",
+    "@pdf-lib/fontkit": "^1.1.1",
     "@prisma/client": "^6.19.3",
     "@splinetool/react-spline": "^4.1.0",
     "@splinetool/runtime": "^1.12.97",
@@ -32,6 +33,7 @@
     "motion": "^12.40.0",
     "next": "^16.4.2",
     "nodemailer": "^10.1.7",
+    "pdf-lib": "^1.17.1",
     "qrcode.react": "^4.2.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",

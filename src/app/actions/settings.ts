@@ -812,7 +812,9 @@ export async function changePlan(
       couponId, discountUsd: listAmount,
       periodStart, periodEnd: renewsAt,
     });
-    await sendUpgradeReceipt(session.churchId, planConfig.name, "Free (100% coupon)", interval, `COUPON-${Date.now()}`);
+    await sendUpgradeReceipt(session.churchId, planConfig.name, "Free (100% coupon)", interval, `COUPON-${Date.now()}`, {
+      amountGhs: 0, discountGhs: Math.round(listAmount * platformConfig.usdToGhsRate), from: periodStart, to: renewsAt, method: "Coupon",
+    });
     revalidatePath("/app/settings");
     revalidatePath("/app", "layout");
     return { ok: true as const, plan };
@@ -867,7 +869,9 @@ export async function changePlan(
       periodStart, periodEnd: renewsAt,
     });
     const sym = platformConfig.currencySymbol;
-    await sendUpgradeReceipt(session.churchId, planConfig.name, `${sym}${amount.toLocaleString()} (₵${chargeAmountGhs.toLocaleString()})`, interval, reference);
+    await sendUpgradeReceipt(session.churchId, planConfig.name, `${sym}${amount.toLocaleString()} (₵${chargeAmountGhs.toLocaleString()})`, interval, reference, {
+      amountGhs: chargeAmountGhs, discountGhs: Math.max(0, Math.round((listAmount - amount) * platformConfig.usdToGhsRate)), from: periodStart, to: renewsAt, prorated: isProratedUpgrade,
+    });
     revalidatePath("/app/settings");
     revalidatePath("/app", "layout");
     return { ok: true, plan };
@@ -960,7 +964,9 @@ export async function redeemPlanBypass(code: string) {
 
   const { plans } = await import("@/config/pricing");
   const planConfig = plans.find((p) => p.id === sub.bypassPlan);
-  await sendUpgradeReceipt(session.churchId, planConfig?.name ?? sub.bypassPlan, "Free (SuperAdmin gift)", "yearly", `BYPASS-${Date.now()}`);
+  await sendUpgradeReceipt(session.churchId, planConfig?.name ?? sub.bypassPlan, "Free (SuperAdmin gift)", "yearly", `BYPASS-${Date.now()}`, {
+    amountGhs: 0, kind: "gift", from: new Date(), to: renewsAt,
+  });
 
   revalidatePath("/app/settings");
   revalidatePath("/app", "layout");

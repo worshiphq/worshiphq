@@ -39,6 +39,8 @@ export const billing: DocArticle[] = [
         "At the top of **Billing** you see your plan, its price, when it renews and how much of the period is left, plus how many members, team logins and SMS credits you have against what your plan allows.",
         "**Payments and receipts** lists every plan payment, gift and SMS top-up with its date, amount, how it was paid (online, directly to us, or a gift) and a note. Filter it by **Plan** or **SMS credits**; it shows 8 at a time with **Newer** and **Older** buttons.",
       ] },
+      { h: "Your PDF receipt" },
+      { p: "Every time you upgrade, we email you a PDF receipt (full A4, from WODONA, the company behind WorshipHQ) with the plan, the period it covers, any discount and the amount paid, signed and dated by WODONA. Gifted upgrades and discount-code upgrades get one too, marked **Gift** or with the discount shown. Keep it for your church records. If you did not get it, check your spam folder and the email address on your account." },
       { h: "Gifted upgrades" },
       { p: "If WorshipHQ gives your church a free upgrade, you'll get a code by SMS. Enter it in **Billing** to activate it. Gifts, and payments made directly to WorshipHQ outside the app, are recorded in **Payments and receipts** too, marked **Gift** or **Paid directly**, for as long a term as was agreed (for example 3 or 5 years)." },
     ],
