@@ -684,6 +684,13 @@ export async function recordChurchPlan(input: {
   /** How it was paid, for example "Mobile Money" or "Bank transfer". */
   method?: string;
   note?: string;
+  /**
+   * false = the church is already on this plan with time left, and you only want the payment written down
+   * (for example a church you switched on before the money arrived). Their dates stay exactly as they are.
+   */
+  extend?: boolean;
+  /** Email (and text) the church a PDF receipt for this. */
+  sendReceipt?: boolean;
 }): Promise<{ ok: true; renewsAt: string } | { ok: false; error: string }> {
   await requireSuperAdmin();
   const plans = ["starter", "pro", "max"];
@@ -704,11 +711,14 @@ export async function recordChurchPlan(input: {
   const sub = await db.subscription.findUnique({ where: { churchId: church.id } });
   const now = new Date();
   const sameAndActive = sub && sub.plan === input.plan && sub.renewsAt && sub.renewsAt > now;
-  const start = sameAndActive ? sub!.renewsAt! : now;
+  const extend = input.extend !== false;
+  if (!extend && !sameAndActive) return { ok: false, error: "That church is not on this plan right now, so there is nothing to attach the payment to. Leave \"add the time\" ticked." };
+  const start = extend ? (sameAndActive ? sub!.renewsAt! : now) : new Date(sub!.renewsAt!);
   const end = new Date(start);
-  end.setMonth(end.getMonth() + months);
+  if (extend) end.setMonth(end.getMonth() + months);
+  else start.setMonth(start.getMonth() - months); // the period this payment covers ends where their plan already ends
 
-  await db.subscription.upsert({
+  if (extend) await db.subscription.upsert({
     where: { churchId: church.id },
     create: { churchId: church.id, plan: input.plan, interval: months >= 12 ? "yearly" : "monthly", status: "active", periodStart: now, renewsAt: end },
     update: {
@@ -718,10 +728,11 @@ export async function recordChurchPlan(input: {
     },
   });
 
+  const reference = `${paid ? "OFFLINE" : "GIFT"}-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
   await db.planPayment.create({
     data: {
       churchId: church.id,
-      reference: `${paid ? "OFFLINE" : "GIFT"}-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+      reference,
       plan: input.plan,
       interval: months >= 12 ? "yearly" : "monthly",
       amountUsd: paid ? amountGhs / rate : listUsd, // for a gift this is the value given away
@@ -736,8 +747,23 @@ export async function recordChurchPlan(input: {
     },
   });
 
+  if (input.sendReceipt) {
+    const planName = input.plan.charAt(0).toUpperCase() + input.plan.slice(1);
+    const interval = months >= 12 ? "yearly" : "monthly";
+    const label = months % 12 === 0 ? `${months / 12} year${months === 12 ? "" : "s"}` : `${months} month${months === 1 ? "" : "s"}`;
+    try {
+      const { sendUpgradeReceipt } = await import("@/lib/billing/receipt");
+      await sendUpgradeReceipt(church.id, planName, paid ? `GH₵${amountGhs.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${label})` : `Gift (${label})`, interval, reference, {
+        amountGhs, from: start, to: end, kind: paid ? "upgrade" : "gift", method: paid ? input.method?.trim() || "Paid directly" : undefined,
+      });
+    } catch (e) {
+      console.error("[record plan receipt]", (e as Error).message);
+    }
+  }
+
   revalidatePath("/admin");
   revalidatePath("/admin/revenue");
+  revalidatePath("/admin/receipts");
   return { ok: true, renewsAt: end.toISOString() };
 }
 

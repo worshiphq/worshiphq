@@ -28,6 +28,8 @@ export function RecordPlanForm({ churches }: { churches: { id: string; name: str
   const [method, setMethod] = useState("Mobile Money");
   const [note, setNote] = useState("");
   const [busy, setBusy] = useState(false);
+  const [extend, setExtend] = useState(true);
+  const [sendReceipt, setSendReceipt] = useState(true);
 
   const matches = useMemo(() => churches.filter((c) => c.name.toLowerCase().includes(q.trim().toLowerCase())).slice(0, 8), [churches, q]);
   const chosen = churches.find((c) => c.id === churchId);
@@ -35,7 +37,7 @@ export function RecordPlanForm({ churches }: { churches: { id: string; name: str
   async function save() {
     if (!churchId) { toast("Choose a church first.", "error"); return; }
     setBusy(true);
-    const r = await recordChurchPlan({ churchId, plan, months, mode, amountGhs: mode === "paid" ? Number(amount) : 0, method: mode === "paid" ? method : undefined, note });
+    const r = await recordChurchPlan({ churchId, plan, months, mode, amountGhs: mode === "paid" ? Number(amount) : 0, method: mode === "paid" ? method : undefined, note, extend, sendReceipt });
     setBusy(false);
     if (r.ok) {
       toast(`Done. ${chosen?.name} is on ${plan} until ${new Date(r.renewsAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}.`, "success");
@@ -107,6 +109,11 @@ export function RecordPlanForm({ churches }: { churches: { id: string; name: str
           </div>
         </div>
       )}
+
+      <div className="space-y-2 rounded-lg border border-white/10 bg-white/[0.03] p-3 text-sm text-slate-300">
+        <label className="flex items-start gap-2"><input type="checkbox" className="mt-1" checked={extend} onChange={(e) => setExtend(e.target.checked)} /> <span>Add this time to the church&apos;s plan<span className="block text-xs text-slate-500">Untick it if the church is already on this plan and you only want the payment written down. Their dates will not change.</span></span></label>
+        <label className="flex items-start gap-2"><input type="checkbox" className="mt-1" checked={sendReceipt} onChange={(e) => setSendReceipt(e.target.checked)} /> <span>Email the church a PDF receipt<span className="block text-xs text-slate-500">Goes to the church Owner, with your signature. It also shows under Receipts.</span></span></label>
+      </div>
 
       <div>
         <label className="mb-1 block text-xs font-medium text-slate-400">Note (the church sees this in their billing history)</label>
