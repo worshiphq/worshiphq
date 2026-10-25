@@ -119,7 +119,9 @@ export async function recordPunch(device: Device, input: { pin: string; at: Date
   );
   const field: Record<string, string> = { adult: "adults", teen: "teens", child: "children", visitor: "visitors" };
   await db.attendanceRecord.create({
-    data: { churchId: device.churchId, branchId: sess.branchId ?? undefined, personId: person.id, sessionId: sess.id, category, serviceName: sess.serviceName, date: at, method: "biometric" },
+    data: { churchId: device.churchId, branchId: sess.branchId ?? undefined, personId: person.id, sessionId: sess.id, category, serviceName: sess.serviceName, date: at, method: "biometric",
+      // How the device recognised them (face / palm / fingerprint), so a profile can show it long after the scan log is cleared.
+      verifiedBy: `device-${input.mode ?? "scan"}` },
   });
   await db.attendanceSession.update({ where: { id: sess.id }, data: { [field[category] ?? "adults"]: { increment: 1 } } });
   if (person.status === "visitor") {

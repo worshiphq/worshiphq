@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState, useEffect, useActionState } from "react";
-import {
+import { ScanFace,
   Search, Plus, Phone, Mail, MapPin, X, Users, Pencil, Trash2,
   Briefcase, Heart, Shield, User, Grid3X3, List, ChevronRight, Download, MessageSquare, QrCode as QrIcon, Fingerprint,
   ArrowDownAZ, Filter, Crown, Baby, GraduationCap, School,
@@ -19,7 +19,7 @@ import { Label, Textarea } from "@/components/ui/input";
 import { updatePerson, deletePerson, createPersonState } from "@/app/actions/people";
 import { updateChild, assignParent, createChildState } from "@/app/actions/children";
 import { sendSmsToPerson } from "@/app/actions/communications";
-import { BiometricRegisterButton } from "@/components/app/biometric-register";
+import { BiometricRegisterButton, DeviceCheckinCard } from "@/components/app/biometric-register";
 import { MemberFormFields, type MemberDefaults } from "@/components/app/member-form-fields";
 import { MemberGroupFields } from "@/components/app/member-group-fields";
 import { FamilySection } from "@/components/app/family-section";
@@ -496,9 +496,13 @@ function PersonDrawer({ person, canWrite, adults, categories = [], onClose, onEd
                 ) : (
                   <Badge variant={eng.variant}>{eng.label}</Badge>
                 )}
-                {person.biometricRegistered ? (
-                  <Badge variant="success" className="gap-1"><Fingerprint className="size-3" /> Biometrics</Badge>
-                ) : (
+                {person.biometricRegistered && (
+                  <Badge variant="success" className="gap-1" title="Fingerprint saved from the USB scanner"><Fingerprint className="size-3" /> Fingerprint</Badge>
+                )}
+                {person.deviceCheckin && (
+                  <Badge variant="info" className="gap-1" title="Checks in on a face, palm or fingerprint device"><ScanFace className="size-3" /> Device check-in</Badge>
+                )}
+                {!person.biometricRegistered && !person.deviceCheckin && (
                   <Badge variant="default" className="gap-1 bg-amber-100 text-amber-700"><Fingerprint className="size-3" /> No biometrics</Badge>
                 )}
               </div>
@@ -631,6 +635,8 @@ function PersonDrawer({ person, canWrite, adults, categories = [], onClose, onEd
               </div>
             </Section>
           )}
+
+          <DeviceCheckinCard personId={person.id} />
 
           {canWrite && (
             <div className="mt-4">

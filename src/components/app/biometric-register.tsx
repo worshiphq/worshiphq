@@ -1,9 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
-import { Fingerprint, Check, Loader2, X, Download, Hand } from "lucide-react";
+import { Fingerprint, Check, Loader2, X, Download, Hand, Trash2, ScanFace, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
@@ -37,7 +37,8 @@ const FINGERS = [
 ];
 const fingerLabel = (id: string) => { const f = FINGERS.find((x) => x.id === id); return f ? `${f.hand} ${f.label.toLowerCase()}` : id; };
 
-type State = "choose" | "connecting" | "scanning" | "saving" | "success" | "error" | "no-agent";
+type State = "choose" | "connecting" | "scanning" | "saving" | "success" | "error" | "no-agent" | "confirm-remove";
+type Cred = { id: string; finger: string | null; registeredAt: string };
 
 export function BiometricRegisterButton({ personId, personName, isRegistered }: {
   personId: string; personName: string; isRegistered: boolean;
@@ -47,16 +48,50 @@ export function BiometricRegisterButton({ personId, personName, isRegistered }: 
   const [message, setMessage] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [registered, setRegistered] = useState<string[]>([]);
+  const [creds, setCreds] = useState<Cred[]>([]);
   const [finger, setFinger] = useState<string | null>(null);
+  const [removing, setRemoving] = useState<Cred | null>(null);
+  const [removeBusy, setRemoveBusy] = useState(false);
+  const [loadingCreds, setLoadingCreds] = useState(false);
+
+  async function load() {
+    setLoadingCreds(true);
+    try {
+      const r = await fetch(`/api/biometric/register?personId=${personId}`).then((x) => x.json());
+      setRegistered(r.fingers ?? []);
+      setCreds(r.credentials ?? []);
+    } catch { setRegistered([]); setCreds([]); }
+    finally { setLoadingCreds(false); }
+  }
 
   async function open() {
     setModalOpen(true);
     setState("choose");
     setFinger(null);
+    await load();
+  }
+
+  function askRemove(c: Cred) {
+    setRemoving(c);
+    setMessage("");
+    setState("confirm-remove");
+  }
+
+  async function confirmRemove() {
+    if (!removing) return;
+    setRemoveBusy(true);
     try {
-      const r = await fetch(`/api/biometric/register?personId=${personId}`).then((x) => x.json());
-      setRegistered(r.fingers ?? []);
-    } catch { setRegistered([]); }
+      const res = await fetch(`/api/biometric/register?personId=${encodeURIComponent(personId)}&credentialId=${encodeURIComponent(removing.id)}`, { method: "DELETE" });
+      const out = await res.json().catch(() => ({}));
+      if (!res.ok || !out.ok) throw new Error(out.error || "Couldn't remove it. Please try again.");
+      await load();
+      setRemoving(null);
+      setState("choose");
+    } catch (err: unknown) {
+      setMessage(err instanceof Error ? err.message : "Couldn't remove it.");
+    } finally {
+      setRemoveBusy(false);
+    }
   }
 
   async function startScan(fingerId: string) {
@@ -90,6 +125,7 @@ export function BiometricRegisterButton({ personId, personName, isRegistered }: 
       if (!saveRes.ok || !result.ok) throw new Error(result.error || "Failed to save");
 
       setRegistered((prev) => [...new Set([...prev, fingerId])]);
+      await load();
       setState("success");
       setMessage(`${fingerLabel(fingerId)} saved for ${personName}.`);
       // NOTE: no router.refresh() here - it re-renders the person panel and
@@ -134,24 +170,72 @@ export function BiometricRegisterButton({ personId, personName, isRegistered }: 
                     <div className="mb-1.5 text-xs font-semibold uppercase tracking-wide text-ink-faint">{hand} hand</div>
                     <div className="space-y-1.5">
                       {FINGERS.filter((f) => f.hand === hand).map((f) => {
-                        const done = registered.includes(f.id);
+                        const cred = creds.find((c) => c.finger === f.id);
+                        const done = !!cred || registered.includes(f.id);
                         return (
-                          <button key={f.id} onClick={() => startScan(f.id)}
-                            className={cn("flex w-full items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors",
-                              done ? "border-success/40 bg-success/5" : "border-line hover:border-primary/40 hover:bg-surface-2")}>
-                            <span>{f.label}</span>
-                            {done ? <span className="flex items-center gap-1 text-xs font-medium text-success"><Check className="size-3.5" /> saved</span>
-                                  : <Fingerprint className="size-4 text-ink-faint" />}
-                          </button>
+                          <div key={f.id} className="flex items-stretch gap-1">
+                            <button onClick={() => startScan(f.id)}
+                              title={done ? "Scan this finger again to replace it" : "Scan this finger"}
+                              className={cn("flex min-w-0 flex-1 items-center justify-between rounded-lg border px-3 py-2 text-sm transition-colors",
+                                done ? "border-success/40 bg-success/5" : "border-line hover:border-primary/40 hover:bg-surface-2")}>
+                              <span>{f.label}</span>
+                              {done ? <span className="flex items-center gap-1 text-xs font-medium text-success"><Check className="size-3.5" /> saved</span>
+                                    : <Fingerprint className="size-4 text-ink-faint" />}
+                            </button>
+                            {cred && (
+                              <button type="button" onClick={() => askRemove(cred)}
+                                aria-label={`Remove ${hand.toLowerCase()} ${f.label.toLowerCase()} fingerprint`}
+                                title="Remove this fingerprint"
+                                className="grid w-9 shrink-0 place-items-center rounded-lg border border-line text-ink-faint transition-colors hover:border-danger/40 hover:bg-danger/5 hover:text-danger">
+                                <Trash2 className="size-4" />
+                              </button>
+                            )}
+                          </div>
                         );
                       })}
                     </div>
                   </div>
                 ))}
               </div>
+              {creds.some((c) => !c.finger) && (
+                <div className="mt-4 rounded-xl border border-line bg-surface-2/40 p-3">
+                  <div className="text-xs font-semibold uppercase tracking-wide text-ink-faint">Saved before fingers were named</div>
+                  <div className="mt-2 space-y-1.5">
+                    {creds.filter((c) => !c.finger).map((c, i) => (
+                      <div key={c.id} className="flex items-center justify-between gap-2 text-sm">
+                        <span>Fingerprint {i + 1} <span className="text-xs text-ink-faint">· {new Date(c.registeredAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span></span>
+                        <button type="button" onClick={() => askRemove(c)} className="inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-medium text-danger hover:bg-danger/5">
+                          <Trash2 className="size-3.5" /> Remove
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              <p className="mt-3 text-xs text-ink-faint">Tap a saved finger to scan it again. Use the bin to remove one, for example a finger saved on the wrong person.</p>
               <div className="mt-4 flex justify-between">
-                <span className="text-xs text-ink-faint">{registered.length} finger{registered.length === 1 ? "" : "s"} on file</span>
+                {loadingCreds
+                  ? <span className="flex items-center gap-1.5 text-xs text-ink-faint"><Loader2 className="size-3.5 animate-spin" /> Loading saved fingers…</span>
+                  : <span className="text-xs text-ink-faint">{creds.length} fingerprint{creds.length === 1 ? "" : "s"} on file</span>}
                 <Button size="sm" variant="secondary" onClick={close}>Done</Button>
+              </div>
+            </div>
+          )}
+
+          {state === "confirm-remove" && removing && (
+            <div className="text-center">
+              <div className="mx-auto flex size-20 items-center justify-center rounded-full bg-danger/10"><Trash2 className="size-9 text-danger" /></div>
+              <h3 className="mt-4 font-display text-lg font-bold">Remove this fingerprint?</h3>
+              <p className="mt-2 text-sm text-ink-muted">
+                The {removing.finger ? fingerLabel(removing.finger).toLowerCase() : "saved"} fingerprint will be removed from <b>{personName}</b>.
+                Their other fingers stay. This can't be undone, but you can scan the finger again any time.
+              </p>
+              {message && <p className="mt-3 text-sm text-danger">{message}</p>}
+              <div className="mt-5 flex justify-center gap-2">
+                <Button size="sm" variant="secondary" disabled={removeBusy} onClick={() => { setRemoving(null); setState("choose"); }}>Keep it</Button>
+                <Button size="sm" variant="danger" disabled={removeBusy} onClick={confirmRemove} className="gap-1.5">
+                  {removeBusy ? <><Loader2 className="size-4 animate-spin" /> Removing…</> : <><Trash2 className="size-4" /> Remove fingerprint</>}
+                </Button>
               </div>
             </div>
           )}
@@ -213,5 +297,71 @@ export function BiometricRegisterButton({ personId, personName, isRegistered }: 
       </div>
     </>,
     document.body,
+  );
+}
+
+const MODE_LABEL: Record<string, string> = { face: "Face", palm: "Palm", fingerprint: "Fingerprint" };
+
+type DeviceInfo = {
+  pin: string | null;
+  hasDevices: boolean;
+  modes: string[];
+  last: { at: string; mode: string | null; deviceName: string | null } | null;
+  sentTo: string[];
+};
+
+/**
+ * How this member checks in on the church's face / palm / fingerprint devices. Those devices keep the face or
+ * fingerprint themselves, so this shows what they have reported: the methods seen, the last scan, and the
+ * number to enrol them under. Hidden when the church has no devices.
+ */
+export function DeviceCheckinCard({ personId }: { personId: string }) {
+  const [info, setInfo] = useState<{ device?: DeviceInfo; count?: number } | null>(null);
+  useEffect(() => {
+    let live = true;
+    fetch(`/api/biometric/register?personId=${encodeURIComponent(personId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => { if (live) setInfo(d); })
+      .catch(() => {});
+    return () => { live = false; };
+  }, [personId]);
+
+  const d = info?.device;
+  if (!d || !d.hasDevices) return null;
+  const when = d.last ? new Date(d.last.at).toLocaleString("en-GB", { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : null;
+
+  return (
+    <div className="mt-4 rounded-xl border border-line bg-surface-2/40 p-3">
+      <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-ink-faint">
+        <ScanFace className="size-4" /> Check-in devices
+      </div>
+      {d.modes.length > 0 || d.last ? (
+        <div className="mt-2 space-y-1.5 text-sm">
+          <div className="flex flex-wrap gap-1.5">
+            {(d.modes.length ? d.modes : ["scan"]).map((m) => (
+              <span key={m} className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary-bright">
+                <Check className="size-3" /> {MODE_LABEL[m] ?? "Device"} on device
+              </span>
+            ))}
+          </div>
+          {when && (
+            <div className="text-ink-muted">
+              Last scan {when}{d.last?.mode ? ` by ${d.last.mode}` : ""}{d.last?.deviceName ? ` at ${d.last.deviceName}` : ""}.
+            </div>
+          )}
+        </div>
+      ) : (
+        <p className="mt-2 text-sm text-ink-muted">
+          Not seen on a device yet.{" "}
+          {d.pin ? <>Enrol them on the device as user <b className="font-mono">{d.pin}</b> (the number in their member ID).</> : <>Give them a member ID first, so the device has a number for them.</>}
+        </p>
+      )}
+      {d.pin && (d.modes.length > 0 || d.last) && (
+        <p className="mt-1.5 text-xs text-ink-faint">Device user number: <span className="font-mono">{d.pin}</span>. Their face or fingerprint is stored on the device, not in WorshipHQ.</p>
+      )}
+      {d.sentTo.length > 0 && (
+        <p className="mt-1.5 flex items-center gap-1 text-xs text-ink-faint"><Send className="size-3" /> Name sent to {d.sentTo.join(", ")}</p>
+      )}
+    </div>
   );
 }

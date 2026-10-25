@@ -65,6 +65,8 @@ export interface PersonRow {
   emergencyAddress: string | null;
   customFields: Record<string, string>;
   biometricRegistered: boolean;
+  /** Has checked in on one of the church's face / palm / fingerprint devices. */
+  deviceCheckin: boolean;
   positions: { id: string; departmentName: string; position: string }[];
   ageGroup: string | null;
   parentId: string | null;
@@ -82,6 +84,26 @@ function engagementFor(status: PersonStatus): PersonRow["engagement"] {
 }
 
 const isoDate = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : null);
+
+/**
+ * Who has checked in on a face / palm / fingerprint device: from their attendance (kept for good) and the
+ * devices' recent scan log (matched by the number at the end of the member ID).
+ */
+async function deviceCheckinIds(churchId: string, people: { id: string; memberId: string | null }[]): Promise<Set<string>> {
+  const hasDevice = await db.biometricDevice.count({ where: { churchId } });
+  if (!hasDevice) return new Set();
+  const [records, pins] = await Promise.all([
+    db.attendanceRecord.findMany({ where: { churchId, verifiedBy: { startsWith: "device-" } }, select: { personId: true }, distinct: ["personId"] }),
+    db.biometricDeviceEvent.findMany({ where: { churchId, result: { in: ["checked_in", "already_in"] } }, select: { pin: true }, distinct: ["pin"] }),
+  ]);
+  const ids = new Set(records.map((r) => r.personId).filter((x): x is string => !!x));
+  const pinSet = new Set(pins.map((p) => String(Number(p.pin))));
+  for (const p of people) {
+    const m = /(\d+)$/.exec(p.memberId ?? "");
+    if (m && pinSet.has(String(Number(m[1])))) ids.add(p.id);
+  }
+  return ids;
+}
 
 export async function getPeople(churchId: string, ageFilter?: "adults" | "children"): Promise<PersonRow[]> {
   const ageWhere = ageFilter === "adults"
@@ -104,6 +126,7 @@ export async function getPeople(churchId: string, ageFilter?: "adults" | "childr
       _count: { select: { biometrics: true } },
     },
   });
+  const onDevice = await deviceCheckinIds(churchId, people);
   return people.map((p) => ({
     id: p.id,
     memberId: p.memberId,
@@ -162,6 +185,7 @@ export async function getPeople(churchId: string, ageFilter?: "adults" | "childr
     emergencyAddress: p.emergencyAddress,
     customFields: (p.customFields as Record<string, string> | null) ?? {},
     biometricRegistered: p._count.biometrics > 0,
+    deviceCheckin: onDevice.has(p.id),
     positions: p.positions.map((pos) => ({ id: pos.id, departmentName: pos.department.name, position: pos.position })),
     ageGroup: p.ageGroup,
     parentId: p.parentId,
