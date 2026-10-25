@@ -62,7 +62,12 @@ export type ReceiptData = {
   currency: string;
   items: ReceiptItem[];
   discount: number;
+  /** Everything paid on this sale so far, including this receipt. */
   paid: number;
+  /** What had been paid before this receipt. More than 0 means this receipt is for a payment towards a balance. */
+  paidBefore?: number;
+  /** The number of the earlier receipt this one follows (balance payments). */
+  followsNumber?: string | null;
   method?: string | null;
   reference?: string | null;
   notes?: string | null;
@@ -98,10 +103,11 @@ export function receiptNumber(r: { brand: string; year: number; seq: number }): 
   return `${r.brand === "wodona" ? "WOD" : "WHQ"}-${r.year}-${String(r.seq).padStart(4, "0")}`;
 }
 
-export function receiptStatus(d: Pick<ReceiptData, "kind" | "items" | "discount" | "paid">): { label: string; tone: "paid" | "free" | "part" | "gift" } {
+export function receiptStatus(d: Pick<ReceiptData, "kind" | "items" | "discount" | "paid" | "paidBefore">): { label: string; tone: "paid" | "free" | "part" | "gift" } {
   if (d.kind === "registration") return { label: "FREE FOREVER", tone: "free" };
   if (d.kind === "gift") return { label: "GIFT", tone: "gift" };
   const { total, balance } = totalsOf(d.items, d.discount, d.paid);
+  if (total > 0 && balance <= 0 && (d.paidBefore ?? 0) > 0) return { label: "PAID IN FULL", tone: "paid" };
   if (total > 0 && balance > 0 && d.paid > 0) return { label: "PART PAYMENT", tone: "part" };
   if (total > 0 && d.paid <= 0) return { label: "UNPAID", tone: "part" };
   return { label: "PAID", tone: "paid" };

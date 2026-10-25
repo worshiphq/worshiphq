@@ -2087,7 +2087,9 @@ model Receipt {
   items     Json     // [{ description, detail?, qty, unit }]
   discount  Float    @default(0)
   total     Float
-  paid      Float
+  paid      Float    // everything paid on this sale so far, including this receipt
+  paidBefore Float   @default(0) // what had been paid before this receipt (a balance receipt follows an earlier one)
+  relatedId String?  // the first receipt of the sale, when this one settles (part of) a balance
   method    String?
   reference String?
   notes     String?
@@ -2100,6 +2102,7 @@ model Receipt {
 
   @@unique([brand, year, seq])
   @@index([churchId])
+  @@index([relatedId])
   @@index([issuedAt])
 }
 

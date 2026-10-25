@@ -60,7 +60,10 @@ export type NewReceipt = {
   currency?: string;
   items: ReceiptItem[];
   discount?: number;
+  /** Everything paid on this sale so far, including this receipt. */
   paid: number;
+  paidBefore?: number;
+  relatedId?: string | null;
   method?: string | null;
   reference?: string | null;
   notes?: string | null;
@@ -85,6 +88,7 @@ export async function createReceipt(input: NewReceipt): Promise<Receipt> {
           churchId: input.churchId ?? null,
           toName: input.toName.trim(), toOrg: nul(input.toOrg), toEmail: nul(input.toEmail), toPhone: nul(input.toPhone), toAddress: nul(input.toAddress),
           currency: input.currency || "GHS", items, discount: t.discount, total: t.total, paid: round2(input.paid),
+          paidBefore: round2(input.paidBefore ?? 0), relatedId: input.relatedId ?? null,
           method: nul(input.method), reference: nul(input.reference), notes: nul(input.notes), signatureLines: !!input.signatureLines, issuedAt,
         },
       });
@@ -115,10 +119,14 @@ export async function dataFromRow(row: Receipt, settings?: ReceiptSettings): Pro
     toName: row.toName, toOrg: row.toOrg, toEmail: row.toEmail, toPhone: row.toPhone, toAddress: row.toAddress,
     currency: row.currency,
     items: itemsOf(row),
-    discount: row.discount, paid: row.paid, method: row.method, reference: row.reference, notes: row.notes,
+    discount: row.discount, paid: row.paid, paidBefore: row.paidBefore, method: row.method, reference: row.reference, notes: row.notes,
     signatureLines: row.signatureLines,
     settings: settings ?? (await getReceiptSettings()),
   };
+  if (row.relatedId) {
+    const first = await db.receipt.findUnique({ where: { id: row.relatedId }, select: { brand: true, year: true, seq: true } });
+    if (first) data.followsNumber = receiptNumber(first);
+  }
   if (data.kind === "registration") {
     const { getPlatformConfig } = await import("@/lib/data/platform-config");
     const free = (await getPlatformConfig()).planDefs.free;
@@ -146,6 +154,8 @@ function receiptEmailHtml(row: Receipt, data: ReceiptData): string {
       ? `Welcome to WorshipHQ. Your free account is ready, and it is free forever. Your welcome receipt is attached as a PDF, for your records.`
       : data.kind === "gift"
         ? `Your plan has been gifted to you. Your receipt is attached as a PDF, for your records.`
+        : (data.paidBefore ?? 0) > 0 && t.balance <= 0
+          ? `Thank you. Your balance is now fully paid. Your receipt is attached as a PDF, for your records.`
         : t.balance > 0
           ? `Thank you for your payment. Your receipt is attached as a PDF. A balance of ${money(t.balance, data.currency)} is still due.`
           : `Thank you for your payment. Your receipt is attached as a PDF, for your records.`;

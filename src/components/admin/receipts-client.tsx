@@ -6,7 +6,7 @@ import { Receipt, Download, Mail, Plus, Trash2, Loader2, CheckCircle2, AlertTria
 import { AdminCard } from "@/components/admin/admin-shell";
 import { useFeedback } from "@/components/ui/feedback";
 import {
-  createManualReceipt, saveReceiptDetails, sendReceiptEmail,
+  createManualReceipt, payReceiptBalance, saveReceiptDetails, sendReceiptEmail,
   type ReceiptsPageData, type ReceiptRow,
 } from "@/app/actions/admin-receipts";
 import { CURRENCIES, PAYMENT_METHODS, SIGNATURE_MAX_CHARS, money, round2, type ReceiptBrand, type ReceiptSettings, type ReceiptSheet } from "@/lib/receipts/types";
@@ -22,7 +22,7 @@ type FormItem = { description: string; detail: string; qty: string; unit: string
 type Form = {
   brand: ReceiptBrand; sheet: ReceiptSheet; churchId: string;
   toName: string; toOrg: string; toEmail: string; toPhone: string; toAddress: string;
-  currency: "GHS" | "USD" | "EUR" | "GBP"; items: FormItem[]; discount: string; paidFull: boolean; paid: string;
+  currency: "GHS" | "USD" | "EUR" | "GBP"; items: FormItem[]; discountMode: "pct" | "amount" | "price"; discountVal: string; paidFull: boolean; paid: string;
   method: string; reference: string; notes: string; signatureLines: boolean; issuedOn: string; sendTo: string;
 };
 
@@ -30,7 +30,7 @@ const todayYmd = () => new Date().toISOString().slice(0, 10);
 const blankItem = (): FormItem => ({ description: "", detail: "", qty: "1", unit: "" });
 const blankForm = (): Form => ({
   brand: "worshiphq", sheet: "a4", churchId: "", toName: "", toOrg: "", toEmail: "", toPhone: "", toAddress: "",
-  currency: "GHS", items: [blankItem()], discount: "", paidFull: true, paid: "", method: "Mobile Money", reference: "", notes: "",
+  currency: "GHS", items: [blankItem()], discountMode: "amount", discountVal: "", paidFull: true, paid: "", method: "Mobile Money", reference: "", notes: "",
   signatureLines: false, issuedOn: todayYmd(), sendTo: "",
 });
 const num = (v: string) => { const n = parseFloat(v); return Number.isFinite(n) && n > 0 ? n : 0; };
@@ -69,17 +69,29 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
   const [resend, setResend] = useState<{ id: string; to: string } | null>(null);
   const [resending, setResending] = useState(false);
   const urlRef = useRef<string | null>(null);
+  const [pay, setPay] = useState<{ id: string; amount: string; method: string; reference: string; sendTo: string } | null>(null);
+  const [paying, setPaying] = useState(false);
+  const [payError, setPayError] = useState("");
 
   const set = <K extends keyof Form>(k: K, v: Form[K]) => setForm((f) => ({ ...f, [k]: v }));
   const setItem = (i: number, patch: Partial<FormItem>) => setForm((f) => ({ ...f, items: f.items.map((it, idx) => (idx === i ? { ...it, ...patch } : it)) }));
 
   const totals = useMemo(() => {
     const subtotal = round2(form.items.reduce((t, i) => t + round2(num(i.qty) * num(i.unit)), 0));
-    const discount = round2(Math.min(num(form.discount), subtotal));
+    // The discount can be typed as a percentage, an amount, or the price they will pay. Whichever was typed last is the source; the others follow.
+    const wanted = form.discountMode === "pct" ? (subtotal * Math.min(num(form.discountVal), 100)) / 100 : form.discountMode === "price" ? (form.discountVal.trim() === "" ? 0 : subtotal - num(form.discountVal)) : num(form.discountVal);
+    const discount = round2(Math.min(Math.max(wanted, 0), subtotal));
     const total = round2(subtotal - discount);
     const paid = form.paidFull ? total : round2(num(form.paid));
     return { subtotal, discount, total, paid, balance: round2(Math.max(total - paid, 0)) };
-  }, [form.items, form.discount, form.paidFull, form.paid]);
+  }, [form.items, form.discountMode, form.discountVal, form.paidFull, form.paid]);
+  const pctOff = totals.subtotal > 0 ? round2((totals.discount / totals.subtotal) * 100) : 0;
+  const shown = {
+    pct: form.discountMode === "pct" ? form.discountVal : totals.discount > 0 ? String(pctOff) : "",
+    amount: form.discountMode === "amount" ? form.discountVal : totals.discount > 0 ? String(totals.discount) : "",
+    price: form.discountMode === "price" ? form.discountVal : totals.discount > 0 ? String(round2(totals.subtotal - totals.discount)) : "",
+  };
+  const setDiscount = (mode: Form["discountMode"], v: string) => setForm((f) => ({ ...f, discountMode: mode, discountVal: v }));
 
   const payload = useMemo(() => ({
     brand: form.brand, sheet: form.sheet, churchId: form.churchId || null,
@@ -151,6 +163,19 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
     else toast(res.error, "error");
   }
 
+  async function submitPay() {
+    if (!pay) return;
+    setPayError("");
+    setPaying(true);
+    const res = await payReceiptBalance({ id: pay.id, amount: Number(pay.amount), method: pay.method, reference: pay.reference, sendTo: pay.sendTo.trim() || undefined }).catch(() => ({ ok: false as const, error: "Something went wrong." }));
+    setPaying(false);
+    if (!res.ok) { setPayError(res.error); return; }
+    toast(res.email === "failed" ? `Receipt ${res.number} saved, but the email failed.` : res.email === "none" ? `Receipt ${res.number} created.` : `Receipt ${res.number} emailed.`, res.email === "failed" ? "error" : "success");
+    setPay(null);
+    router.refresh();
+    window.open(`/api/admin/receipts/${res.id}/pdf`, "_blank");
+  }
+
   const emailing = !!form.sendTo.trim();
 
   return (
@@ -203,11 +228,11 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
                   {data.churches.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
-              <div><label className={labelCls} htmlFor="rc-name">Name *</label><input id="rc-name" className={input} value={form.toName} onChange={(e) => set("toName", e.target.value)} placeholder="Pastor Richard Akuoko" /></div>
-              <div><label className={labelCls} htmlFor="rc-org">Church or company</label><input id="rc-org" className={input} value={form.toOrg} onChange={(e) => set("toOrg", e.target.value)} placeholder="Grace Baptist Church - Santasi" /></div>
+              <div><label className={labelCls} htmlFor="rc-name">Name *</label><input id="rc-name" className={input} value={form.toName} onChange={(e) => set("toName", e.target.value)} placeholder="Full name" /></div>
+              <div><label className={labelCls} htmlFor="rc-org">Church or company</label><input id="rc-org" className={input} value={form.toOrg} onChange={(e) => set("toOrg", e.target.value)} placeholder="Church or company name" /></div>
               <div><label className={labelCls} htmlFor="rc-email">Their email</label><input id="rc-email" type="email" className={input} value={form.toEmail} onChange={(e) => set("toEmail", e.target.value)} placeholder="name@church.org" /></div>
               <div><label className={labelCls} htmlFor="rc-phone">Phone</label><input id="rc-phone" className={input} value={form.toPhone} onChange={(e) => set("toPhone", e.target.value)} placeholder="024 000 0000" /></div>
-              <div className="sm:col-span-2"><label className={labelCls} htmlFor="rc-addr">Address (optional)</label><input id="rc-addr" className={input} value={form.toAddress} onChange={(e) => set("toAddress", e.target.value)} placeholder="Santasi, Kumasi" /></div>
+              <div className="sm:col-span-2"><label className={labelCls} htmlFor="rc-addr">Address (optional)</label><input id="rc-addr" className={input} value={form.toAddress} onChange={(e) => set("toAddress", e.target.value)} placeholder="Town or street address" /></div>
             </div>
           </div>
 
@@ -241,11 +266,26 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
           </div>
 
           <div className="grid gap-3 sm:grid-cols-2">
-            <div><label className={labelCls} htmlFor="rc-disc">Discount ({CURRENCIES[form.currency] ?? form.currency}, optional)</label><input id="rc-disc" className={input} type="number" inputMode="decimal" min="0" step="0.01" value={form.discount} onChange={(e) => set("discount", e.target.value)} placeholder="0.00" /></div>
+            <div className="sm:col-span-2">
+              <span className={labelCls}>Discount (optional). Fill in any one, the others work themselves out</span>
+              <div className="grid grid-cols-3 gap-2">
+                <div><label className="mb-1 block text-[11px] text-slate-500" htmlFor="rc-dpct">Percent off (%)</label><input id="rc-dpct" className={input} type="number" inputMode="decimal" min="0" max="100" step="0.01" value={shown.pct} onChange={(e) => setDiscount("pct", e.target.value)} placeholder="0" /></div>
+                <div><label className="mb-1 block text-[11px] text-slate-500" htmlFor="rc-disc">Amount off ({CURRENCIES[form.currency] ?? form.currency})</label><input id="rc-disc" className={input} type="number" inputMode="decimal" min="0" step="0.01" value={shown.amount} onChange={(e) => setDiscount("amount", e.target.value)} placeholder="0.00" /></div>
+                <div><label className="mb-1 block text-[11px] text-slate-500" htmlFor="rc-dprice">Price they pay ({CURRENCIES[form.currency] ?? form.currency})</label><input id="rc-dprice" className={input} type="number" inputMode="decimal" min="0" step="0.01" value={shown.price} onChange={(e) => setDiscount("price", e.target.value)} placeholder={totals.subtotal > 0 ? String(totals.subtotal) : "0.00"} /></div>
+              </div>
+            </div>
             <div>
               <label className={labelCls} htmlFor="rc-paid">Amount paid</label>
               <input id="rc-paid" className={input} type="number" inputMode="decimal" min="0" step="0.01" disabled={form.paidFull} value={form.paidFull ? String(totals.total) : form.paid} onChange={(e) => set("paid", e.target.value)} />
               <label className="mt-1.5 flex items-center gap-2 text-xs text-slate-400"><input type="checkbox" checked={form.paidFull} onChange={(e) => set("paidFull", e.target.checked)} /> Paid in full</label>
+            </div>
+            <div className="sm:col-span-2 rounded-lg border border-white/10 bg-white/[0.03] px-4 py-3 text-sm" aria-live="polite">
+              <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-1">
+                <span className="text-slate-400">Total <b className="text-slate-100">{money(totals.total, form.currency)}</b>{totals.discount > 0 && <span className="text-slate-500"> (after {money(totals.discount, form.currency)} off, {pctOff}%)</span>}</span>
+                <span className="text-slate-400">Paid <b className="text-slate-100">{money(totals.paid, form.currency)}</b></span>
+                <span className={totals.balance > 0 ? "text-amber-300" : "text-teal-300"}>{totals.balance > 0 ? <>Balance <b>{money(totals.balance, form.currency)}</b></> : "Fully paid"}</span>
+              </div>
+              {totals.balance > 0 && <p className="mt-1.5 text-xs text-slate-500">When they pay the rest, press <b>Record balance payment</b> beside this receipt in the list below. It makes a second receipt that shows what was paid before and says paid in full.</p>}
             </div>
             <div>
               <label className={labelCls} htmlFor="rc-method">Paid by</label>
@@ -313,16 +353,20 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px] text-left text-sm">
               <thead className="text-xs uppercase tracking-wide text-slate-500">
-                <tr><th className="px-5 py-2.5 font-medium">Number</th><th className="px-3 py-2.5 font-medium">Date</th><th className="px-3 py-2.5 font-medium">For</th><th className="px-3 py-2.5 font-medium">Type</th><th className="px-3 py-2.5 text-right font-medium">Paid</th><th className="px-3 py-2.5 font-medium">Email</th><th className="px-5 py-2.5 text-right font-medium">Actions</th></tr>
+                <tr><th className="px-5 py-2.5 font-medium">Number</th><th className="px-3 py-2.5 font-medium">Date</th><th className="px-3 py-2.5 font-medium">For</th><th className="px-3 py-2.5 font-medium">Type</th><th className="px-3 py-2.5 text-right font-medium">Paid / balance</th><th className="px-3 py-2.5 font-medium">Email</th><th className="px-5 py-2.5 text-right font-medium">Actions</th></tr>
               </thead>
               <tbody className="divide-y divide-white/5">
                 {data.receipts.map((r: ReceiptRow) => (
                   <tr key={r.id} className="align-top">
-                    <td className="px-5 py-3 font-mono text-xs text-slate-200">{r.number}</td>
+                    <td className="px-5 py-3 font-mono text-xs text-slate-200">{r.number}{r.follows && <div className="mt-0.5 font-sans text-[11px] text-slate-500">balance payment on {r.follows}</div>}</td>
                     <td className="px-3 py-3 text-slate-400">{dateShort(r.issuedAt)}</td>
                     <td className="px-3 py-3"><div className="text-slate-200">{r.toOrg || r.toName}</div>{r.toOrg && <div className="text-xs text-slate-500">{r.toName}</div>}</td>
                     <td className="px-3 py-3 text-xs text-slate-400">{KIND[r.kind] ?? r.kind}<div className="text-slate-500">{r.brand === "wodona" ? "WODONA" : "WorshipHQ"} · {r.sheet === "half" ? "half A4" : "A4"}</div></td>
-                    <td className="px-3 py-3 text-right text-slate-200">{r.kind === "registration" ? "Free" : money(r.paid, r.currency)}</td>
+                    <td className="px-3 py-3 text-right text-slate-200">
+                      {r.kind === "registration" ? "Free" : money(r.kind === "manual" && r.paidBefore > 0 ? r.paid - r.paidBefore : r.paid, r.currency)}
+                      {r.kind === "manual" && r.paidBefore > 0 && <div className="text-[11px] text-slate-500">{money(r.paid, r.currency)} of {money(r.total, r.currency)} so far</div>}
+                      {r.canPay ? <div className="text-[11px] text-amber-300">Balance {money(r.balance, r.currency)}</div> : r.kind === "manual" && r.paidBefore > 0 && r.paid >= r.total - 0.005 ? <div className="text-[11px] text-teal-300">Paid in full</div> : null}
+                    </td>
                     <td className="px-3 py-3 text-xs">
                       {r.emailStatus === "sent" && <span className="text-teal-300">Sent{r.emailedAt ? ` ${dateShort(r.emailedAt)}` : ""}</span>}
                       {r.emailStatus === "stubbed" && <span className="text-amber-300">Test only</span>}
@@ -334,10 +378,33 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
                         <a className={`${ghost} px-2 py-1 text-xs`} href={`/api/admin/receipts/${r.id}/pdf`} target="_blank" rel="noreferrer"><Eye className="size-3.5" /> View</a>
                         <a className={`${ghost} px-2 py-1 text-xs`} href={`/api/admin/receipts/${r.id}/pdf?download=1`}><Download className="size-3.5" /> PDF</a>
                         <button type="button" className={`${ghost} px-2 py-1 text-xs`} onClick={() => setResend({ id: r.id, to: r.toEmail ?? "" })}><Mail className="size-3.5" /> Email</button>
+                        {r.canPay && <button type="button" className={`${primary} px-2 py-1 text-xs`} onClick={() => { setPayError(""); setPay({ id: r.id, amount: String(r.balance), method: "Mobile Money", reference: "", sendTo: r.toEmail ?? "" }); }}><Receipt className="size-3.5" /> Record balance payment</button>}
                       </div>
                     </td>
                   </tr>
                 ))}
+                {pay && (() => {
+                  const target = data.receipts.find((x) => x.id === pay.id);
+                  if (!target) return null;
+                  return (
+                    <tr className="bg-amber-500/5">
+                      <td colSpan={7} className="px-5 py-3">
+                        <div className="mb-2 text-sm text-slate-200">Payment on {target.number} for {target.toOrg || target.toName}. Balance owed: <b>{money(target.balance, target.currency)}</b></div>
+                        <div className="grid gap-2 sm:grid-cols-4">
+                          <div><label className={labelCls} htmlFor="rc-pay-amt">Amount paid now</label><input id="rc-pay-amt" type="number" inputMode="decimal" min="0" step="0.01" className={input} value={pay.amount} onChange={(e) => setPay({ ...pay, amount: e.target.value })} /></div>
+                          <div><label className={labelCls} htmlFor="rc-pay-method">Paid by</label><select id="rc-pay-method" className={input} value={pay.method} onChange={(e) => setPay({ ...pay, method: e.target.value })}>{PAYMENT_METHODS.map((m) => <option key={m}>{m}</option>)}</select></div>
+                          <div><label className={labelCls} htmlFor="rc-pay-ref">Reference (optional)</label><input id="rc-pay-ref" className={input} value={pay.reference} onChange={(e) => setPay({ ...pay, reference: e.target.value })} /></div>
+                          <div><label className={labelCls} htmlFor="rc-pay-to">Email the PDF to (optional)</label><input id="rc-pay-to" type="email" className={input} value={pay.sendTo} onChange={(e) => setPay({ ...pay, sendTo: e.target.value })} placeholder="name@church.org" /></div>
+                        </div>
+                        <div className="mt-3 flex flex-wrap items-center gap-2">
+                          <button type="button" className={primary} onClick={submitPay} disabled={paying || !num(pay.amount)}>{paying ? <><Loader2 className="size-4 animate-spin" /> Making the receipt…</> : <><Receipt className="size-4" /> {pay.sendTo.trim() ? "Create and email receipt" : "Create receipt"}</>}</button>
+                          <button type="button" className={ghost} onClick={() => setPay(null)} disabled={paying}>Cancel</button>
+                          {payError && <span role="alert" className="flex items-center gap-1.5 text-sm text-red-300"><AlertTriangle className="size-4" /> {payError}</span>}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })()}
                 {resend && (
                   <tr className="bg-teal-500/5">
                     <td colSpan={7} className="px-5 py-3">
@@ -364,7 +431,7 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
 const FIELDS: { key: Exclude<keyof ReceiptSettings, "signature">; label: string; placeholder: string; wide?: boolean }[] = [
   { key: "companyName", label: "Company name", placeholder: "WODONA" },
   { key: "tagline", label: "Tagline (optional, WODONA-only receipts)", placeholder: "" },
-  { key: "address", label: "Address", placeholder: "Kumasi, Ghana", wide: true },
+  { key: "address", label: "Address", placeholder: "Street, town, Ghana", wide: true },
   { key: "phone", label: "Phone", placeholder: "024 000 0000" },
   { key: "email", label: "Email (replies come here)", placeholder: "hello@wodona.com" },
   { key: "website", label: "Website", placeholder: "wodona.com" },

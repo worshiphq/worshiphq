@@ -3,7 +3,7 @@ import fontkit from "@pdf-lib/fontkit";
 import {
   FONT_REGULAR_B64, FONT_SEMIBOLD_B64, FONT_BOLD_B64, LOGO_WODONA_B64, LOGO_WORSHIPHQ_B64, LOGO_WODONA_SIZE, LOGO_WORSHIPHQ_SIZE,
 } from "@/lib/receipts/assets.generated";
-import { money, receiptStatus, totalsOf, type ReceiptData } from "@/lib/receipts/types";
+import { money, receiptStatus, round2, totalsOf, type ReceiptData } from "@/lib/receipts/types";
 
 /** The receipt has more on it than one sheet can hold. Shown to the person making it. */
 export class ReceiptOverflowError extends Error {}
@@ -241,6 +241,7 @@ export async function renderReceiptPdf(data: ReceiptData): Promise<Uint8Array> {
   };
   detail("Method", isFree ? "No payment needed" : data.method);
   detail("Reference", data.reference);
+  detail("Follows", data.followsNumber ? `Receipt ${data.followsNumber}` : null);
   detail("Issued by", data.kind === "manual" ? st.issuedBy : (data.brand === "wodona" ? st.companyName : "WorshipHQ, a WODONA product"));
 
   y = Math.max(ly, ry) + (data.sheet === "a4" ? 14 : 8);
@@ -281,6 +282,24 @@ export async function renderReceiptPdf(data: ReceiptData): Promise<Uint8Array> {
   hline(M, right, y, C.line, 0.9);
   y += data.sheet === "a4" ? 16 : 10;
 
+  // ── signature: the issuer only (image, line, name and date). The person paying does not sign. ──
+  const sigGeom = (a4s: boolean) => ({ imgH: a4s ? 44 : 26, lineW: a4s ? 190 : 160, gap: a4s ? 18 : 6 });
+  const sigHeight = () => { const g = sigGeom(data.sheet === "a4"); return g.gap + g.imgH + (S.small + 5) * 2 + 4; };
+  /** Draws the signature block with its top at `top` and returns where it ends. */
+  const drawSignature = (top: number): number => {
+    const { imgH, lineW, gap } = sigGeom(data.sheet === "a4");
+    const sy = top + gap + imgH;
+    if (sigImg) {
+      const scale = Math.min(imgH / sigImg.height, (lineW - 10) / sigImg.width);
+      page.drawImage(sigImg, { x: M + 4, y: Y(sy) + 3, width: sigImg.width * scale, height: sigImg.height * scale });
+    }
+    hline(M, M + lineW, sy, C.muted, 0.6);
+    const who = st.issuedBy || (data.brand === "wodona" ? st.companyName : "WODONA");
+    text(who, M, sy + S.small + 5, S.small + 0.5, fonts.s, C.ink);
+    text(dateText(data.issuedAt), M, sy + (S.small + 5) * 2, S.small, fonts.r, C.muted);
+    return sy + (S.small + 5) * 2 + 4;
+  };
+
   // ── totals (right) and notes (left) ──
   const totalsX = right - (data.sheet === "a4" ? 240 : 220);
   let ty = y;
@@ -294,6 +313,9 @@ export async function renderReceiptPdf(data: ReceiptData): Promise<Uint8Array> {
   hline(totalsX, right, ty - 3);
   ty += 3;
   row("Total", fmt(t.total), true);
+  const before = Math.min(Math.max(data.paidBefore ?? 0, 0), data.paid);
+  const follow = before > 0 && !isFree && data.kind !== "gift";
+  if (follow) row("Paid earlier", `- ${fmt(before)}`);
   ty += 6;
   if (isFree) {
     rect(totalsX, ty, right - totalsX, S.bandH, C.tealBg, C.teal, 6);
@@ -304,13 +326,17 @@ export async function renderReceiptPdf(data: ReceiptData): Promise<Uint8Array> {
     ty += 4;
   } else {
     rect(totalsX, ty, right - totalsX, S.bandH, C.teal, undefined, 6);
-    text(data.kind === "gift" ? "GIFTED" : "AMOUNT PAID", totalsX + 14, ty + S.bandH / 2 + 3, S.small, fonts.b, C.white);
-    text(data.kind === "gift" ? "No charge" : fmt(data.paid), right - 14, ty + S.bandH / 2 + S.totalSize * 0.35, S.totalSize, fonts.b, C.white, "right");
+    text(data.kind === "gift" ? "GIFTED" : follow ? "THIS PAYMENT" : "AMOUNT PAID", totalsX + 14, ty + S.bandH / 2 + 3, S.small, fonts.b, C.white);
+    text(data.kind === "gift" ? "No charge" : fmt(follow ? round2(data.paid - before) : data.paid), right - 14, ty + S.bandH / 2 + S.totalSize * 0.35, S.totalSize, fonts.b, C.white, "right");
     ty += S.bandH;
     if (t.balance > 0) {
       ty += 16;
       text("Balance due", totalsX, ty, small + 1, fonts.s, C.red);
       text(fmt(t.balance), right, ty, small + 1, fonts.b, C.red, "right");
+      ty += 6;
+    } else if (follow) {
+      ty += 16;
+      text("Paid in full. Thank you.", right, ty, small + 1, fonts.s, C.tealDark, "right");
       ty += 6;
     }
   }
@@ -319,7 +345,14 @@ export async function renderReceiptPdf(data: ReceiptData): Promise<Uint8Array> {
     label("Notes", M, y + S.label);
     notesLines.forEach((ln, i) => text(ln, M, y + S.label + 14 + i * (small + 3.5), small, fonts.r, C.muted));
   }
-  y = Math.max(ty, notesLines.length ? y + S.label + 14 + notesLines.length * (small + 3.5) : 0) + (data.sheet === "a4" ? 20 : 10);
+  const notesBottom = notesLines.length ? y + S.label + 14 + notesLines.length * (small + 3.5) : 0;
+  if (data.sheet === "half") {
+    // On a half sheet there is no room below the totals, so the signature sits to the left of them, level with their foot.
+    const sigBottom = drawSignature(Math.max(ty - sigHeight(), notesBottom + 4));
+    y = Math.max(ty, sigBottom) + 8;
+  } else {
+    y = Math.max(ty, notesBottom) + 20;
+  }
 
   // ── welcome panel (free account) ──
   if (welcomeBox && data.welcome) {
@@ -327,25 +360,7 @@ export async function renderReceiptPdf(data: ReceiptData): Promise<Uint8Array> {
     y += welcomeBox.height + 14;
   }
 
-  // ── signature: the issuer only (image, line, name and date). The person paying does not sign. ──
-  {
-    const a4s = data.sheet === "a4";
-    const imgH = a4s ? 44 : 28;
-    const lineW = a4s ? 190 : 160;
-    const gap = a4s ? 18 : 10;
-    const sy = y + gap + imgH;
-    if (sigImg) {
-      const scale = Math.min(imgH / sigImg.height, (lineW - 10) / sigImg.width);
-      const w = sigImg.width * scale;
-      const h = sigImg.height * scale;
-      page.drawImage(sigImg, { x: M + 4, y: Y(sy) + 3, width: w, height: h });
-    }
-    hline(M, M + lineW, sy, C.muted, 0.6);
-    const who = st.issuedBy || (data.brand === "wodona" ? st.companyName : "WODONA");
-    text(who, M, sy + S.small + 5, S.small + 0.5, fonts.s, C.ink);
-    text(dateText(data.issuedAt), M, sy + (S.small + 5) * 2, S.small, fonts.r, C.muted);
-    y = sy + (S.small + 5) * 2 + 4;
-  }
+  if (data.sheet === "a4") y = drawSignature(y);
 
   if (y > limit) {
     throw new ReceiptOverflowError(
