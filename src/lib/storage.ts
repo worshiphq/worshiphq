@@ -58,6 +58,8 @@ async function ensureSupabaseBucket() {
   supabaseBucketReady = true;
 }
 
+const UPLOADABLE = new Set(["image/png", "image/jpeg", "image/jpg", "image/webp", "image/gif", "image/avif"]);
+
 function parseDataUrl(dataUrl: string): { buf: Buffer; contentType: string; ext: string } | null {
   const m = /^data:([^;]+);base64,([\s\S]*)$/.exec(dataUrl);
   if (!m) return null;
@@ -124,6 +126,9 @@ export async function storeImage(
   if (!CONFIGURED) return input;
   const parsed = parseDataUrl(input);
   if (!parsed) return input;
+  // Only raster images go to the public bucket. An SVG can carry script and would run on our storage
+  // domain if opened directly, so it is never uploaded (inline in an <img> it can't run).
+  if (!UPLOADABLE.has(parsed.contentType.toLowerCase())) return input;
 
   const name = `${folder}/${Date.now()}-${crypto.randomBytes(6).toString("hex")}.${parsed.ext}`;
 

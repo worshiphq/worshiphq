@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModule, requireManage } from "@/lib/auth";
+import { requireModule, requireManage, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { RecycleBin, moveToBin } from "@/lib/recycle-bin";
@@ -31,6 +31,7 @@ async function isAssignee(session: Session, followUpId: string) {
 
 export async function createFollowUp(formData: FormData) {
   const session = await requireManage("follow-ups");
+  assertCanWrite(session, "follow-ups");
   const title = String(formData.get("title") ?? "").trim();
   if (!title) return;
 
@@ -236,6 +237,7 @@ export async function saveFollowUpSettings(formData: FormData) {
 
 export async function deleteFollowUp(formData: FormData) {
   const session = await requireManage("follow-ups");
+  assertCanDelete(session);
   const id = String(formData.get("id") ?? "");
   if (!id) return;
   await RecycleBin.captureFollowUp(session, id);

@@ -14,7 +14,7 @@ export const billing: DocArticle[] = [
         ["**Pro**", "Established ministries", "Rosters, harvest, pledges, welfare, sermons, devotionals, testimonies, bookings and custom roles."],
         ["**Max**", "Large and multi-site churches", "Fingerprint, face and palm check-in, automations, full accounting (budgets, expenses, assets), counselling, the audit log and unlimited members."],
       ] } },
-      { p: "See the current prices and member limits on the **Pricing** page. Every guide in this manual shows which plan it needs." },
+      { p: "See the current prices and member limits on the **Pricing** page. Every guide in this manual shows which plan it needs. A part of WorshipHQ your plan doesn't include shows as locked in the menu and opens **Billing**, where the Owner can upgrade." },
       { tip: "Start on Free and upgrade when you need more. You only pay the difference when you upgrade mid-way through a period." },
     ],
   },
@@ -53,7 +53,7 @@ export const billing: DocArticle[] = [
     body: [
       { list: [
         "**Upgrades** take effect immediately. You pay only the difference for the days left in your current period.",
-        "**Downgrades** take effect at the end of your current paid period. Nothing is refunded for the change, and you keep your current features until then.",
+        "**Downgrades** take effect at the end of your current paid period. Nothing is refunded for the change, and you keep your current features until then. Moving down to a cheaper paid plan then needs paying for like a renewal: you have 7 days to pay before the church drops to Free.",
         "Changed your mind about a downgrade? Choose **Keep my current plan** before it takes effect.",
       ] },
       { note: "If you downgrade below what you use (e.g. more members than the new plan allows, or features it doesn't include), you won't lose any data, but you won't be able to add more or use those features until you upgrade again." },
@@ -72,7 +72,7 @@ export const billing: DocArticle[] = [
         "Choose **Request refund**. We check whether it's still within the refund window.",
         "Tell us briefly why, and choose **Submit refund request**.",
       ] },
-      { p: "Refund requests are reviewed by WorshipHQ and, once approved, the money reaches you within a few working days. The full rules, including how long you have to ask, are in our **Refund Policy** (worshiphq.app/refund-policy)." },
+      { p: "Refund requests are reviewed by WorshipHQ and, once approved, the money reaches you within a few working days. When the refunded payment is for your current period, your church moves back to the Free plan at the same time (your data stays). The full rules, including how long you have to ask, are in our **Refund Policy** (worshiphq.app/refund-policy)." },
       { tip: "Outside the refund window, you can still move to a cheaper plan at no cost. It takes effect when your current period ends." },
     ],
   },

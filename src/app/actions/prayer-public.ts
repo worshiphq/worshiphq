@@ -3,6 +3,7 @@
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { FORM_KINDS, collectExtraAnswers } from "@/lib/forms/kinds";
+import { allowPublicSubmission } from "@/lib/public-guard";
 
 export async function submitPublicPrayerRequest(formData: FormData) {
   const churchSlug = String(formData.get("churchSlug") ?? "").trim();
@@ -10,9 +11,10 @@ export async function submitPublicPrayerRequest(formData: FormData) {
 
   const church = await db.church.findUnique({
     where: { slug: churchSlug },
-    select: { id: true, isDemo: true, prayerFormFields: true },
+    select: { id: true, suspended: true, isDemo: true, prayerFormFields: true },
   });
-  if (!church || church.isDemo) return;
+  if (!church || church.isDemo || church.suspended) return;
+  if (!(await allowPublicSubmission("prayer", church.id))) return;
 
   const name = String(formData.get("name") ?? "").trim();
   const request = String(formData.get("request") ?? "").trim();

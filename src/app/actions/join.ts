@@ -8,6 +8,7 @@ import { buildPersonData } from "@/lib/forms/person-data";
 import { nextMemberId, resolveDepartmentIds, resolveGroupIds } from "@/lib/members/helpers";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { saveMemberCategoryChoices } from "@/lib/members/categories";
+import { allowPublicSubmission, smsSafeName, firstWelcomeTo } from "@/lib/public-guard";
 
 /**
  * Public self-registration. Uses the same shared form mapper as the admin add/
@@ -19,9 +20,10 @@ export async function selfRegister(formData: FormData) {
 
   const church = await db.church.findUnique({
     where: { slug: churchSlug },
-    select: { id: true, name: true, isDemo: true, registrationFields: true, smsWelcomeMember: true },
+    select: { id: true, suspended: true, name: true, isDemo: true, registrationFields: true, smsWelcomeMember: true },
   });
-  if (!church || church.isDemo) return;
+  if (!church || church.isDemo || church.suspended) return;
+  if (!(await allowPublicSubmission("join", church.id))) return;
 
   const fields = questionFields(getFormDefinition(church.registrationFields));
   const { data, customFields, departmentNames, groupIds } = await buildPersonData(fields, formData);
@@ -62,8 +64,8 @@ export async function selfRegister(formData: FormData) {
 
   // Optional welcome SMS to the new member (billed to the church's credits).
   const phone = typeof data.phone === "string" ? data.phone : "";
-  const firstName = String(data.firstName);
-  if (church.smsWelcomeMember && phone) {
+  const firstName = smsSafeName(String(data.firstName));
+  if (church.smsWelcomeMember && phone && (await firstWelcomeTo(church.id, phone))) {
     await sendChurchSms(
       church.id,
       phone,
@@ -84,9 +86,10 @@ export async function registerChild(formData: FormData) {
 
   const church = await db.church.findUnique({
     where: { slug: churchSlug },
-    select: { id: true, name: true, isDemo: true, childrenFormFields: true },
+    select: { id: true, suspended: true, name: true, isDemo: true, childrenFormFields: true },
   });
-  if (!church || church.isDemo) return;
+  if (!church || church.isDemo || church.suspended) return;
+  if (!(await allowPublicSubmission("children", church.id))) return;
 
   const fields = questionFields(getChildrenFormDefinition(church.childrenFormFields));
   const { data, customFields } = await buildPersonData(fields, formData);
@@ -117,9 +120,10 @@ export async function registerTeen(formData: FormData) {
 
   const church = await db.church.findUnique({
     where: { slug: churchSlug },
-    select: { id: true, name: true, isDemo: true, teensFormFields: true },
+    select: { id: true, suspended: true, name: true, isDemo: true, teensFormFields: true },
   });
-  if (!church || church.isDemo) return;
+  if (!church || church.isDemo || church.suspended) return;
+  if (!(await allowPublicSubmission("teens", church.id))) return;
 
   const fields = questionFields(getTeensFormDefinition(church.teensFormFields));
   const { data, customFields, departmentNames, groupIds } = await buildPersonData(fields, formData);

@@ -136,6 +136,8 @@ export interface Session {
   phoneVerified?: boolean;
   /** Whether this user has verified via an email OTP. */
   emailVerified?: boolean;
+  /** Plan features the church's plan does not include (enforced on the server, not just hidden). */
+  planLocked?: string[];
 }
 
 export const ROLE_PERMISSIONS: Record<Role, string[]> = {

@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { notifyChurchAdmins } from "@/lib/notify/admins";
 import { FORM_KINDS, collectExtraAnswers, TESTIMONY_CATEGORIES, COUNSEL_TYPES } from "@/lib/forms/kinds";
+import { allowPublicSubmission } from "@/lib/public-guard";
 
 const TESTIMONY_KEYS: Record<string, string> = Object.fromEntries(TESTIMONY_CATEGORIES.filter((c) => c !== "Other").map((c) => [c, c === "Praise report" ? "praise" : c.toLowerCase()]));
 const COUNSEL_KEYS: Record<string, string> = { "General / not sure": "general", "Marriage / family": "marriage", "Spiritual growth": "spiritual", "Grief / loss": "grief", Financial: "financial", Health: "health" };
@@ -16,9 +17,10 @@ export async function submitPublicTestimony(formData: FormData) {
 
   const church = await db.church.findUnique({
     where: { slug: churchSlug },
-    select: { id: true, isDemo: true, testimonyFormFields: true },
+    select: { id: true, suspended: true, isDemo: true, testimonyFormFields: true },
   });
-  if (!church || church.isDemo) return;
+  if (!church || church.isDemo || church.suspended) return;
+  if (!(await allowPublicSubmission("testimony", church.id))) return;
 
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
@@ -58,9 +60,10 @@ export async function submitCounselingRequest(formData: FormData) {
 
   const church = await db.church.findUnique({
     where: { slug: churchSlug },
-    select: { id: true, isDemo: true, counselFormFields: true },
+    select: { id: true, suspended: true, isDemo: true, counselFormFields: true },
   });
-  if (!church || church.isDemo) return;
+  if (!church || church.isDemo || church.suspended) return;
+  if (!(await allowPublicSubmission("counselling", church.id))) return;
 
   const name = String(formData.get("name") ?? "").trim();
   const phone = String(formData.get("phone") ?? "").trim();

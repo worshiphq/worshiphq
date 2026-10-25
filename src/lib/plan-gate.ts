@@ -97,6 +97,17 @@ export const FEATURE_LABELS: Record<string, string> = {
   fingerprint: "Biometric check-in (fingerprint, face, palm)",
 };
 
+/** Permission section keys whose plan feature has a different name. */
+const SECTION_FEATURE_MAP: Record<string, string> = {
+  communications: "sms",
+};
+
+/** The plan feature a permission section needs, or null when every plan includes it. */
+export function featureForSection(section: string): string | null {
+  const feature = SECTION_FEATURE_MAP[section] ?? section;
+  return ALL_FEATURES.includes(feature) && !CORE_FEATURES.includes(feature) ? feature : null;
+}
+
 /** Map nav item hrefs to plan feature keys. */
 const ROUTE_FEATURE_MAP: Record<string, string> = {
   "/app/communications": "sms",

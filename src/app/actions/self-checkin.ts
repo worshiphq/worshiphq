@@ -12,6 +12,7 @@ import { getAgeConfig } from "@/lib/data/age";
 import { phoneKey } from "@/lib/search";
 import { DEFAULT_TEMPLATES } from "@/lib/automations/run";
 import { authSecret } from "@/lib/auth/tokens";
+import { smsSafeName, firstWelcomeTo } from "@/lib/public-guard";
 
 const CATEGORY_FIELD: Record<AttendanceCategory, "adults" | "teens" | "children" | "visitors"> = {
   adult: "adults", teen: "teens", child: "children", visitor: "visitors",
@@ -95,6 +96,7 @@ async function guard(ctx: Ctx, where: Where, adding = true): Promise<string | nu
     if (where.lat == null || where.lng == null) return "Please allow location access so we can see you are at church, then try again.";
     if (metres(c.qrGeoLat, c.qrGeoLng, where.lat, where.lng) > c.qrGeoRadius) return `You need to be at ${c.name} to check in. If you are here, ask an usher to check you in.`;
   }
+  if (adding && c.qrDeviceLimit > 0 && !clean(where.deviceId, 64)) return "Please refresh this page and try again.";
   if (adding && c.qrDeviceLimit > 0 && where.deviceId) {
     const used = await db.attendanceRecord.count({ where: { sessionId: ctx.sess.id, method: "self", deviceId: where.deviceId } });
     if (used >= c.qrDeviceLimit) return `This phone has already checked in ${used} ${used === 1 ? "person" : "people"}, which is the most allowed. Please ask an usher to help.`;
@@ -106,6 +108,16 @@ const clean = (v: unknown, max = 80) => String(v ?? "").trim().replace(/\s+/g, "
 const shortName = (first: string, last: string) => `${first}${last ? ` ${last.charAt(0).toUpperCase()}.` : ""}`;
 const hashCode = (personId: string, code: string) => crypto.createHmac("sha256", authSecret()).update(`${personId}:${code}`).digest("hex");
 
+/** Per-connection limit for one kind of check-in step, per service, plus a church-wide hourly ceiling. */
+async function allowCheckIn(step: string, ctx: Ctx, perHour: number): Promise<boolean> {
+  const { rateLimitAll, clientIp, HOUR } = await import("@/lib/rate-limit");
+  const ip = await clientIp();
+  return rateLimitAll([
+    { key: `qr:${step}:${ctx.sess.id}:${ip}`, max: perHour, windowMs: HOUR },
+    { key: `qr:${step}:${ctx.church.id}`, max: perHour * 25, windowMs: HOUR },
+  ]);
+}
+
 export type Candidate = { id: string; name: string; hint: string | null; visitor: boolean };
 
 /** Find yourself by name or phone. Only a short name and the end of the phone number are shown, never the whole roster. */
@@ -116,6 +128,9 @@ export async function findForCheckIn(input: { sessionId: string; query: string }
   if (bad) return { ok: false, error: bad };
   const q = clean(input.query, 60);
   if (q.length < 3) return { ok: true, people: [] };
+  if (!(await allowCheckIn("find", ctx, 120))) return { ok: false, error: "Too many searches from this connection. Please ask an usher." };
+  // In "last 3 digits" mode those digits are the proof, so they are never shown.
+  const showHint = ctx.church.qrVerify !== "digits";
 
   const tokens = /^[+\d][\d\s\-()]*$/.test(q) ? [q.replace(/[\s\-()]/g, "")] : q.split(/\s+/).filter(Boolean).slice(0, 4);
   const rows = await db.person.findMany({
@@ -137,7 +152,7 @@ export async function findForCheckIn(input: { sessionId: string; query: string }
   });
   return {
     ok: true,
-    people: rows.map((p) => ({ id: p.id, name: shortName(p.firstName, p.lastName), hint: p.phone ? `phone ends ${phoneKey(p.phone).slice(-3)}` : null, visitor: p.status === "visitor" })),
+    people: rows.map((p) => ({ id: p.id, name: shortName(p.firstName, p.lastName), hint: showHint && p.phone ? `phone ends ${phoneKey(p.phone).slice(-3)}` : null, visitor: p.status === "visitor" })),
   };
 }
 
@@ -150,6 +165,7 @@ export async function sendCheckInCode(input: { sessionId: string; personId: stri
   const person = await db.person.findFirst({ where: { id: input.personId, churchId: ctx.church.id, status: { in: ["active", "visitor"] } }, select: { id: true, phone: true } });
   if (!person?.phone) return { ok: false, error: "We do not have a phone number for you. Please ask an usher to check you in." };
 
+  if (!(await allowCheckIn("code", ctx, 30))) return { ok: false, error: "Too many codes requested from this connection. Please ask an usher." };
   const recent = await db.selfCheckInCode.count({ where: { churchId: ctx.church.id, personId: person.id, createdAt: { gte: new Date(Date.now() - 3600_000) } } });
   if (recent >= 3) return { ok: false, error: "A code was already sent. Please wait a few minutes, or ask an usher." };
 
@@ -216,6 +232,7 @@ export async function checkInNewVisitor(input: { sessionId: string; firstName: s
   if (bad) return { ok: false, error: bad };
   const firstName = clean(input.firstName, 50), lastName = clean(input.lastName, 50), phone = clean(input.phone, 25);
   if (!firstName || !lastName) return { ok: false, error: "Please enter your first and last name." };
+  if (!(await allowCheckIn("new", ctx, 40))) return { ok: false, error: "Too many new check-ins from this connection. Please ask an usher." };
   if (phoneKey(phone).length < 9) return { ok: false, error: "Please enter your phone number so we can welcome you." };
 
   // Already known by this number? Then they are not new.
@@ -239,9 +256,9 @@ export async function checkInNewVisitor(input: { sessionId: string; firstName: s
 
   // First-visit welcome text, exactly as the visitor form does it.
   const settings = await db.church.findUnique({ where: { id: ctx.church.id }, select: { smsWelcomeVisitor: true } });
-  if (settings?.smsWelcomeVisitor) {
+  if (settings?.smsWelcomeVisitor && (await firstWelcomeTo(ctx.church.id, phone))) {
     const a = await db.automation.findFirst({ where: { churchId: ctx.church.id, trigger: "visitor_followup" }, select: { messageTemplate: true } });
-    const msg = (a?.messageTemplate || DEFAULT_TEMPLATES.visitor_followup).replace(/\{name\}/g, firstName).replace(/\{church\}/g, ctx.church.name);
+    const msg = (a?.messageTemplate || DEFAULT_TEMPLATES.visitor_followup).replace(/\{name\}/g, smsSafeName(firstName)).replace(/\{church\}/g, ctx.church.name);
     const r = await sendChurchSms(ctx.church.id, phone, msg, { note: "First visit welcome" });
     if (r.ok) await db.visitor.update({ where: { id: visitor.id }, data: { welcomeSmsSentAt: new Date() } });
   }

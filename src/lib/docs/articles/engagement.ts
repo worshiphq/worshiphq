@@ -43,7 +43,13 @@ export const engagement: DocArticle[] = [
         "**Welcome SMS on registration**: texts a warm welcome to members who register through your join link.",
         "**Welcome SMS to visitors**: texts visitors who fill in your visitor form.",
       ] },
-      { p: "Switch these on or off on the same credits page. Each uses 1 credit per message." },
+      { p: "Switch these on or off on the same credits page. Each uses 1 credit per message. A number gets the welcome text once a month at most, so the same person filling in a form twice isn't texted twice." },
+      { h: "How many credits a text uses" },
+      { list: [
+        "A text of up to **160 characters** uses **1 credit** per person. Longer texts use 1 credit for every **153 characters**.",
+        "An emoji or a letter outside the standard SMS alphabet switches the whole text to a mode that fits only **70 characters** (67 per part when longer), so it uses more credits. Curly quotes and long dashes from phone keyboards are changed to plain ones for you, so they don't count.",
+        "Credits are set aside before a send starts and anything that couldn't be delivered goes straight back to your balance. Two sends at the same time can never take you below zero.",
+      ] },
       { h: "Your church's sender name (sender ID)" },
       { p: "By default, texts come from WorshipHQ's sender name with your church's name at the top. To have texts arrive from your own name instead:" },
       { steps: [

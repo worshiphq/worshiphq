@@ -326,6 +326,11 @@ export async function inviteTeammate(formData: FormData) {
   if (await db.user.findUnique({ where: { email } })) return;
   if (await db.user.findFirst({ where: { churchId: session.churchId, phone } })) return;
 
+  // The plan's team size is enforced here, not just shown. Invites are also capped per day: each one is a text we pay for.
+  if (!(await teamHasRoom(session.churchId))) return;
+  const { rateLimit, DAY } = await import("@/lib/rate-limit");
+  if (!(await rateLimit(`invite:${session.churchId}`, 30, DAY))) return;
+
   // Optional temp password lets them also sign in immediately; otherwise they
   // set their own password when accepting the invite.
   const tempPassword = String(formData.get("password") ?? "").trim();
@@ -374,6 +379,19 @@ export async function inviteTeammate(formData: FormData) {
   revalidatePath("/app/settings");
 }
 
+/** Whether the church's plan has room for one more team member. */
+async function teamHasRoom(churchId: string): Promise<boolean> {
+  const { getChurchPlan } = await import("@/lib/plan-gate-server");
+  const { getPlatformConfig } = await import("@/lib/data/platform-config");
+  const [plan, cfg, count] = await Promise.all([
+    getChurchPlan(churchId),
+    getPlatformConfig(),
+    db.user.count({ where: { churchId } }),
+  ]);
+  const limit = cfg.planTable[plan]?.teamUsers ?? Infinity;
+  return !Number.isFinite(limit) || count < limit;
+}
+
 /** Invite a department budget leader - a scoped account that only ever sees its
  *  own department's budget, income and expenses. Uses the same SMS accept flow. */
 export async function inviteBudgetLeader(formData: FormData) {
@@ -393,6 +411,11 @@ export async function inviteBudgetLeader(formData: FormData) {
   const email = emailRaw || `p${phone.replace(/\D/g, "")}@invite.worshiphq.app`;
   if (await db.user.findUnique({ where: { email } })) return;
   if (await db.user.findFirst({ where: { churchId: session.churchId, phone } })) return;
+
+  // The plan's team size is enforced here, not just shown. Invites are also capped per day: each one is a text we pay for.
+  if (!(await teamHasRoom(session.churchId))) return;
+  const { rateLimit, DAY } = await import("@/lib/rate-limit");
+  if (!(await rateLimit(`invite:${session.churchId}`, 30, DAY))) return;
 
   const inviteToken = crypto.randomBytes(24).toString("base64url");
   await db.user.create({

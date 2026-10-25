@@ -2,6 +2,8 @@ import "server-only";
 import { db } from "@/lib/db";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { sendEmail } from "@/lib/integrations/email";
+import { textToHtml } from "@/lib/html";
+import { allowAdminAlertSms } from "@/lib/public-guard";
 
 /**
  * Notify a church's admins (SMS + email) that a member submitted something -
@@ -31,14 +33,16 @@ export async function notifyChurchAdmins(
       admins.map((a) => a.email).filter((e): e is string => !!e && !e.endsWith("@invite.worshiphq.app")),
     )];
 
-    if (phones.length) {
+    // Texts are capped per church (a flood of form submissions can't drain its credits); email still goes.
+    if (phones.length && (opts.force || (await allowAdminAlertSms(churchId)))) {
       await sendChurchSms(churchId, phones, opts.sms, { note: opts.subject });
     }
     if (emails.length) {
       await sendEmail({
         to: emails,
         subject: `${opts.subject} - ${church.name}`,
-        html: opts.emailHtml ?? `<p>${opts.sms}</p>`,
+        // The alert text carries what a member typed on a public form, so it is escaped, never raw HTML.
+        html: opts.emailHtml ?? `<p>${textToHtml(opts.sms)}</p>`,
         log: { churchId, name: opts.subject, segment: "admin-alert" },
       });
     }

@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
   });
 
   if (person.status === "visitor") {
-    const { recordVisitorCheckin } = await import("@/app/actions/visit");
+    const { recordVisitorCheckin } = await import("@/lib/visitor-checkin");
     await recordVisitorCheckin(person.id, session.churchId).catch(() => {});
   }
 

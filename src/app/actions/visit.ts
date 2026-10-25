@@ -6,6 +6,7 @@ import { getVisitorFormDefinition, questionFields } from "@/lib/forms/registrati
 import { sendChurchSms } from "@/lib/sms/credits";
 import { DEFAULT_TEMPLATES } from "@/lib/automations/run";
 import { templateFor, renderTemplate as renderRegistryTemplate } from "@/lib/messages/registry";
+import { allowPublicSubmission, smsSafeName, firstWelcomeTo } from "@/lib/public-guard";
 
 /** "Purpose of visit" select can be "Other", in which case the real value
  *  comes from the accompanying free-text field instead of the literal word. */
@@ -38,8 +39,10 @@ async function sendVisitorWelcomeNow(opts: {
   phone: string | null;
 }) {
   if (!opts.phone) return;
+  // One welcome per number per church a month, and only a plain name inside it.
+  if (!(await firstWelcomeTo(opts.churchId, opts.phone))) return;
   const template = await visitorWelcomeTemplate(opts.churchId);
-  const message = template.replace(/\{name\}/g, opts.firstName).replace(/\{church\}/g, opts.churchName);
+  const message = template.replace(/\{name\}/g, smsSafeName(opts.firstName)).replace(/\{church\}/g, opts.churchName);
   const res = await sendChurchSms(opts.churchId, opts.phone, message, { note: "First visit welcome" });
   if (res.ok) {
     await db.visitor.update({ where: { id: opts.visitorId }, data: { welcomeSmsSentAt: new Date() } });
@@ -73,9 +76,10 @@ export async function submitVisitorForm(formData: FormData) {
 
   const church = await db.church.findUnique({
     where: { slug: churchSlug },
-    select: { id: true, name: true, isDemo: true, visitorFormFields: true, smsWelcomeVisitor: true },
+    select: { id: true, suspended: true, name: true, isDemo: true, visitorFormFields: true, smsWelcomeVisitor: true },
   });
-  if (!church || church.isDemo) return;
+  if (!church || church.isDemo || church.suspended) return;
+  if (!(await allowPublicSubmission("visit", church.id))) return;
 
   const fields = questionFields(getVisitorFormDefinition(church.visitorFormFields));
 
@@ -373,18 +377,4 @@ export async function toggleRegular(id: string) {
   await db.visitor.update({ where: { id }, data: { isRegular: !v.isRegular } });
   const { revalidatePath } = await import("next/cache");
   revalidatePath("/app/visitors");
-}
-
-export async function recordVisitorCheckin(personId: string, churchId: string) {
-  const visitor = await db.visitor.findFirst({ where: { personId, churchId } });
-  if (!visitor) return;
-  const count = visitor.visitCount + 1;
-  await db.visitor.update({
-    where: { id: visitor.id },
-    data: {
-      visitCount: count,
-      lastVisit: new Date(),
-      isRegular: count >= 3 ? true : visitor.isRegular,
-    },
-  });
 }

@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { type Session, can, ROLE_PERMISSIONS, ALL_MODULES, modulesForRole, hasSection, canManage } from "@/lib/permissions";
 import { authSecret, safeEqual, signToken, readToken } from "@/lib/auth/tokens";
+import { featureForSection, planHasFeature, ALL_FEATURES, CORE_FEATURES, FEATURE_LABELS, getMinimumPlan, type PlanId } from "@/lib/plan-gate";
 
 export type { Session };
 export { can, ROLE_PERMISSIONS };
@@ -218,8 +219,25 @@ export async function requireSuperAdmin(): Promise<{ email: string; ghost?: stri
   return sa;
 }
 
+/** The paid features this church's plan doesn't include. */
+async function lockedFeatures(churchId: string): Promise<string[]> {
+  const { getChurchPlan } = await import("@/lib/plan-gate-server");
+  const { getPlatformConfig } = await import("@/lib/data/platform-config");
+  const [plan, cfg] = await Promise.all([getChurchPlan(churchId), getPlatformConfig()]);
+  return ALL_FEATURES.filter((f) => !CORE_FEATURES.includes(f) && !planHasFeature(plan as PlanId, f, cfg.planTable));
+}
+
 /** Current session (null when signed out). Reads a signed cookie and loads the DB user. */
 async function _getSession(): Promise<Session | null> {
+  const session = await _loadSession();
+  // Demo and support sessions see everything; real users get their church's plan.
+  if (session && !session.isDemo && !session.impersonating) {
+    session.planLocked = await lockedFeatures(session.churchId);
+  }
+  return session;
+}
+
+async function _loadSession(): Promise<Session | null> {
   const store = await cookies();
   const token = store.get(COOKIE)?.value;
   if (!token) return null;
@@ -368,8 +386,25 @@ export class DemoReadOnlyError extends Error {
     super("This is the read-only demo. Create a free account to make changes.");
   }
 }
+/** The locked plan feature a section needs, or null when the church's plan includes it. */
+export function planLockFor(session: Session, module: string): string | null {
+  const feature = featureForSection(module);
+  return feature && session.planLocked?.includes(feature) ? feature : null;
+}
+
+export class PlanLockedError extends Error {
+  constructor(feature: string) {
+    const plan = getMinimumPlan(feature);
+    super(`${FEATURE_LABELS[feature] ?? feature} is part of the ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan. The church Owner can upgrade in Settings, Billing.`);
+  }
+}
+
 export function assertCanWrite(session: Session, module?: string) {
   if (session.isDemo) throw new DemoReadOnlyError();
+  if (module) {
+    const locked = planLockFor(session, module);
+    if (locked) throw new PlanLockedError(locked);
+  }
   // Given a section, the person must be allowed to MANAGE it, not just see it.
   if (module && !canManage(session, module)) throw new Error("Your role can view this but not make changes to it.");
 }
@@ -387,6 +422,8 @@ export async function requireModule(module: string): Promise<Session> {
   if (!hasSection(session, module)) {
     redirect("/app");
   }
+  // A section the plan doesn't include goes to the upgrade page, the same as its locked menu item.
+  if (planLockFor(session, module)) redirect("/app/settings?tab=billing");
   return session;
 }
 
@@ -396,6 +433,7 @@ export async function requireManage(module: string): Promise<Session> {
   if (!canManage(session, module)) {
     redirect("/app");
   }
+  if (planLockFor(session, module)) redirect("/app/settings?tab=billing");
   return session;
 }
 

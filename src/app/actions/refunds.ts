@@ -108,6 +108,23 @@ export async function approveRefund(id: string, note?: string) {
     await db.planPayment.update({ where: { id: req.paymentId }, data: { status: "refunded" } });
   }
 
+  // The money is going back, so the paid time it bought goes too: if this was the payment for the
+  // church's current period, the church returns to Free now.
+  const latest = await db.planPayment.findFirst({
+    where: { churchId: req.churchId },
+    orderBy: { createdAt: "desc" },
+    select: { id: true },
+  });
+  if (latest?.id === req.paymentId) {
+    await db.subscription.updateMany({
+      where: { churchId: req.churchId, status: { not: "grace" } },
+      data: {
+        plan: "free", status: "active", renewsAt: null, periodStart: null,
+        scheduledPlan: null, scheduledAt: null, cancelAtPeriodEnd: false,
+      },
+    });
+  }
+
   await notifyChurch(
     req.churchId,
     `Your WorshipHQ refund of GHS ${req.amountGhs.toLocaleString()} has been approved and sent to your bank. It usually arrives in 5-10 working days.`,

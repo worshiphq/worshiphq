@@ -1,7 +1,10 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { sendSms } from "@/lib/integrations/sms";
-import { segmentsFor } from "@/config/sms";
+import { segmentsFor, smsNormalize } from "@/config/sms";
+
+/** Recipients sent per provider call; credits are reserved per chunk. */
+const SEND_CHUNK = 50;
 
 export async function getSmsBalance(churchId: string): Promise<number> {
   const c = await db.church.findUnique({ where: { id: churchId }, select: { smsCredits: true } });
@@ -67,10 +70,11 @@ export interface ChurchSmsResult {
 export async function sendChurchSms(
   churchId: string,
   to: string | string[],
-  message: string,
+  rawMessage: string,
   opts?: { note?: string },
 ): Promise<ChurchSmsResult> {
   const recipients = (Array.isArray(to) ? to : [to]).filter(Boolean);
+  const message = smsNormalize(rawMessage);
 
   // Brand the message with the church's name so members know who it's from
   // (the SMS sender ID is the platform's, e.g. "HostHub").
@@ -90,7 +94,7 @@ export async function sendChurchSms(
   const smsText = heading ? `${heading}\n${message}` : message;
 
   const segments = segmentsFor(smsText);
-  // Worst-case cost, used only to gate whether we attempt the send at all.
+  // Worst-case cost, used to gate whether we attempt the send at all.
   const estimatedCost = segments * recipients.length;
 
   const balance = await getSmsBalance(churchId);
@@ -99,36 +103,65 @@ export async function sendChurchSms(
     return { ok: false, sent: 0, cost: estimatedCost, balance, insufficient: true };
   }
 
-  const res = await sendSms(recipients, message, {
-    heading,
-    senderId:
-      church?.smsSenderIdStatus === "approved"
-        ? church.smsSenderId
-        : null,
-  });
-  // A batch is never all-or-nothing (e.g. one bad number among 80 good ones) -
-  // bill and log only what actually went out, never the full requested list.
-  if (res.sentCount === 0) return { ok: false, sent: 0, cost: estimatedCost, balance, results: res.results };
+  // Credits are taken BEFORE each chunk is sent (only if the balance still covers it), and the unsent
+  // part is handed back after. So sends running at the same time can never overspend the wallet, and a
+  // send cut off half way has already paid for what went out.
+  const senderId = church?.smsSenderIdStatus === "approved" ? church.smsSenderId : null;
+  const results: { to: string; ok: boolean }[] = [];
+  let sent = 0;
+  let cost = 0;
+  let ledgerId: string | null = null;
+  let balanceAfter = balance;
+  let ranOut = false;
+  for (let i = 0; i < recipients.length; i += SEND_CHUNK) {
+    const chunk = recipients.slice(i, i + SEND_CHUNK);
+    const reserve = segments * chunk.length;
+    const claimed = await db.church.updateMany({
+      where: { id: churchId, smsCredits: { gte: reserve } },
+      data: { smsCredits: { decrement: reserve } },
+    });
+    if (claimed.count === 0) {
+      ranOut = true;
+      for (const r of chunk) results.push({ to: r, ok: false });
+      for (const r of recipients.slice(i + SEND_CHUNK)) results.push({ to: r, ok: false });
+      break;
+    }
+    let chunkSent = 0;
+    try {
+      const res = await sendSms(chunk, message, { heading, senderId });
+      chunkSent = res.sentCount;
+      results.push(...(res.results ?? chunk.map((r) => ({ to: r, ok: res.sentCount > 0 }))));
+    } finally {
+      const unused = reserve - segments * chunkSent;
+      const after = await db.church.update({
+        where: { id: churchId },
+        data: unused > 0 ? { smsCredits: { increment: unused } } : {},
+        select: { smsCredits: true },
+      });
+      balanceAfter = after.smsCredits;
+    }
+    sent += chunkSent;
+    cost += segments * chunkSent;
+    if (chunkSent > 0) {
+      // One ledger row per send, kept up to date chunk by chunk.
+      const note =
+        i + SEND_CHUNK < recipients.length || sent < recipients.length
+          ? `${opts?.note ?? "Broadcast"} (${sent}/${recipients.length} delivered)`
+          : opts?.note ?? `${recipients.length} recipient(s)`;
+      if (ledgerId) {
+        await db.smsTransaction.update({ where: { id: ledgerId }, data: { credits: -cost, balanceAfter, note } });
+      } else {
+        const row = await db.smsTransaction.create({
+          data: { churchId, kind: "usage", credits: -cost, balanceAfter, note },
+          select: { id: true },
+        });
+        ledgerId = row.id;
+      }
+    }
+  }
 
-  const cost = segments * res.sentCount;
-  const updated = await db.church.update({
-    where: { id: churchId },
-    data: { smsCredits: { decrement: cost } },
-    select: { smsCredits: true },
-  });
-  const note =
-    res.sentCount < recipients.length
-      ? `${opts?.note ?? "Broadcast"} (${res.sentCount}/${recipients.length} delivered)`
-      : opts?.note ?? `${recipients.length} recipient(s)`;
-  await db.smsTransaction.create({
-    data: {
-      churchId,
-      kind: "usage",
-      credits: -cost,
-      balanceAfter: updated.smsCredits,
-      note,
-    },
-  });
-
-  return { ok: true, sent: res.sentCount, cost, balance: updated.smsCredits, results: res.results };
+  if (sent === 0) {
+    return { ok: false, sent: 0, cost: estimatedCost, balance: balanceAfter, insufficient: ranOut || undefined, results };
+  }
+  return { ok: true, sent, cost, balance: balanceAfter, results };
 }

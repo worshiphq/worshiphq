@@ -92,7 +92,7 @@ export const admin: DocArticle[] = [
         "Choose their role, then **Send SMS invite**.",
         "They get a text with a link to accept, verify their number, set a password and add a photo.",
       ] },
-      { p: "Your plan limits how many team members you can have." },
+      { p: "Your plan limits how many team members you can have. When you reach it, **Invite a teammate** shows how many your plan includes, and you can upgrade in **Billing** to add more." },
       { h: "The built-in roles" },
       { table: { head: ["Role", "Typically for"], rows: [
         ["**Owner**", "The person who created the church. Full control, including billing."],

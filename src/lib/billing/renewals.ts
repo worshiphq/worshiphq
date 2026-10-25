@@ -39,23 +39,27 @@ export async function runBillingCycle() {
     // ── 1. Period ended with a scheduled change → apply it, no money moves ──
     if (ended && (sub.scheduledPlan || sub.cancelAtPeriodEnd)) {
       const nextPlan = sub.cancelAtPeriodEnd ? "free" : sub.scheduledPlan!;
+      // Free has no billing period. A paid step-down has NOT been paid for yet: it moves to the cheaper
+      // plan as due for renewal (past_due), so the usual grace days apply until the church pays for it.
       await db.subscription.update({
         where: { churchId: sub.churchId },
         data: {
           plan: nextPlan,
-          status: "active",
+          status: nextPlan === "free" ? "active" : "past_due",
           scheduledPlan: null,
           scheduledAt: null,
           cancelAtPeriodEnd: false,
           renewalRemindersSent: { set: [] },
-          // Free has no billing period; a paid step-down starts a fresh one.
-          ...(nextPlan === "free"
-            ? { renewsAt: null, periodStart: null }
-            : { periodStart: now, renewsAt: nextPeriodEnd(now, sub.interval) }),
+          ...(nextPlan === "free" ? { renewsAt: null, periodStart: null } : {}),
         },
       });
       downgraded++;
-      await notify(sub.churchId, `Your WorshipHQ plan has moved to ${titleCase(nextPlan)} as scheduled.`);
+      await notify(
+        sub.churchId,
+        nextPlan === "free"
+          ? `Your WorshipHQ plan has moved to Free as scheduled.`
+          : `Your WorshipHQ plan has moved to ${titleCase(nextPlan)} as scheduled. Renew within ${GRACE_DAYS} days to keep it.`,
+      );
       continue;
     }
 
@@ -97,12 +101,6 @@ export async function runBillingCycle() {
   }
 
   return { downgraded, reminded, lapsed };
-}
-
-function nextPeriodEnd(from: Date, interval: string): Date {
-  const d = new Date(from);
-  d.setMonth(d.getMonth() + (interval === "yearly" ? 12 : 1));
-  return d;
 }
 
 function titleCase(s: string): string {

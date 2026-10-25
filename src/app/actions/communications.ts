@@ -8,6 +8,7 @@ import { sendEmail } from "@/lib/integrations/email";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { audit } from "@/lib/audit";
 import type { Channel } from "@prisma/client";
+import { textToHtml } from "@/lib/html";
 
 interface Recipient {
   id: string | null;
@@ -135,12 +136,12 @@ export async function sendBroadcast(formData: FormData) {
     if (channel === "Email") {
       if (personalize) {
         const results = await Promise.all(
-          recipientObjs.map((r) => sendEmail({ to: r.contact, subject: name, html: `<p>${renderFor(r.name)}</p>` })),
+          recipientObjs.map((r) => sendEmail({ to: r.contact, subject: name, html: `<p>${textToHtml(renderFor(r.name))}</p>` })),
         );
         statusByIndex = results.map((r) => r.ok);
         sent = statusByIndex.filter(Boolean).length;
       } else {
-        const result = await sendEmail({ to: recipients, subject: name, html: `<p>${message}</p>` });
+        const result = await sendEmail({ to: recipients, subject: name, html: `<p>${textToHtml(message)}</p>` });
         statusByIndex = recipients.map(() => result.ok);
         sent = result.ok ? recipients.length : 0;
       }

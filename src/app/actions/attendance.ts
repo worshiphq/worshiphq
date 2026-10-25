@@ -114,7 +114,7 @@ export async function checkInMember(sessionId: string, personId: string) {
   });
 
   if (person.status === "visitor") {
-    const { recordVisitorCheckin } = await import("@/app/actions/visit");
+    const { recordVisitorCheckin } = await import("@/lib/visitor-checkin");
     await recordVisitorCheckin(personId, session.churchId).catch(() => {});
   }
 
@@ -174,7 +174,7 @@ export async function checkInVisitorNow(personId: string) {
   });
 
   if (person.status === "visitor") {
-    const { recordVisitorCheckin } = await import("@/app/actions/visit");
+    const { recordVisitorCheckin } = await import("@/lib/visitor-checkin");
     await recordVisitorCheckin(personId, session.churchId).catch(() => {});
   }
 

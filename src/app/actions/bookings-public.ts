@@ -5,6 +5,7 @@ import { findBookingConflict } from "@/lib/bookings/conflicts";
 import { zonedToUtc } from "@/lib/time/tz";
 import { priceFor, asRateUnit } from "@/lib/bookings/pricing";
 import { FORM_KINDS, collectExtraAnswers } from "@/lib/forms/kinds";
+import { allowPublicSubmission } from "@/lib/public-guard";
 
 type Result = { ok: true } | { ok: false; error: string };
 
@@ -25,6 +26,7 @@ export async function requestFacilityBooking(formData: FormData): Promise<Result
     select: { id: true, name: true, isDemo: true, suspended: true, publicBookingOn: true, timezone: true, bookingFormFields: true },
   });
   if (!church || church.isDemo || church.suspended || !church.publicBookingOn) return { ok: false, error: "Booking requests aren't open right now." };
+  if (!(await allowPublicSubmission("booking", church.id))) return { ok: false, error: "Too many requests from this connection. Please try again later." };
 
   const facilityId = str(formData.get("facilityId"));
   const facility = await db.facility.findFirst({

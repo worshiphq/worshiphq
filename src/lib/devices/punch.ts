@@ -123,7 +123,7 @@ export async function recordPunch(device: Device, input: { pin: string; at: Date
   });
   await db.attendanceSession.update({ where: { id: sess.id }, data: { [field[category] ?? "adults"]: { increment: 1 } } });
   if (person.status === "visitor") {
-    const { recordVisitorCheckin } = await import("@/app/actions/visit");
+    const { recordVisitorCheckin } = await import("@/lib/visitor-checkin");
     await recordVisitorCheckin(person.id, device.churchId).catch(() => {});
   }
   await log("checked_in", name);

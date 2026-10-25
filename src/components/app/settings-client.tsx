@@ -326,6 +326,11 @@ export function SettingsClient({
                 <h3 className="flex items-center gap-2 font-display text-[1rem] font-semibold">
                   <UserPlus className="size-4" /> Invite a teammate
                 </h3>
+                {billingUsage?.teamLimit != null && billingUsage.teamUsers >= billingUsage.teamLimit && (
+                  <p className="mt-3 rounded-lg bg-surface-2 px-3 py-2 text-sm text-ink-muted">
+                    Your plan includes {billingUsage.teamLimit} team members and you have {billingUsage.teamUsers}. Upgrade in the Billing tab to invite more.
+                  </p>
+                )}
                 <form action={inviteTeammate} className="mt-4 grid gap-3 sm:grid-cols-2">
                   <Input name="name" placeholder="Full name" required disabled={ro} />
                   <Input name="phone" type="tel" placeholder="Mobile number (for SMS invite)" required disabled={ro} onChange={(e) => e.target.setCustomValidity("")} onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))} />

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireModule, requireManage } from "@/lib/auth";
+import { requireModule, requireManage, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { RecycleBin } from "@/lib/recycle-bin";
 
@@ -29,6 +29,7 @@ export async function createPrayerRequest(formData: FormData) {
 /** Move a request between New, Prayed for and Archived. */
 export async function updatePrayerRequestStatus(formData: FormData) {
   const session = await requireManage("prayer-requests");
+  assertCanWrite(session, "prayer-requests");
   const id = String(formData.get("id"));
   const status = String(formData.get("status"));
   if (!["active", "prayed", "archived"].includes(status)) return;
@@ -59,6 +60,7 @@ export async function markPrayerRequestsPrayed(ids: string[]) {
 
 export async function deletePrayerRequest(formData: FormData) {
   const session = await requireManage("prayer-requests");
+  assertCanDelete(session);
   const id = String(formData.get("id"));
 
   await RecycleBin.capturePrayerRequest(session, id);

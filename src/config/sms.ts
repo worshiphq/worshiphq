@@ -81,7 +81,36 @@ export const FREE_SIGNUP_CREDITS = 50;
 /** Characters per SMS segment (standard GSM). */
 export const SMS_SEGMENT_CHARS = 160;
 
+// The GSM 7-bit alphabet. Any character outside it makes the whole message Unicode (UCS-2),
+// which fits 70 characters per part instead of 160. The extension characters count as two.
+const GSM_BASIC = "@£$¥èéùìòÇ\nØø\rÅåΔ_ΦΓΛΩΠΨΣΘΞÆæßÉ !\"#¤%&'()*+,-./0123456789:;<=>?¡ABCDEFGHIJKLMNOPQRSTUVWXYZÄÖÑÜ§¿abcdefghijklmnopqrstuvwxyzäöñüà";
+const GSM_EXTENDED = "^{}\\[~]|€\f";
+
+/**
+ * Swap the typographic punctuation phone keyboards insert (curly quotes, long dashes, ellipsis)
+ * for plain ones, so an ordinary message doesn't turn into a 70-character Unicode SMS.
+ */
+export function smsNormalize(text: string): string {
+  return text
+    .replace(/[\u2018\u2019\u201A\u2032]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u2033]/g, '"')
+    .replace(/[\u2013\u2014\u2212]/g, "-")
+    .replace(/\u2026/g, "...")
+    .replace(/\u00A0/g, " ");
+}
+
 /** Credits one message costs to one recipient (longer messages = more segments). */
 export function segmentsFor(message: string): number {
-  return Math.max(1, Math.ceil(message.length / SMS_SEGMENT_CHARS));
+  const text = smsNormalize(message);
+  let units = 0;
+  let gsm = true;
+  for (const ch of text) {
+    if (GSM_BASIC.includes(ch)) units += 1;
+    else if (GSM_EXTENDED.includes(ch)) units += 2;
+    else { gsm = false; break; }
+  }
+  if (gsm) return units <= 160 ? 1 : Math.ceil(units / 153);
+  // Unicode: UTF-16 code units (an emoji is two), 70 per single part, 67 per part when joined.
+  const len = text.length;
+  return len <= 70 ? 1 : Math.ceil(len / 67);
 }

@@ -4,6 +4,7 @@ import { notifyChurchAdmins } from "@/lib/notify/admins";
 import { localParts, mmddInTz, ymdInTz, timeReached } from "@/lib/time/tz";
 import { templateFor, renderTemplate } from "@/lib/messages/registry";
 import { forEachChurch, type Deadline } from "@/lib/automations/pool";
+import { escapeHtml } from "@/lib/html";
 
 /**
  * Birthday automations. The cron runs hourly; for each church we only act when
@@ -75,7 +76,7 @@ export async function runBirthdays(now = new Date(), ignoreHour = false, deadlin
       await notifyChurchAdmins(church.id, {
         subject: "Today's birthdays",
         sms,
-        emailHtml: `<h2>Birthdays today - ${church.name}</h2><ul>${names.map((n) => `<li>${n}</li>`).join("")}</ul>`,
+        emailHtml: `<h2>Birthdays today - ${escapeHtml(church.name)}</h2><ul>${names.map((n) => `<li>${escapeHtml(n)}</li>`).join("")}</ul>`,
       });
       adminAlerts++;
     }
@@ -103,7 +104,7 @@ export async function runBirthdays(now = new Date(), ignoreHour = false, deadlin
         await notifyChurchAdmins(church.id, {
           subject: "This week's birthdays",
           sms,
-          emailHtml: `<h2>Birthdays this week - ${church.name}</h2><ul>${people.map((p) => `<li>${p.firstName} ${p.lastName} - ${labelByKey.get(p.birthday!) ?? ""}</li>`).join("")}</ul>`,
+          emailHtml: `<h2>Birthdays this week - ${escapeHtml(church.name)}</h2><ul>${people.map((p) => `<li>${escapeHtml(`${p.firstName} ${p.lastName}`)} - ${escapeHtml(labelByKey.get(p.birthday!) ?? "")}</li>`).join("")}</ul>`,
         });
         digests++;
       }
