@@ -114,7 +114,7 @@ export function AdminShell({
       </header>
 
       <div className="min-w-0 flex-1">
-        <div className="mx-auto max-w-6xl px-4 py-6 sm:px-6">
+        <div className="mx-auto w-full max-w-[1800px] px-4 py-6 sm:px-6 lg:px-8">
           <main id="main-content" tabIndex={-1} className="outline-none [color-scheme:dark] [&_option]:bg-slate-800 [&_option]:text-slate-100">{children}</main>
         </div>
       </div>

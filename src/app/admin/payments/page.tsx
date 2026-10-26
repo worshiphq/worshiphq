@@ -3,6 +3,7 @@ import { AdminShell } from "@/components/admin/admin-shell";
 import { PaymentRequestsManager } from "@/components/admin/payment-requests";
 import { db } from "@/lib/db";
 import { getGivingSettings } from "@/lib/giving/settings";
+import { getPlatformConfig } from "@/lib/data/platform-config";
 
 export default async function AdminPaymentsPage() {
   const sa = await requireSuperAdmin();
@@ -17,9 +18,13 @@ export default async function AdminPaymentsPage() {
     }),
   ]);
 
+  const platform = await getPlatformConfig();
+  const planPercents = Object.fromEntries(platform.planList.map((p) => [p.id, p.givingPercent])) as Record<string, number>;
+  const planNames = Object.fromEntries(platform.planList.map((p) => [p.id, p.name])) as Record<string, string>;
+
   // How each church's giving fees work right now (its own choice, or the platform default).
   const settings = await Promise.all(requests.map((r) => getGivingSettings(r.churchId)));
-  const withGiving = requests.map((r, i) => ({ ...r, giving: { mode: settings[i].mode, platformPercent: settings[i].platformPercent, custom: settings[i].custom, customPercent: settings[i].customPercent } }));
+  const withGiving = requests.map((r, i) => ({ ...r, giving: { mode: settings[i].mode, platformPercent: settings[i].platformPercent, custom: settings[i].custom, customPercent: settings[i].customPercent, planName: settings[i].planName } }));
 
   return (
     <AdminShell email={sa.email}>
@@ -31,6 +36,8 @@ export default async function AdminPaymentsPage() {
       </div>
       <PaymentRequestsManager
         requests={withGiving}
+        planPercents={planPercents}
+        planNames={planNames}
         fees={{
           platformPercent: cfg?.givingPlatformPercent ?? 0,
           donorBearsFee: cfg?.givingDonorBearsFee ?? true,

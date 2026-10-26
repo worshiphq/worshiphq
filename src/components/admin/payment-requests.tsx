@@ -8,14 +8,16 @@ import {
 import {
   updatePaymentRequest, approveGivingSetup, setGivingFeeSettings,
   approveAccountChange, rejectAccountChange, revokeGivingAccess, restoreGivingAccess,
-  deletePaymentAccount, restorePaymentAccount, purgePaymentAccount, adminEditPaymentAccount, adminGivingBanks, adminVerifyAccount, adminSetChurchGiving,
+  deletePaymentAccount, restorePaymentAccount, purgePaymentAccount, adminEditPaymentAccount, adminGivingBanks, adminVerifyAccount, adminSetChurchGiving, setPlanGivingPercents,
 } from "@/app/actions/admin";
 import { AdminCard } from "./admin-shell";
 
 type Fees = { platformPercent: number; donorBearsFee: boolean; paystackFeePercent: number };
 
-function FeeSettings({ fees }: { fees: Fees }) {
-  const [platformPercent, setPlatformPercent] = useState(String(fees.platformPercent));
+const PLAN_ORDER = ["free", "starter", "pro", "max"];
+
+function FeeSettings({ fees, planPercents, planNames }: { fees: Fees; planPercents: Record<string, number>; planNames: Record<string, string> }) {
+  const [percents, setPercents] = useState<Record<string, string>>(Object.fromEntries(PLAN_ORDER.map((id) => [id, String(planPercents[id] ?? 0)])));
   const [donorBearsFee, setDonorBearsFee] = useState(fees.donorBearsFee);
   const [paystackFeePercent, setPaystackFeePercent] = useState(String(fees.paystackFeePercent));
   const [saving, setSaving] = useState(false);
@@ -23,33 +25,39 @@ function FeeSettings({ fees }: { fees: Fees }) {
 
   async function save() {
     setSaving(true); setSaved(false);
-    await setGivingFeeSettings({ platformPercent: Number(platformPercent) || 0, donorBearsFee, paystackFeePercent: Number(paystackFeePercent) || 0 });
+    await setPlanGivingPercents(Object.fromEntries(PLAN_ORDER.map((id) => [id, Number(percents[id]) || 0])));
+    await setGivingFeeSettings({ platformPercent: fees.platformPercent, donorBearsFee, paystackFeePercent: Number(paystackFeePercent) || 0 });
     setSaving(false); setSaved(true);
     setTimeout(() => setSaved(false), 2500);
   }
 
+  const field = "mt-1 block h-9 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-slate-100";
   return (
     <AdminCard className="p-5">
       <h2 className="font-semibold text-slate-100">Giving fees</h2>
-      <p className="mt-0.5 text-xs text-slate-400">The default for every church. A church chooses who pays the fee when it applies. WorshipHQ&apos;s own percent now follows each church&apos;s plan: set it in Plans &amp; pricing, under each plan, and override it for one church in its own card below. The split below is only used if a plan has none.</p>
-      <div className="mt-4 grid gap-4 sm:grid-cols-3">
+      <p className="mt-0.5 text-xs text-slate-400">
+        WorshipHQ&apos;s fee depends on the church&apos;s plan, and is taken from each online gift on top of Paystack&apos;s fee. A church chooses who pays the fee when it applies. You can also set a different fee, or who pays, for one church in its own card below.
+      </p>
+      <div className="mt-4 text-xs font-medium text-slate-300">WorshipHQ fee by plan (% of each gift)</div>
+      <div className="mt-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        {PLAN_ORDER.map((id) => (
+          <label key={id} className="text-xs text-slate-400">
+            {planNames[id] ?? id}
+            <input value={percents[id]} onChange={(e) => setPercents((p) => ({ ...p, [id]: e.target.value.replace(/[^0-9.]/g, "") }))} inputMode="decimal" className={field} />
+          </label>
+        ))}
+      </div>
+      <div className="mt-4 grid gap-4 sm:grid-cols-2">
         <label className="text-xs text-slate-400">
-          WorshipHQ split (%)
-          <input value={platformPercent} onChange={(e) => setPlatformPercent(e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal"
-            className="mt-1 block h-9 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-slate-100" />
-          <span className="mt-1 block text-[11px] text-slate-500">0 = church keeps all (recommended)</span>
-        </label>
-        <label className="text-xs text-slate-400">
-          Paystack fee (%) for gross-up
-          <input value={paystackFeePercent} onChange={(e) => setPaystackFeePercent(e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal"
-            className="mt-1 block h-9 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-slate-100" />
-          <span className="mt-1 block text-[11px] text-slate-500">Ghana ≈ 1.95</span>
+          Paystack fee (%), used to work out the giver&apos;s total
+          <input value={paystackFeePercent} onChange={(e) => setPaystackFeePercent(e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" className={field} />
+          <span className="mt-1 block text-[11px] text-slate-500">Ghana is 1.95</span>
         </label>
         <label className="flex flex-col text-xs text-slate-400">
-          Who bears Paystack&apos;s fee
+          Who pays Paystack&apos;s fee, when a church has not chosen
           <button type="button" onClick={() => setDonorBearsFee((v) => !v)}
             className={`mt-1 inline-flex h-9 items-center justify-center rounded-lg border px-3 text-sm font-medium ${donorBearsFee ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-300" : "border-slate-700 bg-slate-800 text-slate-200"}`}>
-            {donorBearsFee ? "Donor pays (church gets full gift)" : "Church bears it"}
+            {donorBearsFee ? "Giver pays (church gets the full gift)" : "Church pays"}
           </button>
         </label>
       </div>
@@ -58,7 +66,7 @@ function FeeSettings({ fees }: { fees: Fees }) {
           className="inline-flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-white hover:bg-teal-400 disabled:opacity-50">
           {saving ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : "Save fee settings"}
         </button>
-        {saved && <span className="text-xs text-emerald-400">✓ Saved</span>}
+        {saved && <span className="text-xs text-emerald-400">✓ Saved. It applies to gifts from now on.</span>}
       </div>
     </AdminCard>
   );
@@ -257,7 +265,7 @@ function PayoutPanel({ req }: { req: any }) {
               {busy === "fees" ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : "Save"}
             </button>
           </div>
-          <p className="text-[11px] text-slate-500">Leave the split empty to use the platform default ({req.giving?.platformPercent ?? 0}% now).</p>
+          <p className="text-[11px] text-slate-500">Leave the split empty to use this church&apos;s plan fee ({req.giving?.platformPercent ?? 0}% now, on the {req.giving?.planName ?? "current"} plan).</p>
         </div>
       )}
 
@@ -330,7 +338,7 @@ const MEETING_TYPES = [
   { value: "in_person", label: "In Person", icon: MapPin },
 ];
 
-export function PaymentRequestsManager({ requests, fees }: { requests: any[]; fees: Fees }) {
+export function PaymentRequestsManager({ requests, fees, planPercents, planNames }: { requests: any[]; fees: Fees; planPercents: Record<string, number>; planNames: Record<string, string> }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const pending = requests.filter((r) => r.status === "pending");
@@ -340,7 +348,7 @@ export function PaymentRequestsManager({ requests, fees }: { requests: any[]; fe
 
   return (
     <div className="space-y-8">
-      <FeeSettings fees={fees} />
+      <FeeSettings fees={fees} planPercents={planPercents} planNames={planNames} />
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-3">

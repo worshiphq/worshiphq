@@ -212,7 +212,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
 
       {/* Desktop table */}
       <div className="hidden md:block overflow-x-auto rounded-2xl border border-white/10">
-        <table className="w-full min-w-[900px] text-sm">
+        <table className="w-full min-w-[760px] text-sm">
           <thead>
             <tr className="border-b border-white/10 bg-white/[0.02] text-left text-xs uppercase tracking-wide text-slate-500">
               <th className="px-4 py-3 font-medium">Church</th>
@@ -307,7 +307,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                   )}
                 </td>
                 <td className="px-4 py-3">
-                  <div className="flex items-center justify-end gap-1">
+                  <div className="flex flex-wrap items-center justify-end gap-1">
                     {c.smsSenderId && c.smsSenderIdStatus === "pending" && (
                       <>
                         <button
