@@ -57,6 +57,15 @@ function dateText(d: Date): string {
 }
 
 export async function renderReceiptPdf(data: ReceiptData): Promise<Uint8Array> {
+  try {
+    return await drawReceipt(data, true);
+  } catch (e) {
+    if (e instanceof ReceiptOverflowError && data.kind !== "manual") return drawReceipt(data, false);
+    throw e;
+  }
+}
+
+async function drawReceipt(data: ReceiptData, withSignature: boolean): Promise<Uint8Array> {
   const S = SHEET[data.sheet];
   const doc = await PDFDocument.create();
   doc.registerFontkit(fontkit);
@@ -287,6 +296,7 @@ export async function renderReceiptPdf(data: ReceiptData): Promise<Uint8Array> {
   const sigHeight = () => { const g = sigGeom(data.sheet === "a4"); return g.gap + g.imgH + (S.small + 5) * 2 + 4; };
   /** Draws the signature block with its top at `top` and returns where it ends. */
   const drawSignature = (top: number): number => {
+    if (!withSignature) return top;
     const { imgH, lineW, gap } = sigGeom(data.sheet === "a4");
     const sy = top + gap + imgH;
     if (sigImg) {
@@ -346,10 +356,10 @@ export async function renderReceiptPdf(data: ReceiptData): Promise<Uint8Array> {
     notesLines.forEach((ln, i) => text(ln, M, y + S.label + 14 + i * (small + 3.5), small, fonts.r, C.muted));
   }
   const notesBottom = notesLines.length ? y + S.label + 14 + notesLines.length * (small + 3.5) : 0;
-  if (data.sheet === "half") {
+  if (data.sheet === "half" || isFree) {
     // On a half sheet there is no room below the totals, so the signature sits to the left of them, level with their foot.
     const sigBottom = drawSignature(Math.max(ty - sigHeight(), notesBottom + 4));
-    y = Math.max(ty, sigBottom) + 8;
+    y = Math.max(ty, sigBottom) + (data.sheet === "a4" ? 16 : 8);
   } else {
     y = Math.max(ty, notesBottom) + 20;
   }
@@ -360,7 +370,7 @@ export async function renderReceiptPdf(data: ReceiptData): Promise<Uint8Array> {
     y += welcomeBox.height + 14;
   }
 
-  if (data.sheet === "a4") y = drawSignature(y);
+  if (data.sheet === "a4" && !isFree) y = drawSignature(y);
 
   if (y > limit) {
     throw new ReceiptOverflowError(

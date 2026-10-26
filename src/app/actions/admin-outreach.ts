@@ -5,6 +5,8 @@ import { requireSuperAdmin } from "@/lib/auth";
 import { features } from "@/lib/env";
 import { outreachContact, sendOutreach, type OutreachResult } from "@/lib/outreach/send";
 import { templateById } from "@/lib/outreach/templates";
+import { getAlertPhone } from "@/lib/outreach/owner-alert";
+import { sendSms } from "@/lib/integrations/sms";
 
 export type OutreachContact = { userId: string; name: string; email: string; phone: string | null; role: string };
 export type OutreachChurch = {
@@ -12,7 +14,7 @@ export type OutreachChurch = {
   contacts: OutreachContact[];
   welcomedAt: string | null; lastContactAt: string | null; messages: number;
 };
-export type OutreachData = { churches: OutreachChurch[]; emailLive: boolean; smsLive: boolean; contact: string };
+export type OutreachData = { churches: OutreachChurch[]; emailLive: boolean; smsLive: boolean; contact: string; alert: { phone: string; from: "saved" | "company" | "none"; saved: string } };
 export type OutreachHistoryRow = { id: string; channel: string; template: string; to: string; toName: string | null; subject: string | null; body: string; status: string; error: string | null; auto: boolean; at: string };
 
 /** Every real church with its owner and admins, and what we have already sent them. */
@@ -31,10 +33,12 @@ export async function getOutreachData(): Promise<OutreachData> {
     db.outreachMessage.groupBy({ by: ["churchId"], where: { channel: "email", template: "welcome", status: "sent" }, _min: { createdAt: true } }),
     db.outreachMessage.groupBy({ by: ["churchId"], _max: { createdAt: true }, _count: { _all: true } }),
   ]);
+  const alert = await getAlertPhone();
+  const savedAlert = (await db.platformConfig.findUnique({ where: { id: "default" }, select: { alertPhone: true } }))?.alertPhone ?? "";
   const w = new Map(welcomes.map((x) => [x.churchId, x._min.createdAt]));
   const l = new Map(last.map((x) => [x.churchId, { at: x._max.createdAt, n: x._count._all }]));
   return {
-    emailLive: features.email, smsLive: features.sms, contact: outreachContact(),
+    emailLive: features.email, smsLive: features.sms, contact: outreachContact(), alert: { ...alert, saved: savedAlert },
     churches: churches.map((c) => ({
       id: c.id, name: c.name, plan: c.subscription?.plan ?? "free", suspended: c.suspended, createdAt: c.createdAt.toISOString(), country: c.country, city: c.city,
       // The owner first, then admins.
@@ -64,4 +68,25 @@ export async function getOutreachHistory(churchId: string): Promise<OutreachHist
   await requireSuperAdmin();
   const rows = await db.outreachMessage.findMany({ where: { churchId }, orderBy: { createdAt: "desc" }, take: 50 });
   return rows.map((r) => ({ id: r.id, channel: r.channel, template: r.template, to: r.to, toName: r.toName, subject: r.subject, body: r.body, status: r.status, error: r.error, auto: r.auto, at: r.createdAt.toISOString() }));
+}
+
+/** The number that gets a text whenever a church signs up. Empty = use the phone from the receipt company details. */
+export async function saveAlertPhone(phone: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireSuperAdmin();
+  const raw = phone.trim();
+  if (raw) {
+    const digits = raw.replace(/\D/g, "");
+    if (digits.length < 9 || digits.length > 15) return { ok: false, error: "That phone number does not look right." };
+  }
+  await db.platformConfig.upsert({ where: { id: "default" }, update: { alertPhone: raw || null }, create: { id: "default", alertPhone: raw || null } });
+  return { ok: true };
+}
+
+/** A test text to the alert number, so you can see it works before the next church signs up. */
+export async function sendAlertTest(): Promise<{ ok: true; stubbed: boolean; to: string } | { ok: false; error: string }> {
+  await requireSuperAdmin();
+  const { phone } = await getAlertPhone();
+  if (!phone) return { ok: false, error: "Add a phone number first." };
+  const r = await sendSms(phone, "WorshipHQ test: this is the text you will get when a new church signs up.", { heading: null });
+  return r.ok ? { ok: true, stubbed: r.stubbed, to: phone } : { ok: false, error: r.error ?? "The SMS provider refused it." };
 }

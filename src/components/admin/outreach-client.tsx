@@ -6,7 +6,7 @@ import { Mail, MessageSquare, Phone, MessageCircle, History, Search, Send, Loade
 import { AdminCard } from "@/components/admin/admin-shell";
 import { useFeedback } from "@/components/ui/feedback";
 import {
-  sendChurchEmail, sendChurchSms, getOutreachHistory,
+  sendChurchEmail, sendChurchSms, getOutreachHistory, saveAlertPhone, sendAlertTest,
   type OutreachData, type OutreachChurch, type OutreachContact, type OutreachHistoryRow,
 } from "@/app/actions/admin-outreach";
 import { OUTREACH_TEMPLATES, firstName, mergeFields, renderEmailHtml, templateById, type OutreachChannel } from "@/lib/outreach/templates";
@@ -73,6 +73,8 @@ export function OutreachClient({ data }: { data: OutreachData }) {
           <div className="mt-1 text-xs text-slate-500">Set by SUPERADMIN_EMAIL in Vercel.</div>
         </AdminCard>
       </div>
+
+      <AlertCard alert={data.alert} smsLive={data.smsLive} />
 
       {/* Welcome */}
       <AdminCard className="mb-6 p-5">
@@ -387,5 +389,50 @@ function HistoryDialog({ church, onClose }: { church: OutreachChurch; onClose: (
           </ul>
         )}
     </Modal>
+  );
+}
+
+/** Who gets a text when a new church signs up. */
+function AlertCard({ alert, smsLive }: { alert: OutreachData["alert"]; smsLive: boolean }) {
+  const { toast } = useFeedback();
+  const router = useRouter();
+  const [phone, setPhone] = useState(alert.saved);
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const using = phone.trim() || (alert.from === "company" ? alert.phone : "");
+
+  async function save() {
+    setSaving(true);
+    const res = await saveAlertPhone(phone).catch(() => ({ ok: false as const, error: "Something went wrong." }));
+    setSaving(false);
+    if (res.ok) { toast("Saved. New signups will text this number.", "success"); router.refresh(); }
+    else toast(res.error, "error");
+  }
+  async function test() {
+    setTesting(true);
+    if (phone.trim() !== alert.saved) await saveAlertPhone(phone).catch(() => null);
+    const res = await sendAlertTest().catch(() => ({ ok: false as const, error: "Something went wrong." }));
+    setTesting(false);
+    if (res.ok) toast(res.stubbed ? "Test only: SMS is not connected on this computer, so nothing was sent." : `Test text sent to ${res.to}.`, "success");
+    else toast(res.error, "error");
+  }
+
+  return (
+    <AdminCard className="mb-4 p-5">
+      <div className="flex items-center gap-2 text-sm font-semibold text-slate-200"><MessageSquare className="size-4 text-teal-400" /> Text me when a church signs up</div>
+      <p className="mt-1 text-sm text-slate-400">
+        {using ? <>Every new church sends a text to <b className="text-slate-200">{using}</b> with its name and owner.</> : <>Add your number to get a text for every new church.</>}
+        {!phone.trim() && alert.from === "company" && " This is the phone in your receipt company details. Type another number to use a different one."}
+        {!smsLive && " SMS is not connected where this is running, so texts are only logged."}
+      </p>
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <div className="min-w-56 max-w-xs flex-1">
+          <label className="mb-1 block text-xs font-medium text-slate-400" htmlFor="alert-phone">Your phone number</label>
+          <input id="alert-phone" className={input} inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={alert.from === "company" ? alert.phone : "024 000 0000"} maxLength={20} />
+        </div>
+        <button type="button" className={primary} onClick={save} disabled={saving || testing}>{saving ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : "Save"}</button>
+        <button type="button" className={ghost} onClick={test} disabled={saving || testing || !using}>{testing ? <><Loader2 className="size-4 animate-spin" /> Sending…</> : <><Send className="size-4" /> Send me a test text</>}</button>
+      </div>
+    </AdminCard>
   );
 }

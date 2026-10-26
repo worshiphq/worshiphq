@@ -176,6 +176,12 @@ export async function completeSignup(formData: FormData) {
   // Welcome email to the new owner. Runs after the response is sent, and can never break or slow signup.
   after(async () => {
     try {
+      const { alertOwnerOfSignup } = await import("@/lib/outreach/owner-alert");
+      await alertOwnerOfSignup(church.id);
+    } catch (e) {
+      console.error("[signup alert]", (e as Error).message);
+    }
+    try {
       const { sendWelcome } = await import("@/lib/outreach/send");
       await sendWelcome(church.id, true);
     } catch (e) {

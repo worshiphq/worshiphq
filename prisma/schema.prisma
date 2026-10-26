@@ -18,6 +18,8 @@ datasource db {
 // ── Platform config (singleton — one row, id="default") ──
 model PlatformConfig {
   id       String @id @default("default")
+  // The platform owner's number for "a church just signed up" texts. Empty = the phone saved in the receipt company details.
+  alertPhone String?
   currency String @default("USD")
   currencySymbol String @default("$")
   // Plan prices stored as JSON in DISPLAY currency (USD): { free: { monthly: 0, yearly: 0 }, starter: { monthly: 10, yearly: 100 }, ... }
