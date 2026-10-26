@@ -219,7 +219,7 @@ export async function grantPlanBypass(churchId: string, plan: string) {
     const planNames: Record<string, string> = { starter: "Starter", pro: "Pro", max: "Max" };
     await sendSms(
       owner.phone,
-      `WorshipHQ: You've been granted a free upgrade to the ${planNames[plan]} plan! Go to Settings → Billing and enter code: ${code} to activate. - WorshipHQ Team`,
+      `You've been granted a free upgrade to the ${planNames[plan]} plan! Go to Settings → Billing and enter code: ${code} to activate.`,
       { heading: null },
     );
   }

@@ -2,8 +2,8 @@
 
 import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/auth";
-import { features } from "@/lib/env";
-import { outreachContact, sendOutreach, type OutreachResult } from "@/lib/outreach/send";
+import { env, features } from "@/lib/env";
+import { outreachContact, outreachContactLine, sendOutreach, type OutreachResult } from "@/lib/outreach/send";
 import { templateById } from "@/lib/outreach/templates";
 import { getAlertPhone } from "@/lib/outreach/owner-alert";
 import { sendSms } from "@/lib/integrations/sms";
@@ -14,7 +14,7 @@ export type OutreachChurch = {
   contacts: OutreachContact[];
   welcomedAt: string | null; lastContactAt: string | null; messages: number;
 };
-export type OutreachData = { churches: OutreachChurch[]; emailLive: boolean; smsLive: boolean; contact: string; alert: { phone: string; from: "saved" | "company" | "none"; saved: string } };
+export type OutreachData = { churches: OutreachChurch[]; emailLive: boolean; smsLive: boolean; contact: string; contactLine: string; smsProvider: string; alert: { phone: string; from: "saved" | "company" | "none"; saved: string } };
 export type OutreachHistoryRow = { id: string; channel: string; template: string; to: string; toName: string | null; subject: string | null; body: string; status: string; error: string | null; auto: boolean; at: string };
 
 /** Every real church with its owner and admins, and what we have already sent them. */
@@ -38,7 +38,7 @@ export async function getOutreachData(): Promise<OutreachData> {
   const w = new Map(welcomes.map((x) => [x.churchId, x._min.createdAt]));
   const l = new Map(last.map((x) => [x.churchId, { at: x._max.createdAt, n: x._count._all }]));
   return {
-    emailLive: features.email, smsLive: features.sms, contact: outreachContact(), alert: { ...alert, saved: savedAlert },
+    emailLive: features.email, smsLive: features.sms, contact: outreachContact(), contactLine: await outreachContactLine(), smsProvider: env.SMS_PROVIDER, alert: { ...alert, saved: savedAlert },
     churches: churches.map((c) => ({
       id: c.id, name: c.name, plan: c.subscription?.plan ?? "free", suspended: c.suspended, createdAt: c.createdAt.toISOString(), country: c.country, city: c.city,
       // The owner first, then admins.
@@ -82,11 +82,33 @@ export async function saveAlertPhone(phone: string): Promise<{ ok: true } | { ok
   return { ok: true };
 }
 
+export type TestSmsResult =
+  | { ok: true; stubbed: boolean; provider: string; dialled: string; ghana: boolean; id: string | null }
+  | { ok: false; error: string; provider?: string; dialled?: string; ghana?: boolean };
+
+/**
+ * Send one test text to any number, to see whether the SMS provider delivers there (for example outside Ghana).
+ * The number must include its country code, because a number starting with 0 is always read as Ghanaian.
+ */
+export async function sendTestSms(input: { to: string; message: string }): Promise<TestSmsResult> {
+  await requireSuperAdmin();
+  const raw = String(input.to ?? "").trim();
+  const message = String(input.message ?? "").trim().slice(0, 160);
+  if (!message) return { ok: false, error: "Type a short message." };
+  const digits = raw.replace(/[^\d+]/g, "").replace(/^\+/, "").replace(/^00/, "");
+  if (raw.replace(/[\s\-()]/g, "").startsWith("0") && !raw.startsWith("00")) return { ok: false, error: "Start with the country code, like +234 or +44. A number starting with 0 is read as Ghana." };
+  if (digits.length < 8 || digits.length > 15) return { ok: false, error: "That phone number does not look right." };
+  const ghana = digits.startsWith("233");
+  const r = await sendSms(digits, message, { heading: null });
+  if (!r.ok) return { ok: false, error: r.error ?? "The SMS provider refused it.", provider: r.provider, dialled: digits, ghana };
+  return { ok: true, stubbed: r.stubbed, provider: r.provider, dialled: digits, ghana, id: r.id ?? null };
+}
+
 /** A test text to the alert number, so you can see it works before the next church signs up. */
 export async function sendAlertTest(): Promise<{ ok: true; stubbed: boolean; to: string } | { ok: false; error: string }> {
   await requireSuperAdmin();
   const { phone } = await getAlertPhone();
   if (!phone) return { ok: false, error: "Add a phone number first." };
-  const r = await sendSms(phone, "WorshipHQ test: this is the text you will get when a new church signs up.", { heading: null });
+  const r = await sendSms(phone, "Test: this is the text you will get when a new church signs up.", { heading: null });
   return r.ok ? { ok: true, stubbed: r.stubbed, to: phone } : { ok: false, error: r.error ?? "The SMS provider refused it." };
 }

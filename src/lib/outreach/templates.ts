@@ -23,7 +23,7 @@ Here is a simple way to get started:
 
 Our step by step manual is here: https://worshiphq.app/docs
 
-We are here to help. If you have a question, would like a walkthrough, or something does not look right, just reply to this email or write to {{contact}}. We would love to hear how {{church}} is getting on.
+We are here to help. If you have a question, would like a walkthrough, or something does not look right, just reply to this email or reach us on {{contact}}. We would love to hear how {{church}} is getting on.
 
 Blessings,
 The WorshipHQ team`,
@@ -41,7 +41,7 @@ A few things {{church}} can do with WorshipHQ that churches tell us they love:
 
 Some features depend on your plan. Our manual explains each one: https://worshiphq.app/docs
 
-If you would like us to walk you through any of it, reply to this email or write to {{contact}}.
+If you would like us to walk you through any of it, reply to this email or reach us on {{contact}}.
 
 Blessings,
 The WorshipHQ team`,
@@ -55,7 +55,7 @@ I wanted to check in and ask how {{church}} is getting on with WorshipHQ.
 
 Is there anything confusing, missing or slow? Tell us, and we will help you sort it out, or improve it. Your feedback shapes what we build next.
 
-Just reply to this email or write to {{contact}}.
+Just reply to this email or reach us on {{contact}}.
 
 Blessings,
 The WorshipHQ team`,
@@ -69,7 +69,7 @@ Thank you for using WorshipHQ for {{church}}. As your church grows, our paid pla
 
 You can compare the plans here: https://worshiphq.app/pricing
 
-If you are not sure which one fits {{church}}, reply to this email or write to {{contact}} and we will gladly advise you.
+If you are not sure which one fits {{church}}, reply to this email or reach us on {{contact}} and we will gladly advise you.
 
 Blessings,
 The WorshipHQ team`,
@@ -88,7 +88,7 @@ A few things to know:
 - Texts currently reach Ghana phone numbers.
 - After the month, Communications is part of the Starter plan. You can compare the plans here: https://worshiphq.app/pricing
 
-If you would like a quick walkthrough, reply to this email or write to {{contact}} and we will gladly help.
+If you would like a quick walkthrough, reply to this email or reach us on {{contact}} and we will gladly help.
 
 Blessings,
 The WorshipHQ team`,
@@ -100,21 +100,21 @@ The WorshipHQ team`,
   {
     id: "welcome-sms", channel: "sms", label: "Welcome text", hint: "A short welcome by SMS",
     subject: "",
-    body: "WorshipHQ: Hello {{name}}, welcome! Your account for {{church}} is ready. Manual: worshiphq.app/docs. Questions? Write to {{contact}}.",
+    body: "Hello {{name}}, welcome! Your account for {{church}} is ready. Manual: worshiphq.app/docs. Questions? Reach us on {{contact}}.",
   },
   {
     id: "check-in-sms", channel: "sms", label: "Check-in text", hint: "A quick personal check-in",
     subject: "",
-    body: "WorshipHQ: Hello {{name}}, how is {{church}} getting on with WorshipHQ? If you need any help, write to {{contact}} and we will gladly assist.",
+    body: "Hello {{name}}, how is {{church}} getting on with WorshipHQ? If you need any help, reach us on {{contact}} and we will gladly assist.",
   },
   {
     id: "sms-trial-sms", channel: "sms", label: "Try bulk SMS free for a month", hint: "Tells free churches they can test Communications for 30 days",
     subject: "",
-    body: "WorshipHQ: Hello {{name}}, {{church}} can now try bulk SMS free for 1 month, with free credits. Sign in and open Communications to send. Questions? {{contact}}.",
+    body: "Hello {{name}}, {{church}} can now try bulk SMS free for 1 month, with free credits. Sign in and open Communications to send. Questions? Reach us on {{contact}}.",
   },
   {
     id: "custom-sms", channel: "sms", label: "Write my own", hint: "Start from a blank text",
-    subject: "", body: "WorshipHQ: Hello {{name}}, ",
+    subject: "", body: "Hello {{name}}, ",
   },
 ];
 

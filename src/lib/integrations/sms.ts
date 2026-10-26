@@ -80,8 +80,12 @@ export async function sendSms(
   };
 
   const provider = env.SMS_PROVIDER;
-  const heading = opts?.heading === undefined ? DEFAULT_HEADING : opts.heading;
   const senderId = opts?.senderId ?? null;
+  // The text already arrives from the "WorshipHQ" sender, so repeating the name on its first line only wastes characters.
+  const platformSender = (senderId ?? (provider === "hubtel" ? env.HUBTEL_SENDER_ID : provider === "arkesel" ? env.ARKESEL_SENDER_ID : "")).trim();
+  const heading = opts?.heading === undefined
+    ? (platformSender.toLowerCase().replace(/\s/g, "") === DEFAULT_HEADING.toLowerCase() ? null : DEFAULT_HEADING)
+    : opts.heading;
   const message = withHeading(rawMessage, heading);
 
   if (recipients.length === 0) {
@@ -127,6 +131,7 @@ export async function sendSms(
       let lastId: string | undefined;
       let sentCount = 0;
       const perValidOk: boolean[] = [];
+      let lastError: string | undefined;
       for (const recipient of recipients) {
         const url = new URL("https://sms.hubtel.com/v1/messages/send");
         url.searchParams.set("clientsecret", env.HUBTEL_CLIENT_SECRET!);
@@ -138,6 +143,7 @@ export async function sendSms(
         const data = await res.json().catch(() => ({}));
         if (!res.ok) {
           console.error(`[SMS:hubtel] ${res.status} → ${recipient}:`, data);
+          lastError = `Hubtel said ${res.status}: ${JSON.stringify(data).slice(0, 300)}`;
         } else {
           sentCount++;
         }
@@ -148,7 +154,7 @@ export async function sendSms(
       reportHubtelUsage(sentCount);
       // A batch is never all-or-nothing: one bad number among 80 good ones must
       // still count as (and bill for) 79 delivered, not zero.
-      return { ok: sentCount > 0, provider, stubbed: false, id: lastId, sentCount, results: toFullResults(perValidOk) };
+      return { ok: sentCount > 0, provider, stubbed: false, id: lastId, ...(sentCount === 0 && lastError ? { error: lastError } : {}), sentCount, results: toFullResults(perValidOk) };
     }
 
     // mnotify / twilio implementations follow the same shape.

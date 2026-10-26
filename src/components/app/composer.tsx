@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { Send } from "lucide-react";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { Send, Sparkles, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -11,15 +12,27 @@ export function Composer({
   departments,
   groups = [],
   canWrite,
+  senderTeaser = null,
 }: {
   departments: { id: string; name: string }[];
   groups?: { id: string; name: string }[];
   canWrite: boolean;
+  /** A suggested own sender name, shown as a quiet hint to churches that do not have one yet. */
+  senderTeaser?: { suggestion: string; churchName: string } | null;
 }) {
   // Email is off for now - the Resend account is on the free tier (100/day),
   // too easy for a church-wide broadcast to blow through. SMS only until
   // that's upgraded.
   const channel = "SMS" as const;
+  const [hideTeaser, setHideTeaser] = useState(false);
+  // Remember a dismissal on this device only. Storage can be blocked, so the hint simply shows again then.
+  useEffect(() => {
+    try { if (localStorage.getItem("whq-sender-teaser") === "off") setHideTeaser(true); } catch { /* ignore */ }
+  }, []);
+  function dismissTeaser() {
+    setHideTeaser(true);
+    try { localStorage.setItem("whq-sender-teaser", "off"); } catch { /* ignore */ }
+  }
   const [target, setTarget] = useState("all");
   const [message, setMessage] = useState(
     "Shalom! Join us this Sunday at 8am for our Celebration Service. God bless you!",
@@ -96,6 +109,18 @@ export function Composer({
             <span>becomes their first name for every recipient.</span>
           </div>
         </div>
+
+        {senderTeaser && !hideTeaser && (
+          <div className="flex items-start gap-2.5 rounded-xl border border-dashed border-line bg-surface-2 px-3.5 py-3 text-xs text-ink-muted">
+            <Sparkles className="mt-0.5 size-3.5 shrink-0 text-primary" />
+            <p className="min-w-0 flex-1">
+              Members now see this text from <b className="text-ink">WorshipHQ</b>, with {senderTeaser.churchName} at the start. On Pro it could arrive from{" "}
+              <b className="rounded bg-primary/10 px-1.5 py-0.5 font-mono text-primary">{senderTeaser.suggestion}</b>.{" "}
+              <Link href="/app/settings?tab=billing" className="font-medium text-primary hover:underline">See plans</Link>
+            </p>
+            <button type="button" onClick={dismissTeaser} aria-label="Hide this hint" className="rounded p-0.5 text-ink-faint hover:text-ink"><X className="size-3.5" /></button>
+          </div>
+        )}
 
         <SubmitButton
           className="w-full"

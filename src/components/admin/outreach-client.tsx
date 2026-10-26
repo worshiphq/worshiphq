@@ -6,8 +6,8 @@ import { Mail, MessageSquare, Phone, MessageCircle, History, Search, Send, Loade
 import { AdminCard } from "@/components/admin/admin-shell";
 import { useFeedback } from "@/components/ui/feedback";
 import {
-  sendChurchEmail, sendChurchSms, getOutreachHistory, saveAlertPhone, sendAlertTest,
-  type OutreachData, type OutreachChurch, type OutreachContact, type OutreachHistoryRow,
+  sendChurchEmail, sendChurchSms, getOutreachHistory, saveAlertPhone, sendAlertTest, sendTestSms,
+  type TestSmsResult, type OutreachData, type OutreachChurch, type OutreachContact, type OutreachHistoryRow,
 } from "@/app/actions/admin-outreach";
 import { OUTREACH_TEMPLATES, firstName, mergeFields, renderEmailHtml, templateById, type OutreachChannel } from "@/lib/outreach/templates";
 import { cn } from "@/lib/utils";
@@ -75,6 +75,7 @@ export function OutreachClient({ data }: { data: OutreachData }) {
       </div>
 
       <AlertCard alert={data.alert} smsLive={data.smsLive} />
+      <TestSmsCard smsLive={data.smsLive} provider={data.smsProvider} />
 
       {/* Welcome */}
       <AdminCard className="mb-6 p-5">
@@ -234,7 +235,7 @@ function Compose({ data, composer, onClose, onDone }: { data: OutreachData; comp
   const targets = churches.map((c) => ({ church: c, contact: pickContact(c, mode, bulk ? undefined : contactId) })).filter((t): t is { church: OutreachChurch; contact: OutreachContact } => !!t.contact);
   const skipped = churches.length - targets.length;
   const sample = targets[0];
-  const merge = sample ? { name: firstName(sample.contact.name), church: sample.church.name, contact: data.contact } : { name: "Ama", church: "Your church", contact: data.contact };
+  const merge = sample ? { name: firstName(sample.contact.name), church: sample.church.name, contact: data.contactLine } : { name: "Ama", church: "Your church", contact: data.contactLine };
   const previewHtml = mode === "email" ? renderEmailHtml({ subject: mergeFields(subject, merge), body: mergeFields(body, merge), church: merge.church, contact: data.contact }) : "";
   const smsText = mergeFields(body, merge);
   const smsParts = Math.max(1, Math.ceil(smsText.length / 160));
@@ -389,6 +390,58 @@ function HistoryDialog({ church, onClose }: { church: OutreachChurch; onClose: (
           </ul>
         )}
     </Modal>
+  );
+}
+
+/** Send one text to any number to see whether it is delivered there, for example a number outside Ghana. */
+function TestSmsCard({ smsLive, provider }: { smsLive: boolean; provider: string }) {
+  const [to, setTo] = useState("");
+  const [message, setMessage] = useState("Test message from WorshipHQ. If you can read this, texts reach you.");
+  const [busy, setBusy] = useState(false);
+  const [res, setRes] = useState<TestSmsResult | null>(null);
+
+  async function go() {
+    setBusy(true);
+    setRes(null);
+    const r = await sendTestSms({ to, message }).catch(() => ({ ok: false as const, error: "Something went wrong." }));
+    setBusy(false);
+    setRes(r);
+  }
+
+  return (
+    <AdminCard className="mb-4 p-5">
+      <div className="flex items-center gap-2 text-sm font-semibold text-slate-200"><MessageSquare className="size-4 text-teal-400" /> Test a number, anywhere in the world</div>
+      <p className="mt-1 text-sm text-slate-400">
+        Sends one text through <b className="text-slate-200">{provider}</b> to see whether it arrives. Include the country code, like +234 803 000 0000 or +44 7700 900000. One text uses one segment on the shared Hubtel balance.
+        {!smsLive && " SMS is not connected where this is running, so nothing is really sent."}
+      </p>
+      <div className="mt-3 flex flex-wrap items-end gap-2">
+        <div className="min-w-48 max-w-xs flex-1">
+          <label className="mb-1 block text-xs font-medium text-slate-400" htmlFor="test-sms-to">Phone number</label>
+          <input id="test-sms-to" className={input} inputMode="tel" value={to} onChange={(e) => setTo(e.target.value)} placeholder="+234 803 000 0000" maxLength={24} />
+        </div>
+        <div className="min-w-56 flex-[2]">
+          <label className="mb-1 block text-xs font-medium text-slate-400" htmlFor="test-sms-msg">Message ({message.length}/160)</label>
+          <input id="test-sms-msg" className={input} value={message} onChange={(e) => setMessage(e.target.value)} maxLength={160} />
+        </div>
+        <button type="button" className={primary} onClick={go} disabled={busy || !to.trim() || !message.trim()}>
+          {busy ? <><Loader2 className="size-4 animate-spin" /> Sending…</> : <><Send className="size-4" /> Send test</>}
+        </button>
+      </div>
+      {res && (
+        <div role="status" className={cn("mt-3 rounded-lg border px-3 py-2 text-sm", res.ok ? "border-emerald-500/30 bg-emerald-500/10 text-emerald-200" : "border-red-500/30 bg-red-500/10 text-red-200")}>
+          {res.ok ? (
+            <>
+              {res.stubbed
+                ? "Nothing was sent: SMS is not connected where this is running."
+                : <>The provider accepted it for <b>+{res.dialled}</b> ({res.ghana ? "a Ghana number" : "outside Ghana"}){res.id ? `, message id ${res.id}` : ""}. Now check the phone. Accepted does not always mean delivered, so the phone is the real answer.</>}
+            </>
+          ) : (
+            <>Not sent{res.dialled ? ` to +${res.dialled}` : ""}: {res.error}</>
+          )}
+        </div>
+      )}
+    </AdminCard>
   );
 }
 

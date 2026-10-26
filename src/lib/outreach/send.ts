@@ -3,12 +3,21 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { sendEmail } from "@/lib/integrations/email";
 import { sendSms } from "@/lib/integrations/sms";
+import { normalisePhone } from "@/lib/phone";
 import { firstName, mergeFields, renderEmailHtml, templateById, type OutreachChannel } from "@/lib/outreach/templates";
-import { issueRegistrationReceipt } from "@/lib/receipts/service";
+import { getReceiptSettings, issueRegistrationReceipt } from "@/lib/receipts/service";
 import { receiptNumber } from "@/lib/receipts/types";
 
 /** Replies to our emails and the contact shown in them: the platform owner's inbox. */
 export const outreachContact = () => env.SUPERADMIN_EMAIL;
+
+/** What {{contact}} turns into inside a message: the inbox, and the company phone from the receipt details when there is one. */
+export async function outreachContactLine(): Promise<string> {
+  const raw = (await getReceiptSettings().catch(() => null))?.phone?.trim();
+  // International format, so a church outside Ghana can dial it too.
+  const phone = raw ? `+${normalisePhone(raw)}` : "";
+  return phone.length > 8 ? `${outreachContact()} or ${phone}` : outreachContact();
+}
 
 export type OutreachStatus = "sent" | "failed" | "stubbed";
 export type OutreachResult = { ok: boolean; status: OutreachStatus; error?: string; skipped?: boolean };
@@ -38,7 +47,7 @@ export async function sendOutreach(input: SendInput): Promise<OutreachResult> {
 
   const tpl = templateById(input.template);
   const contact = outreachContact();
-  const merge = { name: firstName(user.name), church: church.name, contact };
+  const merge = { name: firstName(user.name), church: church.name, contact: await outreachContactLine() };
   const subject = mergeFields(input.subject ?? tpl?.subject ?? "A message from WorshipHQ", merge).trim();
   const written = mergeFields(input.body ?? tpl?.body ?? "", merge).trim();
   const body = written && input.appendBody ? `${written}

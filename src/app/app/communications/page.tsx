@@ -14,7 +14,8 @@ import { getCommunications } from "@/lib/data/modules";
 import { getPeopleStats } from "@/lib/data/people";
 import { getSmsBalance } from "@/lib/sms/credits";
 import { getChurchPlan } from "@/lib/plan-gate-server";
-import { commsTrial } from "@/lib/plan-gate";
+import { commsTrial, planRank, type PlanId } from "@/lib/plan-gate";
+import { suggestSenderId } from "@/lib/sms/sender-suggestion";
 import { formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Communications" };
@@ -33,8 +34,13 @@ export default async function CommunicationsPage({
     db.department.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     db.group.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     getChurchPlan(session.churchId),
-    db.church.findUnique({ where: { id: session.churchId }, select: { createdAt: true } }),
+    db.church.findUnique({ where: { id: session.churchId }, select: { createdAt: true, name: true, smsSenderIdStatus: true } }),
   ]);
+  // A quiet hint of what their own sender name could look like, for churches below Pro that do not have one.
+  const suggestion = churchRow ? suggestSenderId(churchRow.name) : "";
+  const senderTeaser = churchRow && suggestion && churchRow.smsSenderIdStatus !== "approved" && planRank(plan as PlanId) < planRank("pro")
+    ? { suggestion, churchName: churchRow.name }
+    : null;
   const trial = plan === "free" && churchRow && !session.impersonating ? commsTrial(churchRow.createdAt) : null;
 
   return (
@@ -73,7 +79,7 @@ export default async function CommunicationsPage({
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-2"><Composer departments={departments} groups={groups} canWrite={canEdit(session, "communications")} /></div>
+        <div className="lg:col-span-2"><Composer departments={departments} groups={groups} canWrite={canEdit(session, "communications")} senderTeaser={senderTeaser} /></div>
 
         <CampaignHistory campaigns={campaigns} />
       </div>
