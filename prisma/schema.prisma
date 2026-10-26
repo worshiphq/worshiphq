@@ -1139,6 +1139,17 @@ model SuperAdminSecurity {
   updatedAt    DateTime @updatedAt
 }
 
+// How one church's online giving fees work. A row only exists once the church (or WorshipHQ) has chosen something;
+// without a row the platform defaults in PlatformConfig apply.
+model ChurchGivingSettings {
+  churchId        String   @id
+  // Who pays Paystack's fee: "giver" (the giver pays a little extra) or "church" (it comes out of the gift).
+  feeMode         String   @default("giver")
+  // WorshipHQ's platform cut for this church, in percent. Empty = the platform default.
+  platformPercent Float?
+  updatedAt       DateTime @updatedAt
+}
+
 model PhoneVerification {
   id        String   @id @default(cuid())
   phone     String   // destination: a phone number, or an email address when channel = "email"

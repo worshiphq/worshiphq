@@ -50,6 +50,12 @@ export async function initializePayment(opts: {
    * (subscriptions, SMS credits).
    */
   subaccount?: string | null;
+  /**
+   * With a subaccount: the flat amount (in cedis) that goes to the MAIN account, so the church gets the rest.
+   * It overrides the subaccount's own percentage, which makes what the church receives exact. The main account
+   * pays Paystack's fee out of this amount (Paystack's default), and keeps what is left.
+   */
+  transactionCharge?: number;
 }): Promise<InitResult> {
   const reference = opts.reference ?? newPaymentReference();
   const amount = opts.amount ?? opts.amountGhs ?? 0;
@@ -84,6 +90,7 @@ export async function initializePayment(opts: {
         metadata: opts.metadata ? sealMetadata(reference, subunit, currency, opts.metadata) : undefined,
         reference,
         ...(opts.subaccount ? { subaccount: opts.subaccount } : {}),
+        ...(opts.subaccount && opts.transactionCharge !== undefined ? { transaction_charge: Math.round(opts.transactionCharge * 100) } : {}),
       }),
     });
     const data = await res.json();

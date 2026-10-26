@@ -8,7 +8,7 @@ import {
 import {
   updatePaymentRequest, approveGivingSetup, setGivingFeeSettings,
   approveAccountChange, rejectAccountChange, revokeGivingAccess, restoreGivingAccess,
-  deletePaymentAccount, adminEditPaymentAccount, adminGivingBanks, adminVerifyAccount,
+  deletePaymentAccount, adminEditPaymentAccount, adminGivingBanks, adminVerifyAccount, adminSetChurchGiving,
 } from "@/app/actions/admin";
 import { AdminCard } from "./admin-shell";
 
@@ -31,7 +31,7 @@ function FeeSettings({ fees }: { fees: Fees }) {
   return (
     <AdminCard className="p-5">
       <h2 className="font-semibold text-slate-100">Giving fees</h2>
-      <p className="mt-0.5 text-xs text-slate-400">Applies to every church&apos;s online giving. New subaccounts use the platform split below.</p>
+      <p className="mt-0.5 text-xs text-slate-400">The default for every church. A church chooses who pays the fee when it applies, and you can change that, or the split, for one church in its own card below. The split is taken from each gift, on top of Paystack&apos;s fee.</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         <label className="text-xs text-slate-400">
           WorshipHQ split (%)
@@ -171,6 +171,8 @@ function PayoutPanel({ req }: { req: any }) {
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [editing, setEditing] = useState(false);
   const [picked, setPicked] = useState<Picked | null>(null);
+  const [feeMode, setFeeMode] = useState<"giver" | "church">(req.giving?.mode ?? "giver");
+  const [feePct, setFeePct] = useState<string>(req.giving?.customPercent ? String(req.giving.platformPercent) : "");
 
   const hasAccount = !!(req.bankCode && req.accountNumber && req.accountName);
   const code: string | null = req.church?.paystackSubaccountCode ?? null;
@@ -222,6 +224,37 @@ function PayoutPanel({ req }: { req: any }) {
               {busy === "rejectChange" ? <><Loader2 className="size-4 animate-spin" /> Declining…</> : "Decline change"}
             </button>
           </div>
+        </div>
+      )}
+
+
+      {hasAccount && !terminal && (
+        <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-3 space-y-2">
+          <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-300">
+            Giving fees for this church
+            <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-slate-400">{req.giving?.custom ? "chosen for this church" : "platform default"}</span>
+          </div>
+          <div className="flex flex-wrap items-end gap-3">
+            <div>
+              <div className="mb-1 text-[11px] text-slate-500">Who pays Paystack&apos;s fee</div>
+              <div className="flex gap-1">
+                {([["giver", "Giver pays"], ["church", "Church pays"]] as const).map(([m, label]) => (
+                  <button key={m} type="button" onClick={() => setFeeMode(m)}
+                    className={`h-9 rounded-lg border px-3 text-xs font-medium ${feeMode === m ? "border-teal-500/50 bg-teal-500/10 text-teal-300" : "border-slate-700 text-slate-400"}`}>{label}</button>
+                ))}
+              </div>
+            </div>
+            <label className="text-[11px] text-slate-500">
+              WorshipHQ split (%)
+              <input value={feePct} onChange={(e) => setFeePct(e.target.value.replace(/[^0-9.]/g, ""))} inputMode="decimal" placeholder="default"
+                className="mt-1 block h-9 w-28 rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-slate-100" />
+            </label>
+            <button type="button" disabled={!!busy} className={`${btn} bg-white/10 text-white hover:bg-white/15`}
+              onClick={() => run("fees", () => adminSetChurchGiving(req.churchId, { mode: feeMode, platformPercent: feePct.trim() === "" ? null : Number(feePct) }), "Saved. It applies to gifts from now on.")}>
+              {busy === "fees" ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : "Save"}
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-500">Leave the split empty to use the platform default ({req.giving?.platformPercent ?? 0}% now).</p>
         </div>
       )}
 
@@ -338,10 +371,12 @@ function RequestCard({ request: req, expanded, onToggle }: {
 }) {
   const [saving, setSaving] = useState(false);
 
+  const [told, setTold] = useState<string | null>(null);
   async function handleUpdate(formData: FormData) {
-    setSaving(true);
-    await updatePaymentRequest(req.id, formData);
+    setSaving(true); setTold(null);
+    const r = await updatePaymentRequest(req.id, formData);
     setSaving(false);
+    setTold(r.notified.length ? `Saved. The church was told by ${r.notified.join(" and ")}.` : "Saved.");
   }
 
   return (
@@ -435,12 +470,13 @@ function RequestCard({ request: req, expanded, onToggle }: {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-slate-400 mb-1">Admin Notes</label>
-            <textarea name="adminNotes" defaultValue={req.adminNotes || ""} rows={3} placeholder="Internal notes..."
+            <label className="block text-xs font-medium text-slate-400 mb-1">Note for the church <span className="text-amber-400">(the church sees this in Settings, Online payments)</span></label>
+            <textarea name="adminNotes" defaultValue={req.adminNotes || ""} rows={3} placeholder="For example: we will call you on Thursday to confirm the account name."
               className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-200 resize-y" />
           </div>
 
-          <div className="flex justify-end">
+          <div className="flex items-center justify-end gap-3">
+            {told && <span className="text-xs text-emerald-400">{told}</span>}
             <button type="submit" disabled={saving}
               className="inline-flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-teal-400 disabled:opacity-50">
               {saving && <Loader2 className="size-4 animate-spin" />}

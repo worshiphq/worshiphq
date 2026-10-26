@@ -10,9 +10,12 @@ import { cn } from "@/lib/utils";
 import {
   submitPaymentRequest, getPaymentRequestStatus, getGivingBanks, verifyGivingAccount,
   requestAccountChange, cancelAccountChange, cancelPaymentRequest, removePaymentAccount,
+  getGivingFeeInfo, setGivingFeeChoice,
 } from "@/app/actions/payment-request";
+import type { FeeMode } from "@/lib/giving/fees";
 
 type Status = Awaited<ReturnType<typeof getPaymentRequestStatus>>;
+type FeeInfo = Awaited<ReturnType<typeof getGivingFeeInfo>>;
 type Settlement = { settlementType: "momo" | "bank"; bankCode: string; bankName: string; accountNumber: string; accountName: string };
 
 /** The exact details the church typed in. The Paystack subaccount code is never shown. */
@@ -120,6 +123,42 @@ function SettlementPicker({ onChange }: { onChange: (v: Settlement | null) => vo
   );
 }
 
+
+/** Plain words about fees and payouts, so a church knows what it is agreeing to before it submits. */
+function FeeExplainer({ info }: { info: FeeInfo | null }) {
+  const paystack = info?.paystackPercent ?? 1.95;
+  const platform = info?.platformPercent ?? 0;
+  return (
+    <div className="rounded-xl border border-line bg-surface-2 p-4 text-sm text-ink-muted">
+      <div className="font-semibold text-ink">Before you submit: how online giving works</div>
+      <ul className="mt-2 list-disc space-y-1.5 pl-5">
+        <li>Payments are handled by <b className="text-ink">Paystack</b>. They charge <b className="text-ink">{paystack}%</b> on every gift{platform > 0 ? <>, and WorshipHQ adds a platform fee of <b className="text-ink">{platform}%</b></> : null}.</li>
+        <li>You choose below who pays that fee: your givers, or your church. You can change it later in this tab, for gifts from then on.</li>
+        <li>Paystack pays out to the account you give us. Payouts normally arrive the next working day, and we confirm the details with you when we approve.</li>
+        <li>Before we approve, WorshipHQ checks that the account belongs to your church, and may call you to confirm. Approval is not automatic.</li>
+        <li>Refunds and disputes on a gift are handled through Paystack, and the amount can be taken from your next payout.</li>
+      </ul>
+    </div>
+  );
+}
+
+/** Who pays the payment fee: the giver (a little extra on top) or the church (taken out of the gift). */
+function FeeChoice({ value, onChange, disabled }: { value: FeeMode; onChange: (m: FeeMode) => void; disabled?: boolean }) {
+  const opt = (m: FeeMode, title: string, text: string) => (
+    <label className={cn("flex cursor-pointer items-start gap-3 rounded-xl border p-3.5 text-sm transition-colors", value === m ? "border-primary bg-primary/10" : "border-line bg-surface hover:bg-surface-2", disabled && "cursor-not-allowed opacity-60")}>
+      <input type="radio" name="feeMode" value={m} checked={value === m} onChange={() => onChange(m)} disabled={disabled} className="mt-1 accent-[var(--color-primary)]" />
+      <span><span className="font-semibold text-ink">{title}</span><span className="mt-0.5 block text-ink-muted">{text}</span></span>
+    </label>
+  );
+  return (
+    <div className="space-y-2">
+      <Label>Who pays the payment fee? *</Label>
+      {opt("giver", "Our givers pay it", "The giver pays a small processing fee on top, and your church receives the full gift. Givers see the exact total before they pay.")}
+      {opt("church", "Our church pays it", "The giver pays exactly what they typed, and the fee comes out of the gift, so your church receives a little less.")}
+    </div>
+  );
+}
+
 function Banner({ tone, icon, title, children }: { tone: "success" | "warning" | "danger"; icon: React.ReactNode; title: string; children?: React.ReactNode }) {
   const cls = {
     success: "border-success/30 bg-success/10",
@@ -142,8 +181,13 @@ export function OnlinePaymentsTab({ canManage }: { canManage: boolean }) {
   const [editing, setEditing] = useState(false);
   const [picked, setPicked] = useState<Settlement | null>(null);
   const [justSent, setJustSent] = useState(false);
+  const [feeInfo, setFeeInfo] = useState<FeeInfo | null>(null);
+  const [feeMode, setFeeMode] = useState<FeeMode>("giver");
 
-  const load = () => getPaymentRequestStatus().then((s) => setStatus(s)).catch(() => setStatus(null));
+  const load = () => {
+    getGivingFeeInfo().then((f) => { setFeeInfo(f); setFeeMode(f.mode); }).catch(() => {});
+    return getPaymentRequestStatus().then((s) => setStatus(s)).catch(() => setStatus(null));
+  };
   useEffect(() => { load(); }, []);
 
   async function act(key: string, fn: () => Promise<object | undefined>, after?: () => void) {
@@ -236,6 +280,13 @@ export function OnlinePaymentsTab({ canManage }: { canManage: boolean }) {
             </div>
           )}
 
+          {canManage && (
+            <div className="mt-4 space-y-2 rounded-xl border border-line bg-surface p-4">
+              <FeeChoice value={feeMode} onChange={(m) => { setFeeMode(m); act("fee", () => setGivingFeeChoice(m)); }} disabled={busy === "fee"} />
+              <p className="text-xs text-ink-faint">{busy === "fee" ? "Saving…" : "A change applies to gifts from now on."}</p>
+            </div>
+          )}
+
           {canManage && !editing && !status.pendingAt && (
             <div className="mt-4 flex flex-wrap gap-2">
               <Button variant="secondary" size="sm" onClick={() => { setEditing(true); setPicked(null); setError(""); }}>
@@ -284,7 +335,9 @@ export function OnlinePaymentsTab({ canManage }: { canManage: boolean }) {
               {status?.adminNotes && <p className="mt-1.5 text-sm text-ink-muted">{status.adminNotes}</p>}
             </Banner>
           )}
+          <FeeExplainer info={feeInfo} />
           <SettlementPicker onChange={setPicked} />
+          <FeeChoice value={feeMode} onChange={setFeeMode} />
           <div>
             <Label>Contact name *</Label>
             <Input name="contactName" required placeholder="Who should we reach out to?" />

@@ -2,6 +2,7 @@ import { requireSuperAdmin } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { PaymentRequestsManager } from "@/components/admin/payment-requests";
 import { db } from "@/lib/db";
+import { getGivingSettings } from "@/lib/giving/settings";
 
 export default async function AdminPaymentsPage() {
   const sa = await requireSuperAdmin();
@@ -16,6 +17,10 @@ export default async function AdminPaymentsPage() {
     }),
   ]);
 
+  // How each church's giving fees work right now (its own choice, or the platform default).
+  const settings = await Promise.all(requests.map((r) => getGivingSettings(r.churchId)));
+  const withGiving = requests.map((r, i) => ({ ...r, giving: { mode: settings[i].mode, platformPercent: settings[i].platformPercent, custom: settings[i].custom, customPercent: settings[i].customPercent } }));
+
   return (
     <AdminShell email={sa.email}>
       <div className="mb-6">
@@ -25,7 +30,7 @@ export default async function AdminPaymentsPage() {
         </p>
       </div>
       <PaymentRequestsManager
-        requests={requests}
+        requests={withGiving}
         fees={{
           platformPercent: cfg?.givingPlatformPercent ?? 0,
           donorBearsFee: cfg?.givingDonorBearsFee ?? true,

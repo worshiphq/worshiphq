@@ -5,6 +5,8 @@ import { db } from "@/lib/db";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { listBanks, resolveAccount, updateSubaccount } from "@/lib/integrations/paystack";
+import { isFeeMode } from "@/lib/giving/fees";
+import { getGivingSettings, saveGivingSettings } from "@/lib/giving/settings";
 
 /** Only the church's Owner or Admin may touch where its giving pays out. */
 async function requireGivingAdmin() {
@@ -47,9 +49,11 @@ export async function submitPaymentRequest(formData: FormData) {
   const contactPhone = String(formData.get("contactPhone") ?? "").trim();
   const contactEmail = String(formData.get("contactEmail") ?? "").trim();
   const needs = String(formData.get("needs") ?? "").trim();
+  const feeChoice = String(formData.get("feeMode") ?? "");
   const s = readSettlement(formData);
 
   if (!contactName) return { error: "Contact name is required" };
+  if (!isFeeMode(feeChoice)) return { error: "Choose who pays the payment fee." };
   if (!(s.settlementType && s.bankCode && s.accountNumber && s.accountName)) {
     return { error: "Choose a provider, enter the account number, and verify the name before submitting." };
   }
@@ -80,6 +84,8 @@ export async function submitPaymentRequest(formData: FormData) {
     },
   });
 
+  // The church's own choice about who pays the fee. If the settings table is not there yet, the platform default applies.
+  await saveGivingSettings(session.churchId, { mode: feeChoice }).catch((e) => console.error("[giving fee choice]", (e as Error).message));
   await audit(session, "create", "payment-account", "Submitted an online giving payout account for approval");
   revalidatePath("/app/settings");
   return { success: true };
@@ -100,7 +106,32 @@ export async function getPaymentRequestStatus() {
     }),
     db.church.findUnique({ where: { id: session.churchId }, select: { givingBlocked: true } }),
   ]);
-  return request ? { ...request, givingBlocked: church?.givingBlocked ?? false } : null;
+  const fee = await getGivingSettings(session.churchId);
+  return request ? { ...request, givingBlocked: church?.givingBlocked ?? false, feeMode: fee.mode, platformPercent: fee.platformPercent } : null;
+}
+
+/** How fees work for this church today, shown on the setup form before and after approval. */
+export async function getGivingFeeInfo() {
+  const session = await requireSession();
+  const [fee, cfg] = await Promise.all([
+    getGivingSettings(session.churchId),
+    db.platformConfig.findUnique({ where: { id: "default" }, select: { paystackFeePercent: true } }),
+  ]);
+  return { mode: fee.mode, platformPercent: fee.platformPercent, paystackPercent: cfg?.paystackFeePercent ?? 1.95 };
+}
+
+/** The church chooses who pays the payment fee on its online gifts. Applies to gifts from now on. */
+export async function setGivingFeeChoice(mode: string) {
+  const session = await requireGivingAdmin();
+  if (!isFeeMode(mode)) return { error: "Choose who pays the payment fee." };
+  try {
+    await saveGivingSettings(session.churchId, { mode });
+  } catch {
+    return { error: "This could not be saved yet. Please try again shortly." };
+  }
+  await audit(session, "update", "payment-account", mode === "giver" ? "Online giving: the giver pays the payment fee" : "Online giving: the church pays the payment fee");
+  revalidatePath("/app/settings");
+  return { success: true };
 }
 
 /** Ask to change where giving pays out. The CURRENT account keeps working until

@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { GiveForm } from "./give-form";
+import { getGivingSettings } from "@/lib/giving/settings";
 import { FORM_KINDS } from "@/lib/forms/kinds";
 import { HandCoins } from "lucide-react";
 import type { Metadata } from "next";
@@ -42,6 +43,10 @@ export default async function GivePage({
 
   if (!church || church.isDemo) notFound();
 
+  const [feeCfg, gs] = await Promise.all([
+    db.platformConfig.findUnique({ where: { id: "default" }, select: { paystackFeePercent: true } }),
+    getGivingSettings(church.id),
+  ]);
   const fundNames = church.funds.map((f) => f.name);
   const funds = fundNames.length > 0 ? fundNames : ["General", "Tithe", "Offering", "Missions", "Building Fund"];
 
@@ -84,6 +89,7 @@ export default async function GivePage({
             accentColor={church.accentColor}
             funds={funds}
             fields={FORM_KINDS.give.resolve(church.giveFormFields)}
+            fee={{ mode: gs.mode, feePercent: feeCfg?.paystackFeePercent ?? 1.95, platformPercent: gs.platformPercent }}
           />
         )}
       </div>

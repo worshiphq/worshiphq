@@ -5,6 +5,7 @@ import { startOnlineGift } from "@/app/actions/public-giving";
 import { usePaystack } from "@/components/payments/use-paystack";
 import { MemberFormFields, type SpecialRender } from "@/components/app/member-form-fields";
 import type { FormField } from "@/lib/forms/registration";
+import { splitGift, type FeeMode } from "@/lib/giving/fees";
 
 // Always offered, whether or not the church has set these up as Funds yet.
 const COMMON_FUNDS = ["Offertory", "Tithes", "Church Blessing", "Pledge", "Harvest"];
@@ -16,7 +17,10 @@ export function GiveForm({
   accentColor,
   funds,
   fields,
+  fee,
 }: {
+  /** How the fee works for this church, so the giver sees the exact total before paying. */
+  fee: { mode: FeeMode; feePercent: number; platformPercent: number };
   churchSlug: string;
   churchName: string;
   accentColor: string;
@@ -27,6 +31,9 @@ export function GiveForm({
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const { start } = usePaystack();
+  const typed = Number(amount);
+  const split = typed > 0 ? splitGift({ amount: typed, mode: fee.mode, feePercent: fee.feePercent, platformPercent: fee.platformPercent }) : null;
+  const money = (n: number) => `₵${n.toFixed(2)}`;
 
   const fundOptions = useMemo(() => {
     const merged = [...funds];
@@ -120,8 +127,18 @@ export function GiveForm({
               className="w-full rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-60"
               style={{ backgroundColor: accentColor }}
             >
-              {submitting ? "Opening secure checkout…" : `Give ₵${amount || "0"} now`}
+              {submitting ? "Opening secure checkout…" : `Give ${split ? money(split.charge) : "₵0"} now`}
             </button>
+            {split && fee.mode === "giver" && split.addedToGiver > 0 && (
+              <p className="mt-3 text-center text-sm text-ink-muted">
+                {money(typed)} gift + {money(split.addedToGiver)} processing fee = <b className="text-ink">{money(split.charge)}</b>. {churchName} receives the full {money(typed)}.
+              </p>
+            )}
+            {split && fee.mode === "church" && (
+              <p className="mt-3 text-center text-sm text-ink-muted">
+                You pay {money(typed)}. A small processing fee comes out of the gift, so {churchName} receives about {money(split.churchGets)}.
+              </p>
+            )}
             <p className="mt-3 text-center text-xs text-ink-faint">
               Secure giving to {churchName} via Paystack - choose Mobile Money or card at checkout. You&apos;ll receive a receipt by SMS and/or email.
             </p>

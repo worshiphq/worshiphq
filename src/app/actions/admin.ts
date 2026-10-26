@@ -15,6 +15,9 @@ import { addCredits } from "@/lib/sms/credits";
 import { isSmsTier } from "@/config/sms";
 import { createSubaccount, updateSubaccount, listBanks, resolveAccount } from "@/lib/integrations/paystack";
 import { env } from "@/lib/env";
+import { notifyPaymentRequest, type PaymentRequestEvent } from "@/lib/giving/notify";
+import { saveGivingSettings } from "@/lib/giving/settings";
+import { isFeeMode } from "@/lib/giving/fees";
 
 /**
  * Manually run all scheduled automations now (platform owner only). Useful to
@@ -376,7 +379,7 @@ export async function deleteAnnouncement(id: string) {
 }
 
 // ── Payment requests ──
-export async function updatePaymentRequest(id: string, formData: FormData) {
+export async function updatePaymentRequest(id: string, formData: FormData): Promise<{ notified: string[] }> {
   await requireSuperAdmin();
   const status = String(formData.get("status") ?? "").trim();
   const adminNotes = String(formData.get("adminNotes") ?? "").trim();
@@ -386,12 +389,18 @@ export async function updatePaymentRequest(id: string, formData: FormData) {
   const portalUrl = String(formData.get("portalUrl") ?? "").trim();
   const paystackSubId = String(formData.get("paystackSubId") ?? "").trim();
 
+  const before = await db.paymentRequest.findUnique({
+    where: { id },
+    select: { status: true, meetingDate: true, meetingType: true, contactName: true, contactPhone: true, contactEmail: true, church: { select: { name: true } } },
+  });
+  const meetingDate = meetingDateStr ? new Date(meetingDateStr) : null;
+
   const updated = await db.paymentRequest.update({
     where: { id },
     data: {
       status: status || undefined,
       adminNotes: adminNotes || null,
-      meetingDate: meetingDateStr ? new Date(meetingDateStr) : null,
+      meetingDate,
       meetingType: meetingType || null,
       ussdCode: ussdCode || null,
       portalUrl: portalUrl || null,
@@ -409,6 +418,23 @@ export async function updatePaymentRequest(id: string, formData: FormData) {
   });
 
   revalidatePath("/admin/payments");
+
+  // Tell the church when its request moves, or when its meeting changes. Saving notes alone stays silent.
+  let notified: string[] = [];
+  if (before) {
+    const statusChanged = !!status && status !== before.status;
+    const meetingChanged = (before.meetingDate?.getTime() ?? 0) !== (meetingDate?.getTime() ?? 0) || (before.meetingType ?? "") !== meetingType;
+    let event: PaymentRequestEvent | null = null;
+    if (status === "scheduled" && (statusChanged || meetingChanged)) event = { kind: "scheduled", meetingDate, meetingType: meetingType || null };
+    else if (statusChanged && status === "in_progress") event = { kind: "in_progress" };
+    else if (statusChanged && status === "completed") event = { kind: "completed" };
+    else if (statusChanged && status === "declined") event = { kind: "declined" };
+    if (event) {
+      const r = await notifyPaymentRequest({ event, churchName: before.church.name, contactName: before.contactName, contactPhone: before.contactPhone, contactEmail: before.contactEmail });
+      notified = [r.sms ? "text" : "", r.email ? "email" : ""].filter(Boolean);
+    }
+  }
+  return { notified };
 }
 
 /**
@@ -454,6 +480,7 @@ export async function approveGivingSetup(id: string): Promise<{ ok: boolean; cod
   });
 
   revalidatePath("/admin/payments");
+  await notifyPaymentRequest({ event: { kind: "completed" }, churchName: req.church.name, contactName: req.contactName, contactPhone: req.contactPhone, contactEmail: req.contactEmail });
   return { ok: true, code: res.subaccountCode };
 }
 
@@ -469,6 +496,24 @@ export async function setGivingFeeSettings(input: { platformPercent: number; don
   });
   revalidatePath("/admin/payments");
   return { ok: true as const };
+}
+
+/** SuperAdmin: set how one church's giving fees work, whatever the church chose. A percent of null goes back to the platform default. */
+export async function adminSetChurchGiving(churchId: string, input: { mode?: string; platformPercent?: number | null }): Promise<{ ok: boolean; error?: string }> {
+  await requireSuperAdmin();
+  const mode = input.mode;
+  if (mode !== undefined && !isFeeMode(mode)) return { ok: false, error: "Choose who pays the fee." };
+  let percent: number | null | undefined = undefined;
+  if (input.platformPercent !== undefined) {
+    percent = input.platformPercent === null ? null : Math.max(0, Math.min(Number(input.platformPercent) || 0, 100));
+  }
+  try {
+    await saveGivingSettings(churchId, { ...(mode ? { mode } : {}), ...(percent !== undefined ? { platformPercent: percent } : {}) });
+  } catch {
+    return { ok: false, error: "The giving settings table is not in the database yet. Run the database update first." };
+  }
+  revalidatePath("/admin/payments");
+  return { ok: true };
 }
 
 // ── Payout account management (SuperAdmin) ──────────────────────────────
@@ -522,6 +567,7 @@ export async function approveAccountChange(id: string): Promise<{ ok: boolean; e
     },
   });
   revalidatePath("/admin/payments");
+  await notifyPaymentRequest({ event: { kind: "change_approved" }, churchName: req.church.name, contactName: req.contactName, contactPhone: req.contactPhone, contactEmail: req.contactEmail });
   return { ok: true };
 }
 

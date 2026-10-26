@@ -2,7 +2,9 @@
 
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { initializePayment, newPaymentReference, SETTLEMENT_CURRENCY, grossUpForFee } from "@/lib/integrations/paystack";
+import { initializePayment, newPaymentReference, SETTLEMENT_CURRENCY } from "@/lib/integrations/paystack";
+import { splitGift } from "@/lib/giving/fees";
+import { getGivingSettings } from "@/lib/giving/settings";
 import { recordOnlineGift } from "@/lib/giving/record";
 import { FORM_KINDS, collectExtraAnswers } from "@/lib/forms/kinds";
 
@@ -62,9 +64,17 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
   // When the platform is set so the donor bears Paystack's fee, charge a little
   // extra so the church still receives the full amount the donor intended. The
   // Gift we record (and receipt we send) is always the intended `amount`.
-  const cfg = await db.platformConfig.findUnique({ where: { id: "default" }, select: { givingDonorBearsFee: true, paystackFeePercent: true } });
-  const donorBearsFee = cfg?.givingDonorBearsFee ?? true;
-  const chargeAmount = donorBearsFee ? grossUpForFee(amount, cfg?.paystackFeePercent ?? 1.95) : amount;
+  const cfg = await db.platformConfig.findUnique({ where: { id: "default" }, select: { paystackFeePercent: true } });
+  const gs = await getGivingSettings(church.id);
+  // With a payout account, the church receives an exact amount and WorshipHQ keeps a flat part (see splitGift).
+  // Without one the whole payment lands with WorshipHQ, so only the giver's fee top-up applies.
+  const split = splitGift({
+    amount,
+    mode: gs.mode,
+    feePercent: cfg?.paystackFeePercent ?? 1.95,
+    platformPercent: church.paystackSubaccountCode ? gs.platformPercent : 0,
+  });
+  const chargeAmount = split.charge;
 
   const init = await initializePayment({
     email: payerEmail,
@@ -79,6 +89,7 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
     // configured (SuperAdmin → Payment Requests), so giving settles to the
     // church instead of WorshipHQ's platform account.
     subaccount: church.paystackSubaccountCode,
+    transactionCharge: church.paystackSubaccountCode ? split.transactionCharge : undefined,
     metadata: {
       kind: "online_gift",
       churchId: church.id,
