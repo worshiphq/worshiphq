@@ -26,7 +26,7 @@ const SUPERADMIN_SESSION_MS = 12 * 60 * 60 * 1000;
 type Payload =
   | { uid: string; sv: number }
   | { demo: true }
-  | { sa: true; ghost?: string; until?: number; rid?: string };
+  | { sa: true; ghost?: string; until?: number; rid?: string; se?: number };
 
 function sign(payload: Payload, ttlMs: number): string {
   const body = Buffer.from(JSON.stringify({ ...payload, exp: Date.now() + ttlMs })).toString("base64url");
@@ -48,7 +48,7 @@ function verify(token: string): Payload | null {
   if (!p || typeof p !== "object") return null;
   // Only web-session shapes. Anything carrying another token's fields (a desktop login, a plan stamp,
   // a login challenge) is refused, so it can never be replayed as a browser session.
-  if ("cid" in p || "lc" in p || "rp" in p || "plan" in p) return null;
+  if ("cid" in p || "lc" in p || "rp" in p || "plan" in p || "sal" in p || "sar" in p) return null;
   if (typeof p.exp === "number" && p.exp < Date.now()) return null;
   if (p.demo === true) return { demo: true };
   if (p.sa === true) {
@@ -58,6 +58,7 @@ function verify(token: string): Payload | null {
       ghost: typeof p.ghost === "string" ? p.ghost : undefined,
       until: typeof p.until === "number" ? p.until : undefined,
       rid: typeof p.rid === "string" ? p.rid : undefined,
+      se: typeof p.se === "number" ? p.se : undefined,
     };
   }
   if (typeof p.uid === "string" && p.uid) return { uid: p.uid, sv: typeof p.sv === "number" ? p.sv : 0 };
@@ -144,6 +145,11 @@ export { LOGIN_CHALLENGE_COOKIE };
 
 async function setCookie(payload: Payload) {
   const ttl = "sa" in payload ? SUPERADMIN_SESSION_MS : USER_SESSION_MS;
+  // A SuperAdmin cookie remembers which password generation it was made under, so a reset signs the old ones out.
+  if ("sa" in payload && payload.se === undefined) {
+    const { getSaSecurity } = await import("@/lib/superadmin-security");
+    payload = { ...payload, se: (await getSaSecurity()).epoch };
+  }
   const store = await cookies();
   store.set(COOKIE, sign(payload, ttl), {
     httpOnly: true,
@@ -172,17 +178,33 @@ export async function clearSession() {
 }
 
 // ── SuperAdmin (platform owner) ──
-/** Verify SuperAdmin credentials against env. Returns false if not configured. */
-export function checkSuperAdmin(email: string, password: string): boolean {
+/**
+ * Verify SuperAdmin credentials. A password set through "Forgot password" replaces the one in the environment.
+ * Returns false if neither is configured.
+ */
+export async function checkSuperAdmin(email: string, password: string): Promise<boolean> {
   const expectedEmail = env.SUPERADMIN_EMAIL.toLowerCase();
-  const expectedPw = env.SUPERADMIN_PASSWORD;
-  if (!expectedPw) return false; // login disabled until a password is set
   const emailOk = email.toLowerCase().trim() === expectedEmail;
-  // Constant-time password compare.
-  const a = Buffer.from(password);
-  const b = Buffer.from(expectedPw);
-  const pwOk = a.length === b.length && crypto.timingSafeEqual(a, b);
+  const { getSaSecurity } = await import("@/lib/superadmin-security");
+  const { hash } = await getSaSecurity();
+  let pwOk = false;
+  if (hash) {
+    pwOk = await bcrypt.compare(password, hash);
+  } else {
+    const expectedPw = env.SUPERADMIN_PASSWORD;
+    if (!expectedPw) return false; // login disabled until a password is set
+    // Constant-time password compare.
+    const a = Buffer.from(password);
+    const b = Buffer.from(expectedPw);
+    pwOk = a.length === b.length && crypto.timingSafeEqual(a, b);
+  }
   return emailOk && pwOk;
+}
+
+/** Is this SuperAdmin cookie from before the latest password reset? */
+async function saSignedOut(se: number | undefined): Promise<boolean> {
+  const { getSaSecurity } = await import("@/lib/superadmin-security");
+  return (se ?? 0) !== (await getSaSecurity()).epoch;
 }
 
 export async function startSuperAdminSession() {
@@ -209,6 +231,7 @@ export async function getSuperAdmin(): Promise<{ email: string; ghost?: string; 
   if (!token) return null;
   const payload = verify(token);
   if (!payload || !("sa" in payload)) return null;
+  if (await saSignedOut(payload.se)) return null;
   return { email: env.SUPERADMIN_EMAIL, ghost: payload.ghost, rid: payload.rid };
 }
 
@@ -270,6 +293,7 @@ async function _loadSession(): Promise<Session | null> {
   // in their team/roles list. The SuperAdmin's email is never exposed here.
   if ("sa" in payload) {
     if (!payload.ghost) return null; // bare superadmin isn't an app session
+    if (await saSignedOut(payload.se)) return null; // the password was reset since this entry began
     if (payload.until && payload.until < Date.now()) return null; // timed entry has lapsed
     // The entry must still be live on its SupportAccess record, so ending it takes effect at once.
     if (!payload.rid) return null;

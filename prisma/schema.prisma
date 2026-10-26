@@ -1129,6 +1129,16 @@ model RateHit {
   @@index([key, createdAt])
 }
 
+// The platform owner's sign-in security, kept apart from PlatformConfig. One row, id "default".
+model SuperAdminSecurity {
+  id           String   @id @default("default")
+  // The password set through "Forgot password" (bcrypt). When present it replaces SUPERADMIN_PASSWORD from the environment.
+  passwordHash String?
+  // Goes up every time the password is reset, which signs every earlier SuperAdmin session out.
+  epoch        Int      @default(0)
+  updatedAt    DateTime @updatedAt
+}
+
 model PhoneVerification {
   id        String   @id @default(cuid())
   phone     String   // destination: a phone number, or an email address when channel = "email"

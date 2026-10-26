@@ -14,7 +14,7 @@ const CODE_TTL_MIN = 10;
 const MAX_ATTEMPTS = 5;
 
 export type OtpChannel = "sms" | "email";
-export type OtpPurpose = "signup" | "login" | "reset-password" | "verify-phone" | "verify-email";
+export type OtpPurpose = "signup" | "login" | "reset-password" | "verify-phone" | "verify-email" | "sa-login" | "sa-reset-email" | "sa-reset-sms";
 
 function genCode(): string {
   return String(crypto.randomInt(100000, 1000000)); // 6 digits from a secure source

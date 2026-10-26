@@ -4,8 +4,6 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import {
-  checkSuperAdmin,
-  startSuperAdminSession,
   startGhostSession,
   stopGhostSession,
   clearSession,
@@ -30,27 +28,7 @@ export async function runAutomationsNow() {
   return { ok: true as const, summary };
 }
 
-// ── Auth ──
-export async function superAdminSignIn(formData: FormData) {
-  const email = String(formData.get("email") ?? "");
-  const password = String(formData.get("password") ?? "");
-  // This login opens every church, so guessing is capped hard: 5 tries per 15 minutes and 30 a day per address.
-  const { rateLimitAll, clientIp, MINUTE, DAY } = await import("@/lib/rate-limit");
-  const ip = await clientIp();
-  const allowed = await rateLimitAll([
-    { key: `sa-login:ip:${ip}`, max: 5, windowMs: 15 * MINUTE },
-    { key: `sa-login:ip-d:${ip}`, max: 30, windowMs: DAY },
-  ]);
-  if (!allowed) redirect("/admin/login?error=too-many");
-  if (!checkSuperAdmin(email, password)) {
-    console.warn(`[admin] failed SuperAdmin sign-in from ${ip}`);
-    redirect("/admin/login?error=invalid");
-  }
-  console.info(`[admin] SuperAdmin signed in from ${ip}`);
-  await startSuperAdminSession();
-  redirect("/admin");
-}
-
+// ── Auth (signing in lives in admin-auth.ts) ──
 export async function superAdminSignOut() {
   await clearSession();
   redirect("/admin/login");
