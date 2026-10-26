@@ -41,7 +41,7 @@ export default async function CommunicationsPage({
   const senderTeaser = churchRow && suggestion && churchRow.smsSenderIdStatus !== "approved" && planRank(plan as PlanId) < planRank("pro")
     ? { suggestion, churchName: churchRow.name }
     : null;
-  const trial = plan === "free" && churchRow && !session.impersonating ? commsTrial(churchRow.createdAt) : null;
+  const trial = plan === "free" && churchRow ? commsTrial(churchRow.createdAt) : null;
 
   return (
     <div>
