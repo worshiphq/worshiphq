@@ -32,6 +32,7 @@ export const admin: DocArticle[] = [
     title: "Linked churches: a teens chapel, a branch or a partner church",
     summary: "Run a teens chapel or branch on its own account, link it to the main church, and send graduating teens up.",
     who: "The Main Admin or an Admin",
+    feature: "linked-churches",
     appPath: "/app/settings",
     body: [
       { p: "A teens chapel, a branch or a partner church can have its own WorshipHQ account, with its own plan, members, attendance and money, and still be linked to the main church. Nothing is shared unless the linked church switches it on." },

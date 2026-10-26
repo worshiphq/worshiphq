@@ -1129,6 +1129,23 @@ model RateHit {
   @@index([key, createdAt])
 }
 
+// Extra platform admins, for example a partner. The owner is the account set up in Vercel (SUPERADMIN_EMAIL) and is
+// not a row here, so no admin in this table can remove or change the owner. Only the owner adds or removes these.
+model SuperAdminUser {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String
+  // For text codes. Empty = email codes only.
+  phone        String?
+  // Empty until the invite link is used to choose a password.
+  passwordHash String?
+  // Goes up whenever the password is set or reset, which signs this admin's earlier sessions and links out.
+  epoch        Int       @default(0)
+  active       Boolean   @default(true)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+}
+
 // The platform owner's sign-in security, kept apart from PlatformConfig. One row, id "default".
 model SuperAdminSecurity {
   id           String   @id @default("default")

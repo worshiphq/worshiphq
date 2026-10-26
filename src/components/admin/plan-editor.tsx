@@ -313,6 +313,14 @@ export function PlanEditor({
                 </div>
               </div>
 
+              <FieldLabel className="mt-3">Online giving fee (% WorshipHQ takes per gift)</FieldLabel>
+              <input
+                type="number" min={0} max={100} step="0.1" value={p.givingPercent ?? 0}
+                onChange={(e) => patch(p.id, { givingPercent: Math.max(0, Number(e.target.value) || 0) })}
+                className={cell} placeholder="1.5"
+              />
+              <p className="mt-1 text-[11px] text-slate-500">On top of Paystack&apos;s fee. Churches see this before they apply. You can still set a different percent for one church.</p>
+
               <FieldLabel className="mt-3">Members label (on the card)</FieldLabel>
               <input
                 value={p.membersLabel} onChange={(e) => patch(p.id, { membersLabel: e.target.value })}

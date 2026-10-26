@@ -1,7 +1,7 @@
 "use server";
 
 import { db } from "@/lib/db";
-import { env } from "@/lib/env";
+import { env, features } from "@/lib/env";
 import { initializePayment, newPaymentReference, SETTLEMENT_CURRENCY } from "@/lib/integrations/paystack";
 import { splitGift } from "@/lib/giving/fees";
 import { getGivingSettings } from "@/lib/giving/settings";
@@ -41,6 +41,8 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
   });
   if (!church || church.isDemo) return giftError("This church can't receive gifts right now.");
   if (church.givingBlocked) return giftError("Online giving is temporarily unavailable for this church. Please contact the church directly.");
+  // With no payout account, the money would land with WorshipHQ, not the church. So no gift is started until one is approved.
+  if (features.payments && !church.paystackSubaccountCode) return giftError("Online giving is not set up for this church yet. Please contact the church directly.");
 
   const amount = Number(formData.get("amount") ?? 0);
   if (!amount || amount <= 0) return giftError("Enter a valid amount.");

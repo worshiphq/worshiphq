@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { Mail, MessageSquare } from "lucide-react";
 import { getSuperAdmin } from "@/lib/auth";
 import { sendSuperAdminCode, verifySuperAdminCode, cancelSuperAdminSignIn } from "@/app/actions/admin-auth";
-import { getLoginState, saEmail, saPhone, maskEmail, maskPhone } from "@/lib/superadmin-security";
+import { getLoginState, resolveSaIdentity, maskEmail, maskPhone } from "@/lib/superadmin-security";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { AuthShell, AuthNotice, authInput, authButton, authGhost, authCard } from "@/components/admin/auth-shell";
 
@@ -13,20 +13,24 @@ const ERRORS: Record<string, string> = {
   "no-phone": "No phone number is saved for text codes. Use email.",
 };
 
-export default async function AdminVerifyPage({ searchParams }: { searchParams: Promise<{ error?: string; sent?: string }> }) {
+export default async function AdminVerifyPage({ searchParams }: { searchParams: Promise<{ error?: string; sent?: string; left?: string }> }) {
   if (await getSuperAdmin()) redirect("/admin");
   const state = await getLoginState();
-  if (!state) redirect("/admin/login?error=expired");
-  const { error, sent } = await searchParams;
-  const phone = await saPhone();
-  const emailMasked = maskEmail(saEmail());
+  if (!state?.who) redirect("/admin/login?error=expired");
+  const identity = await resolveSaIdentity(state.who);
+  if (!identity) redirect("/admin/login?error=expired");
+  const { error, sent, left } = await searchParams;
+  const tries = Number(left);
+  const warn = error === "code" && tries >= 1 && tries <= 4 ? ` ${tries} ${tries === 1 ? "try" : "tries"} left before this account is locked for 24 hours.` : "";
+  const phone = identity.phone;
+  const emailMasked = maskEmail(identity.email);
   const phoneMasked = phone ? maskPhone(phone) : null;
   const waiting = !!state.vid;
 
   return (
     <AuthShell title="Check it is you" subtitle={waiting ? "Enter the 6-digit code." : "Choose where to send your sign-in code."}>
       <div className={authCard}>
-        {error && <AuthNotice>{ERRORS[error] ?? "Something went wrong. Try again."}</AuthNotice>}
+        {error && <AuthNotice>{(ERRORS[error] ?? "Something went wrong. Try again.") + warn}</AuthNotice>}
         {sent && !error && (
           <AuthNotice tone="ok">Code sent to {sent === "sms" ? phoneMasked : emailMasked}. It works for 10 minutes.</AuthNotice>
         )}

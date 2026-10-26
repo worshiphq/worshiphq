@@ -8,7 +8,7 @@ export type PaymentRequestEvent =
   | { kind: "scheduled"; meetingDate: Date | null; meetingType: string | null }
   | { kind: "in_progress" }
   | { kind: "completed" }
-  | { kind: "declined" }
+  | { kind: "declined"; note?: string }
   | { kind: "change_approved" }
   | { kind: "change_declined" };
 
@@ -44,12 +44,14 @@ function wording(e: PaymentRequestEvent, name: string, church: string, contact: 
         sms: `Good news ${name}: online giving is now live for ${church}. Your givers can give by Mobile Money or card, and gifts go to your payout account. ${where}`,
         body: `Hello ${name},\n\nOnline giving is now live for ${church}. Your givers can give by Mobile Money or card, and every gift goes to your payout account.\n\nYou chose who pays the payment fee when you applied, and you can change that at any time under Settings, Online payments. A change applies to gifts from then on.\n\nThe giving link is on your Giving page. If you have any question, reach us on ${contact}.`,
       };
-    case "declined":
+    case "declined": {
+      const why = e.note?.trim() ? e.note.trim().replace(/\s+/g, " ") : "";
       return {
         subject: `About online giving for ${church}`,
-        sms: `Hello ${name}, we could not approve online giving for ${church} yet. ${where} You can also reach us on ${contact}.`,
-        body: `Hello ${name},\n\nWe could not approve online giving for ${church} yet. ${where}\n\nYou are welcome to correct the details and apply again, or reach us on ${contact} and we will help.`,
+        sms: `Hello ${name}, we could not approve online giving for ${church} yet.${why ? ` Reason: ${why.slice(0, 140)}.` : ""} ${where} You can also reach us on ${contact}.`,
+        body: `Hello ${name},\n\nWe could not approve online giving for ${church} yet.${why ? `\n\nReason: ${why}` : ""}\n\n${where}\n\nYou are welcome to correct the details and apply again, or reach us on ${contact} and we will help.`,
       };
+    }
     case "change_approved":
       return {
         subject: `Your new payout account for ${church} is approved`,

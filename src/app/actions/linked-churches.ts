@@ -5,7 +5,7 @@ import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { requireSession, assertCanWrite } from "@/lib/auth";
+import { requireSession, assertCanWrite, assertPlanFeature } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { churchInitials } from "@/lib/members/helpers";
 import { phoneKey } from "@/lib/search";
@@ -41,6 +41,8 @@ export type LinkedData = {
   incoming: TransferRow[];
   sent: { id: string; name: string; status: string; createdAt: string }[];
   autoAccept: boolean;
+  /** True when the church's plan does not include linked churches, so it can join one but not make codes. */
+  inviteLocked: boolean;
 };
 
 /** Everything the Linked churches screen shows for this church, in both directions. */
@@ -99,6 +101,7 @@ export async function getLinkedChurches(): Promise<LinkedData> {
     }),
     sent: sent.map((t) => ({ id: t.id, name: t.name, status: t.status, createdAt: t.createdAt.toISOString() })),
     autoAccept: me?.autoAcceptTransfers ?? false,
+    inviteLocked: !!session.planLocked?.includes("linked-churches"),
   };
 }
 
@@ -108,6 +111,8 @@ export async function getLinkedChurches(): Promise<LinkedData> {
 export async function createLinkInvite(input: { kind: Kind; label?: string }) {
   const session = await requireSession();
   requireOwnerOrAdmin(session);
+  // Making codes is the part of linked churches that belongs to a plan. A church can still JOIN one with a code it was given.
+  assertPlanFeature(session, "linked-churches");
   if (!(input.kind in LINK_KINDS)) return { ok: false as const, error: "Choose what kind of church it is." };
   const open = await db.churchLinkInvite.count({ where: { parentChurchId: session.churchId, usedByChurchId: null, expiresAt: { gt: new Date() } } });
   if (open >= 5) return { ok: false as const, error: "You already have 5 open codes. Remove one first." };

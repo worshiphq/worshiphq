@@ -61,6 +61,7 @@ const FREE_FEATURES = [
 const STARTER_ADDS = [
   "sms", "reminders", "member-ids", "qr-codes",
   "form-builder", "import-export", "auto-receipts", "follow-ups",
+  "baptisms",
 ];
 
 /** Pro adds - teams, deeper giving, content and facilities. */
@@ -68,6 +69,7 @@ const PRO_ADDS = [
   "custom-roles", "harvest", "pledges", "recurring-giving", "data-migration",
   "volunteers", "rosters", "volunteer-scheduling", "bookings",
   "sermons", "devotionals", "testimonies", "welfare",
+  "linked-churches",
 ];
 
 /** Max adds - intelligence, automation, full finance, integration & scale.
@@ -127,7 +129,14 @@ export const FEATURE_LABELS: Record<string, string> = {
   expenses: "Expenses", "fund-accounting": "Fund accounting", assets: "Assets",
   "api-access": "API access", "audit-log": "Audit log",
   fingerprint: "Biometric check-in (fingerprint, face, palm)",
+  baptisms: "Baptisms & certificates", "linked-churches": "Linked churches (branches, partner churches, teens chapel)",
 };
+
+/**
+ * Features added after plans were first saved in the editor. A saved plan that has never seen one of these follows the
+ * built-in tier for it, so a new feature never silently lands on no plan at all. Add a feature here when it is added to a tier.
+ */
+export const FEATURES_ADDED_LATER = ["baptisms", "linked-churches"];
 
 /** Permission section keys whose plan feature has a different name. */
 const SECTION_FEATURE_MAP: Record<string, string> = {
@@ -161,6 +170,7 @@ const ROUTE_FEATURE_MAP: Record<string, string> = {
   "/app/sermons": "sermons",
   "/app/devotionals": "devotionals",
   "/app/testimonies": "testimonies",
+  "/app/baptisms": "baptisms",
 };
 
 export function getRouteFeature(href: string): string | null {

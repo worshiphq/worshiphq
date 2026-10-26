@@ -12,7 +12,7 @@ import {
   requestAccountChange, cancelAccountChange, cancelPaymentRequest, removePaymentAccount,
   getGivingFeeInfo, setGivingFeeChoice,
 } from "@/app/actions/payment-request";
-import type { FeeMode } from "@/lib/giving/fees";
+import { splitGift, type FeeMode } from "@/lib/giving/fees";
 
 type Status = Awaited<ReturnType<typeof getPaymentRequestStatus>>;
 type FeeInfo = Awaited<ReturnType<typeof getGivingFeeInfo>>;
@@ -124,19 +124,71 @@ function SettlementPicker({ onChange }: { onChange: (v: Settlement | null) => vo
 }
 
 
-/** Plain words about fees and payouts, so a church knows what it is agreeing to before it submits. */
-function FeeExplainer({ info }: { info: FeeInfo | null }) {
+const cedis = (n: number) => `₵${n.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+/** Live examples, worked out from this church's real fees, for both ways of paying so the church can compare. */
+function FeeExamples({ info, mode }: { info: FeeInfo | null; mode: FeeMode }) {
+  const [custom, setCustom] = useState("");
   const paystack = info?.paystackPercent ?? 1.95;
   const platform = info?.platformPercent ?? 0;
+  const amounts = [500, 3000, ...(Number(custom) > 0 ? [Number(custom)] : [])];
+  const calc = (amount: number, m: FeeMode) => splitGift({ amount, mode: m, feePercent: paystack, platformPercent: platform });
   return (
-    <div className="rounded-xl border border-line bg-surface-2 p-4 text-sm text-ink-muted">
+    <div className="space-y-3">
+      <p className="text-sm text-ink-muted">
+        {info?.planName ? <>Your plan is <b className="text-ink">{info.planName}</b>. </> : null}
+        Paystack charges <b className="text-ink">{paystack}%</b>
+        {platform > 0 ? <> and WorshipHQ charges <b className="text-ink">{platform}%</b>, about <b className="text-ink">{(paystack + platform).toFixed(2)}%</b> of each gift together</> : <>, and WorshipHQ adds no fee of its own</>}.
+        Here is what that means for a gift:
+      </p>
+      <div className="overflow-hidden rounded-xl border border-line bg-surface text-sm">
+        <div className="hidden grid-cols-[6rem_1fr_1fr] gap-3 border-b border-line bg-surface-2 px-4 py-2 text-xs font-semibold text-ink-muted sm:grid">
+          <div>A gift of</div>
+          <div className={cn(mode === "giver" && "text-primary")}>If your givers pay the fee{mode === "giver" ? " (your choice)" : ""}</div>
+          <div className={cn(mode === "church" && "text-primary")}>If your church pays the fee{mode === "church" ? " (your choice)" : ""}</div>
+        </div>
+        {amounts.map((a) => {
+          const g = calc(a, "giver");
+          const c = calc(a, "church");
+          return (
+            <div key={a} className="grid gap-x-3 gap-y-2 border-b border-line px-4 py-3 last:border-b-0 sm:grid-cols-[6rem_1fr_1fr]">
+              <div className="font-semibold text-ink">{cedis(a)}</div>
+              <div className={cn("text-ink-muted", mode === "giver" && "text-ink")}>
+                <span className="font-medium sm:hidden">Givers pay it: </span>
+                The giver pays <b>{cedis(g.charge)}</b> ({cedis(a)} + {cedis(g.addedToGiver)} fee: Paystack {cedis(g.paystackFee)}{g.platformCut > 0 ? <>, WorshipHQ {cedis(g.platformCut)}</> : null}). Your church receives <b>{cedis(g.churchGets)}</b>.
+              </div>
+              <div className={cn("text-ink-muted", mode === "church" && "text-ink")}>
+                <span className="font-medium sm:hidden">Church pays it: </span>
+                The giver pays <b>{cedis(c.charge)}</b>. A fee of {cedis(c.transactionCharge)} (Paystack {cedis(c.paystackFee)}{c.platformCut > 0 ? <>, WorshipHQ {cedis(c.platformCut)}</> : null}) is taken off. Your church receives <b>{cedis(c.churchGets)}</b>.
+              </div>
+            </div>
+          );
+        })}
+      </div>
+      <div className="flex flex-wrap items-center gap-2 text-sm text-ink-muted">
+        <label htmlFor="fee-try">Try your own amount: ₵</label>
+        <input id="fee-try" value={custom} onChange={(e) => setCustom(e.target.value.replace(/[^0-9.]/g, "").slice(0, 9))} inputMode="decimal" placeholder="e.g. 1200"
+          className="h-9 w-32 rounded-lg border border-line bg-surface px-3 text-sm text-ink" />
+      </div>
+      <p className="text-xs text-ink-faint">These are estimates worked out from the current fees. Paystack&apos;s own fee can differ by a pesewa. The giver always sees the exact total before paying.</p>
+    </div>
+  );
+}
+
+/** Plain words about fees and payouts, so a church knows what it is agreeing to before it submits. */
+function FeeExplainer({ info, mode }: { info: FeeInfo | null; mode: FeeMode }) {
+  return (
+    <div className="space-y-4 rounded-xl border border-line bg-surface-2 p-4 text-sm text-ink-muted">
       <div className="font-semibold text-ink">Before you submit: how online giving works</div>
-      <ul className="mt-2 list-disc space-y-1.5 pl-5">
-        <li>Payments are handled by <b className="text-ink">Paystack</b>. They charge <b className="text-ink">{paystack}%</b> on every gift{platform > 0 ? <>, and WorshipHQ adds a platform fee of <b className="text-ink">{platform}%</b></> : null}.</li>
-        <li>You choose below who pays that fee: your givers, or your church. You can change it later in this tab, for gifts from then on.</li>
-        <li>Paystack pays out to the account you give us. Payouts normally arrive the next working day, and we confirm the details with you when we approve.</li>
-        <li>Before we approve, WorshipHQ checks that the account belongs to your church, and may call you to confirm. Approval is not automatic.</li>
+      <FeeExamples info={info} mode={mode} />
+      <ul className="list-disc space-y-1.5 pl-5">
+        <li>Whichever way you choose, the fee is <b className="text-ink">taken automatically</b> before the money is paid to you. You never have to pay it separately.</li>
+        <li>Paystack pays out to the account you give us, <b className="text-ink">normally the next working day</b>. We confirm the details with you when we approve.</li>
+        <li>You can change who pays the fee at any time in this tab. A change applies to gifts from then on.</li>
+        <li>Before we approve, WorshipHQ checks that the account belongs to your church, and may call or video call you to confirm. Approval is not automatic, and we may ask for proof that you represent the church.</li>
+        <li>Gifts are paid to the account you submitted, so check it carefully. If you want it changed later, WorshipHQ checks the new account first.</li>
         <li>Refunds and disputes on a gift are handled through Paystack, and the amount can be taken from your next payout.</li>
+        <li>WorshipHQ may pause online giving for a church while it looks into a problem, such as a suspected fraud or a dispute.</li>
       </ul>
     </div>
   );
@@ -284,6 +336,7 @@ export function OnlinePaymentsTab({ canManage }: { canManage: boolean }) {
             <div className="mt-4 space-y-2 rounded-xl border border-line bg-surface p-4">
               <FeeChoice value={feeMode} onChange={(m) => { setFeeMode(m); act("fee", () => setGivingFeeChoice(m)); }} disabled={busy === "fee"} />
               <p className="text-xs text-ink-faint">{busy === "fee" ? "Saving…" : "A change applies to gifts from now on."}</p>
+              <div className="pt-2"><FeeExamples info={feeInfo} mode={feeMode} /></div>
             </div>
           )}
 
@@ -335,7 +388,7 @@ export function OnlinePaymentsTab({ canManage }: { canManage: boolean }) {
               {status?.adminNotes && <p className="mt-1.5 text-sm text-ink-muted">{status.adminNotes}</p>}
             </Banner>
           )}
-          <FeeExplainer info={feeInfo} />
+          <FeeExplainer info={feeInfo} mode={feeMode} />
           <SettlementPicker onChange={setPicked} />
           <FeeChoice value={feeMode} onChange={setFeeMode} />
           <div>
@@ -357,6 +410,10 @@ export function OnlinePaymentsTab({ canManage }: { canManage: boolean }) {
             <textarea name="needs" rows={2} placeholder="USSD code, QR codes, or anything specific you'd like."
               className="flex min-h-[64px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring" />
           </div>
+          <label className="flex items-start gap-2.5 text-sm text-ink-muted">
+            <input type="checkbox" name="agree" required className="mt-1 size-4 accent-[var(--color-primary)]" />
+            <span>I have read how online giving works, including the fees, who pays them and when payouts arrive, and I agree to the <a href="/terms" target="_blank" rel="noreferrer" className="font-medium text-primary hover:underline">WorshipHQ terms</a> for online giving on behalf of this church.</span>
+          </label>
           <Button type="submit" disabled={busy === "submit" || !picked}>
             {busy === "submit" ? <><Loader2 className="size-4 animate-spin" /> Submitting…</> : "Submit for approval"}
           </Button>

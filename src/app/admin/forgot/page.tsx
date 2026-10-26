@@ -22,7 +22,7 @@ export default async function AdminForgotPage({ searchParams }: { searchParams: 
       {state ? (
         <form action={confirmSuperAdminReset} className={authCard}>
           {error && <AuthNotice>{ERRORS[error] ?? "Something went wrong. Start again."}</AuthNotice>}
-          <p className="text-sm text-slate-400">If that was the owner&apos;s email, codes were sent. They work for 10 minutes.</p>
+          <p className="text-sm text-slate-400">If that was an admin email, codes were sent. They work for 10 minutes.</p>
           <div>
             <label className="mb-1.5 block text-xs font-medium text-slate-400" htmlFor="sa-ec">
               Code from your email {state.eo && <span className="text-emerald-400">- confirmed</span>}
@@ -46,8 +46,8 @@ export default async function AdminForgotPage({ searchParams }: { searchParams: 
         <form action={startSuperAdminReset} className={authCard}>
           {error && <AuthNotice>{ERRORS[error] ?? "Something went wrong. Try again."}</AuthNotice>}
           <div>
-            <label className="mb-1.5 block text-xs font-medium text-slate-400" htmlFor="sa-fe">Owner email</label>
-            <input id="sa-fe" name="email" type="email" required autoComplete="username" placeholder="worshiphqapp@gmail.com" className={authInput} />
+            <label className="mb-1.5 block text-xs font-medium text-slate-400" htmlFor="sa-fe">Your admin email</label>
+            <input id="sa-fe" name="email" type="email" required autoComplete="username" placeholder="Your admin email" className={authInput} />
           </div>
           <SubmitButton pendingLabel="Sending codes…" overlay={false} className={authButton}>Send me the codes</SubmitButton>
           <p className="text-center text-xs text-slate-500"><Link href="/admin/login" className="hover:text-slate-300">Back to sign in</Link></p>

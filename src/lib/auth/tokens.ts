@@ -23,7 +23,7 @@ export function authSecret(): string {
  * Each kind of token is signed under its own purpose, so a token made for one job
  * (a desktop login, a password reset) can never be passed off as another (a web session).
  */
-export type TokenPurpose = "login-challenge" | "reset" | "desktop" | "desktop-plan" | "checkin-pick" | "sa-login" | "sa-reset";
+export type TokenPurpose = "login-challenge" | "reset" | "desktop" | "desktop-plan" | "checkin-pick" | "sa-login" | "sa-reset" | "sa-invite" | "reset-link";
 
 function mac(purpose: string, body: string): string {
   return crypto.createHmac("sha256", authSecret()).update(`${purpose}:${body}`).digest("base64url");

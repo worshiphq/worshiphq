@@ -1,5 +1,3 @@
-import { ShieldCheck } from "lucide-react";
-
 export const authInput =
   "h-11 w-full rounded-xl border border-white/10 bg-white/5 px-3.5 text-sm text-slate-100 placeholder:text-slate-500 focus:border-teal-400/60 focus:outline-none focus:ring-2 focus:ring-teal-400/20";
 export const authButton =
@@ -13,8 +11,9 @@ export function AuthShell({ title, subtitle, children }: { title: string; subtit
     <div className="grid min-h-screen place-items-center px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 grid size-14 place-items-center rounded-2xl bg-teal-500/10 text-teal-400">
-            <ShieldCheck className="size-7" />
+          <div className="mx-auto mb-5 w-fit rounded-2xl bg-white px-5 py-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo2.png" alt="WorshipHQ" className="h-12 w-auto" />
           </div>
           <h1 className="text-xl font-bold tracking-tight">{title}</h1>
           <p className="mt-1 text-sm text-slate-400">{subtitle}</p>

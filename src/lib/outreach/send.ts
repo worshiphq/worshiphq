@@ -3,20 +3,16 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { sendEmail } from "@/lib/integrations/email";
 import { sendSms } from "@/lib/integrations/sms";
-import { normalisePhone } from "@/lib/phone";
 import { firstName, mergeFields, renderEmailHtml, templateById, type OutreachChannel } from "@/lib/outreach/templates";
-import { getReceiptSettings, issueRegistrationReceipt } from "@/lib/receipts/service";
+import { issueRegistrationReceipt } from "@/lib/receipts/service";
 import { receiptNumber } from "@/lib/receipts/types";
 
 /** Replies to our emails and the contact shown in them: the platform owner's inbox. */
 export const outreachContact = () => env.SUPERADMIN_EMAIL;
 
-/** What {{contact}} turns into inside a message: the inbox, and the company phone from the receipt details when there is one. */
+/** What {{contact}} turns into inside a message: the email only. No phone number goes out in messages on purpose. */
 export async function outreachContactLine(): Promise<string> {
-  const raw = (await getReceiptSettings().catch(() => null))?.phone?.trim();
-  // International format, so a church outside Ghana can dial it too.
-  const phone = raw ? `+${normalisePhone(raw)}` : "";
-  return phone.length > 8 ? `${outreachContact()} or ${phone}` : outreachContact();
+  return outreachContact();
 }
 
 export type OutreachStatus = "sent" | "failed" | "stubbed";

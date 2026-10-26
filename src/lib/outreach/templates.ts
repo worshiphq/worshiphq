@@ -94,6 +94,28 @@ Blessings,
 The WorshipHQ team`,
   },
   {
+    id: "giving-resubmit", channel: "email", label: "Online giving: please send your request again", hint: "For churches whose online giving request was declined because of the update",
+    subject: "{{church}}: please send your online giving request again",
+    body: `Hello {{name}},
+
+We have updated how online giving works on WorshipHQ. Because of that update, your earlier online giving request for {{church}} had to be declined. This is not a problem with your church or your details.
+
+Please send it again. Open Settings, then Online payments, and submit your payout account.
+
+This time you will see everything before you submit:
+- the fees: Paystack's fee and WorshipHQ's fee, with worked examples for a gift of GH₵500 and GH₵3,000
+- who pays the fee: your givers or your church, and you choose
+- when the money reaches you: normally the next working day after a gift
+- the rules and terms for online giving
+
+After you submit, we check that the payout account belongs to your church, and we may call you to confirm. Then we approve it and online giving goes live.
+
+If you would like us to walk you through it, reach us on {{contact}}.
+
+Blessings,
+The WorshipHQ team`,
+  },
+  {
     id: "custom-email", channel: "email", label: "Write my own", hint: "Start from a blank message",
     subject: "A message from WorshipHQ", body: `Hello {{name}},\n\n\n\nBlessings,\nThe WorshipHQ team`,
   },
@@ -111,6 +133,11 @@ The WorshipHQ team`,
     id: "sms-trial-sms", channel: "sms", label: "Try bulk SMS free for a month", hint: "Tells free churches they can test Communications for 30 days",
     subject: "",
     body: "Hello {{name}}, {{church}} can now try bulk SMS free for 1 month, with free credits. Sign in and open Communications to send. Questions? Reach us on {{contact}}.",
+  },
+  {
+    id: "giving-resubmit-sms", channel: "sms", label: "Online giving: please send your request again", hint: "For churches whose online giving request was declined because of the update",
+    subject: "",
+    body: "Hello {{name}}, we updated online giving, so your earlier request for {{church}} had to be declined. Please send it again in Settings, Online payments. You will see all the fees, who pays them and the terms before you submit. Questions? Reach us on {{contact}}.",
   },
   {
     id: "custom-sms", channel: "sms", label: "Write my own", hint: "Start from a blank text",

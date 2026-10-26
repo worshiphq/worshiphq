@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
+import { features } from "@/lib/env";
 import { GiveForm } from "./give-form";
 import { getGivingSettings } from "@/lib/giving/settings";
 import { FORM_KINDS } from "@/lib/forms/kinds";
@@ -34,6 +35,7 @@ export default async function GivePage({
       slug: true,
       isDemo: true,
       givingBlocked: true,
+      paystackSubaccountCode: true,
       logoUrl: true,
       accentColor: true,
       funds: { select: { name: true }, orderBy: { name: "asc" } },
@@ -77,7 +79,7 @@ export default async function GivePage({
           </p>
         </div>
 
-        {church.givingBlocked ? (
+        {church.givingBlocked || (features.payments && !church.paystackSubaccountCode) ? (
           <div className="rounded-2xl border border-[#e6dfd0] bg-white p-6 text-center">
             <p className="font-semibold text-[#1c1a16]">Online giving is temporarily unavailable</p>
             <p className="mt-1 text-sm text-[#6b6560]">Please contact {church.name} directly to give. We are sorry for the inconvenience.</p>

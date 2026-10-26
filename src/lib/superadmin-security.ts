@@ -33,6 +33,58 @@ export async function saveSaPassword(hash: string): Promise<void> {
   });
 }
 
+// ── Who can sign in: the owner (from Vercel) and any extra admins the owner added ──
+
+export type SaAdmin = { id: string; email: string; name: string; phone: string | null; passwordHash: string | null; epoch: number; active: boolean; lastLoginAt: Date | null; createdAt: Date };
+
+/** An extra admin by email. Null if there is none, or if the table has not been created yet. */
+export async function getSaAdminByEmail(email: string): Promise<SaAdmin | null> {
+  try {
+    return await db.superAdminUser.findUnique({ where: { email: email.trim().toLowerCase() } });
+  } catch {
+    return null;
+  }
+}
+
+export async function getSaAdminById(id: string): Promise<SaAdmin | null> {
+  try {
+    return await db.superAdminUser.findUnique({ where: { id } });
+  } catch {
+    return null;
+  }
+}
+
+/** Every extra admin, and whether the table exists yet. */
+export async function listSaAdmins(): Promise<{ ready: boolean; admins: SaAdmin[] }> {
+  try {
+    return { ready: true, admins: await db.superAdminUser.findMany({ orderBy: { createdAt: "asc" } }) };
+  } catch {
+    return { ready: false, admins: [] };
+  }
+}
+
+export type SaIdentity =
+  | { kind: "owner"; email: string; name: string; phone: string }
+  | { kind: "admin"; id: string; email: string; name: string; phone: string };
+
+/** Who an email belongs to: the owner, an active extra admin, or nobody. */
+export async function resolveSaIdentity(email: string): Promise<SaIdentity | null> {
+  const e = email.trim().toLowerCase();
+  if (e === saEmail()) return { kind: "owner", email: e, name: "Owner", phone: await saPhone() };
+  const a = await getSaAdminByEmail(e);
+  if (a?.active) return { kind: "admin", id: a.id, email: a.email, name: a.name, phone: a.phone ?? "" };
+  return null;
+}
+
+/** The admin an invite link is for, if the link is still good (not used, not expired, the admin not removed). */
+export async function readAdminInvite(token: string | undefined | null): Promise<SaAdmin | null> {
+  const data = readToken<{ sid?: string; ep?: number }>("sa-invite", token);
+  if (!data?.sid) return null;
+  const admin = await getSaAdminById(data.sid);
+  if (!admin || !admin.active || admin.epoch !== data.ep) return null;
+  return admin;
+}
+
 /** The sign-in code can be skipped only by setting SUPERADMIN_2FA=off in Vercel (for when email and SMS are both down). */
 export const saTwoFactorOn = () => (env.SUPERADMIN_2FA ?? "").trim().toLowerCase() !== "off";
 
@@ -64,15 +116,19 @@ const cookieOpts = {
 };
 
 // ── Sign-in: password done, waiting for the code ──
-export type LoginState = { vid?: string; ch?: "email" | "sms" };
+export type LoginState = { vid?: string; ch?: "email" | "sms"; /** the email of the admin who passed the password step */ who?: string };
 
 export async function setLoginState(state: LoginState) {
   (await cookies()).set(SA_LOGIN_COOKIE, signToken("sa-login", { sal: true, ...state }, FLOW_TTL), cookieOpts);
 }
 export async function getLoginState(): Promise<LoginState | null> {
-  const data = readToken<{ sal?: boolean; vid?: string; ch?: string }>("sa-login", (await cookies()).get(SA_LOGIN_COOKIE)?.value);
+  const data = readToken<{ sal?: boolean; vid?: string; ch?: string; who?: string }>("sa-login", (await cookies()).get(SA_LOGIN_COOKIE)?.value);
   if (!data?.sal) return null;
-  return { vid: typeof data.vid === "string" ? data.vid : undefined, ch: data.ch === "sms" ? "sms" : data.ch === "email" ? "email" : undefined };
+  return {
+    vid: typeof data.vid === "string" ? data.vid : undefined,
+    ch: data.ch === "sms" ? "sms" : data.ch === "email" ? "email" : undefined,
+    who: typeof data.who === "string" ? data.who : undefined,
+  };
 }
 export async function clearLoginState() {
   (await cookies()).set(SA_LOGIN_COOKIE, "", { ...cookieOpts, maxAge: 0 });
@@ -80,6 +136,8 @@ export async function clearLoginState() {
 
 // ── Forgot password: the codes, then the new password ──
 export type ResetState = {
+  /** The email the reset was started for (the owner's, or an extra admin's). */
+  who: string;
   /** Code ids for the email and text codes. A decoy value when the address typed was not the owner's. */
   ve: string;
   vs: string | null;
@@ -96,7 +154,7 @@ export async function setResetState(state: ResetState) {
 export async function getResetState(): Promise<ResetState | null> {
   const d = readToken<{ sar?: boolean } & Partial<ResetState>>("sa-reset", (await cookies()).get(SA_RESET_COOKIE)?.value);
   if (!d?.sar || typeof d.ve !== "string") return null;
-  return { ve: d.ve, vs: typeof d.vs === "string" ? d.vs : null, eo: !!d.eo, so: !!d.so, ok: !!d.ok };
+  return { who: typeof d.who === "string" ? d.who : "", ve: d.ve, vs: typeof d.vs === "string" ? d.vs : null, eo: !!d.eo, so: !!d.so, ok: !!d.ok };
 }
 export async function clearResetState() {
   (await cookies()).set(SA_RESET_COOKIE, "", { ...cookieOpts, maxAge: 0 });

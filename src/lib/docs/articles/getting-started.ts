@@ -74,6 +74,12 @@ export const gettingStarted: DocArticle[] = [
         "\"No verified phone on this account\" means you can only receive codes by email until you verify a phone number in **My account**.",
         "\"Too many attempts\" means several codes or passwords were tried in a short time. Wait a few minutes and try again. This stops anyone guessing their way in.",
       ] },
+      { h: "If your account is locked" },
+      { p: "To keep your church's data safe, **five wrong passwords in a row**, or **five wrong sign-in codes in a row**, lock the account for **24 hours**. You are told how many tries you have left before that happens." },
+      { list: [
+        "**Locked because of the password:** try again in 24 hours, or choose **Forgot password** and reset it to get back in straight away.",
+        "**Locked because of the code:** try again in 24 hours, or write to WorshipHQ support (the email address is shown on the screen) and we will unlock it.",
+      ] },
       { h: "Forgot your password" },
       { steps: [
         "On the login page choose **Forgot password?**",

@@ -113,6 +113,8 @@ const schema = z.object({
   SUPERADMIN_PASSWORD: str, // plain; when unset, superadmin login is disabled in prod
   /** Where the SuperAdmin's text codes go. Set it in Vercel so it cannot be changed from inside the app. Falls back to the alert / company phone. */
   SUPERADMIN_PHONE: str,
+  /** Where locked-out people are told to write. Falls back to SUPERADMIN_EMAIL. Never a phone number. */
+  SUPPORT_EMAIL: str,
   /** Emergency switch: set to "off" in Vercel to skip the sign-in code if email and SMS are both down. Leave unset normally. */
   SUPERADMIN_2FA: str,
 });

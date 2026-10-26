@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
-import { requireSession, assertCanWrite } from "@/lib/auth";
+import { requireSession, assertCanWrite, assertPlanFeature } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { moveToBin } from "@/lib/recycle-bin";
 import { matchesPerson } from "@/lib/search";
@@ -63,6 +63,7 @@ function guardWrite(session: Awaited<ReturnType<typeof requireSession>>) {
 
 export async function getBaptisms(): Promise<BaptismData> {
   const session = await requireSession();
+  assertPlanFeature(session, "baptisms");
   const churchId = session.churchId;
   const year = new Date().getFullYear();
   const [rows, templates, church, thisYear, candidates, total, people, baptisedMembers] = await Promise.all([
@@ -91,6 +92,7 @@ export async function getBaptisms(): Promise<BaptismData> {
 /** Find members to add (by name, phone or member ID). */
 export async function searchBaptismPeople(query: string): Promise<{ id: string; name: string; phone: string | null; baptized: boolean | null }[]> {
   const session = await requireSession();
+  assertPlanFeature(session, "baptisms");
   const q = clean(query, 60);
   if (q.length < 2) return [];
   const rows = await db.person.findMany({
@@ -116,6 +118,7 @@ async function nextCertificateNo(churchId: string, year: number): Promise<string
 /** Add people who are preparing for baptism. */
 export async function addCandidates(input: { personIds?: string[]; names?: string[] }) {
   const session = await requireSession();
+  assertPlanFeature(session, "baptisms");
   guardWrite(session);
   let added = 0;
   const have = new Set((await db.baptism.findMany({ where: { churchId: session.churchId, status: "candidate" }, select: { personId: true, name: true } })).flatMap((b) => [b.personId ?? "", b.name.toLowerCase()]));
@@ -140,6 +143,7 @@ type Details = { date?: string | null; place?: string | null; officiant?: string
 /** Put a date, place and officiant on candidates (the baptism service is planned). */
 export async function scheduleCandidates(ids: string[], d: Details) {
   const session = await requireSession();
+  assertPlanFeature(session, "baptisms");
   guardWrite(session);
   await db.baptism.updateMany({
     where: { churchId: session.churchId, id: { in: ids }, status: "candidate" },
@@ -152,6 +156,7 @@ export async function scheduleCandidates(ids: string[], d: Details) {
 /** They have been baptised: record it, give each a certificate number, and mark the member as baptised. */
 export async function markBaptised(ids: string[], d: Details) {
   const session = await requireSession();
+  assertPlanFeature(session, "baptisms");
   guardWrite(session);
   const date = parseDay(d.date) ?? new Date();
   const rows = await db.baptism.findMany({ where: { churchId: session.churchId, id: { in: ids }, status: "candidate" }, orderBy: { createdAt: "asc" } });
@@ -171,6 +176,7 @@ export async function markBaptised(ids: string[], d: Details) {
 /** A baptism that already happened (an older record, or someone baptised elsewhere). */
 export async function addBaptismRecord(input: { personId?: string; name?: string } & Details & { notes?: string }) {
   const session = await requireSession();
+  assertPlanFeature(session, "baptisms");
   guardWrite(session);
   let name = clean(input.name, 80);
   let personId: string | null = null;
@@ -190,6 +196,7 @@ export async function addBaptismRecord(input: { personId?: string; name?: string
 
 export async function updateBaptism(id: string, d: Details & { name?: string; notes?: string }) {
   const session = await requireSession();
+  assertPlanFeature(session, "baptisms");
   guardWrite(session);
   const cur = await db.baptism.findFirst({ where: { id, churchId: session.churchId }, select: { id: true } });
   if (!cur) return { ok: false as const, error: "Not found." };
@@ -204,6 +211,7 @@ export async function updateBaptism(id: string, d: Details & { name?: string; no
 
 export async function deleteBaptism(id: string) {
   const session = await requireSession();
+  assertPlanFeature(session, "baptisms");
   guardWrite(session);
   await moveToBin(session, "baptism", "Baptism", id, { label: "Baptism record" });
   await db.baptism.deleteMany({ where: { id, churchId: session.churchId } });
@@ -215,6 +223,7 @@ export async function deleteBaptism(id: string) {
 
 export async function saveCertSettings(s: Partial<CertSettings>) {
   const session = await requireSession();
+  assertPlanFeature(session, "baptisms");
   guardWrite(session);
   const merged: CertSettings = {
     template: clean(s.template, 40) || "classic",
@@ -250,6 +259,7 @@ function cleanFields(raw: unknown): CertField[] {
 /** Save a certificate design the church uploaded (a picture of their blank certificate) and where each detail goes on it. */
 export async function saveCertificateTemplate(input: { id?: string; name: string; imageDataUrl?: string; paper: string; fields: CertField[] }) {
   const session = await requireSession();
+  assertPlanFeature(session, "baptisms");
   guardWrite(session);
   const name = clean(input.name, 60);
   if (!name) return { ok: false as const, error: "Give the design a name." };
@@ -277,6 +287,7 @@ export async function saveCertificateTemplate(input: { id?: string; name: string
 
 export async function deleteCertificateTemplate(id: string) {
   const session = await requireSession();
+  assertPlanFeature(session, "baptisms");
   guardWrite(session);
   await db.certificateTemplate.deleteMany({ where: { id, churchId: session.churchId } });
   const church = await db.church.findUnique({ where: { id: session.churchId }, select: { certSettings: true } });

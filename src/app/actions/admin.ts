@@ -13,6 +13,8 @@ import { saveMarketingContent, type MarketingContent } from "@/lib/data/site-con
 import { sendSms } from "@/lib/integrations/sms";
 import { addCredits } from "@/lib/sms/credits";
 import { isSmsTier } from "@/config/sms";
+import { supportEmail } from "@/lib/lockout";
+import { ALL_FEATURES } from "@/lib/plan-gate";
 import { createSubaccount, updateSubaccount, listBanks, resolveAccount } from "@/lib/integrations/paystack";
 import { env } from "@/lib/env";
 import { notifyPaymentRequest, type PaymentRequestEvent } from "@/lib/giving/notify";
@@ -153,8 +155,7 @@ export async function rejectSenderId(churchId: string) {
 
 Please contact WorshipHQ for assistance.
 
-Email: worshiphqapp@gmail.com
-Phone: +233247258161`,
+Email: ${supportEmail()}`,
       { heading: null }
     );
   }
@@ -261,6 +262,7 @@ export async function updatePlanDefinitions(input: {
     membersLabel: string;
     memberLimit: number;
     teamUsers: number;
+    givingPercent?: number;
     featured: boolean;
     cta: string;
     marketingFeatures: string[];
@@ -285,11 +287,14 @@ export async function updatePlanDefinitions(input: {
       // -1 means unlimited
       memberLimit: Number.isFinite(Number(p.memberLimit)) ? Number(p.memberLimit) : -1,
       teamUsers: Number.isFinite(Number(p.teamUsers)) ? Number(p.teamUsers) : -1,
+      givingPercent: Math.max(0, Math.min(Number(p.givingPercent) || 0, 100)),
       featured: Boolean(p.featured),
       cta: String(p.cta || "Choose plan").slice(0, 40),
       marketingFeatures: (p.marketingFeatures ?? [])
         .map((f) => String(f).trim()).filter(Boolean).slice(0, 20),
       features: [...new Set((p.features ?? []).map((f) => String(f).trim()).filter(Boolean))],
+      // Every feature the editor showed at this save, so a feature added later can follow its built-in tier.
+      knownFeatures: ALL_FEATURES,
     };
   }
 
@@ -428,7 +433,7 @@ export async function updatePaymentRequest(id: string, formData: FormData): Prom
     if (status === "scheduled" && (statusChanged || meetingChanged)) event = { kind: "scheduled", meetingDate, meetingType: meetingType || null };
     else if (statusChanged && status === "in_progress") event = { kind: "in_progress" };
     else if (statusChanged && status === "completed") event = { kind: "completed" };
-    else if (statusChanged && status === "declined") event = { kind: "declined" };
+    else if (statusChanged && status === "declined") event = { kind: "declined", note: adminNotes };
     if (event) {
       const r = await notifyPaymentRequest({ event, churchName: before.church.name, contactName: before.contactName, contactPhone: before.contactPhone, contactEmail: before.contactEmail });
       notified = [r.sms ? "text" : "", r.email ? "email" : ""].filter(Boolean);
@@ -624,12 +629,16 @@ export async function restoreGivingAccess(id: string): Promise<{ ok: boolean; er
   return { ok: true };
 }
 
-/** Delete the payout account entirely. Paystack has no delete endpoint for subaccounts, so the
- *  subaccount is DEACTIVATED there (it can never receive a split again) before our record is removed. */
+/**
+ * Delete a church's payout account. It goes to the recycle bin, not away: the Paystack subaccount is switched OFF (so
+ * nothing can be paid to it, and Paystack has no delete for subaccounts anyway) and the church's giving stops, but the
+ * record and the subaccount code are kept, so a mistake can be undone with "Restore".
+ */
 export async function deletePaymentAccount(id: string): Promise<{ ok: boolean; error?: string }> {
   await requireSuperAdmin();
   const req = await loadPayoutRequest(id);
   if (!req) return { ok: false, error: "Request not found." };
+  if (req.status === "trashed") return { ok: false, error: "This account is already in the recycle bin." };
 
   const code = req.church.paystackSubaccountCode;
   if (code) {
@@ -637,6 +646,43 @@ export async function deletePaymentAccount(id: string): Promise<{ ok: boolean; e
     if (!res.ok) return { ok: false, error: res.error ?? "Paystack did not deactivate the subaccount. Nothing was deleted." };
   }
   await db.church.update({ where: { id: req.church.id }, data: { paystackSubaccountCode: null, givingBlocked: false } });
+  await db.paymentRequest.update({
+    where: { id },
+    data: {
+      status: "trashed",
+      // Kept so Restore can switch the same subaccount back on.
+      paystackSubId: req.paystackSubId ?? code ?? null,
+      adminNotes: `${req.adminNotes ? req.adminNotes + "\n" : ""}Deleted by WorshipHQ on ${new Date().toISOString().slice(0, 10)}. In the recycle bin.`,
+    },
+  });
+  revalidatePath("/admin/payments");
+  return { ok: true };
+}
+
+/** Undo a delete: switch the subaccount back on and give the church its payout account again. */
+export async function restorePaymentAccount(id: string): Promise<{ ok: boolean; error?: string }> {
+  await requireSuperAdmin();
+  const req = await loadPayoutRequest(id);
+  if (!req) return { ok: false, error: "Request not found." };
+  if (req.status !== "trashed") return { ok: false, error: "This account is not in the recycle bin." };
+
+  const code = req.paystackSubId;
+  if (code) {
+    const res = await updateSubaccount(code, { active: true });
+    if (!res.ok) return { ok: false, error: res.error ?? "Paystack did not switch the subaccount back on. Nothing was changed." };
+    await db.church.update({ where: { id: req.church.id }, data: { paystackSubaccountCode: code } });
+  }
+  await db.paymentRequest.update({ where: { id }, data: { status: code ? "completed" : "pending" } });
+  revalidatePath("/admin/payments");
+  return { ok: true };
+}
+
+/** Remove a recycle-bin entry for good. The Paystack subaccount stays switched off. */
+export async function purgePaymentAccount(id: string): Promise<{ ok: boolean; error?: string }> {
+  await requireSuperAdmin();
+  const req = await db.paymentRequest.findUnique({ where: { id }, select: { status: true } });
+  if (!req) return { ok: false, error: "Request not found." };
+  if (req.status !== "trashed") return { ok: false, error: "Only an account in the recycle bin can be deleted for good." };
   await db.paymentRequest.delete({ where: { id } });
   revalidatePath("/admin/payments");
   return { ok: true };

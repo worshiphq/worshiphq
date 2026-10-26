@@ -26,7 +26,7 @@ const SUPERADMIN_SESSION_MS = 12 * 60 * 60 * 1000;
 type Payload =
   | { uid: string; sv: number }
   | { demo: true }
-  | { sa: true; ghost?: string; until?: number; rid?: string; se?: number };
+  | { sa: true; ghost?: string; until?: number; rid?: string; se?: number; sid?: string };
 
 function sign(payload: Payload, ttlMs: number): string {
   const body = Buffer.from(JSON.stringify({ ...payload, exp: Date.now() + ttlMs })).toString("base64url");
@@ -59,6 +59,7 @@ function verify(token: string): Payload | null {
       until: typeof p.until === "number" ? p.until : undefined,
       rid: typeof p.rid === "string" ? p.rid : undefined,
       se: typeof p.se === "number" ? p.se : undefined,
+      sid: typeof p.sid === "string" ? p.sid : undefined,
     };
   }
   if (typeof p.uid === "string" && p.uid) return { uid: p.uid, sv: typeof p.sv === "number" ? p.sv : 0 };
@@ -179,36 +180,65 @@ export async function clearSession() {
 
 // ── SuperAdmin (platform owner) ──
 /**
- * Verify SuperAdmin credentials. A password set through "Forgot password" replaces the one in the environment.
- * Returns false if neither is configured.
+ * Verify SuperAdmin credentials. The owner's password is the one in the environment, or the one set through
+ * "Forgot password" (which replaces it). An extra admin has a password of their own. Returns who it was, or null.
  */
-export async function checkSuperAdmin(email: string, password: string): Promise<boolean> {
-  const expectedEmail = env.SUPERADMIN_EMAIL.toLowerCase();
-  const emailOk = email.toLowerCase().trim() === expectedEmail;
-  const { getSaSecurity } = await import("@/lib/superadmin-security");
-  const { hash } = await getSaSecurity();
-  let pwOk = false;
-  if (hash) {
-    pwOk = await bcrypt.compare(password, hash);
-  } else {
-    const expectedPw = env.SUPERADMIN_PASSWORD;
-    if (!expectedPw) return false; // login disabled until a password is set
-    // Constant-time password compare.
-    const a = Buffer.from(password);
-    const b = Buffer.from(expectedPw);
-    pwOk = a.length === b.length && crypto.timingSafeEqual(a, b);
+export type SaLogin = { kind: "owner"; email: string } | { kind: "admin"; id: string; email: string };
+
+export async function checkSuperAdmin(email: string, password: string): Promise<SaLogin | null> {
+  const typed = email.toLowerCase().trim();
+  const { getSaSecurity, getSaAdminByEmail } = await import("@/lib/superadmin-security");
+  if (typed === env.SUPERADMIN_EMAIL.toLowerCase()) {
+    const { hash } = await getSaSecurity();
+    let pwOk = false;
+    if (hash) {
+      pwOk = await bcrypt.compare(password, hash);
+    } else {
+      const expectedPw = env.SUPERADMIN_PASSWORD;
+      if (!expectedPw) return null; // login disabled until a password is set
+      // Constant-time password compare.
+      const a = Buffer.from(password);
+      const b = Buffer.from(expectedPw);
+      pwOk = a.length === b.length && crypto.timingSafeEqual(a, b);
+    }
+    return pwOk ? { kind: "owner", email: typed } : null;
   }
-  return emailOk && pwOk;
+  const admin = await getSaAdminByEmail(typed);
+  if (admin?.active && admin.passwordHash && (await bcrypt.compare(password, admin.passwordHash))) {
+    return { kind: "admin", id: admin.id, email: admin.email };
+  }
+  // Spend the same time whether or not the address exists.
+  await bcrypt.compare(password, "$2a$10$CwTycUXWue0Thq9StjUM0uJ8e.5vWnHqHPsKcGkq0vJb0o8d6wKQa").catch(() => {});
+  return null;
 }
 
-/** Is this SuperAdmin cookie from before the latest password reset? */
-async function saSignedOut(se: number | undefined): Promise<boolean> {
-  const { getSaSecurity } = await import("@/lib/superadmin-security");
-  return (se ?? 0) !== (await getSaSecurity()).epoch;
+/** Which admin a SuperAdmin cookie belongs to, if it is still good: not from before a password reset, and not removed. */
+async function saSessionIdentity(payload: { se?: number; sid?: string }): Promise<{ kind: "owner"; email: string; name: string } | { kind: "admin"; id: string; email: string; name: string } | null> {
+  const { getSaSecurity, getSaAdminById } = await import("@/lib/superadmin-security");
+  if (payload.sid) {
+    const a = await getSaAdminById(payload.sid);
+    if (!a || !a.active || (payload.se ?? 0) !== a.epoch) return null;
+    return { kind: "admin", id: a.id, email: a.email, name: a.name };
+  }
+  if ((payload.se ?? 0) !== (await getSaSecurity()).epoch) return null;
+  return { kind: "owner", email: env.SUPERADMIN_EMAIL, name: "Owner" };
 }
 
-export async function startSuperAdminSession() {
+export async function startSuperAdminSession(who: SaLogin = { kind: "owner", email: env.SUPERADMIN_EMAIL }) {
+  if (who.kind === "admin") {
+    const { getSaAdminById } = await import("@/lib/superadmin-security");
+    const a = await getSaAdminById(who.id);
+    await setCookie({ sa: true, sid: who.id, se: a?.epoch ?? 0 });
+    return;
+  }
   await setCookie({ sa: true });
+}
+
+/** The identity on the current SuperAdmin cookie, so entering or leaving a church keeps the same person. */
+async function currentSaStamp(): Promise<{ sid?: string; se?: number }> {
+  const token = (await cookies()).get(COOKIE)?.value;
+  const payload = token ? verify(token) : null;
+  return payload && "sa" in payload ? { sid: payload.sid, se: payload.sid ? payload.se : undefined } : {};
 }
 
 /**
@@ -216,29 +246,39 @@ export async function startSuperAdminSession() {
  * expire on its own; `rid` ties it to its SupportAccess record.
  */
 export async function startGhostSession(churchId: string, opts?: { until?: number; rid?: string }) {
-  await setCookie({ sa: true, ghost: churchId, until: opts?.until, rid: opts?.rid });
+  await setCookie({ sa: true, ghost: churchId, until: opts?.until, rid: opts?.rid, ...(await currentSaStamp()) });
 }
 
 /** Leave a church and return to the admin area. */
 export async function stopGhostSession() {
-  await setCookie({ sa: true });
+  await setCookie({ sa: true, ...(await currentSaStamp()) });
 }
 
+export type SuperAdminWho = { email: string; name: string; role: "owner" | "admin"; id?: string; ghost?: string; rid?: string };
+
 /** Returns the SuperAdmin identity if the current cookie is a SuperAdmin one. */
-export async function getSuperAdmin(): Promise<{ email: string; ghost?: string; rid?: string } | null> {
+export async function getSuperAdmin(): Promise<SuperAdminWho | null> {
   const store = await cookies();
   const token = store.get(COOKIE)?.value;
   if (!token) return null;
   const payload = verify(token);
   if (!payload || !("sa" in payload)) return null;
-  if (await saSignedOut(payload.se)) return null;
-  return { email: env.SUPERADMIN_EMAIL, ghost: payload.ghost, rid: payload.rid };
+  const who = await saSessionIdentity(payload);
+  if (!who) return null;
+  return { email: who.email, name: who.name, role: who.kind, id: who.kind === "admin" ? who.id : undefined, ghost: payload.ghost, rid: payload.rid };
 }
 
 /** Guard for /admin pages: returns the SuperAdmin or redirects to admin login. */
-export async function requireSuperAdmin(): Promise<{ email: string; ghost?: string; rid?: string }> {
+export async function requireSuperAdmin(): Promise<SuperAdminWho> {
   const sa = await getSuperAdmin();
   if (!sa) redirect("/admin/login");
+  return sa;
+}
+
+/** Guard for what only the owner may do (adding or removing other admins). */
+export async function requireSuperAdminOwner(): Promise<SuperAdminWho> {
+  const sa = await requireSuperAdmin();
+  if (sa.role !== "owner") throw new Error("Only the owner can do this.");
   return sa;
 }
 
@@ -293,7 +333,7 @@ async function _loadSession(): Promise<Session | null> {
   // in their team/roles list. The SuperAdmin's email is never exposed here.
   if ("sa" in payload) {
     if (!payload.ghost) return null; // bare superadmin isn't an app session
-    if (await saSignedOut(payload.se)) return null; // the password was reset since this entry began
+    if (!(await saSessionIdentity(payload))) return null; // the password was reset, or the admin removed, since this entry began
     if (payload.until && payload.until < Date.now()) return null; // timed entry has lapsed
     // The entry must still be live on its SupportAccess record, so ending it takes effect at once.
     if (!payload.rid) return null;
@@ -423,6 +463,11 @@ export class PlanLockedError extends Error {
     const plan = getMinimumPlan(feature);
     super(`${FEATURE_LABELS[feature] ?? feature} is part of the ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan. The Main Admin can upgrade in Settings, Billing.`);
   }
+}
+
+/** Refuse an action whose feature the church's plan does not include (the feature key, not a permission section). */
+export function assertPlanFeature(session: Session, feature: string) {
+  if (!session.isDemo && session.planLocked?.includes(feature)) throw new PlanLockedError(feature);
 }
 
 export function assertCanWrite(session: Session, module?: string) {

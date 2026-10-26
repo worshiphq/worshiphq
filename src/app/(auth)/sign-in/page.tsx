@@ -12,6 +12,7 @@ import {
   verifyResetCode,
 } from "@/app/actions/auth";
 import { getLoginChoices } from "@/lib/auth";
+import { supportEmail } from "@/lib/lockout";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -30,9 +31,13 @@ export default async function SignInPage({
     login?: string;
     dev?: string;
     resent?: string;
+    left?: string;
   }>;
 }) {
-  const { error, reset, via, login, dev, resent } = await searchParams;
+  const { error, reset, via, login, dev, resent, left } = await searchParams;
+  const support = supportEmail();
+  const triesLeft = Number(left);
+  const warn = triesLeft >= 1 && triesLeft <= 4 ? ` You have ${triesLeft} ${triesLeft === 1 ? "try" : "tries"} left before this account is locked for 24 hours.` : "";
 
   // ── Login step 2a: choose where the code is sent ──
   if (login === "choose") {
@@ -108,7 +113,7 @@ export default async function SignInPage({
         )}
         {error === "invalid-code" && (
           <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
-            <AlertCircle className="size-4 shrink-0" /> Incorrect or expired code. Please try again.
+            <AlertCircle className="size-4 shrink-0" /> Incorrect or expired code. Please try again.{warn}
           </div>
         )}
         {error === "too-many" && (
@@ -324,7 +329,11 @@ export default async function SignInPage({
             ? "We couldn't send your verification code. Please try again."
             : error === "too-many"
               ? "Too many attempts. Please wait a few minutes and try again."
-              : "Incorrect email/phone or password. Please try again."}
+              : error === "locked-pw"
+                ? "Too many wrong passwords, so this account is locked for 24 hours. Try again in 24 hours, or reset your password to get back in now."
+                : error === "locked-code"
+                  ? `Too many wrong codes, so this account is locked for 24 hours. Try again in 24 hours, or contact support at ${support}.`
+                  : `Incorrect email/phone or password. Please try again.${warn}`}
         </div>
       )}
       {error === "expired" && (

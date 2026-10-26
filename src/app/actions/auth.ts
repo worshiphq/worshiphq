@@ -23,6 +23,7 @@ import { sendOtp, verifyOtp, normalisePhone } from "@/lib/auth/otp";
 import { phoneVariants } from "@/lib/phone";
 import { passwordMeetsPolicy } from "@/lib/password-policy";
 import { rateLimitAll, clientIp, MINUTE } from "@/lib/rate-limit";
+import { lockStatus, recordFailure, clearFailures, clearLock, passwordKey, userPasswordKey, codeKey } from "@/lib/lockout";
 
 const SIGNUP_VID = "whq_signup_vid";
 const RESET_VID = "whq_reset_vid";
@@ -320,6 +321,14 @@ export async function completePasswordReset(formData: FormData) {
   });
   await db.phoneVerification.deleteMany({ where: { userId, purpose: "reset-password" } });
   await clearResetToken();
+  // Resetting the password is how a locked-out person gets back in: lift both locks.
+  const who = await db.user.findUnique({ where: { id: userId }, select: { email: true, phone: true } });
+  if (who) {
+    await clearLock(passwordKey(who.email));
+    if (who.phone) await clearLock(passwordKey(normalisePhone(who.phone)));
+  }
+  await clearLock(userPasswordKey(userId));
+  await clearLock(codeKey(userId));
 
   redirect("/sign-in?reset=success");
 }
@@ -344,14 +353,27 @@ export async function signIn(formData: FormData) {
   ]);
   if (!allowed) redirect("/sign-in?error=too-many");
 
+  // Five wrong passwords lock the account for 24 hours. A locked account is refused before the password is even checked.
+  const pwKey = passwordKey(identifier.includes("@") ? identifier : normalisePhone(identifier));
+  if ((await lockStatus(pwKey)).locked) redirect("/sign-in?error=locked-pw");
+
   const usingEmail = identifier.includes("@");
   const user = usingEmail
     ? await db.user.findUnique({ where: { email: identifier.toLowerCase() } })
     : await db.user.findFirst({ where: { phone: { in: phoneVariants(identifier) } }, orderBy: { phoneVerified: "desc" } });
 
+  // The account is locked as well as the typed email or phone, so switching between them is no way round it.
+  if (user && (await lockStatus(userPasswordKey(user.id))).locked) redirect("/sign-in?error=locked-pw");
+
   if (!user || !user.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
-    redirect("/sign-in?error=invalid");
+    const f = await recordFailure(pwKey);
+    const g = user ? await recordFailure(userPasswordKey(user.id)) : f;
+    redirect(f.locked || g.locked ? "/sign-in?error=locked-pw" : `/sign-in?error=invalid&left=${Math.min(f.remaining, g.remaining)}`);
   }
+  // A right password, but the sign-in code may have been locked by five wrong codes.
+  if ((await lockStatus(codeKey(user.id))).locked) redirect("/sign-in?error=locked-code");
+  await clearFailures(pwKey);
+  await clearFailures(userPasswordKey(user.id));
 
   // Password OK → mint a short-lived challenge and let them pick a channel.
   const store = await cookies();
@@ -407,10 +429,15 @@ export async function completeSignIn(formData: FormData) {
   const challengeUser = await getLoginChallengeUserId();
   if (!vid || !challengeUser) redirect("/sign-in?error=expired");
 
+  // Five wrong codes, across any number of codes, lock the account for 24 hours.
+  if ((await lockStatus(codeKey(challengeUser))).locked) redirect("/sign-in?error=locked-code");
   const result = await verifyOtp(vid, code, { purpose: "login", userId: challengeUser });
   if (!result.ok || !result.userId) {
-    redirect(`/sign-in?login=verify&via=${via}&error=invalid-code`);
+    const f = await recordFailure(codeKey(challengeUser));
+    if (f.locked) redirect("/sign-in?error=locked-code");
+    redirect(`/sign-in?login=verify&via=${via}&error=invalid-code&left=${f.remaining}`);
   }
+  await clearFailures(codeKey(challengeUser));
 
   store.delete(LOGIN_2FA_VID);
   store.delete(LOGIN_CHALLENGE_COOKIE);

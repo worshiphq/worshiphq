@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { getUsdToGhsRate } from "@/lib/integrations/fx";
 import { plans as defaultPlans } from "@/config/pricing";
 import {
-  DEFAULT_PLAN_TABLE, PLAN_IDS, membersText, syncMemberText,
+  DEFAULT_PLAN_TABLE, PLAN_IDS, membersText, syncMemberText, ALL_FEATURES, FEATURES_ADDED_LATER,
   type PlanId, type PlanTable,
 } from "@/lib/plan-gate";
 
@@ -25,6 +25,8 @@ export interface EditablePlan {
   memberLimit: number;
   /** Team seats. -1 means unlimited. */
   teamUsers: number;
+  /** WorshipHQ's platform fee on this plan's online giving, in percent of each gift. A church can have its own. */
+  givingPercent: number;
   featured: boolean;
   cta: string;
   /** Bullet list shown on marketing / sign-up cards. */
@@ -41,6 +43,9 @@ const UNLIMITED = -1;
 const toStored = (n: number) => (Number.isFinite(n) ? n : UNLIMITED);
 const toRuntime = (n: number) => (n < 0 ? Infinity : n);
 
+/** The online giving platform fee for each plan until the SuperAdmin changes it: the more a church pays, the less it is. */
+const DEFAULT_GIVING_PERCENT: Record<PlanId, number> = { free: 1.5, starter: 1, pro: 0.5, max: 0 };
+
 /** Code defaults, assembled from src/config/pricing.ts + the built-in plan table. */
 function codeDefaults(): Record<PlanId, EditablePlan> {
   const out = {} as Record<PlanId, EditablePlan>;
@@ -56,6 +61,7 @@ function codeDefaults(): Record<PlanId, EditablePlan> {
       membersLabel: p?.members ?? "",
       memberLimit: toStored(limits.members),
       teamUsers: toStored(limits.teamUsers),
+      givingPercent: DEFAULT_GIVING_PERCENT[id],
       featured: Boolean(p?.featured),
       cta: p?.cta ?? "Choose plan",
       marketingFeatures: [...(p?.features ?? [])],
@@ -84,11 +90,20 @@ function resolvePlans(
         ...(typeof s.membersLabel === "string" ? { membersLabel: s.membersLabel } : {}),
         ...(typeof s.memberLimit === "number" ? { memberLimit: s.memberLimit } : {}),
         ...(typeof s.teamUsers === "number" ? { teamUsers: s.teamUsers } : {}),
+        ...(typeof s.givingPercent === "number" && s.givingPercent >= 0 ? { givingPercent: Math.min(s.givingPercent, 100) } : {}),
         ...(typeof s.featured === "boolean" ? { featured: s.featured } : {}),
         ...(typeof s.cta === "string" ? { cta: s.cta } : {}),
         ...(Array.isArray(s.marketingFeatures) ? { marketingFeatures: s.marketingFeatures.filter((f) => typeof f === "string") } : {}),
         ...(Array.isArray(s.features) ? { features: s.features.filter((f) => typeof f === "string") } : {}),
       };
+      // A feature the saved plan has never been shown (added since it was saved) follows the built-in tier.
+      if (Array.isArray(s.features)) {
+        const known = new Set<string>(Array.isArray((s as { knownFeatures?: unknown }).knownFeatures)
+          ? ((s as { knownFeatures: unknown[] }).knownFeatures.filter((f) => typeof f === "string") as string[])
+          : ALL_FEATURES.filter((f) => !FEATURES_ADDED_LATER.includes(f)));
+        const inherited = DEFAULT_PLAN_TABLE[id].features.filter((f) => !known.has(f) && !base[id].features.includes(f));
+        if (inherited.length) base[id].features = [...base[id].features, ...inherited];
+      }
     }
     // The member count written on the card follows the real limit, unless the SuperAdmin wrote their own wording.
     const plan = base[id];

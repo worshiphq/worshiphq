@@ -8,7 +8,7 @@ import {
 import {
   updatePaymentRequest, approveGivingSetup, setGivingFeeSettings,
   approveAccountChange, rejectAccountChange, revokeGivingAccess, restoreGivingAccess,
-  deletePaymentAccount, adminEditPaymentAccount, adminGivingBanks, adminVerifyAccount, adminSetChurchGiving,
+  deletePaymentAccount, restorePaymentAccount, purgePaymentAccount, adminEditPaymentAccount, adminGivingBanks, adminVerifyAccount, adminSetChurchGiving,
 } from "@/app/actions/admin";
 import { AdminCard } from "./admin-shell";
 
@@ -31,7 +31,7 @@ function FeeSettings({ fees }: { fees: Fees }) {
   return (
     <AdminCard className="p-5">
       <h2 className="font-semibold text-slate-100">Giving fees</h2>
-      <p className="mt-0.5 text-xs text-slate-400">The default for every church. A church chooses who pays the fee when it applies, and you can change that, or the split, for one church in its own card below. The split is taken from each gift, on top of Paystack&apos;s fee.</p>
+      <p className="mt-0.5 text-xs text-slate-400">The default for every church. A church chooses who pays the fee when it applies. WorshipHQ&apos;s own percent now follows each church&apos;s plan: set it in Plans &amp; pricing, under each plan, and override it for one church in its own card below. The split below is only used if a plan has none.</p>
       <div className="mt-4 grid gap-4 sm:grid-cols-3">
         <label className="text-xs text-slate-400">
           WorshipHQ split (%)
@@ -72,12 +72,14 @@ const STATUS_COLORS: Record<string, string> = {
   declined: "bg-red-500/15 text-red-400",
   revoked: "bg-red-500/20 text-red-300",
   removed: "bg-slate-500/20 text-slate-400",
+  trashed: "bg-red-500/15 text-red-300",
   cancelled: "bg-slate-500/20 text-slate-400",
 };
 
 const STATUS_LABELS: Record<string, string> = {
   pending: "Pending",
   scheduled: "Meeting Scheduled",
+  trashed: "In recycle bin",
   in_progress: "In Progress",
   completed: "Approved",
   declined: "Declined",
@@ -177,7 +179,8 @@ function PayoutPanel({ req }: { req: any }) {
   const hasAccount = !!(req.bankCode && req.accountNumber && req.accountName);
   const code: string | null = req.church?.paystackSubaccountCode ?? null;
   const blocked = !!req.church?.givingBlocked || req.status === "revoked";
-  const terminal = ["removed", "cancelled"].includes(req.status);
+  const trashed = req.status === "trashed";
+  const terminal = ["removed", "cancelled", "trashed"].includes(req.status);
   if (!hasAccount && !req.pendingAt) return null;
 
   async function run(key: string, fn: () => Promise<{ ok: boolean; error?: string; code?: string }>, okText: string, after?: () => void) {
@@ -282,7 +285,7 @@ function PayoutPanel({ req }: { req: any }) {
             </button>
           )}
           <button type="button" disabled={!!busy} className={`${btn} bg-red-500/15 text-red-300 hover:bg-red-500/25`}
-            onClick={() => { if (window.confirm("Delete this payout account? It is deactivated on Paystack first, then removed here. The church can set up again afterwards.")) run("delete", () => deletePaymentAccount(req.id), "Deleted. The subaccount was deactivated on Paystack."); }}>
+            onClick={() => { if (window.confirm("Delete this payout account? It is switched off on Paystack and giving for this church stops. It goes to the recycle bin below, so you can restore it.")) run("delete", () => deletePaymentAccount(req.id), "Moved to the recycle bin. The subaccount is switched off on Paystack. You can restore it below."); }}>
             {busy === "delete" ? <><Loader2 className="size-4 animate-spin" /> Deleting…</> : "Delete"}
           </button>
         </div>
@@ -299,6 +302,19 @@ function PayoutPanel({ req }: { req: any }) {
               run("edit", () => adminEditPaymentAccount(req.id, fd), code ? "Saved and updated on Paystack." : "Saved.", () => setEditing(false));
             }}>
             {busy === "edit" ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : "Save new account"}
+          </button>
+        </div>
+      )}
+
+      {trashed && (
+        <div className="flex flex-wrap gap-2">
+          <button type="button" disabled={!!busy} className={`${btn} bg-emerald-500 text-white hover:bg-emerald-400`}
+            onClick={() => run("restore2", () => restorePaymentAccount(req.id), "Restored. The subaccount is switched back on and giving works again.")}>
+            {busy === "restore2" ? <><Loader2 className="size-4 animate-spin" /> Restoring…</> : "Restore"}
+          </button>
+          <button type="button" disabled={!!busy} className={`${btn} bg-red-500/15 text-red-300 hover:bg-red-500/25`}
+            onClick={() => { if (window.confirm("Delete this for good? The record is removed. The Paystack subaccount stays switched off.")) run("purge", () => purgePaymentAccount(req.id), "Deleted for good."); }}>
+            {busy === "purge" ? <><Loader2 className="size-4 animate-spin" /> Deleting…</> : "Delete for good"}
           </button>
         </div>
       )}
@@ -320,6 +336,7 @@ export function PaymentRequestsManager({ requests, fees }: { requests: any[]; fe
   const pending = requests.filter((r) => r.status === "pending");
   const active = requests.filter((r) => ["scheduled", "in_progress"].includes(r.status));
   const done = requests.filter((r) => ["completed", "declined", "revoked", "removed", "cancelled"].includes(r.status));
+  const bin = requests.filter((r) => r.status === "trashed");
 
   return (
     <div className="space-y-8">
@@ -352,7 +369,24 @@ export function PaymentRequestsManager({ requests, fees }: { requests: any[]; fe
         </AdminCard>
       ) : (
         <div className="space-y-3">
-          {requests.map((req) => (
+          {requests.filter((r) => r.status !== "trashed").map((req) => (
+            <RequestCard
+              key={req.id}
+              request={req}
+              expanded={expandedId === req.id}
+              onToggle={() => setExpandedId(expandedId === req.id ? null : req.id)}
+            />
+          ))}
+        </div>
+      )}
+
+      {bin.length > 0 && (
+        <div className="space-y-3">
+          <div>
+            <h2 className="font-semibold text-slate-100">Recycle bin ({bin.length})</h2>
+            <p className="text-xs text-slate-400">Deleted payout accounts. Giving for these churches is off and the Paystack subaccount is switched off. Restore brings it all back.</p>
+          </div>
+          {bin.map((req) => (
             <RequestCard
               key={req.id}
               request={req}

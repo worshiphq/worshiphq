@@ -216,7 +216,13 @@ export function LinkedChurchesTab({ canManage }: { canManage: boolean }) {
 
         <div className="mt-5 border-t border-line pt-4">
           <div className="text-sm font-semibold">Make a link code</div>
-          <div className="mt-2 flex flex-wrap items-end gap-2">
+          {data.inviteLocked && (
+            <p className="mt-2 rounded-lg bg-surface-2 px-3 py-2 text-sm text-ink-muted">
+              Making link codes for your own teens chapel, branch or partner churches is part of the Pro plan. You can still join another church with a code it gives you.{" "}
+              <a href="/app/settings?tab=billing" className="font-medium text-primary hover:underline">See plans</a>
+            </p>
+          )}
+          <div className={data.inviteLocked ? "pointer-events-none mt-2 flex flex-wrap items-end gap-2 opacity-50" : "mt-2 flex flex-wrap items-end gap-2"}>
             <label className="text-xs font-medium text-ink-muted">What is it
               <select value={kind} onChange={(e) => setKind(e.target.value as keyof typeof LINK_KINDS)} disabled={!can} className="mt-1 block h-10 rounded-xl border border-line bg-surface px-3 text-sm">
                 {Object.entries(LINK_KINDS).map(([k, v]) => <option key={k} value={k}>{v}</option>)}

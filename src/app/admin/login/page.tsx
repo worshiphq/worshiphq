@@ -9,26 +9,30 @@ import { AuthShell, AuthNotice, authInput, authButton, authCard } from "@/compon
 export default async function AdminLoginPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; reset?: string }>;
+  searchParams: Promise<{ error?: string; reset?: string; left?: string }>;
 }) {
   const sa = await getSuperAdmin();
   if (sa) redirect("/admin");
-  const { error, reset } = await searchParams;
+  const { error, reset, left } = await searchParams;
+  const tries = Number(left);
+  const warn = tries >= 1 && tries <= 4 ? ` ${tries} ${tries === 1 ? "try" : "tries"} left before this account is locked for 24 hours.` : "";
 
   return (
-    <AuthShell title="WorshipHQ Platform Admin" subtitle="Restricted area - owner access only.">
+    <AuthShell title="WorshipHQ Platform Admin" subtitle="Restricted area - authorised admins only.">
       <form action={superAdminSignIn} className={authCard}>
         {reset && <AuthNotice tone="ok">Password changed. Every earlier sign-in was ended. Sign in with the new password.</AuthNotice>}
         {error && (
           <AuthNotice>
             {error === "too-many" ? "Too many attempts. Wait 15 minutes and try again."
               : error === "expired" ? "That sign-in expired. Start again."
-              : "Invalid credentials."}
+              : error === "locked-pw" ? "Too many wrong passwords. This account is locked for 24 hours. Try again in 24 hours, or reset your password."
+              : error === "locked-code" ? "Too many wrong codes. This account is locked for 24 hours. Try again in 24 hours or contact admin."
+              : `Invalid credentials.${warn}`}
           </AuthNotice>
         )}
         <div>
           <label className="mb-1.5 block text-xs font-medium text-slate-400">Email</label>
-          <input name="email" type="email" required autoComplete="username" placeholder="worshiphqapp@gmail.com" className={authInput} />
+          <input name="email" type="email" required autoComplete="username" placeholder="Your admin email" className={authInput} />
         </div>
         <div>
           <label className="mb-1.5 block text-xs font-medium text-slate-400">Password</label>

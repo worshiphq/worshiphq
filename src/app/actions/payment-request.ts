@@ -54,6 +54,7 @@ export async function submitPaymentRequest(formData: FormData) {
 
   if (!contactName) return { error: "Contact name is required" };
   if (!isFeeMode(feeChoice)) return { error: "Choose who pays the payment fee." };
+  if (String(formData.get("agree") ?? "") !== "on") return { error: "Please confirm that you have read how online giving works and agree to the terms." };
   if (!(s.settlementType && s.bankCode && s.accountNumber && s.accountName)) {
     return { error: "Choose a provider, enter the account number, and verify the name before submitting." };
   }
@@ -86,7 +87,7 @@ export async function submitPaymentRequest(formData: FormData) {
 
   // The church's own choice about who pays the fee. If the settings table is not there yet, the platform default applies.
   await saveGivingSettings(session.churchId, { mode: feeChoice }).catch((e) => console.error("[giving fee choice]", (e as Error).message));
-  await audit(session, "create", "payment-account", "Submitted an online giving payout account for approval");
+  await audit(session, "create", "payment-account", "Submitted an online giving payout account for approval, and agreed to the online giving terms (v1)");
   revalidatePath("/app/settings");
   return { success: true };
 }
@@ -95,7 +96,7 @@ export async function getPaymentRequestStatus() {
   const session = await requireSession();
   const [request, church] = await Promise.all([
     db.paymentRequest.findFirst({
-      where: { churchId: session.churchId, status: { notIn: ["removed", "cancelled"] } },
+      where: { churchId: session.churchId, status: { notIn: ["removed", "cancelled", "trashed"] } },
       orderBy: { createdAt: "desc" },
       select: {
         id: true, status: true, meetingDate: true, meetingType: true,
@@ -117,7 +118,7 @@ export async function getGivingFeeInfo() {
     getGivingSettings(session.churchId),
     db.platformConfig.findUnique({ where: { id: "default" }, select: { paystackFeePercent: true } }),
   ]);
-  return { mode: fee.mode, platformPercent: fee.platformPercent, paystackPercent: cfg?.paystackFeePercent ?? 1.95 };
+  return { mode: fee.mode, platformPercent: fee.platformPercent, paystackPercent: cfg?.paystackFeePercent ?? 1.95, planName: fee.planName };
 }
 
 /** The church chooses who pays the payment fee on its online gifts. Applies to gifts from now on. */

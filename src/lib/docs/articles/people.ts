@@ -129,6 +129,7 @@ export const people: DocArticle[] = [
     title: "Baptisms and baptism certificates",
     summary: "Keep a baptism register, track who is preparing, and print professional certificates.",
     who: "Anyone who can edit People",
+    feature: "baptisms",
     appPath: "/app/baptisms",
     body: [
       { p: "**Baptisms** (under People) is your church's baptism register. It has two tabs: **Register** (people who have been baptised) and **Preparing** (people getting ready for baptism)." },
