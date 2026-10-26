@@ -89,7 +89,9 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
     // configured (SuperAdmin → Payment Requests), so giving settles to the
     // church instead of WorshipHQ's platform account.
     subaccount: church.paystackSubaccountCode,
-    transactionCharge: church.paystackSubaccountCode ? split.transactionCharge : undefined,
+    // With no platform cut, the plain split already works exactly as intended (the giver's extra covers Paystack's fee, or the
+    // fee comes out of the gift), so Paystack is left to do it. The flat amount is only sent when WorshipHQ keeps a cut.
+    transactionCharge: church.paystackSubaccountCode && split.platformCut > 0 ? split.transactionCharge : undefined,
     metadata: {
       kind: "online_gift",
       churchId: church.id,

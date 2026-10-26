@@ -455,8 +455,9 @@ export async function approveGivingSetup(id: string): Promise<{ ok: boolean; cod
     return { ok: false, error: "This request has no verified settlement account to create a subaccount from." };
   }
 
-  const cfg = await db.platformConfig.findUnique({ where: { id: "default" }, select: { givingPlatformPercent: true } });
-  const percentageCharge = Math.max(0, Math.min(cfg?.givingPlatformPercent ?? 0, 100));
+  // WorshipHQ's cut is applied on each gift (see splitGift), so the subaccount itself always starts at 0%.
+  // That way changing a church's split later, or the platform default, never depends on how it was created.
+  const percentageCharge = 0;
 
   const host = env.NEXT_PUBLIC_APP_URL.replace(/^https?:\/\//, "").replace(/\/$/, "");
   const res = await createSubaccount({
