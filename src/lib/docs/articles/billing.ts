@@ -12,7 +12,7 @@ export const billing: DocArticle[] = [
         ["**Free**", "New and small fellowships", "The essentials, for a small number of members."],
         ["**Starter**", "Growing churches", "SMS, reminders, member IDs and QR codes, custom forms, import and export, automatic receipts, follow-ups."],
         ["**Pro**", "Established ministries", "Rosters, harvest, pledges, welfare, sermons, devotionals, testimonies, bookings and custom roles."],
-        ["**Max**", "Large and multi-site churches", "Fingerprint, face and palm check-in, automations, full accounting (budgets, expenses, assets), counselling, the audit log and unlimited members."],
+        ["**Max**", "Large and multi-site churches", "Fingerprint, face and palm check-in, automations, full accounting (budgets, expenses, assets), counselling, the audit log and the highest member limit."],
       ] } },
       { p: "See the current prices and member limits on the **Pricing** page. Every guide in this manual shows which plan it needs. A part of WorshipHQ your plan doesn't include shows as locked in the menu and opens **Billing**, where the Main Admin can upgrade." },
       { p: "**Free month of Communications.** A new church on the Free plan can send SMS from **Communications** for its first 30 days, with free credits to get started. Your credits never expire. When the month ends, Communications becomes part of the Starter plan, and your unused credits are waiting for you when you upgrade." },

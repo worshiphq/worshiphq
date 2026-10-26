@@ -179,7 +179,7 @@ const sections = [
     features: [
       {
         name: "Plans",
-        desc: "Choose from Free (up to 30 members), Starter (250 members, SMS, reminders), Pro (1,000 members, automations, reports) or Max (unlimited members, accounting, API, dedicated support).",
+        desc: "Choose from Free, Starter, Pro or Max. Each plan has its own member limit and features, and the Pricing page always shows the current ones.",
       },
       {
         name: "SMS credits",

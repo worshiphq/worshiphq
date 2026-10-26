@@ -43,8 +43,8 @@ import type { MessageCenterData } from "@/lib/messages/load";
 import { getFormDefinition, getVisitorFormDefinition, getChildrenFormDefinition, getTeensFormDefinition } from "@/lib/forms/registration";
 import { createDepartment, deleteDepartment } from "@/app/actions/departments";
 import { plans as defaultPlans } from "@/config/pricing";
-import type { PlanPrices } from "@/lib/data/platform-config";
-import { getPlanLimits, planRank, type PlanId } from "@/lib/plan-gate";
+import type { EditablePlan, PlanPrices } from "@/lib/data/platform-config";
+import { getPlanLimits, planRank, syncMemberText, type PlanId } from "@/lib/plan-gate";
 import { usePaystack } from "@/components/payments/use-paystack";
 import { phoneValidityMessage } from "@/lib/phone";
 import { cn } from "@/lib/utils";
@@ -196,7 +196,7 @@ function TransferMainAdmin({ admins }: { admins: { id: string; name: string }[] 
   );
 }
 
-type PlatformPricing = { currency: string; currencySymbol: string; prices: PlanPrices };
+type PlatformPricing = { currency: string; currencySymbol: string; prices: PlanPrices; planList?: EditablePlan[] };
 
 export function SettingsClient({
   session,
@@ -955,9 +955,14 @@ function UpgradeCelebration({ planName, newFeatures, onDone }: { planName: strin
 
 function BillingTab({ subscription, features, ro, platformPricing, payments = [], usage, smsTopups = [] }: { subscription: SubscriptionData; features: FeatureMap; ro: boolean; platformPricing?: PlatformPricing; payments?: PlanPaymentRow[]; usage?: BillingUsage; smsTopups?: SmsTopupRow[] }) {
   const router = useRouter();
+  // What the SuperAdmin saved (name, member limit, wording, price) wins over the built-in defaults.
   const plans = defaultPlans.map((p) => {
     const dbPrice = platformPricing?.prices[p.id];
-    return dbPrice ? { ...p, monthly: dbPrice.monthly, yearly: dbPrice.yearly } : p;
+    const live = platformPricing?.planList?.find((x) => x.id === p.id);
+    const merged = live
+      ? { ...p, name: live.name, tagline: live.tagline, members: live.membersLabel, featured: live.featured, cta: live.cta, features: live.marketingFeatures, upgradeTips: p.upgradeTips.map((t) => syncMemberText(t, live.memberLimit)) }
+      : p;
+    return dbPrice ? { ...merged, monthly: dbPrice.monthly, yearly: dbPrice.yearly } : merged;
   });
   const sym = platformPricing?.currencySymbol ?? "₵";
   const fmtPrice = (amount: number) => `${sym}${amount.toLocaleString()}`;

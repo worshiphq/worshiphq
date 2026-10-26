@@ -4,6 +4,24 @@ export const PLAN_IDS: PlanId[] = ["free", "starter", "pro", "max"];
 
 const PLAN_RANK: Record<PlanId, number> = { free: 0, starter: 1, pro: 2, max: 3 };
 
+/** "Up to 250 members" or "Unlimited members", from a member limit (negative or infinite = unlimited). */
+export function membersText(limit: number): string {
+  return !Number.isFinite(limit) || limit < 0 ? "Unlimited members" : `Up to ${limit.toLocaleString("en-US")} members`;
+}
+
+/**
+ * Keep member counts written inside plan wording in step with the real limit, so changing the limit changes what
+ * churches read. "Up to 250 members" becomes the new number, and "unlimited members" becomes a number if the plan now has one.
+ * Wording without a member count is left alone.
+ */
+export function syncMemberText(text: string, limit: number): string {
+  const unlimited = !Number.isFinite(limit) || limit < 0;
+  const n = unlimited ? "" : limit.toLocaleString("en-US");
+  return text
+    .replace(/\bUp to [\d,]+ members\b/g, unlimited ? "Unlimited members" : `Up to ${n} members`)
+    .replace(/\b(U)nlimited members\b/gi, (_, u: string) => (unlimited ? `${u}nlimited members` : `${u === "U" ? "Up" : "up"} to ${n} members`));
+}
+
 /** A new church on the Free plan can use Communications (SMS) for its first month, with this many free credits. */
 export const COMMS_TRIAL_DAYS = 30;
 export const COMMS_TRIAL_CREDITS = 60;

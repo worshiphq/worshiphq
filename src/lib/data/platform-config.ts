@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 import { getUsdToGhsRate } from "@/lib/integrations/fx";
 import { plans as defaultPlans } from "@/config/pricing";
 import {
-  DEFAULT_PLAN_TABLE, PLAN_IDS,
+  DEFAULT_PLAN_TABLE, PLAN_IDS, membersText, syncMemberText,
   type PlanId, type PlanTable,
 } from "@/lib/plan-gate";
 
@@ -90,6 +90,10 @@ function resolvePlans(
         ...(Array.isArray(s.features) ? { features: s.features.filter((f) => typeof f === "string") } : {}),
       };
     }
+    // The member count written on the card follows the real limit, unless the SuperAdmin wrote their own wording.
+    const plan = base[id];
+    if (/^(Up to [\d,]+ members|Unlimited members)$/i.test(plan.membersLabel.trim())) plan.membersLabel = membersText(plan.memberLimit);
+    plan.marketingFeatures = plan.marketingFeatures.map((f) => syncMemberText(f, plan.memberLimit));
     // Prices stay in planPrices (single source of truth for billing).
     const pr = prices[id];
     if (pr) {

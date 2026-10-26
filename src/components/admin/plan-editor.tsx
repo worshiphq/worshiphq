@@ -9,6 +9,7 @@ import {
   CORE_FEATURES, FEATURE_LABELS, FEATURE_TIERS, PLAN_IDS, type PlanId,
 } from "@/lib/plan-gate";
 import type { EditablePlan } from "@/lib/data/platform-config";
+import { membersText, syncMemberText } from "@/lib/plan-gate";
 
 const CURRENCIES = [
   { code: "USD", symbol: "$", name: "US Dollar" },
@@ -76,7 +77,16 @@ export function PlanEditor({
   const [error, setError] = useState<string | null>(null);
 
   const patch = (id: PlanId, changes: Partial<EditablePlan>) =>
-    setPlans((prev) => prev.map((p) => (p.id === id ? { ...p, ...changes } : p)));
+    setPlans((prev) => prev.map((p) => {
+      if (p.id !== id) return p;
+      const next = { ...p, ...changes };
+      // Changing the member limit updates the card wording and any "Up to N members" bullet, unless the label is custom.
+      if (changes.memberLimit !== undefined) {
+        if (/^(Up to [\d,]+ members|Unlimited members)$/i.test(p.membersLabel.trim())) next.membersLabel = membersText(next.memberLimit);
+        next.marketingFeatures = next.marketingFeatures.map((f) => syncMemberText(f, next.memberLimit));
+      }
+      return next;
+    }));
 
   function toggle(id: PlanId, key: string) {
     if (isCore(key)) return; // core is always on
