@@ -25,7 +25,7 @@ export async function checkRefundEligibility(paymentId: string) {
 export async function requestRefund(formData: FormData) {
   const session = await requireSession();
   assertCanWrite(session);
-  if (session.role !== "Owner") return { ok: false as const, error: "Only the church owner can request a refund." };
+  if (session.role !== "Owner") return { ok: false as const, error: "Only the Main Admin can request a refund." };
 
   const paymentId = String(formData.get("paymentId") ?? "").trim();
   const reason = String(formData.get("reason") ?? "").trim();

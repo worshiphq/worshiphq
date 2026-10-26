@@ -397,7 +397,7 @@ export function planLockFor(session: Session, module: string): string | null {
 export class PlanLockedError extends Error {
   constructor(feature: string) {
     const plan = getMinimumPlan(feature);
-    super(`${FEATURE_LABELS[feature] ?? feature} is part of the ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan. The church Owner can upgrade in Settings, Billing.`);
+    super(`${FEATURE_LABELS[feature] ?? feature} is part of the ${plan.charAt(0).toUpperCase() + plan.slice(1)} plan. The Main Admin can upgrade in Settings, Billing.`);
   }
 }
 

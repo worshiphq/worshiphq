@@ -86,7 +86,7 @@ export const giving: DocArticle[] = [
     section: "giving",
     title: "Set up online giving (Mobile Money and card)",
     summary: "Choose where online giving is paid, so members can give from their phones.",
-    who: "Owners and Admins",
+    who: "The Main Admin and Admins",
     appPath: "/app/settings",
     body: [
       { p: "Online giving is paid straight into your church's own bank or Mobile Money account through Paystack, a licensed payment provider. First tell us where it should go." },
@@ -100,7 +100,7 @@ export const giving: DocArticle[] = [
       ] },
       { h: "Changing or removing the account" },
       { p: "Choose **Edit account** to change where giving is paid. For your protection, a new account is checked by WorshipHQ before it's used, and your current account keeps working until then. Choose **Remove** to stop online giving." },
-      { note: "Only an Owner or Admin can set up or change where giving is paid." },
+      { note: "Only the Main Admin or an Admin can set up or change where giving is paid." },
     ],
   },
   {

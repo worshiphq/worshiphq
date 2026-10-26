@@ -77,7 +77,7 @@ export default function TermsPage() {
         </p>
         <p>
           <strong>Support access.</strong>{" "}If you ask us for help, we may need to work inside your account. We ask for your
-          permission first: we send a one-time code by SMS to your church&rsquo;s Owner, and we can enter the account only once
+          permission first: we send a one-time code by SMS to your church&rsquo;s Main Admin, and we can enter the account only once
           that code is shared with us. This access is time-limited and is recorded. We may also access or act on an account
           without prior notice where genuinely necessary to prevent fraud, abuse, or a security incident, to protect other
           users, or to comply with the law.

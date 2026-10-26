@@ -165,7 +165,7 @@ const sections = [
       },
       {
         name: "Team management",
-        desc: "Invite teammates and assign roles (Owner, Admin, Pastor, Finance, Media, Leader, Volunteer). Create custom roles with specific module access.",
+        desc: "Invite teammates and assign roles (Main Admin, Admin, Pastor, Finance, Media, Leader, Volunteer). Create custom roles with specific module access.",
       },
       {
         name: "Form builder",

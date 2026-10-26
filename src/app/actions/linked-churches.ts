@@ -20,7 +20,7 @@ type Kind = keyof typeof LINK_KINDS;
 function requireOwnerOrAdmin(session: Session) {
   assertCanWrite(session, "settings");
   if (session.isDemo) throw new Error("Read-only demo.");
-  if (session.role !== "Owner" && session.role !== "Admin") throw new Error("Only the Owner or an Admin can manage linked churches.");
+  if (session.role !== "Owner" && session.role !== "Admin") throw new Error("Only the Main Admin or an Admin can manage linked churches.");
 }
 
 const money = (n: number) => Math.round(n * 100) / 100;

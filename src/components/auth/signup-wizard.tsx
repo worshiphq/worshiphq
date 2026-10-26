@@ -26,7 +26,7 @@ export interface WizardPlan {
 
 const STEPS = [
   { key: "church", label: "Church", icon: Church, title: "What's your church called?", sub: "This becomes the name of your WorshipHQ workspace." },
-  { key: "you", label: "You", icon: User, title: "And what's your name?", sub: "You'll be the owner of this church account." },
+  { key: "you", label: "You", icon: User, title: "And what's your name?", sub: "You'll be the Main Admin of this church account." },
   { key: "contact", label: "Contact", icon: AtSign, title: "How do we reach you?", sub: "We'll send a one-time code to verify your phone." },
   { key: "password", label: "Security", icon: Lock, title: "Set a password", sub: "At least 8 characters, with a capital letter, a number and a symbol." },
   { key: "plan", label: "Plan", icon: Sparkles, title: "Choose your plan", sub: "Start free and upgrade any time - or jump straight in." },

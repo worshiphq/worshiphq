@@ -42,7 +42,7 @@ export default async function RefundPolicyPage() {
         <p>
           Sign in, go to <strong>Settings → Billing</strong>, find the payment in your billing history and choose{" "}
           <strong>&ldquo;Request refund&rdquo;</strong>. Tell us briefly what happened and confirm you&rsquo;ve read this policy.
-          Only the church owner can request a refund.
+          Only the Main Admin can request a refund.
         </p>
       </LegalSection>
 

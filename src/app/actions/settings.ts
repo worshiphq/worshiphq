@@ -220,7 +220,7 @@ export async function updateChurch(formData: FormData) {
 export async function requestSenderId(input: string): Promise<{ ok: true } | { ok: false; error: string }> {
   const session = await requireSession();
   assertCanWrite(session);
-  if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the owner or an admin can request a sender ID." };
+  if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the Main Admin or an admin can request a sender ID." };
 
   // A custom sender name is a Pro feature (each one needs approval from the networks).
   const sub = await db.subscription.findUnique({ where: { churchId: session.churchId }, select: { plan: true } });
@@ -322,6 +322,8 @@ export async function inviteTeammate(formData: FormData) {
   const role = parsedRole.role;
   const customRoleId = await ownedId("customRole", parsedRole.customRoleId, session.churchId);
   if (!name || phone.length < 10) return;
+  // The Main Admin role is only ever handed over with "Transfer Main Admin", never by an invite.
+  if (role === "Owner") return;
 
   // Email is the login identifier but optional to type - synthesize a stable
   // placeholder from the phone when the admin doesn't provide one.
@@ -462,11 +464,12 @@ export async function changeUserRole(formData: FormData) {
   const role = parsedRole.role;
   const customRoleId = await ownedId("customRole", parsedRole.customRoleId, session.churchId);
   if (parsedRole.customRoleId && !customRoleId) return;
-  // Only Owner can make someone else Owner
-  if (role === "Owner" && session.role !== "Owner") return;
-  // Only an Owner can change an Owner's role.
+  // The Main Admin role is only ever handed over with "Transfer Main Admin".
+  if (role === "Owner") return;
   const current = await db.user.findFirst({ where: { id: userId, churchId: session.churchId }, select: { role: true } });
-  if (current?.role === "Owner" && session.role !== "Owner") return;
+  // Nobody changes the Main Admin's role, and only the Main Admin changes another Admin's role.
+  if (current?.role === "Owner") return;
+  if (current?.role === "Admin" && session.role !== "Owner") return;
 
   const target = await db.user.findFirst({ where: { id: userId, churchId: session.churchId }, select: { name: true } });
   await db.user.updateMany({
@@ -580,20 +583,68 @@ export async function removeTeamMember(formData: FormData) {
   const userId = String(formData.get("userId") ?? "").trim();
   if (!userId || userId === session.userId) return;
 
-  // Can't remove Owner
+  // Nobody removes the Main Admin, and only the Main Admin removes another Admin.
   const target = await db.user.findFirst({ where: { id: userId, churchId: session.churchId } });
   if (!target || target.role === "Owner") return;
+  if (target.role === "Admin" && session.role !== "Owner") return;
 
   await moveToBin(session, "teamMember", "User", userId);
   await db.user.delete({ where: { id: userId } });
   revalidatePath("/app/settings");
 }
 
+/**
+ * The Main Admin hands the role to one of the church's Admins. The new Main Admin gets full control (billing, removing Admins),
+ * and the person handing over becomes an Admin. The current password is asked for, because this cannot be done by someone
+ * who only found a signed-in screen.
+ */
+export async function transferMainAdmin(input: { userId: string; password: string }): Promise<{ ok: true; name: string } | { ok: false; error: string }> {
+  const session = await requireSession();
+  if (session.isDemo || session.impersonating) return { ok: false, error: "Not available here." };
+  if (session.role !== "Owner") return { ok: false, error: "Only the Main Admin can hand over the role." };
+  const { rateLimit, HOUR } = await import("@/lib/rate-limit");
+  if (!(await rateLimit(`transfer-main-admin:${session.userId}`, 5, HOUR))) return { ok: false, error: "Too many tries. Please wait a while and try again." };
+
+  const me = await db.user.findUnique({ where: { id: session.userId }, select: { passwordHash: true, name: true } });
+  if (!me?.passwordHash || !(await verifyPassword(String(input.password ?? ""), me.passwordHash))) return { ok: false, error: "Incorrect password." };
+
+  const target = await db.user.findFirst({ where: { id: String(input.userId ?? ""), churchId: session.churchId }, select: { id: true, name: true, role: true, phone: true, email: true, passwordHash: true } });
+  if (!target || target.id === session.userId) return { ok: false, error: "Choose one of your Admins." };
+  if (target.role !== "Admin") return { ok: false, error: "The role can only be handed to an Admin. Make them an Admin first." };
+  if (!target.passwordHash) return { ok: false, error: `${target.name} has not set up their login yet, so they cannot take over.` };
+
+  await db.$transaction([
+    db.user.update({ where: { id: target.id }, data: { role: "Owner", customRoleId: null } }),
+    db.user.update({ where: { id: session.userId }, data: { role: "Admin", customRoleId: null } }),
+  ]);
+  await audit(session, "update", "user", `Handed the Main Admin role to ${target.name}`, target.id);
+
+  // Tell both people, so nothing like this ever happens quietly.
+  const church = await db.church.findUnique({ where: { id: session.churchId }, select: { name: true } });
+  const churchName = church?.name ?? "your church";
+  try {
+    if (target.phone) await sendSms(target.phone, `${me.name} has made you the Main Admin of ${churchName} on WorshipHQ. You now have full control, including billing.`, { heading: null });
+    if (target.email && !target.email.endsWith("@invite.worshiphq.app")) {
+      await sendEmail({
+        to: target.email,
+        subject: `You are now the Main Admin of ${churchName}`,
+        html: `<p>${escapeHtml(me.name)} has made you the <strong>Main Admin</strong> of ${escapeHtml(churchName)} on WorshipHQ.</p><p>You now have full control of the church account, including billing and removing Admins.</p>`,
+        log: { churchId: session.churchId, name: `Main Admin handed over to ${target.name}`, segment: "account" },
+      });
+    }
+  } catch (e) {
+    console.error("[transfer main admin notify]", (e as Error).message);
+  }
+  revalidatePath("/app/settings");
+  revalidatePath("/app", "layout");
+  return { ok: true, name: target.name };
+}
+
 /** Undo a scheduled downgrade before it takes effect. */
 export async function cancelScheduledChange() {
   const session = await requireSession();
   assertCanWrite(session);
-  if (session.role !== "Owner") return { error: "Only the church owner can change plans" };
+  if (session.role !== "Owner") return { error: "Only the Main Admin can change plans" };
 
   await db.subscription.update({
     where: { churchId: session.churchId },
@@ -688,7 +739,7 @@ export async function changePlan(
 ) {
   const session = await requireSession();
   assertCanWrite(session);
-  if (session.role !== "Owner") return { error: "Only the church owner can change plans" };
+  if (session.role !== "Owner") return { error: "Only the Main Admin can change plans" };
 
   const validPlans = ["free", "starter", "pro", "max"];
   if (!validPlans.includes(plan)) return { error: "Invalid plan" };

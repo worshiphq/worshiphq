@@ -36,9 +36,9 @@ export const gettingStarted: DocArticle[] = [
     section: "getting-started",
     title: "Create your church account",
     summary: "Sign up in about a minute: church name, your details, a password and a plan.",
-    who: "The person setting the church up (becomes the Owner)",
+    who: "The person setting the church up (becomes the Main Admin)",
     body: [
-      { p: "Whoever creates the account becomes the church's **Owner**: the person with full control, including billing. You can add other team members later." },
+      { p: "Whoever creates the account becomes the church's **Main Admin**: the person with full control, including billing. You can add other team members later." },
       { steps: [
         "Go to **worshiphq.app** and choose **Get started** (or **Create your church** on the login page).",
         "**Church**: type your church's name, e.g. \"Grace Temple\", and choose **Continue**.",
@@ -92,7 +92,7 @@ export const gettingStarted: DocArticle[] = [
     section: "getting-started",
     title: "Setting up your church: a checklist",
     summary: "The recommended order to set everything up so your church is ready to use.",
-    who: "Owners and Admins",
+    who: "The Main Admin and Admins",
     body: [
       { p: "You don't need to do everything at once, but this order saves time because later steps use earlier ones." },
       { steps: [
@@ -194,7 +194,7 @@ export const gettingStarted: DocArticle[] = [
         "Find the item in the list.",
         "Choose **Restore**. It returns exactly as it was, with its links (departments, payments and so on).",
       ] },
-      { note: "**Delete forever** removes an item permanently straight away. Only Owners, Admins and roles allowed to delete can see the Recycle bin." },
+      { note: "**Delete forever** removes an item permanently straight away. Only the Main Admin, Admins and roles allowed to delete can see the Recycle bin." },
     ],
   },
   {

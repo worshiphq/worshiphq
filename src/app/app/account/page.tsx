@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/app/page-header";
+import { roleLabel } from "@/lib/roles";
 import { requireSession } from "@/lib/auth";
 import { AccountForm } from "@/components/app/account-form";
 import { db } from "@/lib/db";
@@ -30,7 +31,7 @@ export default async function AccountPage() {
       <AccountForm
         name={session.name}
         email={session.email}
-        role={session.customRole ?? session.role}
+        role={session.customRole ?? roleLabel(session.role)}
         photoUrl={session.avatarUrl ?? null}
         phone={user?.phone ?? null}
         phoneVerified={user?.phoneVerified ?? false}

@@ -10,7 +10,7 @@ import { listBanks, resolveAccount, updateSubaccount } from "@/lib/integrations/
 async function requireGivingAdmin() {
   const session = await requireSession();
   assertCanWrite(session);
-  if (session.role !== "Owner" && session.role !== "Admin") throw new Error("Only an Owner or Admin can manage online giving.");
+  if (session.role !== "Owner" && session.role !== "Admin") throw new Error("Only the Main Admin or an Admin can manage online giving.");
   return session;
 }
 

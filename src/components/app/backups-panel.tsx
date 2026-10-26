@@ -167,7 +167,7 @@ export function BackupsPanel() {
           </Button>
           <span className="text-xs text-ink-muted">{lastOk ? `Last backup: ${fmtWhen(lastOk.createdAt)}` : "No backup yet."}</span>
         </div>
-        {ro && <p className="mt-3 text-xs text-ink-faint">Only an Owner or Admin can back up or restore.</p>}
+        {ro && <p className="mt-3 text-xs text-ink-faint">Only the Main Admin or an Admin can back up or restore.</p>}
       </Card>
 
       <Card className="p-6">

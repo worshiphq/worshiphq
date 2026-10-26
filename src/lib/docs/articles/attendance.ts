@@ -145,7 +145,7 @@ export const attendance: DocArticle[] = [
     section: "attendance",
     title: "Face, palm and fingerprint devices",
     summary: "Connect a face, palm or fingerprint terminal so people check in with a scan.",
-    who: "Owner or Admin",
+    who: "Main Admin or Admin",
     feature: "fingerprint",
     appPath: "/app/devices",
     body: [

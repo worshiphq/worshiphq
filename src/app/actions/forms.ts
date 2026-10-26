@@ -18,7 +18,7 @@ const PUBLIC_ROOT: Record<string, string> = {
  */
 export async function saveFormDefinition(kind: string, definition: string): Promise<{ ok: true; fields: FormField[] } | { ok: false; error: string }> {
   const session = await requireSession();
-  if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the owner or an admin can change forms." };
+  if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the Main Admin or an admin can change forms." };
   if (session.isDemo) return { ok: false, error: "Read-only demo." };
   if (!isFormKind(kind)) return { ok: false, error: "Unknown form." };
 

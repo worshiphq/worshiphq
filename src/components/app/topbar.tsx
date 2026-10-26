@@ -1,5 +1,6 @@
 "use client";
 
+import { roleLabel } from "@/lib/roles";
 import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Bell, BellRing, ChevronDown, LogOut, Settings, Menu, UserCircle, BookOpen, UserPlus, UserRoundPlus, HandCoins, CalendarCheck2, Heart, Users2, CalendarDays, Loader2 } from "lucide-react";
@@ -136,7 +137,7 @@ export function Topbar({
             <MemberAvatar name={session.avatarName} photoUrl={session.avatarUrl} size="sm" />
             <span className="hidden text-left sm:block">
               <span className="block text-xs font-medium leading-tight">{session.name}</span>
-              <span className="block text-[10px] leading-tight text-ink-muted">{session.customRole ?? session.role}</span>
+              <span className="block text-[10px] leading-tight text-ink-muted">{session.customRole ?? roleLabel(session.role)}</span>
             </span>
             <ChevronDown className="size-4 text-ink-muted" aria-hidden />
           </button>

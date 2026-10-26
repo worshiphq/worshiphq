@@ -6,7 +6,7 @@ export const admin: DocArticle[] = [
     section: "admin",
     title: "Church profile",
     summary: "Your church's name, denomination, location and notification preferences.",
-    who: "Owners and Admins",
+    who: "The Main Admin and Admins",
     appPath: "/app/settings",
     body: [
       { steps: [
@@ -31,7 +31,7 @@ export const admin: DocArticle[] = [
     section: "admin",
     title: "Linked churches: a teens chapel, a branch or a partner church",
     summary: "Run a teens chapel or branch on its own account, link it to the main church, and send graduating teens up.",
-    who: "The Owner or an Admin",
+    who: "The Main Admin or an Admin",
     appPath: "/app/settings",
     body: [
       { p: "A teens chapel, a branch or a partner church can have its own WorshipHQ account, with its own plan, members, attendance and money, and still be linked to the main church. Nothing is shared unless the linked church switches it on." },
@@ -65,7 +65,7 @@ export const admin: DocArticle[] = [
     section: "admin",
     title: "Logo and colours",
     summary: "Add your church logo and choose your dashboard's colour.",
-    who: "Owners and Admins",
+    who: "The Main Admin and Admins",
     appPath: "/app/settings",
     body: [
       { steps: [
@@ -82,7 +82,7 @@ export const admin: DocArticle[] = [
     section: "admin",
     title: "Team members and roles",
     summary: "Invite people to help run WorshipHQ, and control exactly what each can see and do.",
-    who: "Owners and Admins",
+    who: "The Main Admin and Admins",
     appPath: "/app/settings",
     body: [
       { h: "Invite a teammate" },
@@ -95,8 +95,8 @@ export const admin: DocArticle[] = [
       { p: "Your plan limits how many team members you can have. When you reach it, **Invite a teammate** shows how many your plan includes, and you can upgrade in **Billing** to add more." },
       { h: "The built-in roles" },
       { table: { head: ["Role", "Typically for"], rows: [
-        ["**Owner**", "The person who created the church. Full control, including billing."],
-        ["**Admin**", "Senior staff. Everything except ownership."],
+        ["**Main Admin**", "The person who created the church. Full control, including billing. Can add and remove Admins, and can hand the role to another Admin."],
+        ["**Admin**", "Senior staff. Everything except billing and the Main Admin role. Can add other Admins and any other role, but cannot remove or change the Main Admin or another Admin."],
         ["**Pastor**", "Pastoral staff: people, care, counselling."],
         ["**Finance**", "Treasurers: giving and accounts."],
         ["**Media**", "Media team: content such as sermons and devotionals."],
@@ -136,7 +136,7 @@ export const admin: DocArticle[] = [
     section: "admin",
     title: "Choose what your forms ask for",
     summary: "Customise your sign-up, prayer, testimony, counselling, giving and booking forms, one step at a time.",
-    who: "Owners and Admins",
+    who: "The Main Admin and Admins",
     appPath: "/app/settings",
     body: [
       { p: "Go to **Settings**, then **Links & forms**. Every public form has a **Customize form** button that opens a full page builder, with your questions on the left and a live preview of the real form on the right. You can change: member registration, visitor form, children's registration, teens' registration, prayer requests, testimonies, counselling requests, online giving and facility booking." },
@@ -167,7 +167,7 @@ export const admin: DocArticle[] = [
     section: "admin",
     title: "Your church link (web address)",
     summary: "The short name used in all your shared links, and how to change it.",
-    who: "Owners and Admins",
+    who: "The Main Admin and Admins",
     appPath: "/app/settings",
     body: [
       { p: "Your church link is the short name in all your shared links, e.g. worshiphq.app/join/**gracetemple**. It's used for membership, visitor, prayer, giving and other forms." },
@@ -180,7 +180,7 @@ export const admin: DocArticle[] = [
     section: "admin",
     title: "Data backups and restoring",
     summary: "Automatic daily backups, backing up now, and going back to an earlier point.",
-    who: "Owners and Admins",
+    who: "The Main Admin and Admins",
     appPath: "/app/settings",
     body: [
       { p: "Go to **Settings**, then **Data backups**." },

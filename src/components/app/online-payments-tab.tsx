@@ -265,7 +265,7 @@ export function OnlinePaymentsTab({ canManage }: { canManage: boolean }) {
       )}
 
       {!canManage && (
-        <p className="text-xs text-ink-faint">Only an Owner or Admin can set up or change where giving is paid.</p>
+        <p className="text-xs text-ink-faint">Only the Main Admin or an Admin can set up or change where giving is paid.</p>
       )}
 
       {/* SET UP */}

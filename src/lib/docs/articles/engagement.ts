@@ -28,7 +28,7 @@ export const engagement: DocArticle[] = [
     title: "SMS credits and your sender name",
     summary: "Buy SMS credits, switch on welcome texts, and get your church's own sender name.",
     feature: "sms",
-    who: "Owners and Admins",
+    who: "The Main Admin and Admins",
     appPath: "/app/communications/credits",
     body: [
       { h: "Buy credits" },
@@ -57,7 +57,7 @@ export const engagement: DocArticle[] = [
         "Type your **Sender ID**: 3 to 11 letters and numbers with no spaces or symbols, e.g. GraceTemple.",
         "Choose **Submit request**. The status shows **pending** until it's approved, and you'll get an SMS when it is.",
       ] },
-      { note: "Only the Owner or an Admin can request a sender ID, and it needs the Pro plan or higher. On Free and Starter, SMS Settings shows an upgrade prompt instead, and your texts go out with your church's name at the start." },
+      { note: "Only the Main Admin or an Admin can request a sender ID, and it needs the Pro plan or higher. On Free and Starter, SMS Settings shows an upgrade prompt instead, and your texts go out with your church's name at the start." },
       { tip: "Long messages use more than one credit. Keep texts short to save credits." },
     ],
   },

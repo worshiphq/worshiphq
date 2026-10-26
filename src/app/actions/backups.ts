@@ -10,7 +10,7 @@ import { planRestore, applyRestore, summarizeBackup } from "@/lib/backups/restor
 async function requireBackupAdmin() {
   const session = await requireSession();
   assertCanWrite(session);
-  if (session.role !== "Owner" && session.role !== "Admin") throw new Error("Only an Owner or Admin can manage backups.");
+  if (session.role !== "Owner" && session.role !== "Admin") throw new Error("Only the Main Admin or an Admin can manage backups.");
   return session;
 }
 

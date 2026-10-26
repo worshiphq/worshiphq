@@ -1,5 +1,6 @@
 "use client";
 
+import { roleLabel } from "@/lib/roles";
 import { useEffect, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -144,7 +145,7 @@ export function AbsenceCard({ data, canWrite }: { data: AbsenceData; canWrite: b
                       className="size-3.5 rounded border-line accent-primary"
                     />
                     <span className="font-medium text-ink">{u.name}</span>
-                    <span className="text-ink-faint">{u.role}</span>
+                    <span className="text-ink-faint">{roleLabel(u.role)}</span>
                   </label>
                 ))}
               </div>

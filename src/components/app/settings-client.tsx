@@ -30,8 +30,9 @@ import {
   createCustomRole, deleteCustomRole, updateCustomRole,
   updateRolePermissions, changePlan, redeemPlanBypass, verifyPlanUpgrade, previewCoupon,
   previewPlanChangeAction, cancelScheduledChange,
-  updateSlug, inviteBudgetLeader,
+  updateSlug, inviteBudgetLeader, transferMainAdmin,
 } from "@/app/actions/settings";
+import { roleLabel } from "@/lib/roles";
 import { ALL_MODULES, MODULE_LABELS } from "@/lib/permissions";
 import { RoleMatrix } from "@/components/app/role-matrix";
 import { BrandingForm } from "@/components/app/branding-form";
@@ -141,6 +142,59 @@ const integrationList = [
 ];
 
 const ALL_ROLES = ["Admin", "Pastor", "Finance", "Media", "Leader", "Volunteer"];
+
+/** The Main Admin hands the role to one of the church's Admins (asks for their password). */
+function TransferMainAdmin({ admins }: { admins: { id: string; name: string }[] }) {
+  const router = useRouter();
+  const [open, setOpen] = useState(false);
+  const [userId, setUserId] = useState(admins[0]?.id ?? "");
+  const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const target = admins.find((a) => a.id === userId);
+
+  async function go() {
+    setError("");
+    setBusy(true);
+    const res = await transferMainAdmin({ userId, password }).catch(() => ({ ok: false as const, error: "Something went wrong." }));
+    setBusy(false);
+    if (!res.ok) { setError(res.error); return; }
+    router.refresh();
+  }
+
+  return (
+    <Card className="p-6">
+      <h3 className="font-display text-[1rem] font-semibold">Hand over the Main Admin role</h3>
+      <p className="mt-1 text-sm text-ink-muted">
+        The Main Admin has full control, including billing and removing Admins. You can hand the role to one of your Admins, for example if you are stepping down. You will become an Admin, and both of you get a message.
+      </p>
+      {admins.length === 0 ? (
+        <p className="mt-3 rounded-lg bg-surface-2 px-3 py-2 text-sm text-ink-muted">Make someone an Admin first, then you can hand the role to them.</p>
+      ) : !open ? (
+        <Button className="mt-3" variant="secondary" size="sm" onClick={() => setOpen(true)}>Hand over the role</Button>
+      ) : (
+        <div className="mt-4 grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="mb-1 block text-xs font-medium text-ink-muted" htmlFor="tma-who">New Main Admin</label>
+            <select id="tma-who" value={userId} onChange={(e) => setUserId(e.target.value)} className="flex h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm">
+              {admins.map((a) => <option key={a.id} value={a.id}>{a.name}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="mb-1 block text-xs font-medium text-ink-muted" htmlFor="tma-pw">Your password</label>
+            <Input id="tma-pw" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />
+          </div>
+          <p className="text-xs text-ink-faint sm:col-span-2">After this, {target?.name ?? "they"} is the Main Admin and you are an Admin. Only they can change it back.</p>
+          {error && <p role="alert" className="text-sm text-danger sm:col-span-2">{error}</p>}
+          <div className="flex gap-2 sm:col-span-2">
+            <Button variant="danger" size="sm" onClick={go} disabled={busy || !password}>{busy ? <><Spinner className="size-4 animate-spin" /> Handing over…</> : "Make them Main Admin"}</Button>
+            <Button variant="secondary" size="sm" onClick={() => { setOpen(false); setPassword(""); setError(""); }} disabled={busy}>Cancel</Button>
+          </div>
+        </div>
+      )}
+    </Card>
+  );
+}
 
 type PlatformPricing = { currency: string; currencySymbol: string; prices: PlanPrices };
 
@@ -273,7 +327,7 @@ export function SettingsClient({
                 <div>
                   <h3 className="font-display text-lg font-semibold">Your team</h3>
                   <p className="text-sm text-ink-muted">
-                    Signed in as <Badge variant="primary">{session.role}</Badge>
+                    Signed in as <Badge variant="primary">{roleLabel(session.role)}</Badge>
                   </p>
                 </div>
               </div>
@@ -285,7 +339,7 @@ export function SettingsClient({
                       <div className="text-xs text-ink-faint">{u.email}</div>
                     </div>
                     <div className="flex items-center gap-2">
-                      {isAdmin && u.id !== session.userId && u.role !== "Owner" ? (
+                      {isAdmin && u.id !== session.userId && u.role !== "Owner" && !(u.role === "Admin" && session.role !== "Owner") ? (
                         <form action={changeUserRole} className="flex items-center gap-2">
                           <input type="hidden" name="userId" value={u.id} />
                           <select
@@ -305,9 +359,9 @@ export function SettingsClient({
                           </SubmitButton>
                         </form>
                       ) : (
-                        <Badge variant="default">{u.customRole?.name ?? u.role}</Badge>
+                        <Badge variant="default">{u.customRole?.name ?? roleLabel(u.role)}</Badge>
                       )}
-                      {isAdmin && u.id !== session.userId && u.role !== "Owner" && (
+                      {isAdmin && u.id !== session.userId && u.role !== "Owner" && !(u.role === "Admin" && session.role !== "Owner") && (
                         <form action={removeTeamMember} onSubmit={(e) => { if (!confirmBinDelete(`Remove ${u.name ?? "this person"} from your team?`)) e.preventDefault(); }}>
                           <input type="hidden" name="userId" value={u.id} />
                           <SubmitButton size="sm" variant="danger" overlay={false} successMessage={BIN_TOAST} className="h-8 px-2">
@@ -320,6 +374,10 @@ export function SettingsClient({
                 ))}
               </div>
             </Card>
+
+            {session.role === "Owner" && !session.isDemo && (
+              <TransferMainAdmin admins={users.filter((u) => u.role === "Admin").map((u) => ({ id: u.id, name: u.name ?? u.email }))} />
+            )}
 
             {isAdmin && (
               <Card className="p-6">
@@ -611,13 +669,13 @@ function BuiltInRolesEditor({
       <div className="border-b border-line p-6">
         <h3 className="font-display text-[1rem] font-semibold">Built-in role permissions</h3>
         <p className="mt-1 text-sm text-ink-muted">
-          Click the pencil to customize what each role can access. Owner always has full access.
+          Click the pencil to customize what each role can access. The Main Admin always has full access.
         </p>
       </div>
       <div className="divide-y divide-line-soft">
         <div className="flex items-start justify-between gap-4 p-5">
           <div>
-            <div className="font-medium">Owner</div>
+            <div className="font-medium">Main Admin</div>
             <div className="mt-1 text-xs text-ink-faint">Full access to everything</div>
           </div>
         </div>
