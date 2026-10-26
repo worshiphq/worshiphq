@@ -243,7 +243,10 @@ function PayoutPanel({ req }: { req: any }) {
         <div className="rounded-lg border border-slate-700 bg-slate-900/40 p-3 space-y-2">
           <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-300">
             Giving fees for this church
-            <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-slate-400">{req.giving?.custom ? "chosen for this church" : "platform default"}</span>
+            <span className="rounded-full bg-white/10 px-2 py-0.5 text-[11px] font-medium text-slate-400">{req.giving?.custom ? "who pays: chosen for this church" : "who pays: platform default"}</span>
+            <span className={`rounded-full px-2 py-0.5 text-[11px] font-medium ${req.giving?.customPercent ? "bg-amber-500/15 text-amber-300" : "bg-white/10 text-slate-400"}`}>
+              {req.giving?.customPercent ? `own fee ${req.giving.platformPercent}% (overrides the ${req.giving.planName} plan)` : `fee ${req.giving?.platformPercent ?? 0}% from the ${req.giving?.planName ?? "current"} plan`}
+            </span>
           </div>
           <div className="flex flex-wrap items-end gap-3">
             <div>

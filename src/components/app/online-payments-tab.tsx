@@ -138,7 +138,7 @@ function FeeExamples({ info, mode }: { info: FeeInfo | null; mode: FeeMode }) {
       <p className="text-sm text-ink-muted">
         {info?.planName ? <>Your plan is <b className="text-ink">{info.planName}</b>. </> : null}
         Paystack charges <b className="text-ink">{paystack}%</b>
-        {platform > 0 ? <> and WorshipHQ charges <b className="text-ink">{platform}%</b>, about <b className="text-ink">{(paystack + platform).toFixed(2)}%</b> of each gift together</> : <>, and WorshipHQ adds no fee of its own</>}.
+        {platform > 0 ? <> and WorshipHQ charges <b className="text-ink">{platform}%</b>{info?.customPercent ? " (a fee set for your church)" : ""}, about <b className="text-ink">{(paystack + platform).toFixed(2)}%</b> of each gift together</> : <>, and WorshipHQ adds no fee of its own</>}.
         Here is what that means for a gift:
       </p>
       <div className="overflow-hidden rounded-xl border border-line bg-surface text-sm">
