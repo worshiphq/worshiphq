@@ -91,7 +91,7 @@ export default async function GivePage({
             accentColor={church.accentColor}
             funds={funds}
             fields={FORM_KINDS.give.resolve(church.giveFormFields)}
-            fee={{ mode: gs.mode, feePercent: feeCfg?.paystackFeePercent ?? 1.95, platformPercent: gs.platformPercent }}
+            fee={{ mode: gs.mode, feePercent: feeCfg?.paystackFeePercent ?? 1.95, platformPercent: gs.platformPercent, platformCap: gs.platformCap }}
           />
         )}
       </div>

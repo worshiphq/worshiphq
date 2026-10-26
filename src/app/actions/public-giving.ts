@@ -75,6 +75,7 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
     mode: gs.mode,
     feePercent: cfg?.paystackFeePercent ?? 1.95,
     platformPercent: church.paystackSubaccountCode ? gs.platformPercent : 0,
+    platformCap: gs.platformCap,
   });
   const chargeAmount = split.charge;
 

@@ -131,14 +131,15 @@ function FeeExamples({ info, mode }: { info: FeeInfo | null; mode: FeeMode }) {
   const [custom, setCustom] = useState("");
   const paystack = info?.paystackPercent ?? 1.95;
   const platform = info?.platformPercent ?? 0;
+  const cap = info?.platformCap ?? 0;
   const amounts = [500, 3000, ...(Number(custom) > 0 ? [Number(custom)] : [])];
-  const calc = (amount: number, m: FeeMode) => splitGift({ amount, mode: m, feePercent: paystack, platformPercent: platform });
+  const calc = (amount: number, m: FeeMode) => splitGift({ amount, mode: m, feePercent: paystack, platformPercent: platform, platformCap: cap });
   return (
     <div className="space-y-3">
       <p className="text-sm text-ink-muted">
         {info?.planName ? <>Your plan is <b className="text-ink">{info.planName}</b>. </> : null}
         Paystack charges <b className="text-ink">{paystack}%</b>
-        {platform > 0 ? <> and WorshipHQ charges <b className="text-ink">{platform}%</b>{info?.customPercent ? " (a fee set for your church)" : ""}, about <b className="text-ink">{(paystack + platform).toFixed(2)}%</b> of each gift together</> : <>, and WorshipHQ adds no fee of its own</>}.
+        {platform > 0 ? <> and WorshipHQ charges <b className="text-ink">{platform}%</b>{info?.customPercent ? " (a fee set for your church)" : ""}{cap > 0 ? <>, never more than <b className="text-ink">{cedis(cap)}</b> on one gift</> : null}, about <b className="text-ink">{(paystack + platform).toFixed(2)}%</b> of each gift together</> : <>, and WorshipHQ adds no fee of its own</>}.
         Here is what that means for a gift:
       </p>
       <div className="overflow-hidden rounded-xl border border-line bg-surface text-sm">
@@ -303,6 +304,10 @@ export function OnlinePaymentsTab({ canManage }: { canManage: boolean }) {
           </p>
           <Details type={status.settlementType} bank={status.bankName} number={status.accountNumber} name={status.accountName} />
           {status.adminNotes && <p className="mt-3 text-sm text-ink-muted">{status.adminNotes}</p>}
+          <details className="mt-4 rounded-xl border border-line bg-surface p-4">
+            <summary className="cursor-pointer text-sm font-semibold text-ink">See the fees and how online giving works again</summary>
+            <div className="mt-3"><FeeExplainer info={feeInfo} mode={feeMode} /></div>
+          </details>
           {canManage && (
             <Button className="mt-4" variant="secondary" size="sm" disabled={busy === "cancel"}
               onClick={() => { if (confirm("Withdraw this request? You can submit a new one right after.")) act("cancel", cancelPaymentRequest); }}>

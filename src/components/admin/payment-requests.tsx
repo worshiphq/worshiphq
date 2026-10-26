@@ -8,7 +8,7 @@ import {
 import {
   updatePaymentRequest, approveGivingSetup, setGivingFeeSettings,
   approveAccountChange, rejectAccountChange, revokeGivingAccess, restoreGivingAccess,
-  deletePaymentAccount, restorePaymentAccount, purgePaymentAccount, adminEditPaymentAccount, adminGivingBanks, adminVerifyAccount, adminSetChurchGiving, setPlanGivingPercents,
+  deletePaymentAccount, restorePaymentAccount, purgePaymentAccount, adminEditPaymentAccount, adminGivingBanks, adminVerifyAccount, adminSetChurchGiving, setPlanGivingFees,
 } from "@/app/actions/admin";
 import { AdminCard } from "./admin-shell";
 
@@ -16,8 +16,9 @@ type Fees = { platformPercent: number; donorBearsFee: boolean; paystackFeePercen
 
 const PLAN_ORDER = ["free", "starter", "pro", "max"];
 
-function FeeSettings({ fees, planPercents, planNames }: { fees: Fees; planPercents: Record<string, number>; planNames: Record<string, string> }) {
+function FeeSettings({ fees, planPercents, planCaps, planNames }: { fees: Fees; planPercents: Record<string, number>; planCaps: Record<string, number>; planNames: Record<string, string> }) {
   const [percents, setPercents] = useState<Record<string, string>>(Object.fromEntries(PLAN_ORDER.map((id) => [id, String(planPercents[id] ?? 0)])));
+  const [caps, setCaps] = useState<Record<string, string>>(Object.fromEntries(PLAN_ORDER.map((id) => [id, String(planCaps[id] ?? 0)])));
   const [donorBearsFee, setDonorBearsFee] = useState(fees.donorBearsFee);
   const [paystackFeePercent, setPaystackFeePercent] = useState(String(fees.paystackFeePercent));
   const [saving, setSaving] = useState(false);
@@ -25,7 +26,7 @@ function FeeSettings({ fees, planPercents, planNames }: { fees: Fees; planPercen
 
   async function save() {
     setSaving(true); setSaved(false);
-    await setPlanGivingPercents(Object.fromEntries(PLAN_ORDER.map((id) => [id, Number(percents[id]) || 0])));
+    await setPlanGivingFees(Object.fromEntries(PLAN_ORDER.map((id) => [id, { percent: Number(percents[id]) || 0, cap: Number(caps[id]) || 0 }])));
     await setGivingFeeSettings({ platformPercent: fees.platformPercent, donorBearsFee, paystackFeePercent: Number(paystackFeePercent) || 0 });
     setSaving(false); setSaved(true);
     setTimeout(() => setSaved(false), 2500);
@@ -38,13 +39,18 @@ function FeeSettings({ fees, planPercents, planNames }: { fees: Fees; planPercen
       <p className="mt-0.5 text-xs text-slate-400">
         WorshipHQ&apos;s fee depends on the church&apos;s plan, and is taken from each online gift on top of Paystack&apos;s fee. A church chooses who pays the fee when it applies. You can also set a different fee, or who pays, for one church in its own card below.
       </p>
-      <div className="mt-4 text-xs font-medium text-slate-300">WorshipHQ fee by plan (% of each gift)</div>
+      <div className="mt-4 text-xs font-medium text-slate-300">WorshipHQ fee by plan</div>
       <div className="mt-2 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {PLAN_ORDER.map((id) => (
-          <label key={id} className="text-xs text-slate-400">
-            {planNames[id] ?? id}
-            <input value={percents[id]} onChange={(e) => setPercents((p) => ({ ...p, [id]: e.target.value.replace(/[^0-9.]/g, "") }))} inputMode="decimal" className={field} />
-          </label>
+          <div key={id} className="rounded-lg border border-slate-700/60 p-3">
+            <div className="text-xs font-semibold text-slate-200">{planNames[id] ?? id}</div>
+            <label className="mt-2 block text-[11px] text-slate-400">% of each gift
+              <input value={percents[id]} onChange={(e) => setPercents((p) => ({ ...p, [id]: e.target.value.replace(/[^0-9.]/g, "") }))} inputMode="decimal" className={field} />
+            </label>
+            <label className="mt-2 block text-[11px] text-slate-400">Most from one gift (GH₵, 0 = no cap)
+              <input value={caps[id]} onChange={(e) => setCaps((p) => ({ ...p, [id]: e.target.value.replace(/[^0-9.]/g, "") }))} inputMode="decimal" className={field} />
+            </label>
+          </div>
         ))}
       </div>
       <div className="mt-4 grid gap-4 sm:grid-cols-2">
@@ -341,7 +347,7 @@ const MEETING_TYPES = [
   { value: "in_person", label: "In Person", icon: MapPin },
 ];
 
-export function PaymentRequestsManager({ requests, fees, planPercents, planNames }: { requests: any[]; fees: Fees; planPercents: Record<string, number>; planNames: Record<string, string> }) {
+export function PaymentRequestsManager({ requests, fees, planPercents, planCaps, planNames }: { requests: any[]; fees: Fees; planPercents: Record<string, number>; planCaps: Record<string, number>; planNames: Record<string, string> }) {
   const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const pending = requests.filter((r) => r.status === "pending");
@@ -351,7 +357,7 @@ export function PaymentRequestsManager({ requests, fees, planPercents, planNames
 
   return (
     <div className="space-y-8">
-      <FeeSettings fees={fees} planPercents={planPercents} planNames={planNames} />
+      <FeeSettings fees={fees} planPercents={planPercents} planCaps={planCaps} planNames={planNames} />
 
       {/* Stats */}
       <div className="grid grid-cols-4 gap-3">

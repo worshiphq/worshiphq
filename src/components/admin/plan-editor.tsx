@@ -319,6 +319,12 @@ export function PlanEditor({
                 onChange={(e) => patch(p.id, { givingPercent: Math.max(0, Number(e.target.value) || 0) })}
                 className={cell} placeholder="1.5"
               />
+              <FieldLabel className="mt-3">Most WorshipHQ takes from one gift (GH₵, 0 = no cap)</FieldLabel>
+              <input
+                type="number" min={0} step="1" value={p.givingCap ?? 0}
+                onChange={(e) => patch(p.id, { givingCap: Math.max(0, Number(e.target.value) || 0) })}
+                className={cell} placeholder="0"
+              />
               <p className="mt-1 text-[11px] text-slate-500">On top of Paystack&apos;s fee. Churches see this before they apply. You can still set a different percent for one church.</p>
 
               <FieldLabel className="mt-3">Members label (on the card)</FieldLabel>

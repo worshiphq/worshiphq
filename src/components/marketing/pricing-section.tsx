@@ -9,15 +9,20 @@ import { plans as defaultPlans, comparison, YEARLY_DISCOUNT_LABEL } from "@/conf
 import { formatCurrency as defaultFmt } from "@/config/brand";
 import { cn } from "@/lib/utils";
 import type { PlanPrices } from "@/lib/data/platform-config";
+import { splitGift } from "@/lib/giving/fees";
 
 export function PricingSection({ showComparison = true, platformPricing }: {
   showComparison?: boolean;
   platformPricing?: {
     currency: string; currencySymbol: string; prices: PlanPrices; usdToGhsRate?: number;
+    /** Paystack's own fee on a gift, in percent. */
+    paystackFeePercent?: number;
     /** Full plan definitions from the SuperAdmin plan editor. */
     planList?: Array<{
       id: string; name: string; tagline: string; monthly: number; yearly: number;
       membersLabel: string; featured: boolean; cta: string; marketingFeatures: string[];
+      /** WorshipHQ's online giving fee on this plan: a percent of each gift, and an optional cap per gift (0 = none). */
+      givingPercent?: number; givingCap?: number;
     }>;
   };
 }) {
@@ -167,6 +172,8 @@ export function PricingSection({ showComparison = true, platformPricing }: {
           })}
         </div>
 
+        {platformPricing?.planList?.length ? <GivingFees planList={platformPricing.planList} paystackPercent={platformPricing.paystackFeePercent ?? 1.95} /> : null}
+
         {showComparison && (
           <Reveal className="mt-24">
             <div className="mb-8 text-center">
@@ -196,6 +203,58 @@ export function PricingSection({ showComparison = true, platformPricing }: {
         )}
       </div>
     </section>
+  );
+}
+
+/** What online giving costs on each plan, in plain numbers, so a church knows before it signs up. */
+function GivingFees({ planList, paystackPercent }: { planList: NonNullable<NonNullable<Parameters<typeof PricingSection>[0]["platformPricing"]>["planList"]>; paystackPercent: number }) {
+  const cedis = (n: number) => `GH₵${n.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+  const fee = (plan: (typeof planList)[number], amount: number) =>
+    splitGift({ amount, mode: "giver", feePercent: paystackPercent, platformPercent: plan.givingPercent ?? 0, platformCap: plan.givingCap ?? 0 });
+  return (
+    <Reveal className="mt-20">
+      <div className="mb-6 text-center">
+        <p className="rubric">Online giving</p>
+        <h3 className="press-display mt-3 text-3xl">What online giving costs</h3>
+        <p className="mx-auto mt-3 max-w-2xl text-sm text-ink-muted">
+          Members give by Mobile Money or card, and every gift is paid into your church&apos;s own account. Paystack charges {paystackPercent}% on each gift. WorshipHQ adds a small fee that gets smaller on higher plans.
+          You choose who pays the fee: your givers (the church receives the full gift) or your church.
+        </p>
+      </div>
+      <div className="overflow-x-auto border border-ink/12">
+        <table className="w-full min-w-[560px] text-sm">
+          <thead>
+            <tr className="border-b-2 border-evergreen bg-parchment text-left">
+              <th className="p-4 font-display text-sm font-bold text-evergreen-deep">Plan</th>
+              <th className="p-4 font-display text-sm font-bold text-evergreen-deep">WorshipHQ fee</th>
+              <th className="p-4 font-display text-sm font-bold text-evergreen-deep">On a GH₵500 gift</th>
+              <th className="p-4 font-display text-sm font-bold text-evergreen-deep">On a GH₵3,000 gift</th>
+            </tr>
+          </thead>
+          <tbody>
+            {planList.map((p) => {
+              const a = fee(p, 500);
+              const b = fee(p, 3000);
+              return (
+                <tr key={p.id} className="border-b border-ink/6 last:border-0">
+                  <td className="p-4 font-medium text-evergreen-deep">{p.name}</td>
+                  <td className="p-4 text-ink-muted">
+                    {(p.givingPercent ?? 0) > 0 ? `${p.givingPercent}%` : "None"}
+                    {(p.givingCap ?? 0) > 0 ? `, at most ${cedis(p.givingCap ?? 0)} a gift` : ""}
+                  </td>
+                  <td className="p-4 text-ink-muted">{cedis(a.addedToGiver)} in fees <span className="text-ink-faint">(Paystack {cedis(a.paystackFee)}{a.platformCut > 0 ? ` + WorshipHQ ${cedis(a.platformCut)}` : ""})</span></td>
+                  <td className="p-4 text-ink-muted">{cedis(b.addedToGiver)} in fees <span className="text-ink-faint">(Paystack {cedis(b.paystackFee)}{b.platformCut > 0 ? ` + WorshipHQ ${cedis(b.platformCut)}` : ""})</span></td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-center text-xs text-ink-faint">
+        Shown for the case where givers pay the fee, so the church receives the full gift. If your church pays it instead, the same fee comes out of each gift. Fees are taken automatically before the payout, which normally arrives the next working day.
+        Estimates: Paystack&apos;s own fee can differ by a pesewa.
+      </p>
+    </Reveal>
   );
 }
 

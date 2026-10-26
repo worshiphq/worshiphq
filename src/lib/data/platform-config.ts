@@ -27,6 +27,8 @@ export interface EditablePlan {
   teamUsers: number;
   /** WorshipHQ's platform fee on this plan's online giving, in percent of each gift. A church can have its own. */
   givingPercent: number;
+  /** The most WorshipHQ takes from one gift on this plan, in cedis. 0 = no cap. */
+  givingCap: number;
   featured: boolean;
   cta: string;
   /** Bullet list shown on marketing / sign-up cards. */
@@ -62,6 +64,7 @@ function codeDefaults(): Record<PlanId, EditablePlan> {
       memberLimit: toStored(limits.members),
       teamUsers: toStored(limits.teamUsers),
       givingPercent: DEFAULT_GIVING_PERCENT[id],
+      givingCap: 0,
       featured: Boolean(p?.featured),
       cta: p?.cta ?? "Choose plan",
       marketingFeatures: [...(p?.features ?? [])],
@@ -91,6 +94,7 @@ function resolvePlans(
         ...(typeof s.memberLimit === "number" ? { memberLimit: s.memberLimit } : {}),
         ...(typeof s.teamUsers === "number" ? { teamUsers: s.teamUsers } : {}),
         ...(typeof s.givingPercent === "number" && s.givingPercent >= 0 ? { givingPercent: Math.min(s.givingPercent, 100) } : {}),
+        ...(typeof s.givingCap === "number" && s.givingCap >= 0 ? { givingCap: s.givingCap } : {}),
         ...(typeof s.featured === "boolean" ? { featured: s.featured } : {}),
         ...(typeof s.cta === "string" ? { cta: s.cta } : {}),
         ...(Array.isArray(s.marketingFeatures) ? { marketingFeatures: s.marketingFeatures.filter((f) => typeof f === "string") } : {}),
@@ -152,6 +156,8 @@ export const getPlatformConfig = cache(async () => {
     planDefs,
     /** Ordered list, handy for rendering pricing tables. */
     planList: PLAN_IDS.map((id) => planDefs[id]),
+    /** Paystack's own fee on a gift, in percent. */
+    paystackFeePercent: config.paystackFeePercent ?? 1.95,
     /** Feature-gating table resolved from the database. */
     planTable,
   };

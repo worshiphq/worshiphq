@@ -20,6 +20,7 @@ export default async function AdminPaymentsPage() {
 
   const platform = await getPlatformConfig();
   const planPercents = Object.fromEntries(platform.planList.map((p) => [p.id, p.givingPercent])) as Record<string, number>;
+  const planCaps = Object.fromEntries(platform.planList.map((p) => [p.id, p.givingCap])) as Record<string, number>;
   const planNames = Object.fromEntries(platform.planList.map((p) => [p.id, p.name])) as Record<string, string>;
 
   // How each church's giving fees work right now (its own choice, or the platform default).
@@ -37,6 +38,7 @@ export default async function AdminPaymentsPage() {
       <PaymentRequestsManager
         requests={withGiving}
         planPercents={planPercents}
+        planCaps={planCaps}
         planNames={planNames}
         fees={{
           platformPercent: cfg?.givingPlatformPercent ?? 0,

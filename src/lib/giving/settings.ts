@@ -13,6 +13,8 @@ export interface GivingSettings {
   custom: boolean;
   /** True when WorshipHQ set a platform percent for this church specifically. */
   customPercent: boolean;
+  /** The most WorshipHQ takes from one gift on the church's plan, in cedis. 0 = no cap. */
+  platformCap: number;
   /** The church's plan and its name, because the platform percent follows the plan unless set for this church. */
   plan: string;
   planName: string;
@@ -38,6 +40,7 @@ export async function getGivingSettings(churchId: string): Promise<GivingSetting
     platformPercent: typeof own?.platformPercent === "number" ? own.platformPercent : planPercent,
     custom: isFeeMode(own?.feeMode),
     customPercent: typeof own?.platformPercent === "number",
+    platformCap: typeof def?.givingCap === "number" ? def.givingCap : 0,
     plan,
     planName: def?.name ?? plan,
   };

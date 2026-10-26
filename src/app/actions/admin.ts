@@ -263,6 +263,7 @@ export async function updatePlanDefinitions(input: {
     memberLimit: number;
     teamUsers: number;
     givingPercent?: number;
+    givingCap?: number;
     featured: boolean;
     cta: string;
     marketingFeatures: string[];
@@ -288,6 +289,7 @@ export async function updatePlanDefinitions(input: {
       memberLimit: Number.isFinite(Number(p.memberLimit)) ? Number(p.memberLimit) : -1,
       teamUsers: Number.isFinite(Number(p.teamUsers)) ? Number(p.teamUsers) : -1,
       givingPercent: Math.max(0, Math.min(Number(p.givingPercent) || 0, 100)),
+      givingCap: Math.max(0, Number(p.givingCap) || 0),
       featured: Boolean(p.featured),
       cta: String(p.cta || "Choose plan").slice(0, 40),
       marketingFeatures: (p.marketingFeatures ?? [])
@@ -490,15 +492,19 @@ export async function approveGivingSetup(id: string): Promise<{ ok: boolean; cod
   return { ok: true, code: res.subaccountCode };
 }
 
-/** SuperAdmin: WorshipHQ's online giving fee for each plan, in percent of a gift. The same value the plan editor shows. */
-export async function setPlanGivingPercents(input: Record<string, number>): Promise<{ ok: boolean; error?: string }> {
+/** SuperAdmin: WorshipHQ's online giving fee for each plan: a percent of each gift, and an optional cap per gift (0 = no cap). */
+export async function setPlanGivingFees(input: Record<string, { percent: number; cap: number }>): Promise<{ ok: boolean; error?: string }> {
   await requireSuperAdmin();
   const row = await db.platformConfig.findUnique({ where: { id: "default" }, select: { planDefs: true } });
   const defs = { ...((row?.planDefs && typeof row.planDefs === "object" ? row.planDefs : {}) as Record<string, Record<string, unknown>>) };
   for (const id of ["free", "starter", "pro", "max"]) {
-    if (input[id] === undefined) continue;
-    const pct = Math.max(0, Math.min(Number(input[id]) || 0, 100));
-    defs[id] = { ...(defs[id] ?? {}), givingPercent: pct };
+    const v = input[id];
+    if (!v) continue;
+    defs[id] = {
+      ...(defs[id] ?? {}),
+      givingPercent: Math.max(0, Math.min(Number(v.percent) || 0, 100)),
+      givingCap: Math.max(0, Number(v.cap) || 0),
+    };
   }
   await db.platformConfig.upsert({
     where: { id: "default" },

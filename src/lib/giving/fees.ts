@@ -30,10 +30,11 @@ export interface GiftSplit {
 
 const cedis = (pesewas: number) => Math.round(pesewas) / 100;
 
-export function splitGift(opts: { amount: number; mode: FeeMode; feePercent: number; platformPercent: number }): GiftSplit {
+export function splitGift(opts: { amount: number; mode: FeeMode; feePercent: number; platformPercent: number; /** The most WorshipHQ takes from one gift, in cedis. 0 or empty = no cap. */ platformCap?: number }): GiftSplit {
   const rate = Math.max(0, Math.min(opts.feePercent, 20)) / 100;
   const net = Math.max(0, Math.round(opts.amount * 100));
-  const cut = Math.ceil((net * Math.max(0, Math.min(opts.platformPercent, 100))) / 100);
+  let cut = Math.ceil((net * Math.max(0, Math.min(opts.platformPercent, 100))) / 100);
+  if (opts.platformCap && opts.platformCap > 0) cut = Math.min(cut, Math.round(opts.platformCap * 100));
 
   if (opts.mode === "giver") {
     // The extra the giver pays must cover Paystack's fee on the whole charge, plus the platform cut.

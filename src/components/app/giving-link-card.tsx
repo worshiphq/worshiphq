@@ -24,6 +24,10 @@ export function GivingLinkCard({ slug }: { slug: string }) {
           <p className="mt-0.5 text-xs text-ink-faint">
             Share this link so members can give tithes &amp; offerings by Mobile Money or card.
           </p>
+          <p className="mt-1 text-xs text-ink-faint">
+            Online giving has small fees and needs a payout account first.{" "}
+            <a href="/app/settings?tab=online-payments" className="font-medium text-primary hover:underline">See the fees and set up payouts</a>
+          </p>
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <Input value={url} readOnly className="min-w-0 flex-1 font-mono text-xs" />
             <Button

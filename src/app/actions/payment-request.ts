@@ -118,7 +118,7 @@ export async function getGivingFeeInfo() {
     getGivingSettings(session.churchId),
     db.platformConfig.findUnique({ where: { id: "default" }, select: { paystackFeePercent: true } }),
   ]);
-  return { mode: fee.mode, platformPercent: fee.platformPercent, paystackPercent: cfg?.paystackFeePercent ?? 1.95, planName: fee.planName, customPercent: fee.customPercent };
+  return { mode: fee.mode, platformPercent: fee.platformPercent, paystackPercent: cfg?.paystackFeePercent ?? 1.95, planName: fee.planName, customPercent: fee.customPercent, platformCap: fee.platformCap };
 }
 
 /** The church chooses who pays the payment fee on its online gifts. Applies to gifts from now on. */

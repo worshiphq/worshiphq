@@ -20,7 +20,7 @@ export function GiveForm({
   fee,
 }: {
   /** How the fee works for this church, so the giver sees the exact total before paying. */
-  fee: { mode: FeeMode; feePercent: number; platformPercent: number };
+  fee: { mode: FeeMode; feePercent: number; platformPercent: number; platformCap: number };
   churchSlug: string;
   churchName: string;
   accentColor: string;
@@ -32,7 +32,7 @@ export function GiveForm({
   const [error, setError] = useState<string | null>(null);
   const { start } = usePaystack();
   const typed = Number(amount);
-  const split = typed > 0 ? splitGift({ amount: typed, mode: fee.mode, feePercent: fee.feePercent, platformPercent: fee.platformPercent }) : null;
+  const split = typed > 0 ? splitGift({ amount: typed, mode: fee.mode, feePercent: fee.feePercent, platformPercent: fee.platformPercent, platformCap: fee.platformCap }) : null;
   const money = (n: number) => `₵${n.toFixed(2)}`;
 
   const fundOptions = useMemo(() => {
