@@ -4,6 +4,20 @@ export const PLAN_IDS: PlanId[] = ["free", "starter", "pro", "max"];
 
 const PLAN_RANK: Record<PlanId, number> = { free: 0, starter: 1, pro: 2, max: 3 };
 
+/** A new church on the Free plan can use Communications (SMS) for its first month, with this many free credits. */
+export const COMMS_TRIAL_DAYS = 30;
+export const COMMS_TRIAL_CREDITS = 60;
+/** Churches that signed up before this day get their free month from this day, so nobody misses out. */
+export const COMMS_TRIAL_LAUNCH = new Date("2026-10-26T00:00:00Z");
+
+/** Is this church still inside its free month of Communications? Only the Free plan has a trial: paid plans include it already. */
+export function commsTrial(createdAt: Date | string, now: Date = new Date()): { active: boolean; endsAt: Date; daysLeft: number } {
+  const start = Math.max(new Date(createdAt).getTime(), COMMS_TRIAL_LAUNCH.getTime());
+  const endsAt = new Date(start + COMMS_TRIAL_DAYS * 86_400_000);
+  const msLeft = endsAt.getTime() - now.getTime();
+  return { active: msLeft > 0, endsAt, daysLeft: Math.max(0, Math.ceil(msLeft / 86_400_000)) };
+}
+
 export interface PlanLimits {
   members: number;
   teamUsers: number;

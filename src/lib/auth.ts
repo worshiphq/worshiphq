@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { type Session, can, ROLE_PERMISSIONS, ALL_MODULES, modulesForRole, hasSection, canManage } from "@/lib/permissions";
 import { authSecret, safeEqual, signToken, readToken } from "@/lib/auth/tokens";
-import { featureForSection, planHasFeature, ALL_FEATURES, CORE_FEATURES, FEATURE_LABELS, getMinimumPlan, type PlanId } from "@/lib/plan-gate";
+import { commsTrial, featureForSection, planHasFeature, ALL_FEATURES, CORE_FEATURES, FEATURE_LABELS, getMinimumPlan, type PlanId } from "@/lib/plan-gate";
 
 export type { Session };
 export { can, ROLE_PERMISSIONS };
@@ -223,8 +223,10 @@ export async function requireSuperAdmin(): Promise<{ email: string; ghost?: stri
 async function lockedFeatures(churchId: string): Promise<string[]> {
   const { getChurchPlan } = await import("@/lib/plan-gate-server");
   const { getPlatformConfig } = await import("@/lib/data/platform-config");
-  const [plan, cfg] = await Promise.all([getChurchPlan(churchId), getPlatformConfig()]);
-  return ALL_FEATURES.filter((f) => !CORE_FEATURES.includes(f) && !planHasFeature(plan as PlanId, f, cfg.planTable));
+  const [plan, cfg, church] = await Promise.all([getChurchPlan(churchId), getPlatformConfig(), db.church.findUnique({ where: { id: churchId }, select: { createdAt: true } })]);
+  // A new Free church can use Communications (SMS) during its first month.
+  const trialSms = plan === "free" && !!church && commsTrial(church.createdAt).active;
+  return ALL_FEATURES.filter((f) => !CORE_FEATURES.includes(f) && !(trialSms && f === "sms") && !planHasFeature(plan as PlanId, f, cfg.planTable));
 }
 
 /** Current session (null when signed out). Reads a signed cookie and loads the DB user. */

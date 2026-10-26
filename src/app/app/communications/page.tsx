@@ -13,6 +13,8 @@ import { db } from "@/lib/db";
 import { getCommunications } from "@/lib/data/modules";
 import { getPeopleStats } from "@/lib/data/people";
 import { getSmsBalance } from "@/lib/sms/credits";
+import { getChurchPlan } from "@/lib/plan-gate-server";
+import { commsTrial } from "@/lib/plan-gate";
 import { formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Communications" };
@@ -24,13 +26,16 @@ export default async function CommunicationsPage({
 }) {
   const session = await requireModule("communications");
   const { error } = await searchParams;
-  const [{ campaigns, stats }, people, smsBalance, departments, groups] = await Promise.all([
+  const [{ campaigns, stats }, people, smsBalance, departments, groups, plan, churchRow] = await Promise.all([
     getCommunications(session.churchId),
     getPeopleStats(session.churchId),
     getSmsBalance(session.churchId),
     db.department.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     db.group.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    getChurchPlan(session.churchId),
+    db.church.findUnique({ where: { id: session.churchId }, select: { createdAt: true } }),
   ]);
+  const trial = plan === "free" && churchRow && !session.impersonating ? commsTrial(churchRow.createdAt) : null;
 
   return (
     <div>
@@ -42,6 +47,15 @@ export default async function CommunicationsPage({
           <Button variant="secondary" size="sm"><Wallet className="size-4" /> {smsBalance.toLocaleString()} credits · Buy</Button>
         </Link>
       </PageHeader>
+
+      {trial?.active && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-brand/30 bg-brand/10 px-4 py-3 text-sm text-ink">
+          <MessageSquare className="size-4 shrink-0 text-brand" />
+          <span>
+            <b>Free month of Communications:</b> {trial.daysLeft} {trial.daysLeft === 1 ? "day" : "days"} left, with your {smsBalance.toLocaleString()} free credits. Your credits never expire. After the free month, upgrade to Starter to keep sending.
+          </span>
+        </div>
+      )}
 
       {error === "credits" && (
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">

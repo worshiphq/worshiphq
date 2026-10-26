@@ -11,6 +11,7 @@ import { binCutoff } from "@/lib/recycle-bin";
 import { getActiveAnnouncements } from "@/lib/data/announcements";
 import { getRecentNotifications } from "@/lib/data/notifications";
 import { getChurchPlan } from "@/lib/plan-gate-server";
+import { commsTrial } from "@/lib/plan-gate";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -29,13 +30,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     getActiveAnnouncements(),
     db.church.findUnique({
       where: { id: session.churchId },
-      select: { suspended: true, logoUrl: true, accentColor: true, hideAmounts: true },
+      select: { suspended: true, logoUrl: true, accentColor: true, hideAmounts: true, createdAt: true },
     }),
     getRecentNotifications(session.churchId),
     getChurchPlan(session.churchId),
     getPlatformConfig(),
     session.canDelete ? countRecycleBin(session.churchId) : Promise.resolve(0),
   ]);
+
+  // During its free month of Communications, a Free church's sidebar shows SMS as open.
+  const trialOn = plan === "free" && !!church && commsTrial(church.createdAt).active;
+  const planTable = trialOn
+    ? { ...platformConfig.planTable, free: { ...platformConfig.planTable.free, features: [...platformConfig.planTable.free.features, "sms"] } }
+    : platformConfig.planTable;
 
   // Suspended churches are locked out - but SuperAdmin support can still enter.
   if (church?.suspended && !session.impersonating) {
@@ -58,7 +65,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       churchLogo={church?.logoUrl ?? null}
       accentColor={church?.accentColor ?? null}
       plan={plan}
-      planTable={platformConfig.planTable}
+      planTable={planTable}
     >
       <RecycleBinProvider canManage={session.canDelete} initialCount={binCount}>
         <TourProvider>

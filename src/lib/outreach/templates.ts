@@ -75,6 +75,25 @@ Blessings,
 The WorshipHQ team`,
   },
   {
+    id: "sms-trial", channel: "email", label: "Try bulk SMS free for a month", hint: "Tells free churches they can test Communications for 30 days",
+    subject: "{{church}} can now try bulk SMS free for a month",
+    body: `Hello {{name}},
+
+Good news for {{church}}. Bulk SMS is normally part of our paid plans, but for the next month you can try it free on your account, with free credits to send your first messages.
+
+To try it, sign in and open Communications. You can text your whole church, a department, a group, or just one person, for example a Sunday reminder, a prayer meeting, or a thank you to your visitors.
+
+A few things to know:
+- The free month runs for 30 days, and your credits never expire.
+- Texts currently reach Ghana phone numbers.
+- After the month, Communications is part of the Starter plan. You can compare the plans here: https://worshiphq.app/pricing
+
+If you would like a quick walkthrough, reply to this email or write to {{contact}} and we will gladly help.
+
+Blessings,
+The WorshipHQ team`,
+  },
+  {
     id: "custom-email", channel: "email", label: "Write my own", hint: "Start from a blank message",
     subject: "A message from WorshipHQ", body: `Hello {{name}},\n\n\n\nBlessings,\nThe WorshipHQ team`,
   },
@@ -87,6 +106,11 @@ The WorshipHQ team`,
     id: "check-in-sms", channel: "sms", label: "Check-in text", hint: "A quick personal check-in",
     subject: "",
     body: "WorshipHQ: Hello {{name}}, how is {{church}} getting on with WorshipHQ? If you need any help, write to {{contact}} and we will gladly assist.",
+  },
+  {
+    id: "sms-trial-sms", channel: "sms", label: "Try bulk SMS free for a month", hint: "Tells free churches they can test Communications for 30 days",
+    subject: "",
+    body: "WorshipHQ: Hello {{name}}, {{church}} can now try bulk SMS free for 1 month, with free credits. Sign in and open Communications to send. Questions? {{contact}}.",
   },
   {
     id: "custom-sms", channel: "sms", label: "Write my own", hint: "Start from a blank text",

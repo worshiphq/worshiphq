@@ -73,7 +73,7 @@ model Church {
   // to - set once by SuperAdmin in the Payment Requests panel. Subscription/SMS
   // credit charges (WorshipHQ's own revenue) never use this; only public giving does.
   paystackSubaccountCode String?
-  smsCredits       Int     @default(50) // prepaid SMS units (50 free on signup)
+  smsCredits       Int     @default(60) // prepaid SMS units (60 free on signup, for the free month of Communications)
   smsWelcomeMember Boolean @default(true) // SMS a welcome to members who self-register
   smsWelcomeVisitor Boolean @default(true) // SMS a welcome to visitors who self-register via the visit link
   smsTier          String? // per-church SMS price tier override (null = use site default)
