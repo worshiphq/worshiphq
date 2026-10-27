@@ -24,12 +24,23 @@ function FeeSettings({ fees, planPercents, planCaps, planNames }: { fees: Fees; 
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
 
+  const [saveError, setSaveError] = useState<string | null>(null);
   async function save() {
-    setSaving(true); setSaved(false);
-    await setPlanGivingFees(Object.fromEntries(PLAN_ORDER.map((id) => [id, { percent: Number(percents[id]) || 0, cap: Number(caps[id]) || 0 }])));
-    await setGivingFeeSettings({ platformPercent: fees.platformPercent, donorBearsFee, paystackFeePercent: Number(paystackFeePercent) || 0 });
-    setSaving(false); setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    setSaving(true); setSaved(false); setSaveError(null);
+    try {
+      // Give up after 20 seconds with a clear message, instead of spinning for ever.
+      const work = (async () => {
+        await setPlanGivingFees(Object.fromEntries(PLAN_ORDER.map((id) => [id, { percent: Number(percents[id]) || 0, cap: Number(caps[id]) || 0 }])));
+        await setGivingFeeSettings({ platformPercent: fees.platformPercent, donorBearsFee, paystackFeePercent: Number(paystackFeePercent) || 0 });
+      })();
+      await Promise.race([work, new Promise((_, rej) => setTimeout(() => rej(new Error("The save is taking too long. The database may be busy, so try again in a minute.")), 20000))]);
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch (e) {
+      setSaveError((e as Error).message || "Could not save.");
+    } finally {
+      setSaving(false);
+    }
   }
 
   const field = "mt-1 block h-9 w-full rounded-lg border border-slate-700 bg-slate-800 px-3 text-sm text-slate-100";
@@ -73,6 +84,7 @@ function FeeSettings({ fees, planPercents, planCaps, planNames }: { fees: Fees; 
           {saving ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : "Save fee settings"}
         </button>
         {saved && <span className="text-xs text-emerald-400">✓ Saved. It applies to gifts from now on.</span>}
+        {saveError && <span className="text-xs text-red-400">{saveError}</span>}
       </div>
     </AdminCard>
   );

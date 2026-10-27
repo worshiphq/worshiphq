@@ -39,15 +39,26 @@ export async function fetchUsdToGhs(): Promise<number | null> {
   }
 }
 
+/**
+ * Mirror the rate into the database as ONE statement that never waits: if the settings row is locked, or the stored
+ * rate is already within a cent, it simply does nothing. (The old write ran inside a transaction, and when a serverless
+ * function was frozen halfway through it, the open transaction locked the row for everyone.)
+ */
+async function persistRate(rate: number): Promise<void> {
+  await db
+    .$executeRaw`WITH r AS (SELECT id FROM "PlatformConfig" WHERE id = 'default' FOR UPDATE SKIP LOCKED)
+      UPDATE "PlatformConfig" p SET "usdToGhsRate" = ${rate}, "updatedAt" = now()
+      FROM r WHERE p.id = r.id AND ABS(p."usdToGhsRate" - ${rate}) > 0.01`
+    .catch(() => {});
+}
+
 async function refresh() {
   try {
     const rate = await fetchUsdToGhs();
     if (rate && rate > 0) {
       cache = { rate, at: Date.now() };
       // Mirror into the DB so it's the persistent fallback for cold instances.
-      await db.platformConfig
-        .update({ where: { id: "default" }, data: { usdToGhsRate: rate } })
-        .catch(() => {});
+      await persistRate(rate);
     }
   } finally {
     inflight = null;
@@ -70,9 +81,7 @@ export async function refreshUsdToGhsRate(): Promise<number | null> {
   const rate = await fetchUsdToGhs();
   if (rate && rate > 0) {
     cache = { rate, at: Date.now() };
-    await db.platformConfig
-      .update({ where: { id: "default" }, data: { usdToGhsRate: rate } })
-      .catch(() => {});
+    await persistRate(rate);
     return rate;
   }
   return null;

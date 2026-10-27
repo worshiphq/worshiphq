@@ -124,11 +124,14 @@ function resolvePlans(
 }
 
 export const getPlatformConfig = cache(async () => {
-  const config = await db.platformConfig.upsert({
-    where: { id: "default" },
-    update: {},
-    create: { id: "default", currency: "USD", currencySymbol: "$", planPrices: DEFAULT_PRICES },
-  });
+  // A plain read, so it never waits on a lock. The row is only written the first time, if it does not exist yet.
+  const config =
+    (await db.platformConfig.findUnique({ where: { id: "default" } })) ??
+    (await db.platformConfig.upsert({
+      where: { id: "default" },
+      update: {},
+      create: { id: "default", currency: "USD", currencySymbol: "$", planPrices: DEFAULT_PRICES },
+    }));
 
   const prices = (config.planPrices as PlanPrices) ?? DEFAULT_PRICES;
   const planDefs = resolvePlans(config.planDefs, prices);
