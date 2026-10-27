@@ -271,7 +271,7 @@ export function BiometricRegisterButton({ personId, personName, isRegistered }: 
               <div className="mx-auto flex size-20 items-center justify-center rounded-full bg-warning/10"><Fingerprint className="size-10 text-warning" /></div>
               <h3 className="mt-4 font-display text-lg font-bold">One-time scanner setup</h3>
               <p className="mt-2 text-sm text-ink-muted">Download and double-click the installer, then plug in your USB reader.</p>
-              <a href="/scanner-agent/whq-scanner-setup.bat" download className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-medium text-white hover:bg-brand/90">
+              <a href="/scanner-agent/WorshipHQ-Scanner-Setup.exe" download className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-medium text-white hover:bg-brand/90">
                 <Download className="size-4" /> Download 1-click installer (Windows)
               </a>
               <p className="mt-3 text-[11px] text-ink-faint">Remove it later with the <a href="/scanner-agent/whq-scanner-uninstall.bat" download className="underline">uninstaller</a>.</p>

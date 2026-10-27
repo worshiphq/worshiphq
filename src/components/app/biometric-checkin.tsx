@@ -193,14 +193,14 @@ export function BiometricCheckInButton({
                   Download and double-click the installer. It sets everything up for you - Python, the driver, and auto-start - then the scanner just works.
                 </p>
                 <a
-                  href="/scanner-agent/whq-scanner-setup.bat"
+                  href="/scanner-agent/WorshipHQ-Scanner-Setup.exe"
                   download
                   className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand px-4 py-2.5 text-sm font-medium text-white hover:bg-brand/90 transition-colors"
                 >
                   <Download className="size-4" /> Download 1-click installer (Windows)
                 </a>
                 <ol className="mx-auto mt-4 max-w-xs space-y-1 text-left text-xs text-ink-muted">
-                  <li>1. Open the downloaded <code className="rounded bg-surface-2 px-1">whq-scanner-setup.bat</code></li>
+                  <li>1. Open the downloaded <code className="rounded bg-surface-2 px-1">WorshipHQ-Scanner-Setup.exe</code> (if Windows asks, choose More info, then Run anyway)</li>
                   <li>2. Wait for it to finish, then plug in your USB scanner</li>
                   <li>3. Come back here and press Retry</li>
                 </ol>
