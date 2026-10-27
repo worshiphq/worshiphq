@@ -126,13 +126,12 @@ export const attendance: DocArticle[] = [
       { list: [
         "A Windows laptop or desktop with internet.",
         "A compatible USB fingerprint scanner. We support ZKTeco readers such as the SLK20R.",
-        "The scanner maker's driver software, from the scanner's supplier or the maker's website.",
       ] },
+      { p: "Nothing else to download. The WorshipHQ installer brings the scanner's driver and everything else with it." },
       { steps: [
-        "Install the scanner's own driver software first, and restart the computer if it asks.",
         "Plug in the scanner.",
         "In WorshipHQ, open any member's profile and choose **Register fingerprint** (or **Fingerprint** on a service page). When it asks for the one-time setup, choose **Download 1-click installer (Windows)**.",
-        "Double-click the downloaded file. A window installs everything needed (including Python, a free helper program) and sets the scanner to start automatically. Wait for **All set**.",
+        "Double-click the downloaded file. A window installs everything needed (the scanner driver and a free helper program) and sets the scanner to start automatically. When Windows asks for permission to install the driver, choose **Yes**. Wait for **All set**.",
         "Choose **Done - back to WorshipHQ**. The scanner now works quietly in the background whenever the computer is on.",
       ] },
       { note: "Unplugging the scanner while it's scanning can make it stop responding. If that happens, unplug it, wait a few seconds and plug it back in." },
