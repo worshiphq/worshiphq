@@ -315,7 +315,7 @@ export function PlanEditor({
 
               <FieldLabel className="mt-3">Online giving fee (% WorshipHQ takes per gift)</FieldLabel>
               <input
-                type="number" min={0} max={100} step="0.1" value={p.givingPercent ?? 0}
+                type="number" min={0} max={100} step="0.01" value={p.givingPercent ?? 0}
                 onChange={(e) => patch(p.id, { givingPercent: Math.max(0, Number(e.target.value) || 0) })}
                 className={cell} placeholder="1.5"
               />
