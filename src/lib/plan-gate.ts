@@ -64,7 +64,7 @@ const FREE_FEATURES = [
 const STARTER_ADDS = [
   "sms", "reminders", "member-ids", "qr-codes",
   "form-builder", "import-export", "auto-receipts", "follow-ups",
-  "data-migration", "baptisms",
+  "data-migration", "baptisms", "poster-maker",
 ];
 
 /** Pro adds - run your ministries: teams, giving campaigns, content, welfare, facilities, the church's accounts,
@@ -80,7 +80,7 @@ const PRO_ADDS = [
  *  private counselling, budgets, funds and assets, the audit log, and branches. */
 const MAX_ADDS = [
   "biometric-devices", "counseling", "budgets", "fund-accounting", "assets", "audit-log",
-  "auto-inactive", "linked-churches", "advanced-reports", "api-access",
+  "auto-inactive", "linked-churches", "advanced-reports", "api-access", "white-label-posters",
 ];
 
 const STARTER_FEATURES = [...FREE_FEATURES, ...STARTER_ADDS];
@@ -120,6 +120,7 @@ export const FEATURE_LABELS: Record<string, string> = {
   calendar: "Calendar", departments: "Departments", leaders: "Leaders", notices: "Notices",
   sms: "SMS broadcasts", "form-builder": "Form builder", "import-export": "Import & export",
   "member-ids": "Member IDs", "qr-codes": "QR codes", "custom-roles": "Custom roles",
+  "poster-maker": "QR poster maker", "white-label-posters": "Posters without the WorshipHQ credit",
   harvest: "Harvest", pledges: "Pledges & campaigns", "recurring-giving": "Recurring giving",
   "auto-receipts": "Automatic receipts", reminders: "Reminders", "data-migration": "Data migration",
   "follow-ups": "Follow-ups", sermons: "Sermons", devotionals: "Devotionals",
@@ -139,7 +140,7 @@ export const FEATURE_LABELS: Record<string, string> = {
  * Features added after plans were first saved in the editor. A saved plan that has never seen one of these follows the
  * built-in tier for it, so a new feature never silently lands on no plan at all. Add a feature here when it is added to a tier.
  */
-export const FEATURES_ADDED_LATER = ["baptisms", "linked-churches", "biometric-devices"];
+export const FEATURES_ADDED_LATER = ["baptisms", "linked-churches", "biometric-devices", "poster-maker", "white-label-posters"];
 
 /** Permission section keys whose plan feature has a different name. */
 const SECTION_FEATURE_MAP: Record<string, string> = {

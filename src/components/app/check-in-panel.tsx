@@ -1,9 +1,10 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
-import { Search, UserPlus, X, Check, ScanLine, Loader2, Fingerprint } from "lucide-react";
+import { Search, UserPlus, X, Check, ScanLine, Loader2, Fingerprint, Printer, Lock } from "lucide-react";
 import { MemberAvatar } from "@/components/ui/member-avatar";
 import { QrCode } from "@/components/ui/qr-code";
+import { PosterMaker, PosterUpgrade, type PosterBrand } from "@/components/app/poster-maker";
 import { QrScanner } from "@/components/app/qr-scanner";
 import { BiometricCheckInSession } from "@/components/app/biometric-checkin-session";
 import { Button } from "@/components/ui/button";
@@ -63,6 +64,8 @@ export function CheckInPanel({
   checkInUrl,
   canWrite,
   groupings = [{ key: "departments", label: "Department" }],
+  brand,
+  standingCode = false,
 }: {
   sessionId: string;
   candidates: Candidate[];
@@ -71,7 +74,12 @@ export function CheckInPanel({
   canWrite: boolean;
   /** Ways the present list can be grouped besides age group: departments plus any member categories. */
   groupings?: { key: string; label: string }[];
+  /** For the poster maker: the church name, logo and colour. */
+  brand?: PosterBrand;
+  /** True when this code follows the service times, so a printed copy keeps working every week. */
+  standingCode?: boolean;
 }) {
+  const [posterOpen, setPosterOpen] = useState(false);
   const [q, setQ] = useState("");
   const [scanOpen, setScanOpen] = useState(false);
   const [bioOpen, setBioOpen] = useState(false);
@@ -349,7 +357,24 @@ export function CheckInPanel({
             <Check className="size-4" /> Copy
           </Button>
         </div>
+        {brand && (
+          <Button type="button" variant="secondary" size="sm" className="mt-3 w-full" onClick={() => setPosterOpen(true)}>
+            {brand.canMake ? <Printer className="size-4" /> : <Lock className="size-4" />} Make a printable poster
+          </Button>
+        )}
       </div>
+      {posterOpen && brand && !brand.canMake && <PosterUpgrade onClose={() => setPosterOpen(false)} />}
+      {posterOpen && brand && brand.canMake && (
+        <PosterMaker
+          url={checkInUrl}
+          kind="checkin"
+          brand={brand}
+          note={standingCode
+            ? "This code follows your service times, so one printed poster works every week."
+            : "This code belongs to this one service. For a poster you can print once and use every week, turn on service times in Settings and start check-in from there."}
+          onClose={() => setPosterOpen(false)}
+        />
+      )}
 
       {scanOpen && <QrScanner onScan={handleScan} onClose={() => setScanOpen(false)} />}
       {bioOpen && <BiometricCheckInSession sessionId={sessionId} onClose={() => setBioOpen(false)} />}

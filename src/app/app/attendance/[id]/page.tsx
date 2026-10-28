@@ -31,8 +31,8 @@ export default async function AttendanceSessionPage({
   const { id } = await params;
   const session = await requireModule("attendance");
   const [thankRow, thankChurch, thankRecipients] = await Promise.all([
-    db.attendanceSession.findFirst({ where: { id, churchId: session.churchId }, select: { slotId: true, serviceName: true, thankRequested: true, thankSentCount: true } }),
-    db.church.findUnique({ where: { id: session.churchId }, select: { thankAfterService: true, thankServiceNames: true, thankOtherPrograms: true, messageTemplates: true, name: true } }),
+    db.attendanceSession.findFirst({ where: { id, churchId: session.churchId }, select: { slotId: true, serviceName: true, thankRequested: true, thankSentCount: true, autoKey: true } }),
+    db.church.findUnique({ where: { id: session.churchId }, select: { thankAfterService: true, thankServiceNames: true, thankOtherPrograms: true, messageTemplates: true, name: true, logoUrl: true, accentColor: true } }),
     countThankRecipients(id, session.churchId),
   ]);
   const [data, candidates, reportConfig, smsBalance, breakdown, groupingLabels] = await Promise.all([
@@ -152,6 +152,8 @@ export default async function AttendanceSessionPage({
         checkInUrl={checkInUrl}
         canWrite={canEdit(session, "attendance")}
         groupings={groupingLabels}
+        brand={{ name: thankChurch?.name ?? "", accent: thankChurch?.accentColor ?? "#0d7377", logo: thankChurch?.logoUrl ?? "", canMake: !session.planLocked?.includes("poster-maker"), canRemoveCredit: !session.planLocked?.includes("white-label-posters") }}
+        standingCode={!!thankRow?.autoKey}
       />
 
       <DepartmentBreakdown

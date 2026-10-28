@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   Check, ExternalLink, HandHeart, Heart, Link2, MessageCircleHeart, QrCode as QrIcon, Settings2, Sparkles,
-  UserPlus, Users, Baby, GraduationCap, CalendarDays, Wallet, X, type LucideIcon,
+  UserPlus, Users, Baby, GraduationCap, CalendarDays, Wallet, X, Printer, Lock, type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { QrCode } from "@/components/ui/qr-code";
+import { PosterMaker, PosterUpgrade, type PosterBrand, type PosterKind } from "@/components/app/poster-maker";
 import { cn } from "@/lib/utils";
 
 export type LinkTile = {
@@ -35,14 +36,16 @@ const useOrigin = () => useSyncExternalStore(subscribeNone, () => window.locatio
  * long scroll of builders.
  */
 export function LinksTab({
-  slugEditor, forms, share,
+  slugEditor, forms, share, brand,
 }: {
   slugEditor: React.ReactNode;
   forms: LinkTile[];
   share: LinkTile[];
+  brand: PosterBrand;
 }) {
   const origin = useOrigin();
   const [qrFor, setQrFor] = useState<LinkTile | null>(null);
+  const [posterFor, setPosterFor] = useState<LinkTile | null>(null);
 
   return (
     <div className="space-y-6">
@@ -52,7 +55,7 @@ export function LinksTab({
         <SectionHead title="Sign-up forms" note="People fill these in themselves and appear in your lists automatically." />
         <div className="grid gap-3 md:grid-cols-2">
           {forms.map((t) => (
-            <Tile key={t.key} tile={t} origin={origin} onQr={() => setQrFor(t)} />
+            <Tile key={t.key} tile={t} origin={origin} onQr={() => setQrFor(t)} onPoster={() => setPosterFor(t)} posterLocked={!brand.canMake} />
           ))}
         </div>
       </section>
@@ -61,7 +64,7 @@ export function LinksTab({
         <SectionHead title="Share with your church" note="Handy links for the pulpit, WhatsApp groups and printed notices." />
         <div className="grid gap-3 md:grid-cols-2">
           {share.map((t) => (
-            <Tile key={t.key} tile={t} origin={origin} onQr={() => setQrFor(t)} />
+            <Tile key={t.key} tile={t} origin={origin} onQr={() => setQrFor(t)} onPoster={() => setPosterFor(t)} posterLocked={!brand.canMake} />
           ))}
         </div>
       </section>
@@ -72,9 +75,16 @@ export function LinksTab({
             <QrCode value={`${origin}${qrFor.path}`} size={220} />
             <p className="break-all font-mono text-xs text-ink-muted">{origin}{qrFor.path}</p>
             <p className="text-xs text-ink-faint">Print it or show it on the screen. Phones open the link when they scan it.</p>
+            <Button type="button" variant="secondary" size="sm" onClick={() => { setPosterFor(qrFor); setQrFor(null); }}>
+              {brand.canMake ? <Printer /> : <Lock />} Make a printable poster
+            </Button>
           </div>
         </Overlay>
       )}
+
+      {posterFor && (brand.canMake
+        ? <PosterMaker url={`${origin}${posterFor.path}`} kind={posterFor.key as PosterKind} brand={brand} onClose={() => setPosterFor(null)} />
+        : <PosterUpgrade onClose={() => setPosterFor(null)} />)}
 
     </div>
   );
@@ -89,7 +99,7 @@ function SectionHead({ title, note }: { title: string; note: string }) {
   );
 }
 
-function Tile({ tile, origin, onQr }: { tile: LinkTile; origin: string; onQr: () => void }) {
+function Tile({ tile, origin, onQr, onPoster, posterLocked }: { tile: LinkTile; origin: string; onQr: () => void; onPoster: () => void; posterLocked?: boolean }) {
   const Icon = ICONS[tile.icon] ?? Heart;
   const [copied, setCopied] = useState(false);
   const url = `${origin}${tile.path}`;
@@ -120,6 +130,7 @@ function Tile({ tile, origin, onQr }: { tile: LinkTile; origin: string; onQr: ()
           {copied ? <><Check /> Copied</> : <><Link2 /> Copy link</>}
         </Button>
         <Button type="button" variant="ghost" size="sm" onClick={onQr}><QrIcon /> QR</Button>
+        <Button type="button" variant="ghost" size="sm" onClick={onPoster}>{posterLocked ? <Lock /> : <Printer />} Poster</Button>
         <a href={tile.path} target="_blank" rel="noopener noreferrer">
           <Button type="button" variant="ghost" size="sm"><ExternalLink /> Open</Button>
         </a>

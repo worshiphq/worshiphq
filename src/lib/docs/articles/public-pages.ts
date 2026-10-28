@@ -23,6 +23,30 @@ export const publicPages: DocArticle[] = [
     ],
   },
   {
+    slug: "qr-posters",
+    section: "public-pages",
+    title: "Make a QR poster to print",
+    summary: "Design a poster for your visitor form, check-in, giving and more, then print it or save it as a PDF.",
+    appPath: "/app/settings",
+    feature: "poster-maker",
+    body: [
+      { p: "Every link in **Settings**, then **Links & forms**, has a **QR** button that shows the code on screen. On **Starter** and above it also has a **Poster** button, which turns the code into a poster ready for your door, noticeboard or WhatsApp status. The check-in page has the same button under its code." },
+      { steps: [
+        "Go to **Settings**, then **Links & forms**, and choose **Poster** on the link you want (for example **Visitor form**).",
+        "Pick a **Look**: Classic, Bold or Minimal. Choose your **Size**: A3, A4, A5, A6, a square for WhatsApp, a story for phone screens, or your own size in centimetres. Posters can stand upright or sideways.",
+        "Change the headline and the message, or switch them off. Edit the three **how to scan** steps, or clear one to remove it. Use **Add a line** for service times, your address or a phone number.",
+        "Use **Show or hide** to take off the church name, logo or web address. Choose your colours and slide the **Code size** and **Text size** until it looks right.",
+        "Choose **Download PDF** (best for a print shop), **Picture (PNG)** for WhatsApp, or **Print**.",
+      ] },
+      { list: [
+        "The preview is exactly what you get. Nothing is cut off: if you add too much, the text shrinks to fit.",
+        "A small **Made with WorshipHQ** line sits at the bottom. It can be removed on the **Max** plan.",
+        "Check-in codes: a code from a service you started by hand belongs to that one service. If you use **service times**, the code always goes to the service that is on, so one printed poster works every week.",
+      ] },
+      { tip: "Test the printed poster with your own phone camera before you put it up. Dark codes on a light background scan best." },
+    ],
+  },
+  {
     slug: "join-form",
     section: "public-pages",
     title: "Member self-registration (join link)",

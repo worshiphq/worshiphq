@@ -609,6 +609,7 @@ export function SettingsClient({
         {tab === "registration" && (
           <LinksTab
             slugEditor={<SlugEditor slug={church?.slug ?? ""} ro={ro} isAdmin={isAdmin} />}
+            brand={{ name: church?.name ?? "", accent: church?.accentColor ?? "#0d7377", logo: church?.logoUrl ?? "", canMake: !session.planLocked?.includes("poster-maker"), canRemoveCredit: !session.planLocked?.includes("white-label-posters") }}
             forms={[
               { key: "member", icon: "member", title: "Member registration", description: "Members fill in their own details and appear in your People list automatically.", path: `/join/${church?.slug ?? ""}`, customize: isAdmin ? "/app/settings/forms/join" : undefined },
               { key: "visitor", icon: "visitor", title: "Visitor form", description: "A simple form for first-time visitors: name, phone, purpose of visit, prayer requests.", path: `/visit/${church?.slug ?? ""}`, customize: isAdmin ? "/app/settings/forms/visitor" : undefined },
@@ -752,6 +753,8 @@ const FEATURE_LABELS: Record<string, string> = {
   "import-export": "Import & Export",
   "member-ids": "Member ID Cards",
   "qr-codes": "QR Code Check-in",
+  "poster-maker": "QR Poster Maker",
+  "white-label-posters": "Posters without the WorshipHQ credit",
   "custom-roles": "Custom Roles & Permissions",
   harvest: "Harvest Management",
   pledges: "Pledges & Campaigns",

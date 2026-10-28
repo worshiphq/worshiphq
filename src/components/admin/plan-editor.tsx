@@ -45,6 +45,8 @@ const FEATURE_DESC: Record<string, string> = {
   counseling: "Confidential pastoral case notes", expenses: "Track church spending",
   fingerprint: "USB fingerprint scanner (scanner sold separately)",
   "biometric-devices": "Wall-mounted face, palm & fingerprint terminals",
+  "poster-maker": "Design and print QR posters for your forms and check-in",
+  "white-label-posters": "Take the WorshipHQ credit off posters",
   "fund-accounting": "Ring-fence funds & designations", assets: "Equipment & asset register",
   pledges: "Pledges & giving campaigns", harvest: "Annual harvest & thanksgiving",
   bookings: "Facility & room reservations", sermons: "Sermon library & media",
