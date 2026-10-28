@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
+import { memberLimitError } from "@/lib/member-limit";
 import { db } from "@/lib/db";
 import { getFormDefinition, getChildrenFormDefinition, getTeensFormDefinition, questionFields } from "@/lib/forms/registration";
 import { buildPersonData } from "@/lib/forms/person-data";
@@ -24,6 +25,8 @@ export async function selfRegister(formData: FormData) {
   });
   if (!church || church.isDemo || church.suspended) return;
   if (!(await allowPublicSubmission("join", church.id))) return;
+
+  if (await memberLimitError(church.id)) redirect(`/join/${churchSlug}/full`);
 
   const fields = questionFields(getFormDefinition(church.registrationFields));
   const { data, customFields, departmentNames, groupIds } = await buildPersonData(fields, formData);
@@ -90,6 +93,7 @@ export async function registerChild(formData: FormData) {
   });
   if (!church || church.isDemo || church.suspended) return;
   if (!(await allowPublicSubmission("children", church.id))) return;
+  if (await memberLimitError(church.id)) redirect(`/join/${churchSlug}/full`);
 
   const fields = questionFields(getChildrenFormDefinition(church.childrenFormFields));
   const { data, customFields } = await buildPersonData(fields, formData);
@@ -124,6 +128,7 @@ export async function registerTeen(formData: FormData) {
   });
   if (!church || church.isDemo || church.suspended) return;
   if (!(await allowPublicSubmission("teens", church.id))) return;
+  if (await memberLimitError(church.id)) redirect(`/join/${churchSlug}/full`);
 
   const fields = questionFields(getTeensFormDefinition(church.teensFormFields));
   const { data, customFields, departmentNames, groupIds } = await buildPersonData(fields, formData);

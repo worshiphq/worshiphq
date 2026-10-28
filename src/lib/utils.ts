@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** Lowercase just the first character, for dropping a label mid-sentence (e.g. "Up to 30 members" → "up to 30 members"). */
+/** Lowercase just the first character, for dropping a label mid-sentence (e.g. "Up to 30 members" → "up to 40 members"). */
 export function lowerFirst(s: string) {
   return s ? s.charAt(0).toLowerCase() + s.slice(1) : s;
 }

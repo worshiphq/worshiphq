@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
+import { memberLimitError } from "@/lib/member-limit";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { getFormDefinition, questionFields } from "@/lib/forms/registration";
@@ -29,6 +30,10 @@ export async function createPerson(formData: FormData) {
   if (!data.firstName || !data.lastName) return { ok: false as const };
 
   const status = (String(formData.get("status") ?? "active") as PersonStatus) || "active";
+  if (status !== "visitor") {
+    const full = await memberLimitError(session.churchId);
+    if (full) return { ok: false as const, error: full };
+  }
   const leaderTitle = String(formData.get("leaderTitle") ?? "").trim() || null;
   const featured = formData.get("featured") === "true";
   const deptIds = await resolveDepartmentIds(session.churchId, departmentNames);
@@ -72,7 +77,7 @@ export async function updatePerson(formData: FormData) {
   if (!id) return;
 
   // Ensure the record belongs to this church before touching relations.
-  const existing = await db.person.findFirst({ where: { id, churchId: session.churchId }, select: { id: true } });
+  const existing = await db.person.findFirst({ where: { id, churchId: session.churchId }, select: { id: true, status: true } });
   if (!existing) return;
 
   const fields = await formFields(session.churchId);
@@ -91,7 +96,11 @@ export async function updatePerson(formData: FormData) {
 
   // Returning to active clears the "we miss you" dedupe guard, so a future
   // lapse is free to text them again instead of staying silenced forever.
-  const statusFields = status === "active" ? { status, lapsedSmsSentAt: null } : { status };
+  let statusFields: { status: PersonStatus; lapsedSmsSentAt?: null } = status === "active" ? { status, lapsedSmsSentAt: null } : { status };
+  // A visitor only becomes a member if the plan has room; otherwise they stay a visitor.
+  if (existing.status === "visitor" && status !== "visitor" && (await memberLimitError(session.churchId))) {
+    statusFields = { status: "visitor" as PersonStatus };
+  }
 
   try {
     await db.person.update({

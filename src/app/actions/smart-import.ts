@@ -157,6 +157,10 @@ export async function importMembersChunk(formData: FormData): Promise<ImportChun
   const groupByName = new Map(groups.map((g) => [g.name.toLowerCase(), g.id]));
 
   const res = { created: 0, filled: 0, duplicates: 0, skipped: 0, errors: [] as string[] };
+  // The plan's member limit: add up to the places left, then stop adding members.
+  const { memberRoom } = await import("@/lib/member-limit");
+  let room = (await memberRoom(churchId)).left;
+  let limitHit = 0;
   const plain: Prisma.PersonCreateManyInput[] = [];
   const fancy: { data: Prisma.PersonCreateInput; label: string }[] = [];
   const toFill: { id: string; data: Record<string, unknown>; deptIds: string[]; groupIds: string[] }[] = [];
@@ -239,6 +243,10 @@ export async function importMembersChunk(formData: FormData): Promise<ImportChun
     }
 
     const status = get("memberStatus") ? statusFromText(get("memberStatus")) : "active";
+    if (status !== "visitor") {
+      if (room <= 0) { limitHit++; res.skipped++; continue; }
+      room--;
+    }
     const record = {
       ...base,
       status,
@@ -270,6 +278,9 @@ export async function importMembersChunk(formData: FormData): Promise<ImportChun
     if (dob) byName.set(`${firstName} ${lastName}`.toLowerCase() + "|" + dob.toISOString().slice(0, 10), tempId);
   }
 
+  if (limitHit) {
+    res.errors.unshift(`${limitHit} ${limitHit === 1 ? "person was" : "people were"} not added because your plan's member limit was reached. Upgrade in Settings, Billing to add them.`);
+  }
   res.created = plain.length + fancy.length;
   res.filled = toFill.length;
 

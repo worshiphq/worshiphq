@@ -199,7 +199,8 @@ export function VisitorsClient({
   function handleConvert(v: VisitorRow) {
     if (!confirm(`Convert ${v.firstName} ${v.lastName} to a church member? They will be removed from visitors and added to the People directory.`)) return;
     startTransition(async () => {
-      await convertVisitorToMember(v.id);
+      const r = await convertVisitorToMember(v.id);
+      if (r && !r.ok) { alert(r.error); return; }
       setEditing(null);
       router.refresh();
     });

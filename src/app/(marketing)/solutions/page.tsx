@@ -73,7 +73,7 @@ export default async function SolutionsPage() {
             <span className="text-primary">every calling.</span>
           </>
         }
-        subtitle="Whether you're a 30-member fellowship or a thousand-member ministry, WorshipHQ adapts to how you serve."
+        subtitle="Whether you're a small fellowship or a thousand-member ministry, WorshipHQ adapts to how you serve."
       />
 
       <section className="space-y-24 py-16 pb-24">

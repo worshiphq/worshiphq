@@ -1,3 +1,5 @@
+import { MembershipFull } from "@/components/public/membership-full";
+import { memberRoom } from "@/lib/member-limit";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { DynamicJoinForm } from "./dynamic-join-form";
@@ -41,6 +43,8 @@ export default async function JoinPage({
   });
 
   if (!church || church.isDemo) notFound();
+  const room = await memberRoom(church.id);
+  const full = room.limit !== null && room.left <= 0;
 
   const fields = getFormDefinition(church.registrationFields);
   const categories = await getCategoriesForForm(church.id, { joinFormOnly: true });
@@ -63,15 +67,23 @@ export default async function JoinPage({
           </p>
         </div>
 
-        <DynamicJoinForm
-          churchSlug={church.slug}
-          churchName={church.name}
-          accentColor={church.accentColor}
-          fields={fields}
-          departments={church.departments}
-          groups={church.groups}
-          categories={categories}
-        />
+        {full ? (
+
+          <MembershipFull churchName={church.name} accentColor={church.accentColor} />
+
+        ) : (
+
+          <DynamicJoinForm
+            churchSlug={church.slug}
+            churchName={church.name}
+            accentColor={church.accentColor}
+            fields={fields}
+            departments={church.departments}
+            groups={church.groups}
+            categories={categories}
+          />
+
+        )}
       </div>
     </div>
   );

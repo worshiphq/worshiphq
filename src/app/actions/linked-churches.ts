@@ -310,6 +310,9 @@ async function acceptInternal(transferId: string, toChurchId: string, opts: { cr
     personId = existing.id;
     await db.person.update({ where: { id: existing.id }, data: { ...links, status: "active" } });
   } else {
+    const { memberLimitError } = await import("@/lib/member-limit");
+    const full = await memberLimitError(churchId);
+    if (full) return { ok: false, error: full };
     let seq = church?.memberSeq ?? 0;
     const prefix = church?.memberPrefix || churchInitials(church?.name ?? "Church");
     seq++;

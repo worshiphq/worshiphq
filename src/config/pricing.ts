@@ -23,7 +23,7 @@ export const plans: Plan[] = [
     tagline: "For new & small fellowships",
     monthly: 0,
     yearly: 0,
-    members: "Up to 30 members",
+    members: "Up to 40 members",
     cta: "Start free",
     features: [
       "People & households",
@@ -40,7 +40,7 @@ export const plans: Plan[] = [
     tagline: "For growing churches",
     monthly: 10,
     yearly: 100,
-    members: "Up to 250 members",
+    members: "Up to 150 members",
     cta: "Choose Starter",
     features: [
       "Everything in Free",
@@ -55,7 +55,7 @@ export const plans: Plan[] = [
       "Members get automatic birthday & anniversary messages",
       "Give every member an ID card with a scannable QR code",
       "Build your own registration forms and import your data",
-      "Up to 250 members - room to grow",
+      "Up to 150 members - room to grow",
     ],
   },
   {
@@ -64,7 +64,7 @@ export const plans: Plan[] = [
     tagline: "For established ministries",
     monthly: 24,
     yearly: 240,
-    members: "Up to 1,000 members",
+    members: "Up to 300 members",
     featured: true,
     cta: "Choose Pro",
     features: [
@@ -81,7 +81,7 @@ export const plans: Plan[] = [
       "Run harvest campaigns, pledges and recurring giving",
       "Publish a sermon library and share devotionals",
       "Take facility bookings and track welfare support",
-      "Up to 1,000 members - built for established churches",
+      "Up to 300 members - built for established churches",
     ],
   },
   {
@@ -165,7 +165,7 @@ export const comparison: { group: string; rows: { label: string; values: (boolea
       { label: "Advanced analytics & dashboards", values: [false, false, false, true] },
       { label: "Audit log", values: [false, false, false, true] },
       { label: "API access", values: [false, false, false, true] },
-      { label: "Members", values: ["30", "250", "1,000", "Unlimited"] },
+      { label: "Members", values: ["40", "150", "300", "Unlimited"] },
       { label: "Support", values: ["Community", "Email", "Priority", "Dedicated"] },
     ],
   },

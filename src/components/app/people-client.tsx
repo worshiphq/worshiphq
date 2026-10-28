@@ -744,7 +744,7 @@ function buildDefaults(fields: FormField[], person: PersonRow): MemberDefaults {
   return { scalars, departments: person.departments, photoUrl: person.photoUrl ?? "" };
 }
 
-type AddResult = { ok: boolean; personId?: string; name?: string } | null;
+type AddResult = { ok: boolean; personId?: string; name?: string; error?: string } | null;
 
 function PersonForm({
   person, departments, groups = [], formFields, adults, categories = [], ageTab, onClose,
@@ -935,9 +935,12 @@ function PersonForm({
             </>
           )}
 
+          {!isEdit && addResult?.error && (
+            <div role="alert" className="rounded-xl border border-danger/30 bg-danger/5 px-4 py-3 text-sm text-danger">{addResult.error}</div>
+          )}
           <div className="flex gap-2 border-t border-line pt-4">
             <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
-            <SubmitButton className="flex-1" successMessage={isEdit ? "Changes saved" : `${isYouth ? (personAge === "child" ? "Child" : "Teen") : "Member"} added`}>
+            <SubmitButton className="flex-1" pendingLabel={isEdit ? "Saving…" : "Adding…"} successMessage={isEdit ? "Changes saved" : undefined}>
               {isEdit ? "Save changes" : title}
             </SubmitButton>
           </div>

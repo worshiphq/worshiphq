@@ -355,6 +355,11 @@ const LEGACY_RESTORERS: Record<string, (churchId: string, snapshot: any) => Prom
   async person(churchId, snap) {
     const { record, departmentIds, groupIds, tagIds, positions, welfareDues, biometrics, categoryOptionIds } = snap;
     if (record.churchId !== churchId) return { ok: false, error: "Church mismatch." };
+    if (record.status !== "visitor") {
+      const { memberLimitError } = await import("@/lib/member-limit");
+      const full = await memberLimitError(churchId);
+      if (full) return { ok: false, error: full };
+    }
     await db.person.create({ data: record });
     await reconnectMany(db.person as any, record.id, "departments", departmentIds ?? []);
     await reconnectMany(db.person as any, record.id, "groups", groupIds ?? []);

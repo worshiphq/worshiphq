@@ -331,6 +331,9 @@ export async function convertVisitorToMember(id: string) {
 
   const visitor = await db.visitor.findFirst({ where: { id, churchId: session.churchId } });
   if (!visitor) return;
+  const { memberLimitError } = await import("@/lib/member-limit");
+  const full = await memberLimitError(session.churchId);
+  if (full) return { ok: false as const, error: full };
 
   let personId = visitor.personId;
 
@@ -365,6 +368,7 @@ export async function convertVisitorToMember(id: string) {
   const { revalidatePath } = await import("next/cache");
   revalidatePath("/app/visitors");
   revalidatePath("/app/people");
+  return { ok: true as const };
 }
 
 export async function toggleRegular(id: string) {

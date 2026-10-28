@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { memberLimitError } from "@/lib/member-limit";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 import { nextMemberId } from "@/lib/members/helpers";
@@ -15,6 +16,8 @@ export async function createChild(formData: FormData) {
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
   if (!firstName || !lastName) return { ok: false as const };
+  const full = await memberLimitError(session.churchId);
+  if (full) return { ok: false as const, error: full };
 
   const ageGroup = String(formData.get("ageGroup") ?? "child");
   const gender = String(formData.get("gender") ?? "").trim() || null;

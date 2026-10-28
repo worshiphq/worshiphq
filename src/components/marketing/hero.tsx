@@ -43,10 +43,10 @@ const FEATURE_PILLS = [
 
 export function Hero({
   subhead = DEFAULT_SUBHEAD,
-  freeMembers = "up to 30 members",
+  freeMembers = "up to 40 members",
 }: {
   subhead?: string;
-  /** e.g. "up to 30 members" - pulled live from the SuperAdmin-editable plan config. */
+  /** e.g. "up to 40 members" - pulled live from the SuperAdmin-editable plan config. */
   freeMembers?: string;
 }) {
   const [index, setIndex] = useState(0);
@@ -216,7 +216,7 @@ export function Hero({
                 Welcome home.
               </h2>
               <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-parchment/80 sm:text-lg xl:text-xl">
-                From a 30-member fellowship to a multi-campus ministry - churches
+                From a small fellowship to a multi-campus ministry - churches
                 around the world run their week on WorshipHQ. Yours can too,
                 starting today.
               </p>

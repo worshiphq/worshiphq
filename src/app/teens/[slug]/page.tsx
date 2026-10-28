@@ -1,3 +1,5 @@
+import { MembershipFull } from "@/components/public/membership-full";
+import { memberRoom } from "@/lib/member-limit";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { DynamicJoinForm } from "@/app/join/[slug]/dynamic-join-form";
@@ -41,6 +43,8 @@ export default async function TeensPage({
   });
 
   if (!church || church.isDemo) notFound();
+  const room = await memberRoom(church.id);
+  const full = room.limit !== null && room.left <= 0;
 
   const fields = getTeensFormDefinition(church.teensFormFields);
 
@@ -67,17 +71,25 @@ export default async function TeensPage({
           </p>
         </div>
 
-        <DynamicJoinForm
-          churchSlug={church.slug}
-          churchName={church.name}
-          accentColor={church.accentColor}
-          fields={fields}
-          departments={church.departments}
-          groups={church.groups}
-          action={registerTeen}
-          submitLabel="Register teen"
-          requireGuardianConsent
-        />
+        {full ? (
+
+          <MembershipFull churchName={church.name} accentColor={church.accentColor} />
+
+        ) : (
+
+          <DynamicJoinForm
+            churchSlug={church.slug}
+            churchName={church.name}
+            accentColor={church.accentColor}
+            fields={fields}
+            departments={church.departments}
+            groups={church.groups}
+            action={registerTeen}
+            submitLabel="Register teen"
+            requireGuardianConsent
+          />
+
+        )}
       </div>
     </div>
   );

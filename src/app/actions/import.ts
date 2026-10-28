@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { memberRoom } from "@/lib/member-limit";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 import { churchInitials } from "@/lib/members/helpers";
@@ -109,6 +110,9 @@ export async function importCSV(formData: FormData): Promise<ImportResult> {
 
   // Cap at 5000 rows per import
   const maxRows = Math.min(dataRows.length, 5000);
+  // The plan's member limit: import up to the places left, then stop adding members.
+  let room = (await memberRoom(session.churchId)).left;
+  let limitHit = 0;
 
   for (let i = 0; i < maxRows; i++) {
     const row = parseCSVLine(dataRows[i]);
@@ -173,6 +177,12 @@ export async function importCSV(formData: FormData): Promise<ImportResult> {
       birthday = `${String(dateOfBirth.getMonth() + 1).padStart(2, "0")}-${String(dateOfBirth.getDate()).padStart(2, "0")}`;
     }
 
+    const rowStatus = fields.memberStatus ? normalizeStatus(fields.memberStatus) : "active";
+    if (rowStatus !== "visitor") {
+      if (room <= 0) { limitHit++; skipped++; continue; }
+      room--;
+    }
+
     seq++;
     const memberId = `${prefix}-${String(seq).padStart(4, "0")}`;
 
@@ -227,6 +237,10 @@ export async function importCSV(formData: FormData): Promise<ImportResult> {
   // Persist the new member sequence so future IDs continue correctly.
   if (imported > 0) {
     await db.church.update({ where: { id: session.churchId }, data: { memberSeq: seq, memberPrefix: prefix } });
+  }
+
+  if (limitHit) {
+    errors.unshift(`${limitHit} ${limitHit === 1 ? "person was" : "people were"} not added because your plan's member limit was reached. Upgrade in Settings, Billing to add them.`);
   }
 
   if (dataRows.length > 5000) {

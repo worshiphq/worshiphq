@@ -45,7 +45,7 @@ export function PricingSection({ showComparison = true, platformPricing }: {
   // The "Members" comparison row is otherwise a hardcoded string in config -
   // keep it in sync with the real (possibly SuperAdmin-edited) plan limits
   // shown on the cards above, instead of letting it drift stale. Extract just
-  // the number/word (e.g. "Up to 30 members" -> "30") to match the table's
+  // the number/word (e.g. "Up to 40 members" -> "40") to match the table's
   // existing terse style.
   const shortMemberCount = (label: string) => (label.match(/[\d,]+/)?.[0] ?? "Unlimited");
   const liveComparison = comparison.map((grp) => ({
