@@ -131,7 +131,7 @@ export const attendance: DocArticle[] = [
       { steps: [
         "Plug in the scanner.",
         "In WorshipHQ, open any member's profile and choose **Register fingerprint** (or **Fingerprint** on a service page). When it asks for the one-time setup, choose **Download 1-click installer (Windows)**.",
-        "Double-click the downloaded **WorshipHQ-Scanner-Setup.exe**. If Windows says it protected your PC, choose **More info**, then **Run anyway**. A window installs everything needed (the scanner driver and a free helper program) and sets the scanner to start automatically. When Windows asks for permission to install the driver, choose **Yes**. Wait for **All set**.",
+        "Double-click the downloaded **WorshipHQ-Scanner-Setup.exe**. If Windows says it protected your PC, choose **More info**, then **Run anyway**. A window installs everything needed (the scanner driver and a free helper program) and sets the scanner to start automatically. Each step shows its own percentage. The first setup downloads about 25 MB, once. When Windows asks for permission to install the driver, choose **Yes**. Wait for **You're all set**.",
         "Choose **Done - back to WorshipHQ**. The scanner now works quietly in the background whenever the computer is on.",
       ] },
       { note: "Unplugging the scanner while it's scanning can make it stop responding. If that happens, unplug it, wait a few seconds and plug it back in." },

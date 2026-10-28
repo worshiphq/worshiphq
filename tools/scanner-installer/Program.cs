@@ -1,6 +1,7 @@
 // WorshipHQ Fingerprint Scanner Setup - one native Windows program that installs everything:
-//   1. Python (only if the PC has no usable one)
-//   2. the scanner helper + its Python package
+//   1. the scanner engine: a ready-made Python with the scanner package, one ~12 MB download unzipped in place
+//      (falls back to installing Python from python.org plus pip only if that download fails)
+//   2. the scanner helper
 //   3. the ZKTeco scanner driver (hosted next to the helper, checked by SHA-256, installed silently)
 //   4. auto-start, then a real check that the helper answers and sees the scanner.
 // Everything is logged to %LOCALAPPDATA%\WorshipHQ\Scanner\setup.log.
@@ -14,6 +15,7 @@ using System.Drawing;
 using System.Drawing.Drawing2D;
 using System.Drawing.Text;
 using System.IO;
+using System.IO.Compression;
 using System.Net;
 using System.Reflection;
 using System.Security.Cryptography;
@@ -50,6 +52,9 @@ namespace WorshipHQ.ScannerSetup
         public const string DriverUrl = Site + "/zk-driver-setup.exe";
         // ZKTeco "Fingerprint Reader Standard Driver 5.3.0.33". Checked before it is run.
         public const string DriverSha256 = "10A420E2D7A3A7C73B5421638CC7A2A1A7D96D7BED4CC10C3AE9F43F75FAF877";
+        // Python 3.12.8 (embeddable) with pythonnet and pyzkfp already inside. Rebuild with tools/scanner-installer/build-runtime.ps1.
+        public const string RuntimeUrl = Site + "/whq-scanner-runtime.zip";
+        public const string RuntimeSha256 = "760F87ADCD64BBB0FECCB609D814EB6F11CFA167DDE68AAFA13D3BC98AFC676A";
         public const string PythonUrl = "https://www.python.org/ftp/python/3.12.8/python-3.12.8-amd64.exe";
         public const int AgentPort = 23847;
 
@@ -57,8 +62,8 @@ namespace WorshipHQ.ScannerSetup
         public static readonly string[] StepNames = new[]
         {
             "Connect to WorshipHQ",
-            "Python (the helper's engine)",
-            "Scanner software",
+            "Scanner engine",
+            "Scanner helper",
             "Scanner driver",
             "Start and test your scanner",
         };
@@ -67,6 +72,7 @@ namespace WorshipHQ.ScannerSetup
             Environment.GetEnvironmentVariable("LOCALAPPDATA") ?? Path.GetTempPath(), @"WorshipHQ\Scanner");
         public static readonly string AgentPath = Path.Combine(InstallDir, "whq-scanner-agent.py");
         public static readonly string LogPath = Path.Combine(InstallDir, "setup.log");
+        public static readonly string RuntimeDir = Path.Combine(InstallDir, "runtime");
     }
 
     static class Log
@@ -91,8 +97,10 @@ namespace WorshipHQ.ScannerSetup
     {
         /// <summary>(step index, state, short note shown at the right of the step)</summary>
         public Action<int, S, string> OnMark = delegate { };
-        /// <summary>(sentence under the checklist, overall percent)</summary>
-        public Action<string, int> OnMessage = delegate { };
+        /// <summary>The sentence under the checklist.</summary>
+        public Action<string> OnMessage = delegate { };
+        /// <summary>(step index, percent of that step done)</summary>
+        public Action<int, int> OnStepPct = delegate { };
         /// <summary>The step that is running now, so a failure can be pinned on it.</summary>
         public int Current;
 
@@ -103,10 +111,28 @@ namespace WorshipHQ.ScannerSetup
             OnMark(step, state, note ?? "");
         }
 
-        void Say(string text, int pct)
+        /// <summary>Changes only the short note beside the running step (not logged; used for live MB counts).</summary>
+        void Note(int step, string note)
+        {
+            OnMark(step, S.Active, note);
+        }
+
+        void Say(string text)
         {
             Log.Write(text);
-            OnMessage(text, pct);
+            OnMessage(text);
+        }
+
+        void Pct(int step, int pct)
+        {
+            OnStepPct(step, Math.Max(0, Math.Min(100, pct)));
+        }
+
+        /// <summary>Moves a step's percentage from <paramref name="from"/> towards <paramref name="to"/> while something
+        /// with no real progress runs (an installer, a wait). Close to <paramref name="to"/> after about expectedMs, never past it.</summary>
+        Creeper Creep(int step, int from, int to, int expectedMs)
+        {
+            return new Creeper(delegate (int p) { Pct(step, p); }, from, to, expectedMs);
         }
 
         // ---------------------------------------------------------------- helpers
@@ -159,6 +185,12 @@ namespace WorshipHQ.ScannerSetup
 
         static void Download(string url, string dest)
         {
+            Download(url, dest, null);
+        }
+
+        /// <summary>Downloads with up to 3 tries. progress gets (bytes so far, total bytes or -1).</summary>
+        static void Download(string url, string dest, Action<long, long> progress)
+        {
             for (int i = 1; i <= 3; i++)
             {
                 try
@@ -172,7 +204,16 @@ namespace WorshipHQ.ScannerSetup
                     using (var s = resp.GetResponseStream())
                     using (var f = File.Create(dest))
                     {
-                        s.CopyTo(f);
+                        long total = resp.ContentLength, got = 0;
+                        var buf = new byte[65536];
+                        int n, lastTick = 0;
+                        while ((n = s.Read(buf, 0, buf.Length)) > 0)
+                        {
+                            f.Write(buf, 0, n);
+                            got += n;
+                            if (progress != null && Environment.TickCount - lastTick > 120) { lastTick = Environment.TickCount; progress(got, total); }
+                        }
+                        if (progress != null) progress(got, total);
                     }
                     if (new FileInfo(dest).Length > 0) return;
                 }
@@ -197,7 +238,7 @@ namespace WorshipHQ.ScannerSetup
             catch (Exception ex) { Log.Write("site check failed: " + ex.Message); return false; }
         }
 
-        static string Sha256Of(string path)
+        public static string Sha256Of(string path)
         {
             using (var sha = SHA256.Create())
             using (var f = File.OpenRead(path))
@@ -302,29 +343,188 @@ namespace WorshipHQ.ScannerSetup
             return statusJson != null && Regex.IsMatch(statusJson, "\"connected\"\\s*:\\s*true");
         }
 
+        // ---------------------------------------------------------------- scanner engine
+
+        /// <summary>True if this Python can load the scanner package (pythonnet + pyzkfp).</summary>
+        public static bool EngineWorks(string py)
+        {
+            if (string.IsNullOrEmpty(py) || !File.Exists(py)) return false;
+            var r = RunNative(py, "-c \"import clr, pyzkfp\"", 90000);
+            if (r.Code != 0) Log.Write("engine check failed for " + py + ": " + Tail(r.Err, 2));
+            return r.Code == 0;
+        }
+
+        /// <summary>The ready-made engines unpacked by earlier runs, newest first.</summary>
+        static List<string> EngineCandidates()
+        {
+            var list = new List<string>();
+            try
+            {
+                var dirs = new List<DirectoryInfo>(new DirectoryInfo(Cfg.InstallDir).GetDirectories("runtime*"));
+                dirs.Sort(delegate (DirectoryInfo a, DirectoryInfo b) { return b.LastWriteTimeUtc.CompareTo(a.LastWriteTimeUtc); });
+                foreach (var d in dirs)
+                {
+                    if (d.Name.EndsWith(".new", StringComparison.OrdinalIgnoreCase)) continue;
+                    string exe = Path.Combine(d.FullName, "python.exe");
+                    if (File.Exists(exe)) list.Add(exe);
+                }
+            }
+            catch { }
+            return list;
+        }
+
+        /// <summary>Unpacks a zip into a folder, reporting (files done, files in total) as it goes.</summary>
+        public static void Unzip(string zip, string folder, Action<int, int> progress)
+        {
+            string root = Path.GetFullPath(folder) + Path.DirectorySeparatorChar;
+            using (var archive = ZipFile.OpenRead(zip))
+            {
+                int done = 0, count = archive.Entries.Count;
+                foreach (var entry in archive.Entries)
+                {
+                    string dest = Path.GetFullPath(Path.Combine(folder, entry.FullName));
+                    if (!dest.StartsWith(root, StringComparison.OrdinalIgnoreCase)) continue; // never write outside the folder
+                    if (entry.FullName.EndsWith("/")) { Directory.CreateDirectory(dest); }
+                    else
+                    {
+                        Directory.CreateDirectory(Path.GetDirectoryName(dest));
+                        using (var es = entry.Open())
+                        using (var fs = File.Create(dest)) es.CopyTo(fs);
+                    }
+                    done++;
+                    if (progress != null && (done % 5 == 0 || done == count)) progress(done, count);
+                }
+            }
+        }
+
+        /// <summary>Downloads the ready-made engine, checks it, and unzips it. Returns its python.exe, or null if anything went wrong.</summary>
+        string InstallEngine()
+        {
+            string zip = Path.Combine(Path.GetTempPath(), "whq-scanner-runtime.zip");
+            try
+            {
+                Mark(1, S.Active, "Downloading");
+                Say("Downloading the scanner engine (about 12 MB, one time only)...");
+                Download(Cfg.RuntimeUrl, zip, delegate (long got, long total)
+                {
+                    if (total > 0)
+                    {
+                        Pct(1, (int)(got * 85 / total));
+                        Note(1, string.Format("{0:0.0} of {1:0.0} MB", got / 1048576.0, total / 1048576.0));
+                    }
+                });
+                if (!string.Equals(Sha256Of(zip), Cfg.RuntimeSha256, StringComparison.OrdinalIgnoreCase))
+                {
+                    Log.Write("engine download failed its checksum");
+                    return null;
+                }
+
+                Mark(1, S.Active, "Unpacking");
+                Say("Unpacking the scanner engine...");
+                string fresh = Cfg.RuntimeDir + ".new";
+                if (Directory.Exists(fresh)) Directory.Delete(fresh, true);
+                Unzip(zip, fresh, delegate (int done, int count) { Pct(1, 85 + done * 12 / Math.Max(1, count)); });
+
+                // Swap it in. If an older engine is in use (the helper is running from it), keep that one and use a new folder.
+                string target = Cfg.RuntimeDir;
+                if (Directory.Exists(target))
+                {
+                    try { Directory.Delete(target, true); }
+                    catch (Exception ex) { Log.Write("old engine busy: " + ex.Message); target = Cfg.RuntimeDir + "-" + DateTime.Now.ToString("yyyyMMddHHmmss"); }
+                }
+                Directory.Move(fresh, target);
+                Directory.SetLastWriteTimeUtc(target, DateTime.UtcNow);
+
+                string py = Path.Combine(target, "python.exe");
+                Mark(1, S.Active, "Checking");
+                if (!EngineWorks(py)) return null;
+                return py;
+            }
+            catch (Exception ex)
+            {
+                Log.Write("engine install failed: " + ex.Message);
+                return null;
+            }
+            finally
+            {
+                try { File.Delete(zip); } catch { }
+            }
+        }
+
+        /// <summary>The slower way, used only if the ready-made engine can't be downloaded: Python from python.org, then pip.</summary>
+        string InstallEngineTheLongWay()
+        {
+            Log.Write("falling back to python.org + pip");
+            string py = FindPython();
+            if (py == null)
+            {
+                Mark(1, S.Active, "Installing Python");
+                Say("Installing Python. This happens once and takes a few minutes.");
+                string pyExe = Path.Combine(Path.GetTempPath(), "whq-python-3.12.8-amd64.exe");
+                Download(Cfg.PythonUrl, pyExe, delegate (long got, long total) { if (total > 0) Pct(1, (int)(got * 35 / total)); });
+                ExecResult r;
+                using (Creep(1, 35, 70, 120000))
+                    r = RunNative(pyExe, "/quiet InstallAllUsers=0 PrependPath=1 Include_pip=1 Include_launcher=0 Include_test=0 Include_doc=0 Shortcuts=0", 15 * 60 * 1000);
+                Log.Write("python installer exit " + r.Code + " " + Tail(r.Err, 3));
+                Thread.Sleep(2000);
+                py = FindPython();
+                if (py == null)
+                    throw new SetupException("The scanner engine could not be installed. Check the internet connection and run setup again.");
+            }
+            Pct(1, 70);
+            Mark(1, S.Active, "Installing");
+            Say("Installing the scanner engine...");
+            ExecResult pr = null;
+            bool ok = false;
+            using (Creep(1, 70, 98, 90000))
+            {
+                for (int i = 1; i <= 2 && !ok; i++)
+                {
+                    pr = RunNative(py, "-m pip install --disable-pip-version-check --no-warn-script-location pyzkfp", 10 * 60 * 1000);
+                    Log.Write("pip pyzkfp try " + i + " exit " + pr.Code + " " + Tail(pr.Err, 4));
+                    ok = pr.Code == 0;
+                }
+            }
+            if (!ok) throw new SetupException("Couldn't install the scanner engine: " + Tail(pr.Err, 2));
+            return py;
+        }
+
+        // ---------------------------------------------------------------- driver
+
         void InstallDriver()
         {
-            Say("Downloading the scanner driver...", 56);
+            Say("Downloading the scanner driver (about 13 MB, one time only)...");
             string drv = Path.Combine(Path.GetTempPath(), "whq-zk-driver-setup.exe");
-            Download(Cfg.DriverUrl, drv);
+            Download(Cfg.DriverUrl, drv, delegate (long got, long total)
+            {
+                if (total > 0)
+                {
+                    Pct(3, (int)(got * 55 / total));
+                    Note(3, string.Format("{0:0.0} of {1:0.0} MB", got / 1048576.0, total / 1048576.0));
+                }
+            });
             if (!string.Equals(Sha256Of(drv), Cfg.DriverSha256, StringComparison.OrdinalIgnoreCase))
             {
                 try { File.Delete(drv); } catch { }
                 throw new SetupException("The scanner driver download was damaged. Please run setup again.");
             }
 
+            Pct(3, 55);
             Mark(3, S.Active, "Needs your OK");
-            Say("Installing the scanner driver. Click Yes when Windows asks for permission.", 66);
-            if (!RunElevated(drv, "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-", "silent"))
+            Say("Installing the scanner driver. Click Yes when Windows asks for permission.");
+            bool allowed;
+            using (Creep(3, 55, 96, 45000))
+                allowed = RunElevated(drv, "/VERYSILENT /SUPPRESSMSGBOXES /NORESTART /SP-", "silent");
+            if (!allowed)
                 throw new SetupException("The scanner driver needs your permission. Run setup again and click Yes when Windows asks.");
 
             if (!HasZkDriver())
             {
                 // Silent mode did not take; show the maker's own window instead of failing.
-                Say("Finish the driver window that just opened (press Next, Install, Finish).", 70);
+                Say("Finish the driver window that just opened (press Next, Install, Finish).");
                 RunElevated(drv, "", "window");
             }
-            Thread.Sleep(2000);
+            Thread.Sleep(1500);
             if (!HasZkDriver())
                 throw new SetupException("The scanner driver didn't finish installing. Run setup again and click Yes when Windows asks.");
         }
@@ -362,56 +562,45 @@ namespace WorshipHQ.ScannerSetup
 
             // 0. Internet
             Mark(0, S.Active, "");
-            Say("Checking the internet connection...", 4);
-            if (!CanReachSite())
+            Say("Checking the internet connection...");
+            bool online;
+            using (Creep(0, 0, 95, 2500)) online = CanReachSite();
+            if (!online)
                 throw new SetupException("Couldn't reach worshiphq.app. Please check the internet connection and run setup again.");
+            Pct(0, 100);
             Mark(0, S.Done, "Connected");
 
-            // 1. Python
+            // 1. Scanner engine: one we unpacked before, a Python that already has the scanner package, or download the ready-made one.
             Mark(1, S.Active, "Checking");
-            Say("Checking for Python...", 10);
-            string py = FindPython();
+            Say("Checking for the scanner engine...");
+            string py = null;
+            using (Creep(1, 0, 30, 8000))
+            {
+                foreach (var c in EngineCandidates()) { if (EngineWorks(c)) { py = c; break; } }
+                if (py == null) { var found = FindPython(); if (found != null && EngineWorks(found)) py = found; }
+            }
             if (py != null)
             {
+                Log.Write("engine found: " + py);
+                Pct(1, 100);
                 Mark(1, S.Done, "Already installed");
             }
             else
             {
-                Mark(1, S.Active, "Installing, about a minute");
-                Say("Installing Python. This happens once and takes about a minute.", 14);
-                string pyExe = Path.Combine(Path.GetTempPath(), "whq-python-3.12.8-amd64.exe");
-                Download(Cfg.PythonUrl, pyExe);
-                Say("Installing Python. This happens once and takes about a minute.", 24);
-                var r = RunNative(pyExe, "/quiet InstallAllUsers=0 PrependPath=1 Include_pip=1 Include_launcher=0 Include_test=0 Include_doc=0 Shortcuts=0", 15 * 60 * 1000);
-                Log.Write("python installer exit " + r.Code + " " + Tail(r.Err, 3));
-                Thread.Sleep(2000);
-                py = FindPython();
-                if (py == null)
-                    throw new SetupException("Python could not be installed automatically. Send the setup log to WorshipHQ support.");
+                Pct(1, 0);
+                py = InstallEngine() ?? InstallEngineTheLongWay();
+                Pct(1, 100);
                 Mark(1, S.Done, "Installed");
             }
             string pyw = Path.Combine(Path.GetDirectoryName(py), "pythonw.exe");
             if (!File.Exists(pyw)) pyw = py;
 
-            // 2. Scanner helper + package
+            // 2. Scanner helper (small; it updates itself from the site after this)
             Mark(2, S.Active, "Downloading");
-            Say("Downloading the scanner helper...", 36);
-            try { Download(Cfg.AgentUrl, Cfg.AgentPath); }
+            Say("Downloading the scanner helper...");
+            try { Download(Cfg.AgentUrl, Cfg.AgentPath, delegate (long got, long total) { if (total > 0) Pct(2, (int)(got * 100 / total)); }); }
             catch (SetupException) { if (!File.Exists(Cfg.AgentPath)) throw; Log.Write("using the helper already on this PC"); }
-
-            Mark(2, S.Active, "Installing");
-            Say("Installing the scanner software...", 44);
-            var up = RunNative(py, "-m pip install --disable-pip-version-check --no-warn-script-location --upgrade pip", 10 * 60 * 1000);
-            Log.Write("pip upgrade exit " + up.Code); // not fatal: an old pip is fine
-            ExecResult pr = null;
-            bool ok = false;
-            for (int i = 1; i <= 2 && !ok; i++)
-            {
-                pr = RunNative(py, "-m pip install --disable-pip-version-check --no-warn-script-location pyzkfp", 10 * 60 * 1000);
-                Log.Write("pip pyzkfp try " + i + " exit " + pr.Code + " " + Tail(pr.Err, 4));
-                ok = pr.Code == 0;
-            }
-            if (!ok) throw new SetupException("Couldn't install the scanner software: " + Tail(pr.Err, 2));
+            Pct(2, 100);
             Mark(2, S.Done, "Installed");
 
             // 3. ZKTeco driver
@@ -419,19 +608,22 @@ namespace WorshipHQ.ScannerSetup
             if (HasZkDriver())
             {
                 Log.Write("ZKTeco driver already present");
+                Pct(3, 100);
                 Mark(3, S.Done, "Already installed");
             }
             else
             {
                 Mark(3, S.Active, "Downloading");
                 InstallDriver();
+                Pct(3, 100);
                 Mark(3, S.Done, "Installed");
             }
 
             // 4. Start the helper (hidden), register auto-start, and look for the scanner
             Mark(4, S.Active, "Starting");
-            Say("Starting the scanner helper...", 84);
-            var inst = RunNative(py, "\"" + Cfg.AgentPath + "\" --install", 60000);
+            Say("Starting the scanner helper...");
+            ExecResult inst;
+            using (Creep(4, 0, 30, 6000)) inst = RunNative(py, "\"" + Cfg.AgentPath + "\" --install", 60000);
             Log.Write("agent --install exit " + inst.Code + " " + Tail(inst.Out, 2));
             string st = AgentStatus();
             if (st == null)
@@ -441,24 +633,51 @@ namespace WorshipHQ.ScannerSetup
                 psi.CreateNoWindow = true;
                 psi.WindowStyle = ProcessWindowStyle.Hidden;
                 Process.Start(psi);
-                for (int i = 0; i < 40 && st == null; i++) { Thread.Sleep(500); st = AgentStatus(); }
+                for (int i = 0; i < 40 && st == null; i++) { Pct(4, 30 + i); Thread.Sleep(500); st = AgentStatus(); }
             }
             if (st == null)
                 throw new SetupException("The scanner helper didn't start. Details are in the setup folder (agent.log).");
 
+            Pct(4, 70);
             Mark(4, S.Active, "Looking for the scanner");
-            Say("Looking for your scanner...", 92);
+            Say("Looking for your scanner...");
             for (int i = 0; i < 24 && !IsConnected(st); i++)
             {
+                Pct(4, 70 + i);
                 Thread.Sleep(500);
                 var again = AgentStatus();
                 if (again != null) st = again;
             }
             Log.Write("final status: " + st);
+            Pct(4, 100);
             if (IsConnected(st)) { Mark(4, S.Done, "Scanner found"); return Outcome.Ready; }
             Mark(4, S.Warn, "Scanner not seen yet");
             return Outcome.ReplugNeeded;
         }
+    }
+
+    /// <summary>Raises a percentage on a timer, easing towards a ceiling, until disposed.</summary>
+    class Creeper : IDisposable
+    {
+        volatile bool stop;
+
+        public Creeper(Action<int> report, int from, int to, int expectedMs)
+        {
+            int start = Environment.TickCount;
+            var t = new Thread(delegate ()
+            {
+                while (!stop)
+                {
+                    double k = (Environment.TickCount - start) / (double)Math.Max(1, expectedMs);
+                    report(from + (int)((to - from) * (1 - Math.Exp(-2.5 * k))));
+                    Thread.Sleep(200);
+                }
+            });
+            t.IsBackground = true;
+            t.Start();
+        }
+
+        public void Dispose() { stop = true; }
     }
 
     // ==================================================================== window
@@ -501,7 +720,10 @@ namespace WorshipHQ.ScannerSetup
 
         readonly S[] state = new S[Cfg.StepNames.Length];
         readonly string[] note = new string[Cfg.StepNames.Length];
-        int percent;
+        readonly int[] stepPct = new int[Cfg.StepNames.Length];
+        // How much of the whole setup each step is, so the bar moves in step with the real work.
+        static readonly int[] Weight = { 4, 38, 4, 36, 18 };
+        double shown; // the bar's drawn percent, easing towards the real one
         int spin;
         bool finished;
         bool failed;
@@ -554,8 +776,8 @@ namespace WorshipHQ.ScannerSetup
             steps.Paint += PaintSteps;
             Controls.Add(steps);
 
-            bar.Location = new Point(50, 432);
-            bar.Size = new Size(460, 8);
+            bar.Location = new Point(50, 430);
+            bar.Size = new Size(460, 12);
             bar.BackColor = Page;
             bar.Paint += PaintBar;
             Controls.Add(bar);
@@ -588,8 +810,16 @@ namespace WorshipHQ.ScannerSetup
             btn.Click += delegate { Close(); };
             Controls.Add(btn);
 
-            timer.Interval = 70;
-            timer.Tick += delegate { spin = (spin + 14) % 360; steps.Invalidate(); };
+            timer.Interval = 40;
+            timer.Tick += delegate
+            {
+                spin = (spin + 9) % 360;
+                double target = Overall();
+                shown += (target - shown) * 0.12;
+                if (Math.Abs(target - shown) < 0.05) shown = target;
+                steps.Invalidate();
+                bar.Invalidate();
+            };
             timer.Start();
 
             Shown += delegate
@@ -639,11 +869,11 @@ namespace WorshipHQ.ScannerSetup
                             using (var p = new Pen(Line)) g.DrawPath(p, path);
                         }
                     }
-                    DrawIcon(g, state[i], 22, y + rowH / 2 - 1);
+                    DrawIcon(g, state[i], 24, y + rowH / 2 - 1, stepPct[i]);
 
                     Color nameCol = state[i] == S.Pending ? Mute : Ink;
                     var f = state[i] == S.Active ? activeFont : nameFont;
-                    TextRenderer.DrawText(g, Cfg.StepNames[i], f, new Point(44, y + 7), nameCol, TextFormatFlags.NoPadding);
+                    TextRenderer.DrawText(g, Cfg.StepNames[i], f, new Point(50, y + 7), nameCol, TextFormatFlags.NoPadding);
 
                     string n = note[i];
                     if (!string.IsNullOrEmpty(n))
@@ -656,9 +886,9 @@ namespace WorshipHQ.ScannerSetup
             }
         }
 
-        void DrawIcon(Graphics g, S s, int cx, int cy)
+        void DrawIcon(Graphics g, S s, int cx, int cy, int pct)
         {
-            int r = 10;
+            int r = s == S.Active ? 14 : 10;
             var box = new Rectangle(cx - r, cy - r, r * 2, r * 2);
             switch (s)
             {
@@ -666,8 +896,22 @@ namespace WorshipHQ.ScannerSetup
                     using (var p = new Pen(Faint, 2)) g.DrawEllipse(p, box);
                     break;
                 case S.Active:
-                    using (var p = new Pen(Color.FromArgb(40, Navy), 2.5f)) g.DrawEllipse(p, box);
-                    using (var p = new Pen(Navy, 2.5f)) { p.StartCap = LineCap.Round; p.EndCap = LineCap.Round; g.DrawArc(p, box, spin, 100); }
+                    // Track, the step's real progress (navy, from the top), a small gold arc that keeps turning so it never
+                    // looks frozen, and the percentage in the middle.
+                    using (var p = new Pen(Color.FromArgb(38, Navy), 3f)) g.DrawEllipse(p, box);
+                    if (pct > 0)
+                        using (var p = new Pen(Navy, 3f)) { p.StartCap = LineCap.Round; p.EndCap = LineCap.Round; g.DrawArc(p, box, -90, Math.Max(4, pct * 3.6f)); }
+                    using (var p = new Pen(Color.FromArgb(200, Gold), 3f)) { p.StartCap = LineCap.Round; p.EndCap = LineCap.Round; g.DrawArc(p, box, spin, 38); }
+                    using (var f = new Font("Segoe UI Semibold", pct >= 100 ? 6.5f : 7.25f))
+                    using (var sf = new StringFormat())
+                    using (var b = new SolidBrush(Navy))
+                    {
+                        sf.Alignment = StringAlignment.Center;
+                        sf.LineAlignment = StringAlignment.Center;
+                        g.TextRenderingHint = TextRenderingHint.AntiAliasGridFit;
+                        g.DrawString(pct + "%", f, b, new RectangleF(cx - r, cy - r + 0.5f, r * 2, r * 2), sf);
+                        g.TextRenderingHint = TextRenderingHint.ClearTypeGridFit;
+                    }
                     break;
                 case S.Done:
                     using (var b = new SolidBrush(Green)) g.FillEllipse(b, box);
@@ -691,13 +935,54 @@ namespace WorshipHQ.ScannerSetup
             var track = new Rectangle(0, 0, bar.Width - 1, bar.Height - 1);
             using (var path = Rounded(track, 4))
             using (var b = new SolidBrush(Line)) g.FillPath(b, path);
-            int w = (int)((bar.Width - 1) * Math.Max(0, Math.Min(100, percent)) / 100.0);
-            if (w > 8)
+            int w = (int)((bar.Width - 1) * Math.Max(0, Math.Min(100, shown)) / 100.0);
+            if (w > 10)
             {
                 Color fill = failed ? Red : (finished ? Green : Navy);
-                using (var path = Rounded(new Rectangle(0, 0, w, bar.Height - 1), 4))
-                using (var b = new SolidBrush(fill)) g.FillPath(b, path);
+                var fillRect = new Rectangle(0, 0, w, bar.Height - 1);
+                using (var path = Rounded(fillRect, 5))
+                {
+                    using (var b = new LinearGradientBrush(new Rectangle(0, -1, w, bar.Height + 1), Lighter(fill, 0.22), fill, LinearGradientMode.Vertical))
+                        g.FillPath(b, path);
+                    if (!finished && !failed)
+                    {
+                        // A soft band of light that runs left to right across the filled part, like the classic Windows bar.
+                        int band = 110;
+                        int travel = w + band;
+                        int x = (int)((Environment.TickCount % 1600) / 1600.0 * travel) - band;
+                        var bandRect = new Rectangle(x, 0, band, bar.Height);
+                        var oldClip = g.Clip;
+                        g.SetClip(path);
+                        using (var gb = new LinearGradientBrush(bandRect, Color.Transparent, Color.Transparent, LinearGradientMode.Horizontal))
+                        {
+                            var blend = new ColorBlend(3);
+                            blend.Colors = new[] { Color.FromArgb(0, White), Color.FromArgb(150, White), Color.FromArgb(0, White) };
+                            blend.Positions = new[] { 0f, 0.5f, 1f };
+                            gb.InterpolationColors = blend;
+                            g.FillRectangle(gb, bandRect);
+                        }
+                        g.Clip = oldClip;
+                    }
+                }
             }
+        }
+
+        static Color Lighter(Color c, double k)
+        {
+            return Color.FromArgb(c.R + (int)((255 - c.R) * k), c.G + (int)((255 - c.G) * k), c.B + (int)((255 - c.B) * k));
+        }
+
+        /// <summary>The whole setup's percent: finished steps count in full, the running step by its own percent.</summary>
+        double Overall()
+        {
+            if (finished) return 100;
+            double sum = 0;
+            for (int i = 0; i < state.Length; i++)
+            {
+                if (state[i] == S.Done || state[i] == S.Warn) sum += Weight[i];
+                else if (state[i] == S.Active || state[i] == S.Failed) sum += Weight[i] * stepPct[i] / 100.0;
+            }
+            return sum;
         }
 
         static GraphicsPath Rounded(Rectangle r, int radius)
@@ -735,9 +1020,13 @@ namespace WorshipHQ.ScannerSetup
             {
                 UI(delegate { state[i] = s; note[i] = n; steps.Invalidate(); });
             };
-            inst.OnMessage = delegate (string text, int pct)
+            inst.OnMessage = delegate (string text)
             {
-                UI(delegate { message.Text = text; percent = pct; bar.Invalidate(); });
+                UI(delegate { message.Text = text; });
+            };
+            inst.OnStepPct = delegate (int i, int pct)
+            {
+                UI(delegate { stepPct[i] = pct; });
             };
             try
             {
@@ -745,7 +1034,7 @@ namespace WorshipHQ.ScannerSetup
                 UI(delegate
                 {
                     finished = true;
-                    percent = 100;
+                    shown = 100;
                     bar.Invalidate();
                     timer.Stop();
                     steps.Invalidate();
@@ -771,6 +1060,7 @@ namespace WorshipHQ.ScannerSetup
                 UI(delegate
                 {
                     failed = true;
+                    shown = Overall();
                     timer.Stop();
                     state[at] = S.Failed;
                     note[at] = "Stopped here";
@@ -796,26 +1086,27 @@ namespace WorshipHQ.ScannerSetup
             state[2] = S.Done; note[2] = "Installed";
             if (kind == "run")
             {
-                state[3] = S.Active; note[3] = "Needs your OK";
-                percent = 66; message.Text = "Installing the scanner driver. Click Yes when Windows asks for permission.";
+                state[3] = S.Active; note[3] = "7.4 of 12.8 MB"; stepPct[3] = 47;
+                spin = 200; message.Text = "Downloading the scanner driver (about 13 MB, one time only)...";
             }
             else if (kind == "done")
             {
                 state[3] = S.Done; note[3] = "Installed";
                 state[4] = S.Done; note[4] = "Scanner found";
-                percent = 100; finished = true; title.Text = "You're all set"; sub.Text = "";
+                finished = true; shown = 100; title.Text = "You're all set"; sub.Text = "";
                 message.Text = "Your scanner is ready. It runs quietly in the background whenever this computer is on.";
                 SetButton("Done - back to WorshipHQ", Navy);
             }
             else
             {
                 state[3] = S.Failed; note[3] = "Stopped here";
-                percent = 66; failed = true; title.Text = "Setup couldn't finish"; title.ForeColor = Red; sub.Text = "";
+                failed = true; title.Text = "Setup couldn't finish"; title.ForeColor = Red; sub.Text = "";
                 message.ForeColor = Red;
                 message.Text = "The scanner driver needs your permission. Run setup again and click Yes when Windows asks.";
                 detail.Text = "Details: " + Cfg.LogPath;
                 SetButton("Close", Navy);
             }
+            if (!finished) shown = Overall();
             timer.Stop();
         }
     }
@@ -838,6 +1129,19 @@ namespace WorshipHQ.ScannerSetup
                 var r2 = Installer.RunNative("cmd.exe", "/c echo warn 1>&2 & exit 0", 20000);
                 sb.AppendLine("stderr-exit0 exit=" + r2.Code + " err=" + Installer.Tail(r2.Err, 1));
                 sb.AppendLine("agent-status=" + (Installer.AgentStatus() ?? "not running"));
+                // Optional: --selftest <report> <engine.zip> unpacks the engine into a temp folder and checks it loads.
+                if (args.Length >= 3 && File.Exists(args[2]))
+                {
+                    string dir = Path.Combine(Path.GetTempPath(), "whq-engine-selftest");
+                    try { if (Directory.Exists(dir)) Directory.Delete(dir, true); } catch { }
+                    var sw = Stopwatch.StartNew();
+                    Installer.Unzip(args[2], dir, null);
+                    sb.AppendLine("engine-unzip-ms=" + sw.ElapsedMilliseconds);
+                    sb.AppendLine("engine-sha-ok=" + string.Equals(Installer.Sha256Of(args[2]), Cfg.RuntimeSha256, StringComparison.OrdinalIgnoreCase));
+                    sw.Restart();
+                    sb.AppendLine("engine-works=" + Installer.EngineWorks(Path.Combine(dir, "python.exe")) + " (" + sw.ElapsedMilliseconds + " ms)");
+                    try { Directory.Delete(dir, true); } catch { }
+                }
                 File.WriteAllText(args[1], sb.ToString());
                 return 0;
             }
