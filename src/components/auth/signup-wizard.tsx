@@ -24,8 +24,13 @@ export interface WizardPlan {
   features: string[];
 }
 
+const COUNTRIES = [
+  "Ghana", "Nigeria", "Kenya", "Uganda", "Tanzania", "South Africa", "Zambia", "Zimbabwe", "Cameroon",
+  "Sierra Leone", "Liberia", "Togo", "Ivory Coast", "United Kingdom", "United States", "Canada", "Other",
+];
+
 const STEPS = [
-  { key: "church", label: "Church", icon: Church, title: "What's your church called?", sub: "This becomes the name of your WorshipHQ workspace." },
+  { key: "church", label: "Church", icon: Church, title: "Tell us about your church", sub: "The name becomes your WorshipHQ workspace. The town helps us support you and connect you with churches near you." },
   { key: "you", label: "You", icon: User, title: "And what's your name?", sub: "You'll be the Main Admin of this church account." },
   { key: "contact", label: "Contact", icon: AtSign, title: "How do we reach you?", sub: "We'll send a one-time code to verify your phone." },
   { key: "password", label: "Security", icon: Lock, title: "Set a password", sub: "At least 8 characters, with a capital letter, a number and a symbol." },
@@ -52,6 +57,8 @@ export function SignupWizard({
 
   const [data, setData] = useState({
     church: "",
+    city: "",
+    country: "Ghana",
     name: "",
     email: "",
     phone: "",
@@ -61,7 +68,7 @@ export function SignupWizard({
   });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
-  const set = (key: keyof typeof data) => (e: React.ChangeEvent<HTMLInputElement>) =>
+  const set = (key: keyof typeof data) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setData((d) => ({ ...d, [key]: e.target.value }));
 
   const selectedPlan = useMemo(() => plans.find((p) => p.id === data.plan) ?? plans[0], [plans, data.plan]);
@@ -69,7 +76,9 @@ export function SignupWizard({
   function validate(i: number): string | null {
     switch (STEPS[i].key) {
       case "church":
-        return data.church.trim().length >= 2 ? null : "Please enter your church name.";
+        if (data.church.trim().length < 2) return "Please enter your church name.";
+        if (data.city.trim().length < 2) return "Please enter the city or town where your church is.";
+        return null;
       case "you":
         return data.name.trim().length >= 2 ? null : "Please enter your name.";
       case "contact": {
@@ -155,6 +164,8 @@ export function SignupWizard({
       >
         {/* Hidden mirrors of every collected value */}
         <input type="hidden" name="church" value={data.church} />
+        <input type="hidden" name="city" value={data.city} />
+        <input type="hidden" name="country" value={data.country} />
         <input type="hidden" name="name" value={data.name} />
         <input type="hidden" name="email" value={data.email} />
         <input type="hidden" name="phone" value={data.phone} />
@@ -179,9 +190,26 @@ export function SignupWizard({
               </div>
 
               {STEPS[step].key === "church" && (
-                <div>
-                  <Label htmlFor="w-church">Church name</Label>
-                  <Input id="w-church" value={data.church} onChange={set("church")} placeholder="Grace Temple" autoFocus />
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="w-church">Church name</Label>
+                    <Input id="w-church" value={data.church} onChange={set("church")} placeholder="Grace Temple" autoFocus />
+                  </div>
+                  <div>
+                    <Label htmlFor="w-city">City or town</Label>
+                    <Input id="w-city" value={data.city} onChange={set("city")} placeholder="Kumasi" autoComplete="address-level2" />
+                  </div>
+                  <div>
+                    <Label htmlFor="w-country">Country</Label>
+                    <select
+                      id="w-country"
+                      value={data.country}
+                      onChange={set("country")}
+                      className="flex h-11 w-full rounded-xl border border-line bg-surface px-3.5 text-sm text-ink focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
+                    >
+                      {COUNTRIES.map((c) => <option key={c} value={c}>{c}</option>)}
+                    </select>
+                  </div>
                 </div>
               )}
 
@@ -339,6 +367,7 @@ export function SignupWizard({
                 <div className="divide-y divide-line-soft rounded-xl border border-line bg-surface">
                   {[
                     { label: "Church", value: data.church },
+                    { label: "Location", value: `${data.city.trim()}, ${data.country}` },
                     { label: "Your name", value: data.name },
                     { label: "Email", value: data.email },
                     { label: "Phone", value: data.phone || "-" },

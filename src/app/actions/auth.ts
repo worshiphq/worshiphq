@@ -52,6 +52,8 @@ async function uniqueSlug(base: string) {
  */
 export async function signUp(formData: FormData) {
   const churchName = String(formData.get("church") ?? "").trim();
+  const city = String(formData.get("city") ?? "").trim().slice(0, 80);
+  const country = String(formData.get("country") ?? "Ghana").trim().slice(0, 60) || "Ghana";
   const name = String(formData.get("name") ?? "").trim();
   const email = String(formData.get("email") ?? "").toLowerCase().trim();
   const password = String(formData.get("password") ?? "");
@@ -69,7 +71,7 @@ export async function signUp(formData: FormData) {
   // where every church (free tier included) explicitly agrees to them.
   const emailOk = /^\S+@\S+\.\S+$/.test(email);
   const phoneOk = phone.replace(/\D/g, "").length >= 9;
-  if (!churchName || !name || !emailOk || !passwordMeetsPolicy(password) || (channel === "phone" && !phoneOk) || !acceptedTerms) {
+  if (!churchName || city.length < 2 || !name || !emailOk || !passwordMeetsPolicy(password) || (channel === "phone" && !phoneOk) || !acceptedTerms) {
     redirect("/sign-up?error=invalid");
   }
   if (await db.user.findUnique({ where: { email } })) {
@@ -78,7 +80,7 @@ export async function signUp(formData: FormData) {
 
   const passwordHash = await hashPassword(password);
   const payload = {
-    churchName, name, email, passwordHash,
+    churchName, city, country, name, email, passwordHash,
     phone: phone ? normalisePhone(phone) : "",
     plan: chosenPlan,
     channel,
@@ -119,6 +121,8 @@ export async function completeSignup(formData: FormData) {
 
   const p = result.payload as {
     churchName: string;
+    city?: string;
+    country?: string;
     name: string;
     email: string;
     passwordHash: string;
@@ -138,7 +142,8 @@ export async function completeSignup(formData: FormData) {
     data: {
       slug,
       name: p.churchName,
-      country: "Ghana",
+      city: p.city || null,
+      country: p.country || "Ghana",
       termsAcceptedAt: new Date(),
       branches: { create: { name: "Main Branch", isHQ: true } },
     },
