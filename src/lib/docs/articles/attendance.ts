@@ -145,7 +145,7 @@ export const attendance: DocArticle[] = [
     title: "Face, palm and fingerprint devices",
     summary: "Connect a face, palm or fingerprint terminal so people check in with a scan.",
     who: "Main Admin or Admin",
-    feature: "fingerprint",
+    feature: "biometric-devices",
     appPath: "/app/devices",
     body: [
       { p: "Besides the USB fingerprint reader, WorshipHQ works with face, palm and fingerprint **terminals** that mount on a wall or stand at your door. Open **Devices** in the sidebar (under Attendance) to add one." },

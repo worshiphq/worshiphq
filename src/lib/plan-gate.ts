@@ -57,28 +57,30 @@ const FREE_FEATURES = [
   "groups", "households", "visitors", "prayer-requests", "children-forms", "teens-forms",
 ];
 
-/** Starter adds - reach & self-service for a growing church. */
+// The ladder below matches the plans as set in SuperAdmin on 28 Oct 2026. SuperAdmin (PlatformConfig.planDefs) is what
+// actually applies; these are the defaults for a fresh database and the tier each NEW feature lands on.
+
+/** Starter adds - reach your people: texts, receipts, follow-ups, IDs and forms. */
 const STARTER_ADDS = [
   "sms", "reminders", "member-ids", "qr-codes",
   "form-builder", "import-export", "auto-receipts", "follow-ups",
-  "baptisms",
+  "data-migration", "baptisms",
 ];
 
-/** Pro adds - teams, deeper giving, content and facilities. */
+/** Pro adds - run your ministries: teams, giving campaigns, content, welfare, facilities, the church's accounts,
+ *  and the USB fingerprint scanner (`fingerprint`; the scanner is a separate hardware purchase). */
 const PRO_ADDS = [
-  "custom-roles", "harvest", "pledges", "recurring-giving", "data-migration",
+  "custom-roles", "harvest", "pledges", "recurring-giving",
   "volunteers", "rosters", "volunteer-scheduling", "bookings",
   "sermons", "devotionals", "testimonies", "welfare",
-  "linked-churches",
+  "accounting", "expenses", "automations", "engagement-scoring", "fingerprint",
 ];
 
-/** Max adds - intelligence, automation, full finance, integration & scale.
- *  `fingerprint` unlocks biometric check-in in the desktop app; the USB
- *  scanner is a separate one-time hardware purchase (~$130+/unit). */
+/** Max adds - run the whole church: wall-mounted face / palm / fingerprint terminals (`biometric-devices`),
+ *  private counselling, budgets, funds and assets, the audit log, and branches. */
 const MAX_ADDS = [
-  "fingerprint", "automations", "engagement-scoring", "advanced-reports", "auto-inactive", "counseling",
-  "accounting", "budgets", "expenses", "fund-accounting", "assets",
-  "api-access", "audit-log",
+  "biometric-devices", "counseling", "budgets", "fund-accounting", "assets", "audit-log",
+  "auto-inactive", "linked-churches", "advanced-reports", "api-access",
 ];
 
 const STARTER_FEATURES = [...FREE_FEATURES, ...STARTER_ADDS];
@@ -128,7 +130,8 @@ export const FEATURE_LABELS: Record<string, string> = {
   bookings: "Facility bookings", accounting: "Accounting", budgets: "Budgets",
   expenses: "Expenses", "fund-accounting": "Fund accounting", assets: "Assets",
   "api-access": "API access", "audit-log": "Audit log",
-  fingerprint: "Biometric check-in (fingerprint, face, palm)",
+  fingerprint: "USB fingerprint scanner check-in",
+  "biometric-devices": "Check-in devices (face, palm and fingerprint terminals)",
   baptisms: "Baptisms & certificates", "linked-churches": "Linked churches (branches, partner churches, teens chapel)",
 };
 
@@ -136,7 +139,7 @@ export const FEATURE_LABELS: Record<string, string> = {
  * Features added after plans were first saved in the editor. A saved plan that has never seen one of these follows the
  * built-in tier for it, so a new feature never silently lands on no plan at all. Add a feature here when it is added to a tier.
  */
-export const FEATURES_ADDED_LATER = ["baptisms", "linked-churches"];
+export const FEATURES_ADDED_LATER = ["baptisms", "linked-churches", "biometric-devices"];
 
 /** Permission section keys whose plan feature has a different name. */
 const SECTION_FEATURE_MAP: Record<string, string> = {
@@ -166,7 +169,7 @@ const ROUTE_FEATURE_MAP: Record<string, string> = {
   "/app/assets": "assets",
   "/app/audit-log": "audit-log",
   "/app/follow-ups": "follow-ups",
-  "/app/devices": "fingerprint",
+  "/app/devices": "biometric-devices",
   "/app/sermons": "sermons",
   "/app/devotionals": "devotionals",
   "/app/testimonies": "testimonies",

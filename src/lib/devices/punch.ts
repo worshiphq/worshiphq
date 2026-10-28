@@ -141,9 +141,9 @@ export function parseDeviceTime(text: string, timeZone: string): Date | null {
   return isNaN(d.getTime()) ? null : d;
 }
 
-/** Only churches on a plan with biometric check-in take scans. */
+/** Only churches on a plan with check-in devices (face, palm and fingerprint terminals) take scans. */
 export async function deviceChurchAllowed(churchId: string): Promise<boolean> {
   const { getChurchPlan } = await import("@/lib/plan-gate-server");
   const { planHasFeature } = await import("@/lib/plan-gate");
-  return planHasFeature(await getChurchPlan(churchId), "fingerprint");
+  return planHasFeature(await getChurchPlan(churchId), "biometric-devices");
 }

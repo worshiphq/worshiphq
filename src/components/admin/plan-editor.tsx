@@ -43,12 +43,13 @@ const FEATURE_DESC: Record<string, string> = {
   "engagement-scoring": "See who's active, cooling or at risk",
   "auto-inactive": "Auto-flag members who've gone quiet",
   counseling: "Confidential pastoral case notes", expenses: "Track church spending",
+  fingerprint: "USB fingerprint scanner (scanner sold separately)",
+  "biometric-devices": "Wall-mounted face, palm & fingerprint terminals",
   "fund-accounting": "Ring-fence funds & designations", assets: "Equipment & asset register",
   pledges: "Pledges & giving campaigns", harvest: "Annual harvest & thanksgiving",
   bookings: "Facility & room reservations", sermons: "Sermon library & media",
   "custom-roles": "Fine-grained team permissions", "recurring-giving": "Standing-order giving",
   rosters: "Service rosters", "member-ids": "Printable member ID cards",
-  fingerprint: "Biometric check-in (desktop; USB scanner sold separately)",
 };
 
 const label = (k: string) => FEATURE_LABELS[k] ?? k;

@@ -55,7 +55,7 @@ export async function getDevices(): Promise<DevicesData> {
 export async function addDevice(input: { name: string; brand: "zkteco" | "webhook"; serial?: string; modes: string[] }) {
   const session = await requireSession();
   guard(session);
-  if (!(await deviceChurchAllowed(session.churchId))) return { ok: false as const, error: "Biometric check-in is part of the Max plan." };
+  if (!(await deviceChurchAllowed(session.churchId))) return { ok: false as const, error: "Check-in devices (face, palm and fingerprint terminals) are part of the Max plan." };
   const name = clean(input.name, 60);
   if (!name) return { ok: false as const, error: "Give the device a name, like Main door." };
   const modes = (input.modes ?? []).filter((m) => MODES.includes(m));

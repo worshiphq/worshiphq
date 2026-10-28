@@ -780,6 +780,10 @@ const FEATURE_LABELS: Record<string, string> = {
   assets: "Asset Register",
   "api-access": "API Access",
   "audit-log": "Audit Log",
+  fingerprint: "USB Fingerprint Check-in",
+  "biometric-devices": "Face, Palm & Fingerprint Devices",
+  baptisms: "Baptisms & Certificates",
+  "linked-churches": "Branches & Linked Churches",
 };
 
 function UpgradeCelebration({ planName, newFeatures, onDone }: { planName: string; newFeatures: string[]; onDone: () => void }) {
