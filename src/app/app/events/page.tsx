@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { canEdit } from "@/lib/permissions";
-import { Plus, MapPin, Users, Ticket, QrCode, CalendarDays } from "lucide-react";
+import { Plus, MapPin, Users, Ticket, CalendarDays } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { StatCard } from "@/components/app/stat-card";
 import { Card } from "@/components/ui/card";
@@ -87,8 +87,9 @@ export default async function EventsPage() {
                   </div>
                 )}
                 <div className="mt-4 flex gap-2 border-t border-line pt-4">
-                  <Button size="sm" variant="secondary" className="flex-1"><Users className="size-4" /> Manage</Button>
-                  <Button size="sm" variant="ghost"><QrCode className="size-4" /></Button>
+                  <Link href={`/app/events/${e.id}`} className="flex-1">
+                    <Button size="sm" variant="secondary" className="w-full"><Users className="size-4" /> Manage</Button>
+                  </Link>
                   {canDelete && (
                     <DeleteForm action={deleteEvent.bind(null, e.id)} confirm={`Delete "${e.title}"?`} />
                   )}
