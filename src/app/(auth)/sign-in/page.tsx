@@ -367,9 +367,9 @@ export default async function SignInPage({
           <PasswordInput id="password" name="password" placeholder="••••••••" required />
         </div>
         <p className="flex items-center gap-1.5 text-xs text-ink-faint">
-          <ShieldCheck className="size-3.5" /> We&rsquo;ll text or email you a one-time code to confirm it&rsquo;s you.
+          <ShieldCheck className="size-3.5" /> On a new device we&rsquo;ll text or email you a one-time code to confirm it&rsquo;s you.
         </p>
-        <SubmitButton size="lg" className="w-full" pendingLabel="Sending code…">
+        <SubmitButton size="lg" className="w-full" pendingLabel="Signing in…">
           Continue
         </SubmitButton>
       </form>
