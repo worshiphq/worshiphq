@@ -130,6 +130,13 @@ export default async function SignInPage({
         <form action={completeSignIn} className="mt-7 space-y-6">
           <input type="hidden" name="via" value={viaEmail ? "email" : "phone"} />
           <OtpInput />
+          <label className="flex items-start gap-2.5 rounded-xl border border-line bg-surface-2/50 p-3 text-sm text-ink-muted">
+            <input type="checkbox" name="remember" defaultChecked className="mt-0.5 size-4 shrink-0 rounded border-line accent-primary" />
+            <span>
+              <span className="font-medium text-ink">Keep me signed in on this device</span>
+              <span className="mt-0.5 block text-xs">For 60 days you will not need a code here, only your password. Untick this on a shared computer.</span>
+            </span>
+          </label>
           <SubmitButton size="lg" className="w-full" pendingLabel="Verifying...">
             Verify &amp; log in
           </SubmitButton>

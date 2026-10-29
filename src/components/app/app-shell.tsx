@@ -1,5 +1,6 @@
 "use client";
 
+import { SessionRenew } from "@/components/app/session-renew";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
@@ -141,6 +142,7 @@ export function AppShell({
       <div className="flex min-w-0 flex-1 flex-col">
         <Topbar session={session} notifications={notifications} onMenu={() => setMobileOpen(true)} />
         {session.impersonating && <ImpersonationBanner churchName={session.churchName} />}
+        {!session.isDemo && <SessionRenew />}
         {session.isDemo && <DemoBanner />}
         {announcements.map((a) => (
           <AnnouncementBanner key={a.id} announcement={a} />

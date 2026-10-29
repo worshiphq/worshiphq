@@ -178,6 +178,50 @@ export async function clearSession() {
   store.delete(COOKIE);
 }
 
+/**
+ * Keep an active person signed in. A session cookie lasts 30 days from the day it was made; once it is more than a week old,
+ * hand out a fresh 30 days. Called when someone opens the app, so anyone who uses WorshipHQ is never signed out mid-use.
+ * It never revives a cookie that has expired or been signed out everywhere (password change or reset).
+ */
+export async function renewUserSession() {
+  const store = await cookies();
+  const token = store.get(COOKIE)?.value;
+  if (!token) return;
+  const payload = verify(token);
+  if (!payload || !("uid" in payload)) return;
+  let exp: unknown;
+  try { exp = JSON.parse(Buffer.from(token.split(".")[0], "base64url").toString()).exp; } catch { return; }
+  if (typeof exp === "number" && exp - Date.now() > USER_SESSION_MS - 7 * 24 * 60 * 60 * 1000) return; // made or renewed within the last week
+  const user = await db.user.findUnique({ where: { id: payload.uid }, select: { sessionVersion: true } });
+  if (!user || user.sessionVersion !== payload.sv) return;
+  await setCookie({ uid: payload.uid, sv: user.sessionVersion });
+}
+
+// ── Remembered device ──
+// After a correct sign-in code the person can keep this browser: for 60 days a correct password alone signs them in here,
+// without another code. The cookie is signed for this one purpose, belongs to one user, and stops working when that user's
+// password changes or is reset (sessionVersion), so it can never be used as a session or for anyone else.
+const TRUSTED_COOKIE = "whq_device";
+const TRUSTED_TTL = 60 * 24 * 60 * 60 * 1000;
+
+export async function rememberDevice(userId: string) {
+  const user = await db.user.findUnique({ where: { id: userId }, select: { sessionVersion: true } });
+  if (!user) return;
+  (await cookies()).set(TRUSTED_COOKIE, signToken("trusted-device", { td: userId, sv: user.sessionVersion }, TRUSTED_TTL), {
+    httpOnly: true, sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/", maxAge: TRUSTED_TTL / 1000,
+  });
+}
+
+/** Is this browser remembered for this user? */
+export async function isTrustedDevice(userId: string): Promise<boolean> {
+  const data = readToken<{ td?: string; sv?: number }>("trusted-device", (await cookies()).get(TRUSTED_COOKIE)?.value);
+  if (!data || data.td !== userId) return false;
+  const user = await db.user.findUnique({ where: { id: userId }, select: { sessionVersion: true } });
+  return !!user && user.sessionVersion === data.sv;
+}
+
 // ── SuperAdmin (platform owner) ──
 /**
  * Verify SuperAdmin credentials. The owner's password is the one in the environment, or the one set through

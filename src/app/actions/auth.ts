@@ -10,6 +10,9 @@ import {
   startUserSession,
   startDemoSession,
   clearSession,
+  renewUserSession,
+  rememberDevice,
+  isTrustedDevice,
   hashPassword,
   verifyPassword,
   mintLoginChallenge,
@@ -380,6 +383,12 @@ export async function signIn(formData: FormData) {
   await clearFailures(pwKey);
   await clearFailures(userPasswordKey(user.id));
 
+  // A browser the person chose to keep after a correct code goes straight in on the password alone.
+  if (await isTrustedDevice(user.id)) {
+    await startUserSession(user.id);
+    redirect("/app");
+  }
+
   // Password OK → mint a short-lived challenge and let them pick a channel.
   const store = await cookies();
   store.set(LOGIN_CHALLENGE_COOKIE, mintLoginChallenge(user.id), {
@@ -447,7 +456,13 @@ export async function completeSignIn(formData: FormData) {
   store.delete(LOGIN_2FA_VID);
   store.delete(LOGIN_CHALLENGE_COOKIE);
   await startUserSession(result.userId);
+  if (formData.get("remember") === "on") await rememberDevice(result.userId);
   redirect("/app");
+}
+
+/** Called when the app opens: gives an active person a fresh 30 days so they are not signed out mid-use. */
+export async function renewSession() {
+  await renewUserSession();
 }
 
 /** Resend the login verification code on the same channel. */
