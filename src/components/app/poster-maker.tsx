@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label, Textarea } from "@/components/ui/input";
 import { useFeedback } from "@/components/ui/feedback";
 import { cn } from "@/lib/utils";
-import { drawPoster, PAPER, qrInk, type PaperKey, type PosterFont, type PosterStyle } from "@/lib/poster/draw";
+import { drawPoster, PAPER, PX_PER_MM, qrInk, type PaperKey, type PosterFont, type PosterStyle } from "@/lib/poster/draw";
 
 export type PosterKind =
   | "member" | "visitor" | "children" | "teens" | "pray" | "testify" | "counsel" | "give" | "book" | "checkin";
@@ -198,13 +198,18 @@ export function PosterMaker({
   }, [onClose]);
 
   /** Everything the drawing needs that has to load first: the QR picture, the logo and the app font. */
-  async function assets() {
+  async function assets(withLogo = true) {
     const svg = qrHost.current?.querySelector("svg");
     if (!svg) throw new Error("no qr");
     const xml = new XMLSerializer().serializeToString(svg);
     const qr = await loadImage(`data:image/svg+xml;charset=utf-8,${encodeURIComponent(xml)}`);
     let logo: HTMLImageElement | null = null;
-    if (showLogo && brand.logo) { try { logo = await loadImage(brand.logo); } catch { logo = null; } }
+    if (withLogo && showLogo && brand.logo) {
+      // A logo kept in image storage is loaded through our own address: the storage host does not allow a browser to
+      // save a picture that contains an image from it, which is what made downloads fail.
+      const src = brand.logo.startsWith("data:") ? brand.logo : `/api/church-logo?v=${encodeURIComponent(brand.logo.slice(-24))}`;
+      try { logo = await loadImage(src); } catch { logo = null; }
+    }
     const appFont = getComputedStyle(document.body).fontFamily || "sans-serif";
     try { await document.fonts.load(`800 40px ${appFont}`); await document.fonts.load(`500 24px ${appFont}`); } catch { /* use whatever is available */ }
     return { qr, logo, appFont };
@@ -237,10 +242,12 @@ export function PosterMaker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [wMm, hMm, style, font, accent, customBg, bg, brand.name, showName, showLogo, showHeadline, headline, showMessage, subline, showSteps, steps, extras, showUrl, creditOn, qrScale, textScale, url, brand.logo]);
 
-  async function fullSize() {
-    const a = await assets();
+  async function fullSize(withLogo = true) {
+    const a = await assets(withLogo);
     const canvas = document.createElement("canvas");
-    drawPoster(canvas, { ...options, ...a }, 2);
+    // 300 dpi, unless that would be bigger than phones can draw (about 16 million pixels)
+    const scale = Math.min(2, Math.sqrt(16_000_000 / (wMm * PX_PER_MM * hMm * PX_PER_MM)));
+    drawPoster(canvas, { ...options, ...a }, scale);
     return canvas;
   }
 
@@ -250,11 +257,26 @@ export function PosterMaker({
   async function run(kindOfOutput: "pdf" | "png" | "print") {
     setBusy(kindOfOutput);
     try {
-      const canvas = await fullSize();
-      if (kindOfOutput === "print") {
-        printImage(canvas.toDataURL("image/png"), wMm, hMm);
-      } else {
+      const build = async (withLogo: boolean) => {
+        const canvas = await fullSize(withLogo);
+        if (kindOfOutput === "print") return { dataUrl: canvas.toDataURL("image/png"), blob: null as Blob | null };
         const blob = await new Promise<Blob>((res, rej) => canvas.toBlob((b) => (b ? res(b) : rej(new Error("no blob"))), "image/png"));
+        return { dataUrl: "", blob };
+      };
+      let made: { dataUrl: string; blob: Blob | null };
+      try {
+        made = await build(true);
+      } catch (e) {
+        // A logo the browser will not let us save from: make the poster without it rather than failing.
+        if (e instanceof DOMException && e.name === "SecurityError" && showLogo && brand.logo) {
+          made = await build(false);
+          toast("Saved without your logo because the browser could not read it.", "info");
+        } else throw e;
+      }
+      if (kindOfOutput === "print") {
+        printImage(made.dataUrl, wMm, hMm);
+      } else {
+        const blob = made.blob as Blob;
         if (kindOfOutput === "png") {
           saveBlob(blob, fileName("png"));
           toast("Picture downloaded", "success");
