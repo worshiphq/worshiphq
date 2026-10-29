@@ -42,6 +42,10 @@ export default async function AdminVerifyPage({ searchParams }: { searchParams: 
               id="sa-code" name="code" inputMode="numeric" autoComplete="one-time-code" pattern="[0-9 ]{6,7}" maxLength={7} required autoFocus
               placeholder="000000" className={`${authInput} text-center text-lg tracking-[0.4em]`}
             />
+            <label className="flex items-start gap-2 rounded-lg border border-slate-700/60 p-2.5 text-xs text-slate-400">
+              <input type="checkbox" name="remember" defaultChecked className="mt-0.5 size-4 shrink-0 accent-teal-500" />
+              <span>Keep this device for 30 days. Only your password will be asked here. Untick this on a shared or public computer.</span>
+            </label>
             <SubmitButton pendingLabel="Checking code…" overlay={false} className={authButton}>Sign in</SubmitButton>
           </form>
         )}

@@ -46,7 +46,7 @@ export default async function AdminLoginPage({
           Continue
         </SubmitButton>
         <p className="text-center text-xs text-slate-500">
-          A code is sent to your email or phone next. <Link href="/admin/forgot" className="font-medium text-teal-400 hover:underline">Forgot your password?</Link>
+          On a new device, a code is sent to your email or phone next. <Link href="/admin/forgot" className="font-medium text-teal-400 hover:underline">Forgot your password?</Link>
         </p>
       </form>
     </AuthShell>

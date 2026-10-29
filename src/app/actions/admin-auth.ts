@@ -13,6 +13,7 @@ import {
   saEmail, saPhone, saTwoFactorOn, saveSaPassword, resolveSaIdentity, readAdminInvite,
   getLoginState, setLoginState, clearLoginState,
   getResetState, setResetState, clearResetState,
+  rememberSaDevice, isTrustedSaDevice, type SaIdentity,
 } from "@/lib/superadmin-security";
 
 /**
@@ -39,6 +40,20 @@ async function alertOwner(subject: string, text: string) {
   } catch (e) {
     console.error("[admin alert sms]", (e as Error).message);
   }
+}
+
+/** The code is right, or this device is remembered: start the session and tell the owner. */
+async function finishSaSignIn(identity: SaIdentity, ip: string, how: string) {
+  if (identity.kind === "admin") {
+    await db.superAdminUser.update({ where: { id: identity.id }, data: { lastLoginAt: new Date() } }).catch(() => {});
+    await startSuperAdminSession({ kind: "admin", id: identity.id, email: identity.email });
+  } else {
+    await startSuperAdminSession({ kind: "owner", email: identity.email });
+  }
+  console.info(`[admin] ${identity.email} signed in from ${ip}${how}`);
+  // An email every time, so a sign-in you did not make is never silent.
+  after(() => alertOwner("SuperAdmin sign-in", `${identity.kind === "admin" ? identity.name : "The owner"} (${identity.email}) just signed in to WorshipHQ SuperAdmin from ${ip}${how} at ${new Date().toUTCString()}.`));
+  redirect("/admin");
 }
 
 // ── Sign in ──
@@ -73,6 +88,11 @@ export async function superAdminSignIn(formData: FormData) {
     console.warn(`[admin] ${who.email} signed in WITHOUT a code (SUPERADMIN_2FA=off) from ${ip}`);
     await startSuperAdminSession(who);
     redirect("/admin");
+  }
+  // A browser the admin chose to keep after a correct code goes straight in on the password alone.
+  if (await isTrustedSaDevice(who)) {
+    const identity = await resolveSaIdentity(who.email);
+    if (identity) await finishSaSignIn(identity, ip, " (remembered device)");
   }
   // The password is right. Now prove it is really them: a code to their own email or phone.
   await setLoginState({ who: who.email });
@@ -134,16 +154,8 @@ export async function verifySuperAdminCode(formData: FormData) {
   await clearFailures(codeKey);
   await clearFailures(saPasswordKey(identity.email));
   await clearLoginState();
-  if (identity.kind === "admin") {
-    await db.superAdminUser.update({ where: { id: identity.id }, data: { lastLoginAt: new Date() } }).catch(() => {});
-    await startSuperAdminSession({ kind: "admin", id: identity.id, email: identity.email });
-  } else {
-    await startSuperAdminSession({ kind: "owner", email: identity.email });
-  }
-  console.info(`[admin] ${identity.email} signed in from ${ip}`);
-  // An email every time, so a sign-in you did not make is never silent.
-  after(() => alertOwner("SuperAdmin sign-in", `${identity.kind === "admin" ? identity.name : "The owner"} (${identity.email}) just signed in to WorshipHQ SuperAdmin from ${ip} at ${new Date().toUTCString()}.`));
-  redirect("/admin");
+  if (formData.get("remember") === "on") await rememberSaDevice(identity);
+  await finishSaSignIn(identity, ip, "");
 }
 
 /** Go back to the password step. */

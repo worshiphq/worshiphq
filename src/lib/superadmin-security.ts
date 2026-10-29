@@ -159,3 +159,34 @@ export async function getResetState(): Promise<ResetState | null> {
 export async function clearResetState() {
   (await cookies()).set(SA_RESET_COOKIE, "", { ...cookieOpts, maxAge: 0 });
 }
+
+// ── Remembered device (SuperAdmin) ──
+// After a correct sign-in code, the admin can keep this browser for 30 days: here a correct password alone signs in, with no
+// code. The cookie is signed for this purpose only, belongs to one admin, and stops working the moment that admin's password
+// is reset or the admin is removed (the same epoch that signs their sessions out), so it can never be used for anyone else.
+const SA_DEVICE_COOKIE = "whq_sa_device";
+const SA_DEVICE_TTL = 30 * 24 * 60 * 60 * 1000;
+
+async function saEpochFor(who: { kind: "owner" | "admin"; id?: string }): Promise<number | null> {
+  if (who.kind === "owner") return (await getSaSecurity()).epoch;
+  if (!who.id) return null;
+  const a = await getSaAdminById(who.id);
+  return a?.active ? a.epoch : null;
+}
+
+export async function rememberSaDevice(who: { kind: "owner" | "admin"; email: string; id?: string }) {
+  const epoch = await saEpochFor(who);
+  if (epoch === null) return;
+  (await cookies()).set(SA_DEVICE_COOKIE, signToken("sa-trusted-device", { sd: who.email.toLowerCase(), se: epoch }, SA_DEVICE_TTL), {
+    ...cookieOpts,
+    maxAge: SA_DEVICE_TTL / 1000,
+  });
+}
+
+/** Is this browser remembered for this admin? */
+export async function isTrustedSaDevice(who: { kind: "owner" | "admin"; email: string; id?: string }): Promise<boolean> {
+  const data = readToken<{ sd?: string; se?: number }>("sa-trusted-device", (await cookies()).get(SA_DEVICE_COOKIE)?.value);
+  if (!data || data.sd !== who.email.toLowerCase()) return false;
+  const epoch = await saEpochFor(who);
+  return epoch !== null && epoch === data.se;
+}
