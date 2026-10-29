@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { ownLeaderTitleRank } from "@/lib/leader-titles";
 
 const CHURCH_TITLE_PRIORITY: Record<string, number> = {
   "Head Pastor": 0, "Senior Pastor": 1, "Lead Pastor": 2, "Associate Pastor": 3,
@@ -14,7 +15,7 @@ const POSITION_PRIORITY: Record<string, number> = {
 };
 
 export async function getLeaders(churchId: string) {
-  const [churchLeaders, departmentPositions, departments, allPeople] = await Promise.all([
+  const [churchLeaders, departmentPositions, departments, allPeople, churchTitles] = await Promise.all([
     db.person.findMany({
       where: { churchId, featured: true, leaderTitle: { not: null } },
       select: {
@@ -42,12 +43,13 @@ export async function getLeaders(churchId: string) {
       select: { id: true, firstName: true, lastName: true, title: true, photoUrl: true },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     }),
+    db.church.findUnique({ where: { id: churchId }, select: { leaderTitles: true } }),
   ]);
 
   const sortedChurchLeaders = [...churchLeaders].sort((a, b) => {
     if (a.leaderSortOrder !== b.leaderSortOrder) return a.leaderSortOrder - b.leaderSortOrder;
-    const pa = CHURCH_TITLE_PRIORITY[a.leaderTitle ?? ""] ?? 99;
-    const pb = CHURCH_TITLE_PRIORITY[b.leaderTitle ?? ""] ?? 99;
+    const pa = ownLeaderTitleRank(churchTitles?.leaderTitles, a.leaderTitle) ?? CHURCH_TITLE_PRIORITY[a.leaderTitle ?? ""] ?? 99;
+    const pb = ownLeaderTitleRank(churchTitles?.leaderTitles, b.leaderTitle) ?? CHURCH_TITLE_PRIORITY[b.leaderTitle ?? ""] ?? 99;
     return pa - pb;
   });
 

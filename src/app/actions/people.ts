@@ -11,7 +11,25 @@ import { nextMemberId, resolveDepartmentIds, resolveGroupIds } from "@/lib/membe
 import { logAudit } from "@/lib/audit";
 import { RecycleBin } from "@/lib/recycle-bin";
 import { saveMemberCategoryChoices } from "@/lib/members/categories";
+import { cleanLeaderTitle, leaderTitleList } from "@/lib/leader-titles";
 import type { PersonStatus } from "@prisma/client";
+
+/**
+ * The leadership label from the member form. "Add a new title" sends the new wording in its own box; a title the church has
+ * not used before is added to its list, so it is there to pick next time.
+ */
+async function resolveLeaderTitle(churchId: string, formData: FormData): Promise<string | null> {
+  let title = String(formData.get("leaderTitle") ?? "").trim();
+  if (title === "__new__") title = String(formData.get("leaderTitleNew") ?? "");
+  title = cleanLeaderTitle(title);
+  if (!title) return null;
+  const church = await db.church.findUnique({ where: { id: churchId }, select: { leaderTitles: true } });
+  const list = leaderTitleList(church?.leaderTitles);
+  if (!list.some((t) => t.toLowerCase() === title.toLowerCase())) {
+    await db.church.update({ where: { id: churchId }, data: { leaderTitles: [...list, title] } });
+  }
+  return title;
+}
 
 async function formFields(churchId: string) {
   const church = await db.church.findUnique({
@@ -34,7 +52,7 @@ export async function createPerson(formData: FormData) {
     const full = await memberLimitError(session.churchId);
     if (full) return { ok: false as const, error: full };
   }
-  const leaderTitle = String(formData.get("leaderTitle") ?? "").trim() || null;
+  const leaderTitle = await resolveLeaderTitle(session.churchId, formData);
   const featured = formData.get("featured") === "true";
   const deptIds = await resolveDepartmentIds(session.churchId, departmentNames);
   const adminGroups = await resolveGroupIds(session.churchId, formData.getAll("groups").map(String));
@@ -83,7 +101,7 @@ export async function updatePerson(formData: FormData) {
   const fields = await formFields(session.churchId);
   const { data, customFields, departmentNames } = await buildPersonData(fields, formData);
   const status = (String(formData.get("status") ?? "active") as PersonStatus) || "active";
-  const leaderTitle = String(formData.get("leaderTitle") ?? "").trim() || null;
+  const leaderTitle = await resolveLeaderTitle(session.churchId, formData);
   const featured = formData.get("featured") === "true";
   const deptIds = await resolveDepartmentIds(session.churchId, departmentNames);
   // The edit form always includes the groups section, so what it sends is the full list.

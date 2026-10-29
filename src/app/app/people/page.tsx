@@ -8,6 +8,7 @@ import { JoinLinkCard } from "@/components/app/join-link-card";
 import { PageTips } from "@/components/app/page-tips";
 import { getFormDefinition, questionFields } from "@/lib/forms/registration";
 import { getCategoriesForForm } from "@/lib/members/categories";
+import { leaderTitleList } from "@/lib/leader-titles";
 
 export const metadata = { title: "People" };
 
@@ -24,7 +25,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
     }),
     db.church.findUnique({
       where: { id: session.churchId },
-      select: { slug: true, isDemo: true, registrationFields: true, ageTeenMax: true, ageYouthOn: true, ageYouthMax: true, ageYouthLabel: true },
+      select: { slug: true, isDemo: true, registrationFields: true, ageTeenMax: true, ageYouthOn: true, ageYouthMax: true, ageYouthLabel: true, leaderTitles: true },
     }),
     db.person.findMany({
       where: {
@@ -70,6 +71,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
           formFields={formFields}
           adults={adults}
           categories={categories}
+          leaderTitles={leaderTitleList(church?.leaderTitles)}
           initialQuery={q ?? ""}
           youth={church?.ageYouthOn ? { label: church.ageYouthLabel, min: church.ageTeenMax + 1, max: church.ageYouthMax } : null}
         />

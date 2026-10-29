@@ -218,6 +218,7 @@ model Church {
   pledgePayments         PledgePayment[]
 
   featuredLeaderCount Int @default(6) // number of leaders shown on dashboard
+  leaderTitles String[] @default([]) // the church's own leadership titles, most senior first; empty means the standard list
 
   branches      Branch[]
   users         User[]

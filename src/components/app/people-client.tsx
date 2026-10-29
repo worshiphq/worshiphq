@@ -59,9 +59,9 @@ type Dept = { id: string; name: string };
 type Adult = { id: string; firstName: string; lastName: string };
 
 export function PeopleClient({
-  people, stats, canWrite, departments, groups = [], formFields, adults, categories = [], initialQuery = "", youth = null,
+  people, stats, canWrite, departments, groups = [], formFields, adults, categories = [], leaderTitles = [], initialQuery = "", youth = null,
 }: {
-  people: PersonRow[]; stats: AllStats; canWrite: boolean; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; initialQuery?: string; youth?: { label: string; min: number; max: number } | null;
+  people: PersonRow[]; stats: AllStats; canWrite: boolean; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; leaderTitles?: string[]; initialQuery?: string; youth?: { label: string; min: number; max: number } | null;
 }) {
   const [ageTab, setAgeTab] = useState<AgeTab>("adult");
   const [query, setQuery] = useState(initialQuery);
@@ -435,6 +435,7 @@ export function PeopleClient({
           formFields={formFields}
           adults={adults}
           categories={categories}
+          leaderTitles={leaderTitles}
           ageTab={ageTab}
           onClose={() => { setCreating(false); setEditing(null); }}
         />
@@ -747,11 +748,15 @@ function buildDefaults(fields: FormField[], person: PersonRow): MemberDefaults {
 type AddResult = { ok: boolean; personId?: string; name?: string; error?: string } | null;
 
 function PersonForm({
-  person, departments, groups = [], formFields, adults, categories = [], ageTab, onClose,
+  person, departments, groups = [], formFields, adults, categories = [], leaderTitles = [], ageTab, onClose,
 }: {
-  person: PersonRow | null; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; ageTab: AgeTab; onClose: () => void;
+  person: PersonRow | null; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; leaderTitles?: string[]; ageTab: AgeTab; onClose: () => void;
 }) {
   const isEdit = !!person;
+  const currentTitle = person?.leaderTitle ?? "";
+  const [titleChoice, setTitleChoice] = useState(currentTitle);
+  // The church's list, plus this person's own title if it is no longer on the list, so editing never wipes it.
+  const titleOptions = currentTitle && !leaderTitles.some((t) => t.toLowerCase() === currentTitle.toLowerCase()) ? [...leaderTitles, currentTitle] : leaderTitles;
   const personAge = person ? (person.ageGroup ?? "adult") : ageTab;
   const isYouth = personAge === "teen" || personAge === "child";
   const defaults = person ? buildDefaults(formFields, person) : undefined;
@@ -896,25 +901,15 @@ function PersonForm({
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <Label htmlFor="leaderTitle">Leadership label</Label>
-                  <select id="leaderTitle" name="leaderTitle" defaultValue={person?.leaderTitle ?? ""} className={selectBase}>
+                  <select id="leaderTitle" name="leaderTitle" value={titleChoice} onChange={(e) => setTitleChoice(e.target.value)} className={selectBase}>
                     <option value="">None</option>
-                    <option value="Head Pastor">Head Pastor</option>
-                    <option value="Senior Pastor">Senior Pastor</option>
-                    <option value="Associate Pastor">Associate Pastor</option>
-                    <option value="Assistant Pastor">Assistant Pastor</option>
-                    <option value="Youth Pastor">Youth Pastor</option>
-                    <option value="Worship Pastor">Worship Pastor</option>
-                    <option value="Elder">Elder</option>
-                    <option value="Deacon">Deacon</option>
-                    <option value="Deaconess">Deaconess</option>
-                    <option value="Shepherd">Shepherd</option>
-                    <option value="Minister">Minister</option>
-                    <option value="Evangelist">Evangelist</option>
-                    <option value="Bishop">Bishop</option>
-                    <option value="Apostle">Apostle</option>
-                    <option value="Prophet">Prophet</option>
+                    {titleOptions.map((t) => <option key={t} value={t}>{t}</option>)}
+                    <option value="__new__">Add a new title...</option>
                   </select>
-                  <p className="mt-1 text-xs text-ink-faint">Displayed on profiles and listings.</p>
+                  {titleChoice === "__new__" && (
+                    <input name="leaderTitleNew" maxLength={40} autoFocus placeholder="For example: Women's Ministry Director" className={cn(inputBase, "mt-2")} aria-label="New leadership title" />
+                  )}
+                  <p className="mt-1 text-xs text-ink-faint">Displayed on profiles and listings. Change the list on the Leaders page.</p>
                 </div>
                 <div className="flex items-end pb-1">
                   <label className="flex items-center gap-2 text-sm">

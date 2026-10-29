@@ -1,3 +1,4 @@
+import { ownLeaderTitleRank } from "@/lib/leader-titles";
 import "server-only";
 import { db } from "@/lib/db";
 
@@ -26,7 +27,7 @@ export async function getDashboard(churchId: string) {
       db.department.findMany({ where: { churchId }, select: { id: true, name: true, _count: { select: { members: true } } } }),
       db.person.findMany({ where: { churchId }, orderBy: { joinedAt: "desc" }, take: 6, select: { firstName: true, lastName: true, gender: true, status: true, joinedAt: true, photoUrl: true, departments: { select: { name: true }, take: 1 } } }),
       db.person.findMany({ where: { churchId, featured: true, leaderTitle: { not: null } }, select: { id: true, firstName: true, lastName: true, title: true, leaderTitle: true, photoUrl: true, phone: true, email: true, leaderSortOrder: true } }),
-      db.church.findUnique({ where: { id: churchId }, select: { featuredLeaderCount: true } }),
+      db.church.findUnique({ where: { id: churchId }, select: { featuredLeaderCount: true, leaderTitles: true } }),
       // The real follow-up tasks, most urgent first (undated last).
       db.followUp.findMany({
         where: { churchId, status: { not: "done" } },
@@ -102,8 +103,8 @@ export async function getDashboard(churchId: string) {
   const maxLeaders = church?.featuredLeaderCount ?? 6;
   const sortedLeaders = [...featuredLeaders].sort((a, b) => {
     if (a.leaderSortOrder !== b.leaderSortOrder) return a.leaderSortOrder - b.leaderSortOrder;
-    const pa = TITLE_PRIORITY[a.leaderTitle ?? ""] ?? 99;
-    const pb = TITLE_PRIORITY[b.leaderTitle ?? ""] ?? 99;
+    const pa = ownLeaderTitleRank(church?.leaderTitles, a.leaderTitle) ?? TITLE_PRIORITY[a.leaderTitle ?? ""] ?? 99;
+    const pb = ownLeaderTitleRank(church?.leaderTitles, b.leaderTitle) ?? TITLE_PRIORITY[b.leaderTitle ?? ""] ?? 99;
     return pa - pb;
   });
 
