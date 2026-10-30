@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { VERIFICATION_CHECKS, CHANGE_HOLD_HOURS, isVerified, readVerification } from "@/lib/giving/verification";
 import {
   Clock, CheckCircle2, Phone, Mail, Calendar, MessageSquare,
   ChevronDown, ChevronUp, Building2, Loader2, Video, MapPin,
@@ -8,7 +10,7 @@ import {
 import {
   updatePaymentRequest, approveGivingSetup, setGivingFeeSettings,
   approveAccountChange, rejectAccountChange, revokeGivingAccess, restoreGivingAccess,
-  deletePaymentAccount, restorePaymentAccount, purgePaymentAccount, adminEditPaymentAccount, adminGivingBanks, adminVerifyAccount, adminSetChurchGiving, setPlanGivingFees,
+  saveVerification, deletePaymentAccount, restorePaymentAccount, purgePaymentAccount, adminEditPaymentAccount, adminGivingBanks, adminVerifyAccount, adminSetChurchGiving, setPlanGivingFees,
 } from "@/app/actions/admin";
 import { AdminCard } from "./admin-shell";
 
@@ -193,6 +195,60 @@ function PayoutDetails({ type, bank, number, name }: { type: string | null; bank
   );
 }
 
+/** Before approving where a church's gifts go: confirm the church is real and the account is theirs. */
+function VerificationChecklist({ req }: { req: any }) {
+  const router = useRouter();
+  const saved = readVerification(req.verification);
+  const [checks, setChecks] = useState<Record<string, boolean>>(saved?.checks ?? {});
+  const [note, setNote] = useState(saved?.note ?? "");
+  const [saving, setSaving] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const done = isVerified({ checks });
+  const dirty = JSON.stringify(checks) !== JSON.stringify(saved?.checks ?? {}) || note !== (saved?.note ?? "");
+
+  async function save() {
+    setSaving(true); setErr(null);
+    try {
+      const r = await saveVerification(req.id, checks, note);
+      if (!r.ok) setErr(r.error ?? "Could not save.");
+      else router.refresh();
+    } catch (e) {
+      setErr((e as Error).message || "Could not save.");
+    }
+    setSaving(false);
+  }
+
+  return (
+    <div className={`rounded-lg border p-3 space-y-2.5 ${isVerified(req.verification) ? "border-emerald-500/30 bg-emerald-500/5" : "border-amber-500/30 bg-amber-500/5"}`}>
+      <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-slate-200">
+        Verify this church before approving
+        {isVerified(req.verification)
+          ? <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] text-emerald-400">Verified{saved?.by ? ` by ${saved.by}` : ""}{saved?.at ? ` on ${new Date(saved.at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })}` : ""}</span>
+          : <span className="rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] text-amber-400">Not verified yet: approving is locked</span>}
+      </div>
+      <p className="text-[11px] text-slate-400">Approving decides where this church&apos;s online gifts are paid. A fake church, or someone who took over a real login, could send the money to themselves. Do each check yourself, then tick it.</p>
+      <div className="space-y-1.5">
+        {VERIFICATION_CHECKS.map((c) => (
+          <label key={c.key} className="flex items-start gap-2 text-xs text-slate-300">
+            <input type="checkbox" checked={!!checks[c.key]} onChange={(e) => setChecks((v) => ({ ...v, [c.key]: e.target.checked }))} className="mt-0.5 size-4 shrink-0 accent-teal-500" />
+            <span>{c.label}{!c.required && <span className="text-slate-500"> (optional)</span>}</span>
+          </label>
+        ))}
+      </div>
+      <textarea value={note} onChange={(e) => setNote(e.target.value)} maxLength={500} rows={2} placeholder="Notes: who you spoke to, which number you called, what you saw"
+        className="w-full rounded-lg border border-slate-700 bg-slate-800 px-3 py-2 text-xs text-slate-100" />
+      <div className="flex flex-wrap items-center gap-2">
+        <button type="button" disabled={saving || !dirty} onClick={save}
+          className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-3.5 py-2 text-xs font-semibold text-white hover:bg-white/15 disabled:opacity-50">
+          {saving ? <><Loader2 className="size-3.5 animate-spin" /> Saving…</> : "Save checklist"}
+        </button>
+        {!done && <span className="text-[11px] text-slate-500">Tick every box that is not marked optional.</span>}
+        {err && <span className="text-[11px] text-red-300">{err}</span>}
+      </div>
+    </div>
+  );
+}
+
 /** Everything SuperAdmin can do to a church's payout account, in one place. */
 function PayoutPanel({ req }: { req: any }) {
   const [busy, setBusy] = useState<string | null>(null);
@@ -207,6 +263,10 @@ function PayoutPanel({ req }: { req: any }) {
   const blocked = !!req.church?.givingBlocked || req.status === "revoked";
   const trashed = req.status === "trashed";
   const terminal = ["removed", "cancelled", "trashed"].includes(req.status);
+  const verified = isVerified(req.verification);
+  // A change to an existing payout account is held for a day before it can be approved.
+  const holdEnd = req.pendingAt ? new Date(req.pendingAt).getTime() + CHANGE_HOLD_HOURS * 3600_000 : 0;
+  const holdEndsAt = holdEnd > Date.now() ? new Date(holdEnd) : null;
   if (!hasAccount && !req.pendingAt) return null;
 
   async function run(key: string, fn: () => Promise<{ ok: boolean; error?: string; code?: string }>, okText: string, after?: () => void) {
@@ -239,12 +299,17 @@ function PayoutPanel({ req }: { req: any }) {
         </>
       )}
 
+      {!terminal && <VerificationChecklist req={req} />}
+
       {req.pendingAt && (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/10 p-3 space-y-3">
           <div className="text-xs font-semibold text-amber-300">The church asked to change its account to:</div>
           <PayoutDetails type={req.pendingSettlementType} bank={req.pendingBankName} number={req.pendingAccountNumber} name={req.pendingAccountName} />
+          {holdEndsAt && (
+            <p className="text-[11px] text-amber-300">Held until {holdEndsAt.toLocaleString("en-GB", { timeZone: "Africa/Accra", weekday: "short", hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" })} so the church&apos;s admins, who were emailed, can object.</p>
+          )}
           <div className="flex flex-wrap gap-2">
-            <button type="button" disabled={!!busy} className={`${btn} bg-emerald-500 text-white hover:bg-emerald-400`}
+            <button type="button" disabled={!!busy || !verified || !!holdEndsAt} title={!verified ? "Complete the verification checklist first" : holdEndsAt ? "This change is on hold for 24 hours" : undefined} className={`${btn} bg-emerald-500 text-white hover:bg-emerald-400`}
               onClick={() => run("approveChange", () => approveAccountChange(req.id), "Change approved and updated on Paystack.")}>
               {busy === "approveChange" ? <><Loader2 className="size-4 animate-spin" /> Updating Paystack…</> : "Approve change"}
             </button>
@@ -293,7 +358,7 @@ function PayoutPanel({ req }: { req: any }) {
       {!terminal && hasAccount && (
         <div className="flex flex-wrap gap-2">
           {!code && (
-            <button type="button" disabled={!!busy} className={`${btn} bg-emerald-500 text-white hover:bg-emerald-400`}
+            <button type="button" disabled={!!busy || !verified} title={!verified ? "Complete the verification checklist first" : undefined} className={`${btn} bg-emerald-500 text-white hover:bg-emerald-400`}
               onClick={() => run("approve", () => approveGivingSetup(req.id), "Subaccount created. Giving now pays this church")}>
               {busy === "approve" ? <><Loader2 className="size-4 animate-spin" /> Creating subaccount…</> : "Approve & create subaccount"}
             </button>

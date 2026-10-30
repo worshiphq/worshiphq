@@ -16,6 +16,8 @@ import { getSmsBalance } from "@/lib/sms/credits";
 import { getChurchPlan } from "@/lib/plan-gate-server";
 import { commsTrial, planRank, type PlanId } from "@/lib/plan-gate";
 import { suggestSenderId } from "@/lib/sms/sender-suggestion";
+import { MessageNameCard } from "@/components/app/message-name-card";
+import { currentNameLine } from "@/lib/sms/message-name";
 import { formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Communications" };
@@ -34,14 +36,17 @@ export default async function CommunicationsPage({
     db.department.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     db.group.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     getChurchPlan(session.churchId),
-    db.church.findUnique({ where: { id: session.churchId }, select: { createdAt: true, name: true, smsSenderIdStatus: true } }),
+    db.church.findUnique({ where: { id: session.churchId }, select: { createdAt: true, name: true, smsSenderIdStatus: true, smsPrefix: true } }),
   ]);
   // A quiet hint of what their own sender name could look like, for churches below Pro that do not have one.
   const suggestion = churchRow ? suggestSenderId(churchRow.name) : "";
-  const senderTeaser = churchRow && suggestion && churchRow.smsSenderIdStatus !== "approved" && planRank(plan as PlanId) < planRank("pro")
+  const senderTeaser = churchRow && suggestion && churchRow.smsSenderIdStatus !== "approved" && planRank(plan as PlanId) < planRank("max")
     ? { suggestion, churchName: churchRow.name }
     : null;
   const trial = plan === "free" && churchRow ? commsTrial(churchRow.createdAt) : null;
+  // A church with its own approved sender name needs no name line; every other church picks how its name shows.
+  const ownSender = churchRow?.smsSenderIdStatus === "approved";
+  const nameLine = !ownSender && churchRow ? currentNameLine(churchRow.smsPrefix, churchRow.name) : null;
 
   return (
     <div>
@@ -71,6 +76,10 @@ export default async function CommunicationsPage({
         </div>
       )}
 
+      {!ownSender && churchRow && (
+        <MessageNameCard churchName={churchRow.name} chosen={churchRow.smsPrefix} canWrite={canEdit(session, "communications")} />
+      )}
+
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="SMS credits" value={smsBalance} icon={Wallet} />
         <StatCard label="Messages sent" value={stats.sent} icon={MessageSquare} />
@@ -79,7 +88,7 @@ export default async function CommunicationsPage({
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-2"><Composer departments={departments} groups={groups} canWrite={canEdit(session, "communications")} senderTeaser={senderTeaser} /></div>
+        <div className="lg:col-span-2"><Composer departments={departments} groups={groups} canWrite={canEdit(session, "communications")} senderTeaser={senderTeaser} nameLine={nameLine} /></div>
 
         <CampaignHistory campaigns={campaigns} />
       </div>

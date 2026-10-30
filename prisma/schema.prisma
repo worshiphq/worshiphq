@@ -219,6 +219,7 @@ model Church {
 
   featuredLeaderCount Int @default(6) // number of leaders shown on dashboard
   leaderTitles String[] @default([]) // the church's own leadership titles, most senior first; empty means the standard list
+  smsPrefix String? // the name line the church chose for the start of its texts (full name or a short one); null means it has not chosen yet
 
   branches      Branch[]
   users         User[]
@@ -1925,6 +1926,8 @@ model PaymentRequest {
   pendingAccountNumber  String?
   pendingAccountName    String?
   pendingAt             DateTime?
+  // SuperAdmin's verification checklist: { checks: { key: true }, note, by, at }. Approving needs every required check ticked.
+  verification          Json?
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 

@@ -2,6 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { sendSms } from "@/lib/integrations/sms";
 import { segmentsFor, smsNormalize } from "@/config/sms";
+import { currentNameLine } from "@/lib/sms/message-name";
 
 /** Recipients sent per provider call; credits are reserved per chunk. */
 const SEND_CHUNK = 50;
@@ -99,13 +100,16 @@ export async function sendChurchSms(
       name: true,
       smsSenderIdStatus: true,
       smsSenderId: true,
+      smsPrefix: true,
     },
   });
 
+  // With its own approved sender name the church needs no name line. Otherwise the line is the name it chose
+  // (full or short), or its full name until it chooses.
   const heading =
     church?.smsSenderIdStatus === "approved"
       ? null
-      : church?.name ?? "WorshipHQ";
+      : currentNameLine(church?.smsPrefix, church?.name ?? "WorshipHQ");
   const smsText = heading ? `${heading}\n${message}` : message;
 
   const segments = segmentsFor(smsText);

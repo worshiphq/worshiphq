@@ -222,9 +222,9 @@ export async function requestSenderId(input: string): Promise<{ ok: true } | { o
   assertCanWrite(session);
   if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the Main Admin or an admin can request a sender ID." };
 
-  // A custom sender name is a Pro feature (each one needs approval from the networks).
+  // A custom sender name is a Max feature: each one needs approval from every network, which takes weeks and manual work.
   const sub = await db.subscription.findUnique({ where: { churchId: session.churchId }, select: { plan: true } });
-  if (!sub || planRank(sub.plan as PlanId) < planRank("pro")) return { ok: false, error: "A custom sender ID is part of the Pro plan and above. Upgrade to request one." };
+  if (!sub || planRank(sub.plan as PlanId) < planRank("max")) return { ok: false, error: "A custom sender ID is part of the Max plan. Upgrade to request one." };
 
   const senderId = String(input ?? "").trim();
   if (!/^[A-Za-z0-9]{3,11}$/.test(senderId) || /^\d+$/.test(senderId)) {

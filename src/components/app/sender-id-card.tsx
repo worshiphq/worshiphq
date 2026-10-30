@@ -31,15 +31,15 @@ export function SenderIdCard({ current, status, paid, canManage }: { current: st
     <Card className="p-6">
       <h3 className="font-display text-lg font-semibold">SMS Settings</h3>
       <p className="mt-1 text-sm text-ink-muted">
-        Texts to your members go out under WorshipHQ&apos;s sender name, with your church&apos;s name at the start of each message. Here you can ask for your own sender name instead.
+        Texts to your members go out under WorshipHQ&apos;s sender name, with a name line at the start of each message (choose it in Communications). On the Max plan you can ask for your own sender name instead.
       </p>
 
       {!paid ? (
         <div className="mt-5 flex items-start gap-3 rounded-xl border border-line bg-surface-2 p-4">
           <Lock className="mt-0.5 size-5 shrink-0 text-ink-faint" />
           <div className="text-sm">
-            <div className="font-medium">Your own sender name comes with the Pro plan and above</div>
-            <p className="mt-1 text-ink-muted">Upgrade to Pro to request a sender name such as GraceTemple. Until then, your texts go out with your church&apos;s name at the start of each message.</p>
+            <div className="font-medium">Your own sender name comes with the Max plan</div>
+            <p className="mt-1 text-ink-muted">Upgrade to Max to request a sender name such as GraceTemple. Every network has to approve it, so it can take a few weeks. Until then, your texts go out with the name line you choose in Communications at the start of each message.</p>
             <Link href="/app/settings?tab=billing" className="mt-2 inline-block font-medium text-primary hover:underline">See plans</Link>
           </div>
         </div>

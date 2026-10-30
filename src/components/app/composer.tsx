@@ -1,5 +1,6 @@
 "use client";
 
+import { segmentsFor } from "@/config/sms";
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { Send, Sparkles, X } from "lucide-react";
@@ -13,12 +14,15 @@ export function Composer({
   groups = [],
   canWrite,
   senderTeaser = null,
+  nameLine = null,
 }: {
   departments: { id: string; name: string }[];
   groups?: { id: string; name: string }[];
   canWrite: boolean;
   /** A suggested own sender name, shown as a quiet hint to churches that do not have one yet. */
   senderTeaser?: { suggestion: string; churchName: string } | null;
+  /** The name line every text starts with. It counts toward the 160 characters. Null when the church has its own sender name. */
+  nameLine?: string | null;
 }) {
   // Email is off for now - the Resend account is on the free tier (100/day),
   // too easy for a church-wide broadcast to blow through. SMS only until
@@ -93,7 +97,7 @@ export function Composer({
           <div className="mb-1.5 flex items-center justify-between text-sm">
             <span className="font-medium text-ink-muted">Message</span>
             <span className="text-xs text-ink-faint">
-              {message.length}/160 · {Math.ceil(message.length / 160) || 1} SMS
+              {message.length + (nameLine ? nameLine.length + 1 : 0)}/160 · {segmentsFor(nameLine ? nameLine + "\n" + message : message)} SMS{nameLine ? " (name line included)" : ""}
             </span>
           </div>
           <Textarea name="message" value={message} onChange={(e) => setMessage(e.target.value)} className="min-h-28" required />
@@ -114,7 +118,7 @@ export function Composer({
           <div className="flex items-start gap-2.5 rounded-xl border border-dashed border-line bg-surface-2 px-3.5 py-3 text-xs text-ink-muted">
             <Sparkles className="mt-0.5 size-3.5 shrink-0 text-primary" />
             <p className="min-w-0 flex-1">
-              Members now see this text from <b className="text-ink">WorshipHQ</b>, with {senderTeaser.churchName} at the start. On Pro it could arrive from{" "}
+              Members now see this text from <b className="text-ink">WorshipHQ</b>, with {senderTeaser.churchName} at the start. On Max it could arrive from{" "}
               <b className="rounded bg-primary/10 px-1.5 py-0.5 font-mono text-primary">{senderTeaser.suggestion}</b>.{" "}
               <Link href="/app/settings?tab=billing" className="font-medium text-primary hover:underline">See plans</Link>
             </p>

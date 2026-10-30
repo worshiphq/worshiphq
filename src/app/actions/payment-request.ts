@@ -7,6 +7,8 @@ import { audit } from "@/lib/audit";
 import { listBanks, resolveAccount, updateSubaccount } from "@/lib/integrations/paystack";
 import { isFeeMode } from "@/lib/giving/fees";
 import { getGivingSettings, saveGivingSettings } from "@/lib/giving/settings";
+import { alertChurchAdmins, maskAccount } from "@/lib/giving/notify";
+import { Prisma } from "@prisma/client";
 
 /** Only the church's Owner or Admin may touch where its giving pays out. */
 async function requireGivingAdmin() {
@@ -156,9 +158,16 @@ export async function requestAccountChange(formData: FormData) {
     data: {
       pendingSettlementType: s.settlementType, pendingBankCode: s.bankCode, pendingBankName: s.bankName || null,
       pendingAccountNumber: s.accountNumber, pendingAccountName: s.accountName, pendingAt: new Date(),
+      // A change needs a fresh check by WorshipHQ, so an earlier approval never covers it.
+      verification: Prisma.DbNull,
     },
   });
   await audit(session, "update", "payment-account", "Requested a change of online giving payout account");
+  await alertChurchAdmins(session.churchId, "A change to your online giving payout account was requested", [
+    `${session.name} asked to change the account that receives your church's online gifts.`,
+    `Requested account: ${s.bankName || "account"} ${maskAccount(s.accountNumber)} (${s.accountName}).`,
+    "The change is not active yet. WorshipHQ checks it with the church and holds it for at least 24 hours. If you did not expect this, contact WorshipHQ support right away.",
+  ]);
   revalidatePath("/app/settings");
   return { success: true };
 }

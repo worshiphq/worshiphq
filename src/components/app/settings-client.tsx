@@ -647,7 +647,7 @@ export function SettingsClient({
         )}
 
         {tab === "sms" && (
-          <SenderIdCard current={church?.smsSenderId ?? null} status={church?.smsSenderIdStatus ?? null} paid={planRank((subscription?.plan ?? "free") as PlanId) >= planRank("pro")} canManage={!ro && isAdmin} />
+          <SenderIdCard current={church?.smsSenderId ?? null} status={church?.smsSenderIdStatus ?? null} paid={planRank((subscription?.plan ?? "free") as PlanId) >= planRank("max")} canManage={!ro && isAdmin} />
         )}
       </div>
     </div>

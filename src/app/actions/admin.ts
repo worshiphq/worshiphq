@@ -17,7 +17,8 @@ import { supportEmail } from "@/lib/lockout";
 import { ALL_FEATURES } from "@/lib/plan-gate";
 import { createSubaccount, updateSubaccount, listBanks, resolveAccount } from "@/lib/integrations/paystack";
 import { env } from "@/lib/env";
-import { notifyPaymentRequest, type PaymentRequestEvent } from "@/lib/giving/notify";
+import { notifyPaymentRequest, alertChurchAdmins, maskAccount, type PaymentRequestEvent } from "@/lib/giving/notify";
+import { isVerified, CHANGE_HOLD_HOURS, VERIFICATION_CHECKS } from "@/lib/giving/verification";
 import { saveGivingSettings } from "@/lib/giving/settings";
 import { isFeeMode } from "@/lib/giving/fees";
 
@@ -444,6 +445,19 @@ export async function updatePaymentRequest(id: string, formData: FormData): Prom
   return { notified };
 }
 
+/** Save the verification checklist for a payment request. Approving needs every required box ticked. */
+export async function saveVerification(id: string, checks: Record<string, boolean>, note?: string): Promise<{ ok: boolean; error?: string }> {
+  const sa = await requireSuperAdmin();
+  const clean: Record<string, boolean> = {};
+  for (const c of VERIFICATION_CHECKS) clean[c.key] = checks?.[c.key] === true;
+  await db.paymentRequest.update({
+    where: { id },
+    data: { verification: { checks: clean, note: (note ?? "").trim().slice(0, 500), by: sa.email, at: new Date().toISOString() } },
+  });
+  revalidatePath("/admin/payments");
+  return { ok: true };
+}
+
 /**
  * Approve a church's online-giving setup: create their Paystack subaccount from
  * the bank/MoMo account they submitted, store the ACCT code on the church (so
@@ -461,6 +475,7 @@ export async function approveGivingSetup(id: string): Promise<{ ok: boolean; cod
   if (!req.bankCode || !req.accountNumber || !req.accountName) {
     return { ok: false, error: "This request has no verified settlement account to create a subaccount from." };
   }
+  if (!isVerified(req.verification)) return { ok: false, error: "Tick every required box in the verification checklist first. Approving decides where this church's gifts go." };
 
   // WorshipHQ's cut is applied on each gift (see splitGift), so the subaccount itself always starts at 0%.
   // That way changing a church's split later, or the platform default, never depends on how it was created.
@@ -489,6 +504,11 @@ export async function approveGivingSetup(id: string): Promise<{ ok: boolean; cod
 
   revalidatePath("/admin/payments");
   await notifyPaymentRequest({ event: { kind: "completed" }, churchName: req.church.name, contactName: req.contactName, contactPhone: req.contactPhone, contactEmail: req.contactEmail });
+  await alertChurchAdmins(req.church.id, `Online giving is now live for ${req.church.name}`, [
+    `Online giving is now live for ${req.church.name}.`,
+    `Gifts given online now go to: ${req.bankName ?? "your account"} ${maskAccount(req.accountNumber)} (${req.accountName}).`,
+    "If this is not what you expected, contact WorshipHQ support right away.",
+  ]);
   return { ok: true, code: res.subaccountCode };
 }
 
@@ -585,6 +605,14 @@ export async function approveAccountChange(id: string): Promise<{ ok: boolean; e
   const req = await loadPayoutRequest(id);
   if (!req) return { ok: false, error: "Request not found." };
   if (!req.pendingBankCode || !req.pendingAccountNumber || !req.pendingAccountName) return { ok: false, error: "There is no pending change." };
+  if (!isVerified(req.verification)) return { ok: false, error: "Tick every required box in the verification checklist first. A change redirects this church's gifts." };
+  // Held for a day, so the church's other admins (who are emailed when the change is asked for) can object.
+  if (req.pendingAt) {
+    const releaseAt = req.pendingAt.getTime() + CHANGE_HOLD_HOURS * 3600_000;
+    if (Date.now() < releaseAt) {
+      return { ok: false, error: `This change is held until ${new Date(releaseAt).toLocaleString("en-GB", { timeZone: "Africa/Accra", weekday: "short", hour: "2-digit", minute: "2-digit", day: "numeric", month: "short" })} so the church's admins can object. Nothing was changed.` };
+    }
+  }
 
   const code = req.church.paystackSubaccountCode;
   if (code) {
@@ -601,6 +629,11 @@ export async function approveAccountChange(id: string): Promise<{ ok: boolean; e
   });
   revalidatePath("/admin/payments");
   await notifyPaymentRequest({ event: { kind: "change_approved" }, churchName: req.church.name, contactName: req.contactName, contactPhone: req.contactPhone, contactEmail: req.contactEmail });
+  await alertChurchAdmins(req.church.id, `The payout account for ${req.church.name} was changed`, [
+    `The account that receives ${req.church.name}'s online gifts was changed.`,
+    `New account: ${req.pendingBankName ?? "account"} ${maskAccount(req.pendingAccountNumber)} (${req.pendingAccountName}).`,
+    "If you did not expect this, contact WorshipHQ support right away.",
+  ]);
   return { ok: true };
 }
 

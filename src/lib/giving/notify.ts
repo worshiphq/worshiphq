@@ -1,4 +1,5 @@
 import "server-only";
+import { db } from "@/lib/db";
 import { sendSms } from "@/lib/integrations/sms";
 import { sendEmail } from "@/lib/integrations/email";
 import { renderEmailHtml, firstName } from "@/lib/outreach/templates";
@@ -97,4 +98,28 @@ export async function notifyPaymentRequest(opts: {
     } catch (e) { console.error("[payment request email]", (e as Error).message); }
   }
   return out;
+}
+
+const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** "••••1234" from an account or MoMo number, so an alert never shows the whole number. */
+export function maskAccount(n: string | null | undefined): string {
+  const d = (n ?? "").replace(/\s+/g, "");
+  return d.length > 4 ? `\u2022\u2022\u2022\u2022${d.slice(-4)}` : d;
+}
+
+/**
+ * Email every Owner and Admin of a church about a change to where its online giving pays out. The person who asked is not the only one
+ * told, so a change nobody expected is noticed. Never throws: a failed email must not undo the change.
+ */
+export async function alertChurchAdmins(churchId: string, subject: string, lines: string[]): Promise<void> {
+  try {
+    const admins = await db.user.findMany({ where: { churchId, role: { in: ["Owner", "Admin"] } }, select: { email: true } });
+    const to = [...new Set(admins.map((a) => a.email).filter(Boolean))];
+    if (!to.length) return;
+    const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;max-width:520px;margin:0 auto;padding:24px;line-height:1.5">${lines.map((l) => `<p style="margin:0 0 14px">${esc(l)}</p>`).join("")}<p style="margin:18px 0 0;color:#888;font-size:12px">This is a security message from WorshipHQ about online giving. You get it because you are an admin of this church.</p></div>`;
+    await sendEmail({ to, subject, html });
+  } catch (e) {
+    console.error("[alertChurchAdmins]", (e as Error).message);
+  }
 }

@@ -12,6 +12,8 @@ import { Button } from "@/components/ui/button";
 import { MemberAvatar } from "@/components/ui/member-avatar";
 import { ClickableAvatar } from "@/components/ui/photo-lightbox";
 import { requireSession } from "@/lib/auth";
+import { db } from "@/lib/db";
+import { AlertTriangle } from "lucide-react";
 import { getDashboard } from "@/lib/data/dashboard";
 import { formatDate } from "@/lib/utils";
 import { DashboardAnimations } from "@/components/app/dashboard-animations";
@@ -32,6 +34,11 @@ export default async function DashboardPage() {
   if (session.budgetDepartmentId) redirect("/app/budgets");
   const { kpis, trend, todaysBirthdays, events, careTasks, recentMembers, departmentBreakdown, leaders, totalLeaders, featuredLeaderCount } = await getDashboard(session.churchId);
   const has = (m: string) => session.sections.includes(m);
+  // Urgent for a church that can send texts but has not yet chosen how its name shows at the start of them.
+  const nameRow = !session.isDemo && has("communications") && !session.planLocked?.includes("sms")
+    ? await db.church.findUnique({ where: { id: session.churchId }, select: { smsPrefix: true, smsSenderIdStatus: true } })
+    : null;
+  const needsMessageName = !!nameRow && nameRow.smsPrefix == null && nameRow.smsSenderIdStatus !== "approved";
   const h = new Date().getHours();
   const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   const today = new Date().toLocaleDateString("en-GH", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -47,6 +54,17 @@ export default async function DashboardPage() {
         ]}
       />
       <div className="space-y-6">
+        {needsMessageName && (
+          <Link href="/app/communications" className="flex flex-wrap items-center gap-3 rounded-2xl border border-warning/50 bg-warning/10 px-4 py-3.5 text-sm transition-colors hover:bg-warning/15">
+            <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-warning/20 text-warning"><AlertTriangle className="size-5" /></span>
+            <span className="min-w-0 flex-1">
+              <b className="block text-ink">Urgent: choose how your church name shows on your texts</b>
+              <span className="text-ink-muted">The name at the start of each text counts toward the 160 characters, so a long church name can double your credit cost. It takes a minute to fix.</span>
+            </span>
+            <span className="shrink-0 rounded-full bg-warning px-3.5 py-1.5 text-xs font-semibold text-white">Choose now</span>
+          </Link>
+        )}
+
         {/* ── Header ── */}
         <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
           <div>
