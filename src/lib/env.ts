@@ -44,12 +44,16 @@ const schema = z.object({
   PAYSTACK_CURRENCY: z.string().default("GHS"),
 
   // ── SMS (Ghana providers) ────────────────────────────
-  SMS_PROVIDER: z.enum(["arkesel", "hubtel", "mnotify", "twilio"]).default("arkesel"),
+  SMS_PROVIDER: z.enum(["arkesel", "hubtel", "nalo", "mnotify", "twilio"]).default("arkesel"),
   ARKESEL_API_KEY: str,
   ARKESEL_SENDER_ID: z.string().default("WorshipHQ"),
   HUBTEL_CLIENT_ID: str,
   HUBTEL_CLIENT_SECRET: str,
   HUBTEL_SENDER_ID: z.string().default("WorshipHQs"),
+  NALO_AUTH_KEY: str, // Nalo Solutions API key (or set NALO_USERNAME + NALO_PASSWORD instead)
+  NALO_USERNAME: str,
+  NALO_PASSWORD: str,
+  NALO_SENDER_ID: z.string().default("WorshipHQ"),
   MNOTIFY_API_KEY: str,
   MNOTIFY_SENDER_ID: z.string().default("WorshipHQ"),
   TWILIO_ACCOUNT_SID: str,
@@ -145,6 +149,7 @@ export const features = {
   sms:
     (env.SMS_PROVIDER === "arkesel" && !!env.ARKESEL_API_KEY) ||
     (env.SMS_PROVIDER === "hubtel" && !!(env.HUBTEL_CLIENT_ID && env.HUBTEL_CLIENT_SECRET)) ||
+    (env.SMS_PROVIDER === "nalo" && !!(env.NALO_AUTH_KEY || (env.NALO_USERNAME && env.NALO_PASSWORD))) ||
     (env.SMS_PROVIDER === "mnotify" && !!env.MNOTIFY_API_KEY) ||
     (env.SMS_PROVIDER === "twilio" && !!(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN)),
   email:

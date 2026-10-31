@@ -1,6 +1,7 @@
 import "server-only";
 import { env, features } from "@/lib/env";
 import { normalisePhone } from "@/lib/phone";
+import { sendNaloBatch } from "@/lib/integrations/nalo";
 
 export type SmsResult = {
   ok: boolean;
@@ -83,7 +84,7 @@ export async function sendSms(
   const provider = env.SMS_PROVIDER;
   const senderId = opts?.senderId ?? null;
   // The text already arrives from the "WorshipHQ" sender, so repeating the name on its first line only wastes characters.
-  const platformSender = (senderId ?? (provider === "hubtel" ? env.HUBTEL_SENDER_ID : provider === "arkesel" ? env.ARKESEL_SENDER_ID : "")).trim();
+  const platformSender = (senderId ?? (provider === "hubtel" ? env.HUBTEL_SENDER_ID : provider === "arkesel" ? env.ARKESEL_SENDER_ID : provider === "nalo" ? env.NALO_SENDER_ID : "")).trim();
   const heading = opts?.heading === undefined
     ? (platformSender.toLowerCase().replace(/\s/g, "") === DEFAULT_HEADING.toLowerCase() ? null : DEFAULT_HEADING)
     : opts.heading;
@@ -156,6 +157,30 @@ export async function sendSms(
       // A batch is never all-or-nothing: one bad number among 80 good ones must
       // still count as (and bill for) 79 delivered, not zero.
       return { ok: sentCount > 0, provider, stubbed: false, id: lastId, ...(sentCount === 0 && lastError ? { error: lastError } : {}), sentCount, results: toFullResults(perValidOk) };
+    }
+
+    if (provider === "nalo") {
+      // Nalo takes one number per request and reaches Ghana and other countries the same way, so a church abroad
+      // can text its own members. Every number already arrives as digits with the country code.
+      const outcomes = await sendNaloBatch(
+        {
+          authKey: env.NALO_AUTH_KEY,
+          username: env.NALO_USERNAME,
+          password: env.NALO_PASSWORD,
+          sender: senderId ?? env.NALO_SENDER_ID,
+        },
+        recipients,
+        message,
+      );
+      const sentCount = outcomes.filter((o) => o.ok).length;
+      const firstFailure = outcomes.find((o) => !o.ok);
+      if (firstFailure) console.error(`[SMS:nalo] ${recipients.length - sentCount} of ${recipients.length} not sent (${firstFailure.code ?? "no code"}): ${firstFailure.error}`);
+      // A batch is never all-or-nothing: one bad number among 80 good ones still counts the 79 that went.
+      return {
+        ok: sentCount > 0, provider, stubbed: false, id: outcomes.find((o) => o.ok)?.id,
+        ...(sentCount === 0 && firstFailure?.error ? { error: firstFailure.error } : {}),
+        sentCount, results: toFullResults(outcomes.map((o) => o.ok)),
+      };
     }
 
     // mnotify / twilio implementations follow the same shape.
