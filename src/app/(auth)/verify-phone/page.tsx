@@ -1,10 +1,11 @@
+import { PhoneInput } from "@/components/ui/phone-input";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { AlertCircle, ShieldCheck } from "lucide-react";
 import { getSession } from "@/lib/auth";
 import { startPhoneVerify, confirmPhoneVerify, signOut } from "@/app/actions/auth";
 import { SubmitButton } from "@/components/ui/submit-button";
-import { Input, Label } from "@/components/ui/input";
+import { Label } from "@/components/ui/input";
 import { OtpInput } from "@/components/ui/otp-input";
 
 export const metadata: Metadata = { title: "Verify your phone" };
@@ -47,7 +48,7 @@ export default async function VerifyPhonePage({
         <form action={startPhoneVerify} className="mt-7 space-y-4">
           <div>
             <Label htmlFor="phone">Your phone number</Label>
-            <Input id="phone" name="phone" type="tel" placeholder="024 000 0000" required />
+            <PhoneInput id="phone" name="phone" required />
           </div>
           <SubmitButton size="lg" className="w-full" pendingLabel="Sending code…">
             Send verification code

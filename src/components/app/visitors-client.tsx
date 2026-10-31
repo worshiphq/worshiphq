@@ -1,5 +1,6 @@
 "use client";
 
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
@@ -12,7 +13,6 @@ import { Search, Link2, UserRoundPlus, Mail, Phone, Calendar, Pencil, Trash2, Us
 import { useFeedback } from "@/components/ui/feedback";
 import { updateVisitor, deleteVisitor, convertVisitorToMember, addVisitor, toggleRegular, sendVisitorReturnMessage } from "@/app/actions/visit";
 import { checkInVisitorNow } from "@/app/actions/attendance";
-import { phoneValidityMessage } from "@/lib/phone";
 import { ImageCropper } from "@/components/ui/image-cropper";
 import { BiometricRegisterButton } from "@/components/app/biometric-register";
 import { ImportVisitorsModal } from "@/components/app/import-visitors-modal";
@@ -425,7 +425,7 @@ export function VisitorsClient({
 
               <div>
                 <Label>Phone</Label>
-                <Input name="phone" type="tel" placeholder="024 000 0000" onChange={(e) => e.target.setCustomValidity("")} onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))} />
+                <PhoneInput name="phone" />
               </div>
 
               <div>
@@ -568,7 +568,7 @@ export function VisitorsClient({
 
               <div>
                 <Label>Phone</Label>
-                <Input name="phone" type="tel" defaultValue={editing.phone ?? ""} onChange={(e) => e.target.setCustomValidity("")} onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))} />
+                <PhoneInput name="phone" defaultValue={editing.phone ?? ""} />
               </div>
 
               <div>

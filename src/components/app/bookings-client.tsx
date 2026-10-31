@@ -1,5 +1,6 @@
 "use client";
 
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -447,7 +448,7 @@ function BookingDialog({ booking, facilities, onClose }: { booking: BookingRow |
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div><Label htmlFor="b-by">Booked by</Label><Input id="b-by" name="bookedBy" defaultValue={booking?.bookedBy} placeholder="Name or group" required /></div>
-          <div><Label htmlFor="b-ph">Phone (optional)</Label><Input id="b-ph" name="contactPhone" type="tel" defaultValue={booking?.contactPhone ?? ""} /></div>
+          <div><Label htmlFor="b-ph">Phone (optional)</Label><PhoneInput id="b-ph" name="contactPhone" defaultValue={booking?.contactPhone ?? ""} /></div>
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div><Label htmlFor="b-s">Start</Label><Input id="b-s" name="startTime" type="datetime-local" value={startAt} onChange={(e) => setStartAt(e.target.value)} required /></div>

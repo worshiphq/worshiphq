@@ -1,5 +1,6 @@
 "use client";
 
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Mail, MessageSquare, Phone, MessageCircle, History, Search, Send, Loader2, CheckCircle2, X, AlertTriangle, Sparkles, Eye, Pencil } from "lucide-react";
@@ -418,7 +419,7 @@ function TestSmsCard({ smsLive, provider }: { smsLive: boolean; provider: string
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <div className="min-w-48 max-w-xs flex-1">
           <label className="mb-1 block text-xs font-medium text-slate-400" htmlFor="test-sms-to">Phone number</label>
-          <input id="test-sms-to" className={input} inputMode="tel" value={to} onChange={(e) => setTo(e.target.value)} placeholder="+234 803 000 0000" maxLength={24} />
+          <PhoneInput id="test-sms-to" tone="dark" value={to} onChange={setTo} />
         </div>
         <div className="min-w-56 flex-[2]">
           <label className="mb-1 block text-xs font-medium text-slate-400" htmlFor="test-sms-msg">Message ({message.length}/160)</label>
@@ -481,7 +482,7 @@ function AlertCard({ alert, smsLive }: { alert: OutreachData["alert"]; smsLive: 
       <div className="mt-3 flex flex-wrap items-end gap-2">
         <div className="min-w-56 max-w-xs flex-1">
           <label className="mb-1 block text-xs font-medium text-slate-400" htmlFor="alert-phone">Your phone number</label>
-          <input id="alert-phone" className={input} inputMode="tel" value={phone} onChange={(e) => setPhone(e.target.value)} placeholder={alert.from === "company" ? alert.phone : "024 000 0000"} maxLength={20} />
+          <PhoneInput id="alert-phone" tone="dark" value={phone} onChange={setPhone} />
         </div>
         <button type="button" className={primary} onClick={save} disabled={saving || testing}>{saving ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : "Save"}</button>
         <button type="button" className={ghost} onClick={test} disabled={saving || testing || !using}>{testing ? <><Loader2 className="size-4 animate-spin" /> Sending…</> : <><Send className="size-4" /> Send me a test text</>}</button>

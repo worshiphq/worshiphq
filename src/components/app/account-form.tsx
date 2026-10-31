@@ -1,5 +1,6 @@
 "use client";
 
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useRef, useState } from "react";
 import { UploadCloud, X, KeyRound, Phone, Mail, Shield } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -8,7 +9,6 @@ import { PasswordInput } from "@/components/ui/password-input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Button } from "@/components/ui/button";
 import { useFeedback } from "@/components/ui/feedback";
-import { phoneValidityMessage } from "@/lib/phone";
 import { ImageCropper } from "@/components/ui/image-cropper";
 import { OtpInput } from "@/components/ui/otp-input";
 import { PasswordStrength } from "@/components/ui/password-strength";
@@ -341,7 +341,7 @@ export function AccountForm({
           <form className="mt-4 space-y-3" onSubmit={submitPhonePassword}>
             <div>
               <Label>New phone number</Label>
-              <input type="tel" value={phoneNewNumber} onChange={(e) => { setPhoneNewNumber(e.target.value); e.target.setCustomValidity(""); }} onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))} required placeholder="0241234567" className={input} />
+              <PhoneInput value={phoneNewNumber} onChange={setPhoneNewNumber} required />
             </div>
             <div>
               <Label>Enter your password to confirm</Label>

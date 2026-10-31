@@ -1,5 +1,6 @@
 "use client";
 
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useState, useTransition } from "react";
 import {
   Search, Trash2, Heart, Users, Shield, BookOpen, AlertTriangle, CircleDot, CheckCircle2, Clock, Loader2,
@@ -363,7 +364,7 @@ function SessionForm({ row, members, counselors, me, onClose }: {
           {needsPhone && (
             <div>
               <Label>Phone number</Label>
-              <input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="e.g. 0241234567" inputMode="tel" className={field} />
+              <PhoneInput value={phone} onChange={setPhone} />
               <p className="mt-1 text-[11px] text-ink-faint">{member ? `${member.name} has no number saved. This one is kept with the session.` : "Used to text them about their appointment."}</p>
             </div>
           )}

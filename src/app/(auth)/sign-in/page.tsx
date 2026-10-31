@@ -1,3 +1,4 @@
+import { IdentifierInput } from "@/components/auth/identifier-input";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -191,13 +192,7 @@ export default async function SignInPage({
         <form action={startPasswordReset} className="mt-6 space-y-4">
           <div>
             <Label htmlFor="identifier">Email or phone number</Label>
-            <Input
-              id="identifier"
-              name="identifier"
-              type="text"
-              placeholder="Email or phone number"
-              required
-            />
+            <IdentifierInput id="identifier" placeholder="Email or phone number" required />
           </div>
           <SubmitButton size="lg" className="w-full" pendingLabel="Sending code...">
             Send reset code
@@ -352,7 +347,7 @@ export default async function SignInPage({
       <form action={signIn} className="mt-6 space-y-4">
         <div>
           <Label htmlFor="identifier">Email or phone number</Label>
-          <Input id="identifier" name="identifier" type="text" placeholder="you@church.org or 024 000 0000" required />
+          <IdentifierInput id="identifier" placeholder="you@church.org or phone number" required />
         </div>
         <div>
           <div className="flex items-center justify-between">

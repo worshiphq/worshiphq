@@ -1,11 +1,11 @@
 "use client";
 
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useState } from "react";
 import { CheckCircle2, Clock, ShieldAlert, Loader2, Pencil, Trash2, Wallet } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
-import { phoneValidityMessage } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 import {
   submitPaymentRequest, getPaymentRequestStatus, getGivingBanks, verifyGivingAccount,
@@ -403,7 +403,7 @@ export function OnlinePaymentsTab({ canManage }: { canManage: boolean }) {
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label>Phone</Label>
-              <Input name="contactPhone" type="tel" placeholder="+233..." onChange={(e) => e.target.setCustomValidity("")} onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))} />
+              <PhoneInput name="contactPhone" />
             </div>
             <div>
               <Label>Email</Label>

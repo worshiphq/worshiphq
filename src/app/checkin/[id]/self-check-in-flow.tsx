@@ -1,5 +1,7 @@
 "use client";
 
+import { isValidPhone } from "@/lib/phone";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, MapPin, Search, UserPlus, ShieldCheck, ArrowLeft } from "lucide-react";
@@ -208,9 +210,9 @@ export function SelfCheckInFlow({ sessionId, accent, verify, geoOn }: { sessionI
             <input value={nv.firstName} onChange={(e) => setNv({ ...nv, firstName: e.target.value })} placeholder="First name" autoComplete="given-name" className={inputCls} />
             <input value={nv.lastName} onChange={(e) => setNv({ ...nv, lastName: e.target.value })} placeholder="Last name" autoComplete="family-name" className={inputCls} />
           </div>
-          <input value={nv.phone} onChange={(e) => setNv({ ...nv, phone: e.target.value })} placeholder="Phone number" inputMode="tel" autoComplete="tel" className={inputCls} />
+          <PhoneInput value={nv.phone} onChange={(v) => setNv((s) => ({ ...s, phone: v }))} aria-label="Phone number" />
           <input value={nv.purpose} onChange={(e) => setNv({ ...nv, purpose: e.target.value })} placeholder="What brings you here today? (optional)" className={inputCls} />
-          <button type="button" onClick={submitNew} disabled={busy || !nv.firstName || !nv.lastName || nv.phone.replace(/\D/g, "").length < 9} className={btn} style={{ backgroundColor: accent }}>
+          <button type="button" onClick={submitNew} disabled={busy || !nv.firstName || !nv.lastName || !isValidPhone(nv.phone)} className={btn} style={{ backgroundColor: accent }}>
             {busy ? <><Loader2 className="size-5 animate-spin" /> Checking in…</> : "Check me in"}
           </button>
           <button type="button" onClick={() => { setStep("find"); setError(""); }} className="flex w-full items-center justify-center gap-1.5 text-sm text-[#6b6560] hover:text-[#1c1a16]"><ArrowLeft className="size-4" /> I have been here before</button>

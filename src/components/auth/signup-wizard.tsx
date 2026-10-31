@@ -1,5 +1,7 @@
 "use client";
 
+import { countryFromName } from "@/lib/countries";
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { AnimatePresence, motion } from "motion/react";
@@ -85,7 +87,7 @@ export function SignupWizard({
         if (!/^\S+@\S+\.\S+$/.test(data.email.trim())) return "Please enter a valid email address.";
         if (data.channel === "phone" && !data.phone.trim()) return "Please enter a phone number to receive your code.";
         if (data.phone.trim() && !isValidPhone(data.phone))
-          return "Please enter a valid phone number, e.g. 024 123 4567 or +1 415 555 0100.";
+          return "Please enter a valid phone number for the country you chose.";
         return null;
       }
       case "password": {
@@ -228,7 +230,7 @@ export function SignupWizard({
                   </div>
                   <div>
                     <Label htmlFor="w-phone">Phone {data.channel === "email" ? "(optional)" : "(for verification)"}</Label>
-                    <Input id="w-phone" type="tel" value={data.phone} onChange={set("phone")} placeholder="024 000 0000" />
+                    <PhoneInput id="w-phone" value={data.phone} onChange={(v) => setData((d) => ({ ...d, phone: v }))} defaultCountry={countryFromName(data.country) ?? undefined} />
                   </div>
 
                   {/* Where should the verification code go? */}

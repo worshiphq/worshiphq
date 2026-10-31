@@ -1,5 +1,6 @@
 "use client";
 
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Search, X, Check, Phone, Loader2, UserRound } from "lucide-react";
@@ -7,7 +8,6 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { useFeedback } from "@/components/ui/feedback";
 import { createPledge } from "@/app/actions/pledges";
-import { phoneValidityMessage } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 
 import { matchesPerson } from "@/lib/search";
@@ -159,7 +159,7 @@ export function PledgeRecorder({
                   </div>
                   <div>
                     <Label>Phone (for the SMS confirmation)</Label>
-                    <Input name="donorPhone" type="tel" placeholder="024 000 0000" onChange={(e) => e.target.setCustomValidity("")} onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))} />
+                    <PhoneInput name="donorPhone" />
                   </div>
                 </div>
               )}

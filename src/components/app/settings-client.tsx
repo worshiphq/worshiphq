@@ -1,5 +1,6 @@
 "use client";
 
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useState, useTransition, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
@@ -46,7 +47,6 @@ import { plans as defaultPlans } from "@/config/pricing";
 import type { EditablePlan, PlanPrices } from "@/lib/data/platform-config";
 import { getPlanLimits, planRank, syncMemberText, type PlanId } from "@/lib/plan-gate";
 import { usePaystack } from "@/components/payments/use-paystack";
-import { phoneValidityMessage } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 import { confirmBinDelete } from "@/lib/recycle-bin-events";
 import { BIN_TOAST } from "@/lib/recycle-bin-config";
@@ -391,7 +391,7 @@ export function SettingsClient({
                 )}
                 <form action={inviteTeammate} className="mt-4 grid gap-3 sm:grid-cols-2">
                   <Input name="name" placeholder="Full name" required disabled={ro} />
-                  <Input name="phone" type="tel" placeholder="Mobile number (for SMS invite)" required disabled={ro} onChange={(e) => e.target.setCustomValidity("")} onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))} />
+                  <PhoneInput name="phone" aria-label="Mobile number for the SMS invite" required disabled={ro} />
                   <Input name="email" type="email" placeholder="Email (optional)" disabled={ro} />
                   <select
                     name="role"
@@ -433,7 +433,7 @@ export function SettingsClient({
                 ) : (
                   <form action={inviteBudgetLeader} className="mt-4 grid gap-3 sm:grid-cols-2">
                     <Input name="name" placeholder="Leader's full name" required disabled={ro} />
-                    <Input name="phone" type="tel" placeholder="Mobile number (SMS invite)" required disabled={ro} onChange={(e) => e.target.setCustomValidity("")} onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))} />
+                    <PhoneInput name="phone" aria-label="Mobile number for the SMS invite" required disabled={ro} />
                     <Input name="email" type="email" placeholder="Email (optional)" disabled={ro} />
                     <select
                       name="departmentId"

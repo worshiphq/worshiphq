@@ -1,5 +1,6 @@
 "use client";
 
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -560,7 +561,7 @@ function ContributionRecorder({ members, year, accounts }: { members: HarvestDat
             <div className="grid grid-cols-3 gap-3">
               <div><Label htmlFor="vFirstName">First name</Label><Input id="vFirstName" name="firstName" required placeholder="Kwame" /></div>
               <div><Label htmlFor="vLastName">Last name</Label><Input id="vLastName" name="lastName" required placeholder="Mensah" /></div>
-              <div><Label htmlFor="vPhone">Phone</Label><Input id="vPhone" name="phone" placeholder="024XXXXXXX" /></div>
+              <div><Label htmlFor="vPhone">Phone</Label><PhoneInput id="vPhone" name="phone" /></div>
             </div>
             <div className="flex gap-2">
               <SubmitButton size="sm" pendingLabel="Adding…" successMessage="">Add visitor</SubmitButton>

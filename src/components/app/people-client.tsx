@@ -1,5 +1,6 @@
 "use client";
 
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useMemo, useState, useEffect, useActionState } from "react";
 import { ScanFace,
   Search, Plus, Phone, Mail, MapPin, X, Users, Pencil, Trash2,
@@ -26,7 +27,6 @@ import { FamilySection } from "@/components/app/family-section";
 import { MemberCategoryFields, type FormCategory } from "@/components/app/member-category-fields";
 import type { PersonRow } from "@/lib/data/people";
 import type { FormField } from "@/lib/forms/registration";
-import { phoneValidityMessage } from "@/lib/phone";
 import { formatDate, cn } from "@/lib/utils";
 import { confirmBinDelete } from "@/lib/recycle-bin-events";
 import { BIN_TOAST } from "@/lib/recycle-bin-config";
@@ -869,13 +869,7 @@ function PersonForm({
                 </div>
                 <div>
                   <Label htmlFor="guardianPhone">Guardian phone</Label>
-                  <input
-                    id="guardianPhone" name="guardianPhone" type="tel" inputMode="tel"
-                    defaultValue={person?.guardianPhone ?? ""} placeholder="e.g. 0244123456"
-                    onChange={(e) => e.target.setCustomValidity("")}
-                    onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))}
-                    className={inputBase}
-                  />
+                  <PhoneInput id="guardianPhone" name="guardianPhone" defaultValue={person?.guardianPhone ?? ""} />
                 </div>
               </div>
             </div>

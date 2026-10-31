@@ -1,5 +1,6 @@
 "use client";
 
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useMemo, useState } from "react";
 import {
   Search, Plus, Phone, X, Users, Pencil, Trash2,
@@ -15,7 +16,6 @@ import { Label } from "@/components/ui/input";
 import { createChild, updateChild, assignParent } from "@/app/actions/children";
 import { deletePerson } from "@/app/actions/people";
 import type { PersonRow } from "@/lib/data/people";
-import { phoneValidityMessage } from "@/lib/phone";
 import { formatDate, cn } from "@/lib/utils";
 import { confirmBinDelete } from "@/lib/recycle-bin-events";
 import { BIN_TOAST } from "@/lib/recycle-bin-config";
@@ -402,13 +402,7 @@ function ChildForm({
             </div>
             <div>
               <Label htmlFor="phone">Phone (optional)</Label>
-              <input
-                id="phone" name="phone" type="tel" inputMode="tel"
-                defaultValue={person?.phone ?? ""} placeholder="For teens"
-                onChange={(e) => e.target.setCustomValidity("")}
-                onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))}
-                className={inputBase}
-              />
+              <PhoneInput id="phone" name="phone" defaultValue={person?.phone ?? ""} />
             </div>
           </div>
 
@@ -442,13 +436,7 @@ function ChildForm({
               </div>
               <div>
                 <Label htmlFor="guardianPhone">Guardian phone</Label>
-                <input
-                  id="guardianPhone" name="guardianPhone" type="tel" inputMode="tel"
-                  defaultValue={person?.guardianPhone ?? ""} placeholder="e.g. 0244123456"
-                  onChange={(e) => e.target.setCustomValidity("")}
-                  onBlur={(e) => e.target.setCustomValidity(phoneValidityMessage(e.target.value))}
-                  className={inputBase}
-                />
+                <PhoneInput id="guardianPhone" name="guardianPhone" defaultValue={person?.guardianPhone ?? ""} />
               </div>
             </div>
           </div>
