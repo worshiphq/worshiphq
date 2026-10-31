@@ -65,7 +65,8 @@ export async function sendSms(
   // turn out invalid) so `results` below can be matched back to callers'
   // original recipients 1:1 for an accurate send audit.
   const rawList = Array.isArray(to) ? to : [to];
-  const normalised = rawList.map(normalisePhone);
+  // Call it explicitly: handing normalisePhone straight to map() would pass each position in as its country.
+  const normalised = rawList.map((p) => normalisePhone(p));
   const validIdx: number[] = [];
   const recipients: string[] = [];
   normalised.forEach((p, i) => {
