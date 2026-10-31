@@ -1,21 +1,24 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { getChurchPlan } from "@/lib/plan-gate-server";
+import { effectiveMemberLimit } from "@/lib/plan-gate";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 
 /**
  * The plan's member limit, enforced. Everyone in People counts except visitors (they have their own list and never
  * use up a member place). A church already over its limit keeps everyone it has; it just cannot add more until it
- * upgrades or removes people.
+ * upgrades or removes people. On the Free plan a church keeps any grandfathered cap it was given (Church.freeMemberLimit).
  */
 export async function memberRoom(churchId: string): Promise<{ limit: number | null; used: number; left: number }> {
-  const [plan, cfg, used] = await Promise.all([
+  const [plan, cfg, used, church] = await Promise.all([
     getChurchPlan(churchId),
     getPlatformConfig(),
     countMembers(churchId),
+    db.church.findUnique({ where: { id: churchId }, select: { freeMemberLimit: true } }),
   ]);
   const raw = cfg.planTable[plan]?.members;
-  const limit = typeof raw === "number" && Number.isFinite(raw) && raw >= 0 ? raw : null;
+  const planLimit = typeof raw === "number" && Number.isFinite(raw) && raw >= 0 ? raw : null;
+  const limit = effectiveMemberLimit(plan, planLimit, church?.freeMemberLimit);
   return { limit, used, left: limit === null ? Infinity : Math.max(0, limit - used) };
 }
 

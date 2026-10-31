@@ -4,6 +4,16 @@ export const PLAN_IDS: PlanId[] = ["free", "starter", "pro", "max"];
 
 const PLAN_RANK: Record<PlanId, number> = { free: 0, starter: 1, pro: 2, max: 3 };
 
+/**
+ * The member limit a church actually gets. Only the Free plan has grandfathered caps: a church keeps the higher of the
+ * plan's limit and its own `freeMemberLimit`, so lowering the Free limit never shrinks what a church was already given,
+ * and raising it later is never held back by an old cap. `null` means unlimited.
+ */
+export function effectiveMemberLimit(plan: PlanId, planLimit: number | null, grandfathered: number | null | undefined): number | null {
+  if (planLimit === null || plan !== "free" || grandfathered == null) return planLimit;
+  return Math.max(planLimit, grandfathered);
+}
+
 /** "Up to 250 members" or "Unlimited members", from a member limit (negative or infinite = unlimited). */
 export function membersText(limit: number): string {
   return !Number.isFinite(limit) || limit < 0 ? "Unlimited members" : `Up to ${limit.toLocaleString("en-US")} members`;
@@ -97,7 +107,7 @@ export const FEATURE_TIERS = {
 } as const;
 
 export const DEFAULT_PLAN_TABLE: PlanTable = {
-  free:    { members: 40,       teamUsers: 2,        features: FREE_FEATURES },
+  free:    { members: 30,       teamUsers: 2,        features: FREE_FEATURES },
   starter: { members: 150,      teamUsers: 5,        features: STARTER_FEATURES },
   pro:     { members: 300,      teamUsers: 15,       features: PRO_FEATURES },
   max:     { members: Infinity, teamUsers: Infinity, features: MAX_FEATURES },

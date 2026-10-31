@@ -3,7 +3,7 @@
 import { Reveal, StaggerGroup, StaggerItem } from "@/components/ui/reveal";
 import { steps } from "@/config/marketing";
 
-export function HowItWorks({ freeMemberLimit = 40 }: {
+export function HowItWorks({ freeMemberLimit = 30 }: {
   /** Free-plan member cap, pulled live from the SuperAdmin-editable plan config. */
   freeMemberLimit?: number;
 }) {

@@ -4,6 +4,7 @@ import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { features } from "@/lib/env";
 import { getPlatformConfig } from "@/lib/data/platform-config";
+import { effectiveMemberLimit, type PlanId } from "@/lib/plan-gate";
 import { loadMessageCenter } from "@/lib/messages/load";
 
 export const metadata = { title: "Settings" };
@@ -100,10 +101,12 @@ export default async function SettingsPage() {
         messageCenter={messageCenter}
         platformPricing={platformConfig}
         billingUsage={(() => {
-          const limits = platformConfig.planTable[(sub?.plan ?? "free") as keyof typeof platformConfig.planTable];
+          const plan = (sub?.plan ?? "free") as PlanId;
+          const limits = platformConfig.planTable[plan];
+          const planLimit = limits && Number.isFinite(limits.members) ? limits.members : null;
           return {
             members: memberCount,
-            memberLimit: limits && Number.isFinite(limits.members) ? limits.members : null,
+            memberLimit: effectiveMemberLimit(plan, planLimit, church?.freeMemberLimit),
             teamUsers: users.length,
             teamLimit: limits && Number.isFinite(limits.teamUsers) ? limits.teamUsers : null,
             smsCredits: church?.smsCredits ?? 0,

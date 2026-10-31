@@ -43,7 +43,7 @@ const FEATURE_PILLS = [
 
 export function Hero({
   subhead = DEFAULT_SUBHEAD,
-  freeMembers = "up to 40 members",
+  freeMembers = "up to 30 members",
 }: {
   subhead?: string;
   /** e.g. "up to 40 members" - pulled live from the SuperAdmin-editable plan config. */

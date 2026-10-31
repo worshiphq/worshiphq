@@ -77,6 +77,10 @@ model Church {
   smsWelcomeMember Boolean @default(true) // SMS a welcome to members who self-register
   smsWelcomeVisitor Boolean @default(true) // SMS a welcome to visitors who self-register via the visit link
   smsTier          String? // per-church SMS price tier override (null = use site default)
+  // Grandfathered member cap on the Free plan (null = just use the plan's limit). Set once, by
+  // scripts/grandfather-free-limit.mjs, when the Free limit is lowered, so churches already past the new
+  // limit keep their old one. The higher of this and the plan limit applies while on Free.
+  freeMemberLimit  Int?
   // Notify admins (SMS + email) when a member submits a prayer request,
   // testimony or counselling request. Editable in Settings.
   notifySubmissions Boolean @default(true)
