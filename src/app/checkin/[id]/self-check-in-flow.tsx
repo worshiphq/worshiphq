@@ -7,7 +7,7 @@ import { findForCheckIn, sendCheckInCode, completeCheckIn, checkInNewVisitor, ty
 
 type Step = "find" | "confirm" | "verify" | "new";
 
-const inputCls = "h-12 w-full rounded-xl border border-[#e8e2d6] bg-white px-4 text-base text-[#1c1a16] placeholder:text-[#a09888] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0d7377]/25";
+const inputCls = "h-12 w-full rounded-xl border border-[#e8e2d6] bg-white px-4 text-[1rem]/6 text-[#1c1a16] placeholder:text-[#a09888] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#0d7377]/25";
 
 /** This phone, remembered anonymously so a church can limit how many people one phone checks in. */
 function deviceId(): string {
@@ -102,7 +102,7 @@ export function SelfCheckInFlow({ sessionId, accent, verify, geoOn }: { sessionI
     fail(r.error);
   }
 
-  const btn = "flex h-12 w-full items-center justify-center gap-2 rounded-xl px-6 text-base font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60";
+  const btn = "flex h-12 w-full items-center justify-center gap-2 rounded-xl px-6 text-[1rem]/6 font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:opacity-60";
 
   if (blocked) {
     return (
@@ -151,7 +151,7 @@ export function SelfCheckInFlow({ sessionId, accent, verify, geoOn }: { sessionI
               {people.map((p) => (
                 <li key={p.id}>
                   <button type="button" onClick={() => pick(p)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-[#faf8f4]">
-                    <span className="text-base font-medium text-[#1c1a16]">{p.name}</span>
+                    <span className="text-[1rem]/6 font-medium text-[#1c1a16]">{p.name}</span>
                     <span className="text-xs text-[#a09888]">{p.hint ?? ""}</span>
                   </button>
                 </li>
@@ -163,7 +163,7 @@ export function SelfCheckInFlow({ sessionId, accent, verify, geoOn }: { sessionI
           )}
 
           <div className="relative py-1 text-center text-xs text-[#a09888]"><span className="relative z-10 bg-white px-3">or</span><span className="absolute inset-x-0 top-1/2 h-px bg-[#eee8dc]" /></div>
-          <button type="button" onClick={() => { setStep("new"); setError(""); }} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#e8e2d6] text-base font-medium text-[#1c1a16] hover:bg-[#faf8f4]">
+          <button type="button" onClick={() => { setStep("new"); setError(""); }} className="flex h-12 w-full items-center justify-center gap-2 rounded-xl border border-[#e8e2d6] text-[1rem]/6 font-medium text-[#1c1a16] hover:bg-[#faf8f4]">
             <UserPlus className="size-5" /> I am new here
           </button>
         </>
