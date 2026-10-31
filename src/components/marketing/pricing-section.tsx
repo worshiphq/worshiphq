@@ -179,7 +179,7 @@ export function PricingSection({ showComparison = true, platformPricing }: {
                   <tr className="border-b-2 border-evergreen bg-parchment">
                     <th className="p-4 text-left font-display text-sm font-bold text-evergreen-deep">Features</th>
                     {plans.map((p) => (
-                      <th key={p.id} className="p-4 text-center font-display text-base font-bold text-evergreen-deep">
+                      <th key={p.id} className="p-4 text-center font-display text-[1rem]/6 font-bold text-evergreen-deep">
                         {p.name}
                       </th>
                     ))}

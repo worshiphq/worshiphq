@@ -147,7 +147,7 @@ function Overlay({ onClose, title, children, narrow }: { onClose: () => void; ti
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/40 p-4" onClick={onClose}>
       <Card className={cn("max-h-[90vh] w-full overflow-y-auto p-0", narrow ? "max-w-sm" : "max-w-xl")} onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between border-b border-line p-4">
-          <h3 className="font-display text-base font-semibold">{title}</h3>
+          <h3 className="font-display text-[1rem]/6 font-semibold">{title}</h3>
           <button onClick={onClose} className="rounded-lg p-1 text-ink-faint hover:bg-surface-2" aria-label="Close"><X className="size-4" /></button>
         </div>
         <div className="p-4">{children}</div>

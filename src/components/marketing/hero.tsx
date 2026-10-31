@@ -120,7 +120,7 @@ export function Hero({
                   <br />
                   <span className="text-brass">One dashboard.</span>
                 </h1>
-                <p className="mt-6 max-w-lg text-base leading-relaxed text-parchment/80 sm:text-lg xl:text-xl">
+                <p className="mt-6 max-w-lg text-[1rem]/6 leading-relaxed text-parchment/80 sm:text-lg xl:text-xl">
                   {subhead}
                 </p>
                 <div className="mt-9 flex flex-wrap items-center gap-4">
@@ -172,7 +172,7 @@ export function Hero({
                 <br />
                 <span className="text-brass">No extra tools needed.</span>
               </h2>
-              <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-parchment/80 sm:text-lg xl:text-xl">
+              <p className="mx-auto mt-6 max-w-2xl text-[1rem]/6 leading-relaxed text-parchment/80 sm:text-lg xl:text-xl">
                 Accept Mobile Money and card giving, check members in with a QR
                 scan, and reach your whole congregation by SMS - from one place.
               </p>
@@ -215,7 +215,7 @@ export function Hero({
               <h2 className="mt-5 font-display text-5xl font-bold leading-[1.02] tracking-tight text-parchment sm:text-6xl lg:text-7xl xl:text-8xl">
                 Welcome home.
               </h2>
-              <p className="mx-auto mt-6 max-w-2xl text-base leading-relaxed text-parchment/80 sm:text-lg xl:text-xl">
+              <p className="mx-auto mt-6 max-w-2xl text-[1rem]/6 leading-relaxed text-parchment/80 sm:text-lg xl:text-xl">
                 From a 30-member fellowship to a multi-campus ministry - churches
                 around the world run their week on WorshipHQ. Yours can too,
                 starting today.

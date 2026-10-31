@@ -165,7 +165,7 @@ export function GroupsClient({ items, people, typeSuggestions, canWrite, stats, 
             {shown.map((g) => (
               <Card key={g.id} className="flex flex-col overflow-hidden p-0 transition hover:shadow-md">
                 <div className="flex items-start gap-3 p-4">
-                  <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-base font-bold", toneFor(g.type))}>
+                  <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-[1rem]/6 font-bold", toneFor(g.type))}>
                     {g.name.slice(0, 1).toUpperCase()}
                   </span>
                   <div className="min-w-0 flex-1">
