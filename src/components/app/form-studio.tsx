@@ -285,7 +285,7 @@ export function FormStudio({
           <div className="lg:sticky lg:top-20">
             <div className="mb-2 flex items-center gap-1.5 text-xs font-medium text-ink-muted"><Eye className="size-3.5" /> Live preview. Try it, nothing is sent.</div>
             <div className="max-h-[calc(100vh-9rem)] overflow-y-auto rounded-2xl border border-line bg-[#faf8f4] p-4">
-              <p className="mb-3 text-center font-display text-base font-semibold text-[#1c1a16]">{churchName}</p>
+              <p className="mb-3 text-center font-display text-[1rem]/6 font-semibold text-[#1c1a16]">{churchName}</p>
               <form onSubmit={(e) => e.preventDefault()} className="rounded-2xl border border-line bg-surface p-4 shadow-sm">
                 <MemberFormFields
                   key={signature}

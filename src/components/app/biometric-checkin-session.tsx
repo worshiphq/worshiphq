@@ -143,7 +143,7 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
               <div className="grid size-32 place-items-center rounded-full bg-warning/10"><Fingerprint className="size-16 text-warning" /></div>
               <h4 className="mt-4 text-3xl font-semibold">Scanner not found</h4>
               <p className="mt-2 text-lg text-ink-muted">Plug in the reader and install the one-time setup.</p>
-              <a href="/scanner-agent/WorshipHQ-Scanner-Setup.exe" download className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand px-6 py-3 text-base font-medium text-white">
+              <a href="/scanner-agent/WorshipHQ-Scanner-Setup.exe" download className="mt-4 inline-flex items-center gap-2 rounded-xl bg-brand px-6 py-3 text-[1rem]/6 font-medium text-white">
                 <Download className="size-5" /> Download installer
               </a>
             </>
@@ -189,7 +189,7 @@ export function BiometricCheckInSession({ sessionId, onClose }: { sessionId: str
             <Users className="size-4" /> Checked in this session ({list.length})
           </div>
           {list.length === 0 ? (
-            <p className="text-base text-ink-faint">No-one yet - start scanning.</p>
+            <p className="text-[1rem]/6 text-ink-faint">No-one yet - start scanning.</p>
           ) : (
             <ul className="flex max-h-36 flex-wrap gap-2 overflow-y-auto overscroll-contain">
               {list.map((p, i) => (

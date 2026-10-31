@@ -202,7 +202,7 @@ function Modal({ title, onClose, children, wide }: { title: string; onClose: () 
     <div className="fixed inset-0 z-50 grid place-items-center bg-black/60 p-4" onMouseDown={(e) => { if (e.target === e.currentTarget) onClose(); }}>
       <div className={cn("flex max-h-[92vh] w-full flex-col overflow-hidden rounded-2xl border border-white/10 bg-slate-900 shadow-2xl", wide ? "max-w-3xl" : "max-w-lg")}>
         <div className="flex items-center justify-between border-b border-white/10 px-5 py-3.5">
-          <h3 className="text-base font-semibold text-slate-100">{title}</h3>
+          <h3 className="text-[1rem]/6 font-semibold text-slate-100">{title}</h3>
           <button onClick={onClose} className="rounded-lg p-1 text-slate-400 hover:bg-white/10 hover:text-white"><X className="size-5" /></button>
         </div>
         <div className="overflow-y-auto p-5">{children}</div>
