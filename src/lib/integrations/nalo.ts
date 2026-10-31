@@ -3,7 +3,8 @@
  * Kept free of app imports so it can be tested on its own.
  *
  * Request:  POST /smsbackend/Resl_Nalo/send-message/  { key | username+password, msisdn, message, sender_id }
- * Response: { "status": "1701", "job_id": "api.…", "msisdn": "233…" }   (1701 = accepted)
+ * Response: "1701|<phone>|<message_id>" on success (plain text, pipe separated). Some accounts answer with
+ *           JSON instead, so parseNaloResponse reads either. 1701 = accepted; see CODES for the rest.
  * Numbers go as digits with the country code and no "+", so Ghana and international numbers use the same call.
  */
 
@@ -28,11 +29,17 @@ const ENDPOINT = "/smsbackend/Resl_Nalo/send-message/";
 /** What the codes we know mean. Anything else is passed through with its number so it can be looked up with Nalo. */
 const CODES: Record<string, string> = {
   "1701": "Accepted",
-  "1703": "Nalo rejected the login details. Check the API key.",
+  "1702": "Nalo rejected the request (a required field was missing or wrong).",
+  "1703": "Nalo rejected the login details (username, password or API key).",
+  "1704": "Nalo rejected the message type.",
+  "1705": "Nalo says the message content is not valid.",
   "1706": "Nalo says that phone number is not valid.",
   "1707": "Nalo says the sender name is not valid or not approved.",
+  "1708": "Nalo rejected the delivery-report setting.",
   "1709": "Nalo could not validate the account. Check the API key.",
+  "1710": "Nalo had an internal error. Try again shortly.",
   "1025": "The Nalo account is out of credit.",
+  "1026": "The Nalo reseller account is out of credit.",
 };
 
 export const describeNaloCode = (code: string) => CODES[code] ?? `Nalo refused the message (code ${code}).`;
