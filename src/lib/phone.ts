@@ -11,9 +11,14 @@ export function normalisePhone(raw: string, defaultCountry: CountryCode = "GH"):
   let p = typed.replace(/[^\d+]/g, "");
   if (p.startsWith("+")) return p.slice(1);
   if (p.startsWith("00")) return p.slice(2);
-  if (defaultCountry !== "GH") {
-    const parsed = parsePhoneNumberFromString(typed, defaultCountry);
-    if (parsed) return parsed.number.slice(1);
+  // Only a real country code counts; anything else (e.g. an index from .map()) is ignored and read as Ghana.
+  if (typeof defaultCountry === "string" && defaultCountry !== "GH") {
+    try {
+      const parsed = parsePhoneNumberFromString(typed, defaultCountry);
+      if (parsed) return parsed.number.slice(1);
+    } catch {
+      /* unknown country: fall through to the Ghana reading below */
+    }
   }
   if (p.startsWith("0")) p = "233" + p.slice(1); // 0XXXXXXXXX -> 233XXXXXXXXX
   else if (p.length === 9) p = "233" + p; // 9-digit local -> add country code
