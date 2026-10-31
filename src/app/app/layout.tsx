@@ -1,3 +1,5 @@
+import { countryFromName } from "@/lib/countries";
+import { PhoneDefaults } from "@/components/ui/phone-input";
 import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
@@ -30,7 +32,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     getActiveAnnouncements(),
     db.church.findUnique({
       where: { id: session.churchId },
-      select: { suspended: true, logoUrl: true, accentColor: true, hideAmounts: true, createdAt: true },
+      select: { suspended: true, logoUrl: true, accentColor: true, hideAmounts: true, createdAt: true, country: true },
     }),
     getRecentNotifications(session.churchId),
     getChurchPlan(session.churchId),
@@ -69,7 +71,9 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     >
       <RecycleBinProvider canManage={session.canDelete} initialCount={binCount}>
         <TourProvider>
-          <AmountPrivacy enabled={church?.hideAmounts ?? false}>{children}</AmountPrivacy>
+          <PhoneDefaults country={countryFromName(church?.country)}>
+            <AmountPrivacy enabled={church?.hideAmounts ?? false}>{children}</AmountPrivacy>
+          </PhoneDefaults>
         </TourProvider>
       </RecycleBinProvider>
     </AppShell>

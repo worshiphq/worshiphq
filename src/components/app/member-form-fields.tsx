@@ -1,12 +1,12 @@
 "use client";
 
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useRef, useState } from "react";
 import { Camera, Check, UploadCloud, X } from "lucide-react";
 import { type FormField, DEPARTMENT_FIELD_ID, GROUPS_FIELD_ID, splitSteps, questionFields } from "@/lib/forms/registration";
 import { ImageCropper } from "@/components/ui/image-cropper";
 import { Combobox } from "@/components/ui/combobox";
 import { OtherSelect } from "@/components/app/other-select";
-import { phoneValidityMessage } from "@/lib/phone";
 import { cn } from "@/lib/utils";
 
 export interface MemberDefaults {
@@ -148,13 +148,7 @@ export function MemberFormFields({
             {f.label} {f.required && <span className="text-danger">*</span>}
           </label>
         ) : f.type === "tel" ? (
-          <input
-            name={f.id} type="tel" inputMode="tel" required={f.required} placeholder={f.placeholder}
-            value={values[f.id] ?? ""}
-            onChange={(e) => { setValue(f.id, e.target.value); e.target.setCustomValidity(""); }}
-            onBlur={(e) => e.target.setCustomValidity(e.target.value ? phoneValidityMessage(e.target.value) : "")}
-            className={input}
-          />
+          <PhoneInput name={f.id} required={f.required} value={values[f.id] ?? ""} onChange={(v) => setValue(f.id, v)} />
         ) : (
           <input name={f.id} type={f.type} required={f.required} placeholder={f.placeholder} value={values[f.id] ?? ""} onChange={(e) => setValue(f.id, e.target.value)} className={input} />
         )}

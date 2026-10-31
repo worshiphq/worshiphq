@@ -1,5 +1,6 @@
 "use client";
 
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useActionState, useRef, useEffect, useTransition } from "react";
 import { UserPlus, Check, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -18,7 +19,7 @@ export function AddAttendeeForm({ eventId }: { eventId: string }) {
     <form ref={form} action={action} className="space-y-3">
       <div className="grid gap-3 sm:grid-cols-3">
         <input name="name" required placeholder="Full name" className={input} aria-label="Full name" />
-        <input name="phone" placeholder="Phone (optional)" className={input} aria-label="Phone" />
+        <PhoneInput name="phone" aria-label="Phone (optional)" />
         <input name="email" type="email" placeholder="Email (optional)" className={input} aria-label="Email" />
       </div>
       {state && !state.ok && state.error && (

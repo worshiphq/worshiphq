@@ -1,11 +1,20 @@
+import { isPossiblePhoneNumber, parsePhoneNumberFromString, type CountryCode } from "libphonenumber-js/min";
+
 /**
- * Normalise a Ghana (or international) phone number to the digits-only format
- * SMS providers expect, e.g. "024 123 4567" / "+233241234567" -> "233241234567".
+ * Normalise a phone number to the digits-only format SMS providers expect, e.g. "024 123 4567" /
+ * "+233241234567" -> "233241234567". Numbers already written with a country code ("+23276123456" or
+ * "0023276123456") are kept as they are. A number written locally ("0244123456") is read as belonging to
+ * `defaultCountry` (Ghana unless told otherwise).
  */
-export function normalisePhone(raw: string): string {
-  let p = (raw ?? "").replace(/[^\d+]/g, "");
-  if (p.startsWith("+")) p = p.slice(1);
-  if (p.startsWith("00")) p = p.slice(2);
+export function normalisePhone(raw: string, defaultCountry: CountryCode = "GH"): string {
+  const typed = (raw ?? "").trim();
+  let p = typed.replace(/[^\d+]/g, "");
+  if (p.startsWith("+")) return p.slice(1);
+  if (p.startsWith("00")) return p.slice(2);
+  if (defaultCountry !== "GH") {
+    const parsed = parsePhoneNumberFromString(typed, defaultCountry);
+    if (parsed) return parsed.number.slice(1);
+  }
   if (p.startsWith("0")) p = "233" + p.slice(1); // 0XXXXXXXXX -> 233XXXXXXXXX
   else if (p.length === 9) p = "233" + p; // 9-digit local -> add country code
   return p;
@@ -24,7 +33,7 @@ export function isValidPhone(raw: string): boolean {
   const digits = trimmed.replace(/[\s\-()]/g, "");
   if (digits.startsWith("+")) {
     const d = digits.slice(1).replace(/\D/g, "");
-    return d.length >= 7 && d.length <= 15;
+    return d.length >= 7 && d.length <= 15 && isPossiblePhoneNumber("+" + d);
   }
   const d = digits.replace(/\D/g, "");
   if (d.startsWith("0")) return d.length === 10;
@@ -37,7 +46,7 @@ export function phoneValidityMessage(raw: string): string {
   if (!trimmed) return "";
   return isValidPhone(trimmed)
     ? ""
-    : "Enter a valid phone number, e.g. 0241234567 or +233241234567";
+    : "Enter a valid phone number for the country you chose, e.g. 24 123 4567";
 }
 
 /**

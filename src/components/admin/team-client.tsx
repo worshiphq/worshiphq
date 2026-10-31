@@ -1,5 +1,6 @@
 "use client";
 
+import { PhoneInput } from "@/components/ui/phone-input";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, UserPlus, ShieldCheck, Send, Unlock, Trash2 } from "lucide-react";
@@ -105,7 +106,7 @@ export function TeamClient({ isOwner, ready, ownerEmail, admins }: { isOwner: bo
               <input name="email" type="email" required className={`${input} mt-1`} placeholder="name@example.com" />
             </label>
             <label className="text-xs font-medium text-slate-400">Phone for text codes (optional)
-              <input name="phone" inputMode="tel" className={`${input} mt-1`} placeholder="+233..." />
+              <PhoneInput name="phone" tone="dark" className="mt-1" aria-label="Phone number" />
             </label>
             <div className="sm:col-span-3">
               <button type="submit" disabled={!!busy || !ready} className={`${btn} bg-teal-500 text-slate-950 hover:bg-teal-400`}>
