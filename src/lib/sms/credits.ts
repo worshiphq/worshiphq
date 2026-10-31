@@ -104,12 +104,12 @@ export async function sendChurchSms(
     },
   });
 
-  // With its own approved sender name the church needs no name line. Otherwise the line is the name it chose
-  // (full or short), or its full name until it chooses.
-  const heading =
-    church?.smsSenderIdStatus === "approved"
-      ? null
-      : currentNameLine(church?.smsPrefix, church?.name ?? "WorshipHQ");
+  // The church name line, used to brand any message that goes out under a platform sender (e.g. Nalo for
+  // international numbers, where the church's own Hubtel-approved sender does not apply).
+  const nameLine = currentNameLine(church?.smsPrefix, church?.name ?? "WorshipHQ");
+  // With its own approved sender name the church needs no name line on the primary (Hubtel) carrier.
+  // Otherwise the line is the name it chose (full or short), or its full name until it chooses.
+  const heading = church?.smsSenderIdStatus === "approved" ? null : nameLine;
   const smsText = heading ? `${heading}\n${message}` : message;
 
   const segments = segmentsFor(smsText);
@@ -147,7 +147,7 @@ export async function sendChurchSms(
     }
     let chunkSent = 0;
     try {
-      const res = await sendSms(chunk, message, { heading, senderId });
+      const res = await sendSms(chunk, message, { heading, senderId, platformHeading: nameLine });
       chunkSent = res.sentCount;
       results.push(...(res.results ?? chunk.map((r) => ({ to: r, ok: res.sentCount > 0 }))));
     } finally {
