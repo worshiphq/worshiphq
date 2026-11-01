@@ -109,3 +109,88 @@ export async function activatePlanPayment(txn: PaystackTxn, expectChurchId?: str
 
   return { ok: true, plan, interval, amountGhs };
 }
+
+type PlanIntentData = {
+  plan?: string;
+  interval?: string;
+  amountUsd?: number | string;
+  listAmountUsd?: number | string;
+  couponId?: string | null;
+  prorated?: boolean;
+  usdToGhsRate?: number | string;
+};
+
+/**
+ * Activate a subscription from a paid Hubtel PaymentIntent. Mirrors the sealed-metadata path in
+ * activatePlanPayment, but the plan details come from the intent we stored at checkout time (Hubtel's callback
+ * carries only our reference). Idempotent: recordPlanPayment, keyed on the reference, is the one-time claim.
+ */
+export async function activatePlanFromIntent(intent: {
+  clientReference: string;
+  churchId: string;
+  amountGhs: number;
+  data: unknown;
+}): Promise<ActivateResult> {
+  const d = (intent.data ?? {}) as PlanIntentData;
+  const plan = String(d.plan ?? "");
+  const interval = d.interval === "yearly" ? "yearly" : "monthly";
+  if (!PAID_PLANS.includes(plan)) return { ok: false, error: "That payment isn't a plan payment." };
+
+  const amountGhs = intent.amountGhs;
+  const { getPlatformConfig } = await import("@/lib/data/platform-config");
+  const platformConfig = await getPlatformConfig();
+  const rate = Number(d.usdToGhsRate) || platformConfig.usdToGhsRate || 0;
+
+  const prorated = d.prorated === true;
+  const sub = await db.subscription.findUnique({ where: { churchId: intent.churchId } });
+  const now = new Date();
+  const keepPeriod = prorated && !!sub?.renewsAt && sub.renewsAt.getTime() > now.getTime();
+  const periodStart = keepPeriod ? (sub!.periodStart ?? now) : now;
+  const renewsAt = keepPeriod ? sub!.renewsAt! : periodEndFor(interval, now);
+  const couponId = d.couponId ? String(d.couponId) : null;
+  const displayUsd = Number(d.amountUsd) || (rate ? amountGhs / rate : 0);
+
+  const created = await recordPlanPayment({
+    churchId: intent.churchId,
+    reference: intent.clientReference,
+    plan,
+    interval,
+    amountUsd: displayUsd,
+    amountGhs,
+    usdToGhsRate: rate,
+    couponId,
+    discountUsd: Math.max(0, (Number(d.listAmountUsd) || 0) - displayUsd),
+    kind: prorated ? "upgrade" : "new",
+    periodStart,
+    periodEnd: renewsAt,
+  });
+  if (!created) return { ok: true, plan, interval, amountGhs, alreadyProcessed: true };
+
+  await db.subscription.upsert({
+    where: { churchId: intent.churchId },
+    create: { churchId: intent.churchId, plan, interval, status: "active", renewsAt, periodStart },
+    update: { plan, interval, status: "active", renewsAt, periodStart, scheduledPlan: null, cancelAtPeriodEnd: false },
+  });
+
+  if (couponId) {
+    const { redeemCoupon } = await import("@/lib/billing/coupons");
+    await redeemCoupon(couponId, intent.churchId);
+  }
+
+  try {
+    const { plans } = await import("@/config/pricing");
+    const { sendUpgradeReceipt } = await import("@/lib/billing/receipt");
+    const name = plans.find((p) => p.id === plan)?.name ?? plan;
+    await sendUpgradeReceipt(intent.churchId, name, `₵${amountGhs.toLocaleString()}`, interval, intent.clientReference, {
+      amountGhs,
+      discountGhs: couponId ? Math.max(0, Math.round(((Number(d.listAmountUsd) || 0) - displayUsd) * rate)) : 0,
+      from: periodStart,
+      to: renewsAt,
+      prorated,
+    });
+  } catch (e) {
+    console.error("[billing] Hubtel upgrade receipt failed:", (e as Error).message);
+  }
+
+  return { ok: true, plan, interval, amountGhs };
+}
