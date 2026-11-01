@@ -35,3 +35,23 @@ export function hubtelConfig(): HubtelConfig | null {
   if (!features.hubtelPay) return null;
   return { apiId: env.HUBTEL_POS_API_ID!, apiKey: env.HUBTEL_POS_API_KEY!, merchantAccount: env.HUBTEL_MERCHANT_ACCOUNT! };
 }
+
+/**
+ * Close off payment intents nobody ever completed. A checkout the payer abandoned leaves a "pending" intent
+ * forever; this marks ones older than `olderThanHours` as "expired" so the data stays clean. The window is
+ * generous (a day) because the Hubtel callback only ever acts on a "pending" intent - nobody finishes a
+ * checkout a day later, so this can never race a real, late payment. Safe to call repeatedly (e.g. from cron).
+ */
+export async function expireStalePaymentIntents(olderThanHours = 24): Promise<number> {
+  try {
+    const cutoff = new Date(Date.now() - olderThanHours * 3600_000);
+    const res = await db.paymentIntent.updateMany({
+      where: { status: "pending", createdAt: { lt: cutoff } },
+      data: { status: "expired" },
+    });
+    return res.count;
+  } catch {
+    // The table may not be migrated on every environment; a cleanup failure is never fatal.
+    return 0;
+  }
+}

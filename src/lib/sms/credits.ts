@@ -43,6 +43,11 @@ export async function addCredits(
       select: { smsCredits: true },
     });
     await db.smsTransaction.update({ where: { id: claimId }, data: { balanceAfter: after.smsCredits } });
+    // A paid top-up (not a bonus/refund) is real money in: alert the platform owner, once, here on the claim.
+    if (kind === "topup" && (opts.source === "paystack" || opts.source === "hubtel") && (opts.amountGhs ?? 0) > 0) {
+      const { alertOwnerPayment } = await import("@/lib/billing/owner-alert");
+      await alertOwnerPayment({ churchId, kind: "topup", what: `${credits.toLocaleString()} SMS credits`, amountGhs: opts.amountGhs!, provider: opts.source, reference: opts.reference });
+    }
     return { balance: after.smsCredits, created: true };
   }
 

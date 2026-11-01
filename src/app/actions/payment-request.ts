@@ -8,6 +8,7 @@ import { listBanks, resolveAccount, updateSubaccount } from "@/lib/integrations/
 import { isFeeMode } from "@/lib/giving/fees";
 import { getGivingSettings, saveGivingSettings } from "@/lib/giving/settings";
 import { alertChurchAdmins, maskAccount } from "@/lib/giving/notify";
+import { onlineGivingApplicationsOpen, GIVING_CLOSED_MESSAGE } from "@/lib/giving/availability";
 import { Prisma } from "@prisma/client";
 
 /** Only the church's Owner or Admin may touch where its giving pays out. */
@@ -47,6 +48,7 @@ function readSettlement(formData: FormData) {
 
 export async function submitPaymentRequest(formData: FormData) {
   const session = await requireGivingAdmin();
+  if (!onlineGivingApplicationsOpen()) return { error: GIVING_CLOSED_MESSAGE };
   const contactName = String(formData.get("contactName") ?? "").trim();
   const contactPhone = String(formData.get("contactPhone") ?? "").trim();
   const contactEmail = String(formData.get("contactEmail") ?? "").trim();
@@ -120,7 +122,7 @@ export async function getGivingFeeInfo() {
     getGivingSettings(session.churchId),
     db.platformConfig.findUnique({ where: { id: "default" }, select: { paystackFeePercent: true } }),
   ]);
-  return { mode: fee.mode, platformPercent: fee.platformPercent, paystackPercent: cfg?.paystackFeePercent ?? 1.95, planName: fee.planName, customPercent: fee.customPercent, platformCap: fee.platformCap };
+  return { mode: fee.mode, platformPercent: fee.platformPercent, paystackPercent: cfg?.paystackFeePercent ?? 1.95, planName: fee.planName, customPercent: fee.customPercent, platformCap: fee.platformCap, applicationsOpen: onlineGivingApplicationsOpen() };
 }
 
 /** The church chooses who pays the payment fee on its online gifts. Applies to gifts from now on. */
@@ -141,6 +143,7 @@ export async function setGivingFeeChoice(mode: string) {
  *  WorshipHQ approves, so a hijacked admin login can't silently redirect offerings. */
 export async function requestAccountChange(formData: FormData) {
   const session = await requireGivingAdmin();
+  if (!onlineGivingApplicationsOpen()) return { error: GIVING_CLOSED_MESSAGE };
   const s = readSettlement(formData);
   if (!(s.settlementType && s.bankCode && s.accountNumber && s.accountName)) {
     return { error: "Choose a provider, enter the account number, and verify the name before submitting." };

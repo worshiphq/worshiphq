@@ -14,6 +14,8 @@ export interface RecordPlanPaymentInput {
   kind?: "new" | "renewal" | "upgrade";
   periodStart?: Date;
   periodEnd?: Date;
+  /** Which gateway took the money: "paystack" | "hubtel" | "offline". Defaults to paystack (the DB default). */
+  source?: string;
 }
 
 /** Period end for a plan bought now on the given interval. */
@@ -50,13 +52,26 @@ export async function recordPlanPayment(input: RecordPlanPaymentInput): Promise<
         kind: input.kind ?? "new",
         periodStart,
         periodEnd,
+        ...(input.source ? { source: input.source } : {}),
       },
     });
-    return true;
   } catch {
     // Unique violation on `reference` - already recorded by the other path.
     return false;
   }
+
+  // Real money only (a 100% coupon or gift is GHS 0 and alertOwnerPayment skips it). This is the one-time claim,
+  // so the owner is alerted exactly once per payment. Never let a failed alert fail the payment.
+  const { alertOwnerPayment } = await import("@/lib/billing/owner-alert");
+  await alertOwnerPayment({
+    churchId: input.churchId,
+    kind: "plan",
+    what: `${input.plan} plan (${input.interval === "yearly" ? "yearly" : "monthly"})`,
+    amountGhs: input.amountGhs,
+    provider: input.source ?? "paystack",
+    reference: input.reference,
+  });
+  return true;
 }
 
 /** Has this church ever paid before? Drives first-purchase refund windows. */

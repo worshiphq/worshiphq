@@ -73,6 +73,7 @@ export async function activatePlanPayment(txn: PaystackTxn, expectChurchId?: str
     kind: prorated ? "upgrade" : "new",
     periodStart,
     periodEnd: renewsAt,
+    source: "paystack",
   });
   if (!created) return { ok: true, plan, interval, amountGhs, alreadyProcessed: true };
 
@@ -163,6 +164,7 @@ export async function activatePlanFromIntent(intent: {
     kind: prorated ? "upgrade" : "new",
     periodStart,
     periodEnd: renewsAt,
+    source: "hubtel",
   });
   if (!created) return { ok: true, plan, interval, amountGhs, alreadyProcessed: true };
 

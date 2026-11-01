@@ -2,6 +2,7 @@ import type { NextRequest } from "next/server";
 import { env } from "@/lib/env";
 import { runDailyAutomations } from "@/lib/automations/dispatch";
 import { purgeExpiredBinItems } from "@/lib/recycle-bin";
+import { expireStalePaymentIntents } from "@/lib/billing/collection-provider";
 import { safeEqual } from "@/lib/auth/tokens";
 
 export const dynamic = "force-dynamic";
@@ -25,8 +26,10 @@ export async function GET(request: NextRequest) {
   const summary = await runDailyAutomations(new Date(), precise);
   // Recycle bin: anything deleted more than 7 days ago is removed for good.
   const recycleBin = await purgeExpiredBinItems().catch((err) => ({ error: String(err) }));
+  // Tidy up abandoned checkout intents so "pending" rows don't pile up forever.
+  const expiredIntents = await expireStalePaymentIntents().catch(() => 0);
   console.info("[cron/automations] ran", JSON.stringify(summary));
-  return Response.json({ ok: true, ...summary, recycleBin });
+  return Response.json({ ok: true, ...summary, recycleBin, expiredIntents });
 }
 
 function isAuthorized(request: NextRequest): boolean {

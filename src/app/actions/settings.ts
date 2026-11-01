@@ -953,6 +953,7 @@ export async function changePlan(
       usdToGhsRate: platformConfig.usdToGhsRate,
       couponId, discountUsd: listAmount - amount,
       periodStart, periodEnd: renewsAt,
+      source: "paystack",
     });
     const sym = platformConfig.currencySymbol;
     await sendUpgradeReceipt(session.churchId, planConfig.name, `${sym}${amount.toLocaleString()} (₵${chargeAmountGhs.toLocaleString()})`, interval, reference, {

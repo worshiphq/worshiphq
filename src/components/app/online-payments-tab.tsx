@@ -13,6 +13,7 @@ import {
   getGivingFeeInfo, setGivingFeeChoice,
 } from "@/app/actions/payment-request";
 import { splitGift, type FeeMode } from "@/lib/giving/fees";
+import { GIVING_CLOSED_MESSAGE } from "@/lib/giving/availability";
 
 type Status = Awaited<ReturnType<typeof getPaymentRequestStatus>>;
 type FeeInfo = Awaited<ReturnType<typeof getGivingFeeInfo>>;
@@ -274,6 +275,9 @@ export function OnlinePaymentsTab({ canManage }: { canManage: boolean }) {
   const approved = st === "completed";
   const suspended = st === "revoked" || status?.givingBlocked;
   const showForm = !status || st === "declined";
+  // Applications (new sign-ups and account changes) can be paused platform-wide, e.g. while the payment
+  // system is being upgraded. Existing approved giving keeps working. Unknown (feeInfo still loading) = open.
+  const givingOpen = feeInfo?.applicationsOpen !== false;
 
   return (
     <Card className="space-y-5 p-6">
@@ -347,14 +351,19 @@ export function OnlinePaymentsTab({ canManage }: { canManage: boolean }) {
 
           {canManage && !editing && !status.pendingAt && (
             <div className="mt-4 flex flex-wrap gap-2">
-              <Button variant="secondary" size="sm" onClick={() => { setEditing(true); setPicked(null); setError(""); }}>
-                <Pencil className="size-4" /> Edit account
-              </Button>
+              {givingOpen && (
+                <Button variant="secondary" size="sm" onClick={() => { setEditing(true); setPicked(null); setError(""); }}>
+                  <Pencil className="size-4" /> Edit account
+                </Button>
+              )}
               <Button variant="ghost" size="sm" disabled={busy === "remove"}
                 onClick={() => { if (confirm("Remove this payment account? Online giving will stop paying into it.")) act("remove", removePaymentAccount); }}>
                 {busy === "remove" ? <><Loader2 className="size-4 animate-spin" /> Removing…</> : <><Trash2 className="size-4" /> Remove</>}
               </Button>
             </div>
+          )}
+          {canManage && !editing && !status.pendingAt && !givingOpen && (
+            <p className="mt-3 text-xs text-ink-faint">Changing your payout account is paused for now while we upgrade our payment system. Your current account keeps working as normal.</p>
           )}
 
           {editing && canManage && (
@@ -377,8 +386,15 @@ export function OnlinePaymentsTab({ canManage }: { canManage: boolean }) {
         <p className="text-xs text-ink-faint">Only the Main Admin or an Admin can set up or change where giving is paid.</p>
       )}
 
+      {/* APPLICATIONS PAUSED (new sign-ups) */}
+      {!suspended && showForm && canManage && !givingOpen && (
+        <Banner tone="warning" icon={<Clock className="size-5" />} title="Online-giving applications are paused">
+          <p className="mt-1.5 text-sm text-ink-muted">{GIVING_CLOSED_MESSAGE}</p>
+        </Banner>
+      )}
+
       {/* SET UP */}
-      {!suspended && showForm && canManage && (
+      {!suspended && showForm && canManage && givingOpen && (
         <form
           onSubmit={(e) => {
             e.preventDefault();
