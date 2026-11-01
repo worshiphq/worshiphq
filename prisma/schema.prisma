@@ -1300,6 +1300,33 @@ model Subscription {
  * which Paystack reference — which is what makes receipts, billing history,
  * proration and refunds possible at all.
  */
+// Which provider receives WorshipHQ's OWN collections (SMS top-ups; subscriptions later). A single global
+// switch the SuperAdmin flips, so we can move off Paystack in an outage without a redeploy. Church giving is
+// unaffected (it needs per-church Paystack subaccounts).
+model PaymentSetting {
+  id                 String   @id @default("default")
+  collectionProvider String   @default("paystack") // "paystack" | "hubtel"
+  updatedAt          DateTime @updatedAt
+}
+
+// A pending Hubtel checkout. Hubtel's callback carries only our clientReference (no metadata like Paystack),
+// so we remember here what each payment should grant, and the callback looks it up. Idempotent via status.
+model PaymentIntent {
+  id              String    @id @default(cuid())
+  clientReference String    @unique
+  provider        String    @default("hubtel")
+  kind            String    // "sms_topup"
+  churchId        String
+  amountGhs       Float
+  credits         Int? // sms_topup: how many credits to add on success
+  status          String    @default("pending") // pending | paid | failed
+  checkoutId      String?
+  paidAt          DateTime?
+  createdAt       DateTime  @default(now())
+
+  @@index([churchId, createdAt])
+}
+
 model PlanPayment {
   id           String   @id @default(cuid())
   churchId     String

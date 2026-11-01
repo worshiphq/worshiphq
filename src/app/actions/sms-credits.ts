@@ -6,6 +6,8 @@ import { env } from "@/lib/env";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 import { initializePayment, newPaymentReference, SETTLEMENT_CURRENCY } from "@/lib/integrations/paystack";
 import { addCredits } from "@/lib/sms/credits";
+import { getCollectionProvider, hubtelConfig } from "@/lib/billing/collection-provider";
+import { initHubtelCheckout } from "@/lib/integrations/hubtel-pay";
 import { getBundle, priceForCredits, creditsForAmount, MIN_CUSTOM_CREDITS, MAX_CUSTOM_CREDITS } from "@/config/sms";
 import { resolveSmsTier } from "@/lib/sms/tier";
 
@@ -22,38 +24,67 @@ export async function buySmsCredits(bundleId: string) {
   const bundle = getBundle(bundleId, tier);
   if (!bundle) return { ok: false, stubbed: false, reference: "", error: "Unknown bundle." };
 
+  return startSmsTopup(session, { credits: bundle.credits, priceGhs: bundle.priceGhs, bundleId: bundle.id });
+}
+
+/**
+ * Start an SMS top-up with whichever provider the SuperAdmin switch currently points at. Paystack opens its
+ * in-app popup; Hubtel hands back a hosted checkout URL (as authorizationUrl) that the client redirects to,
+ * and remembers the intent so its callback can add the credits. Returns the same shape either way.
+ */
+async function startSmsTopup(
+  session: { churchId: string; email?: string | null },
+  grant: { credits: number; priceGhs: number; bundleId: string },
+) {
   const reference = newPaymentReference();
   const appUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
   const returnUrl = `${appUrl}/app/communications/credits?topup=${reference}`;
+  const email = session.email || `billing+${session.churchId}@worshiphq.org`;
+
+  if ((await getCollectionProvider()) === "hubtel") {
+    const cfg = hubtelConfig();
+    if (cfg) {
+      await db.paymentIntent.create({
+        data: { clientReference: reference, provider: "hubtel", kind: "sms_topup", churchId: session.churchId, amountGhs: grant.priceGhs, credits: grant.credits },
+      });
+      const r = await initHubtelCheckout(cfg, {
+        amountGhs: grant.priceGhs,
+        description: `WorshipHQ SMS credits ${grant.credits}`,
+        clientReference: reference,
+        callbackUrl: `${appUrl}/api/webhooks/hubtel`,
+        returnUrl,
+        cancellationUrl: returnUrl,
+        payeeEmail: email,
+      });
+      if (!r.ok) {
+        await db.paymentIntent.update({ where: { clientReference: reference }, data: { status: "failed" } }).catch(() => {});
+        return { ok: false, stubbed: false, reference, error: r.error ?? "Could not start the Hubtel payment." };
+      }
+      // No inline popup: the client redirects to the hosted checkout URL, so pass it back as authorizationUrl.
+      return { ok: true, stubbed: false, reference, authorizationUrl: r.checkoutUrl };
+    }
+    // Hubtel is selected but not configured: fall through to Paystack so a purchase never dead-ends.
+  }
 
   const init = await initializePayment({
-    email: session.email || `billing+${session.churchId}@worshiphq.org`,
-    // Bundles are priced in GHS and charged in the merchant's settlement currency.
-    amount: bundle.priceGhs,
+    email,
+    amount: grant.priceGhs,
     currency: SETTLEMENT_CURRENCY,
     reference,
     callbackUrl: returnUrl,
     stubReturnUrl: returnUrl,
-    metadata: {
-      kind: "sms_topup",
-      churchId: session.churchId,
-      bundleId: bundle.id,
-      credits: bundle.credits,
-    },
+    metadata: { kind: "sms_topup", churchId: session.churchId, bundleId: grant.bundleId, credits: grant.credits },
   });
 
   if (init.stubbed) {
-    await addCredits(session.churchId, bundle.credits, "topup", {
+    await addCredits(session.churchId, grant.credits, "topup", {
       reference,
-      note: `${bundle.credits} credits (demo top-up)`,
-      amountGhs: bundle.priceGhs,
+      note: `${grant.credits.toLocaleString()} credits (demo top-up)`,
+      amountGhs: grant.priceGhs,
       source: "paystack",
     });
     revalidatePath("/app/communications/credits");
   }
-
-  // Return the init result so the client opens the in-app Paystack popup.
-  // (Stub mode carries authorizationUrl = returnUrl for the redirect fallback.)
   return init;
 }
 
@@ -77,23 +108,7 @@ export async function buyCustomSmsCredits(input: { credits?: number; amountGhs?:
   const q = await quoteSmsCredits(input);
   if (q.credits < MIN_CUSTOM_CREDITS) return { ok: false, stubbed: false, reference: "", error: `The smallest purchase is ${MIN_CUSTOM_CREDITS} credits.` };
 
-  const reference = newPaymentReference();
-  const appUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
-  const returnUrl = `${appUrl}/app/communications/credits?topup=${reference}`;
-  const init = await initializePayment({
-    email: session.email || `billing+${session.churchId}@worshiphq.org`,
-    amount: q.priceGhs,
-    currency: SETTLEMENT_CURRENCY,
-    reference,
-    callbackUrl: returnUrl,
-    stubReturnUrl: returnUrl,
-    metadata: { kind: "sms_topup", churchId: session.churchId, bundleId: "custom", credits: q.credits },
-  });
-  if (init.stubbed) {
-    await addCredits(session.churchId, q.credits, "topup", { reference, note: `${q.credits.toLocaleString()} credits (demo top-up)`, amountGhs: q.priceGhs, source: "paystack" });
-    revalidatePath("/app/communications/credits");
-  }
-  return init;
+  return startSmsTopup(session, { credits: q.credits, priceGhs: q.priceGhs, bundleId: "custom" });
 }
 
 /** Toggle the welcome-SMS-on-registration setting. */

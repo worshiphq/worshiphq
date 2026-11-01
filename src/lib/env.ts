@@ -62,6 +62,11 @@ const schema = z.object({
   // Shared Hubtel account with HostHub (camp-registry) - after every real
   // Hubtel send we report usage so HostHub's balance tracker stays accurate.
   HUBTEL_USAGE_SECRET: str,
+  // Hubtel Online Checkout (receiving payments into our own collection account) - a Paystack backup.
+  HUBTEL_POS_API_ID: str,
+  HUBTEL_POS_API_KEY: str,
+  HUBTEL_MERCHANT_ACCOUNT: str, // Collection Account Number, e.g. "2039265"
+  HUBTEL_CALLBACK_IP: z.string().default("108.129.40.25"),
 
   // ── EMAIL ────────────────────────────────────────────
   EMAIL_PROVIDER: z.enum(["resend", "sendgrid", "smtp"]).default("resend"),
@@ -146,6 +151,7 @@ export const features = {
   auth: !!env.NEXTAUTH_SECRET,
   googleAuth: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
   payments: !!env.PAYSTACK_SECRET_KEY,
+  hubtelPay: !!(env.HUBTEL_POS_API_ID && env.HUBTEL_POS_API_KEY && env.HUBTEL_MERCHANT_ACCOUNT),
   sms:
     (env.SMS_PROVIDER === "arkesel" && !!env.ARKESEL_API_KEY) ||
     (env.SMS_PROVIDER === "hubtel" && !!(env.HUBTEL_CLIENT_ID && env.HUBTEL_CLIENT_SECRET)) ||

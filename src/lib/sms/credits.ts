@@ -17,7 +17,7 @@ export async function addCredits(
   churchId: string,
   credits: number,
   kind: "topup" | "bonus" | "refund",
-  opts?: { note?: string; reference?: string; amountGhs?: number; source?: "paystack" | "granted" | "manual" },
+  opts?: { note?: string; reference?: string; amountGhs?: number; source?: "paystack" | "hubtel" | "granted" | "manual" },
 ): Promise<{ balance: number; created: boolean }> {
   // Idempotency: a Paystack reference is credited once. The ledger row is written first and the unique
   // (churchId, reference) index makes it the claim, so two deliveries at the same moment can't both credit.

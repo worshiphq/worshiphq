@@ -1,9 +1,12 @@
 import { requireSuperAdmin } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { PaymentRequestsManager } from "@/components/admin/payment-requests";
+import { CollectionsSwitch } from "@/components/admin/collections-switch";
 import { db } from "@/lib/db";
 import { getGivingSettings } from "@/lib/giving/settings";
 import { getPlatformConfig } from "@/lib/data/platform-config";
+import { getCollectionProvider } from "@/lib/billing/collection-provider";
+import { features } from "@/lib/env";
 
 export default async function AdminPaymentsPage() {
   const sa = await requireSuperAdmin();
@@ -18,6 +21,7 @@ export default async function AdminPaymentsPage() {
     }),
   ]);
 
+  const collectionProvider = await getCollectionProvider();
   const platform = await getPlatformConfig();
   const planPercents = Object.fromEntries(platform.planList.map((p) => [p.id, p.givingPercent])) as Record<string, number>;
   const planCaps = Object.fromEntries(platform.planList.map((p) => [p.id, p.givingCap])) as Record<string, number>;
@@ -35,6 +39,7 @@ export default async function AdminPaymentsPage() {
           Churches requesting online payment setup. Review, verify, and create their Paystack subaccounts.
         </p>
       </div>
+      <CollectionsSwitch current={collectionProvider} hubtelReady={features.hubtelPay} />
       <PaymentRequestsManager
         requests={withGiving}
         planPercents={planPercents}
