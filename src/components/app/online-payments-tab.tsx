@@ -13,7 +13,7 @@ import {
   getGivingFeeInfo, setGivingFeeChoice,
 } from "@/app/actions/payment-request";
 import { splitGift, type FeeMode } from "@/lib/giving/fees";
-import { GIVING_CLOSED_MESSAGE } from "@/lib/giving/availability";
+import { GIVING_CLOSED_MESSAGE, GIVING_PAUSED_INREVIEW_MESSAGE } from "@/lib/giving/availability";
 
 type Status = Awaited<ReturnType<typeof getPaymentRequestStatus>>;
 type FeeInfo = Awaited<ReturnType<typeof getGivingFeeInfo>>;
@@ -303,8 +303,14 @@ export function OnlinePaymentsTab({ canManage }: { canManage: boolean }) {
       {!suspended && inReview && status && (
         <Banner tone="warning" icon={<Clock className="size-5" />} title="In review">
           <p className="mt-1.5 text-sm text-ink-muted">
-            We have received your request and will confirm it shortly. Giving starts as soon as it is approved.
-            {st === "scheduled" && status.meetingDate && ` Meeting: ${new Date(status.meetingDate).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}.`}
+            {givingOpen ? (
+              <>
+                We have received your request and will confirm it shortly. Giving starts as soon as it is approved.
+                {st === "scheduled" && status.meetingDate && ` Meeting: ${new Date(status.meetingDate).toLocaleDateString("en-GB", { weekday: "long", day: "numeric", month: "long", hour: "2-digit", minute: "2-digit" })}.`}
+              </>
+            ) : (
+              GIVING_PAUSED_INREVIEW_MESSAGE
+            )}
           </p>
           <Details type={status.settlementType} bank={status.bankName} number={status.accountNumber} name={status.accountName} />
           {status.adminNotes && <p className="mt-3 text-sm text-ink-muted">{status.adminNotes}</p>}
@@ -312,7 +318,9 @@ export function OnlinePaymentsTab({ canManage }: { canManage: boolean }) {
             <summary className="cursor-pointer text-sm font-semibold text-ink">See the fees and how online giving works again</summary>
             <div className="mt-3"><FeeExplainer info={feeInfo} mode={feeMode} /></div>
           </details>
-          {canManage && (
+          {/* While approvals are paused, hide "Withdraw and edit": withdrawing would drop them to the apply form,
+              which is closed, stranding them. They keep their place in the queue instead. */}
+          {canManage && givingOpen && (
             <Button className="mt-4" variant="secondary" size="sm" disabled={busy === "cancel"}
               onClick={() => { if (confirm("Withdraw this request? You can submit a new one right after.")) act("cancel", cancelPaymentRequest); }}>
               {busy === "cancel" ? <><Loader2 className="size-4 animate-spin" /> Withdrawing…</> : "Withdraw and edit"}
