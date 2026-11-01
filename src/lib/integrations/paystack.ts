@@ -94,13 +94,16 @@ export async function initializePayment(opts: {
       }),
     });
     const data = await res.json();
+    const ok = !!(res.ok && data?.status);
+    // Only carry an error when the call actually failed. On success Paystack still sends a message
+    // ("Authorization URL created"); passing that up made callers treat a good init as an error and stop.
     return {
-      ok: res.ok && data?.status,
+      ok,
       stubbed: false,
       reference,
       authorizationUrl: data?.data?.authorization_url,
       accessCode: data?.data?.access_code,
-      error: data?.message,
+      ...(ok ? {} : { error: data?.message }),
     };
   } catch (e) {
     return { ok: false, stubbed: false, reference, error: (e as Error).message };
