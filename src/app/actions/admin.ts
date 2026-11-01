@@ -21,6 +21,55 @@ import { notifyPaymentRequest, alertChurchAdmins, maskAccount, type PaymentReque
 import { isVerified, CHANGE_HOLD_HOURS, VERIFICATION_CHECKS } from "@/lib/giving/verification";
 import { saveGivingSettings } from "@/lib/giving/settings";
 import { isFeeMode } from "@/lib/giving/fees";
+import { GIVING_PAUSED_INREVIEW_MESSAGE } from "@/lib/giving/availability";
+import { sendEmail } from "@/lib/integrations/email";
+import { escapeHtml } from "@/lib/html";
+
+/**
+ * One-time outreach: tell every church currently awaiting online-giving approval that approvals are paused,
+ * so they are not left watching a request that looks stuck. Emails each church's Owner/Admin (plus the contact
+ * email on the request, if any). Idempotent per church: a church that already got this notice is skipped, so
+ * clicking the button twice never double-sends. Runs on the server, so it sends for real through Brevo.
+ */
+const GIVING_PAUSE_NOTICE_NAME = "Online giving approvals paused";
+
+export async function notifyGivingApplicantsOfPause(): Promise<{ ok: boolean; notified: number; skipped: number; error?: string }> {
+  await requireSuperAdmin();
+  const reqs = await db.paymentRequest.findMany({
+    where: { status: { in: ["pending", "scheduled", "in_progress"] } },
+    select: { churchId: true, contactEmail: true, church: { select: { name: true } } },
+    orderBy: { createdAt: "asc" },
+  });
+
+  let notified = 0;
+  let skipped = 0;
+  const seen = new Set<string>();
+  for (const r of reqs) {
+    if (seen.has(r.churchId)) continue; // one notice per church even with multiple requests
+    seen.add(r.churchId);
+
+    // Skip a church already told (so re-running the button is safe).
+    const already = await db.communication.findFirst({ where: { churchId: r.churchId, name: GIVING_PAUSE_NOTICE_NAME } });
+    if (already) { skipped++; continue; }
+
+    const admins = await db.user.findMany({ where: { churchId: r.churchId, role: { in: ["Owner", "Admin"] } }, select: { email: true } });
+    const to = [...new Set([...admins.map((a) => a.email), r.contactEmail].filter((e): e is string => !!e))];
+    if (!to.length) { skipped++; continue; }
+
+    const res = await sendEmail({
+      to,
+      subject: "Update on your WorshipHQ online giving request",
+      html: `<div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;line-height:1.5">
+        <h2 style="margin:0 0 12px;color:#0d7377">Your online giving request</h2>
+        <p>${escapeHtml(GIVING_PAUSED_INREVIEW_MESSAGE)}</p>
+        <p style="margin-top:18px;color:#999;font-size:12px">This is a one-time update from WorshipHQ about ${escapeHtml(r.church?.name ?? "your church")}. No reply is needed.</p>
+      </div>`,
+      log: { churchId: r.churchId, name: GIVING_PAUSE_NOTICE_NAME, segment: "giving-pause" },
+    });
+    if (res.ok) notified++; else skipped++;
+  }
+  return { ok: true, notified, skipped };
+}
 
 /**
  * Manually run all scheduled automations now (platform owner only). Useful to

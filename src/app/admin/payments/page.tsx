@@ -2,6 +2,7 @@ import { requireSuperAdmin } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { PaymentRequestsManager } from "@/components/admin/payment-requests";
 import { CollectionsSwitch } from "@/components/admin/collections-switch";
+import { NotifyGivingPause } from "@/components/admin/notify-giving-pause";
 import { db } from "@/lib/db";
 import { getGivingSettings } from "@/lib/giving/settings";
 import { getPlatformConfig } from "@/lib/data/platform-config";
@@ -40,6 +41,7 @@ export default async function AdminPaymentsPage() {
         </p>
       </div>
       <CollectionsSwitch current={collectionProvider} hubtelReady={features.hubtelPay} />
+      <NotifyGivingPause waiting={requests.filter((r) => ["pending", "scheduled", "in_progress"].includes(r.status)).length} />
       <PaymentRequestsManager
         requests={withGiving}
         planPercents={planPercents}
