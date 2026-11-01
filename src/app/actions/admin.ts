@@ -939,3 +939,13 @@ export async function setSmsCostPerCredit(cost: number) {
   revalidatePath("/admin/revenue");
   return { ok: true as const };
 }
+
+// ── Collections provider switch (which gateway receives WorshipHQ's own collections) ──
+export async function switchCollectionsProvider(provider: "paystack" | "hubtel") {
+  await requireSuperAdmin();
+  if (provider !== "paystack" && provider !== "hubtel") return { ok: false as const, error: "Unknown provider." };
+  const { setCollectionProvider } = await import("@/lib/billing/collection-provider");
+  await setCollectionProvider(provider);
+  revalidatePath("/admin/payments");
+  return { ok: true as const, provider };
+}
