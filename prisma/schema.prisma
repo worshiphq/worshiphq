@@ -1319,6 +1319,7 @@ model PaymentIntent {
   churchId        String
   amountGhs       Float
   credits         Int? // sms_topup: how many credits to add on success
+  data            Json? // plan_upgrade: { plan, interval, amountUsd, listAmountUsd, couponId, prorated, usdToGhsRate }
   status          String    @default("pending") // pending | paid | failed
   checkoutId      String?
   paidAt          DateTime?

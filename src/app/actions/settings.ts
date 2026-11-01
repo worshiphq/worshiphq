@@ -11,6 +11,8 @@ import { sendSms } from "@/lib/integrations/sms";
 import { sendOtp, verifyOtp } from "@/lib/auth/otp";
 import { normalisePhone, phoneVariants } from "@/lib/phone";
 import { initializePayment, newPaymentReference, SETTLEMENT_CURRENCY } from "@/lib/integrations/paystack";
+import { getCollectionProvider, hubtelConfig } from "@/lib/billing/collection-provider";
+import { initHubtelCheckout } from "@/lib/integrations/hubtel-pay";
 import { env } from "@/lib/env";
 import type { Role } from "@prisma/client";
 import { sendEmail } from "@/lib/integrations/email";
@@ -873,6 +875,39 @@ export async function changePlan(
   const reference = newPaymentReference();
   const appUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
   const returnUrl = `${appUrl}/app/settings?upgraded=${plan}&ref=${reference}&interval=${interval}`;
+
+  // When the SuperAdmin switch points at Hubtel, take the subscription payment through Hubtel instead of
+  // Paystack. We remember the plan details in a PaymentIntent so the Hubtel callback can activate the plan.
+  if ((await getCollectionProvider()) === "hubtel") {
+    const cfg = hubtelConfig();
+    if (cfg) {
+      await db.paymentIntent.create({
+        data: {
+          clientReference: reference,
+          provider: "hubtel",
+          kind: "plan_upgrade",
+          churchId: session.churchId,
+          amountGhs: chargeAmountGhs,
+          data: { plan, interval, amountUsd: amount, listAmountUsd: listAmount, couponId, prorated: isProratedUpgrade, usdToGhsRate: platformConfig.usdToGhsRate },
+        },
+      });
+      const r = await initHubtelCheckout(cfg, {
+        amountGhs: chargeAmountGhs,
+        description: `WorshipHQ ${plan} ${interval} plan`,
+        clientReference: reference,
+        callbackUrl: `${appUrl}/api/webhooks/hubtel`,
+        returnUrl,
+        cancellationUrl: returnUrl,
+        payeeEmail: session.email ?? undefined,
+      });
+      if (!r.ok) {
+        await db.paymentIntent.update({ where: { clientReference: reference }, data: { status: "failed" } }).catch(() => {});
+        return { error: r.error ?? "Could not start the Hubtel payment. Please try again." };
+      }
+      // The client redirects to Hubtel's hosted checkout; the callback activates the plan after payment.
+      return { ok: true as const, plan, payment: { ok: true as const, stubbed: false, reference, authorizationUrl: r.checkoutUrl }, couponId };
+    }
+  }
 
   const init = await initializePayment({
     email: session.email || `billing+${session.churchId}@worshiphq.org`,

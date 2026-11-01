@@ -49,16 +49,27 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    if (intent.kind === "sms_topup" && intent.credits && intent.credits > 0) {
-      await addCredits(intent.churchId, intent.credits, "topup", {
-        reference: clientReference, // de-dupe key: a reference is credited at most once
-        note: `${intent.credits.toLocaleString()} SMS credits`,
-        amountGhs: amountGhs ?? intent.amountGhs,
-        source: "hubtel",
-      });
+    if (intent.kind === "sms_topup") {
+      if (intent.credits && intent.credits > 0) {
+        await addCredits(intent.churchId, intent.credits, "topup", {
+          reference: clientReference, // de-dupe key: a reference is credited at most once
+          note: `${intent.credits.toLocaleString()} SMS credits`,
+          amountGhs: amountGhs ?? intent.amountGhs,
+          source: "hubtel",
+        });
+      }
+    } else if (intent.kind === "plan_upgrade") {
+      const { activatePlanFromIntent } = await import("@/lib/billing/activate-plan");
+      const res = await activatePlanFromIntent({ clientReference, churchId: intent.churchId, amountGhs: intent.amountGhs, data: intent.data });
+      // recordPlanPayment is the idempotent claim, so a retry is safe. If activation fails, do not mark the
+      // intent paid: return 500 so Hubtel retries rather than leaving a paid church with no plan.
+      if (!res.ok) {
+        console.error(`[Hubtel webhook] plan activation failed for ${clientReference}: ${res.error}`);
+        return new Response("Activation failed", { status: 500 });
+      }
     }
     await db.paymentIntent.update({ where: { clientReference }, data: { status: "paid", paidAt: new Date(), checkoutId: checkoutId ?? intent.checkoutId } });
-    return Response.json({ received: true, status: "paid" });
+    return Response.json({ received: true, status: "paid", kind: intent.kind });
   } catch (e) {
     console.error("[Hubtel webhook] failed to grant value:", e);
     // 500 so Hubtel retries; crediting is idempotent so a retry is safe.
