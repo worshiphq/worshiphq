@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { switchCollectionsProvider } from "@/app/actions/admin";
 
 /**
- * SuperAdmin switch: which gateway receives WorshipHQ's own collections (SMS top-ups for now). Flipping it
+ * SuperAdmin switch: which gateway receives WorshipHQ's own collections (SMS top-ups and subscriptions). Flipping it
  * takes effect on the next payment, no redeploy. Church giving is unaffected (it uses Paystack subaccounts).
  */
 export function CollectionsSwitch({ current, hubtelReady }: { current: "paystack" | "hubtel"; hubtelReady: boolean }) {
@@ -32,7 +32,7 @@ export function CollectionsSwitch({ current, hubtelReady }: { current: "paystack
     <div className="mb-6 rounded-xl border border-white/10 bg-white/5 p-4">
       <h2 className="text-sm font-semibold text-slate-100">Collections provider</h2>
       <p className="mt-1 text-xs text-slate-400">
-        Which gateway receives WorshipHQ&rsquo;s own collections (SMS top-ups). Switch to Hubtel if Paystack has an
+        Which gateway receives WorshipHQ&rsquo;s own collections (SMS top-ups and subscriptions). Switch to Hubtel if Paystack has an
         issue. Takes effect on the next payment, no redeploy. Church giving is not affected.
       </p>
       <div className="mt-3 flex max-w-sm gap-2">
