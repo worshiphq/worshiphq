@@ -944,8 +944,14 @@ export async function setSmsCostPerCredit(cost: number) {
 export async function switchCollectionsProvider(provider: "paystack" | "hubtel") {
   await requireSuperAdmin();
   if (provider !== "paystack" && provider !== "hubtel") return { ok: false as const, error: "Unknown provider." };
-  const { setCollectionProvider } = await import("@/lib/billing/collection-provider");
-  await setCollectionProvider(provider);
+  try {
+    const { setCollectionProvider } = await import("@/lib/billing/collection-provider");
+    await setCollectionProvider(provider);
+  } catch (e) {
+    // Most likely the PaymentSetting table is not created yet. Return a message instead of crashing the page.
+    console.error("[collections switch] could not save:", e);
+    return { ok: false as const, error: "Could not save. The payments tables may not be set up yet (run the database update)." };
+  }
   revalidatePath("/admin/payments");
   return { ok: true as const, provider };
 }
