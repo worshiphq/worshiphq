@@ -12,7 +12,7 @@ type Snap = { meta: { churchId: string; createdAt: string }; tables: Record<stri
 // financial records too - a restore must never delete a paid receipt just because it
 // was issued after the backup point (the payment itself is already protected here).
 const NEVER_RESTORE = new Set([
-  "Church", "User", "Subscription", "PlanPayment", "RefundRequest", "PaymentRequest", "Coupon",
+  "Church", "User", "Subscription", "PlanPayment", "PaymentIntent", "RefundRequest", "PaymentRequest", "Coupon",
   "SmsTransaction", "Transaction", "AuditLog", "DeletedItem", "Communication", "CommunicationRecipient",
   "ChurchBackup", "BiometricCredential", "PhoneVerification", "Receipt", "ReceiptRevision",
 ]);
