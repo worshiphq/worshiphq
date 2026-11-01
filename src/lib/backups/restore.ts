@@ -8,11 +8,13 @@ type Row = Record<string, unknown>;
 type Snap = { meta: { churchId: string; createdAt: string }; tables: Record<string, Row[]> };
 
 // A restore never touches these: sign-in accounts, billing and money movement,
-// SMS credits (on the Church row), message history and activity logs.
+// SMS credits (on the Church row), message history and activity logs. Receipts are
+// financial records too - a restore must never delete a paid receipt just because it
+// was issued after the backup point (the payment itself is already protected here).
 const NEVER_RESTORE = new Set([
   "Church", "User", "Subscription", "PlanPayment", "RefundRequest", "PaymentRequest", "Coupon",
   "SmsTransaction", "Transaction", "AuditLog", "DeletedItem", "Communication", "CommunicationRecipient",
-  "ChurchBackup", "BiometricCredential", "PhoneVerification",
+  "ChurchBackup", "BiometricCredential", "PhoneVerification", "Receipt", "ReceiptRevision",
 ]);
 
 const SUMMARY_LABELS: [string, string][] = [
