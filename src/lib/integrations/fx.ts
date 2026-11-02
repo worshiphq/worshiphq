@@ -86,8 +86,8 @@ async function persistRate(rate: number): Promise<void> {
         "fxRateCheckedAt" = now()
       FROM r WHERE p.id = r.id`;
   } catch {
-    // The fxRateCheckedAt column may not be migrated on this environment yet. Fall back to the plain update
-    // so the rate itself still persists - staleness just can't be tracked until the column exists.
+    // Defensive only: the column is confirmed present in production as of 2 Nov 2026. Falls back to the
+    // plain update if some other environment hasn't migrated, so the rate itself still persists either way.
     await db
       .$executeRaw`WITH r AS (SELECT id FROM "PlatformConfig" WHERE id = 'default' FOR UPDATE SKIP LOCKED)
         UPDATE "PlatformConfig" p SET "usdToGhsRate" = ${rate}, "updatedAt" = now()
@@ -145,7 +145,7 @@ export async function checkFxStaleness(thresholdHours = 48): Promise<{ stale: bo
     const hoursSince = (Date.now() - cfg.fxRateCheckedAt.getTime()) / 3_600_000;
     return { stale: hoursSince >= thresholdHours, hoursSince };
   } catch {
-    // The column may not be migrated yet in every environment; never break the cron over this.
+    // Defensive only: the column is confirmed present in production as of 2 Nov 2026.
     return { stale: false, hoursSince: null };
   }
 }
