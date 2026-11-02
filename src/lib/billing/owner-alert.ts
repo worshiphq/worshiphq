@@ -7,7 +7,7 @@ import { escapeHtml } from "@/lib/html";
  * Where "a church just paid" alerts go. The platform owner only, for now (deliberately NOT the partner).
  * Override or extend later with OWNER_ALERT_EMAIL (comma-separated for more than one).
  */
-function ownerAlertRecipients(): string[] {
+export function ownerAlertRecipients(): string[] {
   const raw = process.env.OWNER_ALERT_EMAIL || "worshiphqapp@gmail.com";
   return raw.split(",").map((s) => s.trim()).filter(Boolean);
 }
@@ -61,5 +61,32 @@ export async function alertOwnerPayment(a: PaymentAlert): Promise<void> {
     });
   } catch (e) {
     console.error("[alertOwnerPayment]", (e as Error).message);
+  }
+}
+
+/**
+ * Tell the platform owner the live USD→GHS rate feed has gone quiet. Called once a day, from the daily
+ * automations cron only, by checkFxStaleness() in src/lib/integrations/fx.ts - so this can fire at most
+ * once per day while the problem stays unresolved, never more. Not sent to any church.
+ */
+export async function alertOwnerStaleFx(hoursSince: number | null): Promise<void> {
+  try {
+    const to = ownerAlertRecipients();
+    if (!to.length) return;
+    const since = hoursSince != null ? `${Math.round(hoursSince)} hours` : "an unknown time - it has never fetched successfully";
+
+    await sendEmail({
+      to,
+      subject: `⚠️ WorshipHQ's exchange rate hasn't updated in ${hoursSince != null ? `${Math.round(hoursSince)}h` : "a long time"}`,
+      html: `
+        <div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto">
+          <h2 style="margin:0 0 12px;color:#b45309">⚠️ The exchange rate feed looks stuck</h2>
+          <p>WorshipHQ prices plans in USD but charges in GHS, using a rate it fetches automatically every 6 hours. That rate hasn&rsquo;t actually updated in <b>${escapeHtml(since)}</b>.</p>
+          <p>This usually means the free FX source is down or something is blocking the refresh. Until it&rsquo;s fixed, churches may be charged using an outdated rate. Check <code>/admin/pricing</code> (it shows the current rate) and the server logs.</p>
+          <p style="margin-top:20px;color:#999;font-size:12px">You get this once a day while it stays stuck. Nothing is sent to any church about this.</p>
+        </div>`,
+    });
+  } catch (e) {
+    console.error("[alertOwnerStaleFx]", (e as Error).message);
   }
 }

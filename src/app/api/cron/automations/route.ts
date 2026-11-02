@@ -3,6 +3,8 @@ import { env } from "@/lib/env";
 import { runDailyAutomations } from "@/lib/automations/dispatch";
 import { purgeExpiredBinItems } from "@/lib/recycle-bin";
 import { expireStalePaymentIntents } from "@/lib/billing/collection-provider";
+import { checkFxStaleness } from "@/lib/integrations/fx";
+import { alertOwnerStaleFx } from "@/lib/billing/owner-alert";
 import { safeEqual } from "@/lib/auth/tokens";
 
 export const dynamic = "force-dynamic";
@@ -28,8 +30,19 @@ export async function GET(request: NextRequest) {
   const recycleBin = await purgeExpiredBinItems().catch((err) => ({ error: String(err) }));
   // Tidy up abandoned checkout intents so "pending" rows don't pile up forever.
   const expiredIntents = await expireStalePaymentIntents().catch(() => 0);
+  // The live FX feed should refresh every 6h. Only checked (and alerted) from the once-daily batch - not the
+  // hourly precise pinger - so a dead feed can trigger at most one owner email per day, not one per hour.
+  let fx: { stale: boolean; hoursSince: number | null } | null = null;
+  if (!precise) {
+    try {
+      fx = await checkFxStaleness();
+      if (fx.stale) await alertOwnerStaleFx(fx.hoursSince);
+    } catch {
+      /* never let an FX check break the rest of the cron */
+    }
+  }
   console.info("[cron/automations] ran", JSON.stringify(summary));
-  return Response.json({ ok: true, ...summary, recycleBin, expiredIntents });
+  return Response.json({ ok: true, ...summary, recycleBin, expiredIntents, fx });
 }
 
 function isAuthorized(request: NextRequest): boolean {

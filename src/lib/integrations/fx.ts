@@ -9,10 +9,18 @@ import { db } from "@/lib/db";
  * memory, and mirror it into PlatformConfig.usdToGhsRate so cold instances and
  * the DB fallback stay recent. `getUsdToGhsRate()` never blocks a render - it
  * returns the freshest value it has and refreshes in the background.
+ *
+ * Two safety nets sit on top of the raw fetch:
+ *  - a step clamp, so one noisy reading can't jump the price a church sees in a single refresh
+ *  - a staleness check, so a dead feed gets noticed (by the platform owner) instead of silently
+ *    charging an outdated rate forever
  */
 
 const TTL_MS = 6 * 60 * 60 * 1000; // refresh at most every 6 hours
 const FETCH_TIMEOUT_MS = 3500;
+/** Smooth a single refresh to at most this fraction of a move. A real, sustained move still gets there -
+ *  just over a few 6-hourly refreshes instead of in one jump - so churches never see the price lurch. */
+const MAX_STEP_FRACTION = 0.05;
 
 let cache: { rate: number; at: number } | null = null;
 let inflight: Promise<void> | null = null;
@@ -39,25 +47,61 @@ export async function fetchUsdToGhs(): Promise<number | null> {
   }
 }
 
+/** Cap how far a single refresh can move the rate from what we last had, so one noisy reading can't swing
+ *  the GHS price churches see in one step. Returns `next` unchanged when there is nothing to clamp against. */
+function clampStep(current: number | null, next: number): number {
+  if (!current || current <= 0) return next;
+  const maxDelta = current * MAX_STEP_FRACTION;
+  if (next - current > maxDelta) return current + maxDelta;
+  if (current - next > maxDelta) return current - maxDelta;
+  return next;
+}
+
+/** The best "current" rate to clamp the next reading against: the in-memory cache if we have one, else
+ *  whatever is stored in the DB right now. */
+async function currentRate(): Promise<number | null> {
+  if (cache?.rate) return cache.rate;
+  try {
+    const cfg = await db.platformConfig.findUnique({ where: { id: "default" }, select: { usdToGhsRate: true } });
+    return cfg?.usdToGhsRate ?? null;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * Mirror the rate into the database as ONE statement that never waits: if the settings row is locked, or the stored
- * rate is already within a cent, it simply does nothing. (The old write ran inside a transaction, and when a serverless
- * function was frozen halfway through it, the open transaction locked the row for everyone.)
+ * Mirror the rate into the database. `usdToGhsRate`/`updatedAt` only move when the change is more than a
+ * cedi-cent, same as before (so unrelated reads of `updatedAt` elsewhere aren't churned by noise). But
+ * `fxRateCheckedAt` is stamped on every call, successful change or not, because it exists purely to answer
+ * "did the live fetch actually run recently?" - see checkFxStaleness(). One statement that never waits: if
+ * the settings row is locked, it simply does nothing (an old frozen serverless function holding a lock used
+ * to starve every other instance; FOR UPDATE SKIP LOCKED avoids that).
  */
 async function persistRate(rate: number): Promise<void> {
-  await db
-    .$executeRaw`WITH r AS (SELECT id FROM "PlatformConfig" WHERE id = 'default' FOR UPDATE SKIP LOCKED)
-      UPDATE "PlatformConfig" p SET "usdToGhsRate" = ${rate}, "updatedAt" = now()
-      FROM r WHERE p.id = r.id AND ABS(p."usdToGhsRate" - ${rate}) > 0.01`
-    .catch(() => {});
+  try {
+    await db.$executeRaw`WITH r AS (SELECT id FROM "PlatformConfig" WHERE id = 'default' FOR UPDATE SKIP LOCKED)
+      UPDATE "PlatformConfig" p SET
+        "usdToGhsRate" = CASE WHEN ABS(p."usdToGhsRate" - ${rate}) > 0.01 THEN ${rate} ELSE p."usdToGhsRate" END,
+        "updatedAt" = CASE WHEN ABS(p."usdToGhsRate" - ${rate}) > 0.01 THEN now() ELSE p."updatedAt" END,
+        "fxRateCheckedAt" = now()
+      FROM r WHERE p.id = r.id`;
+  } catch {
+    // The fxRateCheckedAt column may not be migrated on this environment yet. Fall back to the plain update
+    // so the rate itself still persists - staleness just can't be tracked until the column exists.
+    await db
+      .$executeRaw`WITH r AS (SELECT id FROM "PlatformConfig" WHERE id = 'default' FOR UPDATE SKIP LOCKED)
+        UPDATE "PlatformConfig" p SET "usdToGhsRate" = ${rate}, "updatedAt" = now()
+        FROM r WHERE p.id = r.id AND ABS(p."usdToGhsRate" - ${rate}) > 0.01`
+      .catch(() => {});
+  }
 }
 
 async function refresh() {
   try {
-    const rate = await fetchUsdToGhs();
-    if (rate && rate > 0) {
+    const raw = await fetchUsdToGhs();
+    if (raw && raw > 0) {
+      const rate = clampStep(await currentRate(), raw);
       cache = { rate, at: Date.now() };
-      // Mirror into the DB so it's the persistent fallback for cold instances.
       await persistRate(rate);
     }
   } finally {
@@ -78,11 +122,30 @@ export function getUsdToGhsRate(fallback: number): number {
 
 /** Force a synchronous refresh (admin "refresh now" + daily cron). */
 export async function refreshUsdToGhsRate(): Promise<number | null> {
-  const rate = await fetchUsdToGhs();
-  if (rate && rate > 0) {
+  const raw = await fetchUsdToGhs();
+  if (raw && raw > 0) {
+    const rate = clampStep(await currentRate(), raw);
     cache = { rate, at: Date.now() };
     await persistRate(rate);
     return rate;
   }
   return null;
+}
+
+/**
+ * Has the live rate feed gone quiet for too long? Checked once a day by the automations cron, which alerts
+ * the platform owner (not any church) while it stays true. Deliberately keys off `fxRateCheckedAt`, not
+ * `updatedAt` - any unrelated SuperAdmin save to PlatformConfig (a plan edit, SMS tier, alert phone, ...)
+ * also bumps `updatedAt`, which would otherwise mask a feed that has actually been dead for days.
+ */
+export async function checkFxStaleness(thresholdHours = 48): Promise<{ stale: boolean; hoursSince: number | null }> {
+  try {
+    const cfg = await db.platformConfig.findUnique({ where: { id: "default" }, select: { fxRateCheckedAt: true } });
+    if (!cfg?.fxRateCheckedAt) return { stale: true, hoursSince: null }; // never fetched successfully
+    const hoursSince = (Date.now() - cfg.fxRateCheckedAt.getTime()) / 3_600_000;
+    return { stale: hoursSince >= thresholdHours, hoursSince };
+  } catch {
+    // The column may not be migrated yet in every environment; never break the cron over this.
+    return { stale: false, hoursSince: null };
+  }
 }
