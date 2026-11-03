@@ -4,7 +4,7 @@ import { db } from "@/lib/db";
 export type BillingEventKind =
   | "reminder" | "expired" | "downgraded" | "lapsed"
   | "auto_renewed" | "auto_renew_failed"
-  | "card_saved" | "card_removed" | "auto_renew_on" | "auto_renew_off";
+  | "card_saved" | "card_removed" | "auto_renew_on" | "auto_renew_off" | "refund";
 
 /**
  * Record something the billing system told a church or did for it. The SuperAdmin renewals page reads

@@ -20,6 +20,8 @@ import { DashboardAnimations } from "@/components/app/dashboard-animations";
 import { QuickAddMenu } from "@/components/app/quick-add-menu";
 import { PageTips } from "@/components/app/page-tips";
 import { FeaturedLeaderCountSetting } from "@/components/app/featured-leader-count";
+import { DidYouKnow } from "@/components/app/did-you-know";
+import { getTips } from "@/lib/tips";
 
 const quickActions = [
   { icon: UserPlus, label: "Add member", href: "/app/people", section: "people", color: "bg-primary/10 text-primary-bright" },
@@ -34,6 +36,8 @@ export default async function DashboardPage() {
   if (session.budgetDepartmentId) redirect("/app/budgets");
   const { kpis, trend, todaysBirthdays, events, careTasks, recentMembers, departmentBreakdown, leaders, totalLeaders, featuredLeaderCount } = await getDashboard(session.churchId);
   const has = (m: string) => session.sections.includes(m);
+  // Tips about features this church has but has not tried. Never lets a tips failure break the dashboard.
+  const tips = await getTips(session).catch(() => []);
   // Urgent for a church that can send texts but has not yet chosen how its name shows at the start of them.
   const nameRow = !session.isDemo && has("communications") && !session.planLocked?.includes("sms")
     ? await db.church.findUnique({ where: { id: session.churchId }, select: { smsPrefix: true, smsSenderIdStatus: true } })
@@ -54,6 +58,7 @@ export default async function DashboardPage() {
         ]}
       />
       <div className="space-y-6">
+        {tips.length > 0 && <DidYouKnow tips={tips} />}
         {needsMessageName && (
           <Link href="/app/communications" className="flex flex-wrap items-center gap-3 rounded-2xl border border-warning/50 bg-warning/10 px-4 py-3.5 text-sm transition-colors hover:bg-warning/15">
             <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-warning/20 text-warning"><AlertTriangle className="size-5" /></span>

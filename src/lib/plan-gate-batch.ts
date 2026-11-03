@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { commsTrial, planHasFeature, type PlanId } from "@/lib/plan-gate";
+import { commsTrial, planHasFeature, effectivePlan } from "@/lib/plan-gate";
 
 /**
  * Plan gating for the scheduled jobs.
@@ -23,14 +23,14 @@ export async function onlyWithFeature<T extends { id: string }>(churches: T[], f
   const ids = churches.map((c) => c.id);
 
   const [subs, config, created] = await Promise.all([
-    db.subscription.findMany({ where: { churchId: { in: ids } }, select: { churchId: true, plan: true } }),
+    db.subscription.findMany({ where: { churchId: { in: ids } }, select: { churchId: true, plan: true, status: true, renewsAt: true } }),
     import("@/lib/data/platform-config").then((m) => m.getPlatformConfig()),
     feature === "sms"
       ? db.church.findMany({ where: { id: { in: ids } }, select: { id: true, createdAt: true } })
       : Promise.resolve([] as { id: string; createdAt: Date }[]),
   ]);
 
-  const planOf = new Map(subs.map((s) => [s.churchId, (s.plan as PlanId) || "free"]));
+  const planOf = new Map(subs.map((s) => [s.churchId, effectivePlan(s)]));
   const createdOf = new Map(created.map((c) => [c.id, c.createdAt]));
 
   const allowed = churches.filter((c) => {

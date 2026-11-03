@@ -1,3 +1,4 @@
+import { effectivePlan } from "@/lib/plan-gate";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyPassword } from "@/lib/auth";
@@ -42,7 +43,7 @@ export async function POST(req: Request) {
 
     // Fetch subscription for plan enforcement
     const sub = await db.subscription.findUnique({ where: { churchId: user.churchId } });
-    const plan = sub?.plan ?? "free";
+    const plan = effectivePlan(sub);
     const renewsAt = sub?.renewsAt?.toISOString() ?? null;
     const subStatus = sub?.status ?? "active";
 

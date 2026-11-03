@@ -113,6 +113,15 @@ export async function POST(request: NextRequest) {
     return Response.json({ received: true, ignored: true });
   }
 
+  // A gift is only recorded for a charge OUR server started. Every real gift carries our seal, because the
+  // give page initialises it through initializePayment. Paystack's public key is public, so without this
+  // anyone could start a charge naming any church and make a gift appear on its books, while the money
+  // landed in the platform's own account (no church subaccount) rather than the church's.
+  if (!sealed) {
+    console.warn(`[Paystack webhook] ignored an unsealed online_gift charge ${data.reference}`);
+    return Response.json({ received: true, ignored: true, reason: "unsealed" });
+  }
+
   try {
     // Prefer the phone the donor typed on our form; for a card payment (or if
     // they left it blank) fall back to whatever Paystack captured itself -

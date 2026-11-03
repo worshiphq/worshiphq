@@ -23,6 +23,7 @@ import { ServiceTimesTab } from "@/components/app/service-times-tab";
 import { PlanHero, UsageTiles, PaymentHistory, type PaymentItem } from "@/components/app/billing-parts";
 import { BillingRenewal, type CardRow } from "@/components/app/billing-renewal";
 import { toastNow } from "@/components/ui/feedback";
+import { AutoInactiveCard, type AutoInactiveData } from "@/components/app/auto-inactive-card";
 import { MemberCategoriesTab } from "@/components/app/member-categories-tab";
 import { AgeGroupsTab } from "@/components/app/age-groups-tab";
 import { LinkedChurchesTab } from "@/components/app/linked-churches-tab";
@@ -124,7 +125,7 @@ const tabs = [
   { key: "team", label: "Users & roles", icon: Users2 },
   { key: "departments", label: "Departments", icon: Layers },
   { key: "categories", label: "Zones & fellowships", icon: Tags },
-  { key: "age-groups", label: "Age groups", icon: Baby },
+  { key: "age-groups", label: "Members & age groups", icon: Baby },
   { key: "service-times", label: "Service times", icon: Clock },
   { key: "linked", label: "Linked churches", icon: GitBranch },
   { key: "registration", label: "Links & forms", icon: Link2 },
@@ -216,6 +217,7 @@ export function SettingsClient({
   billingUsage,
   smsTopups = [],
   cards = [],
+  autoInactive,
   messageCenter,
 }: {
   session: Session;
@@ -231,6 +233,7 @@ export function SettingsClient({
   smsTopups?: SmsTopupRow[];
   /** Cards the church kept for renewals. Never carries the charge token. */
   cards?: CardRow[];
+  autoInactive: AutoInactiveData;
   messageCenter: MessageCenterData;
 }) {
   // Links such as /app/settings?tab=billing open straight on that tab.
@@ -662,7 +665,12 @@ export function SettingsClient({
 
         {tab === "linked" && <LinkedChurchesTab canManage={!ro && isAdmin} />}
 
-        {tab === "age-groups" && <AgeGroupsTab canManage={!ro && canManageSection(session, "people")} />}
+        {tab === "age-groups" && (
+          <div className="space-y-4">
+            <AutoInactiveCard data={autoInactive} canWrite={!ro && canManageSection(session, "people")} />
+            <AgeGroupsTab canManage={!ro && canManageSection(session, "people")} />
+          </div>
+        )}
 
         {tab === "service-times" && <ServiceTimesTab canManage={!ro && canManageSection(session, "attendance")} />}
 

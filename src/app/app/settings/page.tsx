@@ -48,14 +48,12 @@ export default async function SettingsPage() {
   // Auto-provision subscription for churches created before subscriptions existed
   let sub = subscription;
   if (!sub && church) {
-    const owner = users.find((u) => u.role === "Owner");
-    const isGrace = owner?.email?.toLowerCase() === "theophanyhouse@gmail.com";
     sub = await db.subscription.create({
       data: {
         churchId: church.id,
-        plan: isGrace ? "max" : "free",
+        plan: "free",
         interval: "monthly",
-        status: isGrace ? "grace" : "active",
+        status: "active",
       },
       select: { plan: true, status: true, interval: true, renewsAt: true, bypassPlan: true, scheduledPlan: true, cancelAtPeriodEnd: true, autoRenew: true, cardId: true, renewalFailures: true },
     });
@@ -117,6 +115,7 @@ export default async function SettingsPage() {
         customRoles={customRoles.map(({ manageSplit, ...r }) => ({ ...r, manageSections: manageSplit ? r.manageSections : r.sections }))}
         subscription={sub}
         cards={cards}
+        autoInactive={{ on: church?.autoInactiveOn ?? false, weeks: church?.autoInactiveWeeks ?? 12, locked: !session.isDemo && !!session.planLocked?.includes("auto-inactive") }}
         messageCenter={messageCenter}
         platformPricing={platformConfig}
         billingUsage={(() => {

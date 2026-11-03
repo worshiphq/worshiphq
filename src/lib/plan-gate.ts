@@ -36,6 +36,28 @@ export function commsTrial(createdAt: Date | string, now: Date = new Date()): { 
   return { active: msLeft > 0, endsAt, daysLeft: Math.max(0, Math.ceil(msLeft / 86_400_000)) };
 }
 
+/** Days after a paid period ends before a church stops getting the plan's features. */
+export const BILLING_GRACE_DAYS = 7;
+
+/**
+ * The plan a church actually gets RIGHT NOW.
+ *
+ * The stored plan name is only trusted while the paid period (plus its grace days) has not run out. The daily
+ * job is what formally moves an expired church to Free, but access must not depend on that job having run: if
+ * it ever failed (a wrong secret is enough), every expired church would keep its paid features indefinitely.
+ * A gifted plan (status "grace") never expires, and a paid plan with no end date is left as it is.
+ */
+export function effectivePlan(
+  sub: { plan: string; status?: string | null; renewsAt?: Date | null } | null | undefined,
+  now: Date = new Date(),
+): PlanId {
+  if (!sub) return "free";
+  const plan = ((sub.plan as PlanId) || "free") as PlanId;
+  if (sub.status === "grace") return plan;
+  if (plan !== "free" && sub.renewsAt && now.getTime() > sub.renewsAt.getTime() + BILLING_GRACE_DAYS * 86_400_000) return "free";
+  return plan;
+}
+
 export interface PlanLimits {
   members: number;
   teamUsers: number;

@@ -18,7 +18,7 @@ import type { Role } from "@prisma/client";
 import { sendEmail } from "@/lib/integrations/email";
 import { audit } from "@/lib/audit";
 import { getBaseUrl } from "@/lib/url";
-import { planRank, type PlanId } from "@/lib/plan-gate";
+import { planRank, effectivePlan, type PlanId } from "@/lib/plan-gate";
 import { sendUpgradeReceipt } from "@/lib/billing/receipt";
 import { ownedId } from "@/lib/tenant";
 import { escapeHtml } from "@/lib/html";
@@ -225,8 +225,8 @@ export async function requestSenderId(input: string): Promise<{ ok: true } | { o
   if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the Main Admin or an admin can request a sender ID." };
 
   // A custom sender name is a Max feature: each one needs approval from every network, which takes weeks and manual work.
-  const sub = await db.subscription.findUnique({ where: { churchId: session.churchId }, select: { plan: true } });
-  if (!sub || planRank(sub.plan as PlanId) < planRank("max")) return { ok: false, error: "A custom sender ID is part of the Max plan. Upgrade to request one." };
+  const sub = await db.subscription.findUnique({ where: { churchId: session.churchId }, select: { plan: true, status: true, renewsAt: true } });
+  if (!sub || planRank(effectivePlan(sub)) < planRank("max")) return { ok: false, error: "A custom sender ID is part of the Max plan. Upgrade to request one." };
 
   const senderId = String(input ?? "").trim();
   if (!/^[A-Za-z0-9]{3,11}$/.test(senderId) || /^\d+$/.test(senderId)) {

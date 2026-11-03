@@ -232,7 +232,8 @@ export async function previewAutoInactive(weeks: number) {
 
 export async function saveAutoInactiveSettings(input: { on: boolean; weeks: number }) {
   const session = await requireSession();
-  assertCanWrite(session, "reminders");
+  // It changes members' status, so it is a People permission, not a Reminders one.
+  assertCanWrite(session, "people");
   assertPlanFeature(session, "auto-inactive");
   const { clampWeeks } = await import("@/lib/automations/auto-inactive");
   await db.church.update({

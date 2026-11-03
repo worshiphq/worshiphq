@@ -5,7 +5,7 @@ import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, requireSuperAdmin } from "@/lib/auth";
 import { refundEligibility, getRefundPolicy } from "@/lib/billing/refunds";
 import { refundTransaction } from "@/lib/integrations/paystack";
-import { sendChurchSms } from "@/lib/sms/credits";
+import { noticeChurch } from "@/lib/billing/notices";
 
 /** Church side: check whether a payment can still be refunded. */
 export async function checkRefundEligibility(paymentId: string) {
@@ -154,13 +154,14 @@ export async function rejectRefund(id: string, note: string) {
   return { ok: true as const };
 }
 
+/**
+ * Tell the church what happened to its refund, by email and text from the platform. This used to go through
+ * the church's OWN SMS credits, so a church with none (very likely, if it is asking for a refund) was never
+ * told the outcome and had no way to know.
+ */
 async function notifyChurch(churchId: string, message: string) {
   try {
-    const owner = await db.user.findFirst({
-      where: { churchId, role: "Owner", phone: { not: null } },
-      select: { phone: true },
-    });
-    if (owner?.phone) await sendChurchSms(churchId, owner.phone, message, { note: "Refund" });
+    await noticeChurch(churchId, { kind: "refund", title: "Your WorshipHQ refund", sms: `WorshipHQ: ${message}`, paragraphs: [message] });
   } catch {
     /* never block the refund on a notification failure */
   }

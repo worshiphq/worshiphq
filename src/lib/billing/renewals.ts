@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { BILLING_GRACE_DAYS } from "@/lib/plan-gate";
 import { logBillingEvent } from "@/lib/billing/events";
 import { noticeChurch, notices } from "@/lib/billing/notices";
 import { chargeSavedCard, autoRenewEnabled, MAX_FAILURES } from "@/lib/billing/auto-renew";
@@ -7,7 +8,7 @@ import { sendOwnerDigest, digestHasNews, OWNER_GROUP_DAYS, type DigestInput } fr
 
 const DAY_MS = 86_400_000;
 /** Days after period end before a lapsed church actually drops to Free. */
-export const GRACE_DAYS = 7;
+export const GRACE_DAYS = BILLING_GRACE_DAYS;
 /** Remind this many days before the renewal date (churches that renew by hand). */
 const REMINDER_DAYS = [7, 3, 1];
 /** A church on automatic renewal gets one heads-up, this many days before the charge. */

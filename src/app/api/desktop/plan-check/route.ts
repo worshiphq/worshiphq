@@ -1,3 +1,4 @@
+import { effectivePlan } from "@/lib/plan-gate";
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { verifyDesktopToken, signPlanStamp } from "@/lib/desktop-auth";
@@ -10,7 +11,7 @@ export async function GET(req: Request) {
     }
 
     const sub = await db.subscription.findUnique({ where: { churchId: claims.cid } });
-    const plan = sub?.plan ?? "free";
+    const plan = effectivePlan(sub);
     const renewsAt = sub?.renewsAt?.toISOString() ?? null;
     const status = sub?.status ?? "active";
 

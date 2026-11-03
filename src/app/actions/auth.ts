@@ -155,17 +155,13 @@ export async function completeSignup(formData: FormData) {
 
   // Every new church starts on Free. A paid plan picked at sign-up is only an intent: the Owner is
   // taken to checkout below and the plan switches on once Paystack confirms the payment.
-  // Grace Baptist gets max plan as an offering.
-  const isGraceBaptist = p.email.toLowerCase() === "theophanyhouse@gmail.com";
-  const chosenPlan = isGraceBaptist ? "max" : "free";
-  const intendedPlan = !isGraceBaptist && p.plan && ["starter", "pro", "max"].includes(p.plan) ? p.plan : null;
+  // There is deliberately NO special case for any email address here. This used to hand a permanent free
+  // Max plan to whoever signed up as one particular address, but sign-up lets a person verify by phone while
+  // typing any email, so the address was never proven to be theirs. A gift of a plan is made by the
+  // SuperAdmin, to a church that exists, where it is recorded and can be seen.
+  const intendedPlan = p.plan && ["starter", "pro", "max"].includes(p.plan) ? p.plan : null;
   await db.subscription.create({
-    data: {
-      churchId: church.id,
-      plan: chosenPlan,
-      interval: "monthly",
-      status: isGraceBaptist ? "grace" : "active",
-    },
+    data: { churchId: church.id, plan: "free", interval: "monthly", status: "active" },
   });
 
   const user = await db.user.create({
