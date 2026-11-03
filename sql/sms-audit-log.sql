@@ -22,6 +22,9 @@ CREATE TABLE IF NOT EXISTS "SmsAuditLog" (
 CREATE INDEX IF NOT EXISTS "SmsAuditLog_churchId_createdAt_idx" ON "SmsAuditLog" ("churchId", "createdAt");
 CREATE INDEX IF NOT EXISTS "SmsAuditLog_createdAt_idx" ON "SmsAuditLog" ("createdAt");
 
+-- Why the owner adjusted a church's credits. Owner-only: the church reads "note", never this.
+ALTER TABLE "SmsTransaction" ADD COLUMN IF NOT EXISTS "adminNote" TEXT;
+
 DO $$
 BEGIN
   ALTER TABLE "SmsAuditLog"

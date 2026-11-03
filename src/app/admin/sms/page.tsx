@@ -2,7 +2,7 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requireSuperAdmin } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
-import { getSmsLog, getSmsLogTotals, SMS_LOG_PAGE_SIZE } from "@/lib/data/sms-audit";
+import { getSmsLog, getSmsLogTotals, getCreditAdjustments, SMS_LOG_PAGE_SIZE } from "@/lib/data/sms-audit";
 import { AdminSmsLogRows } from "@/components/admin/sms-log-rows";
 
 export const metadata = { title: "SMS records" };
@@ -26,10 +26,11 @@ export default async function AdminSmsPage({
   const sp = await searchParams;
   const filter = FILTERS.some((f) => f.key === sp.filter) ? sp.filter! : "all";
 
-  const [log, allTime, last30] = await Promise.all([
+  const [log, allTime, last30, adjustments] = await Promise.all([
     getSmsLog({ page: parseInt(sp.page ?? "1", 10) || 1, filter, q: sp.q }),
     getSmsLogTotals(),
     getSmsLogTotals(undefined, new Date(Date.now() - 30 * DAY)),
+    getCreditAdjustments(),
   ]);
 
   const href = (p: number, f = filter) =>
@@ -67,6 +68,31 @@ export default async function AdminSmsPage({
           </div>
         ))}
       </div>
+
+      {adjustments.length > 0 && (
+        <div className="mb-5 rounded-2xl border border-white/10 bg-white/[0.02]">
+          <div className="border-b border-white/10 px-4 py-3">
+            <h2 className="text-sm font-semibold text-slate-200">Credits you gave or took back</h2>
+            <p className="text-xs text-slate-500">Your reason is here only. The church's own history just says credits were granted or removed.</p>
+          </div>
+          <div className="divide-y divide-white/5">
+            {adjustments.map((a) => (
+              <div key={a.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
+                <span className={`w-20 shrink-0 text-right font-semibold tabular-nums ${a.credits < 0 ? "text-rose-300" : "text-emerald-300"}`}>
+                  {a.credits > 0 ? "+" : ""}{a.credits.toLocaleString()}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-slate-200">
+                  {a.churchName}
+                  {a.adminNote && <span className="text-slate-500"> · {a.adminNote}</span>}
+                </span>
+                <span className="shrink-0 text-xs text-slate-500">
+                  left {a.balanceAfter.toLocaleString()} · {a.createdAt.toLocaleDateString("en-GB", { day: "2-digit", month: "short" })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="flex flex-wrap gap-1">

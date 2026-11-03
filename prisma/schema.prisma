@@ -1143,6 +1143,10 @@ model SmsTransaction {
   reference    String? // Paystack reference for top-ups
   amountGhs    Float? // money received for a top-up (null for usage and older rows)
   source       String? // paystack | granted | manual (how a top-up or bonus arrived)
+  // Why the platform owner adjusted this balance, in the owner's own words. NEVER rendered to the
+  // church: `note` is what they read. Taking credits back because a church did not pay is the owner's
+  // record to keep, not a message to the church, so the two are kept in separate columns.
+  adminNote    String?
   createdAt    DateTime @default(now())
 
   @@unique([churchId, reference]) // a Paystack top-up is credited once, even if the webhook arrives twice at the same moment

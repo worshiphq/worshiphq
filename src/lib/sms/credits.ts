@@ -17,7 +17,14 @@ export async function addCredits(
   churchId: string,
   credits: number,
   kind: "topup" | "bonus" | "refund",
-  opts?: { note?: string; reference?: string; amountGhs?: number; source?: "paystack" | "hubtel" | "granted" | "manual" },
+  opts?: {
+    note?: string;
+    reference?: string;
+    amountGhs?: number;
+    source?: "paystack" | "hubtel" | "granted" | "manual";
+    /** The owner's own reason for an adjustment. Kept for the owner; the church never sees it. */
+    adminNote?: string;
+  },
 ): Promise<{ balance: number; created: boolean }> {
   // Idempotency: a Paystack reference is credited once. The ledger row is written first and the unique
   // (churchId, reference) index makes it the claim, so two deliveries at the same moment can't both credit.
@@ -28,6 +35,10 @@ export async function addCredits(
         data: {
           churchId, kind, credits, balanceAfter: 0,
           note: opts.note, reference: opts.reference,
+          // Only named when there is one, so an ordinary send or top-up never touches this column.
+          // Until sql/sms-audit-log.sql has run the column does not exist, and the one path that
+          // sets it (the owner taking credits back) is the only one that can fail.
+          ...(opts.adminNote ? { adminNote: opts.adminNote } : {}),
           amountGhs: opts.amountGhs ?? null,
           source: opts.source ?? (kind === "bonus" ? "granted" : null),
         },
@@ -64,6 +75,7 @@ export async function addCredits(
       balanceAfter: updated.smsCredits,
       note: opts?.note,
       reference: opts?.reference,
+      ...(opts?.adminNote ? { adminNote: opts.adminNote } : {}),
       amountGhs: opts?.amountGhs ?? null,
       source: opts?.source ?? (kind === "bonus" ? "granted" : null),
     },

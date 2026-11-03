@@ -65,7 +65,8 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
     const v = prompt(`Remove SMS credits from ${c.name} (they have ${(c.smsCredits ?? 0).toLocaleString()}):`, "500");
     const n = Number(v);
     if (!(n > 0)) return;
-    const why = prompt("Why? (shows in their SMS history)", "Removed by WorshipHQ") ?? undefined;
+    // Your record, not theirs: the church's history only says credits were removed.
+    const why = prompt("Why? (only you see this, in SMS records)", "Did not pay") ?? undefined;
     run(async () => {
       const res = await removeSmsCredits(c.id, n, why);
       if (!res.ok) throw new Error(res.error);

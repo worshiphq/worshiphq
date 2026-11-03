@@ -117,6 +117,31 @@ export async function getSmsLog(opts: {
   }
 }
 
+/**
+ * Credit adjustments the owner made by hand, with the reason they typed. Owner-facing only: the
+ * reason lives in `adminNote`, which no church-facing page reads.
+ */
+export async function getCreditAdjustments(take = 30) {
+  try {
+    const rows = await db.smsTransaction.findMany({
+      where: { source: "manual", OR: [{ kind: "refund" }, { kind: "bonus" }] },
+      orderBy: { createdAt: "desc" },
+      take,
+      include: { church: { select: { name: true } } },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      createdAt: r.createdAt,
+      churchName: r.church.name,
+      credits: r.credits,
+      balanceAfter: r.balanceAfter,
+      adminNote: r.adminNote,
+    }));
+  } catch {
+    return [];
+  }
+}
+
 /** Headline numbers for the window shown, so the page leads with a total rather than a list. */
 export async function getSmsLogTotals(churchId?: string, since?: Date) {
   try {

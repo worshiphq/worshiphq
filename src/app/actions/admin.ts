@@ -314,9 +314,13 @@ export async function grantSmsCredits(churchId: string, credits: number) {
  * Clamped to what the church actually holds, so a removal can never push a balance negative and
  * leave them unable to send even after they pay. Recorded as a signed row in SmsTransaction like
  * every other movement, so the history still adds up.
+ *
+ * The church sees only that credits were removed. The reason is the owner's record, written to
+ * `adminNote` which no church-facing page reads, because "they never paid for these" is a note to
+ * self and not something to put in front of a customer.
  */
 export async function removeSmsCredits(churchId: string, credits: number, reason?: string) {
-  await requireSuperAdmin();
+  const who = await requireSuperAdmin();
   const want = Math.round(Math.abs(Number(credits)));
   if (!want || !Number.isFinite(want)) return { ok: false as const, error: "Enter how many to remove." };
 
@@ -325,12 +329,15 @@ export async function removeSmsCredits(churchId: string, credits: number, reason
   if (church.smsCredits <= 0) return { ok: false as const, error: `${church.name} has no credits to remove.` };
 
   const taken = Math.min(want, church.smsCredits);
+  const why = reason?.trim();
   const { balance } = await addCredits(churchId, -taken, "refund", {
-    note: reason?.trim() || "Removed by WorshipHQ",
+    note: "Credits removed by WorshipHQ",
+    adminNote: why ? `${why} - ${who.email}` : `Removed by ${who.email}`,
     source: "manual",
   });
 
   revalidatePath("/admin");
+  revalidatePath("/admin/sms");
   return { ok: true as const, taken, balance, clamped: taken < want };
 }
 
