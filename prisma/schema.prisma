@@ -17,152 +17,168 @@ datasource db {
 
 // ── Platform config (singleton — one row, id="default") ──
 model PlatformConfig {
-  id       String @id @default("default")
+  id                      String    @id @default("default")
   // The platform owner's number for "a church just signed up" texts. Empty = the phone saved in the receipt company details.
-  alertPhone String?
-  currency String @default("USD")
-  currencySymbol String @default("$")
+  alertPhone              String?
+  currency                String    @default("USD")
+  currencySymbol          String    @default("$")
   // Plan prices stored as JSON in DISPLAY currency (USD): { free: { monthly: 0, yearly: 0 }, starter: { monthly: 10, yearly: 100 }, ... }
-  planPrices Json?
+  planPrices              Json?
   // Exchange rate used when charging via Paystack in GHS: chargeAmount = price * usdToGhsRate
-  usdToGhsRate Float @default(12.0)
+  usdToGhsRate            Float     @default(12.0)
   // Last time the live FX fetch in src/lib/integrations/fx.ts actually succeeded - separate from `updatedAt`,
   // which ANY save to this row (plan edits, SMS tier, alert phone, ...) also touches, so that can't be used to
   // tell whether the FX feed itself is still alive. Null = never fetched successfully.
-  fxRateCheckedAt DateTime?
+  fxRateCheckedAt         DateTime?
   // Full editable plan definitions, keyed by plan id. Edited by the SuperAdmin
   // plan editor and merged over the code defaults in src/config/pricing.ts, so
   // one save changes the marketing page, sign-up, billing AND feature gating.
   // Shape per plan: { name, tagline, membersLabel, memberLimit, teamUsers,
   //                   featured, cta, marketingFeatures: [], features: [] }
-  planDefs Json?
+  planDefs                Json?
   // WODONA / WorshipHQ details printed on receipts (address, phone, email, registration number, who issues them).
-  receiptSettings Json?
+  receiptSettings         Json?
   // ── Refund policy (surfaced in the Refund Policy page and enforced in code) ──
-  /** Days a church may request a refund on their FIRST paid subscription. */
-  refundWindowFirstDays   Int @default(14)
-  /** Days a church may request a refund on a renewal (accidental charges). */
-  refundWindowRenewalDays Int @default(7)
-  /** How long we tell churches a review takes. */
-  refundSlaHours          Int @default(24)
-  /** Site-wide SMS pricing tier: "B" | "C" | "D" (default D). Per-church
-   *  overrides live on Church.smsTier. */
-  smsTier                 String @default("D")
-  /** What the SMS provider charges WorshipHQ per credit (segment). Used for the SMS profit view. */
-  smsCostPerCredit        Float  @default(0.03)
+  /**
+   * /** Days a church may request a refund on their FIRST paid subscription.
+   */
+  refundWindowFirstDays   Int       @default(14)
+  /**
+   * Days a church may request a refund on a renewal (accidental charges).
+   */
+  refundWindowRenewalDays Int       @default(7)
+  /**
+   * How long we tell churches a review takes.
+   */
+  refundSlaHours          Int       @default(24)
+  /**
+   * Site-wide SMS pricing tier: "B" | "C" | "D" (default D). Per-church
+   * overrides live on Church.smsTier.
+   */
+  smsTier                 String    @default("D")
+  /**
+   * What the SMS provider charges WorshipHQ per credit (segment). Used for the SMS profit view.
+   */
+  smsCostPerCredit        Float     @default(0.03)
   // ── Online giving fees ──
-  /** % of each gift that settles to WorshipHQ (subaccount percentage_charge). 0 = church keeps all (minus Paystack's fee). */
-  givingPlatformPercent Float   @default(0)
-  /** When true, the donor is charged a bit extra so Paystack's fee doesn't come out of the church's amount. */
-  givingDonorBearsFee   Boolean @default(true)
-  /** Paystack's own transaction fee %% (Ghana ~1.95), used to gross up the charge when the donor bears the fee. */
-  paystackFeePercent    Float   @default(1.95)
+  /**
+   * /** % of each gift that settles to WorshipHQ (subaccount percentage_charge). 0 = church keeps all (minus Paystack's fee).
+   */
+  givingPlatformPercent   Float     @default(0)
+  /**
+   * When true, the donor is charged a bit extra so Paystack's fee doesn't come out of the church's amount.
+   */
+  givingDonorBearsFee     Boolean   @default(true)
+  /**
+   * Paystack's own transaction fee %% (Ghana ~1.95), used to gross up the charge when the donor bears the fee.
+   */
+  paystackFeePercent      Float     @default(1.95)
   // ── Data backups: platform-wide switch for the scheduled run + snapshots kept per church ──
-  backupsEnabled Boolean @default(true)
-  backupKeep     Int     @default(7)
-  updatedAt DateTime @updatedAt
+  backupsEnabled          Boolean   @default(true)
+  backupKeep              Int       @default(7)
+  updatedAt               DateTime  @updatedAt
 }
 
 // ── Tenancy ───────────────────────────────────────────────
 model Church {
-  id           String   @id @default(cuid())
-  slug         String   @unique
-  isDemo       Boolean  @default(false)
-  suspended    Boolean  @default(false)
+  id                     String                @id @default(cuid())
+  slug                   String                @unique
+  isDemo                 Boolean               @default(false)
+  suspended              Boolean               @default(false)
   // When the owner checked "I agree to Terms/Privacy" at signup - proof of
   // click-wrap acceptance, not just a UI gate. Null for churches created
   // before this was enforced.
-  termsAcceptedAt DateTime?
+  termsAcceptedAt        DateTime?
   // Paystack subaccount code (ACCT_xxx) this church's own online giving is split
   // to - set once by SuperAdmin in the Payment Requests panel. Subscription/SMS
   // credit charges (WorshipHQ's own revenue) never use this; only public giving does.
   paystackSubaccountCode String?
-  smsCredits       Int     @default(60) // prepaid SMS units (60 free on signup, for the free month of Communications)
-  smsWelcomeMember Boolean @default(true) // SMS a welcome to members who self-register
-  smsWelcomeVisitor Boolean @default(true) // SMS a welcome to visitors who self-register via the visit link
-  smsTier          String? // per-church SMS price tier override (null = use site default)
+  smsCredits             Int                   @default(60) // prepaid SMS units (60 free on signup, for the free month of Communications)
+  smsWelcomeMember       Boolean               @default(true) // SMS a welcome to members who self-register
+  smsWelcomeVisitor      Boolean               @default(true) // SMS a welcome to visitors who self-register via the visit link
+  smsTier                String? // per-church SMS price tier override (null = use site default)
   // Notify admins (SMS + email) when a member submits a prayer request,
   // testimony or counselling request. Editable in Settings.
-  notifySubmissions Boolean @default(true)
+  notifySubmissions      Boolean               @default(true)
   // Show money as *** on finance screens until someone taps the eye icon (shoulder-surfing protection).
-  hideAmounts       Boolean @default(false)
+  hideAmounts            Boolean               @default(false)
   // Group leaders may text their own group (sent from the church's sender ID, with the group name at the front).
-  leaderMessagingOn Boolean @default(false)
+  leaderMessagingOn      Boolean               @default(false)
   // ── Linked churches (a teens chapel, a branch church or a partner church with its own account and plan) ──
-  parentChurchId   String?
-  parentChurch     Church?  @relation("ChurchLinks", fields: [parentChurchId], references: [id], onDelete: SetNull)
-  linkedChurches   Church[] @relation("ChurchLinks")
-  baptisms         Baptism[]
-  certificateTemplates CertificateTemplate[]
-  linkKind         String?  // teens_chapel | branch | partner (what THIS church is to its parent)
-  linkShare        String[] @default([]) // what this church lets its parent see: headcount, attendance, finances
-  autoAcceptTransfers Boolean @default(false) // accept people sent from linked churches without waiting
+  parentChurchId         String?
+  parentChurch           Church?               @relation("ChurchLinks", fields: [parentChurchId], references: [id], onDelete: SetNull)
+  linkedChurches         Church[]              @relation("ChurchLinks")
+  baptisms               Baptism[]
+  certificateTemplates   CertificateTemplate[]
+  linkKind               String? // teens_chapel | branch | partner (what THIS church is to its parent)
+  linkShare              String[]              @default([]) // what this church lets its parent see: headcount, attendance, finances
+  autoAcceptTransfers    Boolean               @default(false) // accept people sent from linked churches without waiting
   // Certificates: which design is used and the wording/signers, e.g. { template: "classic", signer1: "Officiating Minister", signer2: "Senior Pastor", signer1Name: "", signer2Name: "" }
-  certSettings Json?
+  certSettings           Json?
   // "Thank you for coming" text to every member who checked in, offered when a service is ended. Off by default.
-  thankAfterService  Boolean  @default(false)
-  thankServiceNames  String[] @default([])   // services (by name) where the thank-you is ticked by default
-  thankOtherPrograms Boolean  @default(false) // also ticked by default for one-off programs that are not a regular service
+  thankAfterService      Boolean               @default(false)
+  thankServiceNames      String[]              @default([]) // services (by name) where the thank-you is ticked by default
+  thankOtherPrograms     Boolean               @default(false) // also ticked by default for one-off programs that are not a regular service
   // ── Self check-in (QR) rules ──
-  qrVerify     String  @default("none") // none | digits (last digits of their phone) | sms (a one-time code, costs credits)
-  qrGeoOn      Boolean @default(false)  // only allow QR check-in from near the church
-  qrGeoLat     Float?
-  qrGeoLng     Float?
-  qrGeoRadius  Int     @default(250)    // metres
-  qrDeviceLimit Int    @default(0)      // people one phone may check in per service (0 = no limit)
+  qrVerify               String                @default("none") // none | digits (last digits of their phone) | sms (a one-time code, costs credits)
+  qrGeoOn                Boolean               @default(false) // only allow QR check-in from near the church
+  qrGeoLat               Float?
+  qrGeoLng               Float?
+  qrGeoRadius            Int                   @default(250) // metres
+  qrDeviceLimit          Int                   @default(0) // people one phone may check in per service (0 = no limit)
   // ── Age groups ──
-  ageChildMax   Int     @default(12)    // children are up to this age
-  ageTeenMax    Int     @default(17)    // teens are up to this age (adults are older)
-  ageYouthOn    Boolean @default(false) // show a Youth group among the adults
-  ageYouthMax   Int     @default(35)    // youth are adults up to this age
-  ageYouthLabel String  @default("Youth") // what this church calls it, e.g. Youth or Young Adults
-  ageAutoOn     Boolean @default(false) // move children and teens up a group when they pass these ages (from their date of birth)
+  ageChildMax            Int                   @default(12) // children are up to this age
+  ageTeenMax             Int                   @default(17) // teens are up to this age (adults are older)
+  ageYouthOn             Boolean               @default(false) // show a Youth group among the adults
+  ageYouthMax            Int                   @default(35) // youth are adults up to this age
+  ageYouthLabel          String                @default("Youth") // what this church calls it, e.g. Youth or Young Adults
+  ageAutoOn              Boolean               @default(false) // move children and teens up a group when they pass these ages (from their date of birth)
   // ── Automations: timezone + birthday suite ──
-  timezone          String  @default("Africa/Accra") // IANA tz; send-hours are local to this
-  birthdaySendHour  Int     @default(8)   // local hour (0-23) birthday messages go out
-  birthdayWishOn    Boolean @default(true)  // text the member a happy-birthday on their day
-  birthdayAdminAlertOn Boolean @default(false) // text/email admins "today is X's birthday"
+  timezone               String                @default("Africa/Accra") // IANA tz; send-hours are local to this
+  birthdaySendHour       Int                   @default(8) // local hour (0-23) birthday messages go out
+  birthdayWishOn         Boolean               @default(true) // text the member a happy-birthday on their day
+  birthdayAdminAlertOn   Boolean               @default(false) // text/email admins "today is X's birthday"
   // Weekly digest of the week's upcoming birthdays sent to admins (off by default).
-  birthdayDigestOn  Boolean @default(false)
-  birthdayDigestDay Int     @default(1) // 0=Sun … 6=Sat (Monday default)
-  birthdayLastSent  String? // local YYYY-MM-DD guard so the daily birthday batch runs once per day
+  birthdayDigestOn       Boolean               @default(false)
+  birthdayDigestDay      Int                   @default(1) // 0=Sun … 6=Sat (Monday default)
+  birthdayLastSent       String? // local YYYY-MM-DD guard so the daily birthday batch runs once per day
   // ── Roster announcement (whole sheet to a group, ahead of the service) ──
-  rosterAnnounceOn       Boolean @default(false)
-  rosterAnnounceLeadDays Int     @default(2)  // send this many days before the service
-  rosterAnnounceHour     Int     @default(8)  // local hour to send
-  rosterAnnounceMinute   Int     @default(0)  // local minute to send
-  rosterAnnounceAudience String  @default("group") // "group" | "church"
+  rosterAnnounceOn       Boolean               @default(false)
+  rosterAnnounceLeadDays Int                   @default(2) // send this many days before the service
+  rosterAnnounceHour     Int                   @default(8) // local hour to send
+  rosterAnnounceMinute   Int                   @default(0) // local minute to send
+  rosterAnnounceAudience String                @default("group") // "group" | "church"
   rosterAnnounceGroupId  String? // which group receives it when audience = group
-  rosterAnnounceWeekday  Int?    // 0=Sun..6=Sat — when set, send on this weekday instead of "leadDays before"
+  rosterAnnounceWeekday  Int? // 0=Sun..6=Sat — when set, send on this weekday instead of "leadDays before"
   // ── Roster reminder (personal "your duty tomorrow" to each rostered member) ──
-  rosterRemindOn       Boolean @default(false)
-  rosterRemindLeadDays Int     @default(1)  // remind this many days before the duty
-  rosterRemindHour     Int     @default(18) // local hour to send
-  rosterRemindMinute   Int     @default(0)  // local minute to send
-  rosterRemindWeekday  Int?    // 0=Sun..6=Sat — when set, send on this weekday instead of "leadDays before"
+  rosterRemindOn         Boolean               @default(false)
+  rosterRemindLeadDays   Int                   @default(1) // remind this many days before the duty
+  rosterRemindHour       Int                   @default(18) // local hour to send
+  rosterRemindMinute     Int                   @default(0) // local minute to send
+  rosterRemindWeekday    Int? // 0=Sun..6=Sat — when set, send on this weekday instead of "leadDays before"
 
   // ── Public facility booking link (/book/<slug>) ──
-  publicBookingOn   Boolean @default(false)
-  bookingNote       String? @db.Text // shown on the public booking page (rates, rules, how to pay)
-  memberPrefix String? // member ID prefix, e.g. "GBC" (derived from name if unset)
-  memberSeq    Int     @default(0) // last issued member number
-  name         String
-  denomination String?
-  city         String?
-  country      String   @default("Ghana")
-  address      String?
-  accentColor  String   @default("#6D5EF8")
-  logoUrl      String?
+  publicBookingOn Boolean @default(false)
+  bookingNote     String? @db.Text // shown on the public booking page (rates, rules, how to pay)
+  memberPrefix    String? // member ID prefix, e.g. "GBC" (derived from name if unset)
+  memberSeq       Int     @default(0) // last issued member number
+  name            String
+  denomination    String?
+  city            String?
+  country         String  @default("Ghana")
+  address         String?
+  accentColor     String  @default("#6D5EF8")
+  logoUrl         String?
 
   // SMS Sender ID approval system
-  smsSenderId           String?
-  smsSenderIdStatus     String   @default("pending")
+  smsSenderId            String?
+  smsSenderIdStatus      String    @default("pending")
   smsSenderIdRequestedAt DateTime?
-  smsSenderIdApprovedAt DateTime?
-  smsSenderIdApprovedBy String?
+  smsSenderIdApprovedAt  DateTime?
+  smsSenderIdApprovedBy  String?
 
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   // JSON config: which fields to show on the public join form
   registrationFields Json?
@@ -174,129 +190,133 @@ model Church {
   visitorFormFields Json?
 
   // JSON config: children & teens registration forms
-  childrenFormFields Json?
-  teensFormFields    Json?
+  childrenFormFields  Json?
+  teensFormFields     Json?
   // The other public forms a church can customise (same builder as the sign-up forms).
-  prayerFormFields   Json?
+  prayerFormFields    Json?
   testimonyFormFields Json?
-  counselFormFields  Json?
-  giveFormFields     Json?
-  bookingFormFields  Json?
-  baptismFormFields  Json?
-  biometricDevices   BiometricDevice[]
-  outreach           OutreachMessage[]
+  counselFormFields   Json?
+  giveFormFields      Json?
+  bookingFormFields   Json?
+  baptismFormFields   Json?
+  biometricDevices    BiometricDevice[]
+  outreach            OutreachMessage[]
 
   // Customizable SMS receipt templates (use {name}, {amount}, {church} placeholders)
-  titheReceiptTemplate   String?
-  harvestReceiptTemplate String?
-  pledgeReceiptTemplate  String?
-  pledgeReminderTemplate String?
-  welfareDuesReceiptTemplate  String? @db.Text
-  welfareDuesReminderTemplate String? @db.Text
-  welfareStart               DateTime? // optional church-wide date dues start counting (fallback when a member has no personal start)
+  titheReceiptTemplate        String?
+  harvestReceiptTemplate      String?
+  pledgeReceiptTemplate       String?
+  pledgeReminderTemplate      String?
+  welfareDuesReceiptTemplate  String?         @db.Text
+  welfareDuesReminderTemplate String?         @db.Text
+  welfareStart                DateTime? // optional church-wide date dues start counting (fallback when a member has no personal start)
   // ── Attendance: end-of-service report ──
-  attendanceReportTemplate   String? @db.Text // editable summary SMS sent when a service ends
-  attendanceReportNumbers    String? @db.Text // extra phone numbers (comma/newline) for people without accounts
-  attendanceReportToAdmins   Boolean @default(true)  // send to Owners/Admins
-  attendanceReportToLeaders  Boolean @default(false) // send to everyone with attendance access
+  attendanceReportTemplate    String?         @db.Text // editable summary SMS sent when a service ends
+  attendanceReportNumbers     String?         @db.Text // extra phone numbers (comma/newline) for people without accounts
+  attendanceReportToAdmins    Boolean         @default(true) // send to Owners/Admins
+  attendanceReportToLeaders   Boolean         @default(false) // send to everyone with attendance access
   // ── Service times (optional): check-ins are routed to the service whose time
   // window they fall in. Off until the church turns it on in Settings.
-  serviceTimesOn        Boolean @default(false)
-  serviceGraceMinutes   Int     @default(60) // early/late arrivals within this many minutes join the nearest service
-  /** Editable system-SMS overrides, keyed by template id (see src/lib/messages/registry). */
-  messageTemplates           Json?
+  serviceTimesOn              Boolean         @default(false)
+  serviceGraceMinutes         Int             @default(60) // early/late arrivals within this many minutes join the nearest service
+  /**
+   * Editable system-SMS overrides, keyed by template id (see src/lib/messages/registry).
+   */
+  messageTemplates            Json?
   // "We have not seen you in a while": who counts as away, and who is told.
-  absenceOn          Boolean @default(false)
-  absenceWeeks       Int     @default(3)
-  absenceTextMember  Boolean @default(true)
-  absenceAlertAdmins Boolean @default(true)
+  absenceOn                   Boolean         @default(false)
+  absenceWeeks                Int             @default(3)
+  absenceTextMember           Boolean         @default(true)
+  absenceAlertAdmins          Boolean         @default(true)
   // How often a member is texted for one absence: up to absenceMaxTexts times, absenceRepeatWeeks apart (1 = just once).
-  absenceMaxTexts      Int      @default(1)
-  absenceRepeatWeeks   Int      @default(2)
+  absenceMaxTexts             Int             @default(1)
+  absenceRepeatWeeks          Int             @default(2)
   // Open a follow-up for each newly away member, assigned to the people below.
-  absenceCreateFollowUp Boolean @default(false)
+  absenceCreateFollowUp       Boolean         @default(false)
   // Team members who receive the "not seen" alert and the follow-ups. Empty = every admin.
-  absenceNotifyUserIds String[] @default([])
-  /** Days before a pledge due date to auto-remind, e.g. [30, 7, 3]. */
-  pledgeReminderDays     Int[]   @default([30, 7, 3])
-  pledgePayments         PledgePayment[]
+  absenceNotifyUserIds        String[]        @default([])
+  /**
+   * Days before a pledge due date to auto-remind, e.g. [30, 7, 3].
+   */
+  pledgeReminderDays          Int[]           @default([30, 7, 3])
+  pledgePayments              PledgePayment[]
 
-  featuredLeaderCount Int @default(6) // number of leaders shown on dashboard
-  leaderTitles String[] @default([]) // the church's own leadership titles, most senior first; empty means the standard list
-  smsPrefix String? // the name line the church chose for the start of its texts (full name or a short one); null means it has not chosen yet
+  featuredLeaderCount Int      @default(6) // number of leaders shown on dashboard
+  leaderTitles        String[] @default([]) // the church's own leadership titles, most senior first; empty means the standard list
+  smsPrefix           String? // the name line the church chose for the start of its texts (full name or a short one); null means it has not chosen yet
 
-  branches      Branch[]
-  users         User[]
-  customRoles   CustomRole[]
-  people        Person[]
-  departments   Department[]
-  households     Household[]
-  groups        Group[]
-  churchAccounts ChurchAccount[]
-  funds         Fund[]
-  gifts         Gift[]
-  pledges       Pledge[]
-  campaigns     Campaign[]
-  events        Event[]
-  attendance    AttendanceRecord[]
-  attendanceSessions AttendanceSession[]
-  assignments   VolunteerAssignment[]
-  communications Communication[]
-  automations   Automation[]
-  reminders     Reminder[]
-  transactions  Transaction[]
-  smsTransactions SmsTransaction[]
-  harvests      Harvest[]
-  harvestContributions HarvestContribution[]
-  subscription  Subscription?
-  visitors      Visitor[]
-  followUps     FollowUp[]
-  followUpReports FollowUpReport[]
-  prayerRequests PrayerRequest[]
-  notices        ChurchNotice[]
-  welfareRecords WelfareRecord[]
-  auditLogs      AuditLog[]
-  sermons        Sermon[]
-  assets         Asset[]
-  expenses       Expense[]
-  facilities     Facility[]
-  bookings       Booking[]
-  bookingPayments BookingPayment[]
-  devotionals    Devotional[]
-  testimonies    Testimony[]
-  counselingSessions CounselingSession[]
-  budgets        Budget[]
-  budgetItems    BudgetItem[]
-  budgetEntries  BudgetEntry[]
-  coupons        Coupon[]
-  planPayments   PlanPayment[]
-  refundRequests RefundRequest[]
-  volunteerRosters VolunteerRoster[]
-  volunteerSlots  VolunteerSlot[]
-  serviceRoles    ServiceRole[]
-  welfareRates    WelfareRate[]
-  welfareDues     WelfareDue[]
-  dayBornWeeks    DayBornWeek[]
-  paymentRequests PaymentRequest[]
-  supportAccess   SupportAccess[]
-  serviceSlots    ServiceSlot[]
-  memberCategories MemberCategory[]
+  branches              Branch[]
+  users                 User[]
+  customRoles           CustomRole[]
+  people                Person[]
+  departments           Department[]
+  households            Household[]
+  groups                Group[]
+  churchAccounts        ChurchAccount[]
+  funds                 Fund[]
+  gifts                 Gift[]
+  pledges               Pledge[]
+  campaigns             Campaign[]
+  events                Event[]
+  attendance            AttendanceRecord[]
+  attendanceSessions    AttendanceSession[]
+  assignments           VolunteerAssignment[]
+  communications        Communication[]
+  automations           Automation[]
+  reminders             Reminder[]
+  transactions          Transaction[]
+  smsTransactions       SmsTransaction[]
+  harvests              Harvest[]
+  harvestContributions  HarvestContribution[]
+  subscription          Subscription?
+  visitors              Visitor[]
+  followUps             FollowUp[]
+  followUpReports       FollowUpReport[]
+  prayerRequests        PrayerRequest[]
+  notices               ChurchNotice[]
+  welfareRecords        WelfareRecord[]
+  auditLogs             AuditLog[]
+  sermons               Sermon[]
+  assets                Asset[]
+  expenses              Expense[]
+  facilities            Facility[]
+  bookings              Booking[]
+  bookingPayments       BookingPayment[]
+  devotionals           Devotional[]
+  testimonies           Testimony[]
+  counselingSessions    CounselingSession[]
+  budgets               Budget[]
+  budgetItems           BudgetItem[]
+  budgetEntries         BudgetEntry[]
+  coupons               Coupon[]
+  planPayments          PlanPayment[]
+  refundRequests        RefundRequest[]
+  volunteerRosters      VolunteerRoster[]
+  volunteerSlots        VolunteerSlot[]
+  serviceRoles          ServiceRole[]
+  welfareRates          WelfareRate[]
+  welfareDues           WelfareDue[]
+  dayBornWeeks          DayBornWeek[]
+  paymentRequests       PaymentRequest[]
+  supportAccess         SupportAccess[]
+  serviceSlots          ServiceSlot[]
+  memberCategories      MemberCategory[]
   memberCategoryOptions MemberCategoryOption[]
-  deletedItems    DeletedItem[]
+  deletedItems          DeletedItem[]
 
   // ── Data backups (see src/lib/backups) ──
-  autoBackup          Boolean   @default(true) // nightly automatic backup; the church can switch it off
+  autoBackup          Boolean        @default(true) // nightly automatic backup; the church can switch it off
   lastBackupAt        DateTime? // last SUCCESSFUL backup
   lastBackupAttemptAt DateTime? // last attempt, so a failing church is not retried every hour
   backups             ChurchBackup[]
 
   // ── Follow-ups (see src/lib/follow-ups) ──
-  followUpAssigneeId  String?  // who auto-created follow-ups are assigned to (a User id in this church); null = unassigned
-  followUpNewMembers  Boolean  @default(false) // also create a follow-up for each self-registered new member
-  followUpDigestSent  String?  // local YYYY-MM-DD the daily due/overdue email last went out
+  followUpAssigneeId String? // who auto-created follow-ups are assigned to (a User id in this church); null = unassigned
+  followUpNewMembers Boolean   @default(false) // also create a follow-up for each self-registered new member
+  followUpDigestSent String? // local YYYY-MM-DD the daily due/overdue email last went out
   // SuperAdmin can block a church's online giving outright (e.g. suspected scam).
-  givingBlocked       Boolean  @default(false)
-  receipts Receipt[]
+  givingBlocked      Boolean   @default(false)
+  receipts           Receipt[]
 }
 
 /// One encrypted snapshot of a church's data, stored in R2 (objectKey). Rows
@@ -305,8 +325,8 @@ model ChurchBackup {
   id        String   @id @default(cuid())
   churchId  String
   church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  trigger   String   // "auto" | "manual" | "admin"
-  status    String   // "ok" | "failed"
+  trigger   String // "auto" | "manual" | "admin"
+  status    String // "ok" | "failed"
   objectKey String?
   sizeBytes Int      @default(0)
   rowCount  Int      @default(0)
@@ -325,14 +345,14 @@ model Branch {
   isHQ      Boolean  @default(false)
   createdAt DateTime @default(now())
 
-  people      Person[]
-  events      Event[]
-  attendance  AttendanceRecord[]
+  people             Person[]
+  events             Event[]
+  attendance         AttendanceRecord[]
   attendanceSessions AttendanceSession[]
-  serviceSlots ServiceSlot[]
-  gifts       Gift[]
-  users       User[]
-  dayBornWeeks DayBornWeek[]
+  serviceSlots       ServiceSlot[]
+  gifts              Gift[]
+  users              User[]
+  dayBornWeeks       DayBornWeek[]
 
   @@index([churchId])
 }
@@ -357,11 +377,11 @@ model Department {
   description String?
   createdAt   DateTime @default(now())
 
-  people    Person[] @relation("PrimaryDepartment") // legacy single-department link
-  members   Person[] @relation("PersonDepartments") // many-to-many membership
-  positions DepartmentPosition[]
-  budgetLeaders User[] @relation("DepartmentBudgetLeaders")
-  budgets   Budget[] @relation("DepartmentBudgets")
+  people        Person[]             @relation("PrimaryDepartment") // legacy single-department link
+  members       Person[]             @relation("PersonDepartments") // many-to-many membership
+  positions     DepartmentPosition[]
+  budgetLeaders User[]               @relation("DepartmentBudgetLeaders")
+  budgets       Budget[]             @relation("DepartmentBudgets")
 
   @@unique([churchId, name])
   @@index([churchId])
@@ -376,7 +396,7 @@ model DepartmentPosition {
   person       Person     @relation(fields: [personId], references: [id], onDelete: Cascade)
   departmentId String
   department   Department @relation(fields: [departmentId], references: [id], onDelete: Cascade)
-  position     String     // e.g. Head, Assistant Head, Secretary, Treasurer, Member
+  position     String // e.g. Head, Assistant Head, Secretary, Treasurer, Member
   createdAt    DateTime   @default(now())
 
   @@unique([personId, departmentId, position])
@@ -405,39 +425,39 @@ model CustomRole {
 }
 
 model User {
-  id           String   @id @default(cuid())
-  churchId     String
-  church       Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  branchId     String?
-  branch       Branch?  @relation(fields: [branchId], references: [id])
-  email        String   @unique
-  name         String
-  passwordHash String?
-  sessionVersion Int    @default(0) // bumped on password change/reset: signs out every older session
-  role         Role     @default(Volunteer)
-  customRoleId String?
-  customRole   CustomRole? @relation(fields: [customRoleId], references: [id])
+  id                  String              @id @default(cuid())
+  churchId            String
+  church              Church              @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  branchId            String?
+  branch              Branch?             @relation(fields: [branchId], references: [id])
+  email               String              @unique
+  name                String
+  passwordHash        String?
+  sessionVersion      Int                 @default(0) // bumped on password change/reset: signs out every older session
+  role                Role                @default(Volunteer)
+  customRoleId        String?
+  customRole          CustomRole?         @relation(fields: [customRoleId], references: [id])
   // When set, this user is a scoped department-budget leader: they only see
   // their department's budget, expenses and income — nothing else.
-  budgetDepartmentId String?
-  budgetDepartment   Department? @relation("DepartmentBudgetLeaders", fields: [budgetDepartmentId], references: [id])
-  photoUrl      String?  // staff profile picture (data URL)
-  phone         String?
-  phoneVerified Boolean  @default(false)
-  emailVerified Boolean  @default(false) // verified via an email OTP (login/signup)
+  budgetDepartmentId  String?
+  budgetDepartment    Department?         @relation("DepartmentBudgetLeaders", fields: [budgetDepartmentId], references: [id])
+  photoUrl            String? // staff profile picture (data URL)
+  phone               String?
+  phoneVerified       Boolean             @default(false)
+  emailVerified       Boolean             @default(false) // verified via an email OTP (login/signup)
   // Discord-style invite: a one-time token sent by SMS; the invitee opens the
   // link to verify their phone, set a password & photo, then the token clears.
-  inviteToken      String?   @unique
-  inviteAcceptedAt DateTime?
+  inviteToken         String?             @unique
+  inviteAcceptedAt    DateTime?
   // A User (logs in) may be linked to a Person (a congregant record).
-  personId     String?  @unique
-  person       Person?  @relation(fields: [personId], references: [id])
-  createdAt    DateTime @default(now())
-  assignedFollowUps FollowUp[]
-  followUpAssignments FollowUpAssignee[] @relation("FollowUpAssignees")
-  followUpReports   FollowUpReport[]
-  auditLogs         AuditLog[]
-  counselingSessions CounselingSession[]
+  personId            String?             @unique
+  person              Person?             @relation(fields: [personId], references: [id])
+  createdAt           DateTime            @default(now())
+  assignedFollowUps   FollowUp[]
+  followUpAssignments FollowUpAssignee[]  @relation("FollowUpAssignees")
+  followUpReports     FollowUpReport[]
+  auditLogs           AuditLog[]
+  counselingSessions  CounselingSession[]
 
   @@index([churchId])
 }
@@ -450,28 +470,28 @@ enum PersonStatus {
 }
 
 model Person {
-  id          String       @id @default(cuid())
-  churchId    String
-  church      Church       @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  branchId    String?
-  branch      Branch?      @relation(fields: [branchId], references: [id])
-  memberId    String? // human-friendly ID, e.g. GBC-0001 (unique per church)
-  firstName   String
-  lastName    String
-  otherNames  String?
-  email       String?
-  phone       String?
-  status      PersonStatus @default(active)
-  location    String?
-  photoUrl    String?
-  birthday    String? // MM-DD
-  anniversary String? // MM-DD
-  weddingDate DateTime? // full wedding date when known; anniversary above is its MM-DD
+  id            String       @id @default(cuid())
+  churchId      String
+  church        Church       @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  branchId      String?
+  branch        Branch?      @relation(fields: [branchId], references: [id])
+  memberId      String? // human-friendly ID, e.g. GBC-0001 (unique per church)
+  firstName     String
+  lastName      String
+  otherNames    String?
+  email         String?
+  phone         String?
+  status        PersonStatus @default(active)
+  location      String?
+  photoUrl      String?
+  birthday      String? // MM-DD
+  anniversary   String? // MM-DD
+  weddingDate   DateTime? // full wedding date when known; anniversary above is its MM-DD
   householdRole String? // head, spouse, child, other
-  joinedAt    DateTime     @default(now())
-  notes       String?
-  customFields Json?
-  baptisms     Baptism[]
+  joinedAt      DateTime     @default(now())
+  notes         String?
+  customFields  Json?
+  baptisms      Baptism[]
 
   // ── Automation dedupe guards (see src/lib/automations/run.ts) ──
   newMemberWelcomeSentAt DateTime? // set once the "new member" automation has texted them
@@ -481,83 +501,83 @@ model Person {
   lapsedSmsSentAt        DateTime? // set once the "we miss you" automation has texted them; cleared when status returns to active so a future lapse can fire again
 
   // ── Leadership ──
-  leaderTitle    String?   // e.g. Head Pastor, Associate Pastor, Shepherd, Elder
-  featured       Boolean   @default(false) // Featured on dashboard (e.g. Head Pastor)
-  leaderSortOrder Int      @default(0)     // Admin-defined display order (lower = first)
+  leaderTitle     String? // e.g. Head Pastor, Associate Pastor, Shepherd, Elder
+  featured        Boolean @default(false) // Featured on dashboard (e.g. Head Pastor)
+  leaderSortOrder Int     @default(0) // Admin-defined display order (lower = first)
 
   // ── Rich profile fields (from registration / admin entry) ──
-  gender         String?   // Male, Female
-  title          String?   // e.g. Rev., Deaconess, Elder
-  dateOfBirth    DateTime? // full DOB
-  occupation     String?
-  employer       String?
-  previousChurch String?
+  gender           String? // Male, Female
+  title            String? // e.g. Rev., Deaconess, Elder
+  dateOfBirth      DateTime? // full DOB
+  occupation       String?
+  employer         String?
+  previousChurch   String?
   dateOfMembership DateTime?
-  welfareStart   DateTime? // when this member starts owing welfare dues (else joinedAt)
-  placeOfBirth   String?
-  nationality    String?
-  country        String?
-  region         String?
-  district       String?
-  town           String?
-  nationalId     String?
-  houseAddress   String?
-  homeTown       String?
-  workPhone      String?
-  postalAddress  String?
-  homePhone      String?
-  specialInterest String?
-  maritalStatus  String?  // Single, Married, Divorced, Widowed
-  baptized       Boolean? // Has been baptised?
+  welfareStart     DateTime? // when this member starts owing welfare dues (else joinedAt)
+  placeOfBirth     String?
+  nationality      String?
+  country          String?
+  region           String?
+  district         String?
+  town             String?
+  nationalId       String?
+  houseAddress     String?
+  homeTown         String?
+  workPhone        String?
+  postalAddress    String?
+  homePhone        String?
+  specialInterest  String?
+  maritalStatus    String? // Single, Married, Divorced, Widowed
+  baptized         Boolean? // Has been baptised?
 
   // ── Age group & guardian (children/teens forms) ──
-  ageGroup       String?  // "adult", "teen", "child"
-  parentId       String?
-  parent         Person?  @relation("ParentChild", fields: [parentId], references: [id], onDelete: SetNull)
-  children       Person[] @relation("ParentChild")
-  guardianName   String?
-  guardianPhone  String?
-  school         String?
-  grade          String?
+  ageGroup      String? // "adult", "teen", "child"
+  parentId      String?
+  parent        Person?  @relation("ParentChild", fields: [parentId], references: [id], onDelete: SetNull)
+  children      Person[] @relation("ParentChild")
+  guardianName  String?
+  guardianPhone String?
+  school        String?
+  grade         String?
 
   // ── Emergency contact ──
-  emergencyName    String?
-  emergencyPhone   String?
+  emergencyName     String?
+  emergencyPhone    String?
   emergencyRelation String?
-  emergencyEmail   String?
-  emergencyAddress String?
+  emergencyEmail    String?
+  emergencyAddress  String?
 
   // ── Department ──
   // departmentId is the legacy single department (kept for back-compat / data
   // safety). `departments` is the new many-to-many (a member can be in several).
   departmentId String?
-  department   Department? @relation("PrimaryDepartment", fields: [departmentId], references: [id])
+  department   Department?  @relation("PrimaryDepartment", fields: [departmentId], references: [id])
   departments  Department[] @relation("PersonDepartments")
 
-  positions   DepartmentPosition[]
+  positions DepartmentPosition[]
 
-  householdId String?
-  household   Household? @relation(fields: [householdId], references: [id])
-  groups      Group[]    @relation("GroupMembers")
-  leaderOf    Group[]    @relation("GroupLeader")
-  tags        Tag[]      @relation("PersonTags")
-  gifts       Gift[]
-  harvestContributions HarvestContribution[]
-  pledges     Pledge[]
-  attendance  AttendanceRecord[]
-  followUps      FollowUp[]
-  prayerRequests PrayerRequest[]
-  welfareRecords WelfareRecord[]
-  welfareDues    WelfareDue[]
-  biometrics     BiometricCredential[]
-  categoryOptions MemberCategoryOption[] @relation("PersonCategoryOptions")
-  testimonies    Testimony[]
-  counselingSessions CounselingSession[]
-  volunteerSlots VolunteerSlot[]
-  user           User?
+  householdId             String?
+  household               Household?               @relation(fields: [householdId], references: [id])
+  groups                  Group[]                  @relation("GroupMembers")
+  leaderOf                Group[]                  @relation("GroupLeader")
+  tags                    Tag[]                    @relation("PersonTags")
+  gifts                   Gift[]
+  harvestContributions    HarvestContribution[]
+  pledges                 Pledge[]
+  attendance              AttendanceRecord[]
+  followUps               FollowUp[]
+  prayerRequests          PrayerRequest[]
+  welfareRecords          WelfareRecord[]
+  welfareDues             WelfareDue[]
+  biometrics              BiometricCredential[]
+  categoryOptions         MemberCategoryOption[]   @relation("PersonCategoryOptions")
+  testimonies             Testimony[]
+  counselingSessions      CounselingSession[]
+  volunteerSlots          VolunteerSlot[]
+  user                    User?
   communicationRecipients CommunicationRecipient[]
-  visitor        Visitor? @relation("VisitorPerson")
-  invitedVisitors Visitor[] @relation("VisitorInvitedBy")
+  visitor                 Visitor?                 @relation("VisitorPerson")
+  invitedVisitors         Visitor[]                @relation("VisitorInvitedBy")
 
   @@unique([churchId, memberId])
   @@index([churchId])
@@ -582,71 +602,71 @@ model Household {
 }
 
 model Group {
-  id          String   @id @default(cuid())
-  churchId    String
-  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  name        String
-  type        String   @default("small_group") // "small_group" | "ministry" | "committee" | "fellowship"
-  description String?
-  leaderId    String?
-  leader      Person?  @relation("GroupLeader", fields: [leaderId], references: [id], onDelete: SetNull)
-  meetingDay  String?  // legacy single day — kept for back-compat, superseded by meetingSchedule
-  meetingDays String[] @default([]) // just the days (derived from schedule) — for quick day matching
-  meetingTime String?  // legacy single time — kept for back-compat
-  meetingSchedule Json? // [{ day: "Monday", time: "18:00" }] — each day can have its own time
-  location    String?
+  id                      String   @id @default(cuid())
+  churchId                String
+  church                  Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name                    String
+  type                    String   @default("small_group") // "small_group" | "ministry" | "committee" | "fellowship"
+  description             String?
+  leaderId                String?
+  leader                  Person?  @relation("GroupLeader", fields: [leaderId], references: [id], onDelete: SetNull)
+  meetingDay              String? // legacy single day — kept for back-compat, superseded by meetingSchedule
+  meetingDays             String[] @default([]) // just the days (derived from schedule) — for quick day matching
+  meetingTime             String? // legacy single time — kept for back-compat
+  meetingSchedule         Json? // [{ day: "Monday", time: "18:00" }] — each day can have its own time
+  location                String?
   // ── Meeting reminder (optional; only when meeting days are set) ──
-  meetingReminderOn       Boolean @default(false) // remind the group of its meeting
-  meetingReminderAuto     Boolean @default(true)  // true = auto-scheduled, false = manual-only
-  meetingReminderLeadDays Int     @default(0)     // days before the meeting to send (0 = same day)
-  meetingReminderHour     Int     @default(8)     // local hour to auto-send
-  meetingReminderMinute   Int     @default(0)     // local minute to auto-send
-  meetingReminderWeekday  Int?    // 0=Sun..6=Sat — when set, send on this weekday instead of "leadDays before"
-  meetingReminderText     String? @db.Text        // editable message (else a sensible default)
+  meetingReminderOn       Boolean  @default(false) // remind the group of its meeting
+  meetingReminderAuto     Boolean  @default(true) // true = auto-scheduled, false = manual-only
+  meetingReminderLeadDays Int      @default(0) // days before the meeting to send (0 = same day)
+  meetingReminderHour     Int      @default(8) // local hour to auto-send
+  meetingReminderMinute   Int      @default(0) // local minute to auto-send
+  meetingReminderWeekday  Int? // 0=Sun..6=Sat — when set, send on this weekday instead of "leadDays before"
+  meetingReminderText     String?  @db.Text // editable message (else a sensible default)
   meetingReminderLastSent String? // local YYYY-MM-DD guard so auto-send never doubles up in a day
-  meetingReminderSent     Json?   // per-meeting-day guard for days with their own reminder timing: { "Wednesday": "2026-10-14" } (the meeting date that was reminded)
-  isActive    Boolean  @default(true)
+  meetingReminderSent     Json? // per-meeting-day guard for days with their own reminder timing: { "Wednesday": "2026-10-14" } (the meeting date that was reminded)
+  isActive                Boolean  @default(true)
   // People can pick this group themselves on the sign-up forms.
-  onForms     Boolean  @default(false)
-  createdAt   DateTime @default(now())
-  members     Person[] @relation("GroupMembers")
+  onForms                 Boolean  @default(false)
+  createdAt               DateTime @default(now())
+  members                 Person[] @relation("GroupMembers")
 
   @@index([churchId, type])
 }
 
 model Tag {
-  id      String   @id @default(cuid())
-  name    String
-  people  Person[] @relation("PersonTags")
+  id     String   @id @default(cuid())
+  name   String
+  people Person[] @relation("PersonTags")
 }
 
 // ── Attendance ────────────────────────────────────────────
 // A service/meeting on a given day. Holds demographic headcounts and (optionally)
 // individually checked-in people via AttendanceRecord.
 model AttendanceSession {
-  id          String   @id @default(cuid())
-  churchId    String
-  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  branchId    String?
-  branch      Branch?  @relation(fields: [branchId], references: [id])
-  serviceName String
-  date        DateTime
-  note        String?
-  adults      Int      @default(0)
-  teens       Int      @default(0)
-  children    Int      @default(0)
-  visitors    Int      @default(0)
-  endedAt     DateTime? // set when the service is ended (report sent)
-  thankRequested Boolean  @default(false) // the person ending the service chose to thank everyone who came
-  thankSentCount Int       @default(0)
-  reportSentTo Int      @default(0) // how many recipients the end-of-service report reached
-  createdAt   DateTime @default(now())
+  id             String       @id @default(cuid())
+  churchId       String
+  church         Church       @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?      @relation(fields: [branchId], references: [id])
+  serviceName    String
+  date           DateTime
+  note           String?
+  adults         Int          @default(0)
+  teens          Int          @default(0)
+  children       Int          @default(0)
+  visitors       Int          @default(0)
+  endedAt        DateTime? // set when the service is ended (report sent)
+  thankRequested Boolean      @default(false) // the person ending the service chose to thank everyone who came
+  thankSentCount Int          @default(0)
+  reportSentTo   Int          @default(0) // how many recipients the end-of-service report reached
+  createdAt      DateTime     @default(now())
   // Set when the session was opened automatically from the church's service
   // times: which slot, and a key (church, branch, local day, slot) so every
   // check-in in that window lands in the same session.
-  slotId      String?
-  slot        ServiceSlot? @relation(fields: [slotId], references: [id], onDelete: SetNull)
-  autoKey     String?
+  slotId         String?
+  slot           ServiceSlot? @relation(fields: [slotId], references: [id], onDelete: SetNull)
+  autoKey        String?
 
   records AttendanceRecord[]
 
@@ -656,23 +676,23 @@ model AttendanceSession {
 }
 
 model AttendanceRecord {
-  id          String   @id @default(cuid())
+  id          String             @id @default(cuid())
   churchId    String
-  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  church      Church             @relation(fields: [churchId], references: [id], onDelete: Cascade)
   branchId    String?
-  branch      Branch?  @relation(fields: [branchId], references: [id])
+  branch      Branch?            @relation(fields: [branchId], references: [id])
   personId    String?
-  person      Person?  @relation(fields: [personId], references: [id])
+  person      Person?            @relation(fields: [personId], references: [id])
   sessionId   String?
   session     AttendanceSession? @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  guestName   String?  // for unidentified / visitor self check-ins
-  category    String   @default("adult") // adult | teen | child | visitor
+  guestName   String? // for unidentified / visitor self check-ins
+  category    String             @default("adult") // adult | teen | child | visitor
   serviceName String
   date        DateTime
-  method      String   @default("qr") // qr | manual | self
+  method      String             @default("qr") // qr | manual | self
   thankedAt   DateTime? // the thank-you text for this check-in has been handled
-  deviceId    String?   // anonymous id of the phone that did a self check-in (for the per-device limit)
-  verifiedBy  String?   // how a self check-in was confirmed: digits | sms
+  deviceId    String? // anonymous id of the phone that did a self check-in (for the per-device limit)
+  verifiedBy  String? // how a self check-in was confirmed: digits | sms
 
   @@index([churchId])
   @@index([date])
@@ -684,11 +704,11 @@ model ServiceSlot {
   id          String   @id @default(cuid())
   churchId    String
   church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  branchId    String?  // null = every branch
+  branchId    String? // null = every branch
   branch      Branch?  @relation(fields: [branchId], references: [id], onDelete: Cascade)
   name        String
-  weekday     Int      // 0 = Sunday .. 6 = Saturday
-  startMinute Int      // minutes after local midnight
+  weekday     Int // 0 = Sunday .. 6 = Saturday
+  startMinute Int // minutes after local midnight
   endMinute   Int
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
@@ -701,14 +721,14 @@ model ServiceSlot {
 // Church-defined ways of grouping members beyond departments, e.g. "Zone",
 // "Fellowship", "Cell". Each has its own options; a member picks one or several.
 model MemberCategory {
-  id            String   @id @default(cuid())
-  churchId      String
-  church        Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  name          String
-  allowMultiple Boolean  @default(false)
-  showOnJoinForm Boolean @default(true) // asked on the public self-registration form
-  sortOrder     Int      @default(0)
-  createdAt     DateTime @default(now())
+  id             String   @id @default(cuid())
+  churchId       String
+  church         Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name           String
+  allowMultiple  Boolean  @default(false)
+  showOnJoinForm Boolean  @default(true) // asked on the public self-registration form
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
 
   options MemberCategoryOption[]
 
@@ -743,20 +763,20 @@ enum GiftMethod {
 }
 
 model ChurchAccount {
-  id            String   @id @default(cuid())
-  churchId      String
-  church        Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  name          String
-  type          String   @default("bank") // bank | mobile-money | cash
-  bankName      String?
-  accountNumber String?
-  openingBalance Float   @default(0) // starting balance when the account was added
-  isDefault     Boolean  @default(false)
-  createdAt     DateTime @default(now())
-  funds         Fund[]
-  transactions  Transaction[]
-  gifts         Gift[]
-  expenses      Expense[]
+  id             String        @id @default(cuid())
+  churchId       String
+  church         Church        @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name           String
+  type           String        @default("bank") // bank | mobile-money | cash
+  bankName       String?
+  accountNumber  String?
+  openingBalance Float         @default(0) // starting balance when the account was added
+  isDefault      Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  funds          Fund[]
+  transactions   Transaction[]
+  gifts          Gift[]
+  expenses       Expense[]
 
   @@index([churchId])
 }
@@ -776,85 +796,89 @@ model Fund {
 }
 
 model Gift {
-  id            String     @id @default(cuid())
-  churchId      String
-  church        Church     @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  branchId      String?
-  branch        Branch?    @relation(fields: [branchId], references: [id])
-  personId      String?
-  person        Person?    @relation(fields: [personId], references: [id])
-  donorName     String? // for gifts from non-members / visitors
-  fundId        String?
-  fund          Fund?      @relation(fields: [fundId], references: [id])
-  accountId     String? // which account this gift is banked into
-  account       ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  amount        Decimal    @db.Decimal(12, 2)
-  currency      String     @default("GHS")
-  method        GiftMethod @default(Cash)
-  recurring     Boolean    @default(false)
-  reference     String? // Paystack reference
-  receiptSent   Boolean    @default(false)
-  pendingDeposit Boolean   @default(false) // received but not banked into an account yet
-  date          DateTime   @default(now())
+  id             String         @id @default(cuid())
+  churchId       String
+  church         Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  branchId       String?
+  branch         Branch?        @relation(fields: [branchId], references: [id])
+  personId       String?
+  person         Person?        @relation(fields: [personId], references: [id])
+  donorName      String? // for gifts from non-members / visitors
+  fundId         String?
+  fund           Fund?          @relation(fields: [fundId], references: [id])
+  accountId      String? // which account this gift is banked into
+  account        ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  amount         Decimal        @db.Decimal(12, 2)
+  currency       String         @default("GHS")
+  method         GiftMethod     @default(Cash)
+  recurring      Boolean        @default(false)
+  reference      String? // Paystack reference
+  receiptSent    Boolean        @default(false)
+  pendingDeposit Boolean        @default(false) // received but not banked into an account yet
+  date           DateTime       @default(now())
   // Set once the "giving thanks" automation has texted the donor for this gift
   // specifically (see src/lib/automations/run.ts) - distinct from receiptSent,
   // which is the immediate instant receipt sent at the time the gift is recorded.
-  thanksSentAt  DateTime?
-  extra         Json?    // answers to the church's own extra giving questions: [{ label, value }]
+  thanksSentAt   DateTime?
+  extra          Json? // answers to the church's own extra giving questions: [{ label, value }]
 
+  @@unique([churchId, reference]) // an online gift is recorded once per Paystack reference
   @@index([churchId])
   @@index([churchId, date])
   @@index([churchId, branchId])
   @@index([date])
-  @@unique([churchId, reference]) // an online gift is recorded once per Paystack reference
 }
 
 model Campaign {
-  id        String   @id @default(cuid())
-  churchId  String
-  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  name      String
-  goal      Decimal  @db.Decimal(12, 2)
-  raised    Decimal  @default(0) @db.Decimal(12, 2)
-  endsAt    DateTime?
-  pledges   Pledge[]
+  id       String    @id @default(cuid())
+  churchId String
+  church   Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name     String
+  goal     Decimal   @db.Decimal(12, 2)
+  raised   Decimal   @default(0) @db.Decimal(12, 2)
+  endsAt   DateTime?
+  pledges  Pledge[]
 
   @@index([churchId])
 }
 
 model Pledge {
-  id         String    @id @default(cuid())
-  churchId   String
-  church     Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  fundId     String?
-  fund       Fund?     @relation(fields: [fundId], references: [id])
-  campaignId String?
-  campaign   Campaign? @relation(fields: [campaignId], references: [id])
+  id            String          @id @default(cuid())
+  churchId      String
+  church        Church          @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  fundId        String?
+  fund          Fund?           @relation(fields: [fundId], references: [id])
+  campaignId    String?
+  campaign      Campaign?       @relation(fields: [campaignId], references: [id])
   // A pledge can be made toward a harvest — Pledges is the single engine and
   // Harvest simply links to it rather than keeping its own pledge list.
-  harvestId  String?
-  harvest    Harvest?  @relation(fields: [harvestId], references: [id], onDelete: SetNull)
+  harvestId     String?
+  harvest       Harvest?        @relation(fields: [harvestId], references: [id], onDelete: SetNull)
   // Pledger: an existing member (phone already on file) or a visitor.
-  personId   String?
-  person     Person?   @relation(fields: [personId], references: [id], onDelete: SetNull)
-  donorName  String
-  donorPhone String?
-  donorType  String    @default("member") // "member" | "visitor"
-  amount     Decimal   @db.Decimal(12, 2)
-  fulfilled  Decimal   @default(0) @db.Decimal(12, 2)
-  dueAt      DateTime?
-  notes      String?
-  /** Which reminder milestones have already gone out, e.g. ["30","7","3"]. */
-  remindersSent String[] @default([])
-  createdAt  DateTime  @default(now())
-  payments   PledgePayment[]
+  personId      String?
+  person        Person?         @relation(fields: [personId], references: [id], onDelete: SetNull)
+  donorName     String
+  donorPhone    String?
+  donorType     String          @default("member") // "member" | "visitor"
+  amount        Decimal         @db.Decimal(12, 2)
+  fulfilled     Decimal         @default(0) @db.Decimal(12, 2)
+  dueAt         DateTime?
+  notes         String?
+  /**
+   * Which reminder milestones have already gone out, e.g. ["30","7","3"].
+   */
+  remindersSent String[]        @default([])
+  createdAt     DateTime        @default(now())
+  payments      PledgePayment[]
 
   @@index([churchId])
   @@index([harvestId])
   @@index([personId])
 }
 
-/** Each part-payment against a pledge, so churches keep a full record. */
+/**
+ * Each part-payment against a pledge, so churches keep a full record.
+ */
 model PledgePayment {
   id        String     @id @default(cuid())
   churchId  String
@@ -896,28 +920,28 @@ model Event {
 }
 
 model Registration {
-  id          String   @id @default(cuid())
-  eventId     String
-  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
-  name        String
-  email       String?
-  phone       String?
-  checkedIn   Boolean  @default(false)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  name      String
+  email     String?
+  phone     String?
+  checkedIn Boolean  @default(false)
+  createdAt DateTime @default(now())
 
   @@index([eventId])
 }
 
 // ── Volunteers ────────────────────────────────────────────
 model VolunteerAssignment {
-  id        String   @id @default(cuid())
-  churchId  String
-  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  team      String
-  role      String
-  personName String
+  id          String   @id @default(cuid())
+  churchId    String
+  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  team        String
+  role        String
+  personName  String
   serviceDate DateTime
-  confirmed Boolean  @default(false)
+  confirmed   Boolean  @default(false)
 
   @@index([churchId])
 }
@@ -930,26 +954,28 @@ enum Channel {
 }
 
 model Communication {
-  id         String   @id @default(cuid())
-  churchId   String
-  church     Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  name       String
-  channel    Channel
-  body       String
-  segment    String?
-  sent       Int      @default(0)
-  delivered  Int      @default(0)
-  opened     Int      @default(0)
-  status     String   @default("draft") // draft | scheduled | sent
+  id          String                   @id @default(cuid())
+  churchId    String
+  church      Church                   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name        String
+  channel     Channel
+  body        String
+  segment     String?
+  sent        Int                      @default(0)
+  delivered   Int                      @default(0)
+  opened      Int                      @default(0)
+  status      String                   @default("draft") // draft | scheduled | sent
   scheduledAt DateTime?
-  createdAt  DateTime @default(now())
-  recipients CommunicationRecipient[]
+  createdAt   DateTime                 @default(now())
+  recipients  CommunicationRecipient[]
 
   @@index([churchId])
 }
 
-/** Per-recipient send record for a campaign, so a campaign's audit can show
- *  exactly who it went to and whether each one actually went through. */
+/**
+ * Per-recipient send record for a campaign, so a campaign's audit can show
+ * exactly who it went to and whether each one actually went through.
+ */
 model CommunicationRecipient {
   id              String        @id @default(cuid())
   communicationId String
@@ -957,9 +983,9 @@ model CommunicationRecipient {
   personId        String?
   person          Person?       @relation(fields: [personId], references: [id], onDelete: SetNull)
   name            String? // snapshot at send time, survives the person being edited/removed later
-  contact         String  // the phone number or email actually targeted
-  status          String  @default("sent") // sent | failed
-  createdAt       DateTime @default(now())
+  contact         String // the phone number or email actually targeted
+  status          String        @default("sent") // sent | failed
+  createdAt       DateTime      @default(now())
 
   @@index([communicationId])
   @@index([personId])
@@ -967,52 +993,52 @@ model CommunicationRecipient {
 
 // ── Reminders & automations ───────────────────────────────
 model Automation {
-  id              String    @id @default(cuid())
-  churchId        String
-  church          Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  name            String
-  description     String?
-  trigger         String    // birthday, anniversary, visitor_followup, lapsed, new_member, giving_thanks, custom
-  channel         Channel   @default(SMS)
-  active          Boolean   @default(true)
-  runs            Int       @default(0)
-  messageTemplate String?
-  lastRunAt       DateTime?
-  customDate      DateTime? // for custom trigger: the date to send
-  customRecurrence String?  // "once" | "weekly" | "monthly" | "yearly"
-  audience        String?   // "all" | "active" | "department:X" — who gets the custom reminder
+  id               String    @id @default(cuid())
+  churchId         String
+  church           Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name             String
+  description      String?
+  trigger          String // birthday, anniversary, visitor_followup, lapsed, new_member, giving_thanks, custom
+  channel          Channel   @default(SMS)
+  active           Boolean   @default(true)
+  runs             Int       @default(0)
+  messageTemplate  String?
+  lastRunAt        DateTime?
+  customDate       DateTime? // for custom trigger: the date to send
+  customRecurrence String? // "once" | "weekly" | "monthly" | "yearly"
+  audience         String? // "all" | "active" | "department:X" — who gets the custom reminder
   // visitor_followup only, for now: how long to wait after the visit, and
   // (optionally) what local hour to send at. Lets each church run this
   // automation on its own schedule instead of a fixed 3-days/any-time default.
-  delayDays       Int       @default(3)
-  sendHour        Int?      // local hour 0-23; null = send as soon as eligible, any hour
+  delayDays        Int       @default(3)
+  sendHour         Int? // local hour 0-23; null = send as soon as eligible, any hour
 
   @@index([churchId])
 }
 
 model Reminder {
-  id        String   @id @default(cuid())
-  churchId  String
-  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  type      String
+  id         String   @id @default(cuid())
+  churchId   String
+  church     Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  type       String
   targetName String
-  sendAt    DateTime
-  sent      Boolean  @default(false)
+  sendAt     DateTime
+  sent       Boolean  @default(false)
 
   @@index([churchId])
 }
 
 // ── Harvest ──────────────────────────────────────────────
 model Harvest {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   churchId  String
-  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  church    Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
   year      Int
-  title     String   @default("Annual Harvest")
+  title     String    @default("Annual Harvest")
   date      DateTime?
-  goal      Decimal? @db.Decimal(12, 2)
-  raised    Decimal  @default(0) @db.Decimal(12, 2)
-  createdAt DateTime @default(now())
+  goal      Decimal?  @db.Decimal(12, 2)
+  raised    Decimal   @default(0) @db.Decimal(12, 2)
+  createdAt DateTime  @default(now())
 
   contributions HarvestContribution[]
   pledges       Pledge[]
@@ -1022,20 +1048,20 @@ model Harvest {
 }
 
 model HarvestContribution {
-  id          String      @id @default(cuid())
-  harvestId   String
-  harvest     Harvest     @relation(fields: [harvestId], references: [id], onDelete: Cascade)
-  churchId    String
-  church      Church      @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  personId    String?
-  person      Person?     @relation(fields: [personId], references: [id])
-  donorName   String
-  donorPhone  String?
-  donorType   String      @default("member") // "member" | "visitor" | "anonymous" (a counted lump sum)
-  amount      Decimal     @db.Decimal(12, 2)
-  method      GiftMethod  @default(Cash)
-  date        DateTime    @default(now())
-  receiptSent Boolean     @default(false)
+  id            String     @id @default(cuid())
+  harvestId     String
+  harvest       Harvest    @relation(fields: [harvestId], references: [id], onDelete: Cascade)
+  churchId      String
+  church        Church     @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  personId      String?
+  person        Person?    @relation(fields: [personId], references: [id])
+  donorName     String
+  donorPhone    String?
+  donorType     String     @default("member") // "member" | "visitor" | "anonymous" (a counted lump sum)
+  amount        Decimal    @db.Decimal(12, 2)
+  method        GiftMethod @default(Cash)
+  date          DateTime   @default(now())
+  receiptSent   Boolean    @default(false)
   // Lump-sum entries only: how many envelopes were in the count, and a note
   // (e.g. "Counted by the finance team after 2nd service").
   envelopeCount Int?
@@ -1047,23 +1073,23 @@ model HarvestContribution {
 
 // ── Day Born collections ─────────────────────────────────
 model DayBornWeek {
-  id        String   @id @default(cuid())
+  id        String         @id @default(cuid())
   churchId  String
-  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  church    Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
   branchId  String?
-  branch    Branch?  @relation(fields: [branchId], references: [id])
+  branch    Branch?        @relation(fields: [branchId], references: [id])
   weekOf    DateTime // Monday of this collection week
-  monday    Decimal  @default(0) @db.Decimal(12, 2)
-  tuesday   Decimal  @default(0) @db.Decimal(12, 2)
-  wednesday Decimal  @default(0) @db.Decimal(12, 2)
-  thursday  Decimal  @default(0) @db.Decimal(12, 2)
-  friday    Decimal  @default(0) @db.Decimal(12, 2)
-  saturday  Decimal  @default(0) @db.Decimal(12, 2)
-  sunday    Decimal  @default(0) @db.Decimal(12, 2)
-  posted    Boolean  @default(false)
+  monday    Decimal        @default(0) @db.Decimal(12, 2)
+  tuesday   Decimal        @default(0) @db.Decimal(12, 2)
+  wednesday Decimal        @default(0) @db.Decimal(12, 2)
+  thursday  Decimal        @default(0) @db.Decimal(12, 2)
+  friday    Decimal        @default(0) @db.Decimal(12, 2)
+  saturday  Decimal        @default(0) @db.Decimal(12, 2)
+  sunday    Decimal        @default(0) @db.Decimal(12, 2)
+  posted    Boolean        @default(false)
   postedAt  DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
   entries   DayBornEntry[]
 
   @@unique([churchId, weekOf])
@@ -1071,34 +1097,34 @@ model DayBornWeek {
 }
 
 model DayBornEntry {
-  id        String   @id @default(cuid())
-  weekId    String
-  week      DayBornWeek @relation(fields: [weekId], references: [id], onDelete: Cascade)
-  day       String   // monday, tuesday, wednesday, thursday, friday, saturday, sunday
+  id         String      @id @default(cuid())
+  weekId     String
+  week       DayBornWeek @relation(fields: [weekId], references: [id], onDelete: Cascade)
+  day        String // monday, tuesday, wednesday, thursday, friday, saturday, sunday
   personName String?
-  method    String   // MTN_MoMo, Telecel_Cash, AirtelTigo, bank_transfer
-  amount    Decimal  @db.Decimal(12, 2)
-  reference String?
-  createdAt DateTime @default(now())
+  method     String // MTN_MoMo, Telecel_Cash, AirtelTigo, bank_transfer
+  amount     Decimal     @db.Decimal(12, 2)
+  reference  String?
+  createdAt  DateTime    @default(now())
 
   @@index([weekId])
 }
 
 // ── Accounting ────────────────────────────────────────────
 model Transaction {
-  id          String         @id @default(cuid())
-  churchId    String
-  church      Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  description String
-  category    String
-  fund        String?
-  accountId   String?
-  account     ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  amount      Decimal        @db.Decimal(12, 2) // positive = income, negative = expense
-  date        DateTime       @default(now())
+  id             String         @id @default(cuid())
+  churchId       String
+  church         Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  description    String
+  category       String
+  fund           String?
+  accountId      String?
+  account        ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  amount         Decimal        @db.Decimal(12, 2) // positive = income, negative = expense
+  date           DateTime       @default(now())
   // Received (e.g. cash in hand) but not put into an account yet. Counted as income, left out of every
   // account balance until it is assigned to one.
-  pendingDeposit Boolean     @default(false)
+  pendingDeposit Boolean        @default(false)
 
   @@index([churchId])
 }
@@ -1109,18 +1135,18 @@ model SmsTransaction {
   id           String   @id @default(cuid())
   churchId     String
   church       Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  kind         String   // topup | usage | bonus | refund
-  credits      Int      // signed change
+  kind         String // topup | usage | bonus | refund
+  credits      Int // signed change
   balanceAfter Int
   note         String?
-  reference    String?  // Paystack reference for top-ups
-  amountGhs    Float?   // money received for a top-up (null for usage and older rows)
-  source       String?  // paystack | granted | manual (how a top-up or bonus arrived)
+  reference    String? // Paystack reference for top-ups
+  amountGhs    Float? // money received for a top-up (null for usage and older rows)
+  source       String? // paystack | granted | manual (how a top-up or bonus arrived)
   createdAt    DateTime @default(now())
 
+  @@unique([churchId, reference]) // a Paystack top-up is credited once, even if the webhook arrives twice at the same moment
   @@index([churchId])
   @@index([churchId, createdAt])
-  @@unique([churchId, reference]) // a Paystack top-up is credited once, even if the webhook arrives twice at the same moment
 }
 
 // ── Phone verification (OTP) ──────────────────────────────
@@ -1175,7 +1201,7 @@ model ChurchGivingSettings {
 
 model PhoneVerification {
   id        String   @id @default(cuid())
-  phone     String   // destination: a phone number, or an email address when channel = "email"
+  phone     String // destination: a phone number, or an email address when channel = "email"
   channel   String   @default("sms") // "sms" | "email" — how the code was delivered
   code      String
   purpose   String   @default("signup") // signup | login | reset-password | verify-phone | verify-email
@@ -1200,18 +1226,18 @@ model SiteContent {
 
 // ── Welfare / benevolence ─────────────────────────────────
 model WelfareRecord {
-  id          String   @id @default(cuid())
-  churchId    String
-  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  personId    String?
-  person      Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
-  kind        String   @default("aid")  // "dues" = money in (member welfare dues), "aid" = money out (benevolence)
+  id            String   @id @default(cuid())
+  churchId      String
+  church        Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  personId      String?
+  person        Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  kind          String   @default("aid") // "dues" = money in (member welfare dues), "aid" = money out (benevolence)
   recipientName String
-  type        String   @default("financial") // aid: "financial" | "food" | "medical" | "housing" | "education" | "other"
-  amount      Decimal? @db.Decimal(12, 2)
-  description String?
-  date        DateTime @default(now())
-  createdAt   DateTime @default(now())
+  type          String   @default("financial") // aid: "financial" | "food" | "medical" | "housing" | "education" | "other"
+  amount        Decimal? @db.Decimal(12, 2)
+  description   String?
+  date          DateTime @default(now())
+  createdAt     DateTime @default(now())
 
   @@index([churchId, date])
 }
@@ -1238,7 +1264,7 @@ model WelfareDue {
   personId  String
   person    Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
   year      Int
-  month     Int      // 1-12
+  month     Int // 1-12
   amount    Decimal  @db.Decimal(12, 2)
   createdAt DateTime @default(now())
 
@@ -1274,28 +1300,28 @@ model Announcement {
 
 // ── Billing ───────────────────────────────────────────────
 model Subscription {
-  id         String   @id @default(cuid())
-  churchId   String   @unique
-  church     Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  plan       String   @default("free") // free | starter | growth | unlimited
-  interval   String   @default("monthly") // monthly | yearly
-  status     String   @default("active") // active | grace
-  renewsAt   DateTime?
+  id                   String    @id @default(cuid())
+  churchId             String    @unique
+  church               Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  plan                 String    @default("free") // free | starter | growth | unlimited
+  interval             String    @default("monthly") // monthly | yearly
+  status               String    @default("active") // active | grace
+  renewsAt             DateTime?
   paystackCustomerCode String?
 
   // SuperAdmin bypass: lets a church upgrade to bypassPlan without payment
-  bypassPlan String?  // plan they can upgrade to for free
-  bypassCode String?  // 6-digit code sent via SMS
+  bypassPlan String? // plan they can upgrade to for free
+  bypassCode String? // 6-digit code sent via SMS
 
   // Billing period. `renewsAt` is the period end.
-  periodStart DateTime?
+  periodStart          DateTime?
   // A downgrade takes effect at period end rather than immediately — the church
   // keeps what it already paid for. No money moves in either direction.
-  scheduledPlan     String?
-  scheduledAt       DateTime?
-  cancelAtPeriodEnd Boolean   @default(false)
+  scheduledPlan        String?
+  scheduledAt          DateTime?
+  cancelAtPeriodEnd    Boolean   @default(false)
   // Renewal reminder milestones already sent for this period, e.g. ["7","3"].
-  renewalRemindersSent String[] @default([])
+  renewalRemindersSent String[]  @default([])
 }
 
 /**
@@ -1319,7 +1345,7 @@ model PaymentIntent {
   id              String    @id @default(cuid())
   clientReference String    @unique
   provider        String    @default("hubtel")
-  kind            String    // "sms_topup"
+  kind            String // "sms_topup"
   churchId        String
   amountGhs       Float
   credits         Int? // sms_topup: how many credits to add on success
@@ -1365,18 +1391,18 @@ model PlanPayment {
  * through their refund.* webhooks.
  */
 model RefundRequest {
-  id                String   @id @default(cuid())
+  id                String      @id @default(cuid())
   churchId          String
-  church            Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  church            Church      @relation(fields: [churchId], references: [id], onDelete: Cascade)
   paymentId         String
   payment           PlanPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
   amountUsd         Float
   amountGhs         Float
-  reason            String   @db.Text
+  reason            String      @db.Text
   // pending | approved | rejected | processing | processed | failed
-  status            String   @default("pending")
+  status            String      @default("pending")
   requestedByUserId String?
-  requestedAt       DateTime @default(now())
+  requestedAt       DateTime    @default(now())
   reviewedAt        DateTime?
   reviewerNote      String?
   paystackRefundRef String?
@@ -1394,17 +1420,17 @@ model RefundRequest {
  * Once redeemed it can never be used again.
  */
 model Coupon {
-  id            String    @id @default(cuid())
-  code          String    @unique // e.g. WOR2650off — case-insensitive on lookup
-  discountType  String    @default("percent") // "percent" | "fixed"
-  discountValue Float // 50 => 50% off, or 50 => $50 off
+  id             String    @id @default(cuid())
+  code           String    @unique // e.g. WOR2650off — case-insensitive on lookup
+  discountType   String    @default("percent") // "percent" | "fixed"
+  discountValue  Float // 50 => 50% off, or 50 => $50 off
   // Optional restrictions. Null means "any".
-  plan          String? // starter | pro | max
-  interval      String? // monthly | yearly
-  churchId      String? // lock the code to one specific church
-  church        Church?   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  note          String? // why it was granted
-  expiresAt     DateTime?
+  plan           String? // starter | pro | max
+  interval       String? // monthly | yearly
+  churchId       String? // lock the code to one specific church
+  church         Church?   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  note           String? // why it was granted
+  expiresAt      DateTime?
   // Single use: set the moment it's successfully redeemed.
   usedAt         DateTime?
   usedByChurchId String?
@@ -1415,44 +1441,44 @@ model Coupon {
 
 // ── Prayer requests ───────────────────────────────────────
 model PrayerRequest {
-  id          String   @id @default(cuid())
+  id          String    @id @default(cuid())
   churchId    String
-  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  church      Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
   personId    String?
-  person      Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  person      Person?   @relation(fields: [personId], references: [id], onDelete: SetNull)
   name        String
   request     String
-  isAnonymous Boolean  @default(false)
-  status      String   @default("active") // "active" (new) | "prayed" (prayed for) | "archived"
-  prayerCount Int      @default(0) // no longer used
-  extra       Json?    // answers to the church's own extra questions: [{ label, value }]
+  isAnonymous Boolean   @default(false)
+  status      String    @default("active") // "active" (new) | "prayed" (prayed for) | "archived"
+  prayerCount Int       @default(0) // no longer used
+  extra       Json? // answers to the church's own extra questions: [{ label, value }]
   prayedAt    DateTime?
   prayedBy    String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime  @default(now())
 
   @@index([churchId, status])
 }
 
 // ── Follow-ups ────────────────────────────────────────────
 model FollowUp {
-  id          String   @id @default(cuid())
+  id          String             @id @default(cuid())
   churchId    String
-  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  church      Church             @relation(fields: [churchId], references: [id], onDelete: Cascade)
   personId    String?
-  person      Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
+  person      Person?            @relation(fields: [personId], references: [id], onDelete: SetNull)
   visitorId   String?
-  visitor     Visitor? @relation(fields: [visitorId], references: [id], onDelete: SetNull)
+  visitor     Visitor?           @relation(fields: [visitorId], references: [id], onDelete: SetNull)
   assigneeId  String?
-  assignee    User?    @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
+  assignee    User?              @relation(fields: [assigneeId], references: [id], onDelete: SetNull)
   // Everyone the task is assigned to (assigneeId above mirrors the first, for old code).
   assignees   FollowUpAssignee[]
-  type        String   // "new_visitor" | "new_member" | "pastoral" | "custom"
+  type        String // "new_visitor" | "new_member" | "pastoral" | "custom"
   title       String
   note        String?
-  status      String   @default("open") // "open" | "in_progress" | "done"
+  status      String             @default("open") // "open" | "in_progress" | "done"
   dueDate     DateTime?
   completedAt DateTime?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime           @default(now())
   reports     FollowUpReport[]
 
   @@index([churchId, status])
@@ -1480,8 +1506,8 @@ model FollowUpReport {
   followUp   FollowUp @relation(fields: [followUpId], references: [id], onDelete: Cascade)
   authorId   String?
   author     User?    @relation(fields: [authorId], references: [id], onDelete: SetNull)
-  authorName String   // kept so the report still reads right if the user is removed
-  method     String   // see src/lib/follow-ups/outcomes.ts
+  authorName String // kept so the report still reads right if the user is removed
+  method     String // see src/lib/follow-ups/outcomes.ts
   outcome    String
   note       String?
   createdAt  DateTime @default(now())
@@ -1492,36 +1518,36 @@ model FollowUpReport {
 
 // ── Visitors ──────────────────────────────────────────────
 model Visitor {
-  id        String   @id @default(cuid())
-  churchId  String
-  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  personId  String?  @unique
-  person    Person?  @relation("VisitorPerson", fields: [personId], references: [id], onDelete: SetNull)
-  invitedById String?
-  invitedBy   Person? @relation("VisitorInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
+  id               String     @id @default(cuid())
+  churchId         String
+  church           Church     @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  personId         String?    @unique
+  person           Person?    @relation("VisitorPerson", fields: [personId], references: [id], onDelete: SetNull)
+  invitedById      String?
+  invitedBy        Person?    @relation("VisitorInvitedBy", fields: [invitedById], references: [id], onDelete: SetNull)
   // Free-text "who invited you" from the public self-registration form (which
   // can't safely expose a searchable member picker). Best-effort matched to
   // invitedById above when the typed name matches an existing member exactly;
   // kept regardless so the name still shows even when it doesn't match.
-  invitedByName String?
-  firstName String
-  lastName  String
-  phone     String?
-  email     String?
-  purpose   String?
-  notes     String?
-  photoUrl  String?  @db.Text
-  isRegular Boolean  @default(false)
-  visitCount Int     @default(1)
-  lastVisit DateTime @default(now())
-  customFields Json?
-  visitDate DateTime @default(now())
-  createdAt DateTime @default(now())
+  invitedByName    String?
+  firstName        String
+  lastName         String
+  phone            String?
+  email            String?
+  purpose          String?
+  notes            String?
+  photoUrl         String?    @db.Text
+  isRegular        Boolean    @default(false)
+  visitCount       Int        @default(1)
+  lastVisit        DateTime   @default(now())
+  customFields     Json?
+  visitDate        DateTime   @default(now())
+  createdAt        DateTime   @default(now())
   // Set once the first-time welcome text actually goes out (instantly on
   // self-registration/admin-add, or by the visitor_followup automation as a
   // catch-all) - guards against sending it more than once per visitor.
   welcomeSmsSentAt DateTime?
-  followUps FollowUp[]
+  followUps        FollowUp[]
 
   @@index([churchId, visitDate])
   @@index([churchId, isRegular])
@@ -1535,11 +1561,11 @@ model AuditLog {
   church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  action    String   // e.g. "create", "update", "delete"
-  entity    String   // e.g. "person", "gift", "event"
-  entityId  String?  // ID of the affected record
-  detail    String?  // human-readable summary
-  meta      Json?    // extra context (old values, etc.)
+  action    String // e.g. "create", "update", "delete"
+  entity    String // e.g. "person", "gift", "event"
+  entityId  String? // ID of the affected record
+  detail    String? // human-readable summary
+  meta      Json? // extra context (old values, etc.)
   createdAt DateTime @default(now())
 
   @@index([churchId, createdAt])
@@ -1558,11 +1584,11 @@ model DeletedItem {
   id            String   @id @default(cuid())
   churchId      String
   church        Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  entityType    String   // "person" | "visitor" | "group" | "gift" | "pledge" | "expense" | "event" | "followUp" | "prayerRequest"
+  entityType    String // "person" | "visitor" | "group" | "gift" | "pledge" | "expense" | "event" | "followUp" | "prayerRequest"
   entityId      String
-  label         String   // human-readable title, e.g. a person's name
-  detail        String?  // secondary line, e.g. an amount or date
-  snapshot      Json     // everything needed to recreate the record(s)
+  label         String // human-readable title, e.g. a person's name
+  detail        String? // secondary line, e.g. an amount or date
+  snapshot      Json // everything needed to recreate the record(s)
   deletedById   String?
   deletedByName String?
   deletedAt     DateTime @default(now())
@@ -1573,99 +1599,99 @@ model DeletedItem {
 
 // ── Sermons & Media ───────────────────────────────────────
 model Sermon {
-  id          String   @id @default(cuid())
-  churchId    String
-  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  title       String
-  preacher    String?
-  series      String?
-  date        DateTime @default(now())
-  scripture   String?
-  notes       String?  @db.Text
-  audioUrl    String?
-  videoUrl    String?
-  published   Boolean  @default(true)
-  createdAt   DateTime @default(now())
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  title     String
+  preacher  String?
+  series    String?
+  date      DateTime @default(now())
+  scripture String?
+  notes     String?  @db.Text
+  audioUrl  String?
+  videoUrl  String?
+  published Boolean  @default(true)
+  createdAt DateTime @default(now())
 
   @@index([churchId, date])
 }
 
 // ── Assets / Equipment ────────────────────────────────────
 model Asset {
-  id          String   @id @default(cuid())
-  churchId    String
-  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  name        String
-  category    String   @default("general")
-  location    String?
-  condition   String   @default("good")
-  serialNo    String?
-  purchaseDate DateTime?
+  id            String    @id @default(cuid())
+  churchId      String
+  church        Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name          String
+  category      String    @default("general")
+  location      String?
+  condition     String    @default("good")
+  serialNo      String?
+  purchaseDate  DateTime?
   purchasePrice Float?
-  notes       String?
-  createdAt   DateTime @default(now())
+  notes         String?
+  createdAt     DateTime  @default(now())
 
   @@index([churchId, category])
 }
 
 // ── Expenses ──────────────────────────────────────────────
 model Expense {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   churchId    String
-  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  church      Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
   description String
-  category    String   @default("general")
+  category    String         @default("general")
   amount      Float
   vendor      String?
   receiptRef  String?
   approvedBy  String?
   accountId   String? // which account the money came out of
   account     ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  date        DateTime @default(now())
-  createdAt   DateTime @default(now())
+  date        DateTime       @default(now())
+  createdAt   DateTime       @default(now())
 
   @@index([churchId, date])
 }
 
 // ── Facilities & Bookings ─────────────────────────────────
 model Facility {
-  id        String   @id @default(cuid())
-  churchId  String
-  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  name      String
-  capacity  Int?
-  location  String?
-  description String?  @db.Text
-  imageUrl  String?  @db.Text // uploaded photo (data URL or storage URL)
-  rate      Decimal? @db.Decimal(12, 2) // the price, used to pre-fill the amount
-  rateUnit  String   @default("event") // what the price is for: event (flat per booking) | day | hour
-  publicBookable Boolean @default(true) // appears on the public booking link
-  isActive  Boolean  @default(true)
-  createdAt DateTime @default(now())
-  bookings  Booking[]
+  id             String    @id @default(cuid())
+  churchId       String
+  church         Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name           String
+  capacity       Int?
+  location       String?
+  description    String?   @db.Text
+  imageUrl       String?   @db.Text // uploaded photo (data URL or storage URL)
+  rate           Decimal?  @db.Decimal(12, 2) // the price, used to pre-fill the amount
+  rateUnit       String    @default("event") // what the price is for: event (flat per booking) | day | hour
+  publicBookable Boolean   @default(true) // appears on the public booking link
+  isActive       Boolean   @default(true)
+  createdAt      DateTime  @default(now())
+  bookings       Booking[]
 
   @@index([churchId])
 }
 
 model Booking {
-  id         String   @id @default(cuid())
-  churchId   String
-  church     Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  facilityId String
-  facility   Facility @relation(fields: [facilityId], references: [id], onDelete: Cascade)
-  title      String
-  bookedBy   String
-  startTime  DateTime
-  endTime    DateTime
-  notes      String?
-  status     String   @default("confirmed") // pending (asked via the public link) | confirmed | declined
-  source     String   @default("internal")  // internal | public
+  id           String           @id @default(cuid())
+  churchId     String
+  church       Church           @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  facilityId   String
+  facility     Facility         @relation(fields: [facilityId], references: [id], onDelete: Cascade)
+  title        String
+  bookedBy     String
+  startTime    DateTime
+  endTime      DateTime
+  notes        String?
+  status       String           @default("confirmed") // pending (asked via the public link) | confirmed | declined
+  source       String           @default("internal") // internal | public
   contactPhone String?
   contactEmail String?
-  amount     Decimal? @db.Decimal(12, 2) // the agreed charge, if any
-  extra      Json?    // answers to the church's own extra questions: [{ label, value }]
-  payments   BookingPayment[]
-  createdAt  DateTime @default(now())
+  amount       Decimal?         @db.Decimal(12, 2) // the agreed charge, if any
+  extra        Json? // answers to the church's own extra questions: [{ label, value }]
+  payments     BookingPayment[]
+  createdAt    DateTime         @default(now())
 
   @@index([churchId, startTime])
   @@index([facilityId, startTime])
@@ -1674,18 +1700,18 @@ model Booking {
 // Money received for a booking. Each payment is also posted to the chosen
 // account's ledger (transactionId) so balances and accounting stay in step.
 model BookingPayment {
-  id        String     @id @default(cuid())
-  churchId  String
-  church    Church     @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  bookingId String
-  booking   Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
-  amount    Decimal    @db.Decimal(12, 2)
-  method    GiftMethod @default(Cash)
-  accountId String?
-  note      String?
+  id            String     @id @default(cuid())
+  churchId      String
+  church        Church     @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  bookingId     String
+  booking       Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  amount        Decimal    @db.Decimal(12, 2)
+  method        GiftMethod @default(Cash)
+  accountId     String?
+  note          String?
   transactionId String?
-  date      DateTime   @default(now())
-  createdAt DateTime   @default(now())
+  date          DateTime   @default(now())
+  createdAt     DateTime   @default(now())
 
   @@index([bookingId])
   @@index([churchId, date])
@@ -1719,7 +1745,7 @@ model Testimony {
   category  String   @default("praise") // praise, healing, provision, deliverance, salvation, other
   status    String   @default("pending") // pending, approved, featured
   anonymous Boolean  @default(false)
-  extra     Json?    // answers to the church's own extra questions: [{ label, value }]
+  extra     Json? // answers to the church's own extra questions: [{ label, value }]
   date      DateTime @default(now())
   createdAt DateTime @default(now())
 
@@ -1729,30 +1755,30 @@ model Testimony {
 
 // ── Counseling / Pastoral Care Log ───────────────────────
 model CounselingSession {
-  id           String   @id @default(cuid())
-  churchId     String
-  church       Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  personId     String?
-  person       Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
-  counselorId  String?
-  counselor    User?    @relation(fields: [counselorId], references: [id], onDelete: SetNull)
-  type         String   @default("general") // general, marriage, grief, spiritual, family, addiction, other
-  summary      String   @db.Text
-  notes        String?  @db.Text
-  status       String   @default("open") // open, follow-up, closed
-  confidential Boolean  @default(true)
-  date         DateTime @default(now())
-  followUpDate DateTime?
+  id             String              @id @default(cuid())
+  churchId       String
+  church         Church              @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  personId       String?
+  person         Person?             @relation(fields: [personId], references: [id], onDelete: SetNull)
+  counselorId    String?
+  counselor      User?               @relation(fields: [counselorId], references: [id], onDelete: SetNull)
+  type           String              @default("general") // general, marriage, grief, spiritual, family, addiction, other
+  summary        String              @db.Text
+  notes          String?             @db.Text
+  status         String              @default("open") // open, follow-up, closed
+  confidential   Boolean             @default(true)
+  date           DateTime            @default(now())
+  followUpDate   DateTime?
   // Who it is with when they are not a member (a visitor, someone from outside).
   counseleeName  String?
   counseleePhone String?
   // The booked appointment (date and time), and whether the person is texted about it.
   scheduledAt    DateTime?
   reminderSentAt DateTime?
-  textUpdates    Boolean  @default(false)
-  extra          Json?    // answers to the church's own extra questions: [{ label, value }]
+  textUpdates    Boolean             @default(false)
+  extra          Json? // answers to the church's own extra questions: [{ label, value }]
   messages       CounselingMessage[]
-  createdAt    DateTime @default(now())
+  createdAt      DateTime            @default(now())
 
   @@index([churchId, date])
   @@index([personId])
@@ -1761,38 +1787,38 @@ model CounselingSession {
 
 // Every text sent about a counselling session (the topic is never put in a text).
 model CounselingMessage {
-  id        String   @id @default(cuid())
+  id        String            @id @default(cuid())
   churchId  String
   sessionId String
   session   CounselingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  kind      String   // scheduled | reminder | update | custom
-  body      String   @db.Text
+  kind      String // scheduled | reminder | update | custom
+  body      String            @db.Text
   sentTo    String
-  sentBy    String   // a name, or "Automatic reminder"
-  ok        Boolean  @default(true)
-  createdAt DateTime @default(now())
+  sentBy    String // a name, or "Automatic reminder"
+  ok        Boolean           @default(true)
+  createdAt DateTime          @default(now())
 
   @@index([sessionId])
 }
 
 // ── Budget Management ────────────────────────────────────
 model Budget {
-  id        String   @id @default(cuid())
-  churchId  String
-  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  id           String        @id @default(cuid())
+  churchId     String
+  church       Church        @relation(fields: [churchId], references: [id], onDelete: Cascade)
   // Optional owning department/ministry/auxiliary. When set, that department's
   // budget leaders manage it and see only their own budget(s).
   departmentId String?
-  department   Department? @relation("DepartmentBudgets", fields: [departmentId], references: [id], onDelete: SetNull)
-  name      String
-  year      Int
-  quarter   Int?     // null = annual, 1-4 = quarterly
-  status    String   @default("draft") // draft, approved, active, closed
-  total     Float    @default(0)
-  notes     String?  @db.Text
-  items     BudgetItem[]
-  entries   BudgetEntry[]
-  createdAt DateTime @default(now())
+  department   Department?   @relation("DepartmentBudgets", fields: [departmentId], references: [id], onDelete: SetNull)
+  name         String
+  year         Int
+  quarter      Int? // null = annual, 1-4 = quarterly
+  status       String        @default("draft") // draft, approved, active, closed
+  total        Float         @default(0)
+  notes        String?       @db.Text
+  items        BudgetItem[]
+  entries      BudgetEntry[]
+  createdAt    DateTime      @default(now())
 
   @@index([churchId, year])
   @@index([departmentId])
@@ -1806,12 +1832,12 @@ model BudgetEntry {
   church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
   budgetId    String
   budget      Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
-  type        String   // "income" | "expense"
+  type        String // "income" | "expense"
   description String
   category    String?
   amount      Float
   date        DateTime @default(now())
-  createdById String?  // the user/leader who logged it
+  createdById String? // the user/leader who logged it
   createdAt   DateTime @default(now())
 
   @@index([churchId])
@@ -1819,31 +1845,31 @@ model BudgetEntry {
 }
 
 model BudgetItem {
-  id        String   @id @default(cuid())
-  churchId  String
-  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  budgetId  String
-  budget    Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
-  category  String
+  id          String   @id @default(cuid())
+  churchId    String
+  church      Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  budgetId    String
+  budget      Budget   @relation(fields: [budgetId], references: [id], onDelete: Cascade)
+  category    String
   description String
-  amount    Float
-  spent     Float    @default(0)
-  createdAt DateTime @default(now())
+  amount      Float
+  spent       Float    @default(0)
+  createdAt   DateTime @default(now())
 
   @@index([budgetId])
 }
 
 // ── Volunteer Scheduling / Roster ────────────────────────
 model VolunteerRoster {
-  id        String   @id @default(cuid())
-  churchId  String
-  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  name      String   // e.g. "Sunday Ushering - July 2026"
-  ministry  String?  // which ministry/department
-  startDate DateTime
-  endDate   DateTime
-  notes     String?  @db.Text
-  announcedAt DateTime? // when the group announcement went out (avoids duplicates)
+  id               String          @id @default(cuid())
+  churchId         String
+  church           Church          @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name             String // e.g. "Sunday Ushering - July 2026"
+  ministry         String? // which ministry/department
+  startDate        DateTime
+  endDate          DateTime
+  notes            String?         @db.Text
+  announcedAt      DateTime? // when the group announcement went out (avoids duplicates)
   // Per-roster announcement timing — overrides the church-wide default when set.
   announceLeadDays Int? // days before the first service to auto-announce
   announceHour     Int? // local hour to auto-announce
@@ -1857,33 +1883,33 @@ model VolunteerRoster {
   announceGroupId  String?
   // Personal duty reminders for this whole sheet. null = follow the church default.
   // { mode: "off" | "relative" | "weekday", leadDays?, hour?, minute?, weekday? }
-  remindOverride Json?
-  deletedAt DateTime? // soft delete — hidden from lists but restorable for 30 days
-  slots     VolunteerSlot[]
-  createdAt DateTime @default(now())
+  remindOverride   Json?
+  deletedAt        DateTime? // soft delete — hidden from lists but restorable for 30 days
+  slots            VolunteerSlot[]
+  createdAt        DateTime        @default(now())
 
   @@index([churchId, startDate])
 }
 
 model VolunteerSlot {
-  id        String   @id @default(cuid())
-  churchId  String
-  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  rosterId  String
-  roster    VolunteerRoster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
-  personId  String?
-  person    Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
-  personName String? // typed name/title when not a member record (e.g. "Rev. Foster Odoi")
-  service   String?  // which service, e.g. "Sunday Service", "Wednesday Service"
-  role      String   // the duty, e.g. "Word Ministration", "Prayer Leader", "Praise & Worship"
-  date      DateTime
-  shift     String   @default("morning") // morning, afternoon, evening, full-day
-  status    String   @default("assigned") // assigned, confirmed, swapped, absent
-  notifiedAt DateTime? // set when this person was SMS'd about the assignment (manual)
-  remindedAt DateTime? // set when the automated day-before reminder went out
+  id             String          @id @default(cuid())
+  churchId       String
+  church         Church          @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  rosterId       String
+  roster         VolunteerRoster @relation(fields: [rosterId], references: [id], onDelete: Cascade)
+  personId       String?
+  person         Person?         @relation(fields: [personId], references: [id], onDelete: SetNull)
+  personName     String? // typed name/title when not a member record (e.g. "Rev. Foster Odoi")
+  service        String? // which service, e.g. "Sunday Service", "Wednesday Service"
+  role           String // the duty, e.g. "Word Ministration", "Prayer Leader", "Praise & Worship"
+  date           DateTime
+  shift          String          @default("morning") // morning, afternoon, evening, full-day
+  status         String          @default("assigned") // assigned, confirmed, swapped, absent
+  notifiedAt     DateTime? // set when this person was SMS'd about the assignment (manual)
+  remindedAt     DateTime? // set when the automated day-before reminder went out
   // Reminder timing for this one service (wins over the sheet and the church default).
   remindOverride Json?
-  createdAt DateTime @default(now())
+  createdAt      DateTime        @default(now())
 
   @@index([rosterId])
   @@index([personId])
@@ -1911,10 +1937,10 @@ model SupportAccess {
   id          String    @id @default(cuid())
   churchId    String
   church      Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  method      String    // "consent" | "emergency"
+  method      String // "consent" | "emergency"
   reason      String?
   codeHash    String?
-  sentTo      String?   // masked destination the code went to
+  sentTo      String? // masked destination the code went to
   attempts    Int       @default(0)
   status      String    @default("pending") // pending | active | ended | expired | cancelled
   codeExpires DateTime?
@@ -1929,27 +1955,27 @@ model SupportAccess {
 // ── Online Payment Request ───────────────────────────────
 // Churches request online payment setup; admin handles it manually.
 model PaymentRequest {
-  id            String   @id @default(cuid())
-  churchId      String
-  church        Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  requestedBy   String
-  contactName   String
-  contactPhone  String?
-  contactEmail  String?
-  needs         String?  @db.Text
-  status        String   @default("pending") // pending, scheduled, in_progress, completed, declined, revoked, removed, cancelled
-  adminNotes    String?  @db.Text
-  meetingDate   DateTime?
-  meetingType   String?  // call, video, in_person
-  paystackSubId String?
-  ussdCode      String?
-  portalUrl     String?
+  id                    String    @id @default(cuid())
+  churchId              String
+  church                Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  requestedBy           String
+  contactName           String
+  contactPhone          String?
+  contactEmail          String?
+  needs                 String?   @db.Text
+  status                String    @default("pending") // pending, scheduled, in_progress, completed, declined, revoked, removed, cancelled
+  adminNotes            String?   @db.Text
+  meetingDate           DateTime?
+  meetingType           String? // call, video, in_person
+  paystackSubId         String?
+  ussdCode              String?
+  portalUrl             String?
   // ── Church's settlement account for auto subaccount creation ──
-  settlementType String? // "bank" | "momo"
-  bankCode       String? // Paystack bank/telco code (settlement_bank)
-  bankName       String? // display name of the bank / MoMo provider
-  accountNumber  String? // the church's account / MoMo number
-  accountName    String? // resolved from Paystack (name on the account)
+  settlementType        String? // "bank" | "momo"
+  bankCode              String? // Paystack bank/telco code (settlement_bank)
+  bankName              String? // display name of the bank / MoMo provider
+  accountNumber         String? // the church's account / MoMo number
+  accountName           String? // resolved from Paystack (name on the account)
   // A church-requested change to the payout account. The CURRENT account keeps
   // working until SuperAdmin approves, so redirecting giving always needs a second pair of eyes.
   pendingSettlementType String?
@@ -1960,8 +1986,8 @@ model PaymentRequest {
   pendingAt             DateTime?
   // SuperAdmin's verification checklist: { checks: { key: true }, note, by, at }. Approving needs every required check ticked.
   verification          Json?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
 
   @@index([churchId])
   @@index([status])
@@ -1972,33 +1998,35 @@ model PaymentRequest {
 //   "webauthn" — laptop/phone fingerprint (instant, no setup)
 //   "scanner"  — USB fingerprint scanner (via local agent)
 model BiometricCredential {
-  id              String   @id @default(cuid())
-  personId        String
-  person          Person   @relation(fields: [personId], references: [id], onDelete: Cascade)
-  churchId        String
-  type            String   @default("webauthn") // "webauthn" or "scanner"
+  id       String @id @default(cuid())
+  personId String
+  person   Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+  churchId String
+  type     String @default("webauthn") // "webauthn" or "scanner"
 
   // WebAuthn fields (laptop/phone fingerprint)
-  credentialId    String?  @db.Text
-  publicKey       String?  @db.Text
-  counter         BigInt   @default(0)
-  transports      String?
+  credentialId String? @db.Text
+  publicKey    String? @db.Text
+  counter      BigInt  @default(0)
+  transports   String?
 
   // Scanner fields (USB fingerprint scanner)
-  templateData    String?  @db.Text
-  finger          String?
-  quality         Int?
-  format          String?
+  templateData String? @db.Text
+  finger       String?
+  quality      Int?
+  format       String?
 
-  deviceName      String?
-  registeredAt    DateTime @default(now())
+  deviceName   String?
+  registeredAt DateTime @default(now())
 
   @@index([personId])
   @@index([churchId])
   @@index([churchId, type])
 }
 
-/** A one-time code texted to a member to confirm a QR self check-in. Only a hash is kept. */
+/**
+ * A one-time code texted to a member to confirm a QR self check-in. Only a hash is kept.
+ */
 model SelfCheckInCode {
   id        String   @id @default(cuid())
   churchId  String
@@ -2012,62 +2040,70 @@ model SelfCheckInCode {
   @@index([churchId, personId])
 }
 
-/** A code the main church gives to another church so the two accounts can be linked. */
+/**
+ * A code the main church gives to another church so the two accounts can be linked.
+ */
 model ChurchLinkInvite {
-  id           String   @id @default(cuid())
+  id             String   @id @default(cuid())
   parentChurchId String
-  code         String   @unique
-  kind         String   @default("teens_chapel")
-  label        String?  // what the main church calls it, for example "Teens Chapel"
-  expiresAt    DateTime
+  code           String   @unique
+  kind           String   @default("teens_chapel")
+  label          String? // what the main church calls it, for example "Teens Chapel"
+  expiresAt      DateTime
   usedByChurchId String?
-  createdAt    DateTime @default(now())
+  createdAt      DateTime @default(now())
 
   @@index([parentChurchId])
 }
 
-/** A person sent from a linked church (for example a teen graduating from the Teens Chapel) to the main church. */
+/**
+ * A person sent from a linked church (for example a teen graduating from the Teens Chapel) to the main church.
+ */
 model PersonTransfer {
-  id           String   @id @default(cuid())
-  fromChurchId String
-  toChurchId   String
-  fromPersonId String?
-  status       String   @default("pending") // pending | accepted | declined
-  name         String
-  payload      Json     // the person's details, and the names of their departments, groups and zones
-  note         String?
-  createdById  String?
-  createdAt    DateTime @default(now())
-  handledAt    DateTime?
+  id              String    @id @default(cuid())
+  fromChurchId    String
+  toChurchId      String
+  fromPersonId    String?
+  status          String    @default("pending") // pending | accepted | declined
+  name            String
+  payload         Json // the person's details, and the names of their departments, groups and zones
+  note            String?
+  createdById     String?
+  createdAt       DateTime  @default(now())
+  handledAt       DateTime?
   createdPersonId String?
 
   @@index([toChurchId, status])
   @@index([fromChurchId])
 }
 
-/** A baptism: either someone preparing for it (candidate) or the record of one that took place. */
+/**
+ * A baptism: either someone preparing for it (candidate) or the record of one that took place.
+ */
 model Baptism {
-  id            String   @id @default(cuid())
+  id            String    @id @default(cuid())
   churchId      String
-  church        Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  church        Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
   personId      String?
-  person        Person?  @relation(fields: [personId], references: [id], onDelete: SetNull)
-  name          String   // kept so the record survives if the member is removed, and for people who are not members
-  status        String   @default("baptised") // candidate | baptised
+  person        Person?   @relation(fields: [personId], references: [id], onDelete: SetNull)
+  name          String // kept so the record survives if the member is removed, and for people who are not members
+  status        String    @default("baptised") // candidate | baptised
   date          DateTime?
   place         String?
   officiant     String?
   certificateNo String?
   notes         String?
-  extra         Json?    // answers to the church's own extra baptism questions: [{ id, label, value }]
-  createdAt     DateTime @default(now())
+  extra         Json? // answers to the church's own extra baptism questions: [{ id, label, value }]
+  createdAt     DateTime  @default(now())
 
   @@unique([churchId, certificateNo])
   @@index([churchId, status])
   @@index([personId])
 }
 
-/** A certificate design the church uploaded: a picture of the blank certificate and where each detail is printed on it. */
+/**
+ * A certificate design the church uploaded: a picture of the blank certificate and where each detail is printed on it.
+ */
 model CertificateTemplate {
   id        String   @id @default(cuid())
   churchId  String
@@ -2076,7 +2112,7 @@ model CertificateTemplate {
   name      String
   imageUrl  String   @db.Text
   paper     String   @default("a4-landscape") // a4-landscape | a4-portrait
-  fields    Json     // [{ key, x, y, w, size, font, color, align, bold }] with x, y, w as percentages of the picture
+  fields    Json // [{ key, x, y, w, size, font, color, align, bold }] with x, y, w as percentages of the picture
   createdAt DateTime @default(now())
 
   @@index([churchId, kind])
@@ -2087,24 +2123,24 @@ model CertificateTemplate {
 // device or software posts to the church's webhook. The device's user ID is the
 // number at the end of the member's ID (GBC-0042 is 42).
 model BiometricDevice {
-  id         String   @id @default(cuid())
-  churchId   String
-  church     Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  name       String
-  brand      String   @default("zkteco") // zkteco | webhook
-  modes      String[] // fingerprint | face | palm
-  serial     String   @unique // the device's serial number, or a generated id for a webhook
-  secret     String   // token used by the webhook
-  enabled    Boolean  @default(true)
+  id          String    @id @default(cuid())
+  churchId    String
+  church      Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name        String
+  brand       String    @default("zkteco") // zkteco | webhook
+  modes       String[] // fingerprint | face | palm
+  serial      String    @unique // the device's serial number, or a generated id for a webhook
+  secret      String // token used by the webhook
+  enabled     Boolean   @default(true)
   // When scans count: during the church's service times, only at custom hours, or always.
-  scanRule    String  @default("service-times") // service-times | custom | always
-  windowDays  Int[]   @default([])               // custom hours: 0 = Sunday ... 6 = Saturday (empty = every day)
-  windowStart String?                            // custom hours, "06:00"
-  windowEnd   String?                            // custom hours, "13:00"
-  lastSeenAt DateTime?
-  lastScanAt DateTime?
-  info       String?  // model and firmware as the device reports them
-  createdAt  DateTime @default(now())
+  scanRule    String    @default("service-times") // service-times | custom | always
+  windowDays  Int[]     @default([]) // custom hours: 0 = Sunday ... 6 = Saturday (empty = every day)
+  windowStart String? // custom hours, "06:00"
+  windowEnd   String? // custom hours, "13:00"
+  lastSeenAt  DateTime?
+  lastScanAt  DateTime?
+  info        String? // model and firmware as the device reports them
+  createdAt   DateTime  @default(now())
 
   events   BiometricDeviceEvent[]
   commands BiometricDeviceCommand[]
@@ -2112,30 +2148,34 @@ model BiometricDevice {
   @@index([churchId])
 }
 
-/** Recent scans from a device, so a church can see what happened (kept short). */
+/**
+ * Recent scans from a device, so a church can see what happened (kept short).
+ */
 model BiometricDeviceEvent {
-  id         String   @id @default(cuid())
+  id         String          @id @default(cuid())
   deviceId   String
   device     BiometricDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   churchId   String
   pin        String
   at         DateTime
   mode       String?
-  result     String   // checked_in | already_in | unknown_id | too_old | not_active
+  result     String // checked_in | already_in | unknown_id | too_old | not_active
   personName String?
-  createdAt  DateTime @default(now())
+  createdAt  DateTime        @default(now())
 
   @@index([deviceId, createdAt])
   @@index([churchId])
 }
 
-/** Things to send to a device the next time it calls in (such as members to add). */
+/**
+ * Things to send to a device the next time it calls in (such as members to add).
+ */
 model BiometricDeviceCommand {
-  id        Int      @id @default(autoincrement())
+  id        Int             @id @default(autoincrement())
   deviceId  String
   device    BiometricDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   body      String
-  createdAt DateTime @default(now())
+  createdAt DateTime        @default(now())
   sentAt    DateTime?
   doneAt    DateTime?
 
@@ -2146,42 +2186,42 @@ model BiometricDeviceCommand {
 // A PDF receipt WODONA / WorshipHQ gave out: automatic ones (a church registered, a church upgraded) and ones made by hand
 // in /admin/receipts. The PDF itself is not stored: it is drawn again from these fields, so a receipt can always be re-sent.
 model Receipt {
-  id        String   @id @default(cuid())
-  brand     String   // "worshiphq" (a WODONA product) | "wodona"
-  year      Int      // numbering restarts each year
-  seq       Int      // 1, 2, 3 ... within the brand and year
-  kind      String   // manual | registration | upgrade | gift
-  sheet     String   @default("a4") // a4 | half (half = the top or bottom half of an A4)
-  churchId  String?
-  church    Church?  @relation(fields: [churchId], references: [id], onDelete: SetNull)
-  toName    String
-  toOrg     String?
-  toEmail   String?
-  toPhone   String?
-  toAddress String?
-  currency  String   @default("GHS")
-  items     Json     // [{ description, detail?, qty, unit }]
-  discount  Float    @default(0)
-  total     Float
-  paid      Float    // everything paid on this sale so far, including this receipt
-  paidBefore Float   @default(0) // what had been paid before this receipt (a balance receipt follows an earlier one)
-  relatedId String?  // the first receipt of the sale, when this one settles (part of) a balance
-  method    String?
-  reference String?
-  notes     String?
-  signatureLines Boolean @default(false)
-  issuedAt  DateTime @default(now())
-  emailedAt DateTime?
-  emailStatus String? // sent | failed | stubbed
-  emailError  String?
-  createdAt DateTime @default(now())
+  id             String    @id @default(cuid())
+  brand          String // "worshiphq" (a WODONA product) | "wodona"
+  year           Int // numbering restarts each year
+  seq            Int // 1, 2, 3 ... within the brand and year
+  kind           String // manual | registration | upgrade | gift
+  sheet          String    @default("a4") // a4 | half (half = the top or bottom half of an A4)
+  churchId       String?
+  church         Church?   @relation(fields: [churchId], references: [id], onDelete: SetNull)
+  toName         String
+  toOrg          String?
+  toEmail        String?
+  toPhone        String?
+  toAddress      String?
+  currency       String    @default("GHS")
+  items          Json // [{ description, detail?, qty, unit }]
+  discount       Float     @default(0)
+  total          Float
+  paid           Float // everything paid on this sale so far, including this receipt
+  paidBefore     Float     @default(0) // what had been paid before this receipt (a balance receipt follows an earlier one)
+  relatedId      String? // the first receipt of the sale, when this one settles (part of) a balance
+  method         String?
+  reference      String?
+  notes          String?
+  signatureLines Boolean   @default(false)
+  issuedAt       DateTime  @default(now())
+  emailedAt      DateTime?
+  emailStatus    String? // sent | failed | stubbed
+  emailError     String?
+  createdAt      DateTime  @default(now())
+
+  revisions ReceiptRevision[]
 
   @@unique([brand, year, seq])
   @@index([churchId])
   @@index([relatedId])
   @@index([issuedAt])
-
-  revisions ReceiptRevision[]
 }
 
 /// Every edit made to a receipt keeps what it looked like before, so changes can be audited and the old version viewed.
@@ -2189,9 +2229,9 @@ model ReceiptRevision {
   id        String   @id @default(cuid())
   receiptId String
   receipt   Receipt  @relation(fields: [receiptId], references: [id], onDelete: Cascade)
-  n         Int      // 1 = the first edit of this receipt
-  before    Json     // the receipt as it was before this edit
-  changes   Json     // [{ label, from, to }]
+  n         Int // 1 = the first edit of this receipt
+  before    Json // the receipt as it was before this edit
+  changes   Json // [{ label, from, to }]
   createdAt DateTime @default(now())
 
   @@index([receiptId])
@@ -2203,18 +2243,40 @@ model OutreachMessage {
   id        String   @id @default(cuid())
   churchId  String
   church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  userId    String?  // the church contact it went to
+  userId    String? // the church contact it went to
   toName    String?
-  to        String   // email address or phone number
-  channel   String   // email | sms
-  template  String   // welcome | getting-started | check-in | upgrade | custom ...
+  to        String // email address or phone number
+  channel   String // email | sms
+  template  String // welcome | getting-started | check-in | upgrade | custom ...
   subject   String?
   body      String   @db.Text
-  status    String   // sent | failed | stubbed (no provider configured)
+  status    String // sent | failed | stubbed (no provider configured)
   error     String?
   auto      Boolean  @default(false) // sent automatically at signup, not by hand
   createdAt DateTime @default(now())
 
   @@index([churchId, createdAt])
   @@index([channel, template, status])
+}
+
+/// The owner's private money ledger. Two books side by side: "site" (WorshipHQ's own income and
+/// costs) and "personal" (Doctor WorshipSax's overall money).
+///
+/// Only MANUAL entries live here. Real site earnings - plan payments and SMS top-ups - are read
+/// live from PlanPayment and SmsTransaction and never copied in, so the two can never drift apart
+/// and a refunded payment corrects itself.
+///
+/// Owner-only. Every route and action that touches it must call requireSuperAdminOwner(), not just
+/// the page: a partner with an admin SuperAdmin login must never reach this.
+model OwnerLedgerEntry {
+  id         String   @id @default(cuid())
+  ledger     String // site | personal
+  kind       String // income | expense
+  amountGhs  Float
+  category   String? // e.g. Paid partner, Hosting, Domain, Salary
+  note       String?
+  occurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@index([ledger, occurredAt])
 }

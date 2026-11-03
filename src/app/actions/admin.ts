@@ -308,6 +308,32 @@ export async function grantSmsCredits(churchId: string, credits: number) {
   revalidatePath("/admin");
 }
 
+/**
+ * Take SMS credits back - granted by mistake, or granted against a payment that never came.
+ *
+ * Clamped to what the church actually holds, so a removal can never push a balance negative and
+ * leave them unable to send even after they pay. Recorded as a signed row in SmsTransaction like
+ * every other movement, so the history still adds up.
+ */
+export async function removeSmsCredits(churchId: string, credits: number, reason?: string) {
+  await requireSuperAdmin();
+  const want = Math.round(Math.abs(Number(credits)));
+  if (!want || !Number.isFinite(want)) return { ok: false as const, error: "Enter how many to remove." };
+
+  const church = await db.church.findUnique({ where: { id: churchId }, select: { smsCredits: true, name: true } });
+  if (!church) return { ok: false as const, error: "Church not found." };
+  if (church.smsCredits <= 0) return { ok: false as const, error: `${church.name} has no credits to remove.` };
+
+  const taken = Math.min(want, church.smsCredits);
+  const { balance } = await addCredits(churchId, -taken, "refund", {
+    note: reason?.trim() || "Removed by WorshipHQ",
+    source: "manual",
+  });
+
+  revalidatePath("/admin");
+  return { ok: true as const, taken, balance, clamped: taken < want };
+}
+
 export async function deleteChurch(churchId: string) {
   await requireSuperAdmin();
   const church = await db.church.findUnique({ where: { id: churchId }, select: { isDemo: true } });

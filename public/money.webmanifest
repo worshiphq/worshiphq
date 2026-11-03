@@ -1,0 +1,15 @@
+{
+  "name": "WorshipHQ Money",
+  "short_name": "Money",
+  "description": "Private income and expense tracking.",
+  "start_url": "/admin/money",
+  "scope": "/admin/money",
+  "display": "standalone",
+  "background_color": "#0c1116",
+  "theme_color": "#0c1116",
+  "orientation": "portrait",
+  "icons": [
+    { "src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

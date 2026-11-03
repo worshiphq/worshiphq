@@ -9,6 +9,7 @@ import {
   setChurchPlan,
   deleteChurch,
   grantSmsCredits,
+  removeSmsCredits,
   grantPlanBypass,
   approveSenderId,
   sendSenderIdUpdate,
@@ -43,7 +44,7 @@ function SmsTierSelect({ church, run }: { church: ChurchRow; run: ReturnType<typ
 
 export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
   const [q, setQ] = useState("");
-  const { run } = useFeedback();
+  const { run, toast } = useFeedback();
   const filtered = churches.filter(
     (c) =>
       c.name.toLowerCase().includes(q.toLowerCase()) ||
@@ -176,6 +177,23 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                 className="rounded-md bg-white/5 px-2 py-1 text-xs text-slate-200 hover:bg-white/10"
               >
                 + SMS credits
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  const v = prompt(`Remove SMS credits from ${c.name} (they have ${c.smsCredits ?? 0}):`, "500");
+                  const n = Number(v);
+                  if (!(n > 0)) return;
+                  const why = prompt("Why? (shows in their SMS history)", "Removed by WorshipHQ") ?? undefined;
+                  run(async () => {
+                    const res = await removeSmsCredits(c.id, n, why);
+                    if (!res.ok) throw new Error(res.error);
+                    if (res.clamped) toast(`Only ${res.taken} were left to remove. Balance is now ${res.balance}.`, "info");
+                  }, { pending: "Removing…", success: `Removed ${n} credits` });
+                }}
+                className="rounded-md bg-rose-500/10 px-2 py-1 text-xs text-rose-300 hover:bg-rose-500/20"
+              >
+                - SMS credits
               </button>
               <select
                 defaultValue={c.plan}

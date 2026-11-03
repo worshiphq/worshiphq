@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, FileText, Megaphone, LogOut, CreditCard, Wallet, Undo2, DatabaseBackup, KeyRound, TrendingUp, Mail, Receipt, Users, UserCog, Menu } from "lucide-react";
+import { LayoutDashboard, FileText, Megaphone, LogOut, CreditCard, Wallet, Undo2, DatabaseBackup, KeyRound, TrendingUp, Mail, Receipt, Users, UserCog, Menu, PiggyBank } from "lucide-react";
 import { superAdminSignOut } from "@/app/actions/admin";
 
 const GROUPS: { title: string; items: { href: string; label: string; icon: React.ComponentType<{ className?: string }> }[] }[] = [
@@ -43,10 +43,18 @@ function Brand() {
   );
 }
 
-function NavLinks() {
+function NavLinks({ isOwner = false }: { isOwner?: boolean }) {
+  // Money is the owner's private book. Hidden entirely from an admin SuperAdmin, and the page
+  // itself refuses them too - the link is a convenience, never the guard.
+  const groups = isOwner
+    ? GROUPS.map((g) =>
+      g.title === "Money"
+        ? { ...g, items: [...g.items, { href: "/admin/money", label: "My money", icon: PiggyBank }] }
+        : g)
+    : GROUPS;
   return (
     <nav aria-label="Admin" className="space-y-5">
-      {GROUPS.map((g) => (
+      {groups.map((g) => (
         <div key={g.title}>
           <div className="px-3 pb-1.5 text-[11px] font-semibold uppercase tracking-wider text-slate-500">{g.title}</div>
           <div className="space-y-0.5">
@@ -83,9 +91,13 @@ function SignOut() {
 
 export function AdminShell({
   children,
+  isOwner = false,
 }: {
   /** Kept so existing pages do not need to change. Not shown. */
   email?: string;
+  /** Owner-only items are not rendered for an admin SuperAdmin (the partner). The pages refuse them
+   *  anyway via requireSuperAdminOwner, but a link they can see and not open invites questions. */
+  isOwner?: boolean;
   children: React.ReactNode;
 }) {
   return (
@@ -93,7 +105,7 @@ export function AdminShell({
       {/* Sidebar on large screens */}
       <aside className="sticky top-0 hidden h-screen w-60 shrink-0 flex-col gap-6 overflow-y-auto border-r border-white/10 bg-[#0a0e13] p-4 lg:flex">
         <Brand />
-        <div className="flex-1"><NavLinks /></div>
+        <div className="flex-1"><NavLinks isOwner={isOwner} /></div>
         <SignOut />
       </aside>
 
@@ -107,7 +119,7 @@ export function AdminShell({
             </span>
           </summary>
           <div className="mt-4 space-y-4 pb-2">
-            <NavLinks />
+            <NavLinks isOwner={isOwner} />
             <SignOut />
           </div>
         </details>

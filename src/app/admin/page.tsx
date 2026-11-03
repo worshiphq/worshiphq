@@ -20,7 +20,7 @@ export default async function AdminOverviewPage() {
   const maxTrend = Math.max(1, ...stats.trend.map((t) => t.churches));
 
   return (
-    <AdminShell email={sa.email}>
+    <AdminShell email={sa.email} isOwner={sa.role === "owner"}>
       {/* KPIs */}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {kpis.map((k) => (
