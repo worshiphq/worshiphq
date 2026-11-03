@@ -917,9 +917,16 @@ function PersonForm({
                 <Label htmlFor="status">Membership status</Label>
                 <select id="status" name="status" defaultValue={person?.status ?? "active"} className={selectBase}>
                   <option value="active">Active member</option>
-                  <option value="visitor">Visitor</option>
                   <option value="inactive">Inactive</option>
+                  {/* "Visitor" is deliberately not offered here. A visitor belongs in Visitors, where their
+                      visit date, purpose and follow-ups live. Choosing it here used to create a person who
+                      never appeared in the Visitors list. Existing visitors keep the option so saving an
+                      older record doesn't silently reclassify them. */}
+                  {person?.status === "visitor" && <option value="visitor">Visitor</option>}
                 </select>
+                <p className="mt-1 text-xs text-ink-faint">
+                  Adding someone who just visited? Use <b>Visitors</b> instead, so their visit date, purpose and follow-up are recorded.
+                </p>
               </div>
             </>
           )}
