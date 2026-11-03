@@ -172,6 +172,47 @@ You can now use it for SMS broadcasts in WorshipHQ.`,
   revalidatePath("/admin");
 }
 
+/**
+ * Text a church where its Sender ID request has got to, from a fixed set of templates.
+ *
+ * Approving and rejecting already texted the church; everything in between was silence, which is
+ * what makes people chase. The owner here is the same one those two pick: the oldest
+ * phone-verified user on the church.
+ */
+export async function sendSenderIdUpdate(churchId: string, key: string) {
+  await requireSuperAdmin();
+
+  const { senderIdUpdate } = await import("@/lib/sms/sender-id-updates");
+  const update = senderIdUpdate(key);
+  if (!update) return { ok: false as const, error: "Unknown update." };
+
+  const church = await db.church.findUnique({
+    where: { id: churchId },
+    select: { name: true, smsSenderId: true, smsSenderIdStatus: true },
+  });
+  if (!church) return { ok: false as const, error: "Church not found." };
+  if (!church.smsSenderId) return { ok: false as const, error: "This church has not requested a Sender ID." };
+
+  const owner = await db.user.findFirst({
+    where: { churchId, phoneVerified: true },
+    orderBy: { createdAt: "asc" },
+    select: { phone: true },
+  });
+  if (!owner?.phone) return { ok: false as const, error: "No phone-verified owner to text." };
+
+  const body = update.body({ senderId: church.smsSenderId, churchName: church.name });
+  const res = await sendSms(owner.phone, body, { heading: null });
+  // Only move the status once the text actually went, so the record never claims we told them
+  // something they were never told.
+  if (!res.ok) return { ok: false as const, error: res.error || "Could not send the text. Status unchanged." };
+  if (update.status && update.status !== church.smsSenderIdStatus) {
+    await db.church.update({ where: { id: churchId }, data: { smsSenderIdStatus: update.status } });
+  }
+
+  revalidatePath("/admin");
+  return { ok: true as const, sent: update.label };
+}
+
 export async function rejectSenderId(churchId: string) {
   await requireSuperAdmin();
 

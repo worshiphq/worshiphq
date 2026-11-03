@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Ban, CheckCircle2, Trash2, Search, Building2, Gift } from "lucide-react";
 import type { ChurchRow } from "@/lib/data/admin";
+import { SENDER_ID_UPDATE_OPTIONS, SENDER_ID_STATUS_LABEL } from "@/config/sender-id";
 import {
   setChurchSuspended,
   setChurchPlan,
@@ -10,6 +11,7 @@ import {
   grantSmsCredits,
   grantPlanBypass,
   approveSenderId,
+  sendSenderIdUpdate,
   rejectSenderId,
   setChurchSmsTier,
 } from "@/app/actions/admin";
@@ -112,12 +114,36 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
             </div>
 
             {c.smsSenderId && (
-              <div className="mt-2 flex items-center gap-2 text-xs">
+              <div className="mt-2 flex flex-wrap items-center gap-2 text-xs">
                 <span className="text-slate-500">Sender ID:</span>
                 <span className="font-medium text-slate-200">{c.smsSenderId}</span>
-                <span className={c.smsSenderIdStatus === "approved" ? "text-emerald-400" : c.smsSenderIdStatus === "rejected" ? "text-red-400" : "text-amber-400"}>
-                  {c.smsSenderIdStatus}
+                <span className={c.smsSenderIdStatus === "approved" ? "text-emerald-400" : c.smsSenderIdStatus === "rejected" ? "text-red-400" : c.smsSenderIdStatus === "submitted" ? "text-sky-400" : "text-amber-400"}>
+                  {SENDER_ID_STATUS_LABEL[c.smsSenderIdStatus] ?? c.smsSenderIdStatus}
                 </span>
+                {/* Tell them where it has got to. Between requesting and being approved the church
+                    used to hear nothing, which is what makes people chase. */}
+                {c.smsSenderIdStatus !== "approved" && (
+                  <select
+                    defaultValue=""
+                    onChange={(e) => {
+                      const key = e.target.value;
+                      const pick = SENDER_ID_UPDATE_OPTIONS.find((u) => u.key === key);
+                      e.target.value = "";
+                      if (!pick) return;
+                      if (!confirm(`Text ${c.name} "${pick.label}"?`)) return;
+                      run(async () => {
+                        const res = await sendSenderIdUpdate(c.id, key);
+                        if (!res.ok) throw new Error(res.error);
+                      }, { pending: "Texting the church…", success: "Update sent" });
+                    }}
+                    className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60"
+                  >
+                    <option value="" className="bg-slate-800">Send an update…</option>
+                    {SENDER_ID_UPDATE_OPTIONS.map((u) => (
+                      <option key={u.key} value={u.key} className="bg-slate-800">{u.label}</option>
+                    ))}
+                  </select>
+                )}
               </div>
             )}
 
