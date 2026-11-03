@@ -40,6 +40,7 @@ export function RemindersClient({
   canDelete = false,
   departments = [],
   absence,
+  automationsLocked = false,
 }: {
   automations: Automation[];
   upcoming: Upcoming[];
@@ -48,6 +49,8 @@ export function RemindersClient({
   canDelete?: boolean;
   departments?: { id: string; name: string }[];
   absence: AbsenceData;
+  /** Automations are a Pro feature; below Pro they are shown but cannot be created or changed. */
+  automationsLocked?: boolean;
 }) {
   const [pending, start] = useTransition();
   const { toast } = useFeedback();
@@ -63,7 +66,7 @@ export function RemindersClient({
           description="Pick what triggers it. WorshipHQ sends the message automatically."
           submitLabel="Create automation"
           action={createAutomation}
-          disabled={!canWrite}
+          disabled={!canWrite || automationsLocked}
           pendingLabel="Creating…"
           successMessage="Automation created"
         >
@@ -155,11 +158,18 @@ export function RemindersClient({
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-3 lg:col-span-2">
-          {automations.length === 0 && (
+          {automationsLocked && (
+            <Card className="border-gold/30 bg-gold-soft p-5 text-sm text-ink">
+              <b>Automations are part of the Pro plan.</b> Your birthday and we-miss-you reminders above keep working on Starter.
+              Welcome messages, visitor follow-ups and custom reminders pause until the Main Admin upgrades in Settings, Billing.
+              {automations.length > 0 && " Yours are kept safe and will resume the moment you upgrade."}
+            </Card>
+          )}
+          {automations.length === 0 && !automationsLocked && (
             <Card className="p-8 text-center text-sm text-ink-muted">No automations yet. Create one to start automatic birthday blessings and follow-ups.</Card>
           )}
           {automations.map((a) => (
-            <AutomationCard key={a.id} automation={a} canWrite={canWrite} canDelete={canDelete} />
+            <AutomationCard key={a.id} automation={a} canWrite={canWrite && !automationsLocked} canDelete={canDelete} />
           ))}
         </div>
 

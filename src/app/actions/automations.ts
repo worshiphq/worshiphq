@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
-import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
+import { requireSession, assertCanWrite, assertCanDelete, assertPlanFeature } from "@/lib/auth";
 import { TRIGGER_CATALOG, DEFAULT_TEMPLATES, runSingleAutomation } from "@/lib/automations/run";
 import { audit } from "@/lib/audit";
 import { absentMembers } from "@/lib/automations/absence";
@@ -12,6 +12,8 @@ import type { Channel } from "@prisma/client";
 export async function toggleAutomation(id: string, active: boolean) {
   const session = await requireSession();
   assertCanWrite(session, "reminders");
+  // Automations are their own (Pro) feature; the page they live on is Starter's.
+  assertPlanFeature(session, "automations");
   await db.automation.updateMany({ where: { id, churchId: session.churchId }, data: { active } });
   revalidatePath("/app/reminders");
 }
@@ -19,6 +21,8 @@ export async function toggleAutomation(id: string, active: boolean) {
 export async function createAutomation(formData: FormData) {
   const session = await requireSession();
   assertCanWrite(session, "reminders");
+  // Automations are their own (Pro) feature; the page they live on is Starter's.
+  assertPlanFeature(session, "automations");
 
   const trigger = String(formData.get("trigger") ?? "birthday");
   const channel = (String(formData.get("channel") ?? "SMS") as Channel) || "SMS";
@@ -82,6 +86,8 @@ export async function updateAutomationSettings(
 ) {
   const session = await requireSession();
   assertCanWrite(session, "reminders");
+  // Automations are their own (Pro) feature; the page they live on is Starter's.
+  assertPlanFeature(session, "automations");
   const trimmed = opts.messageTemplate.trim();
   if (!trimmed) return { ok: false, error: "Template cannot be empty." };
 
@@ -108,6 +114,8 @@ export async function deleteAutomation(id: string) {
 export async function updateAutomationTemplate(id: string, template: string) {
   const session = await requireSession();
   assertCanWrite(session, "reminders");
+  // Automations are their own (Pro) feature; the page they live on is Starter's.
+  assertPlanFeature(session, "automations");
   const trimmed = template.trim();
   if (!trimmed) return { ok: false, error: "Template cannot be empty." };
   await db.automation.updateMany({
@@ -121,6 +129,8 @@ export async function updateAutomationTemplate(id: string, template: string) {
 export async function runAutomationNow(id: string) {
   const session = await requireSession();
   assertCanWrite(session, "reminders");
+  // Automations are their own (Pro) feature; the page they live on is Starter's.
+  assertPlanFeature(session, "automations");
   const result = await runSingleAutomation(id, session.churchId);
   revalidatePath("/app/reminders");
   return result;

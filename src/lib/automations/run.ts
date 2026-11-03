@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { timeReached, localParts, mmddInTz, ymdInTz } from "@/lib/time/tz";
 import { forEachChurch, type Deadline } from "@/lib/automations/pool";
@@ -76,10 +77,10 @@ export async function runAutomations(now = new Date(), opts: { only?: string[]; 
   totalSent: number;
   outcomes: AutomationOutcome[];
 }> {
-  const churches = await db.church.findMany({
+  const churches = await onlyWithFeature(await db.church.findMany({
     where: { isDemo: false },
     select: { id: true, name: true, timezone: true, absenceOn: true, messageTemplates: true },
-  });
+  }), "automations");
 
   const outcomes: AutomationOutcome[] = [];
   const threeDaysAgo = new Date(now.getTime() - 3 * 86400000);

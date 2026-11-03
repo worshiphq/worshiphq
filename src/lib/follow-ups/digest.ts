@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import { env } from "@/lib/env";
 import { ymdInTz, timeReached } from "@/lib/time/tz";
 import { sendEmail } from "@/lib/integrations/email";
@@ -33,10 +34,10 @@ function emailBody(churchName: string, intro: string, items: Item[]) {
  * it to one run no matter how often the cron ticks.
  */
 export async function runFollowUpDigest(now = new Date(), ignoreHour = false, deadline?: Deadline) {
-  const churches = await db.church.findMany({
+  const churches = await onlyWithFeature(await db.church.findMany({
     where: { isDemo: false, followUps: { some: { status: { not: "done" }, dueDate: { not: null, lte: new Date(now.getTime() + 2 * 86400000) } } } },
     select: { id: true, name: true, timezone: true },
-  });
+  }), "follow-ups");
 
   let emails = 0;
   const pool = await forEachChurch(churches, async (church) => {

@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getActiveSession } from "@/lib/auth";
 import { hasSection } from "@/lib/permissions";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (!session || session.isDemo) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasSection(session, "attendance") || session.planLocked?.includes("fingerprint")) {
     return NextResponse.json({ error: "Not allowed" }, { status: 403 });

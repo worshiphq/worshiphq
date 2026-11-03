@@ -393,7 +393,13 @@ export function SettingsClient({
                 <form action={inviteTeammate} className="mt-4 grid gap-3 sm:grid-cols-2">
                   <Input name="name" placeholder="Full name" required disabled={ro} />
                   <PhoneInput name="phone" aria-label="Mobile number for the SMS invite" required disabled={ro} />
-                  <Input name="email" type="email" placeholder="Email (optional)" disabled={ro} />
+                  <div>
+                    <Input name="email" type="email" placeholder="Email (optional)" disabled={ro} />
+                    <label className="mt-1.5 flex items-center gap-2 text-xs text-ink-muted">
+                      <input type="checkbox" name="alsoEmail" disabled={ro} className="size-3.5 rounded border-line accent-[var(--color-primary)]" />
+                      Also email the invite
+                    </label>
+                  </div>
                   <select
                     name="role"
                     defaultValue="Leader"
@@ -492,7 +498,8 @@ export function SettingsClient({
                   <Input name="name" placeholder="Role name (e.g. Finance - Day Born)" required disabled={ro} />
                   <div>
                     <Label>What can this role do?</Label>
-                    <RoleMatrix idPrefix="new-role" />
+                    {/* Everyone on the team sees the calendar unless an admin takes it away, so a new role starts with it ticked. */}
+                    <RoleMatrix idPrefix="new-role" initialView={["calendar"]} />
                   </div>
                   <label className="flex items-center gap-2 text-sm text-ink-muted">
                     <input type="checkbox" name="canDelete" className="size-4 rounded border-line accent-primary" />

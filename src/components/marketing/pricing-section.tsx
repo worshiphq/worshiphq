@@ -277,6 +277,9 @@ function CompareGroup({ group }: { group: (typeof comparison)[number] }) {
                 ) : (
                   <Minus className="mx-auto size-4 text-ink-faint/50" />
                 )
+              ) : v === "Coming soon" ? (
+                // Not built yet, and said plainly rather than ticked: a quiet badge, not a bold value.
+                <span className="rounded-full border border-ink/10 bg-surface-2 px-2 py-0.5 text-[11px] font-medium text-ink-faint">Coming soon</span>
               ) : (
                 <span className="font-medium text-ink">{v}</span>
               )}

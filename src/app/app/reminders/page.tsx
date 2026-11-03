@@ -30,5 +30,8 @@ export default async function RemindersPage() {
   };
   // The attendance based check replaces the older "We miss you" reminder, which is now retired.
   const shown = { ...data, automations: data.automations.filter((a) => a.trigger !== "lapsed") };
-  return <RemindersClient {...shown} absence={absence} canWrite={canEdit(session, "reminders")} canDelete={session.canDelete && canEdit(session, "reminders")} departments={departments} />;
+  // Reminders (birthdays, absence texts) are Starter; the automations beside them are Pro. The server
+  // refuses automation changes below Pro, so this only lets the screen say so instead of failing.
+  const automationsLocked = !session.isDemo && !!session.planLocked?.includes("automations");
+  return <RemindersClient {...shown} absence={absence} canWrite={canEdit(session, "reminders")} canDelete={session.canDelete && canEdit(session, "reminders")} departments={departments} automationsLocked={automationsLocked} />;
 }

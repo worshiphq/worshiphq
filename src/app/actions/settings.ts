@@ -369,8 +369,9 @@ export async function inviteTeammate(formData: FormData) {
     { heading: null },
   );
 
-  // Also email when a real address was given (delivers only if email is configured).
-  if (emailRaw) {
+  // The text above always goes. Email is the admin's choice: an address typed only so the person can sign
+  // in with it is not a request to email the invite too, so it needs the "Also email" box ticked.
+  if (emailRaw && formData.get("alsoEmail") === "on") {
     await sendEmail({
       to: emailRaw,
       subject: `You've been invited to ${churchName}`,
@@ -1019,12 +1020,25 @@ export async function verifyPlanUpgrade(
 export async function redeemPlanBypass(code: string) {
   const session = await requireSession();
   assertCanWrite(session);
+  // The code goes to the Main Admin's phone and unlocks a year of a paid plan, so only the Main Admin
+  // may use it. Before this, any team member of the church who had seen or guessed it could.
+  if (session.role !== "Owner") return { error: "Only the Main Admin can use an upgrade code." };
+
+  // A six-digit code is only 900,000 guesses, so guessing has to be slow: five tries an hour per
+  // church, and a wider cap per address so one person cannot rotate through churches.
+  const { rateLimitAll, clientIp, HOUR } = await import("@/lib/rate-limit");
+  const allowed = await rateLimitAll([
+    { key: `bypass:church:${session.churchId}`, max: 5, windowMs: HOUR },
+    { key: `bypass:ip:${await clientIp()}`, max: 15, windowMs: HOUR },
+  ]);
+  if (!allowed) return { error: "Too many attempts. Please wait an hour and try again." };
 
   const sub = await db.subscription.findUnique({ where: { churchId: session.churchId } });
   if (!sub || !sub.bypassPlan || !sub.bypassCode) {
     return { error: "No upgrade code found for your account" };
   }
-  if (sub.bypassCode !== code.trim()) {
+  const { safeEqual } = await import("@/lib/auth/tokens");
+  if (!safeEqual(sub.bypassCode, code.trim())) {
     return { error: "Invalid code. Please check and try again." };
   }
 

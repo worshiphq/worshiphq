@@ -1,6 +1,6 @@
 import type { NextRequest } from "next/server";
 import JSZip from "jszip";
-import { getSession } from "@/lib/auth";
+import { getActiveSession } from "@/lib/auth";
 import { hasSection } from "@/lib/permissions";
 import { getChurchPlan } from "@/lib/plan-gate-server";
 import { planRank } from "@/lib/plan-gate";
@@ -56,7 +56,7 @@ async function oneBook(ds: Dataset, data: { headers: string[]; rows: unknown[][]
  *                             workbook (Pro/Max only)
  */
 export async function GET(req: NextRequest) {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (!session || session.isDemo) return new Response("Unauthorized", { status: 401 });
 
   const url = new URL(req.url);

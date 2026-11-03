@@ -225,6 +225,9 @@ model Church {
   messageTemplates            Json?
   // "We have not seen you in a while": who counts as away, and who is told.
   absenceOn                   Boolean         @default(false)
+  // Max: after this many weeks with no attendance, an active member is moved to inactive on its own.
+  autoInactiveOn              Boolean         @default(false)
+  autoInactiveWeeks           Int             @default(12)
   absenceWeeks                Int             @default(3)
   absenceTextMember           Boolean         @default(true)
   absenceAlertAdmins          Boolean         @default(true)
@@ -267,6 +270,8 @@ model Church {
   transactions          Transaction[]
   smsTransactions       SmsTransaction[]
   smsAuditLogs          SmsAuditLog[]
+  savedCards            SavedCard[]
+  billingEvents         BillingEvent[]
   harvests              Harvest[]
   harvestContributions  HarvestContribution[]
   subscription          Subscription?
@@ -792,6 +797,10 @@ model Fund {
   account   ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
   gifts     Gift[]
   pledges   Pledge[]
+  // Max (fund accounting): money given to a restricted fund can only be spent on that fund, and what
+  // is spent can never exceed what the fund holds.
+  restricted Boolean       @default(false)
+  expenses  Expense[]
 
   @@index([churchId])
 }
@@ -1353,6 +1362,65 @@ model Subscription {
   cancelAtPeriodEnd    Boolean   @default(false)
   // Renewal reminder milestones already sent for this period, e.g. ["7","3"].
   renewalRemindersSent String[]  @default([])
+
+  // Automatic renewal: the church opted in and chose a saved card to charge on the renewal date.
+  autoRenew            Boolean   @default(false)
+  cardId               String?
+  // The last time we tried to charge the card, and how many tries in a row failed. Stops a cron re-run
+  // from charging twice and lets us stop after a few failures instead of hammering a dead card.
+  lastRenewalAttemptAt DateTime?
+  renewalFailures      Int       @default(0)
+  // The renewal date the platform owner was last told about, so each church is announced to the owner
+  // once per period instead of every day it stays inside the one-week window.
+  ownerAlertedFor      DateTime?
+  // A bypass code stops working after this, so an old unused code cannot be redeemed months later.
+  bypassExpiresAt      DateTime?
+}
+
+/**
+ * A card a church chose to keep for renewals. Only Paystack CARD payments can be kept: Mobile Money
+ * has to be approved on the phone every time, so Paystack never marks it reusable.
+ *
+ * `authCode` is the token that lets us charge the card without the church present, so it is stored
+ * encrypted and is never selected into anything a browser can see. The church only ever sees the
+ * brand, the last four digits and the expiry.
+ */
+model SavedCard {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  authCode  String // encrypted
+  signature String // Paystack's card fingerprint, so the same card is only kept once
+  email     String // the customer email the card was saved under; Paystack needs it to charge it again
+  brand     String?
+  last4     String
+  expMonth  String?
+  expYear   String?
+  bank      String?
+  createdAt DateTime @default(now())
+
+  @@unique([churchId, signature])
+  @@index([churchId])
+}
+
+/**
+ * Everything the billing system told a church, or did on its behalf: reminders, expiry notices,
+ * automatic charges and failures. The SuperAdmin renewals page reads this so the owner can see what
+ * each church has actually been told, and whether it was delivered.
+ */
+model BillingEvent {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  kind      String // reminder | expired | downgraded | lapsed | auto_renewed | auto_renew_failed | card_saved | card_removed | auto_renew_on | auto_renew_off
+  title     String
+  detail    String?
+  channels  String? // e.g. "email,sms" - what actually went out
+  delivered Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  @@index([churchId, createdAt])
+  @@index([createdAt])
 }
 
 /**
@@ -1678,10 +1746,13 @@ model Expense {
   approvedBy  String?
   accountId   String? // which account the money came out of
   account     ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  fundId      String? // which fund paid for it (fund accounting, Max)
+  fund        Fund?          @relation(fields: [fundId], references: [id], onDelete: SetNull)
   date        DateTime       @default(now())
   createdAt   DateTime       @default(now())
 
   @@index([churchId, date])
+  @@index([fundId])
 }
 
 // ── Facilities & Bookings ─────────────────────────────────

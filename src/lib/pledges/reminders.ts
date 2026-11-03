@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { DEFAULT_PLEDGE_REMINDER_TEMPLATE, money, fill } from "@/lib/pledges/templates";
 import { forEachChurch, type Deadline } from "@/lib/automations/pool";
@@ -13,10 +14,10 @@ const DAY_MS = 86_400_000;
  * late run doesn't blast several texts at the same person.
  */
 export async function runPledgeReminders(deadline?: Deadline) {
-  const churches = await db.church.findMany({
+  const churches = await onlyWithFeature(await db.church.findMany({
     where: { isDemo: false },
     select: { id: true, name: true, pledgeReminderDays: true, pledgeReminderTemplate: true },
-  });
+  }), "pledges");
 
   let sent = 0;
   let considered = 0;

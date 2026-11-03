@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import { localParts, ymdInTz, timeReached } from "@/lib/time/tz";
 import { templateFor, renderTemplate } from "@/lib/messages/registry";
 import { sendChurchSms } from "@/lib/sms/credits";
@@ -20,7 +21,7 @@ export async function runRosterReminders(now = new Date(), ignoreHour = false, d
   const horizon = new Date(now.getTime() - 2 * 86400000);
   // Every church with reminders on, plus any with upcoming duties (a sheet or service
   // may carry its own timing even when the church-wide reminder is off).
-  const churches = await db.church.findMany({
+  const churches = await onlyWithFeature(await db.church.findMany({
     where: {
       isDemo: false,
       OR: [
@@ -29,7 +30,7 @@ export async function runRosterReminders(now = new Date(), ignoreHour = false, d
       ],
     },
     select: { id: true, name: true, timezone: true, messageTemplates: true, rosterRemindOn: true, rosterRemindHour: true, rosterRemindMinute: true, rosterRemindLeadDays: true, rosterRemindWeekday: true },
-  });
+  }), "rosters");
 
   const shortDate = (d: Date, tz: string) => new Date(d).toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short", timeZone: tz });
 

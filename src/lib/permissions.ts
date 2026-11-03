@@ -103,6 +103,8 @@ export const MODULE_LABELS: Record<string, string> = {
 /** Session shape - client-safe (no server imports). Backed by a real DB user. */
 export interface Session {
   userId: string;
+  /** The church is suspended. Support sessions are exempt; everyone else is refused by assertCanWrite and the API routes. */
+  suspended?: boolean;
   name: string;
   email: string;
   role: Role;
@@ -144,7 +146,10 @@ export const ROLE_PERMISSIONS: Record<Role, string[]> = {
   Owner: ["*"],
   Admin: ["people", "attendance", "giving", "events", "volunteers", "communications", "reminders", "settings", "accounting", "harvest"],
   Pastor: ["people", "attendance", "giving", "events", "volunteers", "communications", "reminders", "settings"],
-  Finance: ["giving", "accounting", "harvest", "people", "reminders"],
+  // The calendar is for the whole team: Finance is the one built-in role whose sections did not already
+  // include it (every other role holds "events", which carries the calendar). An admin can still take it
+  // away from a role in Settings.
+  Finance: ["giving", "accounting", "harvest", "people", "reminders", "calendar"],
   Media: ["communications", "events", "people"],
   Leader: ["people", "attendance", "events", "volunteers", "communications", "reminders"],
   Volunteer: ["people", "attendance", "events"],

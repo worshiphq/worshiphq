@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import type { Prisma } from "@prisma/client";
 import { localParts, ymdInTz, timeReached } from "@/lib/time/tz";
 import { DAYS_FULL, DEFAULT_MEETING_REMINDER, renderMeetingReminder, parseSchedule, effectiveRemind, type ScheduleEntry } from "@/lib/groups/meeting-reminder";
@@ -19,10 +20,10 @@ import { forEachChurch, type Deadline } from "@/lib/automations/pool";
  * Groups set to manual are skipped here (they use the "Send now" button).
  */
 export async function runGroupMeetingReminders(now = new Date(), ignoreHour = false, deadline?: Deadline) {
-  const churches = await db.church.findMany({
+  const churches = await onlyWithFeature(await db.church.findMany({
     where: { isDemo: false, groups: { some: { meetingReminderOn: true, meetingReminderAuto: true } } },
     select: { id: true, name: true, timezone: true },
-  });
+  }), "sms");
 
   let sent = 0;
   const pool = await forEachChurch(churches, async (church) => {

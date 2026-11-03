@@ -1,6 +1,6 @@
 import { phoneKey } from "@/lib/search";
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getActiveSession } from "@/lib/auth";
 import { hasSection } from "@/lib/permissions";
 import { db } from "@/lib/db";
 
@@ -18,7 +18,7 @@ export type SearchResult = {
 
 /** Live global search across members, groups, events and recent gifts. */
 export async function GET(req: NextRequest) {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (!session) return NextResponse.json({ results: [] }, { status: 401 });
 
   const q = (req.nextUrl.searchParams.get("q") ?? "").trim();

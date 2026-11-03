@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import { ymdInTz, localParts } from "@/lib/time/tz";
 import { forEachChurch, type Deadline } from "@/lib/automations/pool";
 import { sendChurchSms } from "@/lib/sms/credits";
@@ -85,14 +86,14 @@ export function textDue(m: Pick<AbsentMember, "textCount" | "lastTextAt" | "stal
  * once per absence. Attending again re-arms everything for a future absence.
  */
 export async function runAbsenceCheck(now = new Date(), ignoreHour = false, deadline?: Deadline) {
-  const churches = await db.church.findMany({
+  const churches = await onlyWithFeature(await db.church.findMany({
     where: { isDemo: false, absenceOn: true },
     select: {
       id: true, name: true, timezone: true, absenceWeeks: true, absenceTextMember: true, absenceAlertAdmins: true,
       absenceMaxTexts: true, absenceRepeatWeeks: true, absenceCreateFollowUp: true, absenceNotifyUserIds: true,
       followUpAssigneeId: true, messageTemplates: true,
     },
-  });
+  }), "reminders");
 
   let texted = 0, alerts = 0, followUps = 0;
   const pool = await forEachChurch(churches, async (church) => {

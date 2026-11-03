@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getActiveSession } from "@/lib/auth";
 import { canManage, hasSection } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
@@ -18,7 +18,7 @@ function devicePin(memberId: string | null): string | null {
  * itself, so that side is worked out from what the devices have reported.
  */
 export async function GET(req: NextRequest) {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!hasSection(session, "attendance") && !hasSection(session, "people")) return NextResponse.json({ error: "Not allowed" }, { status: 403 });
   const personId = req.nextUrl.searchParams.get("personId");
@@ -93,7 +93,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (!session || session.isDemo) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canManage(session, "attendance") || session.planLocked?.includes("fingerprint")) {
     return NextResponse.json({ error: "Not allowed" }, { status: 403 });
@@ -140,7 +140,7 @@ export async function POST(req: NextRequest) {
  * Allowed on any plan: a church can always remove biometric data it no longer wants.
  */
 export async function DELETE(req: NextRequest) {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (!session || session.isDemo) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!canManage(session, "attendance")) return NextResponse.json({ error: "Not allowed" }, { status: 403 });
 

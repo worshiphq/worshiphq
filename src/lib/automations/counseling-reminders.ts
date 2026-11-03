@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import { localParts } from "@/lib/time/tz";
 import { forEachChurch, type Deadline } from "@/lib/automations/pool";
 import { sendCounselingText } from "@/lib/counseling/text";
@@ -13,13 +14,13 @@ const DAY = 86400000;
  * stays within 8am to 8pm church time so nobody is woken by a reminder.
  */
 export async function runCounselingReminders(now = new Date(), ignoreHour = false, deadline?: Deadline) {
-  const churches = await db.church.findMany({
+  const churches = await onlyWithFeature(await db.church.findMany({
     where: {
       isDemo: false,
       counselingSessions: { some: { textUpdates: true, reminderSentAt: null, status: { not: "closed" }, scheduledAt: { gt: now, lte: new Date(now.getTime() + DAY) } } },
     },
     select: { id: true, timezone: true },
-  });
+  }), "counseling");
 
   let sent = 0;
   const pool = await forEachChurch(churches, async (church) => {

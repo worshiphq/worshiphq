@@ -1,5 +1,5 @@
 import type { NextRequest } from "next/server";
-import { getSession } from "@/lib/auth";
+import { getActiveSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { membersTable, parseAgeFilter, AGE_LABELS } from "@/lib/export/members";
 import { hasSection } from "@/lib/permissions";
@@ -28,7 +28,7 @@ function fmtDate(d: Date): string {
 }
 
 export async function GET(_req: NextRequest, ctx: RouteContext<"/api/export/[type]">) {
-  const session = await getSession();
+  const session = await getActiveSession();
   if (!session || session.isDemo) return new Response("Unauthorized", { status: 401 });
   const { type } = await ctx.params;
   const churchId = session.churchId;

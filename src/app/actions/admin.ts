@@ -2,6 +2,7 @@
 
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
+import { randomInt } from "node:crypto";
 import { db } from "@/lib/db";
 import {
   startGhostSession,
@@ -254,14 +255,48 @@ Email: ${supportEmail()}`,
   revalidatePath("/admin");
 }
 
+/**
+ * Set a church's plan by hand.
+ *
+ * This used to write only the plan name, which meant a paid plan set here had no renewal date and so
+ * never expired: the renewal job skips any subscription without one. A paid plan now always gets a
+ * period, so the church shows up on the renewals page and in the renewal reminders like any other.
+ *
+ *  - Free: no period, nothing to renew.
+ *  - A gifted plan ("grace") is a permanent gift by design: only its plan changes, it never expires.
+ *  - A paid church that already has time left keeps its date (this is a correction, not a purchase).
+ *  - Anyone else gets one month from today. Give longer by recording their payment, or extend it from
+ *    the renewals page.
+ */
 export async function setChurchPlan(churchId: string, plan: string) {
   await requireSuperAdmin();
-  await db.subscription.upsert({
-    where: { churchId },
-    create: { churchId, plan },
-    update: { plan },
-  });
+  if (!["free", "starter", "pro", "max"].includes(plan)) return;
+
+  const existing = await db.subscription.findUnique({ where: { churchId } });
+  const now = new Date();
+
+  if (plan === "free") {
+    await db.subscription.upsert({
+      where: { churchId },
+      create: { churchId, plan },
+      update: { plan, status: existing?.status === "grace" ? "grace" : "active", renewsAt: null, periodStart: null, scheduledPlan: null, scheduledAt: null, cancelAtPeriodEnd: false },
+    });
+  } else if (existing?.status === "grace") {
+    await db.subscription.update({ where: { churchId }, data: { plan } });
+  } else {
+    const hasTimeLeft = !!existing?.renewsAt && existing.renewsAt.getTime() > now.getTime() && existing.plan !== "free";
+    const renewsAt = new Date(now);
+    renewsAt.setMonth(renewsAt.getMonth() + 1);
+    await db.subscription.upsert({
+      where: { churchId },
+      create: { churchId, plan, interval: "monthly", status: "active", periodStart: now, renewsAt },
+      update: hasTimeLeft
+        ? { plan, status: "active" }
+        : { plan, interval: "monthly", status: "active", periodStart: now, renewsAt, renewalRemindersSent: { set: [] } },
+    });
+  }
   revalidatePath("/admin");
+  revalidatePath("/admin/renewals");
 }
 
 export async function grantPlanBypass(churchId: string, plan: string) {
@@ -280,7 +315,8 @@ export async function grantPlanBypass(churchId: string, plan: string) {
     select: { phone: true, name: true },
   });
 
-  const code = String(Math.floor(100000 + Math.random() * 900000));
+  // crypto, not Math.random(): this code unlocks a paid plan, and Math.random() is predictable.
+  const code = String(randomInt(100000, 1000000));
 
   await db.subscription.upsert({
     where: { churchId },

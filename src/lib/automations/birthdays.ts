@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import { notifyChurchAdmins } from "@/lib/notify/admins";
 import { localParts, mmddInTz, ymdInTz, timeReached } from "@/lib/time/tz";
 import { templateFor, renderTemplate } from "@/lib/messages/registry";
@@ -16,7 +17,7 @@ import { escapeHtml } from "@/lib/html";
  *  - Weekly digest   (birthdayDigestOn):    on birthdayDigestDay, list the week.
  */
 export async function runBirthdays(now = new Date(), ignoreHour = false, deadline?: Deadline) {
-  const churches = await db.church.findMany({
+  const churches = await onlyWithFeature(await db.church.findMany({
     where: {
       isDemo: false,
       OR: [{ birthdayWishOn: true }, { birthdayAdminAlertOn: true }, { birthdayDigestOn: true }],
@@ -26,7 +27,7 @@ export async function runBirthdays(now = new Date(), ignoreHour = false, deadlin
       birthdayWishOn: true, birthdayAdminAlertOn: true, birthdayDigestOn: true, birthdayDigestDay: true,
       messageTemplates: true,
     },
-  });
+  }), "sms");
 
   let wishes = 0, adminAlerts = 0, digests = 0;
 

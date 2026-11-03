@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { renderTemplate, templateFor } from "@/lib/messages/registry";
 import { localParts } from "@/lib/time/tz";
@@ -93,12 +94,17 @@ export async function runServiceThanks(now = new Date(), ignoreHour = false, dea
   const since = new Date(now.getTime() - 3 * 86400_000);
   const sessions = await db.attendanceSession.findMany({
     where: { thankRequested: true, endedAt: { gte: since }, church: { isDemo: false } },
-    select: { id: true, church: { select: { timezone: true } } },
+    select: { id: true, churchId: true, church: { select: { timezone: true } } },
     orderBy: { endedAt: "asc" },
     take: 40,
   });
+  // Thank-you texts are a Communications feature: a church that has dropped below it stops getting them.
+  const okChurches = new Set(
+    (await onlyWithFeature([...new Set(sessions.map((s) => s.churchId))].map((id) => ({ id })), "sms")).map((c) => c.id),
+  );
   let sent = 0;
   for (const s of sessions) {
+    if (!okChurches.has(s.churchId)) continue;
     if (deadline !== undefined && Date.now() >= deadline) break;
     if (!ignoreHour) {
       const { hour } = localParts(now, s.church.timezone);

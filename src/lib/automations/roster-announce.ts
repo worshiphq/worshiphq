@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import { localParts, ymdInTz, timeReached } from "@/lib/time/tz";
 import { templateFor, renderTemplate } from "@/lib/messages/registry";
 import { sendChurchSms } from "@/lib/sms/credits";
@@ -15,14 +16,14 @@ const fmtServiceDate = (d: Date) => d.toLocaleDateString("en-GB", { weekday: "lo
  * church-wide default. Runs hourly; once per sheet (guarded by announcedAt).
  */
 export async function runRosterAnnouncements(now = new Date(), ignoreHour = false, deadline?: Deadline) {
-  const churches = await db.church.findMany({
+  const churches = await onlyWithFeature(await db.church.findMany({
     where: { isDemo: false, rosterAnnounceOn: true },
     select: {
       id: true, name: true, timezone: true, messageTemplates: true,
       rosterAnnounceHour: true, rosterAnnounceMinute: true, rosterAnnounceLeadDays: true, rosterAnnounceWeekday: true,
       rosterAnnounceAudience: true, rosterAnnounceGroupId: true,
     },
-  });
+  }), "rosters");
 
   let sent = 0;
   const pool = await forEachChurch(churches, async (church) => {

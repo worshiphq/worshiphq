@@ -22,7 +22,7 @@ export const featureCards: Feature[] = [
   { icon: HandCoins, title: "Giving & online payments", blurb: "Record tithes and offerings. Accept online giving via Mobile Money and cards with Paystack. Receipts sent automatically." },
   { icon: Bell, title: "Birthday & anniversary reminders", blurb: "Never miss a birthday or anniversary - automatic SMS blessings sent on the day, in your church's voice." },
   { icon: CalendarDays, title: "Attendance & QR check-in", blurb: "Create attendance sessions, mark members present by name or scan their QR code for lightning-fast check-in." },
-  { icon: MessageSquare, title: "SMS broadcasts", blurb: "Reach your entire church, a department, or hand-picked members by SMS. Targeted messaging, and your own sender name on Pro and above." },
+  { icon: MessageSquare, title: "SMS broadcasts", blurb: "Reach your entire church, a department, or hand-picked members by SMS. Targeted messaging, and your own sender name on Max." },
   { icon: QrCode, title: "Member IDs & QR codes", blurb: "Every member gets a unique ID and QR code. Scan to check in, view profiles, or verify membership instantly." },
   { icon: CalendarCheck, title: "Events & registration", blurb: "Create services, seminars and camps with date, time, capacity and optional pricing. Members register online." },
   { icon: Wallet, title: "Harvest & fund tracking", blurb: "Track annual harvest contributions, pledges and multiple giving funds. Export detailed reports to Excel." },

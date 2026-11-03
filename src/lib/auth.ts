@@ -446,6 +446,7 @@ async function _loadSession(): Promise<Session | null> {
       avatarName: user.name,
       avatarUrl: user.photoUrl,
       isDemo: user.church.isDemo,
+      suspended: user.church.suspended,
       phoneVerified: user.phoneVerified,
       emailVerified: user.emailVerified,
     };
@@ -485,11 +486,24 @@ async function _loadSession(): Promise<Session | null> {
     avatarName: user.name,
     avatarUrl: user.photoUrl,
     isDemo: user.church.isDemo,
+    suspended: user.church.suspended,
     phoneVerified: user.phoneVerified,
     emailVerified: user.emailVerified,
   };
 }
 export const getSession = cache(_getSession);
+
+/**
+ * For API routes: the session, or null when there is none OR the church is suspended.
+ * The app layout draws the "Account suspended" screen, but a layout cannot stop a request that
+ * never loads a page, so anything that serves data directly (exports, search, biometric sync) uses
+ * this instead of getSession(). A support session is never refused.
+ */
+export async function getActiveSession(): Promise<Session | null> {
+  const session = await getSession();
+  if (session?.suspended && !session.impersonating) return null;
+  return session;
+}
 
 /** Use in app pages/actions: returns the session or redirects to sign-in. */
 export async function requireSession(): Promise<Session> {
@@ -524,6 +538,9 @@ export function assertPlanFeature(session: Session, feature: string) {
 
 export function assertCanWrite(session: Session, module?: string) {
   if (session.isDemo) throw new DemoReadOnlyError();
+  // A suspended church is frozen. The layout hides the app from it, but a stale open tab or a hand-made
+  // request can still reach a server action, so the refusal lives here as well.
+  if (session.suspended && !session.impersonating) throw new Error("This church account is suspended. Please contact WorshipHQ support.");
   if (module) {
     const locked = planLockFor(session, module);
     if (locked) throw new PlanLockedError(locked);
