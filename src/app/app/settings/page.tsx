@@ -60,6 +60,21 @@ export default async function SettingsPage() {
     });
   }
 
+  // How many people are actually in each department. Counted as distinct people across both links:
+  // `departments` is the many-to-many, `departmentId` the legacy single one, and somebody can sit on
+  // both - so adding the two relation counts together would double-count them.
+  const deptCounts = await Promise.all(
+    departments.map((d) =>
+      db.person.count({
+        where: {
+          churchId: session.churchId,
+          OR: [{ departments: { some: { id: d.id } } }, { departmentId: d.id }],
+        },
+      }),
+    ),
+  );
+  const departmentsWithCounts = departments.map((d, i) => ({ ...d, memberCount: deptCounts[i] }));
+
   const churchData = church
     ? {
       name: church.name,
@@ -94,7 +109,7 @@ export default async function SettingsPage() {
         features={{ ...features }}
         church={churchData}
         users={users}
-        departments={departments}
+        departments={departmentsWithCounts}
         customRoles={customRoles.map(({ manageSplit, ...r }) => ({ ...r, manageSections: manageSplit ? r.manageSections : r.sections }))}
         subscription={sub}
         messageCenter={messageCenter}

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useState, useTransition, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -76,7 +77,7 @@ type Church = {
   rolePermissions?: Record<string, string[]> | null;
 } | null;
 type TeamUser = { id: string; name: string; email: string; role: string; customRole?: { id: string; name: string } | null };
-type Dept = { id: string; name: string };
+type Dept = { id: string; name: string; memberCount?: number };
 type CustomRoleRow = { id: string; name: string; sections: string[]; manageSections?: string[]; canDelete: boolean };
 type SubscriptionData = { plan: string; status: string; interval: string; renewsAt: Date | null; bypassPlan: string | null; scheduledPlan?: string | null; cancelAtPeriodEnd?: boolean } | null;
 type RefundEligibilityData = {
@@ -573,8 +574,19 @@ export function SettingsClient({
                   </div>
                 )}
                 {departments.map((d) => (
-                  <div key={d.id} className="flex items-center justify-between px-6 py-4">
-                    <span className="font-medium">{d.name}</span>
+                  <div key={d.id} className="flex items-center justify-between gap-3 px-6 py-4">
+                    {/* Opens the department's own page, where people can be added in bulk - the
+                        same move Groups has. Editing members one profile at a time was the only
+                        way in before. */}
+                    <Link
+                      href={`/app/departments/${d.id}`}
+                      className="group flex min-w-0 flex-1 items-center gap-2 font-medium hover:text-primary"
+                    >
+                      <span className="truncate">{d.name}</span>
+                      <span className="flex shrink-0 items-center gap-1 text-xs font-normal text-ink-faint group-hover:text-primary">
+                        <Users2 className="size-3.5" /> {d.memberCount ?? 0}
+                      </span>
+                    </Link>
                     {!ro && (
                       <form
                         action={deleteDepartment.bind(null, d.id)}
