@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { canEdit } from "@/lib/permissions";
-import { MessageSquare, Mail, Users, BarChart3, Wallet, AlertTriangle } from "lucide-react";
+import { MessageSquare, Mail, Users, BarChart3, Wallet, AlertTriangle, ScrollText } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { StatCard } from "@/components/app/stat-card";
 import { Composer } from "@/components/app/composer";
@@ -54,6 +54,11 @@ export default async function CommunicationsPage({
         <Link href="/app/messages">
           <Button variant="secondary" size="sm"><MessageSquare className="size-4" /> Message templates</Button>
         </Link>
+        {!session.planLocked?.includes("sms-audit") && (
+          <Link href="/app/communications/log">
+            <Button variant="secondary" size="sm"><ScrollText className="size-4" /> SMS records</Button>
+          </Link>
+        )}
         <Link href="/app/communications/credits">
           <Button variant="secondary" size="sm"><Wallet className="size-4" /> {smsBalance.toLocaleString()} credits · Buy</Button>
         </Link>

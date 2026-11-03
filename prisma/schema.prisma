@@ -266,6 +266,7 @@ model Church {
   reminders             Reminder[]
   transactions          Transaction[]
   smsTransactions       SmsTransaction[]
+  smsAuditLogs          SmsAuditLog[]
   harvests              Harvest[]
   harvestContributions  HarvestContribution[]
   subscription          Subscription?
@@ -1147,6 +1148,32 @@ model SmsTransaction {
   @@unique([churchId, reference]) // a Paystack top-up is credited once, even if the webhook arrives twice at the same moment
   @@index([churchId])
   @@index([churchId, createdAt])
+}
+
+// One row per billable SMS send: what went out, to how many, what it cost, and who pressed send.
+// SmsTransaction records the MONEY (credits in and out); this records the MESSAGE, which the money
+// ledger never kept. Written by sendChurchSms for every church-facing send, including the automatic
+// ones (birthdays, receipts, roster announcements), so a church can always answer "did that go out?".
+// Churches read their own rows on a paid plan; the platform owner reads every church's.
+model SmsAuditLog {
+  id         String   @id @default(cuid())
+  churchId   String
+  church     Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  label      String? // what kind of send it was, e.g. "Birthday wish", "Tithe receipt"
+  body       String // the message text as composed (before the church-name heading)
+  segments   Int // SMS segments per recipient, so cost = segments x delivered
+  recipients Int // how many were asked for
+  sent       Int // how many the carrier accepted
+  credits    Int // credits actually charged
+  senderName String? // the approved sender ID used, or the church-name line
+  sentById   String? // the user who triggered it; null for cron and public forms
+  sentByName String? // kept as text so the row still reads after a user is removed
+  trigger    String   @default("manual") // manual | automatic
+  numbers    String? // JSON [{ to, ok }], capped - who got it and who did not
+  createdAt  DateTime @default(now())
+
+  @@index([churchId, createdAt])
+  @@index([createdAt])
 }
 
 // ── Phone verification (OTP) ──────────────────────────────

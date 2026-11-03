@@ -15,7 +15,12 @@ export { can, ROLE_PERMISSIONS };
 
 const COOKIE = "whq_session";
 const USER_SESSION_MS = 30 * 24 * 60 * 60 * 1000;
-const SUPERADMIN_SESSION_MS = 12 * 60 * 60 * 1000;
+// The owner stays signed in for 30 days: they live in /admin and the money app on their phone, and a
+// twice-a-day sign-out there is friction without a security gain - the cookie already dies the moment
+// their password is reset (the epoch check), and entering a church still needs its own consent flow.
+// Extra admins (the partner) keep the short session, because their sessions are not the owner's to extend.
+const SUPERADMIN_OWNER_SESSION_MS = 30 * 24 * 60 * 60 * 1000;
+const SUPERADMIN_ADMIN_SESSION_MS = 12 * 60 * 60 * 1000;
 
 // ── Signed-cookie helpers (HMAC so the payload can't be tampered) ──
 // - { uid, sv }        → a normal church user (sv = the user's sessionVersion when they signed in)
@@ -145,7 +150,10 @@ export async function getLoginChoices(): Promise<{ email: string; phone: string 
 export { LOGIN_CHALLENGE_COOKIE };
 
 async function setCookie(payload: Payload) {
-  const ttl = "sa" in payload ? SUPERADMIN_SESSION_MS : USER_SESSION_MS;
+  // `sid` is only set for an extra admin, so its absence on a SuperAdmin cookie means the owner.
+  const ttl = "sa" in payload
+    ? (payload.sid ? SUPERADMIN_ADMIN_SESSION_MS : SUPERADMIN_OWNER_SESSION_MS)
+    : USER_SESSION_MS;
   // A SuperAdmin cookie remembers which password generation it was made under, so a reset signs the old ones out.
   if ("sa" in payload && payload.se === undefined) {
     const { getSaSecurity } = await import("@/lib/superadmin-security");

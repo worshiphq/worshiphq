@@ -52,6 +52,27 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
       (c.city ?? "").toLowerCase().includes(q.toLowerCase()),
   );
 
+  // Granting and taking back credits are defined once here and used by BOTH layouts below. They were
+  // written inline in the mobile cards first, which meant the "take back" button did not exist at all
+  // on a desktop screen - the kind of thing a shared handler makes impossible to repeat.
+  const grant = (c: ChurchRow) => {
+    const v = prompt(`Grant SMS credits to ${c.name}:`, "500");
+    const n = Number(v);
+    if (n > 0) run(() => grantSmsCredits(c.id, n), { pending: "Granting…", success: `Granted ${n} credits` });
+  };
+
+  const take = (c: ChurchRow) => {
+    const v = prompt(`Remove SMS credits from ${c.name} (they have ${(c.smsCredits ?? 0).toLocaleString()}):`, "500");
+    const n = Number(v);
+    if (!(n > 0)) return;
+    const why = prompt("Why? (shows in their SMS history)", "Removed by WorshipHQ") ?? undefined;
+    run(async () => {
+      const res = await removeSmsCredits(c.id, n, why);
+      if (!res.ok) throw new Error(res.error);
+      if (res.clamped) toast(`Only ${res.taken} were left to remove. Balance is now ${res.balance}.`, "info");
+    }, { pending: "Removing…", success: `Removed ${n} credits` });
+  };
+
   return (
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
@@ -169,28 +190,14 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
               )}
               <button
                 type="button"
-                onClick={() => {
-                  const v = prompt(`Grant SMS credits to ${c.name}:`, "500");
-                  const n = Number(v);
-                  if (n > 0) run(() => grantSmsCredits(c.id, n), { pending: "Granting…", success: `Granted ${n} credits` });
-                }}
+                onClick={() => grant(c)}
                 className="rounded-md bg-white/5 px-2 py-1 text-xs text-slate-200 hover:bg-white/10"
               >
                 + SMS credits
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  const v = prompt(`Remove SMS credits from ${c.name} (they have ${c.smsCredits ?? 0}):`, "500");
-                  const n = Number(v);
-                  if (!(n > 0)) return;
-                  const why = prompt("Why? (shows in their SMS history)", "Removed by WorshipHQ") ?? undefined;
-                  run(async () => {
-                    const res = await removeSmsCredits(c.id, n, why);
-                    if (!res.ok) throw new Error(res.error);
-                    if (res.clamped) toast(`Only ${res.taken} were left to remove. Balance is now ${res.balance}.`, "info");
-                  }, { pending: "Removing…", success: `Removed ${n} credits` });
-                }}
+                onClick={() => take(c)}
                 className="rounded-md bg-rose-500/10 px-2 py-1 text-xs text-rose-300 hover:bg-rose-500/20"
               >
                 - SMS credits
@@ -312,18 +319,25 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                 </td>
                 <td className="px-4 py-3 text-slate-300">{c.members}</td>
                 <td className="px-4 py-3">
-                  <button
-                    type="button"
-                    title="Grant SMS credits"
-                    onClick={() => {
-                      const v = prompt(`Grant SMS credits to ${c.name}:`, "500");
-                      const n = Number(v);
-                      if (n > 0) run(() => grantSmsCredits(c.id, n), { pending: "Granting…", success: `Granted ${n} credits` });
-                    }}
-                    className="rounded-md bg-white/5 px-2 py-1 text-xs text-slate-200 hover:bg-white/10"
-                  >
-                    {c.smsCredits.toLocaleString()} +
-                  </button>
+                  <div className="flex items-center gap-1">
+                    <span className="tabular-nums text-slate-300">{c.smsCredits.toLocaleString()}</span>
+                    <button
+                      type="button"
+                      title={`Grant SMS credits to ${c.name}`}
+                      onClick={() => grant(c)}
+                      className="grid size-6 place-items-center rounded-md bg-white/5 text-sm leading-none text-slate-200 hover:bg-white/10"
+                    >
+                      +
+                    </button>
+                    <button
+                      type="button"
+                      title={`Take SMS credits back from ${c.name}`}
+                      onClick={() => take(c)}
+                      className="grid size-6 place-items-center rounded-md bg-rose-500/10 text-sm leading-none text-rose-300 hover:bg-rose-500/20"
+                    >
+                      -
+                    </button>
+                  </div>
                 </td>
                 <td className="px-4 py-3 text-slate-300">₵{c.givingThisMonth.toLocaleString()}</td>
                 <td className="px-4 py-3">

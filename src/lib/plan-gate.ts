@@ -74,6 +74,7 @@ const PRO_ADDS = [
   "volunteers", "rosters", "volunteer-scheduling", "bookings",
   "sermons", "devotionals", "testimonies", "welfare",
   "accounting", "expenses", "automations", "engagement-scoring", "fingerprint",
+  "sms-audit",
 ];
 
 /** Max adds - run the whole church: wall-mounted face / palm / fingerprint terminals (`biometric-devices`),
@@ -131,6 +132,7 @@ export const FEATURE_LABELS: Record<string, string> = {
   bookings: "Facility bookings", accounting: "Accounting", budgets: "Budgets",
   expenses: "Expenses", "fund-accounting": "Fund accounting", assets: "Assets",
   "api-access": "API access", "audit-log": "Audit log",
+  "sms-audit": "SMS send records",
   fingerprint: "USB fingerprint scanner check-in",
   "biometric-devices": "Check-in devices (face, palm and fingerprint terminals)",
   baptisms: "Baptisms & certificates", "linked-churches": "Linked churches (branches, partner churches, teens chapel)",
@@ -140,7 +142,7 @@ export const FEATURE_LABELS: Record<string, string> = {
  * Features added after plans were first saved in the editor. A saved plan that has never seen one of these follows the
  * built-in tier for it, so a new feature never silently lands on no plan at all. Add a feature here when it is added to a tier.
  */
-export const FEATURES_ADDED_LATER = ["baptisms", "linked-churches", "biometric-devices", "poster-maker", "white-label-posters"];
+export const FEATURES_ADDED_LATER = ["baptisms", "linked-churches", "biometric-devices", "poster-maker", "white-label-posters", "sms-audit"];
 
 /** Permission section keys whose plan feature has a different name. */
 const SECTION_FEATURE_MAP: Record<string, string> = {
@@ -156,6 +158,7 @@ export function featureForSection(section: string): string | null {
 /** Map nav item hrefs to plan feature keys. */
 const ROUTE_FEATURE_MAP: Record<string, string> = {
   "/app/communications": "sms",
+  "/app/communications/log": "sms-audit",
   "/app/reminders": "reminders",
   "/app/harvest": "harvest",
   "/app/pledges": "pledges",

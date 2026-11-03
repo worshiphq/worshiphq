@@ -27,13 +27,21 @@ import {
 
 const MIN_PASSWORD = 12;
 
-/** Tell the owner something security-related happened. Never throws and never blocks the sign-in. */
-async function alertOwner(subject: string, text: string) {
+/**
+ * Tell the owner something security-related happened. Never throws and never blocks the sign-in.
+ *
+ * Email always. A text only when `sms: true`, which is reserved for things that cannot wait for an
+ * inbox to be opened - a password being changed. Routine sign-ins are email-only: the owner signs in
+ * most days, and a text for each one costs real money and trains them to ignore the alert that matters.
+ * The sign-in CODE still goes by SMS when they pick that channel; this is only the after-the-fact notice.
+ */
+async function alertOwner(subject: string, text: string, opts?: { sms?: boolean }) {
   try {
     await sendEmail({ to: saEmail(), subject, html: `<p>${text}</p><p style="color:#888;font-size:12px">If this was not you, reset the password now at /admin/forgot.</p>` });
   } catch (e) {
     console.error("[admin alert email]", (e as Error).message);
   }
+  if (!opts?.sms) return;
   try {
     const phone = await saPhone();
     if (phone) await sendSms(phone, `${text} If this was not you, reset the password now.`, { heading: null });
@@ -261,7 +269,8 @@ export async function setNewSuperAdminPassword(formData: FormData) {
   await clearLock(saCodeKey(identity.email));
   await clearResetState();
   await clearLoginState();
-  after(() => alertOwner("SuperAdmin password changed", `The WorshipHQ SuperAdmin password for ${identity.email} was just changed, and its earlier sign-ins were ended.`));
+  // The one alert that still texts: a password change is how an account is taken over.
+  after(() => alertOwner("SuperAdmin password changed", `The WorshipHQ SuperAdmin password for ${identity.email} was just changed, and its earlier sign-ins were ended.`, { sms: true }));
   redirect("/admin/login?reset=1");
 }
 

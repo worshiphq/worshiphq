@@ -71,6 +71,63 @@ export async function addCredits(
   return { balance: updated.smsCredits, created: true };
 }
 
+/** How many recipient outcomes we keep on an audit row. A 2,000-person broadcast doesn't need every
+ *  number in the log to answer "did it go out?", and an unbounded JSON column would bloat the table. */
+const AUDIT_NUMBER_CAP = 300;
+
+/**
+ * Record what went out. Never throws and never blocks a send: if the table has not been created yet,
+ * or the write fails, the message has still been sent and billed, and losing the log entry must not
+ * turn that into an error the church sees.
+ */
+async function logSmsSend(row: {
+  churchId: string;
+  label?: string;
+  body: string;
+  segments: number;
+  recipients: number;
+  sent: number;
+  credits: number;
+  senderName: string | null;
+  results: { to: string; ok: boolean }[];
+}) {
+  try {
+    // Who pressed send. A cron run, a public form or a webhook has no cookie, and getSession() throws
+    // outside a request, so an unknown sender is the normal case rather than a failure.
+    let sentById: string | null = null;
+    let sentByName: string | null = null;
+    try {
+      const { getSession } = await import("@/lib/auth");
+      const session = await getSession();
+      if (session && !session.isDemo && session.churchId === row.churchId) {
+        sentById = session.userId;
+        sentByName = session.name ?? null;
+      }
+    } catch {
+      // no request context - leave it as an automatic send
+    }
+
+    await db.smsAuditLog.create({
+      data: {
+        churchId: row.churchId,
+        label: row.label ?? null,
+        body: row.body,
+        segments: row.segments,
+        recipients: row.recipients,
+        sent: row.sent,
+        credits: row.credits,
+        senderName: row.senderName,
+        sentById,
+        sentByName,
+        trigger: sentById ? "manual" : "automatic",
+        numbers: JSON.stringify(row.results.slice(0, AUDIT_NUMBER_CAP)),
+      },
+    });
+  } catch (e) {
+    console.error("[sms audit]", (e as Error).message);
+  }
+}
+
 export interface ChurchSmsResult {
   ok: boolean;
   sent: number;
@@ -124,6 +181,14 @@ export async function sendChurchSms(
   const balance = await getSmsBalance(churchId);
   if (recipients.length === 0) return { ok: true, sent: 0, cost: 0, balance };
   if (balance < estimatedCost) {
+    // Worth a row of its own: "the birthday texts never went out because the wallet was empty" is the
+    // single most useful thing the log can tell a church weeks later.
+    await logSmsSend({
+      churchId, label: opts?.note, body: message, segments,
+      recipients: recipients.length, sent: 0, credits: 0,
+      senderName: church?.smsSenderIdStatus === "approved" ? church.smsSenderId : nameLine,
+      results: recipients.map((r) => ({ to: r, ok: false })),
+    });
     return { ok: false, sent: 0, cost: estimatedCost, balance, insufficient: true };
   }
 
@@ -183,6 +248,20 @@ export async function sendChurchSms(
       }
     }
   }
+
+  // Logged whether or not anything went out: "we tried and nothing was delivered" is exactly the
+  // question a church asks later, so a failed send is worth a row too.
+  await logSmsSend({
+    churchId,
+    label: opts?.note,
+    body: message,
+    segments,
+    recipients: recipients.length,
+    sent,
+    credits: cost,
+    senderName: senderId ?? nameLine,
+    results,
+  });
 
   if (sent === 0) {
     return { ok: false, sent: 0, cost: estimatedCost, balance: balanceAfter, insufficient: ranOut || undefined, results };
