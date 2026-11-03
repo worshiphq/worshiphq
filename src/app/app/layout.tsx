@@ -14,6 +14,7 @@ import { getActiveAnnouncements } from "@/lib/data/announcements";
 import { getRecentNotifications } from "@/lib/data/notifications";
 import { getChurchPlan } from "@/lib/plan-gate-server";
 import { commsTrial } from "@/lib/plan-gate";
+import { BillingBanner } from "@/components/app/billing-banner";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -72,7 +73,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <RecycleBinProvider canManage={session.canDelete} initialCount={binCount}>
         <TourProvider>
           <PhoneDefaults country={countryFromName(church?.country)}>
-            <AmountPrivacy enabled={church?.hideAmounts ?? false}>{children}</AmountPrivacy>
+            <AmountPrivacy enabled={church?.hideAmounts ?? false}>
+              {/* Only the Main Admin can renew, so only they are nagged. */}
+              {session.role === "Owner" && !session.isDemo && !session.impersonating && <BillingBanner churchId={session.churchId} />}
+              {children}
+            </AmountPrivacy>
           </PhoneDefaults>
         </TourProvider>
       </RecycleBinProvider>

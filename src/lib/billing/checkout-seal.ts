@@ -32,7 +32,22 @@ export interface PaystackTxn {
   currency?: string;
   status?: string;
   metadata?: unknown;
+  channel?: string;
   customer?: { email?: string; phone?: string };
+  /** What Paystack reports about the payment method. `reusable` is true only when it can be charged again. */
+  authorization?: {
+    authorization_code?: string;
+    reusable?: boolean;
+    channel?: string;
+    signature?: string;
+    last4?: string;
+    exp_month?: string;
+    exp_year?: string;
+    brand?: string;
+    card_type?: string;
+    bank?: string;
+    mobile_money_number?: string;
+  };
 }
 
 /** Parse Paystack's metadata (it can arrive as an object or a JSON string). */

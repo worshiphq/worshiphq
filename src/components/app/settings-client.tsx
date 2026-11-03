@@ -21,6 +21,8 @@ import { ROLE_PERMISSIONS } from "@/lib/permissions";
 import { OnlinePaymentsTab } from "@/components/app/online-payments-tab";
 import { ServiceTimesTab } from "@/components/app/service-times-tab";
 import { PlanHero, UsageTiles, PaymentHistory, type PaymentItem } from "@/components/app/billing-parts";
+import { BillingRenewal, type CardRow } from "@/components/app/billing-renewal";
+import { toastNow } from "@/components/ui/feedback";
 import { MemberCategoriesTab } from "@/components/app/member-categories-tab";
 import { AgeGroupsTab } from "@/components/app/age-groups-tab";
 import { LinkedChurchesTab } from "@/components/app/linked-churches-tab";
@@ -79,7 +81,7 @@ type Church = {
 type TeamUser = { id: string; name: string; email: string; role: string; customRole?: { id: string; name: string } | null };
 type Dept = { id: string; name: string; memberCount?: number };
 type CustomRoleRow = { id: string; name: string; sections: string[]; manageSections?: string[]; canDelete: boolean };
-type SubscriptionData = { plan: string; status: string; interval: string; renewsAt: Date | null; bypassPlan: string | null; scheduledPlan?: string | null; cancelAtPeriodEnd?: boolean } | null;
+type SubscriptionData = { plan: string; status: string; interval: string; renewsAt: Date | null; bypassPlan: string | null; scheduledPlan?: string | null; cancelAtPeriodEnd?: boolean; autoRenew?: boolean; cardId?: string | null; renewalFailures?: number } | null;
 type RefundEligibilityData = {
   eligible: boolean;
   reason?: string;
@@ -90,6 +92,8 @@ type PlanChangePreviewData = {
   direction: string;
   amountDueUsd: number;
   listPrice: number;
+  /** The interval the change is really priced on (an upgrade keeps the one the church is on). */
+  interval?: string;
   daysLeft: number;
   unusedCreditUsd: number;
   effectiveDate: string;
@@ -211,6 +215,7 @@ export function SettingsClient({
   payments = [],
   billingUsage,
   smsTopups = [],
+  cards = [],
   messageCenter,
 }: {
   session: Session;
@@ -224,6 +229,8 @@ export function SettingsClient({
   payments?: PlanPaymentRow[];
   billingUsage?: BillingUsage;
   smsTopups?: SmsTopupRow[];
+  /** Cards the church kept for renewals. Never carries the charge token. */
+  cards?: CardRow[];
   messageCenter: MessageCenterData;
 }) {
   // Links such as /app/settings?tab=billing open straight on that tab.
@@ -646,7 +653,7 @@ export function SettingsClient({
         )}
 
         {/* ── Billing ── */}
-        {tab === "billing" && <BillingTab subscription={subscription} features={features} ro={ro} platformPricing={platformPricing} payments={payments} usage={billingUsage} smsTopups={smsTopups} />}
+        {tab === "billing" && <BillingTab subscription={subscription} features={features} ro={ro} platformPricing={platformPricing} payments={payments} usage={billingUsage} smsTopups={smsTopups} cards={cards} isOwner={session.role === "Owner"} />}
 
         {/* ── Online Payments ── */}
         {tab === "online-payments" && <OnlinePaymentsTab canManage={isAdmin && !ro} />}
@@ -979,7 +986,7 @@ function UpgradeCelebration({ planName, newFeatures, onDone }: { planName: strin
   );
 }
 
-function BillingTab({ subscription, features, ro, platformPricing, payments = [], usage, smsTopups = [] }: { subscription: SubscriptionData; features: FeatureMap; ro: boolean; platformPricing?: PlatformPricing; payments?: PlanPaymentRow[]; usage?: BillingUsage; smsTopups?: SmsTopupRow[] }) {
+function BillingTab({ subscription, features, ro, platformPricing, payments = [], usage, smsTopups = [], cards = [], isOwner = false }: { subscription: SubscriptionData; features: FeatureMap; ro: boolean; platformPricing?: PlatformPricing; payments?: PlanPaymentRow[]; usage?: BillingUsage; smsTopups?: SmsTopupRow[]; cards?: CardRow[]; isOwner?: boolean }) {
   const router = useRouter();
   // What the SuperAdmin saved (name, member limit, wording, price) wins over the built-in defaults.
   const plans = defaultPlans.map((p) => {
@@ -1013,6 +1020,10 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
   const [changePreview, setChangePreview] = useState<PlanChangePreviewData | null>(null);
   const [loadingPreview, startPreview] = useTransition();
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  // "Keep my card and renew automatically": opt-in, so it starts unticked.
+  const [saveCard, setSaveCard] = useState(false);
+  // The reference of a payment made in this visit, so the card can be offered while it is fresh.
+  const [justPaidRef, setJustPaidRef] = useState<string | null>(null);
   const [celebrating, setCelebrating] = useState<{ planName: string; newFeatures: string[] } | null>(null);
 
   const previousPlan = (subscription?.plan ?? "free") as PlanId;
@@ -1089,6 +1100,8 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
   const currentPlanId = subscription?.plan ?? "free";
   // Downgrades never charge and never refund - they're scheduled for period end.
   const isDowngrade = changePreview?.direction === "downgrade";
+  // Same plan, near or past its end: the church is renewing, not upgrading.
+  const isRenewal = changePreview?.direction === "renew";
 
   // Refund request drawer state.
   const [refundFor, setRefundFor] = useState<PlanPaymentRow | null>(null);
@@ -1148,6 +1161,27 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
         canChange={!ro}
         onChange={() => setShowPlans(!showPlans)}
       />
+
+      {subscription && (
+        <BillingRenewal
+          sub={subscription}
+          planName={currentPlan.name}
+          priceText={fmtPrice(price)}
+          cards={cards}
+          recentPayments={payments.map((p) => ({ id: p.id, reference: p.reference, source: p.source ?? "paystack", plan: p.plan, paidAt: p.paidAt, status: p.status }))}
+          canManage={!ro && isOwner}
+          paymentsLive={!!features.payments}
+          justPaidRef={justPaidRef}
+          onRenew={() => {
+            setUpgradePlan(currentPlan);
+            setCouponCode(""); setCouponInfo(null); setCouponError(""); setAcceptedTerms(false); setSaveCard(false);
+            setChangePreview(null);
+            const keep = (subscription.interval as "monthly" | "yearly") ?? "monthly";
+            setInterval(keep);
+            startPreview(async () => { setChangePreview(await previewPlanChangeAction(currentPlan.id, keep)); });
+          }}
+        />
+      )}
 
       {usage && <UsageTiles {...usage} />}
 
@@ -1409,7 +1443,7 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
                 <Sparkles className="size-5 text-primary-bright" />
               </div>
               <div>
-                <h3 className="font-display text-lg font-semibold">Upgrade to {upgradePlan.name}</h3>
+                <h3 className="font-display text-lg font-semibold">{isRenewal ? `Renew ${upgradePlan.name}` : `Upgrade to ${upgradePlan.name}`}</h3>
                 <p className="text-sm text-ink-muted">{upgradePlan.tagline}</p>
               </div>
             </div>
@@ -1437,8 +1471,8 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
                     </p>
                   )}
                   <p className="mt-2 text-xs text-ink-faint">
-                    Then {sym}{(interval === "yearly" ? upgradePlan.yearly : upgradePlan.monthly).toLocaleString()}
-                    {interval === "yearly" ? " / year" : " / month"} · {upgradePlan.members}
+                    Then {sym}{((changePreview.interval ?? interval) === "yearly" ? upgradePlan.yearly : upgradePlan.monthly).toLocaleString()}
+                    {(changePreview.interval ?? interval) === "yearly" ? " / year" : " / month"} · {upgradePlan.members}
                   </p>
                 </>
               )}
@@ -1501,6 +1535,23 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
               </p>
             )}
 
+            {/* ── Keep my card (opt-in; live card payments only) ── */}
+            {!isDowngrade && features.payments && (
+              <label className="mt-4 flex items-start gap-2 rounded-lg border border-line bg-surface-2/50 p-3 text-xs text-ink-muted">
+                <input
+                  type="checkbox"
+                  checked={saveCard}
+                  onChange={(e) => setSaveCard(e.target.checked)}
+                  className="mt-0.5 size-4 shrink-0 rounded border-line accent-primary"
+                />
+                <span>
+                  <b className="text-ink">Keep my card and renew automatically.</b> If you pay by card we keep it safely with our payment
+                  provider and charge it on each renewal date, with a heads-up three days before. Turn it off any time in Billing.
+                  Mobile Money can&rsquo;t be kept, because it has to be approved on your phone each time.
+                </span>
+              </label>
+            )}
+
             {/* ── Terms acceptance (required before any payment) ── */}
             {!isDowngrade && (
               <label className="mt-4 flex items-start gap-2 rounded-lg border border-line bg-surface-2/50 p-3 text-xs text-ink-muted">
@@ -1534,7 +1585,7 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
                 disabled={switching || loadingPreview || (!isDowngrade && !acceptedTerms)}
                 onClick={() => {
                   startSwitch(async () => {
-                    const res = await changePlan(upgradePlan.id, interval, couponCode.trim() || undefined);
+                    const res = await changePlan(upgradePlan.id, interval, couponCode.trim() || undefined, saveCard);
                     if (res && "error" in res) { alert(res.error); return; }
                     if (!res || !("plan" in res)) return;
                     // Downgrade: nothing was charged, it's queued for period end.
@@ -1554,25 +1605,29 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
                           await verifyPlanUpgrade(ref, planId, interval, usedCouponId);
                           setUpgradePlan(null);
                           setShowPlans(false);
-                          triggerCelebration(planId);
+                          setJustPaidRef(ref);
+                          // A renewal unlocks nothing new, so it gets a thank-you, not the upgrade fanfare.
+                          if (isRenewal) { toastNow("Plan renewed. Thank you!", "success"); router.refresh(); }
+                          else triggerCelebration(planId);
                         },
                         onError: (m) => alert(m),
                       });
                     } else {
                       setUpgradePlan(null);
                       setShowPlans(false);
-                      triggerCelebration(planId);
+                      if (isRenewal) { toastNow("Plan renewed. Thank you!", "success"); router.refresh(); }
+                      else triggerCelebration(planId);
                     }
                   });
                 }}
               >
                 {switching
-                  ? (isDowngrade ? "Scheduling…" : features.payments ? "Opening checkout…" : "Applying…")
+                  ? (isDowngrade ? "Scheduling…" : features.payments ? "Opening checkout…" : isRenewal ? "Renewing…" : "Applying…")
                   : isDowngrade
                     ? `Schedule move to ${upgradePlan.name}`
                     : features.payments
-                      ? `Pay ${sym}${(couponInfo?.newAmount ?? changePreview?.amountDueUsd ?? 0).toLocaleString()} & switch`
-                      : `Switch to ${upgradePlan.name}`}
+                      ? `Pay ${sym}${(couponInfo?.newAmount ?? changePreview?.amountDueUsd ?? 0).toLocaleString()} & ${isRenewal ? "renew" : "switch"}`
+                      : isRenewal ? `Renew ${upgradePlan.name}` : `Switch to ${upgradePlan.name}`}
               </Button>
             </div>
           </div>

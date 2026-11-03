@@ -18,6 +18,9 @@ export type ActivateResult =
  *   at least the full list price of the plan it names.
  * - Each reference activates once: the payment row is written first and doubles as the claim.
  * - A prorated upgrade keeps the current renewal date (it only paid for the rest of the period).
+ * - A renewal carries on from where the current period ENDS, so renewing early loses no days.
+ * - If the church asked to keep its card (sealed `saveCard`) and Paystack says the card is reusable, it is
+ *   stored and automatic renewal is switched on.
  */
 export async function activatePlanPayment(txn: PaystackTxn, expectChurchId?: string): Promise<ActivateResult> {
   if (txn.status && txn.status !== "success") return { ok: false, error: "Payment not confirmed yet." };
@@ -51,11 +54,15 @@ export async function activatePlanPayment(txn: PaystackTxn, expectChurchId?: str
   }
 
   const prorated = !!sealed && (sealed.prorated === true || sealed.prorated === "true");
+  const renewal = !prorated && !!sealed && (sealed.renewal === true || sealed.renewal === "true");
   const sub = await db.subscription.findUnique({ where: { churchId } });
   const now = new Date();
-  const keepPeriod = prorated && !!sub?.renewsAt && sub.renewsAt.getTime() > now.getTime();
-  const periodStart = keepPeriod ? (sub!.periodStart ?? now) : now;
-  const renewsAt = keepPeriod ? sub!.renewsAt! : periodEndFor(interval, now);
+  const hasTimeLeft = !!sub?.renewsAt && sub.renewsAt.getTime() > now.getTime();
+  const keepPeriod = prorated && hasTimeLeft;
+  // A renewal starts where the paid-for period ends. Starting it from "now" would throw away the days
+  // already paid for, which is exactly what renewing a week early used to do.
+  const periodStart = keepPeriod ? (sub!.periodStart ?? now) : renewal && hasTimeLeft ? sub!.renewsAt! : now;
+  const renewsAt = keepPeriod ? sub!.renewsAt! : periodEndFor(interval, periodStart);
   const couponId = sealed && sealed.couponId ? String(sealed.couponId) : null;
   const displayUsd = Number(sealed?.displayAmountUsd) || (rate ? amountGhs / rate : 0);
 
@@ -70,7 +77,7 @@ export async function activatePlanPayment(txn: PaystackTxn, expectChurchId?: str
     usdToGhsRate: rate,
     couponId,
     discountUsd: Math.max(0, (Number(sealed?.listAmountUsd) || 0) - displayUsd),
-    kind: prorated ? "upgrade" : "new",
+    kind: prorated ? "upgrade" : renewal ? "renewal" : "new",
     periodStart,
     periodEnd: renewsAt,
     source: "paystack",
@@ -84,8 +91,34 @@ export async function activatePlanPayment(txn: PaystackTxn, expectChurchId?: str
       plan, interval, status: "active", renewsAt, periodStart,
       scheduledPlan: null, cancelAtPeriodEnd: false,
       paystackCustomerCode: txn.customer?.email ?? null,
+      // A prorated upgrade stays inside the same period, so what was already sent for it still stands.
+      // Any other payment starts a new period: reminders begin again and a run of failed charges is forgiven.
+      ...(keepPeriod ? {} : { renewalRemindersSent: { set: [] }, renewalFailures: 0 }),
     },
   });
+
+  // "Keep my card and renew automatically". The tick was sealed into the checkout, so it cannot be added
+  // from outside; the card itself must also be one Paystack says can be charged again.
+  if (sealed && (sealed.saveCard === true || sealed.saveCard === "true")) {
+    try {
+      const { saveCardFromTxn } = await import("@/lib/billing/cards");
+      const { logBillingEvent } = await import("@/lib/billing/events");
+      const saved = await saveCardFromTxn(churchId, txn);
+      if (saved.ok) {
+        await db.subscription.update({ where: { churchId }, data: { autoRenew: true, cardId: saved.cardId } });
+        await logBillingEvent(churchId, { kind: "card_saved", title: "Card saved, automatic renewal on", detail: txn.authorization?.last4 ? `Card ending ${txn.authorization.last4}` : undefined });
+      } else {
+        await logBillingEvent(churchId, {
+          kind: "card_saved",
+          title: "Card could not be saved",
+          detail: saved.reason === "not_card" ? "Paid by Mobile Money, which cannot be charged automatically" : "Paystack did not allow this payment method to be kept",
+          delivered: false,
+        });
+      }
+    } catch (e) {
+      console.error("[billing] saving the card failed:", (e as Error).message);
+    }
+  }
 
   // The coupon is used up by the payment that carried it, whichever path confirmed it.
   if (couponId) {
@@ -118,6 +151,7 @@ type PlanIntentData = {
   listAmountUsd?: number | string;
   couponId?: string | null;
   prorated?: boolean;
+  renewal?: boolean;
   usdToGhsRate?: number | string;
 };
 
@@ -143,11 +177,13 @@ export async function activatePlanFromIntent(intent: {
   const rate = Number(d.usdToGhsRate) || platformConfig.usdToGhsRate || 0;
 
   const prorated = d.prorated === true;
+  const renewal = !prorated && d.renewal === true;
   const sub = await db.subscription.findUnique({ where: { churchId: intent.churchId } });
   const now = new Date();
-  const keepPeriod = prorated && !!sub?.renewsAt && sub.renewsAt.getTime() > now.getTime();
-  const periodStart = keepPeriod ? (sub!.periodStart ?? now) : now;
-  const renewsAt = keepPeriod ? sub!.renewsAt! : periodEndFor(interval, now);
+  const hasTimeLeft = !!sub?.renewsAt && sub.renewsAt.getTime() > now.getTime();
+  const keepPeriod = prorated && hasTimeLeft;
+  const periodStart = keepPeriod ? (sub!.periodStart ?? now) : renewal && hasTimeLeft ? sub!.renewsAt! : now;
+  const renewsAt = keepPeriod ? sub!.renewsAt! : periodEndFor(interval, periodStart);
   const couponId = d.couponId ? String(d.couponId) : null;
   const displayUsd = Number(d.amountUsd) || (rate ? amountGhs / rate : 0);
 
@@ -161,7 +197,7 @@ export async function activatePlanFromIntent(intent: {
     usdToGhsRate: rate,
     couponId,
     discountUsd: Math.max(0, (Number(d.listAmountUsd) || 0) - displayUsd),
-    kind: prorated ? "upgrade" : "new",
+    kind: prorated ? "upgrade" : renewal ? "renewal" : "new",
     periodStart,
     periodEnd: renewsAt,
     source: "hubtel",
@@ -171,7 +207,10 @@ export async function activatePlanFromIntent(intent: {
   await db.subscription.upsert({
     where: { churchId: intent.churchId },
     create: { churchId: intent.churchId, plan, interval, status: "active", renewsAt, periodStart },
-    update: { plan, interval, status: "active", renewsAt, periodStart, scheduledPlan: null, cancelAtPeriodEnd: false },
+    update: {
+      plan, interval, status: "active", renewsAt, periodStart, scheduledPlan: null, cancelAtPeriodEnd: false,
+      ...(keepPeriod ? {} : { renewalRemindersSent: { set: [] }, renewalFailures: 0 }),
+    },
   });
 
   if (couponId) {

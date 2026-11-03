@@ -1,3 +1,4 @@
+import { listCards } from "@/lib/billing/cards";
 import { PageHeader } from "@/components/app/page-header";
 import { SettingsClient } from "@/components/app/settings-client";
 import { requireModule } from "@/lib/auth";
@@ -31,7 +32,7 @@ export default async function SettingsPage() {
     }),
     db.subscription.findUnique({
       where: { churchId: session.churchId },
-      select: { plan: true, status: true, interval: true, renewsAt: true, bypassPlan: true, scheduledPlan: true, cancelAtPeriodEnd: true },
+      select: { plan: true, status: true, interval: true, renewsAt: true, bypassPlan: true, scheduledPlan: true, cancelAtPeriodEnd: true, autoRenew: true, cardId: true, renewalFailures: true },
     }),
     getPlatformConfig(),
     db.planPayment.findMany({
@@ -56,9 +57,12 @@ export default async function SettingsPage() {
         interval: "monthly",
         status: isGrace ? "grace" : "active",
       },
-      select: { plan: true, status: true, interval: true, renewsAt: true, bypassPlan: true, scheduledPlan: true, cancelAtPeriodEnd: true },
+      select: { plan: true, status: true, interval: true, renewsAt: true, bypassPlan: true, scheduledPlan: true, cancelAtPeriodEnd: true, autoRenew: true, cardId: true, renewalFailures: true },
     });
   }
+
+  // Cards the church kept for renewals. listCards never selects the charge token.
+  const cards = await listCards(session.churchId);
 
   // How many people are actually in each department. Counted as distinct people across both links:
   // `departments` is the many-to-many, `departmentId` the legacy single one, and somebody can sit on
@@ -112,6 +116,7 @@ export default async function SettingsPage() {
         departments={departmentsWithCounts}
         customRoles={customRoles.map(({ manageSplit, ...r }) => ({ ...r, manageSections: manageSplit ? r.manageSections : r.sections }))}
         subscription={sub}
+        cards={cards}
         messageCenter={messageCenter}
         platformPricing={platformConfig}
         billingUsage={(() => {

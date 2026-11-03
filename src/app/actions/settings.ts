@@ -663,45 +663,20 @@ export async function cancelScheduledChange() {
 /** What would this plan change cost? Drives the confirmation dialog. */
 export async function previewPlanChangeAction(plan: string, interval: "monthly" | "yearly") {
   const session = await requireSession();
-
-  const { plans } = await import("@/config/pricing");
-  const { getPlatformConfig } = await import("@/lib/data/platform-config");
-  const { previewPlanChange } = await import("@/lib/billing/periods");
-
-  const [sub, platformConfig, lastPayment] = await Promise.all([
-    db.subscription.findUnique({ where: { churchId: session.churchId } }),
-    getPlatformConfig(),
-    db.planPayment.findFirst({
-      where: { churchId: session.churchId, status: "paid" },
-      orderBy: { paidAt: "desc" },
-      select: { amountUsd: true },
-    }),
-  ]);
-
-  const cfg = plans.find((p) => p.id === plan);
-  const dbPrice = platformConfig.prices[plan];
-  const listPrice = plan === "free"
-    ? 0
-    : interval === "yearly" ? (dbPrice?.yearly ?? cfg?.yearly ?? 0) : (dbPrice?.monthly ?? cfg?.monthly ?? 0);
-
-  const preview = previewPlanChange({
-    currentPlan: sub?.plan ?? "free",
-    newPlan: plan,
-    interval,
-    periodEnd: sub?.renewsAt ?? null,
-    amountPaidUsd: lastPayment?.amountUsd ?? 0,
-    newPlanPriceUsd: listPrice,
-  });
-
+  const { loadPlanChange } = await import("@/lib/billing/context");
+  const c = await loadPlanChange(session.churchId, plan, interval);
   return {
-    direction: preview.direction,
-    amountDueUsd: preview.amountDueUsd,
-    listPrice,
-    daysLeft: preview.daysLeft,
-    unusedCreditUsd: preview.unusedCreditUsd,
-    effectiveDate: preview.effectiveDate.toISOString(),
-    summary: preview.summary,
-    symbol: platformConfig.currencySymbol,
+    direction: c.preview.direction,
+    amountDueUsd: c.preview.amountDueUsd,
+    listPrice: c.listPrice,
+    // The interval the change is really priced on. An upgrade inside a paid period keeps the one the church is on.
+    interval: c.interval,
+    daysLeft: c.preview.daysLeft,
+    unusedCreditUsd: c.preview.unusedCreditUsd,
+    effectiveDate: c.preview.effectiveDate.toISOString(),
+    renewsAt: c.preview.renewsAt ? c.preview.renewsAt.toISOString() : null,
+    summary: c.preview.summary,
+    symbol: c.platformConfig.currencySymbol,
   };
 }
 
@@ -740,8 +715,10 @@ export async function previewCoupon(code: string, plan: string, interval: "month
 
 export async function changePlan(
   plan: string,
-  interval: "monthly" | "yearly",
+  requestedInterval: "monthly" | "yearly",
   couponCode?: string,
+  /** The church ticked "keep my card and renew automatically" (card payments only; see activatePlanPayment). */
+  saveCard?: boolean,
 ) {
   const session = await requireSession();
   assertCanWrite(session);
@@ -750,39 +727,14 @@ export async function changePlan(
   const validPlans = ["free", "starter", "pro", "max"];
   if (!validPlans.includes(plan)) return { error: "Invalid plan" };
 
-  const existing = await db.subscription.findUnique({ where: { churchId: session.churchId } });
+  // One calculation prices the plan change, shared with the preview the church just looked at, so what it
+  // is charged is exactly what it was shown.
+  const { loadPlanChange } = await import("@/lib/billing/context");
+  const ctx = await loadPlanChange(session.churchId, plan, requestedInterval);
+  const { sub: existing, platformConfig, planConfig: targetConfig, interval, listPrice: targetList, preview } = ctx;
   if (existing?.status === "grace") return { error: "Your plan cannot be changed (Gift of Grace)" };
 
-  const { plans } = await import("@/config/pricing");
-  const { getPlatformConfig } = await import("@/lib/data/platform-config");
-  const platformConfig = await getPlatformConfig();
-
-  // ── Work out whether this is an upgrade (pay the difference) or a downgrade
-  //    (schedule it for period end - no money moves either way). ──
-  const { previewPlanChange } = await import("@/lib/billing/periods");
-  const lastPayment = await db.planPayment.findFirst({
-    where: { churchId: session.churchId, status: "paid" },
-    orderBy: { paidAt: "desc" },
-    select: { amountUsd: true },
-  });
-  const targetConfig = plans.find((p) => p.id === plan);
-  const targetDbPrice = platformConfig.prices[plan];
-  const targetList = plan === "free"
-    ? 0
-    : interval === "yearly"
-      ? (targetDbPrice?.yearly ?? targetConfig?.yearly ?? 0)
-      : (targetDbPrice?.monthly ?? targetConfig?.monthly ?? 0);
-
-  const preview = previewPlanChange({
-    currentPlan: existing?.plan ?? "free",
-    newPlan: plan,
-    interval,
-    periodEnd: existing?.renewsAt ?? null,
-    amountPaidUsd: lastPayment?.amountUsd ?? 0,
-    newPlanPriceUsd: targetList,
-  });
-
-  if (preview.direction === "same") return { error: "You're already on this plan." };
+  if (preview.direction === "same") return { error: preview.summary || "You're already on this plan." };
 
   // ── Downgrade: never charges, never refunds. Scheduled for period end. ──
   if (preview.direction === "downgrade") {
@@ -819,6 +771,7 @@ export async function changePlan(
 
   const planConfig = targetConfig;
   if (!planConfig) return { error: "Invalid plan" };
+  const isRenewal = preview.direction === "renew";
 
   // Upgrades charge only the prorated difference; new purchases pay full price.
   const listAmount = preview.direction === "upgrade" ? preview.amountDueUsd : targetList;
@@ -850,13 +803,15 @@ export async function changePlan(
     if (!(await redeemCoupon(couponId, session.churchId))) {
       return { error: "This coupon has already been used." };
     }
-    const periodStart = new Date();
-    const renewsAt = new Date();
-    renewsAt.setMonth(renewsAt.getMonth() + (interval === "yearly" ? 12 : 1));
+    // The period comes from the same calculation as the price: a renewal carries on from the old end, an
+    // upgrade keeps the renewal date, and a new purchase starts today. (This used to start a fresh month
+    // from today for all three.)
+    const periodStart = isRenewal ? preview.effectiveDate : isProratedUpgrade ? (existing?.periodStart ?? new Date()) : new Date();
+    const renewsAt = preview.renewsAt ?? new Date();
     await db.subscription.upsert({
       where: { churchId: session.churchId },
-      create: { churchId: session.churchId, plan, interval, status: "active", renewsAt },
-      update: { plan, interval, status: "active", renewsAt },
+      create: { churchId: session.churchId, plan, interval, status: "active", renewsAt, periodStart },
+      update: { plan, interval, status: "active", renewsAt, periodStart, renewalRemindersSent: { set: [] }, renewalFailures: 0, scheduledPlan: null, cancelAtPeriodEnd: false },
     });
     // Zero-value payment, but still a ledger entry so billing history is complete.
     const { recordPlanPayment } = await import("@/lib/billing/payments");
@@ -867,6 +822,7 @@ export async function changePlan(
       amountUsd: 0, amountGhs: 0,
       usdToGhsRate: platformConfig.usdToGhsRate,
       couponId, discountUsd: listAmount,
+      kind: isRenewal ? "renewal" : isProratedUpgrade ? "upgrade" : "new",
       periodStart, periodEnd: renewsAt,
     });
     await sendUpgradeReceipt(session.churchId, planConfig.name, "Free (100% coupon)", interval, `COUPON-${Date.now()}`, {
@@ -892,7 +848,7 @@ export async function changePlan(
           kind: "plan_upgrade",
           churchId: session.churchId,
           amountGhs: chargeAmountGhs,
-          data: { plan, interval, amountUsd: amount, listAmountUsd: listAmount, couponId, prorated: isProratedUpgrade, usdToGhsRate: platformConfig.usdToGhsRate },
+          data: { plan, interval, amountUsd: amount, listAmountUsd: listAmount, couponId, prorated: isProratedUpgrade, renewal: isRenewal, usdToGhsRate: platformConfig.usdToGhsRate },
         },
       });
       const r = await initHubtelCheckout(cfg, {
@@ -930,6 +886,9 @@ export async function changePlan(
       couponId,
       usdToGhsRate: platformConfig.usdToGhsRate,
       prorated: isProratedUpgrade,
+      renewal: isRenewal,
+      // Sealed with the rest, so it cannot be switched on from outside. Honoured only for a real card payment.
+      saveCard: !!saveCard,
     },
   });
 
@@ -938,16 +897,13 @@ export async function changePlan(
       const { redeemCoupon } = await import("@/lib/billing/coupons");
       await redeemCoupon(couponId, session.churchId);
     }
-    const periodStart = existing?.periodStart ?? new Date();
-    // A prorated upgrade buys the REMAINDER of the current period, so the
-    // renewal date must not move.
-    const renewsAt = isProratedUpgrade && existing?.renewsAt
-      ? existing.renewsAt
-      : (() => { const d = new Date(); d.setMonth(d.getMonth() + (interval === "yearly" ? 12 : 1)); return d; })();
+    // Same rule as the live path: an upgrade keeps the renewal date, a renewal carries on from the old end.
+    const periodStart = isRenewal ? preview.effectiveDate : isProratedUpgrade ? (existing?.periodStart ?? new Date()) : new Date();
+    const renewsAt = preview.renewsAt ?? new Date();
     await db.subscription.upsert({
       where: { churchId: session.churchId },
       create: { churchId: session.churchId, plan, interval, status: "active", renewsAt, periodStart },
-      update: { plan, interval, status: "active", renewsAt, periodStart, scheduledPlan: null, cancelAtPeriodEnd: false },
+      update: { plan, interval, status: "active", renewsAt, periodStart, renewalRemindersSent: { set: [] }, renewalFailures: 0, scheduledPlan: null, cancelAtPeriodEnd: false },
     });
     const { recordPlanPayment } = await import("@/lib/billing/payments");
     await recordPlanPayment({
@@ -956,6 +912,7 @@ export async function changePlan(
       amountUsd: amount, amountGhs: chargeAmountGhs,
       usdToGhsRate: platformConfig.usdToGhsRate,
       couponId, discountUsd: listAmount - amount,
+      kind: isRenewal ? "renewal" : isProratedUpgrade ? "upgrade" : "new",
       periodStart, periodEnd: renewsAt,
       source: "paystack",
     });

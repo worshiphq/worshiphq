@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { LayoutDashboard, FileText, Megaphone, LogOut, CreditCard, Wallet, Undo2, DatabaseBackup, KeyRound, TrendingUp, Mail, Receipt, Users, UserCog, Menu, PiggyBank, MessageSquare } from "lucide-react";
+import { LayoutDashboard, FileText, Megaphone, LogOut, CreditCard, Wallet, Undo2, DatabaseBackup, KeyRound, TrendingUp, Mail, Receipt, Users, UserCog, Menu, PiggyBank, MessageSquare, CalendarClock } from "lucide-react";
 import { superAdminSignOut } from "@/app/actions/admin";
 
 const GROUPS: { title: string; items: { href: string; label: string; icon: React.ComponentType<{ className?: string }> }[] }[] = [
@@ -18,6 +18,7 @@ const GROUPS: { title: string; items: { href: string; label: string; icon: React
     items: [
       { href: "/admin/pricing", label: "Pricing", icon: CreditCard },
       { href: "/admin/revenue", label: "Revenue", icon: TrendingUp },
+      { href: "/admin/renewals", label: "Renewals", icon: CalendarClock },
       { href: "/admin/payments", label: "Payments", icon: Wallet },
       { href: "/admin/refunds", label: "Refunds", icon: Undo2 },
       { href: "/admin/receipts", label: "Receipts", icon: Receipt },
