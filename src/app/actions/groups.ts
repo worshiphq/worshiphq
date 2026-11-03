@@ -193,3 +193,32 @@ export async function removeGroupMember(formData: FormData) {
 
   revalidatePath(`/app/groups/${groupId}`);
 }
+
+/**
+ * Set (or clear) a group's leader from the Church Leadership page.
+ *
+ * Writes the same Group.leaderId the group's own edit form writes, so the two screens can never
+ * disagree - assign here and it shows on the group, assign there and it shows here.
+ */
+export async function setGroupLeader(groupId: string, personId: string | null) {
+  const session = await requireManage("groups");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+
+  const group = await db.group.findFirst({ where: { id: groupId, churchId: session.churchId }, select: { id: true, name: true } });
+  if (!group) return { ok: false as const, error: "Group not found." };
+
+  if (personId) {
+    const person = await db.person.findFirst({ where: { id: personId, churchId: session.churchId }, select: { id: true, firstName: true, lastName: true } });
+    if (!person) return { ok: false as const, error: "Person not found." };
+    await db.group.update({ where: { id: group.id }, data: { leaderId: person.id, members: { connect: { id: person.id } } } });
+    await audit(session, "update", "group", `Made ${person.firstName} ${person.lastName} leader of "${group.name}"`.trim(), group.id);
+  } else {
+    await db.group.update({ where: { id: group.id }, data: { leaderId: null } });
+    await audit(session, "update", "group", `Removed the leader of "${group.name}"`, group.id);
+  }
+
+  revalidatePath("/app/leaders");
+  revalidatePath("/app/groups");
+  revalidatePath(`/app/groups/${group.id}`);
+  return { ok: true as const };
+}

@@ -15,7 +15,7 @@ const POSITION_PRIORITY: Record<string, number> = {
 };
 
 export async function getLeaders(churchId: string) {
-  const [churchLeaders, departmentPositions, departments, allPeople, churchTitles] = await Promise.all([
+  const [churchLeaders, departmentPositions, departments, allPeople, churchTitles, groups] = await Promise.all([
     db.person.findMany({
       where: { churchId, featured: true, leaderTitle: { not: null } },
       select: {
@@ -44,6 +44,18 @@ export async function getLeaders(churchId: string) {
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     }),
     db.church.findUnique({ where: { id: churchId }, select: { leaderTitles: true } }),
+    // Groups belong on this page too: a group leader leads part of the church just as a department
+    // head does. There is one Group.leaderId, so assigning here and assigning on the group itself
+    // write the same field - the two sides can never disagree.
+    db.group.findMany({
+      where: { churchId, isActive: true },
+      select: {
+        id: true, name: true, type: true,
+        leader: { select: { id: true, firstName: true, lastName: true, title: true, photoUrl: true, phone: true } },
+        _count: { select: { members: true } },
+      },
+      orderBy: { name: "asc" },
+    }),
   ]);
 
   const sortedChurchLeaders = [...churchLeaders].sort((a, b) => {
@@ -110,5 +122,19 @@ export async function getLeaders(churchId: string) {
       photoUrl: p.photoUrl,
     })),
     customPositions,
+    groupLeaders: groups.map((g) => ({
+      id: g.id,
+      name: g.name,
+      type: g.type,
+      memberCount: g._count.members,
+      leader: g.leader
+        ? {
+          id: g.leader.id,
+          name: `${g.leader.title ? g.leader.title + " " : ""}${g.leader.firstName} ${g.leader.lastName}`.trim(),
+          photoUrl: g.leader.photoUrl,
+          phone: g.leader.phone,
+        }
+        : null,
+    })),
   };
 }

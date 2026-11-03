@@ -10,6 +10,8 @@ import { Badge } from "@/components/ui/badge";
 import { MemberAvatar } from "@/components/ui/member-avatar";
 import { addPosition, removePosition } from "@/app/actions/positions";
 import { reorderLeaders } from "@/app/actions/leaders";
+import { setGroupLeader } from "@/app/actions/groups";
+import { useFeedback } from "@/components/ui/feedback";
 import { cn } from "@/lib/utils";
 import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
 
@@ -46,9 +48,18 @@ const BUILT_IN_POSITIONS = [
   "Secretary", "Treasurer", "Coordinator",
 ];
 
+type GroupLeader = {
+  id: string;
+  name: string;
+  type: string;
+  memberCount: number;
+  leader: { id: string; name: string; photoUrl: string | null; phone: string | null } | null;
+};
+
 export function LeadersClient({
   churchLeaders = [],
   departmentLeaders = [],
+  groupLeaders = [],
   departments = [],
   people = [],
   customPositions = [],
@@ -57,6 +68,7 @@ export function LeadersClient({
 }: {
   churchLeaders: Leader[];
   departmentLeaders: DeptLeader[];
+  groupLeaders?: GroupLeader[];
   departments: Dept[];
   people: PersonOption[];
   customPositions: string[];
@@ -280,7 +292,86 @@ export function LeadersClient({
           })}
         </div>
       </div>
+
+      {/* ── Group leaders ──
+          A group leader leads part of the church just as a department head does, so they belong on
+          this page. There is one Group.leaderId behind this, which the group's own edit form also
+          writes - assign here and it shows on the group, assign there and it shows here. */}
+      {groupLeaders.length > 0 && (
+        <div className="mt-10">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-lg font-semibold">Group leaders</h2>
+              <p className="text-sm text-ink-muted">Whoever leads each small group, ministry or fellowship.</p>
+            </div>
+            {isAdmin && !isDemo && (
+              <Link href="/app/groups" className="flex items-center gap-1.5 text-xs font-medium text-primary-bright hover:underline">
+                <Settings2 className="size-3.5" /> Manage groups
+              </Link>
+            )}
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {groupLeaders.map((g) => (
+              <GroupLeaderCard key={g.id} group={g} people={people} isAdmin={isAdmin} isDemo={isDemo} />
+            ))}
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function GroupLeaderCard({
+  group, people, isAdmin, isDemo,
+}: { group: GroupLeader; people: PersonOption[]; isAdmin: boolean; isDemo: boolean }) {
+  const router = useRouter();
+  const { toast } = useFeedback();
+  const [pending, start] = useTransition();
+
+  const choose = (personId: string) => {
+    start(async () => {
+      const res = await setGroupLeader(group.id, personId || null);
+      if (res.ok) { toast(personId ? `Leader set for ${group.name}` : `Leader cleared for ${group.name}`, "success"); router.refresh(); }
+      else toast(res.error, "error");
+    });
+  };
+
+  return (
+    <Card className={cn("p-4", pending && "opacity-70")}>
+      <div className="flex items-start justify-between gap-2">
+        <div className="min-w-0">
+          <h3 className="truncate font-display font-semibold">{group.name}</h3>
+          <p className="text-xs text-ink-muted">{group.memberCount} {group.memberCount === 1 ? "member" : "members"}</p>
+        </div>
+      </div>
+
+      <div className="mt-3 flex items-center gap-2.5">
+        {group.leader ? (
+          <>
+            <MemberAvatar name={group.leader.name} photoUrl={group.leader.photoUrl} size="sm" />
+            <div className="min-w-0">
+              <p className="truncate text-sm font-medium">{group.leader.name}</p>
+              <p className="truncate text-xs text-ink-muted">{group.leader.phone ?? "No phone"}</p>
+            </div>
+          </>
+        ) : (
+          <p className="text-sm text-ink-faint">No leader yet</p>
+        )}
+      </div>
+
+      {isAdmin && !isDemo && (
+        <select
+          value={group.leader?.id ?? ""}
+          disabled={pending}
+          onChange={(e) => choose(e.target.value)}
+          className="mt-3 h-9 w-full rounded-xl border border-line bg-surface px-2 text-sm focus-visible:border-primary/60 focus-visible:outline-none"
+        >
+          <option value="">No leader</option>
+          {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+        </select>
+      )}
+    </Card>
   );
 }
 

@@ -36,6 +36,7 @@ export default async function LeadersPage() {
       <LeadersClient
         churchLeaders={data.churchLeaders}
         departmentLeaders={data.departmentLeaders}
+        groupLeaders={data.groupLeaders}
         departments={data.departments}
         people={data.people}
         customPositions={data.customPositions}
