@@ -60,9 +60,9 @@ type Dept = { id: string; name: string };
 type Adult = { id: string; firstName: string; lastName: string };
 
 export function PeopleClient({
-  people, stats, canWrite, departments, groups = [], formFields, adults, categories = [], leaderTitles = [], initialQuery = "", youth = null,
+  people, stats, canWrite, departments, groups = [], formFields, adults, categories = [], leaderTitles = [], initialQuery = "", youth = null, idCardsLocked = false,
 }: {
-  people: PersonRow[]; stats: AllStats; canWrite: boolean; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; leaderTitles?: string[]; initialQuery?: string; youth?: { label: string; min: number; max: number } | null;
+  people: PersonRow[]; stats: AllStats; canWrite: boolean; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; leaderTitles?: string[]; initialQuery?: string; youth?: { label: string; min: number; max: number } | null; idCardsLocked?: boolean;
 }) {
   const [ageTab, setAgeTab] = useState<AgeTab>("adult");
   const [query, setQuery] = useState(initialQuery);
@@ -133,6 +133,10 @@ export function PeopleClient({
         <a href={`/api/export/people?format=xlsx&ageGroup=${ageTab}`}>
           <Button size="sm" variant="secondary"><Download className="size-4" /> Excel</Button>
         </a>
+        {/* Member ID cards are Starter and up; below that the button still shows, and leads to Billing. */}
+        <Link href={idCardsLocked ? "/app/settings?tab=billing" : "/app/people/id-cards"}>
+          <Button size="sm" variant="secondary"><QrIcon className="size-4" /> ID cards{idCardsLocked ? " (Starter)" : ""}</Button>
+        </Link>
         <Button size="sm" onClick={() => setCreating(true)} disabled={!canWrite}>
           <Plus className="size-4" /> {addLabel}
         </Button>

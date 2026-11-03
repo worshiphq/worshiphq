@@ -74,6 +74,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
           leaderTitles={leaderTitleList(church?.leaderTitles)}
           initialQuery={q ?? ""}
           youth={church?.ageYouthOn ? { label: church.ageYouthLabel, min: church.ageTeenMax + 1, max: church.ageYouthMax } : null}
+        idCardsLocked={!session.isDemo && !!session.planLocked?.includes("member-ids")}
         />
       </div>
     </div>

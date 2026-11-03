@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
-import { requireModule, requireManage } from "@/lib/auth";
+import { requireModule, requireManage, assertPlanFeature } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 
 /**
@@ -71,5 +71,25 @@ export async function deleteFund(formData: FormData) {
   await audit(session, "delete", "fund", `Deleted fund "${fund.name}"`, id);
   revalidatePath("/app/accounting");
   revalidatePath("/app/giving");
+  return { ok: true as const };
+}
+
+/**
+ * Max (fund accounting): make a fund restricted, so money given to it can only be spent on it and spending
+ * can never exceed its balance. Turning it on does not touch past expenses; it applies to new ones.
+ */
+export async function setFundRestricted(formData: FormData) {
+  const session = await requireManage("giving");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  assertPlanFeature(session, "fund-accounting");
+  const id = String(formData.get("id") ?? "");
+  const restricted = String(formData.get("restricted") ?? "") === "true";
+  const fund = await db.fund.findFirst({ where: { id, churchId: session.churchId }, select: { id: true, name: true } });
+  if (!fund) return { ok: false as const, error: "Fund not found." };
+
+  await db.fund.update({ where: { id }, data: { restricted } });
+  await audit(session, "update", "fund", `${restricted ? "Restricted" : "Unrestricted"} fund "${fund.name}"`, id);
+  revalidatePath("/app/accounting");
+  revalidatePath("/app/expenses");
   return { ok: true as const };
 }

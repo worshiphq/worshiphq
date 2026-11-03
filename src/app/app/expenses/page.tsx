@@ -6,7 +6,7 @@ import { createExpense } from "@/app/actions/expenses";
 import { PageHeader } from "@/components/app/page-header";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { Button } from "@/components/ui/button";
-import { Plus, Download } from "lucide-react";
+import { Plus, Download, AlertTriangle } from "lucide-react";
 import { getLedger, parseLedgerParams, periodBounds } from "@/lib/data/ledger";
 import { ledgerQuery } from "@/lib/ledger-query";
 
@@ -24,6 +24,16 @@ export default async function ExpensesPage({
   const parsed = parseLedgerParams(params);
   // This page is only ever the expense records, whatever is in the address bar.
   const filters = { ...parsed.filters, source: "expense" as const, type: "" as const, fund: "", group: false };
+
+  // Fund accounting is Max. Below it the fund picker is not offered and a fund's restriction is not applied.
+  const fundAccounting = session.isDemo || !session.planLocked?.includes("fund-accounting");
+  const fundRows = fundAccounting
+    ? await db.fund.findMany({
+        where: { churchId: session.churchId },
+        orderBy: { name: "asc" },
+        select: { id: true, name: true, restricted: true, gifts: { select: { amount: true } }, expenses: { select: { amount: true } } },
+      })
+    : [];
 
   const [ledger, accounts, allUsed] = await Promise.all([
     getLedger(session.churchId, parsed.period, filters),
@@ -60,11 +70,26 @@ export default async function ExpensesPage({
     { label: "- No account -", value: "" },
     ...accounts.map((a) => ({ label: a.isDefault ? `${a.name} (default)` : a.name, value: a.id })),
   ];
+  const fundOptions = [
+    { label: "- No fund -", value: "" },
+    ...fundRows.map((f) => {
+      const left = f.gifts.reduce((t, g) => t + Number(g.amount), 0) - f.expenses.reduce((t, e) => t + e.amount, 0);
+      return { label: f.restricted ? `${f.name} (restricted, ₵${left.toLocaleString()} left)` : f.name, value: f.id };
+    }),
+  ];
+  const fundError = params.error === "fund" ? { name: String(params.fund ?? "that fund"), left: Number(params.left ?? 0) } : null;
   const categorySuggestions = [...new Set([...CATEGORIES, ...allUsed.map((e) => e.category).filter(Boolean)])];
   const exportQs = ledgerQuery(ledger.period, { ...filters, page: 1 }).toString();
 
   return (
     <div>
+      {fundError && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+          <AlertTriangle className="size-4 shrink-0" />
+          Not recorded: &ldquo;{fundError.name}&rdquo; is a restricted fund and only has ₵{fundError.left.toLocaleString()} left, which is less than that expense.
+          Record a smaller amount, or choose another fund.
+        </div>
+      )}
       <PageHeader title="Expenses" description="Everything the church spent, by month and week, with reports.">
         <a href={`/api/export/transactions?${exportQs}`}><Button variant="secondary" size="sm"><Download /> Export Excel</Button></a>
         <ActionDialog
@@ -80,6 +105,9 @@ export default async function ExpensesPage({
           <Field label="Amount (GHS)" name="amount" type="number" placeholder="0" required />
           {accounts.length > 0 && (
             <Field label="Deduct from account" name="accountId" type="select" options={accountOptions} hint="Which account this payment comes out of" />
+          )}
+          {fundRows.length > 0 && (
+            <Field label="Charge to fund" name="fundId" type="select" options={fundOptions} hint="A restricted fund can only be spent up to what has been given to it" />
           )}
           <Field label="Category" name="category" suggestions={categorySuggestions} placeholder="Pick one or type your own (e.g. Instruments)" hint="Type any category - it’s remembered for next time." />
           <Field label="Vendor / payee" name="vendor" placeholder="Who was paid" />

@@ -28,7 +28,7 @@ export default async function AccountingPage({
     db.fund.findMany({
       where: { churchId: session.churchId },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, color: true, gifts: { select: { amount: true } } },
+      select: { id: true, name: true, color: true, restricted: true, gifts: { select: { amount: true } }, expenses: { select: { amount: true } } },
     }),
     db.transaction.aggregate({ where: { churchId: session.churchId, accountId: null, pendingDeposit: false }, _sum: { amount: true }, _count: true }),
     db.gift.aggregate({ where: { churchId: session.churchId, accountId: null, pendingDeposit: false }, _sum: { amount: true }, _count: true }),
@@ -53,6 +53,8 @@ export default async function AccountingPage({
     color: f.color,
     giftCount: f.gifts.length,
     total: f.gifts.reduce((s, g) => s + Number(g.amount), 0),
+    restricted: f.restricted,
+    spent: f.expenses.reduce((s, e) => s + e.amount, 0),
   }));
   const accountOptions = [
     { label: "- No account -", value: "" },
@@ -97,6 +99,7 @@ export default async function AccountingPage({
         notBanked={notBanked}
         canWrite={canEdit(session, "accounting")}
         canDelete={session.canDelete && canEdit(session, "accounting")}
+        fundAccounting={session.isDemo || !session.planLocked?.includes("fund-accounting")}
       />
     </div>
   );

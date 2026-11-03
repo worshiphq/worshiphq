@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { memberLimitError } from "@/lib/member-limit";
 import { db } from "@/lib/db";
-import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
+import { requireSession, assertCanWrite, assertCanDelete, assertPlanFeature } from "@/lib/auth";
 import { getFormDefinition, questionFields } from "@/lib/forms/registration";
 import { buildPersonData } from "@/lib/forms/person-data";
 import { nextMemberId, resolveDepartmentIds, resolveGroupIds } from "@/lib/members/helpers";
@@ -168,4 +168,32 @@ export async function deletePerson(id: string) {
   if (person) await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: "person", entityId: id, detail: `Deleted ${person.firstName} ${person.lastName}` });
   revalidatePath("/app/people");
   revalidatePath("/app");
+}
+
+/**
+ * Give every member who has no member ID one, so a card can be printed for them. Members added since IDs
+ * existed already have one; this covers people imported or added before that. Oldest first, so the numbers
+ * follow the order people joined.
+ */
+export async function issueMissingMemberIds() {
+  const session = await requireSession();
+  assertCanWrite(session, "people");
+  assertPlanFeature(session, "member-ids");
+
+  const missing = await db.person.findMany({
+    where: { churchId: session.churchId, memberId: null, status: { not: "visitor" } },
+    select: { id: true },
+    orderBy: { joinedAt: "asc" },
+    take: 1000,
+  });
+  let issued = 0;
+  for (const p of missing) {
+    const memberId = await nextMemberId(session.churchId);
+    // Only fills a gap: a person who got an ID in the meantime is left exactly as they are.
+    const res = await db.person.updateMany({ where: { id: p.id, churchId: session.churchId, memberId: null }, data: { memberId } });
+    issued += res.count;
+  }
+  revalidatePath("/app/people");
+  revalidatePath("/app/people/id-cards");
+  return { issued };
 }

@@ -33,9 +33,11 @@ interface Props {
   notBanked?: { count: number; total: number };
   canWrite: boolean;
   canDelete: boolean;
+  /** The plan includes fund accounting (Max): funds can be restricted. */
+  fundAccounting?: boolean;
 }
 
-export function AccountingClient({ ledger, accounts, funds, unassigned, notBanked, canWrite, canDelete }: Props) {
+export function AccountingClient({ ledger, accounts, funds, unassigned, notBanked, canWrite, canDelete, fundAccounting = false }: Props) {
   const [tab, setTab] = useState<Tab>("overview");
   const [showUnassigned, setShowUnassigned] = useState(false);
   const [stmtAccount, setStmtAccount] = useState(accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "");
@@ -111,7 +113,7 @@ export function AccountingClient({ ledger, accounts, funds, unassigned, notBanke
           {tab === "entries" && <EntriesView ledger={ledger} canWrite={canWrite} canDelete={canDelete} />}
           {tab === "periods" && <PeriodsView ledger={ledger} onOpen={() => setTab("entries")} />}
           {tab === "statements" && <StatementsView accounts={ledgerAccounts} ledger={ledger} accountId={stmtAccount} onAccount={setStmtAccount} />}
-          {tab === "funds" && <FundsManager funds={funds} canWrite={canWrite} />}
+          {tab === "funds" && <FundsManager funds={funds} canWrite={canWrite} fundAccounting={fundAccounting} />}
           {tab === "report" && <ReportView ledger={ledger} />}
         </div>
 

@@ -1,7 +1,13 @@
 # Pricing & feature decisions - 3 Nov 2026
 
 Decisions taken by Doctor WorshipSax after the plan-gating audit
-(see AUDIT-PLAN-GATING.md). Nothing here is built yet.
+(see AUDIT-PLAN-GATING.md).
+
+**Status, 3 Nov 2026 (later): built, not yet pushed.** member-ids (ID card print), auto-inactive, restricted
+funds (Max), "coming soon" labels, email broadcasts and the sender-name line removed from the comparison
+table, team invites SMS-first with email optional, calendar for every role, and every item under
+"Still outstanding from the audit" below except the in-app suspended-export decision noted in the commit.
+Still to do: apply the saved plan-card wording with `node scripts/fix-plan-cards.cjs --apply` (dry run first).
 
 ## Order of work
 

@@ -9,6 +9,7 @@ import { runRosterReminders } from "./roster-reminders";
 import { runGroupMeetingReminders } from "./group-meetings";
 import { runCounselingReminders } from "./counseling-reminders";
 import { runAbsenceCheck } from "./absence";
+import { runAutoInactive } from "./auto-inactive";
 import { runServiceThanks } from "@/lib/attendance/thanks";
 import { runAgeGroupSync } from "@/lib/data/age";
 import { runScheduledBackups } from "@/lib/backups/run";
@@ -74,6 +75,8 @@ export async function runDailyAutomations(now = new Date(), precise = false) {
     // A child turns into a teen on their birthday, not at some particular hour, so this swept every
     // church once an hour to do nothing 23 times out of 24.
     summary.ageGroups = await safe("ageGroups", () => runAgeGroupSync());
+    // Max: members who have stopped coming move to inactive. Daily is plenty; it is a slow-moving fact about a person.
+    summary.autoInactive = await safe("autoInactive", () => runAutoInactive(now, smsDeadline));
     summary.fxRate = await safe("fx", () => refreshUsdToGhsRate());
     summary.pledgeReminders = await safe("pledgeReminders", () => runPledgeReminders(smsDeadline));
   }

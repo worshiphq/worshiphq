@@ -1,5 +1,6 @@
 "use client";
 
+import { AutoInactiveCard, type AutoInactiveData } from "@/components/app/auto-inactive-card";
 import { useState, useTransition } from "react";
 import { Cake, Heart, Sparkles, Plus, Gift, Send, Zap, Pencil, Play, MessageSquare, UserPlus, Users, X, CalendarClock } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
@@ -41,6 +42,7 @@ export function RemindersClient({
   departments = [],
   absence,
   automationsLocked = false,
+  autoInactive,
 }: {
   automations: Automation[];
   upcoming: Upcoming[];
@@ -51,6 +53,7 @@ export function RemindersClient({
   absence: AbsenceData;
   /** Automations are a Pro feature; below Pro they are shown but cannot be created or changed. */
   automationsLocked?: boolean;
+  autoInactive: AutoInactiveData;
 }) {
   const [pending, start] = useTransition();
   const { toast } = useFeedback();
@@ -155,6 +158,7 @@ export function RemindersClient({
       </Card>
 
       <AbsenceCard data={absence} canWrite={canWrite} />
+      <AutoInactiveCard data={autoInactive} canWrite={canWrite} />
 
       <div className="grid gap-4 lg:grid-cols-3">
         <div className="space-y-3 lg:col-span-2">

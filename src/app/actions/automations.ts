@@ -211,3 +211,34 @@ export async function previewAbsence(weeks: number) {
   const away = await absentMembers(session.churchId, Math.min(52, Math.max(1, Math.trunc(weeks) || 3)), church?.timezone ?? "Africa/Accra");
   return { total: away.length, long: away.filter((m) => m.stale).length, withPhone: away.filter((m) => !m.stale && m.phone).length };
 }
+
+/**
+ * Max: who would be moved to inactive right now if this were on at this threshold. Writes nothing, so a
+ * church can see the effect before it switches the feature on (turning it on moves everyone already away).
+ */
+export async function previewAutoInactive(weeks: number) {
+  const session = await requireSession();
+  assertPlanFeature(session, "auto-inactive");
+  const { planAutoInactive } = await import("@/lib/automations/auto-inactive");
+  const church = await db.church.findUnique({ where: { id: session.churchId }, select: { timezone: true } });
+  const plan = await planAutoInactive(session.churchId, weeks, church?.timezone ?? "Africa/Accra");
+  return {
+    ok: plan.ok,
+    reason: plan.ok ? null : plan.reason,
+    total: plan.members.length,
+    names: plan.members.slice(0, 6).map((m) => m.name),
+  };
+}
+
+export async function saveAutoInactiveSettings(input: { on: boolean; weeks: number }) {
+  const session = await requireSession();
+  assertCanWrite(session, "reminders");
+  assertPlanFeature(session, "auto-inactive");
+  const { clampWeeks } = await import("@/lib/automations/auto-inactive");
+  await db.church.update({
+    where: { id: session.churchId },
+    data: { autoInactiveOn: !!input.on, autoInactiveWeeks: clampWeeks(input.weeks) },
+  });
+  revalidatePath("/app/reminders");
+  return { ok: true as const };
+}

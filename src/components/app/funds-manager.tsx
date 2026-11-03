@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { PiggyBank, Plus, Pencil, Trash2, Check, X, Loader2 } from "lucide-react";
+import { PiggyBank, Plus, Pencil, Trash2, Check, X, Loader2, Lock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useFeedback } from "@/components/ui/feedback";
-import { createFund, renameFund, deleteFund } from "@/app/actions/funds";
+import { createFund, renameFund, deleteFund, setFundRestricted } from "@/app/actions/funds";
 import { useRouter } from "next/navigation";
 import { confirmBinDelete } from "@/lib/recycle-bin-events";
 import { BIN_TOAST } from "@/lib/recycle-bin-config";
@@ -16,6 +16,10 @@ export interface FundRow {
   color: string;
   giftCount: number;
   total: number;
+  /** Max: money given to it can only be spent on it, up to its balance. */
+  restricted?: boolean;
+  /** Spent from this fund so far (expenses charged to it). */
+  spent?: number;
 }
 
 const SWATCHES = ["#6D5EF8", "#0EA5E9", "#10B981", "#F59E0B", "#EF4444", "#EC4899", "#8B5CF6", "#64748B"];
@@ -26,7 +30,7 @@ const SWATCHES = ["#6D5EF8", "#0EA5E9", "#10B981", "#F59E0B", "#EF4444", "#EC489
  * delete them. A fund with giving recorded against it can't be deleted until
  * that giving is moved, so history is never orphaned.
  */
-export function FundsManager({ funds, canWrite }: { funds: FundRow[]; canWrite: boolean }) {
+export function FundsManager({ funds, canWrite, fundAccounting = false }: { funds: FundRow[]; canWrite: boolean; /** The plan includes fund accounting (Max). */ fundAccounting?: boolean }) {
   const [adding, setAdding] = useState(false);
   const [editId, setEditId] = useState<string | null>(null);
   const [pending, start] = useTransition();
@@ -95,8 +99,32 @@ export function FundsManager({ funds, canWrite }: { funds: FundRow[]; canWrite: 
                   <div className="text-sm font-medium">{f.name}</div>
                   <div className="text-xs text-ink-faint">
                     {f.giftCount > 0 ? `${f.giftCount} gift${f.giftCount === 1 ? "" : "s"} · ₵${f.total.toLocaleString()}` : "No giving yet"}
+                    {f.restricted && (
+                      <>
+                        {" · "}spent ₵{(f.spent ?? 0).toLocaleString()} ·{" "}
+                        <b className={f.total - (f.spent ?? 0) <= 0 ? "text-danger" : "text-success"}>₵{(f.total - (f.spent ?? 0)).toLocaleString()} left</b>
+                      </>
+                    )}
                   </div>
                 </div>
+                {f.restricted && (
+                  <span title="Money given to this fund can only be spent on it, up to its balance" className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                    <Lock className="size-3" /> Restricted
+                  </span>
+                )}
+                {fundAccounting && canWrite && (
+                  <button
+                    type="button"
+                    disabled={pending}
+                    onClick={() => {
+                      const fd = new FormData(); fd.set("id", f.id); fd.set("restricted", String(!f.restricted));
+                      submit(fd, setFundRestricted, f.restricted ? "Fund is no longer restricted" : "Fund restricted: it can only be spent up to its balance", () => {});
+                    }}
+                    className="rounded-lg border border-line px-2 py-1 text-xs font-medium text-ink-muted hover:bg-surface-2 disabled:opacity-50"
+                  >
+                    {f.restricted ? "Unrestrict" : "Restrict"}
+                  </button>
+                )}
                 {canWrite && (
                   <div className="flex items-center gap-1">
                     <button onClick={() => setEditId(f.id)} title="Rename / recolour"
