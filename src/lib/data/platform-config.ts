@@ -123,15 +123,42 @@ function resolvePlans(
   return base;
 }
 
+/**
+ * Retry a read that failed only because no connection was free.
+ *
+ * Every marketing page is prerendered at build time and needs this row, because the plan prices
+ * live in it. So when the connection pooler was momentarily full, the whole deploy died on /about -
+ * and a deploy that only fails sometimes, for reasons nothing to do with the commit, is the worst
+ * kind to debug. A few seconds of patience fixes that.
+ *
+ * Deliberately narrow: only retried when the pool itself refused us, and the error is still thrown
+ * if it keeps refusing. Serving the page with default prices instead would be far worse than
+ * failing - wrong prices on the pricing page are a promise we would have to honour.
+ */
+async function withPoolRetry<T>(label: string, read: () => Promise<T>): Promise<T> {
+  const delays = [600, 1500, 3000, 5000];
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await read();
+    } catch (err) {
+      const msg = String((err as Error)?.message ?? "");
+      const exhausted = /EMAXCONN|max client connections|Timed out fetching a new connection/i.test(msg);
+      if (!exhausted || attempt >= delays.length) throw err;
+      console.warn(`[${label}] no database connection free, retrying in ${delays[attempt]}ms`);
+      await new Promise((r) => setTimeout(r, delays[attempt]));
+    }
+  }
+}
+
 export const getPlatformConfig = cache(async () => {
   // A plain read, so it never waits on a lock. The row is only written the first time, if it does not exist yet.
-  const config =
+  const config = await withPoolRetry("platform-config", async () =>
     (await db.platformConfig.findUnique({ where: { id: "default" } })) ??
     (await db.platformConfig.upsert({
       where: { id: "default" },
       update: {},
       create: { id: "default", currency: "USD", currencySymbol: "$", planPrices: DEFAULT_PRICES },
-    }));
+    })));
 
   const prices = (config.planPrices as PlanPrices) ?? DEFAULT_PRICES;
   const planDefs = resolvePlans(config.planDefs, prices);
