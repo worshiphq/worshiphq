@@ -205,7 +205,30 @@ export async function createVisitorForHarvest(formData: FormData) {
     select: { id: true, firstName: true, lastName: true, phone: true, photoUrl: true },
   });
 
+  // Someone who turns up for harvest and gives is a visitor like any other, so they get a real
+  // Visitor record and a follow-up task - otherwise they are a name on a receipt nobody calls back.
+  const visitor = await db.visitor.create({
+    data: {
+      churchId: session.churchId,
+      personId: person.id,
+      firstName,
+      lastName,
+      phone: phone || null,
+      purpose: "Harvest",
+    },
+  });
+  const { createAutoFollowUp } = await import("@/lib/follow-ups/auto");
+  await createAutoFollowUp({
+    churchId: session.churchId,
+    type: "new_visitor",
+    visitorId: visitor.id,
+    title: `Follow up with visitor ${firstName} ${lastName}`.trim(),
+    note: "Came for harvest.",
+    dueInDays: 2,
+  });
+
   revalidatePath("/app/harvest");
+  revalidatePath("/app/visitors");
   return { ok: true, person };
 }
 

@@ -47,11 +47,13 @@ export async function createPerson(formData: FormData) {
   const { data, customFields, departmentNames } = await buildPersonData(fields, formData);
   if (!data.firstName || !data.lastName) return { ok: false as const };
 
-  const status = (String(formData.get("status") ?? "active") as PersonStatus) || "active";
-  if (status !== "visitor") {
-    const full = await memberLimitError(session.churchId);
-    if (full) return { ok: false as const, error: full };
-  }
+  // Visitors are never created here. They belong in Visitors, which records why they came and
+  // raises a follow-up - a member row with the visitor flag gives them neither. Anything asking
+  // for one from this form becomes a member, so the plan limit always applies.
+  const requested = String(formData.get("status") ?? "active") as PersonStatus;
+  const status: PersonStatus = requested === "visitor" ? "active" : requested || "active";
+  const full = await memberLimitError(session.churchId);
+  if (full) return { ok: false as const, error: full };
   const leaderTitle = await resolveLeaderTitle(session.churchId, formData);
   const featured = formData.get("featured") === "true";
   const deptIds = await resolveDepartmentIds(session.churchId, departmentNames);

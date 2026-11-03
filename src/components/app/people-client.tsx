@@ -5,8 +5,9 @@ import { useMemo, useState, useEffect, useActionState } from "react";
 import { ScanFace,
   Search, Plus, Phone, Mail, MapPin, X, Users, Pencil, Trash2,
   Briefcase, Heart, Shield, User, Grid3X3, List, ChevronRight, Download, MessageSquare, QrCode as QrIcon, Fingerprint,
-  ArrowDownAZ, Filter, Crown, Baby, GraduationCap, School,
+  ArrowDownAZ, Filter, Crown, Baby, GraduationCap, School, UserPlus,
 } from "lucide-react";
+import Link from "next/link";
 import dynamic from "next/dynamic";
 const QRCodeCanvas = dynamic(() => import("qrcode.react").then((m) => m.QRCodeCanvas), { ssr: false });
 import { ImportModal } from "@/components/app/import-modal";
@@ -54,7 +55,7 @@ const engagementStyle: Record<PersonRow["engagement"], { label: string; variant:
   new: { label: "Visitor", variant: "info" },
 };
 
-type AllStats = { totalAll: number; adults: number; teens: number; children: number; active: number; visitors: number; departments: number };
+type AllStats = { totalAll: number; adults: number; teens: number; children: number; active: number; visitors: number; departments: number; visitorRecords: number };
 type Dept = { id: string; name: string };
 type Adult = { id: string; firstName: string; lastName: string };
 
@@ -158,7 +159,9 @@ export function PeopleClient({
         ))}
       </div>
 
-      {/* ── ADULT | TEENS | CHILDREN tabs ── */}
+      {/* ── ADULTS | TEENS | CHILDREN | VISITORS tabs ──
+           Visitors are not an age group and never live in this list: the tab carries you over to
+           Visitors, where the reason they came and their follow-up are kept. */}
       <div className="mb-4 flex items-center gap-1 rounded-xl border border-line bg-surface-2/50 p-1">
         {ageGroupTabs.map((tab) => {
           const count = tab.key === "adult" ? stats.adults : tab.key === "teen" ? stats.teens : stats.children;
@@ -184,6 +187,16 @@ export function PeopleClient({
             </button>
           );
         })}
+        <Link
+          href="/app/visitors"
+          className="flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-semibold text-ink-muted transition-all duration-200 hover:text-ink"
+        >
+          <UserPlus className="size-4" />
+          Visitors
+          <span className="rounded-full bg-surface-2 px-2 py-0.5 text-xs font-medium text-ink-faint">
+            {stats.visitorRecords}
+          </span>
+        </Link>
       </div>
 
       {/* ── Filters bar ── */}

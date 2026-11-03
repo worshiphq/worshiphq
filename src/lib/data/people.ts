@@ -219,7 +219,7 @@ export async function getChildrenStats(churchId: string) {
 }
 
 export async function getAllPeopleStats(churchId: string) {
-  const [totalAll, adults, teens, children, active, visitors, departments] = await Promise.all([
+  const [totalAll, adults, teens, children, active, visitors, departments, visitorRecords] = await Promise.all([
     db.person.count({ where: { churchId } }),
     db.person.count({ where: { churchId, ...ADULT_FILTER } }),
     db.person.count({ where: { churchId, ageGroup: "teen" } }),
@@ -227,6 +227,9 @@ export async function getAllPeopleStats(churchId: string) {
     db.person.count({ where: { churchId, status: "active", ...ADULT_FILTER } }),
     db.person.count({ where: { churchId, status: "visitor", ...ADULT_FILTER } }),
     db.department.count({ where: { churchId } }),
+    // The real visitor list, whatever door they came through - the Visitors tab counts these, not
+    // the member rows flagged "visitor".
+    db.visitor.count({ where: { churchId } }),
   ]);
-  return { totalAll, adults, teens, children, active, visitors, departments };
+  return { totalAll, adults, teens, children, active, visitors, departments, visitorRecords };
 }
