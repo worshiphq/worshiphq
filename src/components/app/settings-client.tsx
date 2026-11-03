@@ -972,7 +972,10 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
     return dbPrice ? { ...merged, monthly: dbPrice.monthly, yearly: dbPrice.yearly } : merged;
   });
   const sym = platformPricing?.currencySymbol ?? "₵";
-  const fmtPrice = (amount: number) => `${sym}${amount.toLocaleString()}`;
+  // Round before formatting: a yearly price shown per-month (100/12) is 8.3333..., and toLocaleString
+  // would print "8.333". Never show a price with stray decimals.
+  const fmtPrice = (amount: number) =>
+    `${sym}${(Math.round(amount * 100) / 100).toLocaleString(undefined, { maximumFractionDigits: 2 })}`;
 
   const [showPlans, setShowPlans] = useState(false);
   const [interval, setInterval] = useState<"monthly" | "yearly">(
@@ -1080,7 +1083,10 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
   }
   const currentPlan = plans.find((p) => p.id === currentPlanId) ?? plans[0];
   const isGrace = subscription?.status === "grace";
-  const price = interval === "yearly" ? currentPlan.yearly / 12 : currentPlan.monthly;
+  // What this church is actually billed, so it follows the real subscription - not the monthly/yearly tab
+  // the user is browsing with. Shown as the full amount for the period, never a per-month slice.
+  const billedYearly = (subscription?.interval ?? "monthly") === "yearly";
+  const price = billedYearly ? currentPlan.yearly : currentPlan.monthly;
 
   return (
     <div className="space-y-5">
@@ -1115,7 +1121,7 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
       <PlanHero
         planName={currentPlan.name}
         members={currentPlan.members}
-        priceText={isGrace ? "Free forever" : currentPlanId === "free" ? "Free" : `${fmtPrice(price)}/mo`}
+        priceText={isGrace ? "Free forever" : currentPlanId === "free" ? "Free" : `${fmtPrice(price)}${billedYearly ? "/year" : "/mo"}`}
         status={isGrace ? "grace" : currentPlanId === "free" ? "free" : "active"}
         renewsAt={subscription?.renewsAt ? String(subscription.renewsAt) : null}
         interval={subscription?.interval ?? "monthly"}
@@ -1201,7 +1207,11 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             {plans.map((plan) => {
               const isCurrent = plan.id === currentPlanId;
-              const monthlyPrice = interval === "yearly" ? plan.yearly / 12 : plan.monthly;
+              const isYearly = interval === "yearly";
+              // Show what the church actually pays: the full yearly total on the yearly tab, not a
+              // per-month slice of it. The per-month equivalent goes underneath, rounded.
+              const shownPrice = isYearly ? plan.yearly : plan.monthly;
+              const perMonthEquivalent = isYearly && plan.yearly > 0 ? plan.yearly / 12 : null;
               return (
                 <div
                   key={plan.id}
@@ -1221,9 +1231,20 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
                   </div>
                   <p className="mt-1 text-xs text-ink-muted">{plan.tagline}</p>
                   <div className="mt-3">
-                    <span className="font-display text-2xl font-bold">{fmtPrice(monthlyPrice)}</span>
-                    <span className="text-sm text-ink-faint">/mo</span>
+                    {shownPrice > 0 ? (
+                      <>
+                        <span className="font-display text-2xl font-bold">{fmtPrice(shownPrice)}</span>
+                        <span className="text-sm text-ink-faint">{isYearly ? "/year" : "/mo"}</span>
+                      </>
+                    ) : (
+                      <span className="font-display text-2xl font-bold">Free</span>
+                    )}
                   </div>
+                  {perMonthEquivalent !== null && (
+                    <div className="mt-0.5 text-xs text-ink-faint">
+                      about {fmtPrice(perMonthEquivalent)}/mo, billed once a year
+                    </div>
+                  )}
                   <div className="mt-1 text-xs text-ink-faint">{plan.members}</div>
                   <ul className="mt-3 space-y-1.5">
                     {plan.features.map((f) => (

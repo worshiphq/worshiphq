@@ -17,6 +17,7 @@ import { ImageCropper } from "@/components/ui/image-cropper";
 import { BiometricRegisterButton } from "@/components/app/biometric-register";
 import { ImportVisitorsModal } from "@/components/app/import-visitors-modal";
 import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
+import { compressImageFile } from "@/lib/image-compress";
 
 type VisitorRow = {
   id: string;
@@ -209,9 +210,7 @@ export function VisitorsClient({
   function handleAddPhoto(files: FileList | null) {
     const file = files?.[0];
     if (!file || !file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = () => setAddEditing(reader.result as string);
-    reader.readAsDataURL(file);
+    compressImageFile(file).then(setAddEditing).catch(() => {});
   }
 
   function handleCheckIn(v: VisitorRow) {
@@ -236,9 +235,7 @@ export function VisitorsClient({
   function handleEditPhoto(files: FileList | null) {
     const file = files?.[0];
     if (!file || !file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = () => setEditCropping(reader.result as string);
-    reader.readAsDataURL(file);
+    compressImageFile(file).then(setEditCropping).catch(() => {});
   }
 
   return (

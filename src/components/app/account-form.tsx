@@ -12,6 +12,7 @@ import { useFeedback } from "@/components/ui/feedback";
 import { ImageCropper } from "@/components/ui/image-cropper";
 import { OtpInput } from "@/components/ui/otp-input";
 import { PasswordStrength } from "@/components/ui/password-strength";
+import { compressImageFile } from "@/lib/image-compress";
 import {
   updateProfile, changePassword, sendPasswordResetOtp, resetPasswordWithOtp,
   startPhoneChange, confirmPhoneChange,
@@ -61,9 +62,7 @@ export function AccountForm({
   function handlePhoto(files: FileList | null) {
     const file = files?.[0];
     if (!file || !file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = () => setEditing(reader.result as string);
-    reader.readAsDataURL(file);
+    compressImageFile(file).then(setEditing).catch(() => {});
   }
 
   function submitPassword() {

@@ -137,6 +137,9 @@ export const GROUPS_FIELD_ID = "groups";
 export const DEFAULT_FORM: FormField[] = [
   { id: "firstName", label: "First name", type: "text", required: true, system: true, locked: true },
   { id: "lastName", label: "Last name", type: "text", required: true, system: true, locked: true },
+  // On by default so members arrive with a face on their record (it drives ID cards and check-in).
+  // Never required, and a church that doesn't want it removes it in Settings > Links & forms.
+  { id: "photoUrl", label: "Profile photo", type: "image", system: true },
   { id: "phone", label: "Phone Number (Call & SMS)", type: "tel", required: true, system: true },
   { id: "email", label: "Email", type: "email", system: true },
   { id: "gender", label: "Gender", type: "select", options: GENDER, system: true },

@@ -7,6 +7,7 @@ import { type FormField, DEPARTMENT_FIELD_ID, GROUPS_FIELD_ID, splitSteps, quest
 import { ImageCropper } from "@/components/ui/image-cropper";
 import { Combobox } from "@/components/ui/combobox";
 import { OtherSelect } from "@/components/app/other-select";
+import { compressImageFile } from "@/lib/image-compress";
 import { cn } from "@/lib/utils";
 
 export interface MemberDefaults {
@@ -307,9 +308,9 @@ function PhotoUpload({ value, onChange, name }: { value: string; onChange: (v: s
   function pick(files: FileList | null) {
     const file = files?.[0];
     if (!file || !file.type.startsWith("image/")) return;
-    const reader = new FileReader();
-    reader.onload = () => setEditing(reader.result as string);
-    reader.readAsDataURL(file);
+    // Shrink before the cropper: a full-size phone photo held as a data URL is tens of megabytes in
+    // memory, which is what makes cheaper Android phones stall or crash on this step.
+    compressImageFile(file).then(setEditing).catch(() => {});
   }
   return (
     <div className="flex items-center gap-4">

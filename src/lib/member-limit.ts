@@ -9,19 +9,25 @@ import { getPlatformConfig } from "@/lib/data/platform-config";
  * upgrades or removes people.
  */
 export async function memberRoom(churchId: string): Promise<{ limit: number | null; used: number; left: number }> {
-  const [plan, cfg, used] = await Promise.all([
-    getChurchPlan(churchId),
-    getPlatformConfig(),
-    countMembers(churchId),
-  ]);
+  const plan = await getChurchPlan(churchId);
+  const [cfg, used] = await Promise.all([getPlatformConfig(), countMembers(churchId, plan)]);
   const raw = cfg.planTable[plan]?.members;
   const limit = typeof raw === "number" && Number.isFinite(raw) && raw >= 0 ? raw : null;
   return { limit, used, left: limit === null ? Infinity : Math.max(0, limit - used) };
 }
 
-/** The number shown as "Members" on the billing page, and the number the limit is checked against. */
-export function countMembers(churchId: string): Promise<number> {
-  return db.person.count({ where: { churchId, status: { not: "visitor" } } });
+/**
+ * The number shown as "Members" on the billing page, and the number the limit is checked against.
+ *
+ * On the Free plan everyone counts, visitors included: a free church that keeps adding people as "visitors"
+ * is still being carried by us, and the cap is what moves them onto a paid plan. On paid plans visitors are
+ * free - they have their own list and never use up a member place.
+ */
+export function countMembers(churchId: string, plan?: string): Promise<number> {
+  const countsVisitors = (plan ?? "free") === "free";
+  return db.person.count({
+    where: { churchId, ...(countsVisitors ? {} : { status: { not: "visitor" } }) },
+  });
 }
 
 /** The sentence an admin sees when their plan is full. */
