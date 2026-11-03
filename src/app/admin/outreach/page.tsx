@@ -9,7 +9,7 @@ export default async function AdminOutreachPage() {
   const sa = await requireSuperAdmin();
   const data = await getOutreachData();
   return (
-    <AdminShell email={sa.email}>
+    <AdminShell email={sa.email} isOwner={sa.role === "owner"}>
       <OutreachClient data={data} />
     </AdminShell>
   );

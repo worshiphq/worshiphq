@@ -9,7 +9,7 @@ export default async function AdminReceiptsPage() {
   const sa = await requireSuperAdmin();
   const data = await getReceiptsPage();
   return (
-    <AdminShell email={sa.email}>
+    <AdminShell email={sa.email} isOwner={sa.role === "owner"}>
       <ReceiptsClient data={data} />
     </AdminShell>
   );

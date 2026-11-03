@@ -55,7 +55,7 @@ export default async function AdminAccountsPage({ searchParams }: { searchParams
   const link = (p: number) => `/admin/accounts?${new URLSearchParams({ ...(q ? { q } : {}), page: String(p) }).toString()}`;
 
   return (
-    <AdminShell>
+    <AdminShell isOwner={sa.role === "owner"}>
       <div className="mb-6">
         <h1 className="text-xl font-bold tracking-tight">Accounts</h1>
         <p className="mt-1 text-sm text-slate-400">Every person who signs in, grouped by church. Send someone a password reset link, or unlock an account that was locked for 24 hours. You are signed in as {sa.role === "owner" ? "the owner" : sa.name}.</p>

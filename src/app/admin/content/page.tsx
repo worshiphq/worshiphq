@@ -8,7 +8,7 @@ export default async function AdminContentPage() {
   const content = await getMarketingContent();
 
   return (
-    <AdminShell email={sa.email}>
+    <AdminShell email={sa.email} isOwner={sa.role === "owner"}>
       <div className="mb-6">
         <h1 className="text-lg font-bold tracking-tight">Site content</h1>
         <p className="text-sm text-slate-400">

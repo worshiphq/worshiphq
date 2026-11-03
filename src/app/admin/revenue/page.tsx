@@ -2,6 +2,8 @@ import { Wallet, MessageSquareText, TrendingUp, Gift } from "lucide-react";
 import { requireSuperAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getRevenueOverview } from "@/lib/data/revenue";
+import { getSmsStock } from "@/lib/data/sms-stock";
+import { SmsStockCard } from "@/components/admin/sms-stock-card";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { AdminShell, AdminCard } from "@/components/admin/admin-shell";
 import { RecordPlanForm, SmsCostForm } from "@/components/admin/record-plan-form";
@@ -13,8 +15,9 @@ const money = (n: number) => `₵${n.toLocaleString("en-GH", { minimumFractionDi
 
 export default async function AdminRevenuePage() {
   const sa = await requireSuperAdmin();
-  const [rev, churches, config, team] = await Promise.all([
+  const [rev, stock, churches, config, team] = await Promise.all([
     getRevenueOverview(),
+    getSmsStock(),
     db.church.findMany({ where: { isDemo: false }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     getPlatformConfig(),
     db.user.findMany({ where: { church: { isDemo: false } }, orderBy: { createdAt: "asc" }, select: { churchId: true, name: true, role: true, email: true } }),
@@ -34,7 +37,7 @@ export default async function AdminRevenuePage() {
   ];
 
   return (
-    <AdminShell email={sa.email}>
+    <AdminShell email={sa.email} isOwner={sa.role === "owner"}>
       <div className="mb-6">
         <h1 className="text-lg font-bold tracking-tight">Revenue</h1>
         <p className="text-sm text-slate-400">What you earn from subscriptions and SMS, and your SMS profit against what the provider charges you.</p>
@@ -89,6 +92,16 @@ export default async function AdminRevenuePage() {
             <p className="mt-3 text-[11px] text-slate-500">{rev.sms.estimatedTopups} older top-up{rev.sms.estimatedTopups === 1 ? "" : "s"} did not record the amount paid, so they are priced at the standard rate.</p>
           )}
           <div className="mt-4 border-t border-white/10 pt-4"><SmsCostForm initial={rev.costPerCredit} /></div>
+        </AdminCard>
+      </div>
+
+      <div className="mb-4">
+        <AdminCard className="p-5">
+          <SmsStockCard
+            stock={{ ...stock, purchases: stock.purchases.map((p) => ({ ...p, purchasedAt: p.purchasedAt.toISOString() })) }}
+            assumedCost={rev.costPerCredit}
+            isOwner={sa.role === "owner"}
+          />
         </AdminCard>
       </div>
 

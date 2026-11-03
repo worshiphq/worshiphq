@@ -1163,6 +1163,22 @@ model SmsTransaction {
   @@index([churchId, createdAt])
 }
 
+// SMS the PLATFORM bought from its provider (e.g. Hubtel), entered by the owner. SmsTransaction records what
+// churches bought from us; this records what we bought, so the two can be compared: have we sold more
+// credits than we have stock to send? Owner-entered, owner-only to change. "credits" are SMS segments, the
+// same unit as a church credit.
+model SmsPurchase {
+  id          String   @id @default(cuid())
+  credits     Int // SMS units bought (one unit = one credit)
+  costGhs     Float // what it cost, in cedis
+  provider    String? // e.g. Hubtel
+  note        String?
+  purchasedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([purchasedAt])
+}
+
 // One row per billable SMS send: what went out, to how many, what it cost, and who pressed send.
 // SmsTransaction records the MONEY (credits in and out); this records the MESSAGE, which the money
 // ledger never kept. Written by sendChurchSms for every church-facing send, including the automatic

@@ -13,7 +13,7 @@ export default async function RefundPolicyPage() {
   const support = brand.email.support;
 
   return (
-    <LegalPage eyebrow="Legal" title="Refund Policy" updated="July 2026">
+    <LegalPage eyebrow="Legal" title="Refund Policy" updated="November 2026">
       <LegalSection heading="The short version">
         <p>
           We want you to feel confident subscribing to {brand.name}. If something goes wrong with a charge,
@@ -33,16 +33,27 @@ export default async function RefundPolicyPage() {
           </li>
         </ul>
         <p>
-          After these windows a payment is no longer refundable. Discounted-to-zero charges (100% coupons) and payments that
+          Approval is not automatic: a request that meets these windows is reviewed, and we may decline it where there is evidence
+          of misuse. SMS credits you buy are used up as messages are sent and are not refundable once sent. After these windows a payment is no longer refundable. Discounted-to-zero charges (100% coupons) and payments that
           have already been refunded do not qualify.
         </p>
       </LegalSection>
 
       <LegalSection heading="How to request one">
         <p>
-          Sign in, go to <strong>Settings → Billing</strong>, find the payment in your billing history and choose{" "}
-          <strong>&ldquo;Request refund&rdquo;</strong>. Tell us briefly what happened and confirm you&rsquo;ve read this policy.
-          Only the Main Admin can request a refund.
+          Refund requests are made <strong>by email only</strong>, to{" "}
+          <a href={`mailto:${support}`} className="font-medium text-primary hover:underline">{support}</a>, so that there is
+          always a written record of what was asked and when. Please include:
+        </p>
+        <ul className="list-disc space-y-1.5 pl-5">
+          <li>your church name and the email address or phone number of your Main Admin account;</li>
+          <li>the payment reference and date (both are in <strong>Settings → Billing</strong>, under your payment history);</li>
+          <li>a short explanation of what went wrong.</li>
+        </ul>
+        <p>
+          Only the Main Admin can request a refund, and we may ask you to confirm that you are the Main Admin before we act.
+          A request made any other way (a phone call, a chat or social media message, or from inside the app) is not
+          accepted, and sending one does not start the review period below.
         </p>
       </LegalSection>
 
@@ -53,7 +64,7 @@ export default async function RefundPolicyPage() {
             If approved, we issue the refund through our payment processor (Paystack) right away. Your bank or mobile-money
             provider then settles it - typically <strong>5-10 working days</strong>. That last step is outside our control.
           </li>
-          <li>You&rsquo;ll get an SMS when your request is approved or declined.</li>
+          <li>We will email you when your request is approved or declined.</li>
         </ul>
       </LegalSection>
 

@@ -19,7 +19,7 @@ export default async function AdminTeamPage() {
   );
 
   return (
-    <AdminShell>
+    <AdminShell isOwner={sa.role === "owner"}>
       <div className="mb-6">
         <h1 className="text-xl font-bold tracking-tight">Admin team</h1>
         <p className="mt-1 text-sm text-slate-400">The people who can sign in to this platform admin area. You are signed in as {sa.role === "owner" ? "the owner" : sa.name}.</p>

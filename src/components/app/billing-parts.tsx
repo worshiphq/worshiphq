@@ -6,6 +6,7 @@ import { ArrowUpRight, ChevronLeft, ChevronRight, Gift, Landmark, MessageSquare,
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { brand } from "@/config/brand";
 
 export type PaymentItem = {
   id: string;
@@ -141,7 +142,7 @@ const SOURCE: Record<PaymentItem["source"], { label: string; cls: string; icon: 
 const PAGE = 8;
 
 /** Every plan payment, gift and SMS top-up in one list, filtered and paged. */
-export function PaymentHistory({ items, sym, onRefund }: { items: PaymentItem[]; sym: string; onRefund: (id: string) => void }) {
+export function PaymentHistory({ items, sym }: { items: PaymentItem[]; sym: string }) {
   const [filter, setFilter] = useState<"all" | "plan" | "sms">("all");
   const [page, setPage] = useState(1);
   const list = useMemo(() => items.filter((i) => filter === "all" || i.kind === filter).sort((a, b) => b.at.localeCompare(a.at)), [items, filter]);
@@ -200,7 +201,13 @@ export function PaymentHistory({ items, sym, onRefund }: { items: PaymentItem[];
                   )}
                 </div>
                 {p.canRefund && p.status !== "refunded" && (
-                  <Button size="sm" variant="ghost" className="text-xs" onClick={() => onRefund(p.id)}>Request refund</Button>
+                  // Refunds are asked for by email, so there is always a written record. See the Refund Policy.
+                  <a
+                    href={`mailto:${brand.email.support}?subject=${encodeURIComponent(`Refund request - ${p.detail || p.title}`)}&body=${encodeURIComponent(`Church name:\nPayment reference: ${p.detail || ""}\nReason for the request:\n`)}`}
+                    className="shrink-0 text-xs font-medium text-ink-faint hover:text-primary hover:underline"
+                  >
+                    Refund? Email us
+                  </a>
                 )}
               </li>
             );

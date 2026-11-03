@@ -2,63 +2,53 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, assertCanWrite, requireSuperAdmin } from "@/lib/auth";
-import { refundEligibility, getRefundPolicy } from "@/lib/billing/refunds";
+import { requireSuperAdmin } from "@/lib/auth";
+import { refundEligibility } from "@/lib/billing/refunds";
 import { refundTransaction } from "@/lib/integrations/paystack";
 import { noticeChurch } from "@/lib/billing/notices";
 
-/** Church side: check whether a payment can still be refunded. */
-export async function checkRefundEligibility(paymentId: string) {
-  const session = await requireSession();
-  const [result, policy] = await Promise.all([
-    refundEligibility(paymentId, session.churchId),
-    getRefundPolicy(),
-  ]);
-  return {
-    ...result,
-    deadline: result.deadline?.toISOString() ?? null,
-    slaHours: policy.slaHours,
-  };
-}
+/**
+ * SuperAdmin: log a refund request that a church sent by EMAIL.
+ *
+ * Churches no longer submit refund requests from inside the app. A request has to arrive in writing at the
+ * support address, so there is always a record of what was asked and when, and so that nobody can be talked
+ * into one over a chat or a call. This puts that emailed request into the review queue, where it is approved
+ * or declined and paid back through Paystack like any other.
+ *
+ * The refund window is checked and reported, but you may log a request that is outside it, because whether to
+ * make an exception is your call. An outside-window request is marked as such in the reason so the reviewer sees it.
+ */
+export async function logRefundRequest(input: { reference: string; reason: string }) {
+  await requireSuperAdmin();
+  const reference = String(input.reference ?? "").trim();
+  const reason = String(input.reason ?? "").trim();
+  if (!reference) return { ok: false as const, error: "Enter the payment reference from their email." };
+  if (reason.length < 5) return { ok: false as const, error: "Add a line on why they asked." };
 
-/** Church side: submit a refund request for review. */
-export async function requestRefund(formData: FormData) {
-  const session = await requireSession();
-  assertCanWrite(session);
-  if (session.role !== "Owner") return { ok: false as const, error: "Only the Main Admin can request a refund." };
-
-  const paymentId = String(formData.get("paymentId") ?? "").trim();
-  const reason = String(formData.get("reason") ?? "").trim();
-  const accepted = formData.get("accepted") === "on";
-  if (!accepted) return { ok: false as const, error: "Please confirm you've read the refund policy." };
-  if (reason.length < 10) return { ok: false as const, error: "Please tell us briefly why you're requesting a refund." };
-
-  const eligibility = await refundEligibility(paymentId, session.churchId);
-  if (!eligibility.eligible) return { ok: false as const, error: eligibility.reason ?? "This payment can't be refunded." };
-
-  const payment = await db.planPayment.findFirst({
-    where: { id: paymentId, churchId: session.churchId },
-    select: { id: true, amountUsd: true, amountGhs: true },
+  const payment = await db.planPayment.findUnique({
+    where: { reference },
+    select: { id: true, churchId: true, amountUsd: true, amountGhs: true, source: true, church: { select: { name: true } } },
   });
-  if (!payment) return { ok: false as const, error: "Payment not found." };
+  if (!payment) return { ok: false as const, error: "No payment has that reference." };
+  if (payment.source !== "paystack") return { ok: false as const, error: "Only card and Mobile Money payments taken through Paystack can be refunded here. Offline payments are refunded by hand." };
+
+  const eligibility = await refundEligibility(payment.id, payment.churchId);
+  // Already refunded, nothing paid, or a request already open can never be logged. Only the window can be waived.
+  const windowOnly = !eligibility.eligible && !!eligibility.deadline;
+  if (!eligibility.eligible && !windowOnly) return { ok: false as const, error: eligibility.reason ?? "This payment can't be refunded." };
 
   await db.refundRequest.create({
     data: {
-      churchId: session.churchId,
+      churchId: payment.churchId,
       paymentId: payment.id,
       amountUsd: payment.amountUsd,
       amountGhs: payment.amountGhs,
-      reason,
-      requestedByUserId: session.userId,
+      reason: windowOnly ? `[OUTSIDE THE REFUND WINDOW] ${reason}` : reason,
+      requestedByUserId: "email",
     },
   });
-
-  const policy = await getRefundPolicy();
-  revalidatePath("/app/settings");
-  return {
-    ok: true as const,
-    message: `Request received. We review refunds within ${policy.slaHours} hours; if approved, your bank typically receives it in 5-10 working days.`,
-  };
+  revalidatePath("/admin/refunds");
+  return { ok: true as const, church: payment.church.name, outsideWindow: windowOnly };
 }
 
 /** SuperAdmin: approve a refund and actually issue it through Paystack. */

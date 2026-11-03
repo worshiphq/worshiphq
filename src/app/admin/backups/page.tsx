@@ -30,7 +30,7 @@ export default async function AdminBackupsPage() {
   const names = new Map(churches.map((c) => [c.id, c.name]));
 
   return (
-    <AdminShell email={sa.email}>
+    <AdminShell email={sa.email} isOwner={sa.role === "owner"}>
       <BackupsAdmin
         configured={backupsConfigured()}
         enabled={platform?.backupsEnabled ?? true}

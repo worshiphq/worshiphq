@@ -71,9 +71,9 @@ export const billing: DocArticle[] = [
     appPath: "/app/settings",
     body: [
       { steps: [
-        "Go to **Settings**, then **Billing**, and find the payment under **Payments and receipts**.",
-        "Choose **Request refund**. We check whether it's still within the refund window.",
-        "Tell us briefly why, and choose **Submit refund request**.",
+        "Go to **Settings**, then **Billing**, and note the payment reference under **Payments and receipts**.",
+        "Email **support@worshiphq.org** from the Main Admin's address with your church name, that payment reference and a line on what went wrong. The **Refund? Email us** link next to the payment starts that email for you.",
+        "We reply by email once it has been reviewed.",
       ] },
       { p: "Refund requests are reviewed by WorshipHQ and, once approved, the money reaches you within a few working days. When the refunded payment is for your current period, your church moves back to the Free plan at the same time (your data stays). The full rules, including how long you have to ask, are in our **Refund Policy** (worshiphq.app/refund-policy)." },
       { tip: "Outside the refund window, you can still move to a cheaper plan at no cost. It takes effect when your current period ends." },

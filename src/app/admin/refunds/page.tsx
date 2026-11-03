@@ -1,6 +1,7 @@
 import { requireSuperAdmin } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { RefundQueue } from "@/components/admin/refund-queue";
+import { LogRefundForm } from "@/components/admin/log-refund-form";
 import { db } from "@/lib/db";
 
 export default async function AdminRefundsPage() {
@@ -16,7 +17,8 @@ export default async function AdminRefundsPage() {
   });
 
   return (
-    <AdminShell email={sa.email}>
+    <AdminShell email={sa.email} isOwner={sa.role === "owner"}>
+      <LogRefundForm />
       <RefundQueue
         requests={requests.map((r) => ({
           id: r.id,

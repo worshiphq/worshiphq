@@ -23,7 +23,7 @@ export default async function AdminPricingPage() {
   ]);
 
   return (
-    <AdminShell email={sa.email}>
+    <AdminShell email={sa.email} isOwner={sa.role === "owner"}>
       <PlanEditor
         currency={config.currency}
         currencySymbol={config.currencySymbol}

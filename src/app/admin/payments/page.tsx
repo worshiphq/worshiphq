@@ -33,7 +33,7 @@ export default async function AdminPaymentsPage() {
   const withGiving = requests.map((r, i) => ({ ...r, giving: { mode: settings[i].mode, platformPercent: settings[i].platformPercent, custom: settings[i].custom, customPercent: settings[i].customPercent, planName: settings[i].planName } }));
 
   return (
-    <AdminShell email={sa.email}>
+    <AdminShell email={sa.email} isOwner={sa.role === "owner"}>
       <div className="mb-6">
         <h1 className="text-lg font-bold tracking-tight">Online Payment Requests</h1>
         <p className="text-sm text-slate-400">

@@ -57,7 +57,7 @@ export default function TermsPage() {
         <p>
           Refunds are governed by our{" "}
           <a href="/refund-policy" className="font-medium text-primary hover:underline">Refund Policy</a>, which forms part of
-          these Terms. In short: refunds are available within a limited window after a charge; outside it, you can still move to
+          these Terms. In short: refunds are available within a limited window after a charge and must be requested by email to our support address; outside it, you can still move to
           a cheaper plan with a downgrade at no cost.
         </p>
       </LegalSection>
