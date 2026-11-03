@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
-import { requireSession, assertCanWrite, hashPassword, verifyPassword, startUserSession } from "@/lib/auth";
+import { requireSession, assertCanWrite, assertPlanFeature, hashPassword, verifyPassword, startUserSession } from "@/lib/auth";
 import { passwordMeetsPolicy } from "@/lib/password-policy";
 import { getFormDefinition, getVisitorFormDefinition } from "@/lib/forms/registration";
 import crypto from "node:crypto";
@@ -489,6 +489,9 @@ export async function createCustomRole(formData: FormData) {
   const session = await requireSession();
   assertCanWrite(session);
   if (session.role !== "Owner" && session.role !== "Admin") return;
+  // Custom roles are a Pro feature. assertCanWrite(session) with no module never consults the plan,
+  // so this was open to every church including Free.
+  assertPlanFeature(session, "custom-roles");
 
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;

@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireSession } from "@/lib/auth";
+import { PlanLockedError, requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { FORM_KINDS, isFormKind } from "@/lib/forms/kinds";
@@ -20,6 +20,12 @@ export async function saveFormDefinition(kind: string, definition: string): Prom
   const session = await requireSession();
   if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the Main Admin or an admin can change forms." };
   if (session.isDemo) return { ok: false, error: "Read-only demo." };
+  // The form builder is a Starter feature. It had no plan check at all - not even a hidden button -
+  // so any Free church could edit its forms. Checked here because "settings" is a permission
+  // section, not a feature key, so the usual assertCanWrite(module) route cannot gate it.
+  if (session.planLocked?.includes("form-builder")) {
+    return { ok: false, error: new PlanLockedError("form-builder").message };
+  }
   if (!isFormKind(kind)) return { ok: false, error: "Unknown form." };
 
   let parsed: unknown;

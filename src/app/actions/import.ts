@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { memberRoom } from "@/lib/member-limit";
 import { db } from "@/lib/db";
-import { requireSession, assertCanWrite } from "@/lib/auth";
+import { requireSession, assertCanWrite, assertPlanFeature } from "@/lib/auth";
 import { churchInitials } from "@/lib/members/helpers";
 import { COLUMN_MAP, normalizeHeader, parseCSVLine } from "@/lib/import/csv";
 
@@ -54,6 +54,9 @@ export interface ImportResult {
 export async function importCSV(formData: FormData): Promise<ImportResult> {
   const session = await requireSession();
   assertCanWrite(session, "people");
+  // Bulk import is a Starter feature. It was gated on "people", which is core, so every Free church
+  // had it.
+  assertPlanFeature(session, "import-export");
 
   const file = formData.get("file") as File | null;
   if (!file || !file.name) {
