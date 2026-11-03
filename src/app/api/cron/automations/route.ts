@@ -26,10 +26,16 @@ export async function GET(request: NextRequest) {
 
   const precise = new URL(request.url).searchParams.get("precise") === "1";
   const summary = await runDailyAutomations(new Date(), precise);
-  // Recycle bin: anything deleted more than 7 days ago is removed for good.
-  const recycleBin = await purgeExpiredBinItems().catch((err) => ({ error: String(err) }));
-  // Tidy up abandoned checkout intents so "pending" rows don't pile up forever.
-  const expiredIntents = await expireStalePaymentIntents().catch(() => 0);
+  // Housekeeping runs on the once-daily batch only. Both sweep every church, and neither is
+  // time-sensitive to the hour: a 7-day-old deleted row does not care whether it goes at 02:00 or
+  // 14:00. Doing them on all 24 hourly pings instead was 24x the work for no benefit, which is a
+  // large share of what the hourly pinger was costing in compute.
+  let recycleBin: Awaited<ReturnType<typeof purgeExpiredBinItems>> | { error: string } | null = null;
+  let expiredIntents: number | null = null;
+  if (!precise) {
+    recycleBin = await purgeExpiredBinItems().catch((err) => ({ error: String(err) }));
+    expiredIntents = await expireStalePaymentIntents().catch(() => 0);
+  }
   // The live FX feed should refresh every 6h. Only checked (and alerted) from the once-daily batch - not the
   // hourly precise pinger - so a dead feed can trigger at most one owner email per day, not one per hour.
   let fx: { stale: boolean; hoursSince: number | null } | null = null;

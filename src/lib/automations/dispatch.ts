@@ -59,7 +59,6 @@ export async function runDailyAutomations(now = new Date(), precise = false) {
   summary.counselingReminders = await safe("counselingReminders", () => runCounselingReminders(now, ignoreHour, smsDeadline));
   summary.absence = await safe("absence", () => runAbsenceCheck(now, ignoreHour, smsDeadline));
   summary.serviceThanks = await safe("serviceThanks", () => runServiceThanks(now, ignoreHour, smsDeadline));
-  summary.ageGroups = await safe("ageGroups", () => runAgeGroupSync());
   summary.followUpDigest = await safe("followUpDigest", () => runFollowUpDigest(now, ignoreHour, smsDeadline));
 
   // 3) Welcome / we-miss-you / thank-you / anniversary / visitor follow-up texts.
@@ -72,6 +71,9 @@ export async function runDailyAutomations(now = new Date(), precise = false) {
 
   // 4) Daily-only housekeeping.
   if (!precise) {
+    // A child turns into a teen on their birthday, not at some particular hour, so this swept every
+    // church once an hour to do nothing 23 times out of 24.
+    summary.ageGroups = await safe("ageGroups", () => runAgeGroupSync());
     summary.fxRate = await safe("fx", () => refreshUsdToGhsRate());
     summary.pledgeReminders = await safe("pledgeReminders", () => runPledgeReminders(smsDeadline));
   }
