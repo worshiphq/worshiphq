@@ -9,14 +9,23 @@ import { requireSuperAdminOwner } from "@/lib/auth";
  * found the house habit was to guard the page and leave the actions open, and this is financial data).
  */
 
-export async function addSmsPurchase(input: { credits: number; costGhs: number; provider?: string; note?: string; date?: string }) {
+/**
+ * Record a top-up of the provider account. The owner enters the AMOUNT paid, because that is what is bought:
+ * the provider then deducts a fixed price per SMS segment as messages go out. The units that amount is worth
+ * are worked out here from the provider cost per credit (the figure on the Revenue page) and stored, so an
+ * old top-up keeps the units it was worth at the time even if that price changes later.
+ */
+export async function addSmsPurchase(input: { amountGhs: number; provider?: string; note?: string; date?: string }) {
   await requireSuperAdminOwner();
-  const credits = Math.round(Number(input.credits));
-  const costGhs = Math.round(Number(input.costGhs) * 100) / 100;
-  if (!Number.isFinite(credits) || credits <= 0) return { ok: false as const, error: "Enter how many SMS you bought." };
-  if (!Number.isFinite(costGhs) || costGhs <= 0) return { ok: false as const, error: "Enter what it cost in cedis." };
+  const costGhs = Math.round(Number(input.amountGhs) * 100) / 100;
+  if (!Number.isFinite(costGhs) || costGhs <= 0) return { ok: false as const, error: "Enter the amount you topped up, in cedis." };
   const purchasedAt = input.date ? new Date(input.date) : new Date();
   if (Number.isNaN(purchasedAt.getTime())) return { ok: false as const, error: "That date is not valid." };
+
+  const cfg = await db.platformConfig.findUnique({ where: { id: "default" }, select: { smsCostPerCredit: true } });
+  const perCredit = cfg?.smsCostPerCredit ?? 0.03;
+  if (!(perCredit > 0)) return { ok: false as const, error: "Set the provider cost per credit on this page first." };
+  const credits = Math.floor(costGhs / perCredit);
 
   try {
     await db.smsPurchase.create({
@@ -26,7 +35,7 @@ export async function addSmsPurchase(input: { credits: number; costGhs: number; 
     return { ok: false as const, error: "The SMS purchases table has not been created yet. Run sql/sms-purchases.sql in Supabase." };
   }
   revalidatePath("/admin/revenue");
-  return { ok: true as const };
+  return { ok: true as const, credits };
 }
 
 export async function deleteSmsPurchase(id: string) {

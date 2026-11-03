@@ -25,8 +25,6 @@ export type SmsStock = {
   purchases: SmsPurchaseRow[];
   bought: number;
   spentGhs: number;
-  /** What a credit really cost us, averaged over what was bought. Null until something is entered. */
-  avgCost: number | null;
   sent: number;
   held: number;
   promised: number;
@@ -57,5 +55,5 @@ export async function getSmsStock(): Promise<SmsStock> {
   const cushion = held - promised;
   const level: SmsStock["level"] = bought === 0 ? "none" : cushion < 0 ? "over" : cushion < promised * 0.15 ? "low" : "ok";
 
-  return { ready, purchases, bought, spentGhs, avgCost: bought > 0 ? spentGhs / bought : null, sent, held, promised, cushion, level };
+  return { ready, purchases, bought, spentGhs, sent, held, promised, cushion, level };
 }
