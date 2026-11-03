@@ -98,8 +98,11 @@ export default async function AdminRevenuePage() {
       <div className="mb-4">
         <AdminCard className="p-5">
           <SmsStockCard
-            stock={{ ...stock, purchases: stock.purchases.map((p) => ({ ...p, purchasedAt: p.purchasedAt.toISOString() })) }}
-            assumedCost={rev.costPerCredit}
+            stock={{
+              ...stock,
+              reading: stock.reading ? { amountGhs: stock.reading.amountGhs, at: stock.reading.at.toISOString() } : null,
+              entries: stock.entries.map((p) => ({ ...p, purchasedAt: p.purchasedAt.toISOString() })),
+            }}
             isOwner={sa.role === "owner"}
           />
         </AdminCard>

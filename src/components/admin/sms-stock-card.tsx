@@ -2,59 +2,67 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, Trash2, ShieldCheck, AlertTriangle, PackagePlus } from "lucide-react";
+import { Loader2, Trash2, ShieldCheck, AlertTriangle, PackagePlus, Gauge } from "lucide-react";
 import { addSmsPurchase, deleteSmsPurchase } from "@/app/actions/sms-stock";
 
-type Row = { id: string; credits: number; costGhs: number; provider: string | null; note: string | null; purchasedAt: string };
+type Row = { id: string; kind: string; credits: number; costGhs: number; provider: string | null; note: string | null; purchasedAt: string };
 export type StockView = {
-  ready: boolean; bought: number; spentGhs: number; sent: number; held: number; promised: number; cushion: number;
-  level: "ok" | "low" | "over" | "none"; purchases: Row[];
+  ready: boolean; entries: Row[]; reading: { amountGhs: number; at: string } | null; costPerCredit: number;
+  heldGhs: number; held: number; sentSince: number; toppedUpSince: number; committed: number; freeTrial: number;
+  cushion: number; worstCushion: number; level: "ok" | "low" | "over" | "none";
 };
 
 const n = (x: number) => Math.round(x).toLocaleString("en-GB");
 const cedi = (x: number) => `₵${x.toLocaleString("en-GB", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 const field = "w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-teal-400/60 focus:outline-none";
+const days = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
 
-/** "Are we safe on SMS?" and the owner's purchase ledger. Anyone with SuperAdmin can read it; only the owner can add or delete. */
-export function SmsStockCard({ stock, assumedCost, isOwner }: { stock: StockView; assumedCost: number; isOwner: boolean }) {
+/** "Are we safe on SMS?" Anyone with SuperAdmin can read it; only the owner can add or delete. */
+export function SmsStockCard({ stock, isOwner }: { stock: StockView; isOwner: boolean }) {
   const router = useRouter();
+  const [reading, setReading] = useState("");
   const [amount, setAmount] = useState("");
-  const [provider, setProvider] = useState("Hubtel");
   const [note, setNote] = useState("");
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   const [pending, start] = useTransition();
-  const [busyId, setBusyId] = useState<string | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const cost = stock.costPerCredit;
 
   const tone = { ok: "text-emerald-300", low: "text-amber-300", over: "text-rose-300", none: "text-slate-300" }[stock.level];
   const headline = {
-    ok: "Safe: you hold more SMS than churches can still send.",
-    low: "Getting tight: your cushion is under 15% of what churches hold. Buy more soon.",
-    over: "Oversold: churches hold more credits than you have SMS for. Buy more now.",
-    none: "Enter what you have bought to see whether you are safe.",
+    ok: "Safe: you hold more SMS than churches can send of what they bought or were gifted.",
+    low: "Getting tight: your cushion is under 15% of what churches bought or were gifted. Top up soon.",
+    over: "Short: churches hold more bought or gifted credits than your provider balance can send. Top up now.",
+    none: "Enter what Hubtel shows to see whether you are safe.",
   }[stock.level];
+  const stale = stock.reading ? days(stock.reading.at) : null;
 
-  const add = () => {
+  const run = (key: string, fn: () => Promise<{ ok: boolean; error?: string; credits?: number }>, okText: (c?: number) => string, reset: () => void) => {
     setMsg(null);
+    setBusy(key);
     start(async () => {
       try {
-        const r = await addSmsPurchase({ amountGhs: Number(amount.replace(/,/g, "")), provider, note });
-        if (r.ok) { setAmount(""); setNote(""); setMsg({ ok: true, text: `Saved: about ${n(r.credits)} SMS.` }); router.refresh(); }
-        else setMsg({ ok: false, text: r.error });
-      } catch (e) { setMsg({ ok: false, text: (e as Error).message || "That did not work." }); }
+        const r = await fn();
+        if (r.ok) { reset(); setMsg({ ok: true, text: okText(r.credits) }); router.refresh(); }
+        else setMsg({ ok: false, text: r.error ?? "That did not work." });
+      } catch (e) {
+        setMsg({ ok: false, text: (e as Error).message || "That did not work." });
+      } finally {
+        setBusy(null);
+      }
     });
   };
+  const saveReading = () =>
+    run("reading", () => addSmsPurchase({ amountGhs: Number(reading.replace(/,/g, "")), kind: "balance", provider: "Hubtel" }), (c) => `Saved: about ${n(c ?? 0)} SMS left.`, () => setReading(""));
+  const saveTopup = () =>
+    run("topup", () => addSmsPurchase({ amountGhs: Number(amount.replace(/,/g, "")), kind: "topup", provider: "Hubtel", note }), (c) => `Saved: about ${n(c ?? 0)} SMS.`, () => { setAmount(""); setNote(""); });
   const remove = (id: string) => {
-    if (!confirm("Delete this purchase?")) return;
-    setBusyId(id);
-    start(async () => { try { await deleteSmsPurchase(id); router.refresh(); } finally { setBusyId(null); } });
+    if (!confirm("Delete this entry?")) return;
+    setBusy(id);
+    start(async () => {
+      try { await deleteSmsPurchase(id); router.refresh(); } finally { setBusy(null); }
+    });
   };
-
-  const rows: [string, string, string?][] = [
-    ["You topped up", cedi(stock.spentGhs), `about ${n(stock.bought)} SMS at ₵${assumedCost.toFixed(4)} each`],
-    ["Churches have sent", `- ${n(stock.sent)}`],
-    ["You still hold", `${n(stock.held)} SMS`, `about ${cedi(stock.held * assumedCost)} on Hubtel`],
-    ["Churches still hold (promised)", `- ${n(stock.promised)}`],
-  ];
 
   return (
     <div>
@@ -63,55 +71,89 @@ export function SmsStockCard({ stock, assumedCost, isOwner }: { stock: StockView
       </div>
 
       {!stock.ready ? (
-        <p className="rounded-lg bg-amber-500/10 p-3 text-xs text-amber-200">The purchases table has not been created yet. Run <b>sql/sms-purchases.sql</b> in Supabase, then come back.</p>
+        <p className="rounded-lg bg-amber-500/10 p-3 text-xs text-amber-200">
+          The SMS tables are not set up yet. Run <b>sql/sms-purchases.sql</b> and <b>sql/sms-balance-readings.sql</b> in Supabase, then come back.
+        </p>
       ) : (
         <>
           <p className={`text-sm font-medium ${tone}`}>{headline}</p>
           <dl className="mt-3 space-y-1.5 text-sm">
-            {rows.map(([k, v, sub]) => (
-              <div key={k} className="flex justify-between"><dt className="text-slate-400">{k}</dt><dd className="text-slate-200">{v}{sub && <span className="ml-2 text-xs text-slate-500">{sub}</span>}</dd></div>
-            ))}
+            {stock.reading && (
+              <div className="flex justify-between">
+                <dt className="text-slate-400">Hubtel showed ({new Date(stock.reading.at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })})</dt>
+                <dd className="text-slate-200">{cedi(stock.reading.amountGhs)}</dd>
+              </div>
+            )}
+            {stock.toppedUpSince > 0 && (
+              <div className="flex justify-between"><dt className="text-slate-400">Topped up since</dt><dd className="text-slate-200">+ {cedi(stock.toppedUpSince)}</dd></div>
+            )}
+            {stock.sentSince > 0 && (
+              <div className="flex justify-between"><dt className="text-slate-400">Churches sent since ({n(stock.sentSince)} SMS)</dt><dd className="text-slate-200">- {cedi(stock.sentSince * cost)}</dd></div>
+            )}
+            <div className="flex justify-between border-t border-white/10 pt-2">
+              <dt className="font-medium text-slate-200">You should hold now</dt>
+              <dd className="font-semibold text-slate-100">{cedi(stock.heldGhs)} <span className="text-xs font-normal text-slate-500">about {n(stock.held)} SMS</span></dd>
+            </div>
+            <div className="flex justify-between"><dt className="text-slate-400">Churches hold, bought or gifted</dt><dd className="text-slate-200">- {n(stock.committed)} SMS</dd></div>
             <div className="flex justify-between border-t border-white/10 pt-2">
               <dt className="font-medium text-slate-200">Cushion</dt>
-              <dd className={`font-bold ${tone}`}>{stock.cushion < 0 ? "-" : ""}{n(Math.abs(stock.cushion))} SMS</dd>
+              <dd className={`font-bold ${tone}`}>
+                {stock.cushion < 0 ? "-" : ""}{n(Math.abs(stock.cushion))} SMS <span className="text-xs font-normal text-slate-500">{cedi(Math.abs(stock.cushion) * cost)}</span>
+              </dd>
+            </div>
+            <div className="flex justify-between text-xs">
+              <dt className="text-slate-500">Plus {n(stock.freeTrial)} free signup credits that churches also hold</dt>
+              <dd className={stock.worstCushion < 0 ? "text-amber-300" : "text-slate-300"}>worst case {stock.worstCushion < 0 ? "-" : ""}{n(Math.abs(stock.worstCushion))}</dd>
             </div>
           </dl>
           <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-            Not counted: your own sign-in codes and alerts, and anything HostHub sends on the same Hubtel account. They use stock too, so the real
-            cushion is a little smaller. Compare it with the balance Hubtel shows now and then.
+            The free signup credits (60 per church) were never bought, and most are never used, so the cushion above leaves them out; the worst case is if every
+            church spent all of them. Your own sign-in codes and alerts, and HostHub on the same account, also use balance, so enter a fresh reading now and then.
+            {stale !== null && stale >= 7 && <span className="text-amber-300"> Your last reading is {stale} days old.</span>}
           </p>
         </>
       )}
 
       {isOwner && stock.ready && (
-        <div className="mt-4 border-t border-white/10 pt-4">
-          <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-300"><PackagePlus className="size-3.5" /> I topped up SMS</div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <div>
-              <input className={field} inputMode="decimal" placeholder="Amount you paid (GHS)" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.,]/g, ""))} />
-              {Number(amount.replace(/,/g, "")) > 0 && assumedCost > 0 && (
-                <p className="mt-1 text-[11px] text-slate-500">About {n(Math.floor(Number(amount.replace(/,/g, "")) / assumedCost))} SMS at ₵{assumedCost.toFixed(4)} each</p>
-              )}
+        <div className="mt-4 space-y-4 border-t border-white/10 pt-4">
+          <div>
+            <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-300"><Gauge className="size-3.5" /> What does Hubtel show now?</div>
+            <div className="flex flex-wrap gap-2">
+              <input className={`${field} max-w-[220px]`} inputMode="decimal" placeholder="Hubtel balance (GHS)" value={reading} onChange={(e) => setReading(e.target.value.replace(/[^\d.,]/g, ""))} />
+              <button onClick={saveReading} disabled={pending || reading === ""} className="inline-flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-teal-400 disabled:opacity-50">
+                {pending && busy === "reading" ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : "Save reading"}
+              </button>
             </div>
-            <input className={field} placeholder="Provider" value={provider} onChange={(e) => setProvider(e.target.value)} />
-            <input className={`${field} sm:col-span-2`} placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+            {Number(reading.replace(/,/g, "")) > 0 && cost > 0 && (
+              <p className="mt-1 text-[11px] text-slate-500">About {n(Math.floor(Number(reading.replace(/,/g, "")) / cost))} SMS at ₵{cost.toFixed(4)} each</p>
+            )}
           </div>
-          <button onClick={add} disabled={pending || !amount} className="mt-2 inline-flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-teal-400 disabled:opacity-50">
-            {pending && !busyId ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : "Add top-up"}
-          </button>
-          {msg && <span className={`ml-3 text-sm ${msg.ok ? "text-emerald-300" : "text-rose-300"}`}>{msg.text}</span>}
+          <div>
+            <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-300"><PackagePlus className="size-3.5" /> I topped up</div>
+            <div className="grid gap-2 sm:grid-cols-[200px_1fr_auto]">
+              <input className={field} inputMode="decimal" placeholder="Amount paid (GHS)" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^\d.,]/g, ""))} />
+              <input className={field} placeholder="Note (optional)" value={note} onChange={(e) => setNote(e.target.value)} />
+              <button onClick={saveTopup} disabled={pending || !amount} className="inline-flex items-center justify-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-slate-100 hover:bg-white/15 disabled:opacity-50">
+                {pending && busy === "topup" ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : "Add top-up"}
+              </button>
+            </div>
+          </div>
+          {msg && <p className={`text-sm ${msg.ok ? "text-emerald-300" : "text-rose-300"}`}>{msg.text}</p>}
         </div>
       )}
 
-      {stock.purchases.length > 0 && (
+      {stock.entries.length > 0 && (
         <ul className="mt-4 divide-y divide-white/5 rounded-xl border border-white/10 text-sm">
-          {stock.purchases.slice(0, 8).map((p) => (
+          {stock.entries.slice(0, 8).map((p) => (
             <li key={p.id} className="flex items-center gap-3 px-3 py-2">
               <span className="w-20 shrink-0 text-xs text-slate-500">{new Date(p.purchasedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</span>
-              <span className="min-w-0 flex-1 truncate text-slate-200">{cedi(p.costGhs)} · about {n(p.credits)} SMS{p.provider && <span className="text-slate-500"> · {p.provider}</span>}{p.note && <span className="text-slate-500"> · {p.note}</span>}</span>
+              <span className="min-w-0 flex-1 truncate text-slate-200">
+                {p.kind === "balance" ? <>Hubtel showed {cedi(p.costGhs)}</> : <>Topped up {cedi(p.costGhs)}</>}
+                {p.note && <span className="text-slate-500"> · {p.note}</span>}
+              </span>
               {isOwner && (
                 <button onClick={() => remove(p.id)} disabled={pending} className="shrink-0 rounded p-1 text-slate-500 hover:text-rose-300">
-                  {busyId === p.id ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
+                  {busy === p.id ? <Loader2 className="size-4 animate-spin" /> : <Trash2 className="size-4" />}
                 </button>
               )}
             </li>

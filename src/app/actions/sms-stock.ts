@@ -10,15 +10,19 @@ import { requireSuperAdminOwner } from "@/lib/auth";
  */
 
 /**
- * Record a top-up of the provider account. The owner enters the AMOUNT paid, because that is what is bought:
+ * Record a top-up of the provider account, or a reading of its balance (kind "balance": the starting point the
+ * stock figures count forward from). The owner enters the AMOUNT paid, because that is what is bought:
  * the provider then deducts a fixed price per SMS segment as messages go out. The units that amount is worth
  * are worked out here from the provider cost per credit (the figure on the Revenue page) and stored, so an
  * old top-up keeps the units it was worth at the time even if that price changes later.
  */
-export async function addSmsPurchase(input: { amountGhs: number; provider?: string; note?: string; date?: string }) {
+export async function addSmsPurchase(input: { amountGhs: number; kind?: "topup" | "balance"; provider?: string; note?: string; date?: string }) {
   await requireSuperAdminOwner();
   const costGhs = Math.round(Number(input.amountGhs) * 100) / 100;
-  if (!Number.isFinite(costGhs) || costGhs <= 0) return { ok: false as const, error: "Enter the amount you topped up, in cedis." };
+  const kind = input.kind === "balance" ? "balance" : "topup";
+  if (!Number.isFinite(costGhs) || costGhs < 0 || (kind === "topup" && costGhs === 0)) {
+    return { ok: false as const, error: kind === "balance" ? "Enter the balance Hubtel shows, in cedis." : "Enter the amount you topped up, in cedis." };
+  }
   const purchasedAt = input.date ? new Date(input.date) : new Date();
   if (Number.isNaN(purchasedAt.getTime())) return { ok: false as const, error: "That date is not valid." };
 
@@ -29,7 +33,7 @@ export async function addSmsPurchase(input: { amountGhs: number; provider?: stri
 
   try {
     await db.smsPurchase.create({
-      data: { credits, costGhs, provider: input.provider?.trim() || null, note: input.note?.trim() || null, purchasedAt },
+      data: { kind, credits, costGhs, provider: input.provider?.trim() || null, note: input.note?.trim() || null, purchasedAt },
     });
   } catch {
     return { ok: false as const, error: "The SMS purchases table has not been created yet. Run sql/sms-purchases.sql in Supabase." };
