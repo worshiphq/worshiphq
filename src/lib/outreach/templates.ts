@@ -116,6 +116,57 @@ Blessings,
 The WorshipHQ team`,
   },
   {
+    id: "upgrade-yearly", channel: "email", label: "Upgrade, and pay yearly", hint: "More features on higher plans, and why yearly is the better deal. For Free and Starter churches",
+    subject: "{{church}} can do more on WorshipHQ",
+    body: `Hello {{name}},
+
+Thank you for running {{church}} on WorshipHQ. As your church grows, a higher plan takes more of the work off your team:
+
+- Starter: text your whole church, send birthday and absence texts, send giving receipts automatically, follow up visitors, and print member ID cards.
+- Pro: everything in Starter, plus rosters and volunteers, harvest and pledges, church accounts and expenses, automations, and USB fingerprint check-in.
+- Max: everything in Pro, plus face, palm and fingerprint devices at your door, budgets and assets, private counselling records, an audit log, and unlimited members.
+
+Paying yearly is the better deal. You get about two months free, and you pay once and don't have to think about it again for 12 months:
+
+- Starter: $99.99 a year instead of $9.99 a month, saving about $20
+- Pro: $299.99 a year instead of $29.99 a month, saving about $60
+- Max: $449.99 a year instead of $44.99 a month, saving about $90
+
+To upgrade, sign in at worshiphq.app and open Billing. You can compare the plans here: https://worshiphq.app/pricing
+
+Not sure which plan fits? Reply to this email or write to {{contact}} and we will help you choose.
+
+Blessings,
+The WorshipHQ team`,
+  },
+  {
+    id: "devices", channel: "email", label: "Check-in devices", hint: "Sells the face, palm and fingerprint devices. Not needed for churches already using them",
+    subject: "No more typing names on Sunday morning",
+    body: `Hello {{name}},
+
+How long does it take {{church}} to record attendance on a Sunday?
+
+On Free and Starter, your team checks people in by name. On Pro and Max, nobody types names or counts heads. Put a device at your door and members check themselves in:
+
+- Face: a member looks at the device and is checked in.
+- Palm: they hold up a hand, with nothing to touch.
+- Fingerprint: one touch on the reader.
+
+Attendance records itself and shows live in WorshipHQ, so you can see who has come before the service even starts, and your ushers are free to greet people.
+
+Which one do you need?
+
+- USB fingerprint scanner: plugs into your check-in computer and works on the Pro plan.
+- Face, palm or fingerprint terminal: goes at your door and works on the Max plan.
+
+Devices are a separate purchase. Scan data stays on the device at your church, and members give their consent before enrolling. You can read more here: https://worshiphq.app/devices
+
+Reply to this email or write to {{contact}} to enquire about devices and prices, and we will recommend the right one for your entrance.
+
+Blessings,
+The WorshipHQ team`,
+  },
+  {
     id: "custom-email", channel: "email", label: "Write my own", hint: "Start from a blank message",
     subject: "A message from WorshipHQ", body: `Hello {{name}},\n\n\n\nBlessings,\nThe WorshipHQ team`,
   },
@@ -138,6 +189,16 @@ The WorshipHQ team`,
     id: "giving-resubmit-sms", channel: "sms", label: "Online giving: please send your request again", hint: "For churches whose online giving request was declined because of the update",
     subject: "",
     body: "Hello {{name}}, we updated online giving, so your earlier request for {{church}} had to be declined. Please send it again in Settings, Online payments. You will see all the fees, who pays them and the terms before you submit. Questions? Reach us on {{contact}}.",
+  },
+  {
+    id: "upgrade-yearly-sms", channel: "sms", label: "Upgrade, and pay yearly", hint: "More features on higher plans, and why yearly is the better deal. For Free and Starter churches",
+    subject: "",
+    body: "Hello {{name}}, {{church}} can do more on WorshipHQ: automatic texts, receipts, rosters and accounts. Pay yearly and get about 2 months free. Upgrade at worshiphq.app",
+  },
+  {
+    id: "devices-sms", channel: "sms", label: "Check-in devices", hint: "Sells the face, palm and fingerprint devices. Not needed for churches already using them",
+    subject: "",
+    body: "Hello {{name}}, on WorshipHQ Pro and Max nobody types names or counts heads. Members scan a face, palm or fingerprint at the door. Enquire: {{contact}}",
   },
   {
     id: "custom-sms", channel: "sms", label: "Write my own", hint: "Start from a blank text",
