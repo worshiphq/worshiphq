@@ -1,5 +1,6 @@
 "use server";
 
+import { logAdminAction } from "@/lib/admin-audit";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSuperAdminOwner } from "@/lib/auth";
@@ -20,6 +21,7 @@ import { getNaloCostPerCredit, saveNaloCostPerCredit } from "@/lib/data/sms-stoc
 /** What Nalo charges per SMS, which drops when the reseller rate starts. */
 export async function saveNaloCost(cost: number) {
   await requireSuperAdminOwner();
+  await logAdminAction("saveNaloCost", { cost });
   const value = Number(cost);
   if (!Number.isFinite(value) || value <= 0 || value > 5) return { ok: false as const, error: "Enter the price per SMS in cedis, like 0.032." };
   await saveNaloCostPerCredit(value);
@@ -29,6 +31,7 @@ export async function saveNaloCost(cost: number) {
 
 export async function addSmsPurchase(input: { amountGhs: number; kind?: "topup" | "balance"; provider?: string; note?: string; date?: string }) {
   await requireSuperAdminOwner();
+  await logAdminAction("addSmsPurchase", { input });
   const isNaloEntry = input.provider?.trim().toLowerCase() === "nalo";
   const costGhs = Math.round(Number(input.amountGhs) * 100) / 100;
   const kind = input.kind === "balance" ? "balance" : "topup";
@@ -57,6 +60,7 @@ export async function addSmsPurchase(input: { amountGhs: number; kind?: "topup" 
 
 export async function deleteSmsPurchase(id: string) {
   await requireSuperAdminOwner();
+  await logAdminAction("deleteSmsPurchase", { id });
   await db.smsPurchase.deleteMany({ where: { id } });
   revalidatePath("/admin/revenue");
   return { ok: true as const };

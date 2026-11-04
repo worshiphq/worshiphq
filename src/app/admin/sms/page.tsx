@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
-import { requireSuperAdmin } from "@/lib/auth";
+import { requireSuperAdminOwner } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { getSmsLog, getSmsLogTotals, getCreditAdjustments, SMS_LOG_PAGE_SIZE } from "@/lib/data/sms-audit";
 import { AdminSmsLogRows } from "@/components/admin/sms-log-rows";
@@ -25,7 +25,7 @@ export default async function AdminSmsPage({
 }: {
   searchParams: Promise<{ page?: string; filter?: string; q?: string }>;
 }) {
-  const sa = await requireSuperAdmin();
+  const sa = await requireSuperAdminOwner();
   const sp = await searchParams;
   const filter = FILTERS.some((f) => f.key === sp.filter) ? sp.filter! : "all";
 

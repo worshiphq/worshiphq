@@ -1,5 +1,6 @@
 "use server";
 
+import { logAdminAction } from "@/lib/admin-audit";
 import { invalidatePlatformConfig } from "@/lib/data/platform-config";
 import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/auth";
@@ -55,6 +56,7 @@ export async function getOutreachData(): Promise<OutreachData> {
 /** One email to one contact (the template, or your own edited wording). */
 export async function sendChurchEmail(input: { churchId: string; userId: string; template: string; subject: string; body: string }): Promise<OutreachResult> {
   await requireSuperAdmin();
+  await logAdminAction("sendChurchEmail", { input });
   const t = templateById(input.template);
   return sendOutreach({ churchId: input.churchId, userId: input.userId, channel: "email", template: t?.channel === "email" ? t.id : "custom-email", subject: input.subject, body: input.body });
 }
@@ -62,6 +64,7 @@ export async function sendChurchEmail(input: { churchId: string; userId: string;
 /** One text message to one contact. */
 export async function sendChurchSms(input: { churchId: string; userId: string; template: string; body: string }): Promise<OutreachResult> {
   await requireSuperAdmin();
+  await logAdminAction("sendChurchSms", { input });
   const t = templateById(input.template);
   return sendOutreach({ churchId: input.churchId, userId: input.userId, channel: "sms", template: t?.channel === "sms" ? t.id : "custom-sms", body: input.body });
 }
@@ -75,6 +78,7 @@ export async function getOutreachHistory(churchId: string): Promise<OutreachHist
 /** The number that gets a text whenever a church signs up. Empty = use the phone from the receipt company details. */
 export async function saveAlertPhone(phone: string): Promise<{ ok: true } | { ok: false; error: string }> {
   await requireSuperAdmin();
+  await logAdminAction("saveAlertPhone", { phone });
   const raw = phone.trim();
   if (raw) {
     const digits = raw.replace(/\D/g, "");
@@ -94,6 +98,7 @@ export type TestSmsResult =
  */
 export async function savePlatformSmsCarrier(carrier: string): Promise<{ ok: true } | { ok: false; error: string }> {
   await requireSuperAdmin();
+  await logAdminAction("savePlatformSmsCarrier", { carrier });
   if (carrier !== "hubtel" && carrier !== "nalo") return { ok: false, error: "Choose Hubtel or Nalo." };
   await savePlatformCarrier(carrier);
   return { ok: true };
@@ -101,6 +106,7 @@ export async function savePlatformSmsCarrier(carrier: string): Promise<{ ok: tru
 
 export async function sendTestSms(input: { to: string; message: string; carrier?: string }): Promise<TestSmsResult> {
   await requireSuperAdmin();
+  await logAdminAction("sendTestSms", { input });
   const raw = String(input.to ?? "").trim();
   const message = String(input.message ?? "").trim().slice(0, 160);
   if (!message) return { ok: false, error: "Type a short message." };
@@ -116,6 +122,7 @@ export async function sendTestSms(input: { to: string; message: string; carrier?
 /** A test text to the alert number, so you can see it works before the next church signs up. */
 export async function sendAlertTest(): Promise<{ ok: true; stubbed: boolean; to: string } | { ok: false; error: string }> {
   await requireSuperAdmin();
+  await logAdminAction("sendAlertTest", {});
   const { phone } = await getAlertPhone();
   if (!phone) return { ok: false, error: "Add a phone number first." };
   const r = await sendSms(phone, "Test: this is the text you will get when a new church signs up.", { heading: null });

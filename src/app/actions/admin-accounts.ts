@@ -1,5 +1,6 @@
 "use server";
 
+import { logAdminAction } from "@/lib/admin-audit";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { requireSuperAdmin } from "@/lib/auth";
@@ -17,6 +18,7 @@ const LINK_HOURS = 24;
 /** Email and text a one-time password reset link to the account's own address and phone. */
 export async function sendAccountResetLink(userId: string): Promise<Result> {
   await requireSuperAdmin();
+  await logAdminAction("sendAccountResetLink", { userId });
   const user = await db.user.findUnique({
     where: { id: userId },
     select: { id: true, name: true, email: true, phone: true, sessionVersion: true, church: { select: { name: true } } },
@@ -61,6 +63,7 @@ export async function sendAccountResetLink(userId: string): Promise<Result> {
 /** Lift a 24-hour lock on one account, so the person can sign in again now. */
 export async function unlockAccount(userId: string): Promise<Result> {
   await requireSuperAdmin();
+  await logAdminAction("unlockAccount", { userId });
   const user = await db.user.findUnique({ where: { id: userId }, select: { id: true, email: true, phone: true } });
   if (!user) return { ok: false, error: "Account not found." };
   await clearLock(passwordKey(user.email));

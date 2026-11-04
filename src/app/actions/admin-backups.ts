@@ -1,5 +1,6 @@
 "use server";
 
+import { logAdminAction } from "@/lib/admin-audit";
 import { invalidatePlatformConfig } from "@/lib/data/platform-config";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
@@ -10,6 +11,7 @@ import { escapeHtml } from "@/lib/html";
 
 export async function adminBackUpChurch(churchId: string): Promise<{ ok: boolean; error?: string }> {
   await requireSuperAdmin();
+  await logAdminAction("adminBackUpChurch", { churchId });
   const res = await createBackup(churchId, "admin");
   revalidatePath("/admin/backups");
   return res.ok ? { ok: true } : { ok: false, error: res.error };
@@ -17,6 +19,7 @@ export async function adminBackUpChurch(churchId: string): Promise<{ ok: boolean
 
 export async function adminSetChurchAutoBackup(churchId: string, enabled: boolean) {
   await requireSuperAdmin();
+  await logAdminAction("adminSetChurchAutoBackup", { churchId, enabled });
   await db.church.update({ where: { id: churchId }, data: { autoBackup: enabled } });
   revalidatePath("/admin/backups");
   return { ok: true };
@@ -24,6 +27,7 @@ export async function adminSetChurchAutoBackup(churchId: string, enabled: boolea
 
 export async function adminSaveBackupSettings(input: { enabled: boolean; keep: number }) {
   await requireSuperAdmin();
+  await logAdminAction("adminSaveBackupSettings", { input });
   const keep = Math.min(60, Math.max(1, Math.round(input.keep) || 7));
   await db.platformConfig.upsert({
     where: { id: "default" },
@@ -37,6 +41,7 @@ export async function adminSaveBackupSettings(input: { enabled: boolean; keep: n
 /** Run the scheduled batch now. Only churches that are actually due are backed up. */
 export async function adminRunDueBackups() {
   await requireSuperAdmin();
+  await logAdminAction("adminRunDueBackups", {});
   const summary = await runScheduledBackups(new Date(), 45000);
   revalidatePath("/admin/backups");
   return { ok: true, summary };
@@ -44,6 +49,7 @@ export async function adminRunDueBackups() {
 
 export async function adminDeleteBackup(id: string) {
   await requireSuperAdmin();
+  await logAdminAction("adminDeleteBackup", { id });
   const ok = await deleteBackup(id);
   revalidatePath("/admin/backups");
   return { ok };
@@ -54,6 +60,7 @@ const MAX_EMAIL_BYTES = 3.5 * 1024 * 1024;
 /** Email a backup file to the church's Owner and Admins. Falls back to "use Download" when too big. */
 export async function adminEmailBackup(id: string): Promise<{ ok: boolean; error?: string }> {
   await requireSuperAdmin();
+  await logAdminAction("adminEmailBackup", { id });
   const file = await getBackupFile(id);
   if (!file) return { ok: false, error: "That backup is not available." };
   if (file.sealed.length > MAX_EMAIL_BYTES) {

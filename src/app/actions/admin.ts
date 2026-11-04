@@ -1,5 +1,6 @@
 "use server";
 
+import { logAdminAction } from "@/lib/admin-audit";
 import { invalidatePlatformConfig } from "@/lib/data/platform-config";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -38,6 +39,7 @@ const GIVING_PAUSE_NOTICE_NAME = "Online giving approvals paused";
 
 export async function notifyGivingApplicantsOfPause(): Promise<{ ok: boolean; notified: number; skipped: number; error?: string }> {
   await requireSuperAdmin();
+  await logAdminAction("notifyGivingApplicantsOfPause", {});
   const reqs = await db.paymentRequest.findMany({
     where: { status: { in: ["pending", "scheduled", "in_progress"] } },
     select: { churchId: true, contactEmail: true, church: { select: { name: true } } },
@@ -81,12 +83,34 @@ export async function notifyGivingApplicantsOfPause(): Promise<{ ok: boolean; no
  */
 export async function runAutomationsNow() {
   await requireSuperAdmin();
+  await logAdminAction("runAutomationsNow", {});
   const { runDailyAutomations } = await import("@/lib/automations/dispatch");
   const summary = await runDailyAutomations(new Date(), false);
   return { ok: true as const, summary };
 }
 
 // ── Auth (signing in lives in admin-auth.ts) ──
+/**
+ * Permanently remove finished entries from the access log. Owner only, and only when the owner presses the button.
+ * An entry still in use is kept, because a live session inside a church is checked against its row. The clearing
+ * itself stays on record in the audit log.
+ */
+export async function clearAccessLog(): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+  await requireSuperAdminOwner();
+  const now = new Date();
+  const res = await db.supportAccess.deleteMany({
+    where: {
+      NOT: [
+        { status: "active", OR: [{ until: null }, { until: { gte: now } }] },
+        { status: "pending", OR: [{ codeExpires: null }, { codeExpires: { gte: now } }] },
+      ],
+    },
+  });
+  await logAdminAction("clearAccessLog", { entriesCleared: res.count });
+  revalidatePath("/admin/access");
+  return { ok: true, count: res.count };
+}
+
 export async function superAdminSignOut() {
   await clearSession();
   redirect("/admin/login");
@@ -99,6 +123,7 @@ const EMERGENCY_HOURS = 4;
 
 export async function impersonateChurch(churchId: string, formData?: FormData) {
   await requireSuperAdmin();
+  await logAdminAction("impersonateChurch", { churchId, formData });
   const reason = String(formData?.get("reason") ?? "").trim().slice(0, 300);
   if (!reason) return;
   const church = await db.church.findUnique({ where: { id: churchId }, select: { id: true } });
@@ -127,6 +152,7 @@ export async function exitImpersonation() {
 // ── Church management ──
 export async function setChurchSuspended(churchId: string, suspended: boolean) {
   await requireSuperAdmin();
+  await logAdminAction("setChurchSuspended", { churchId, suspended });
   await db.church.update({ where: { id: churchId }, data: { suspended } });
   revalidatePath("/admin");
 }
@@ -136,6 +162,7 @@ const isCarrier = (v: string): v is "hubtel" | "nalo" => v === "hubtel" || v ===
 /** Put one church's texts on Hubtel or Nalo. */
 export async function setChurchSmsCarrier(churchId: string, carrier: string) {
   await requireSuperAdmin();
+  await logAdminAction("setChurchSmsCarrier", { churchId, carrier });
   if (!isCarrier(carrier)) throw new Error("Choose Hubtel or Nalo.");
   await db.church.update({ where: { id: churchId }, data: { smsProvider: carrier } });
   revalidatePath("/admin/churches");
@@ -145,6 +172,7 @@ export async function setChurchSmsCarrier(churchId: string, carrier: string) {
 /** Move every church to one carrier, for when one becomes the only one. */
 export async function setAllChurchesSmsCarrier(carrier: string): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
   await requireSuperAdminOwner();
+  await logAdminAction("setAllChurchesSmsCarrier", { carrier });
   if (!isCarrier(carrier)) return { ok: false, error: "Choose Hubtel or Nalo." };
   const res = await db.church.updateMany({ where: { isDemo: false }, data: { smsProvider: carrier } });
   revalidatePath("/admin/churches");
@@ -155,6 +183,7 @@ export async function setAllChurchesSmsCarrier(carrier: string): Promise<{ ok: t
 /** Correct which carrier an already approved sender name belongs to, or record that it is now approved on the other one. */
 export async function setSenderIdCarrier(churchId: string, carrier: string) {
   await requireSuperAdmin();
+  await logAdminAction("setSenderIdCarrier", { churchId, carrier });
   if (!isCarrier(carrier)) throw new Error("Choose Hubtel or Nalo.");
   await db.church.update({ where: { id: churchId }, data: { smsSenderIdProvider: carrier } });
   revalidatePath("/admin/churches");
@@ -162,6 +191,7 @@ export async function setSenderIdCarrier(churchId: string, carrier: string) {
 
 export async function approveSenderId(churchId: string, carrier = "hubtel") {
   await requireSuperAdmin();
+  await logAdminAction("approveSenderId", { churchId, carrier });
   if (!isCarrier(carrier)) throw new Error("Choose Hubtel or Nalo.");
 
   const church = await db.church.update({
@@ -215,6 +245,7 @@ You can now use it for SMS broadcasts in WorshipHQ.`,
  */
 export async function sendSenderIdUpdate(churchId: string, key: string) {
   await requireSuperAdmin();
+  await logAdminAction("sendSenderIdUpdate", { churchId, key });
 
   const { senderIdUpdate } = await import("@/lib/sms/sender-id-updates");
   const update = senderIdUpdate(key);
@@ -249,6 +280,7 @@ export async function sendSenderIdUpdate(churchId: string, key: string) {
 
 export async function rejectSenderId(churchId: string) {
   await requireSuperAdmin();
+  await logAdminAction("rejectSenderId", { churchId });
 
   const church = await db.church.update({
     where: { id: churchId },
@@ -303,6 +335,7 @@ Email: ${supportEmail()}`,
  */
 export async function setChurchPlan(churchId: string, plan: string) {
   await requireSuperAdmin();
+  await logAdminAction("setChurchPlan", { churchId, plan });
   if (!["free", "starter", "pro", "max"].includes(plan)) return;
 
   const existing = await db.subscription.findUnique({ where: { churchId } });
@@ -334,6 +367,7 @@ export async function setChurchPlan(churchId: string, plan: string) {
 
 export async function grantPlanBypass(churchId: string, plan: string) {
   await requireSuperAdmin();
+  await logAdminAction("grantPlanBypass", { churchId, plan });
   const validPlans = ["starter", "pro", "max"];
   if (!validPlans.includes(plan)) return { error: "Invalid plan" };
 
@@ -372,6 +406,7 @@ export async function grantPlanBypass(churchId: string, plan: string) {
 
 export async function grantSmsCredits(churchId: string, credits: number) {
   await requireSuperAdmin();
+  await logAdminAction("grantSmsCredits", { churchId, credits });
   if (!credits || !Number.isFinite(credits)) return;
   await addCredits(churchId, Math.round(credits), "bonus", { note: "Granted by WorshipHQ" });
   revalidatePath("/admin");
@@ -390,6 +425,7 @@ export async function grantSmsCredits(churchId: string, credits: number) {
  */
 export async function removeSmsCredits(churchId: string, credits: number, reason?: string) {
   const who = await requireSuperAdmin();
+  await logAdminAction("removeSmsCredits", { churchId, credits, reason });
   const want = Math.round(Math.abs(Number(credits)));
   if (!want || !Number.isFinite(want)) return { ok: false as const, error: "Enter how many to remove." };
 
@@ -412,6 +448,7 @@ export async function removeSmsCredits(churchId: string, credits: number, reason
 
 export async function deleteChurch(churchId: string) {
   await requireSuperAdmin();
+  await logAdminAction("deleteChurch", { churchId });
   const church = await db.church.findUnique({ where: { id: churchId }, select: { isDemo: true } });
   if (!church || church.isDemo) return; // never delete the demo church
   await db.church.delete({ where: { id: churchId } });
@@ -426,6 +463,7 @@ export async function updatePlatformPricing(
   usdToGhsRate?: number,
 ) {
   await requireSuperAdmin();
+  await logAdminAction("updatePlatformPricing", { currency, currencySymbol, planPrices, usdToGhsRate });
   const rate = usdToGhsRate && usdToGhsRate > 0 ? usdToGhsRate : undefined;
   await db.platformConfig.upsert({
     where: { id: "default" },
@@ -464,6 +502,7 @@ export async function updatePlanDefinitions(input: {
   }>;
 }) {
   await requireSuperAdmin();
+  await logAdminAction("updatePlanDefinitions", { input });
 
   const VALID = ["free", "starter", "pro", "max"];
   const planDefs: Record<string, unknown> = {};
@@ -529,6 +568,7 @@ export async function updatePlanDefinitions(input: {
 // ── Marketing content ──
 export async function saveMarketing(formData: FormData) {
   await requireSuperAdmin();
+  await logAdminAction("saveMarketing", { formData });
   const heroSubhead = String(formData.get("heroSubhead") ?? "").trim();
 
   // Testimonials arrive as parallel indexed fields.
@@ -554,6 +594,7 @@ export async function saveMarketing(formData: FormData) {
 // ── Announcements / broadcast ──
 export async function createAnnouncement(formData: FormData) {
   await requireSuperAdmin();
+  await logAdminAction("createAnnouncement", { formData });
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
   const level = String(formData.get("level") ?? "info").trim() || "info";
@@ -568,12 +609,14 @@ export async function createAnnouncement(formData: FormData) {
 
 export async function toggleAnnouncement(id: string, active: boolean) {
   await requireSuperAdmin();
+  await logAdminAction("toggleAnnouncement", { id, active });
   await db.announcement.update({ where: { id }, data: { active } });
   revalidatePath("/admin/broadcast");
 }
 
 export async function deleteAnnouncement(id: string) {
   await requireSuperAdmin();
+  await logAdminAction("deleteAnnouncement", { id });
   await db.announcement.delete({ where: { id } });
   revalidatePath("/admin/broadcast");
 }
@@ -581,6 +624,7 @@ export async function deleteAnnouncement(id: string) {
 // ── Payment requests ──
 export async function updatePaymentRequest(id: string, formData: FormData): Promise<{ notified: string[] }> {
   await requireSuperAdmin();
+  await logAdminAction("updatePaymentRequest", { id, formData });
   const status = String(formData.get("status") ?? "").trim();
   const adminNotes = String(formData.get("adminNotes") ?? "").trim();
   const meetingDateStr = String(formData.get("meetingDate") ?? "").trim();
@@ -640,6 +684,7 @@ export async function updatePaymentRequest(id: string, formData: FormData): Prom
 /** Save the verification checklist for a payment request. Approving needs every required box ticked. */
 export async function saveVerification(id: string, checks: Record<string, boolean>, note?: string): Promise<{ ok: boolean; error?: string }> {
   const sa = await requireSuperAdmin();
+  await logAdminAction("saveVerification", { id, checks, note });
   const clean: Record<string, boolean> = {};
   for (const c of VERIFICATION_CHECKS) clean[c.key] = checks?.[c.key] === true;
   await db.paymentRequest.update({
@@ -658,6 +703,7 @@ export async function saveVerification(id: string, checks: Record<string, boolea
  */
 export async function approveGivingSetup(id: string): Promise<{ ok: boolean; code?: string; error?: string }> {
   await requireSuperAdmin();
+  await logAdminAction("approveGivingSetup", { id });
   const req = await db.paymentRequest.findUnique({
     where: { id },
     include: { church: { select: { id: true, name: true, slug: true, paystackSubaccountCode: true } } },
@@ -707,6 +753,7 @@ export async function approveGivingSetup(id: string): Promise<{ ok: boolean; cod
 /** SuperAdmin: WorshipHQ's online giving fee for each plan: a percent of each gift, and an optional cap per gift (0 = no cap). */
 export async function setPlanGivingFees(input: Record<string, { percent: number; cap: number }>): Promise<{ ok: boolean; error?: string }> {
   await requireSuperAdmin();
+  await logAdminAction("setPlanGivingFees", { input });
   const row = await db.platformConfig.findUnique({ where: { id: "default" }, select: { planDefs: true } });
   const defs = { ...((row?.planDefs && typeof row.planDefs === "object" ? row.planDefs : {}) as Record<string, Record<string, unknown>>) };
   for (const id of ["free", "starter", "pro", "max"]) {
@@ -732,6 +779,7 @@ export async function setPlanGivingFees(input: Record<string, { percent: number;
 /** SuperAdmin: set the online-giving fee model (platform split + who bears Paystack's fee). */
 export async function setGivingFeeSettings(input: { platformPercent: number; donorBearsFee: boolean; paystackFeePercent: number }) {
   await requireSuperAdmin();
+  await logAdminAction("setGivingFeeSettings", { input });
   const platformPercent = Math.max(0, Math.min(Number(input.platformPercent) || 0, 100));
   const paystackFeePercent = Math.max(0, Math.min(Number(input.paystackFeePercent) || 0, 20));
   await db.platformConfig.upsert({
@@ -746,6 +794,7 @@ export async function setGivingFeeSettings(input: { platformPercent: number; don
 /** SuperAdmin: set how one church's giving fees work, whatever the church chose. A percent of null goes back to the platform default. */
 export async function adminSetChurchGiving(churchId: string, input: { mode?: string; platformPercent?: number | null }): Promise<{ ok: boolean; error?: string }> {
   await requireSuperAdmin();
+  await logAdminAction("adminSetChurchGiving", { churchId, input });
   const mode = input.mode;
   if (mode !== undefined && !isFeeMode(mode)) return { ok: false, error: "Choose who pays the fee." };
   let percent: number | null | undefined = undefined;
@@ -794,6 +843,7 @@ const CLEAR_PENDING = {
 /** Apply a church's requested payout-account change: update the Paystack subaccount first, then our records. */
 export async function approveAccountChange(id: string): Promise<{ ok: boolean; error?: string }> {
   await requireSuperAdmin();
+  await logAdminAction("approveAccountChange", { id });
   const req = await loadPayoutRequest(id);
   if (!req) return { ok: false, error: "Request not found." };
   if (!req.pendingBankCode || !req.pendingAccountNumber || !req.pendingAccountName) return { ok: false, error: "There is no pending change." };
@@ -831,6 +881,7 @@ export async function approveAccountChange(id: string): Promise<{ ok: boolean; e
 
 export async function rejectAccountChange(id: string, note?: string): Promise<{ ok: boolean; error?: string }> {
   await requireSuperAdmin();
+  await logAdminAction("rejectAccountChange", { id, note });
   const req = await loadPayoutRequest(id);
   if (!req) return { ok: false, error: "Request not found." };
   await db.paymentRequest.update({
@@ -848,6 +899,7 @@ export async function rejectAccountChange(id: string, note?: string): Promise<{ 
  *  church's online giving. Everything is kept so it can be investigated or restored. */
 export async function revokeGivingAccess(id: string, reason?: string): Promise<{ ok: boolean; error?: string }> {
   await requireSuperAdmin();
+  await logAdminAction("revokeGivingAccess", { id, reason });
   const req = await loadPayoutRequest(id);
   if (!req) return { ok: false, error: "Request not found." };
 
@@ -867,6 +919,7 @@ export async function revokeGivingAccess(id: string, reason?: string): Promise<{
 
 export async function restoreGivingAccess(id: string): Promise<{ ok: boolean; error?: string }> {
   await requireSuperAdmin();
+  await logAdminAction("restoreGivingAccess", { id });
   const req = await loadPayoutRequest(id);
   if (!req) return { ok: false, error: "Request not found." };
 
@@ -888,6 +941,7 @@ export async function restoreGivingAccess(id: string): Promise<{ ok: boolean; er
  */
 export async function deletePaymentAccount(id: string): Promise<{ ok: boolean; error?: string }> {
   await requireSuperAdmin();
+  await logAdminAction("deletePaymentAccount", { id });
   const req = await loadPayoutRequest(id);
   if (!req) return { ok: false, error: "Request not found." };
   if (req.status === "trashed") return { ok: false, error: "This account is already in the recycle bin." };
@@ -914,6 +968,7 @@ export async function deletePaymentAccount(id: string): Promise<{ ok: boolean; e
 /** Undo a delete: switch the subaccount back on and give the church its payout account again. */
 export async function restorePaymentAccount(id: string): Promise<{ ok: boolean; error?: string }> {
   await requireSuperAdmin();
+  await logAdminAction("restorePaymentAccount", { id });
   const req = await loadPayoutRequest(id);
   if (!req) return { ok: false, error: "Request not found." };
   if (req.status !== "trashed") return { ok: false, error: "This account is not in the recycle bin." };
@@ -932,6 +987,7 @@ export async function restorePaymentAccount(id: string): Promise<{ ok: boolean; 
 /** Remove a recycle-bin entry for good. The Paystack subaccount stays switched off. */
 export async function purgePaymentAccount(id: string): Promise<{ ok: boolean; error?: string }> {
   await requireSuperAdmin();
+  await logAdminAction("purgePaymentAccount", { id });
   const req = await db.paymentRequest.findUnique({ where: { id }, select: { status: true } });
   if (!req) return { ok: false, error: "Request not found." };
   if (req.status !== "trashed") return { ok: false, error: "Only an account in the recycle bin can be deleted for good." };
@@ -943,6 +999,7 @@ export async function purgePaymentAccount(id: string): Promise<{ ok: boolean; er
 /** SuperAdmin edits the church's payout account directly (after verifying the new name). */
 export async function adminEditPaymentAccount(id: string, formData: FormData): Promise<{ ok: boolean; error?: string }> {
   await requireSuperAdmin();
+  await logAdminAction("adminEditPaymentAccount", { id, formData });
   const req = await loadPayoutRequest(id);
   if (!req) return { ok: false, error: "Request not found." };
 
@@ -971,6 +1028,7 @@ export async function adminEditPaymentAccount(id: string, formData: FormData): P
 /** Set the site-wide SMS pricing tier (applies to every church without an override). */
 export async function setPlatformSmsTier(tier: string) {
   await requireSuperAdmin();
+  await logAdminAction("setPlatformSmsTier", { tier });
   if (!isSmsTier(tier)) return { ok: false as const, error: "Invalid tier." };
   await db.platformConfig.upsert({
     where: { id: "default" },
@@ -985,6 +1043,7 @@ export async function setPlatformSmsTier(tier: string) {
 /** Override (or clear) a single church's SMS tier. Empty string = inherit default. */
 export async function setChurchSmsTier(churchId: string, tier: string) {
   await requireSuperAdmin();
+  await logAdminAction("setChurchSmsTier", { churchId, tier });
   const value = isSmsTier(tier) ? tier : null;
   await db.church.update({ where: { id: churchId }, data: { smsTier: value } });
   revalidatePath("/admin");
@@ -1023,6 +1082,7 @@ export async function recordChurchPlan(input: {
   sendReceipt?: boolean;
 }): Promise<{ ok: true; renewsAt: string; receipt?: { id: string; number: string; balance: number } } | { ok: false; error: string }> {
   await requireSuperAdmin();
+  await logAdminAction("recordChurchPlan", { input });
   const plans = ["starter", "pro", "max"];
   if (!plans.includes(input.plan)) return { ok: false, error: "Choose a plan." };
   const months = Math.round(Number(input.months));
@@ -1125,6 +1185,7 @@ export async function recordChurchPlan(input: {
 /** What the SMS provider charges per credit, used for the SMS profit figures. */
 export async function setSmsCostPerCredit(cost: number) {
   await requireSuperAdmin();
+  await logAdminAction("setSmsCostPerCredit", { cost });
   const n = Math.round(Number(cost) * 10000) / 10000;
   if (!Number.isFinite(n) || n <= 0 || n > 5) return { ok: false as const, error: "Enter a cost between 0 and 5 cedis." };
   await db.platformConfig.upsert({ where: { id: "default" }, update: { smsCostPerCredit: n }, create: { id: "default", smsCostPerCredit: n } }); invalidatePlatformConfig();
@@ -1135,6 +1196,7 @@ export async function setSmsCostPerCredit(cost: number) {
 // ── Collections provider switch (which gateway receives WorshipHQ's own collections) ──
 export async function switchCollectionsProvider(provider: "paystack" | "hubtel") {
   await requireSuperAdmin();
+  await logAdminAction("switchCollectionsProvider", { provider });
   if (provider !== "paystack" && provider !== "hubtel") return { ok: false as const, error: "Unknown provider." };
   const { setCollectionProvider } = await import("@/lib/billing/collection-provider");
   await setCollectionProvider(provider);

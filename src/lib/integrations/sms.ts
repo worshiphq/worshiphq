@@ -3,6 +3,7 @@ import { env, features } from "@/lib/env";
 import { normalisePhone } from "@/lib/phone";
 import { sendNaloBatch } from "@/lib/integrations/nalo";
 import { getPlatformCarrier } from "@/lib/sms/platform-carrier";
+import { logPlatformSms } from "@/lib/admin-audit";
 import { providerForNumber, routingForChurch, type SmsProvider } from "@/lib/sms/routing";
 
 export type SmsResult = {
@@ -221,6 +222,10 @@ export async function sendSms(
   if (sentCount === 0 && platformCarrier === "nalo") {
     console.error(`[SMS] WorshipHQ's own text failed on Nalo, retrying on Hubtel: ${firstError ?? "no error given"}`);
     return sendSms(to, rawMessage, { ...opts, carrier: "hubtel" });
+  }
+  // Churches' texts are recorded in SmsAuditLog by the credits code. These are WorshipHQ's own.
+  if (opts?.carrier === undefined) {
+    await logPlatformSms({ to: recipients, sent: sentCount, carrier: used.join("+") || routing.primary, body: rawMessage, error: sentCount === 0 ? firstError : null });
   }
   return {
     ok: sentCount > 0,

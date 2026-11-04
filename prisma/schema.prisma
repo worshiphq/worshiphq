@@ -2405,3 +2405,32 @@ model OwnerLedgerEntry {
 
   @@index([ledger, occurredAt])
 }
+
+/// What SuperAdmins did. See src/lib/admin-audit.ts.
+model AdminAuditLog {
+  id         String   @id
+  actorEmail String
+  actorName  String?
+  action     String
+  churchId   String?
+  churchName String?
+  detail     String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+/// The texts WorshipHQ itself sends: sign-in codes, alerts, notices. Codes and links are removed before saving.
+model PlatformSmsLog {
+  id         String   @id
+  toNumbers  String
+  recipients Int
+  sent       Int
+  carrier    String?
+  sender     String?
+  body       String
+  error      String?
+  createdAt  DateTime @default(now())
+
+  @@index([createdAt])
+}

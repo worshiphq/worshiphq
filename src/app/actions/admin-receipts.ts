@@ -1,5 +1,6 @@
 "use server";
 
+import { logAdminAction } from "@/lib/admin-audit";
 import { revalidatePath } from "next/cache";
 import type { Prisma, Receipt } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -140,6 +141,7 @@ export async function getReceiptsPage(): Promise<ReceiptsPageData> {
 
 export async function saveReceiptDetails(input: Partial<ReceiptSettings>): Promise<{ ok: true; settings: ReceiptSettings } | { ok: false; error: string }> {
   await requireSuperAdmin();
+  await logAdminAction("saveReceiptDetails", { input });
   try {
     return { ok: true, settings: await saveReceiptSettings(input) };
   } catch {
@@ -154,6 +156,7 @@ export type CreateReceiptResult =
 /** Makes a receipt by hand. With an email address it is sent as a PDF straight away; either way it can be downloaded. */
 export async function createManualReceipt(input: ManualReceiptInput, sendTo?: string): Promise<CreateReceiptResult> {
   await requireSuperAdmin();
+  await logAdminAction("createManualReceipt", { input, sendTo });
   const parsed = manualReceiptSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Please check the receipt." };
   const r = parsed.data;
@@ -196,6 +199,7 @@ export async function createManualReceipt(input: ManualReceiptInput, sendTo?: st
 /** Send an existing receipt (again) to an email address. */
 export async function sendReceiptEmail(id: string, to: string): Promise<{ ok: true; status: "sent" | "stubbed" } | { ok: false; error: string }> {
   await requireSuperAdmin();
+  await logAdminAction("sendReceiptEmail", { id, to });
   const address = to.trim();
   if (!isEmail(address)) return { ok: false, error: "That email address does not look right." };
   const row = await db.receipt.findUnique({ where: { id } });
@@ -211,6 +215,7 @@ export async function sendReceiptEmail(id: string, to: string): Promise<{ ok: tr
  */
 export async function payReceiptBalance(input: { id: string; amount: number; method?: string; reference?: string; issuedOn?: string; sendTo?: string }): Promise<CreateReceiptResult> {
   await requireSuperAdmin();
+  await logAdminAction("payReceiptBalance", { input });
   const prev = await db.receipt.findUnique({ where: { id: input.id } });
   if (!prev || (prev.kind !== "manual" && prev.kind !== "upgrade")) return { ok: false, error: "That receipt was not found." };
   const root = prev.relatedId ?? prev.id;
@@ -288,6 +293,7 @@ export type EditReceiptInput = {
  */
 export async function editReceipt(id: string, input: EditReceiptInput): Promise<{ ok: true; number: string; changed: number } | { ok: false; error: string }> {
   await requireSuperAdmin();
+  await logAdminAction("editReceipt", { id, input });
   const row = await db.receipt.findUnique({ where: { id } });
   if (!row) return { ok: false, error: "That receipt was not found." };
   if (row.kind === "registration") return { ok: false, error: "Welcome receipts cannot be edited." };

@@ -1,5 +1,6 @@
 "use server";
 
+import { logAdminAction } from "@/lib/admin-audit";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -37,6 +38,7 @@ async function sendInvite(admin: { id: string; email: string; name: string; epoc
 /** Add an admin and email them a link to choose their own password. The owner never sees or sets it. */
 export async function createSuperAdmin(formData: FormData): Promise<Result> {
   await requireSuperAdminOwner();
+  await logAdminAction("createSuperAdmin", { formData });
   const name = String(formData.get("name") ?? "").trim().slice(0, 80);
   const email = String(formData.get("email") ?? "").trim().toLowerCase();
   const phone = String(formData.get("phone") ?? "").trim().slice(0, 24);
@@ -57,6 +59,7 @@ export async function createSuperAdmin(formData: FormData): Promise<Result> {
 /** A fresh password link for an admin. It ends their earlier sessions and any older link. */
 export async function resendAdminInvite(id: string): Promise<Result> {
   await requireSuperAdminOwner();
+  await logAdminAction("resendAdminInvite", { id });
   const admin = await getSaAdminById(id);
   if (!admin) return { ok: false, error: "Admin not found." };
   const updated = await db.superAdminUser.update({ where: { id }, data: { epoch: { increment: 1 } } });
@@ -70,6 +73,7 @@ export async function resendAdminInvite(id: string): Promise<Result> {
 /** Lift a 24-hour lock on an admin. */
 export async function unlockSuperAdmin(id: string): Promise<Result> {
   await requireSuperAdminOwner();
+  await logAdminAction("unlockSuperAdmin", { id });
   const admin = await getSaAdminById(id);
   if (!admin) return { ok: false, error: "Admin not found." };
   await clearLock(saPasswordKey(admin.email));
@@ -80,6 +84,7 @@ export async function unlockSuperAdmin(id: string): Promise<Result> {
 /** Remove an admin. Their sign-in stops working at once. The owner cannot be removed this way: it is not in the list. */
 export async function removeSuperAdmin(id: string): Promise<Result> {
   await requireSuperAdminOwner();
+  await logAdminAction("removeSuperAdmin", { id });
   const admin = await getSaAdminById(id);
   if (!admin) return { ok: false, error: "Admin not found." };
   await db.superAdminUser.delete({ where: { id } });
