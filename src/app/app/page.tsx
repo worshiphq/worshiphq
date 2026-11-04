@@ -11,7 +11,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { MemberAvatar } from "@/components/ui/member-avatar";
 import { ClickableAvatar } from "@/components/ui/photo-lightbox";
-import { requireSession } from "@/lib/auth";
+import { planLockFor, requireSession } from "@/lib/auth";
+import { FEATURE_TIERS } from "@/lib/plan-gate";
 import { db } from "@/lib/db";
 import { AlertTriangle } from "lucide-react";
 import { getDashboard } from "@/lib/data/dashboard";
@@ -35,7 +36,9 @@ export default async function DashboardPage() {
   // Scoped budget leaders have no dashboard - send them to their budget.
   if (session.budgetDepartmentId) redirect("/app/budgets");
   const { kpis, trend, todaysBirthdays, events, careTasks, recentMembers, departmentBreakdown, leaders, totalLeaders, featuredLeaderCount } = await getDashboard(session.churchId);
-  const has = (m: string) => session.sections.includes(m);
+  // A core feature the plan editor has switched off for this plan disappears from the dashboard too, not just the menu.
+  const coreLocked = (m: string) => (FEATURE_TIERS.core as readonly string[]).includes(m) && !!planLockFor(session, m);
+  const has = (m: string) => session.sections.includes(m) && !coreLocked(m);
   // Tips about features this church has but has not tried. Never lets a tips failure break the dashboard.
   const tips = await getTips(session).catch(() => []);
   // Urgent for a church that can send texts but has not yet chosen how its name shows at the start of them.

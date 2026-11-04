@@ -1,6 +1,6 @@
 import { phoneKey } from "@/lib/search";
 import { NextRequest, NextResponse } from "next/server";
-import { getActiveSession } from "@/lib/auth";
+import { getActiveSession, planLockFor } from "@/lib/auth";
 import { hasSection } from "@/lib/permissions";
 import { db } from "@/lib/db";
 
@@ -31,8 +31,9 @@ export async function GET(req: NextRequest) {
 
   // Only search what this person's role may open.
   const canPeople = hasSection(session, "people") || hasSection(session, "directory");
-  const canGroups = hasSection(session, "groups");
-  const canEvents = hasSection(session, "events");
+  // A plan that does not include Groups or Events must not surface them in search, whose links would only lead to the upgrade page.
+  const canGroups = hasSection(session, "groups") && !planLockFor(session, "groups");
+  const canEvents = hasSection(session, "events") && !planLockFor(session, "events");
   const [people, groups, events] = await Promise.all([
     !canPeople ? [] : db.person.findMany({
       where: {

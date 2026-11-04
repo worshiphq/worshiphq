@@ -1,5 +1,6 @@
+import { redirect } from "next/navigation";
 import { notFound } from "next/navigation";
-import { requireModule } from "@/lib/auth";
+import { requireModule, planLockFor } from "@/lib/auth";
 import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { GroupDetailClient } from "@/components/app/group-detail-client";
@@ -14,6 +15,8 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 export default async function GroupDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const session = await requireModule("people");
+  // A group is opened with the People permission, so the plan lock for Groups is checked here as well.
+  if (planLockFor(session, "groups")) redirect("/app/settings?tab=billing");
 
   const group = await db.group.findUnique({
     where: { id, churchId: session.churchId },
