@@ -643,7 +643,7 @@ const FIELDS: { key: Exclude<keyof ReceiptSettings, "signature">; label: string;
   { key: "email", label: "Email (replies come here)", placeholder: "hello@wodona.com" },
   { key: "website", label: "Website", placeholder: "wodona.com" },
   { key: "registration", label: "Registration or tax number (optional)", placeholder: "" },
-  { key: "whqEmail", label: "WorshipHQ email on its receipts (empty = same as above)", placeholder: "sales@worshiphq.org" },
+  { key: "whqEmail", label: "WorshipHQ email on its receipts (empty = same as above)", placeholder: "info@worshiphq.app" },
   { key: "whqWebsite", label: "WorshipHQ website", placeholder: "worshiphq.app" },
   { key: "issuedBy", label: "Your name under the signature", placeholder: "Worship Odoi" },
 ];

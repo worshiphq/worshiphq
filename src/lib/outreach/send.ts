@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { brand } from "@/config/brand";
 import { env } from "@/lib/env";
 import { sendEmail } from "@/lib/integrations/email";
 import { sendSms } from "@/lib/integrations/sms";
@@ -8,7 +9,7 @@ import { issueRegistrationReceipt } from "@/lib/receipts/service";
 import { receiptNumber } from "@/lib/receipts/types";
 
 /** Replies to our emails and the contact shown in them: the platform owner's inbox. */
-export const outreachContact = () => env.SUPERADMIN_EMAIL;
+export const outreachContact = () => brand.email.support;
 
 /** What {{contact}} turns into inside a message: the email only. No phone number goes out in messages on purpose. */
 export async function outreachContactLine(): Promise<string> {
