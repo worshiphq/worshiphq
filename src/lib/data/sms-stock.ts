@@ -64,12 +64,14 @@ export async function getSmsStock(): Promise<SmsStock> {
   const topups = entries.filter((e) => e.kind !== "balance");
   const topupsSince = since ? topups.filter((e) => e.purchasedAt > since) : topups;
 
-  const [usageSince, ledgerByChurch, churches] = await Promise.all([
+  const [usageSince, ledgerByChurch, trimsByChurch, churches] = await Promise.all([
     db.smsTransaction.aggregate({
       where: { kind: "usage", church: { isDemo: false }, ...(since ? { createdAt: { gt: since } } : {}) },
       _sum: { credits: true },
     }),
     db.smsTransaction.groupBy({ by: ["churchId"], where: { church: { isDemo: false } }, _sum: { credits: true } }),
+    // Free-credit trims are adjustments to FREE credits, not to bought or gifted ones, so they are added back.
+    db.smsTransaction.groupBy({ by: ["churchId"], where: { church: { isDemo: false }, adminNote: { startsWith: "Free credits trimmed" } }, _sum: { credits: true } }),
     db.church.findMany({ where: { isDemo: false, smsCredits: { gt: 0 } }, select: { id: true, smsCredits: true } }),
   ]);
 
@@ -80,7 +82,8 @@ export async function getSmsStock(): Promise<SmsStock> {
   const held = cost > 0 ? Math.floor(heldGhs / cost) : 0;
 
   // What churches hold, split into what is in the ledger (bought or gifted) and the free signup credits (not).
-  const ledger = new Map(ledgerByChurch.map((r) => [r.churchId, r._sum.credits ?? 0]));
+  const trimmed = new Map(trimsByChurch.map((r) => [r.churchId, r._sum.credits ?? 0]));
+  const ledger = new Map(ledgerByChurch.map((r) => [r.churchId, (r._sum.credits ?? 0) - (trimmed.get(r.churchId) ?? 0)]));
   let promised = 0;
   let committed = 0;
   for (const c of churches) {

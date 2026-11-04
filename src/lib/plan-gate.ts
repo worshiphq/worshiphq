@@ -24,7 +24,7 @@ export function syncMemberText(text: string, limit: number): string {
 
 /** A new church on the Free plan can use Communications (SMS) for its first month, with this many free credits. */
 export const COMMS_TRIAL_DAYS = 30;
-export const COMMS_TRIAL_CREDITS = 60;
+export const COMMS_TRIAL_CREDITS = 30;
 /** Churches that signed up before this day get their free month from this day, so nobody misses out. */
 export const COMMS_TRIAL_LAUNCH = new Date("2026-10-26T00:00:00Z");
 

@@ -76,7 +76,7 @@ export function getBundle(id: string, tier?: string | null): SmsBundle | undefin
 }
 
 /** Free credits granted to a new church on signup (mirror of the DB default). */
-export const FREE_SIGNUP_CREDITS = 50;
+export const FREE_SIGNUP_CREDITS = 30;
 
 /** Characters per SMS segment (standard GSM). */
 export const SMS_SEGMENT_CHARS = 160;
