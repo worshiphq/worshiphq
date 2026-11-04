@@ -1,7 +1,6 @@
 import { requireSuperAdmin } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { db } from "@/lib/db";
-import { ClearAccessLog } from "@/components/admin/clear-access-log";
 
 const fmt = (d: Date | null) =>
   d ? d.toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "-";
@@ -31,7 +30,6 @@ export default async function AdminAccessPage() {
 
   return (
     <AdminShell email={sa.email} isOwner={sa.role === "owner"}>
-      {sa.role === "owner" && <div className="mb-3 flex justify-end"><ClearAccessLog /></div>}
       <div className="mb-6">
         <h1 className="text-lg font-bold tracking-tight">Access log</h1>
         <p className="text-sm text-slate-400">

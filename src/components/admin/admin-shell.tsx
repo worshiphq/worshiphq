@@ -10,6 +10,7 @@ const GROUPS: { title: string; items: { href: string; label: string; icon: React
       { href: "/admin/accounts", label: "Accounts", icon: Users },
       { href: "/admin/outreach", label: "Outreach", icon: Mail },
       { href: "/admin/broadcast", label: "Broadcast", icon: Megaphone },
+      { href: "/admin/sms", label: "SMS records", icon: MessageSquare },
     ],
   },
   {
@@ -50,7 +51,7 @@ function NavLinks({ isOwner = false }: { isOwner?: boolean }) {
   const groups = isOwner
     ? GROUPS.map((g) =>
       g.title === "Money"
-        ? { ...g, items: [...g.items, { href: "/admin/audit", label: "Audit logs", icon: ScrollText }, { href: "/admin/sms", label: "SMS records", icon: MessageSquare }, { href: "/admin/money", label: "My money", icon: PiggyBank }] }
+        ? { ...g, items: [...g.items, { href: "/admin/audit", label: "Audit logs", icon: ScrollText }, { href: "/admin/money", label: "My money", icon: PiggyBank }] }
         : g)
     : GROUPS;
   return (

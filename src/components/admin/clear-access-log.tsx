@@ -24,8 +24,8 @@ export function ClearAccessLog() {
   return (
     <div className="flex items-center gap-2">
       {note && <span className="text-xs text-slate-400">{note}</span>}
-      <button type="button" onClick={clear} disabled={pending} className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500/15 px-3 py-1.5 text-xs font-medium text-rose-200 hover:bg-rose-500/25 disabled:opacity-50">
-        {pending ? <><Loader2 className="size-3.5 animate-spin" /> Clearing...</> : <><Trash2 className="size-3.5" /> Clear access log</>}
+      <button type="button" title="Clear the access log" aria-label="Clear the access log" onClick={clear} disabled={pending} className="inline-flex items-center gap-1.5 rounded-lg bg-rose-500/15 px-3 py-1.5 text-xs font-medium text-rose-200 hover:bg-rose-500/25 disabled:opacity-50">
+        {pending ? <><Loader2 className="size-3.5 animate-spin" /> Clearing...</> : <><Trash2 className="size-3.5" /> CALog</>}
       </button>
     </div>
   );
