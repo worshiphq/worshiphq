@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { Inter } from "next/font/google";
+import localFont from "next/font/local";
 import { brand } from "@/config/brand";
 import { ServiceWorker } from "@/components/pwa/service-worker";
 import { FeedbackProvider } from "@/components/ui/feedback";
@@ -17,10 +18,13 @@ const sans = Inter({
   display: "swap",
 });
 
-const mono = JetBrains_Mono({
-  subsets: ["latin"],
+// Kept in the repo: fetching JetBrains Mono from Google at build time started failing every deployment on 4 Nov 2026.
+const mono = localFont({
+  src: [
+    { path: "./fonts/jetbrains-mono-latin-400.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/jetbrains-mono-latin-500.woff2", weight: "500", style: "normal" },
+  ],
   variable: "--ff-mono",
-  weight: ["400", "500"],
   display: "swap",
 });
 
