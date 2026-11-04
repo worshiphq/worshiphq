@@ -132,7 +132,7 @@ Paying yearly is the better deal. You get about two months free, and you pay onc
 - Pro: $299.99 a year instead of $29.99 a month, saving about $60
 - Max: $449.99 a year instead of $44.99 a month, saving about $90
 
-To upgrade, sign in at worshiphq.app and open Billing. You can compare the plans here: https://worshiphq.app/pricing
+To upgrade, sign in at worshiphq.app and open Settings, then Billing. You can compare the plans here: https://worshiphq.app/pricing
 
 Not sure which plan fits? Reply to this email or write to {{contact}} and we will help you choose.
 
