@@ -12,6 +12,8 @@ import {
   removeSmsCredits,
   grantPlanBypass,
   approveSenderId,
+  setChurchSmsCarrier,
+  setSenderIdCarrier,
   sendSenderIdUpdate,
   rejectSenderId,
   setChurchSmsTier,
@@ -23,6 +25,8 @@ const PLANS = ["free", "starter", "pro", "max"];
 const SMS_TIERS = ["B", "C", "D"];
 
 /** Compact SMS-tier picker (Default = inherit site-wide). */
+const CARRIER_LABEL: Record<string, string> = { hubtel: "Hubtel", nalo: "Nalo" };
+
 function SmsTierSelect({ church, run }: { church: ChurchRow; run: ReturnType<typeof useFeedback>["run"] }) {
   return (
     <select
@@ -55,6 +59,55 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
   // Granting and taking back credits are defined once here and used by BOTH layouts below. They were
   // written inline in the mobile cards first, which meant the "take back" button did not exist at all
   // on a desktop screen - the kind of thing a shared handler makes impossible to repeat.
+  /** Which carrier a church sends through, which approved its sender name, and a warning when those two differ. */
+  const carrierControls = (c: ChurchRow) => {
+    const carrier = c.smsProvider ?? "hubtel";
+    const approved = !!c.smsSenderId && c.smsSenderIdStatus === "approved";
+    const senderCarrier = c.smsSenderIdProvider ?? "hubtel";
+    const sel = "rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 text-xs text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400";
+    return (
+      <div className="flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+        <label className="flex items-center gap-1">
+          Sends via
+          <select
+            value={carrier}
+            aria-label={`Carrier for ${c.name}`}
+            onChange={(e) => {
+              const next = e.target.value;
+              run(() => setChurchSmsCarrier(c.id, next), { pending: "Changing carrier...", success: `${c.name} now sends via ${CARRIER_LABEL[next]}` });
+            }}
+            className={sel}
+          >
+            <option value="hubtel" className="bg-slate-800">Hubtel</option>
+            <option value="nalo" className="bg-slate-800">Nalo</option>
+          </select>
+        </label>
+        {approved && (
+          <label className="flex items-center gap-1">
+            Sender approved on
+            <select
+              value={senderCarrier}
+              aria-label={`Carrier that approved the sender name for ${c.name}`}
+              onChange={(e) => {
+                const next = e.target.value;
+                run(() => setSenderIdCarrier(c.id, next), { pending: "Saving...", success: `Sender name marked as approved on ${CARRIER_LABEL[next]}` });
+              }}
+              className={sel}
+            >
+              <option value="hubtel" className="bg-slate-800">Hubtel</option>
+              <option value="nalo" className="bg-slate-800">Nalo</option>
+            </select>
+          </label>
+        )}
+        {approved && senderCarrier !== carrier && (
+          <span className="text-amber-300">
+            {c.smsSenderId} is not approved on {CARRIER_LABEL[carrier]}, so texts go out under the WorshipHQ sender with the church name on top.
+          </span>
+        )}
+      </div>
+    );
+  };
+
   const grant = (c: ChurchRow) => {
     const v = prompt(`Grant SMS credits to ${c.name}:`, "500");
     const n = Number(v);
@@ -170,16 +223,21 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
               </div>
             )}
 
+            <div className="mt-2">{carrierControls(c)}</div>
+
             <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-white/5 pt-3">
               {c.smsSenderId && c.smsSenderIdStatus === "pending" && (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => run(() => approveSenderId(c.id), { pending: "Approving...", success: "Sender ID approved" })}
-                    className="rounded-md bg-emerald-500/15 px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-500/25"
-                  >
-                    Approve
-                  </button>
+                  {(["hubtel", "nalo"] as const).map((carrier) => (
+                    <button
+                      key={carrier}
+                      type="button"
+                      onClick={() => run(() => approveSenderId(c.id, carrier), { pending: "Approving...", success: `Sender ID approved on ${CARRIER_LABEL[carrier]}` })}
+                      className="rounded-md bg-emerald-500/15 px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-500/25"
+                    >
+                      Approve on {CARRIER_LABEL[carrier]}
+                    </button>
+                  ))}
                   <button
                     type="button"
                     onClick={() => run(() => rejectSenderId(c.id), { pending: "Rejecting...", success: "Sender ID rejected" })}
@@ -317,6 +375,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                   ) : (
                     <span className="text-slate-500">-</span>
                   )}
+                  <div className="mt-1.5">{carrierControls(c)}</div>
                 </td>
                 <td className="px-4 py-3 text-slate-300">{c.members}</td>
                 <td className="px-4 py-3">
@@ -369,18 +428,21 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                   <div className="flex flex-wrap items-center justify-end gap-1">
                     {c.smsSenderId && c.smsSenderIdStatus === "pending" && (
                       <>
-                        <button
-                          type="button"
-                          onClick={() =>
-                            run(() => approveSenderId(c.id), {
-                              pending: "Approving...",
-                              success: "Sender ID approved",
-                            })
-                          }
-                          className="rounded-md bg-emerald-500/15 px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-500/25"
-                        >
-                          Approve
-                        </button>
+                        {(["hubtel", "nalo"] as const).map((carrier) => (
+                          <button
+                            key={carrier}
+                            type="button"
+                            onClick={() =>
+                              run(() => approveSenderId(c.id, carrier), {
+                                pending: "Approving...",
+                                success: `Sender ID approved on ${CARRIER_LABEL[carrier]}`,
+                              })
+                            }
+                            className="rounded-md bg-emerald-500/15 px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-500/25"
+                          >
+                            Approve on {CARRIER_LABEL[carrier]}
+                          </button>
+                        ))}
 
                         <button
                           type="button"

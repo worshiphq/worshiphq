@@ -17,6 +17,8 @@ export interface ChurchRow {
   createdAt: string;
   smsSenderId: string | null;
   smsSenderIdStatus: string;
+  smsProvider: string | null;
+  smsSenderIdProvider: string | null;
   smsTier: string | null;
 }
 
@@ -38,6 +40,8 @@ export async function getAllChurches(): Promise<ChurchRow[]> {
       smsTier: true,
       smsSenderId: true,
       smsSenderIdStatus: true,
+      smsProvider: true,
+      smsSenderIdProvider: true,
       createdAt: true,
       subscription: { select: { plan: true } },
       _count: { select: { people: true, users: true } },
@@ -63,6 +67,8 @@ export async function getAllChurches(): Promise<ChurchRow[]> {
 
     smsSenderId: c.smsSenderId,
     smsSenderIdStatus: c.smsSenderIdStatus,
+    smsProvider: c.smsProvider,
+    smsSenderIdProvider: c.smsSenderIdProvider,
 
     plan: c.subscription?.plan ?? "free",
     members: c._count.people,

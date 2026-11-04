@@ -2,7 +2,7 @@ import "server-only";
 import { env, features } from "@/lib/env";
 import { normalisePhone } from "@/lib/phone";
 import { sendNaloBatch } from "@/lib/integrations/nalo";
-import { providerForNumber, resolveRouting, type SmsProvider } from "@/lib/sms/routing";
+import { providerForNumber, routingForChurch, type SmsProvider } from "@/lib/sms/routing";
 
 export type SmsResult = {
   ok: boolean;
@@ -144,6 +144,10 @@ export async function sendSms(
     senderId?: string | null;
     /** Name line to prepend when a message goes out under a platform sender (e.g. Nalo for international). */
     platformHeading?: string | null;
+    /** The carrier this church is set to in SuperAdmin. Empty = the platform default. */
+    carrier?: string | null;
+    /** The carrier that approved `senderId`. Empty = the church's own carrier. */
+    senderCarrier?: string | null;
   },
 ): Promise<SmsResult> {
   // Normalise to the digits-only format providers require (Hubtel rejects "024…"). Keep this in the SAME
@@ -162,7 +166,7 @@ export async function sendSms(
     return out;
   };
 
-  const routing = resolveRouting();
+  const routing = routingForChurch(opts?.carrier);
 
   if (recipients.length === 0) {
     return { ok: false, provider: routing.primary, stubbed: false, error: "No valid phone numbers", sentCount: 0, results: toFullResults([]) };
@@ -188,8 +192,8 @@ export async function sendSms(
 
   for (const [provider, idxs] of groups) {
     const nums = idxs.map((i) => recipients[i]!);
-    // A church's own sender name only applies on the primary carrier; international uses the platform sender.
-    const custom = provider === routing.primary ? (opts?.senderId ?? null) : null;
+    // A church's own sender name only works on the carrier that approved it. Anywhere else, the platform sender.
+    const custom = provider === (opts?.senderCarrier ?? routing.primary) ? (opts?.senderId ?? null) : null;
     const sender = (custom ?? platformSenderFor(provider)).trim();
     // No heading when the church's own sender is used; otherwise the church name line (platformHeading) if we
     // have it, then the caller's heading, then brand with "WorshipHQ" unless the sender already is that.

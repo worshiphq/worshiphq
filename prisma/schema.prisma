@@ -176,6 +176,10 @@ model Church {
   smsSenderIdRequestedAt DateTime?
   smsSenderIdApprovedAt  DateTime?
   smsSenderIdApprovedBy  String?
+  /// Which carrier this church's texts go through: "hubtel" or "nalo". Empty = the platform default (Hubtel).
+  smsProvider            String?
+  /// Which carrier approved smsSenderId. A sender name only works on the carrier that approved it.
+  smsSenderIdProvider    String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

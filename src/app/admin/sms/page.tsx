@@ -4,6 +4,9 @@ import { requireSuperAdmin } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { getSmsLog, getSmsLogTotals, getCreditAdjustments, SMS_LOG_PAGE_SIZE } from "@/lib/data/sms-audit";
 import { AdminSmsLogRows } from "@/components/admin/sms-log-rows";
+import { SmsCarrierSwitch } from "@/components/admin/sms-carrier-switch";
+import { db } from "@/lib/db";
+import { naloConfigured } from "@/lib/sms/routing";
 
 export const metadata = { title: "SMS records" };
 export const dynamic = "force-dynamic";
@@ -26,11 +29,13 @@ export default async function AdminSmsPage({
   const sp = await searchParams;
   const filter = FILTERS.some((f) => f.key === sp.filter) ? sp.filter! : "all";
 
-  const [log, allTime, last30, adjustments] = await Promise.all([
+  const [log, allTime, last30, adjustments, onNalo, totalChurches] = await Promise.all([
     getSmsLog({ page: parseInt(sp.page ?? "1", 10) || 1, filter, q: sp.q }),
     getSmsLogTotals(),
     getSmsLogTotals(undefined, new Date(Date.now() - 30 * DAY)),
     getCreditAdjustments(),
+    db.church.count({ where: { isDemo: false, smsProvider: "nalo" } }),
+    db.church.count({ where: { isDemo: false } }),
   ]);
 
   const href = (p: number, f = filter) =>
@@ -57,6 +62,8 @@ export default async function AdminSmsPage({
           Churches on Pro and above read their own records in Communications.
         </p>
       </div>
+
+      <SmsCarrierSwitch hubtel={totalChurches - onNalo} nalo={onNalo} naloReady={naloConfigured()} />
 
       <div className="mb-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {stats.map((s) => (

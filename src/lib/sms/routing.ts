@@ -31,6 +31,18 @@ export function resolveRouting(): Routing {
   return { primary, international };
 }
 
+/**
+ * The routing for one church. SuperAdmin can put a church on Hubtel or Nalo while the move between them is under
+ * way. A church set to Nalo uses Nalo for every number. A Hubtel church keeps Nalo for numbers outside Ghana. If Nalo
+ * is not set up on this server, a church set to it falls back to the default rather than failing to send.
+ */
+export function routingForChurch(carrier: string | null | undefined): Routing {
+  const base = resolveRouting();
+  if (carrier !== "hubtel" && carrier !== "nalo") return base;
+  if (carrier === "nalo" && !naloConfigured()) return base;
+  return { primary: carrier, international: carrier !== "nalo" && naloConfigured() ? "nalo" : null };
+}
+
 /** Which carrier handles one number, given the routing. */
 export function providerForNumber(normalised: string, routing: Routing): SmsProvider {
   if (routing.international && !isGhanaNumber(normalised)) return routing.international;

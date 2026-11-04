@@ -1,4 +1,5 @@
 import "server-only";
+import { routingForChurch } from "@/lib/sms/routing";
 import { db } from "@/lib/db";
 import { sendSms } from "@/lib/integrations/sms";
 import { segmentsFor, smsNormalize } from "@/config/sms";
@@ -175,15 +176,24 @@ export async function sendChurchSms(
       smsSenderIdStatus: true,
       smsSenderId: true,
       smsPrefix: true,
+      smsProvider: true,
+      smsSenderIdProvider: true,
     },
   });
+
+  // Its own sender name only counts on the carrier that approved it. Empty means Hubtel: everything approved
+  // before carriers could be chosen was approved there.
+  const carrier = routingForChurch(church?.smsProvider).primary;
+  const senderCarrier = church?.smsSenderIdProvider ?? "hubtel";
+  const senderApproved = church?.smsSenderIdStatus === "approved";
+  const ownSender = senderApproved && senderCarrier === carrier;
 
   // The church name line, used to brand any message that goes out under a platform sender (e.g. Nalo for
   // international numbers, where the church's own Hubtel-approved sender does not apply).
   const nameLine = currentNameLine(church?.smsPrefix, church?.name ?? "WorshipHQ");
   // With its own approved sender name the church needs no name line on the primary (Hubtel) carrier.
   // Otherwise the line is the name it chose (full or short), or its full name until it chooses.
-  const heading = church?.smsSenderIdStatus === "approved" ? null : nameLine;
+  const heading = ownSender ? null : nameLine;
   const smsText = heading ? `${heading}\n${message}` : message;
 
   const segments = segmentsFor(smsText);
@@ -198,7 +208,7 @@ export async function sendChurchSms(
     await logSmsSend({
       churchId, label: opts?.note, body: message, segments,
       recipients: recipients.length, sent: 0, credits: 0,
-      senderName: church?.smsSenderIdStatus === "approved" ? church.smsSenderId : nameLine,
+      senderName: ownSender ? church?.smsSenderId : nameLine,
       results: recipients.map((r) => ({ to: r, ok: false })),
     });
     return { ok: false, sent: 0, cost: estimatedCost, balance, insufficient: true };
@@ -207,7 +217,7 @@ export async function sendChurchSms(
   // Credits are taken BEFORE each chunk is sent (only if the balance still covers it), and the unsent
   // part is handed back after. So sends running at the same time can never overspend the wallet, and a
   // send cut off half way has already paid for what went out.
-  const senderId = church?.smsSenderIdStatus === "approved" ? church.smsSenderId : null;
+  const senderId = senderApproved ? church?.smsSenderId ?? null : null;
   const results: { to: string; ok: boolean }[] = [];
   let sent = 0;
   let cost = 0;
@@ -229,7 +239,7 @@ export async function sendChurchSms(
     }
     let chunkSent = 0;
     try {
-      const res = await sendSms(chunk, message, { heading, senderId, platformHeading: nameLine });
+      const res = await sendSms(chunk, message, { heading, senderId, platformHeading: nameLine, carrier: church?.smsProvider, senderCarrier });
       chunkSent = res.sentCount;
       results.push(...(res.results ?? chunk.map((r) => ({ to: r, ok: res.sentCount > 0 }))));
     } finally {
@@ -271,7 +281,7 @@ export async function sendChurchSms(
     recipients: recipients.length,
     sent,
     credits: cost,
-    senderName: senderId ?? nameLine,
+    senderName: ownSender ? senderId ?? nameLine : nameLine,
     results,
   });
 

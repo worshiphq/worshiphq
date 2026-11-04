@@ -10,6 +10,7 @@ import {
   stopGhostSession,
   clearSession,
   requireSuperAdmin,
+  requireSuperAdminOwner,
 } from "@/lib/auth";
 import { saveMarketingContent, type MarketingContent } from "@/lib/data/site-content";
 import { sendSms } from "@/lib/integrations/sms";
@@ -130,13 +131,44 @@ export async function setChurchSuspended(churchId: string, suspended: boolean) {
   revalidatePath("/admin");
 }
 
-export async function approveSenderId(churchId: string) {
+const isCarrier = (v: string): v is "hubtel" | "nalo" => v === "hubtel" || v === "nalo";
+
+/** Put one church's texts on Hubtel or Nalo. */
+export async function setChurchSmsCarrier(churchId: string, carrier: string) {
   await requireSuperAdmin();
+  if (!isCarrier(carrier)) throw new Error("Choose Hubtel or Nalo.");
+  await db.church.update({ where: { id: churchId }, data: { smsProvider: carrier } });
+  revalidatePath("/admin/churches");
+  revalidatePath("/admin/sms");
+}
+
+/** Move every church to one carrier, for when one becomes the only one. */
+export async function setAllChurchesSmsCarrier(carrier: string): Promise<{ ok: true; count: number } | { ok: false; error: string }> {
+  await requireSuperAdminOwner();
+  if (!isCarrier(carrier)) return { ok: false, error: "Choose Hubtel or Nalo." };
+  const res = await db.church.updateMany({ where: { isDemo: false }, data: { smsProvider: carrier } });
+  revalidatePath("/admin/churches");
+  revalidatePath("/admin/sms");
+  return { ok: true, count: res.count };
+}
+
+/** Correct which carrier an already approved sender name belongs to, or record that it is now approved on the other one. */
+export async function setSenderIdCarrier(churchId: string, carrier: string) {
+  await requireSuperAdmin();
+  if (!isCarrier(carrier)) throw new Error("Choose Hubtel or Nalo.");
+  await db.church.update({ where: { id: churchId }, data: { smsSenderIdProvider: carrier } });
+  revalidatePath("/admin/churches");
+}
+
+export async function approveSenderId(churchId: string, carrier = "hubtel") {
+  await requireSuperAdmin();
+  if (!isCarrier(carrier)) throw new Error("Choose Hubtel or Nalo.");
 
   const church = await db.church.update({
     where: { id: churchId },
     data: {
       smsSenderIdStatus: "approved",
+      smsSenderIdProvider: carrier,
     },
     select: {
       name: true,
