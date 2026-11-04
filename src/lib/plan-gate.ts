@@ -86,13 +86,14 @@ const FREE_FEATURES = [
 const STARTER_ADDS = [
   "sms", "reminders", "member-ids", "qr-codes",
   "form-builder", "import-export", "auto-receipts", "follow-ups",
-  "data-migration", "baptisms", "poster-maker",
+  "baptisms", "poster-maker",
 ];
 
 /** Pro adds - run your ministries: teams, giving campaigns, content, welfare, facilities, the church's accounts,
+ *  free data migration (we move their records for them; the self-service importer stays on Starter),
  *  and the USB fingerprint scanner (`fingerprint`; the scanner is a separate hardware purchase). */
 const PRO_ADDS = [
-  "custom-roles", "harvest", "pledges", "recurring-giving",
+  "data-migration", "custom-roles", "harvest", "pledges", "recurring-giving",
   "volunteers", "rosters", "volunteer-scheduling", "bookings",
   "sermons", "devotionals", "testimonies", "welfare",
   "accounting", "expenses", "automations", "engagement-scoring", "fingerprint",
