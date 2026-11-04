@@ -130,8 +130,18 @@ export const DEFAULT_PLAN_TABLE: PlanTable = {
 /** Every feature key the product knows about - drives the plan editor's checkbox grid. */
 export const ALL_FEATURES: string[] = [...MAX_FEATURES];
 
-/** Base features every plan always includes - shown as "CORE" and not toggleable,
- *  so a plan can never lose the essentials (dashboard, people, etc.). */
+/**
+ * Core features that can NEVER be switched off for a plan, because switching them off would break the app rather than
+ * limit it:
+ *  - dashboard and people: the page every church lands on, and the member records everything else hangs off.
+ *  - giving: money can already be collected online for a church, so its gifts must stay visible to it.
+ *  - departments and households: they have no screen of their own (they live inside People and Settings), so a lock
+ *    could not be enforced cleanly.
+ * Every other core feature can be unchecked in the SuperAdmin plan editor, and unchecking it really locks it.
+ */
+export const ALWAYS_ON_FEATURES: string[] = ["dashboard", "people", "giving", "departments", "households"];
+
+/** Base features every plan starts with. Only the ALWAYS_ON ones are fixed; the rest can be unchecked per plan. */
 export const CORE_FEATURES: string[] = [...FREE_FEATURES];
 
 /** Human labels for the plan editor. Falls back to the raw key. */
@@ -175,11 +185,23 @@ const SECTION_FEATURE_MAP: Record<string, string> = {
 /** The plan feature a permission section needs, or null when every plan includes it. */
 export function featureForSection(section: string): string | null {
   const feature = SECTION_FEATURE_MAP[section] ?? section;
-  return ALL_FEATURES.includes(feature) && !CORE_FEATURES.includes(feature) ? feature : null;
+  return ALL_FEATURES.includes(feature) && !ALWAYS_ON_FEATURES.includes(feature) ? feature : null;
 }
 
 /** Map nav item hrefs to plan feature keys. */
 const ROUTE_FEATURE_MAP: Record<string, string> = {
+  // Core screens. These only lock a plan when the SuperAdmin plan editor has unchecked them for it.
+  "/app/attendance": "attendance",
+  "/app/events": "events",
+  "/app/reports": "reports",
+  "/app/directory": "directory",
+  "/app/calendar": "calendar",
+  "/app/birthdays": "birthdays",
+  "/app/leaders": "leaders",
+  "/app/notices": "notices",
+  "/app/groups": "groups",
+  "/app/visitors": "visitors",
+  "/app/prayer-requests": "prayer-requests",
   "/app/communications": "sms",
   "/app/communications/log": "sms-audit",
   "/app/reminders": "reminders",

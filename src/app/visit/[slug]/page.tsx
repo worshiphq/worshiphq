@@ -1,3 +1,4 @@
+import { churchHasFeature } from "@/lib/plan-gate-server";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { DynamicJoinForm } from "@/app/join/[slug]/dynamic-join-form";
@@ -39,6 +40,7 @@ export default async function VisitPage({
   });
 
   if (!church || church.isDemo) notFound();
+  if (!(await churchHasFeature(church.id, "visitors"))) notFound();
 
   const fields = getVisitorFormDefinition(church.visitorFormFields);
 

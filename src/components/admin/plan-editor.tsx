@@ -6,7 +6,7 @@ import {
 } from "lucide-react";
 import { updatePlanDefinitions } from "@/app/actions/admin";
 import {
-  CORE_FEATURES, FEATURE_LABELS, FEATURE_TIERS, PLAN_IDS, type PlanId,
+  ALWAYS_ON_FEATURES, FEATURE_LABELS, FEATURE_TIERS, PLAN_IDS, type PlanId,
 } from "@/lib/plan-gate";
 import type { EditablePlan } from "@/lib/data/platform-config";
 import { membersText, syncMemberText } from "@/lib/plan-gate";
@@ -24,7 +24,7 @@ const CURRENCIES = [
 /** Matrix sections mirror the tier ladder, so the grid reads as a staircase:
  *  Core lit across all plans, then each block lighting up one column further right. */
 const FEATURE_GROUPS: { label: string; keys: readonly string[] }[] = [
-  { label: "Core - every plan", keys: FEATURE_TIERS.core },
+  { label: "Core features (can be switched off per plan)", keys: FEATURE_TIERS.core },
   { label: "Communication & self-service", keys: FEATURE_TIERS.starter },
   { label: "Teams, giving & content", keys: FEATURE_TIERS.pro },
   { label: "Intelligence, finance & scale", keys: FEATURE_TIERS.max },
@@ -55,14 +55,20 @@ const FEATURE_DESC: Record<string, string> = {
 };
 
 const label = (k: string) => FEATURE_LABELS[k] ?? k;
-const isCore = (k: string) => CORE_FEATURES.includes(k);
+/** A feature that can never be switched off: switching it off would break the app, not just limit it. */
+const isCore = (k: string) => ALWAYS_ON_FEATURES.includes(k);
+/** One of the base features, which this page used to treat as untouchable. */
+const isBase = (k: string) => (FEATURE_TIERS.core as readonly string[]).includes(k);
 
 export function PlanEditor({
   currency: initCurrency,
   currencySymbol: initSymbol,
   usdToGhsRate: initRate,
   planList,
+  planCounts = {},
 }: {
+  /** How many real churches are on each plan, so a save that removes something says who it affects. */
+  planCounts?: Record<string, number>;
   currency: string;
   currencySymbol: string;
   usdToGhsRate: number;
@@ -73,7 +79,7 @@ export function PlanEditor({
   const [rate, setRate] = useState(String(initRate));
   const [yearlyOpen, setYearlyOpen] = useState(false);
   const [plans, setPlans] = useState<EditablePlan[]>(() =>
-    planList.map((p) => ({ ...p, features: [...new Set([...CORE_FEATURES, ...p.features])] })),
+    planList.map((p) => ({ ...p, features: [...new Set([...ALWAYS_ON_FEATURES, ...p.features])] })),
   );
   const [saving, startSave] = useTransition();
   const [saved, setSaved] = useState(false);
@@ -92,7 +98,7 @@ export function PlanEditor({
     }));
 
   function toggle(id: PlanId, key: string) {
-    if (isCore(key)) return; // core is always on
+    if (isCore(key)) return; // only the always-on features are fixed
     setPlans((prev) =>
       prev.map((p) => {
         if (p.id !== id) return p;
@@ -124,7 +130,7 @@ export function PlanEditor({
       const lower = byId[PLAN_IDS[i]];
       const higher = byId[PLAN_IDS[i + 1]];
       if (!lower || !higher) continue;
-      const missing = lower.features.filter((f) => !higher.features.includes(f) && !isCore(f));
+      const missing = lower.features.filter((f) => !higher.features.includes(f));
       if (missing.length) {
         out.push(`${higher.name} is missing ${missing.length} feature${missing.length > 1 ? "s" : ""} that ${lower.name} has (${missing.slice(0, 3).map(label).join(", ")}${missing.length > 3 ? "…" : ""})`);
       }
@@ -134,13 +140,24 @@ export function PlanEditor({
 
   function handleSave() {
     setSaved(false); setError(null);
+    // Taking a core feature away from a plan locks it for every church on that plan at once, so say exactly what and for whom.
+    const removed = plans
+      .map((p) => {
+        const before = planList.find((x) => x.id === p.id)?.features ?? [];
+        return { name: p.name, id: p.id, gone: before.filter((f) => isBase(f) && !isCore(f) && !p.features.includes(f)) };
+      })
+      .filter((r) => r.gone.length > 0);
+    if (removed.length > 0) {
+      const lines = removed.map((r) => `${r.name} (${(planCounts[r.id] ?? 0).toLocaleString()} churches): ${r.gone.map(label).join(", ")}`);
+      if (!confirm(`This takes core features away from churches that have them today, straight away:\n\n${lines.join("\n")}\n\nTheir data is kept and comes back if you switch the feature on again. Save?`)) return;
+    }
     startSave(async () => {
       const res = await updatePlanDefinitions({
         currency, currencySymbol: symbol,
         usdToGhsRate: Number(rate) || undefined,
         plans: plans.map((p) => ({
           ...p,
-          features: [...new Set([...CORE_FEATURES, ...p.features])],
+          features: [...new Set([...ALWAYS_ON_FEATURES, ...p.features])],
         })),
       });
       if (res && !res.ok) { setError(res.error ?? "Could not save."); return; }
@@ -360,7 +377,7 @@ export function PlanEditor({
         <div className="border-b border-white/10 p-5">
           <h3 className="text-sm font-bold text-slate-100">Features by tier</h3>
           <p className="text-xs text-slate-500">
-            Tap a cell to switch a feature on or off for that plan. Core features are always on.
+            Tap a cell to switch a feature on or off for that plan. Core features can be switched off too, except the few marked Always on.
           </p>
         </div>
 
@@ -422,8 +439,8 @@ function FeatureGroupRows({
               <div className="flex items-center gap-2">
                 <span className="font-medium text-slate-200">{label(k)}</span>
                 {core && (
-                  <span className="rounded bg-slate-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-400">
-                    Core
+                  <span title="Switching this off would break the app, so it stays on for every plan" className="rounded bg-slate-500/20 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-slate-400">
+                    Always on
                   </span>
                 )}
               </div>

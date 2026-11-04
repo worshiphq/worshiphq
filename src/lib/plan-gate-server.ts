@@ -1,7 +1,8 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { cache } from "react";
-import { effectivePlan, type PlanId } from "./plan-gate";
+import { ALWAYS_ON_FEATURES, effectivePlan, planHasFeature, type PlanId } from "./plan-gate";
+import { getPlatformConfig } from "@/lib/data/platform-config";
 
 export const getChurchPlan = cache(async (churchId: string): Promise<PlanId> => {
   const sub = await db.subscription.findUnique({
@@ -10,3 +11,14 @@ export const getChurchPlan = cache(async (churchId: string): Promise<PlanId> => 
   });
   return effectivePlan(sub);
 });
+
+/**
+ * Does this church's plan include a feature? For screens nobody is signed in to, like a church's public visitor or
+ * prayer form: signed-in pages are gated by their session instead. A feature the plan editor has unchecked for the
+ * church's plan answers false, so the form stops working as well as the menu item.
+ */
+export async function churchHasFeature(churchId: string, feature: string): Promise<boolean> {
+  if (ALWAYS_ON_FEATURES.includes(feature)) return true;
+  const [plan, cfg] = await Promise.all([getChurchPlan(churchId), getPlatformConfig()]);
+  return planHasFeature(plan, feature, cfg.planTable);
+}

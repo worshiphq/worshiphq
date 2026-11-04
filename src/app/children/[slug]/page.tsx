@@ -1,3 +1,4 @@
+import { churchHasFeature } from "@/lib/plan-gate-server";
 import { MembershipFull } from "@/components/public/membership-full";
 import { memberRoom } from "@/lib/member-limit";
 import { notFound } from "next/navigation";
@@ -42,6 +43,7 @@ export default async function ChildrenPage({
   });
 
   if (!church || church.isDemo) notFound();
+  if (!(await churchHasFeature(church.id, "children-forms"))) notFound();
   const room = await memberRoom(church.id);
   const full = room.limit !== null && room.left <= 0;
 

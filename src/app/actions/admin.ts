@@ -19,7 +19,7 @@ import { getAlertPhone } from "@/lib/outreach/owner-alert";
 import { addCredits } from "@/lib/sms/credits";
 import { isSmsTier } from "@/config/sms";
 import { supportEmail } from "@/lib/lockout";
-import { ALL_FEATURES } from "@/lib/plan-gate";
+import { ALL_FEATURES, ALWAYS_ON_FEATURES } from "@/lib/plan-gate";
 import { createSubaccount, updateSubaccount, listBanks, resolveAccount } from "@/lib/integrations/paystack";
 import { env } from "@/lib/env";
 import { notifyPaymentRequest, alertChurchAdmins, maskAccount, type PaymentRequestEvent } from "@/lib/giving/notify";
@@ -548,7 +548,7 @@ export async function updatePlanDefinitions(input: {
       cta: String(p.cta || "Choose plan").slice(0, 40),
       marketingFeatures: (p.marketingFeatures ?? [])
         .map((f) => String(f).trim()).filter(Boolean).slice(0, 20),
-      features: [...new Set((p.features ?? []).map((f) => String(f).trim()).filter(Boolean))],
+      features: [...new Set([...ALWAYS_ON_FEATURES, ...(p.features ?? []).map((f) => String(f).trim()).filter(Boolean)])],
       // Every feature the editor showed at this save, so a feature added later can follow its built-in tier.
       knownFeatures: ALL_FEATURES,
     };

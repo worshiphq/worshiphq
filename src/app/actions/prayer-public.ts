@@ -1,5 +1,6 @@
 "use server";
 
+import { churchHasFeature } from "@/lib/plan-gate-server";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { FORM_KINDS, collectExtraAnswers } from "@/lib/forms/kinds";
@@ -14,6 +15,7 @@ export async function submitPublicPrayerRequest(formData: FormData) {
     select: { id: true, suspended: true, isDemo: true, prayerFormFields: true },
   });
   if (!church || church.isDemo || church.suspended) return;
+  if (!(await churchHasFeature(church.id, "prayer-requests"))) return;
   if (!(await allowPublicSubmission("prayer", church.id))) return;
 
   const name = String(formData.get("name") ?? "").trim();

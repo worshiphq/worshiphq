@@ -1,5 +1,6 @@
 "use server";
 
+import { churchHasFeature } from "@/lib/plan-gate-server";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { memberLimitError } from "@/lib/member-limit";
@@ -92,6 +93,7 @@ export async function registerChild(formData: FormData) {
     select: { id: true, suspended: true, name: true, isDemo: true, childrenFormFields: true },
   });
   if (!church || church.isDemo || church.suspended) return;
+  if (!(await churchHasFeature(church.id, "children-forms"))) return;
   if (!(await allowPublicSubmission("children", church.id))) return;
   if (await memberLimitError(church.id)) redirect(`/join/${churchSlug}/full`);
 
@@ -127,6 +129,7 @@ export async function registerTeen(formData: FormData) {
     select: { id: true, suspended: true, name: true, isDemo: true, teensFormFields: true },
   });
   if (!church || church.isDemo || church.suspended) return;
+  if (!(await churchHasFeature(church.id, "teens-forms"))) return;
   if (!(await allowPublicSubmission("teens", church.id))) return;
   if (await memberLimitError(church.id)) redirect(`/join/${churchSlug}/full`);
 

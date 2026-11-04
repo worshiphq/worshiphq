@@ -1,3 +1,4 @@
+import { churchHasFeature } from "@/lib/plan-gate-server";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { DynamicJoinForm } from "@/app/join/[slug]/dynamic-join-form";
@@ -31,6 +32,7 @@ export default async function PrayPage({
   });
 
   if (!church || church.isDemo) notFound();
+  if (!(await churchHasFeature(church.id, "prayer-requests"))) notFound();
 
   return (
     <div className="min-h-screen bg-[#faf8f4]">

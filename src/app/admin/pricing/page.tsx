@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 
 export default async function AdminPricingPage() {
   const sa = await requireSuperAdmin();
-  const [config, coupons, churches] = await Promise.all([
+  const [config, coupons, churches, planGroups] = await Promise.all([
     getPlatformConfig(),
     db.coupon.findMany({
       orderBy: { createdAt: "desc" },
@@ -20,7 +20,12 @@ export default async function AdminPricingPage() {
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
+    db.subscription.groupBy({ by: ["plan"], where: { church: { isDemo: false } }, _count: { _all: true } }),
   ]);
+  // Churches with no subscription row count as Free, which is what they get.
+  const planCounts: Record<string, number> = {};
+  for (const g of planGroups) planCounts[g.plan] = g._count._all;
+  planCounts.free = (planCounts.free ?? 0) + (churches.length - planGroups.reduce((t, g) => t + g._count._all, 0));
 
   return (
     <AdminShell email={sa.email} isOwner={sa.role === "owner"}>
@@ -29,6 +34,7 @@ export default async function AdminPricingPage() {
         currencySymbol={config.currencySymbol}
         usdToGhsRate={config.usdToGhsRate}
         planList={config.planList}
+        planCounts={planCounts}
       />
 
       <SmsTierControl current={config.smsTier} />

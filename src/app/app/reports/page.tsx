@@ -1,4 +1,5 @@
-import { requireModule } from "@/lib/auth";
+import { planLockFor, requireModule } from "@/lib/auth";
+import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { ReportsClient } from "@/components/app/reports-client-lazy";
 import { PageHeader } from "@/components/app/page-header";
@@ -23,6 +24,8 @@ export default async function ReportsPage({
   searchParams: Promise<{ months?: string }>;
 }) {
   const session = await requireModule("dashboard");
+  // Reports uses the dashboard's permission, which is always on, so its own plan lock is checked here.
+  if (planLockFor(session, "reports")) redirect("/app/settings?tab=billing");
   const { months: monthsParam } = await searchParams;
   const span = monthsParam === "12" ? 12 : 6;
 

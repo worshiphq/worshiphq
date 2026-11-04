@@ -1,5 +1,6 @@
 "use server";
 
+import { churchHasFeature } from "@/lib/plan-gate-server";
 import { redirect } from "next/navigation";
 import { db } from "@/lib/db";
 import { getVisitorFormDefinition, questionFields } from "@/lib/forms/registration";
@@ -79,6 +80,7 @@ export async function submitVisitorForm(formData: FormData) {
     select: { id: true, suspended: true, name: true, isDemo: true, visitorFormFields: true, smsWelcomeVisitor: true },
   });
   if (!church || church.isDemo || church.suspended) return;
+  if (!(await churchHasFeature(church.id, "visitors"))) return;
   if (!(await allowPublicSubmission("visit", church.id))) return;
 
   const fields = questionFields(getVisitorFormDefinition(church.visitorFormFields));
