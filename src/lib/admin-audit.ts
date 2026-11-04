@@ -53,8 +53,24 @@ export function redactSms(body: string): string {
     .slice(0, 500);
 }
 
-/** Record one of WorshipHQ's own texts. Churches' texts are recorded separately, in SmsAuditLog. Never throws. */
-export async function logPlatformSms(row: { to: string[]; sent: number; carrier: string | null; sender?: string | null; body: string; error?: string | null }): Promise<void> {
+/**
+ * What a text was for, from its own wording. These are all our own templates, so the wording is stable; anything
+ * unrecognised is "Other" rather than guessed.
+ */
+export function classifySms(body: string): string {
+  if (/received your gift/i.test(body)) return "Donor gift receipt";
+  if (/new church on worshiphq/i.test(body)) return "Signup alert";
+  if (/sender id/i.test(body)) return "Sender ID notice";
+  if (/invited to join|main admin|budget leader/i.test(body)) return "Team invite";
+  if (/upgraded|free upgrade|your plan|renew|payment/i.test(body)) return "Plan and billing notice";
+  if (/password/i.test(body)) return "Password reset";
+  if (/\bcode\b/i.test(body)) return "Sign-in or verification code";
+  if (/\btest\b/i.test(body)) return "Test";
+  return "Other";
+}
+
+/** Record one of WorshipHQ's own texts, one row per carrier it used. Churches' credit sends are in SmsAuditLog. Never throws. */
+export async function logPlatformSms(row: { to: string[]; sent: number; carrier: string | null; sender?: string | null; body: string; error?: string | null; segments?: number; billedSegments?: number; costGhs?: number; churchId?: string | null }): Promise<void> {
   try {
     await db.platformSmsLog.create({
       data: {
@@ -66,6 +82,11 @@ export async function logPlatformSms(row: { to: string[]; sent: number; carrier:
         sender: row.sender ?? null,
         body: redactSms(row.body),
         error: row.error?.slice(0, 300) ?? null,
+        purpose: classifySms(row.body),
+        segments: row.segments ?? 1,
+        billedSegments: row.billedSegments ?? 0,
+        costGhs: row.costGhs ?? 0,
+        churchId: row.churchId ?? null,
       },
     });
   } catch (e) {

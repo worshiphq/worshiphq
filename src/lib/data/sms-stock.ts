@@ -18,7 +18,7 @@ import { db } from "@/lib/db";
  *   cushion       = held - committed          <- the figure that decides the warning
  *   worst case    = held - (committed + free trial), if every church spent every free credit
  *
- * Not counted, and the page says so: our own sends (sign-in codes, alerts) and anything HostHub sends on the same
+ * Counted from when cost tracking began: our own sends (sign-in codes, alerts, donor receipts). Never counted: anything HostHub sends on the same
  * Hubtel account. They use balance too, which is why a fresh reading every so often beats any calculation.
  *
  * Reads tolerate the table or column not existing yet (sql/sms-purchases.sql, sql/sms-balance-readings.sql).
@@ -36,6 +36,8 @@ export type SmsStock = {
   heldGhs: number;
   held: number;
   sentSince: number;
+  /** Cedis WorshipHQ's own texts have used since the reading. */
+  ownSpentGhs: number;
   toppedUpSince: number;
   /** Credits churches hold that were bought or gifted. */
   committed: number;
@@ -101,7 +103,19 @@ export async function getSmsStock(carrier: "hubtel" | "nalo" = "hubtel"): Promis
   const sentSince = Math.abs(usageSince._sum.credits ?? 0);
   const toppedUpSince = topupsSince.reduce((t, e) => t + e.costGhs, 0);
   const start = readingRow ? readingRow.costGhs : 0;
-  const heldGhs = Math.max(0, start + toppedUpSince - sentSince * cost);
+  // WorshipHQ's own texts (sign-in codes, alerts, donor receipts) come out of the same balance. They have only been
+  // recorded since cost tracking began, so a reading older than that still leaves a small gap.
+  let ownSpentGhs = 0;
+  try {
+    const own = await db.platformSmsLog.aggregate({
+      where: { carrier: carrier === "nalo" ? "nalo" : { not: "nalo" }, ...(since ? { createdAt: { gt: since } } : {}) },
+      _sum: { costGhs: true },
+    });
+    ownSpentGhs = own._sum.costGhs ?? 0;
+  } catch {
+    // The table or its cost column is not there yet (sql/sms-cost-tracking.sql).
+  }
+  const heldGhs = Math.max(0, start + toppedUpSince - sentSince * cost - ownSpentGhs);
   const held = cost > 0 ? Math.floor(heldGhs / cost) : 0;
 
   // What churches hold, split into what is in the ledger (bought or gifted) and the free signup credits (not).
@@ -123,6 +137,6 @@ export async function getSmsStock(carrier: "hubtel" | "nalo" = "hubtel"): Promis
   return {
     ready, entries, costPerCredit: cost,
     reading: readingRow ? { amountGhs: readingRow.costGhs, at: readingRow.purchasedAt } : null,
-    heldGhs, held, sentSince, toppedUpSince, committed, freeTrial, cushion, worstCushion, level,
+    heldGhs, held, sentSince, ownSpentGhs, toppedUpSince, committed, freeTrial, cushion, worstCushion, level,
   };
 }

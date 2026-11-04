@@ -106,7 +106,7 @@ export async function recordOnlineGift(
   // ── Send a receipt (SMS + email). Stub mode just logs. ──
   const church = await db.church.findUnique({
     where: { id: churchId },
-    select: { name: true, smsSenderId: true, smsSenderIdStatus: true },
+    select: { name: true, smsSenderId: true, smsSenderIdStatus: true, smsProvider: true, smsSenderIdProvider: true },
   });
   const churchName = church?.name ?? "your church";
   const amountStr = `GHc ${amount.toLocaleString("en-GH", { minimumFractionDigits: 2 })}`;
@@ -121,7 +121,7 @@ export async function recordOnlineGift(
     const sms = await sendSms(
       input.phone,
       `${churchName}: We received your gift of ${amountStr}${fundSuffix}. Thank you & God bless you! Ref ${reference}`,
-      { heading: null, senderId: churchSenderId },
+      { heading: null, senderId: churchSenderId, carrier: church?.smsProvider ?? null, senderCarrier: church?.smsSenderIdProvider ?? "hubtel", churchId },
     );
     receiptSent = receiptSent || sms.ok;
   }

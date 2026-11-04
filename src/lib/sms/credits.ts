@@ -103,6 +103,8 @@ async function logSmsSend(row: {
   credits: number;
   senderName: string | null;
   results: { to: string; ok: boolean }[];
+  carrier?: string | null;
+  costGhs?: number | null;
 }) {
   try {
     // Who pressed send. A cron run, a public form or a webhook has no cookie, and getSession() throws
@@ -134,6 +136,8 @@ async function logSmsSend(row: {
         sentByName,
         trigger: sentById ? "manual" : "automatic",
         numbers: JSON.stringify(row.results.slice(0, AUDIT_NUMBER_CAP)),
+        carrier: row.carrier ?? null,
+        costGhs: row.costGhs ?? null,
       },
     });
   } catch (e) {
@@ -221,6 +225,8 @@ export async function sendChurchSms(
   const results: { to: string; ok: boolean }[] = [];
   let sent = 0;
   let cost = 0;
+  let sendCostGhs = 0;
+  const carriersUsed = new Set<string>();
   let ledgerId: string | null = null;
   let balanceAfter = balance;
   let ranOut = false;
@@ -239,8 +245,10 @@ export async function sendChurchSms(
     }
     let chunkSent = 0;
     try {
-      const res = await sendSms(chunk, message, { heading, senderId, platformHeading: nameLine, carrier: church?.smsProvider ?? null, senderCarrier });
+      const res = await sendSms(chunk, message, { heading, senderId, platformHeading: nameLine, carrier: church?.smsProvider ?? null, senderCarrier, logged: true });
       chunkSent = res.sentCount;
+      sendCostGhs += res.costGhs ?? 0;
+      for (const p of res.provider.split("+")) if (p) carriersUsed.add(p);
       results.push(...(res.results ?? chunk.map((r) => ({ to: r, ok: res.sentCount > 0 }))));
     } finally {
       const unused = reserve - segments * chunkSent;
@@ -282,6 +290,8 @@ export async function sendChurchSms(
     sent,
     credits: cost,
     senderName: ownSender ? senderId ?? nameLine : nameLine,
+    carrier: [...carriersUsed].join("+") || null,
+    costGhs: Math.round(sendCostGhs * 10000) / 10000,
     results,
   });
 

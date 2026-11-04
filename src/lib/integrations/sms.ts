@@ -4,6 +4,8 @@ import { normalisePhone } from "@/lib/phone";
 import { sendNaloBatch } from "@/lib/integrations/nalo";
 import { getPlatformCarrier } from "@/lib/sms/platform-carrier";
 import { logPlatformSms } from "@/lib/admin-audit";
+import { segmentsFor } from "@/config/sms";
+import { getSmsRates, rateFor } from "@/lib/sms/cost";
 import { providerForNumber, routingForChurch, type SmsProvider } from "@/lib/sms/routing";
 
 export type SmsResult = {
@@ -17,6 +19,10 @@ export type SmsResult = {
    *  other 80 that went through. Callers that bill per-recipient (sendChurchSms)
    *  must charge against this, not against the size of the recipient list. */
   sentCount: number;
+  /** What this send cost us, summed over the carriers it used, at the price set for each. */
+  costGhs?: number;
+  /** Segments actually sent (segments in the message x recipients reached). */
+  billedSegments?: number;
   /** Per-recipient outcome (normalised phone/email actually dialled), in the
    *  same order as the input list, so callers can log a detailed send audit. */
   results: { to: string; ok: boolean }[];
@@ -151,6 +157,10 @@ export async function sendSms(
     carrier?: string | null;
     /** The carrier that approved `senderId`. Empty = the church's own carrier. */
     senderCarrier?: string | null;
+    /** The caller records this send itself (church sends are written to SmsAuditLog), so it is not also logged here. */
+    logged?: boolean;
+    /** The text is on behalf of this church but not charged to its credits, such as a donor's gift receipt. */
+    churchId?: string | null;
   },
 ): Promise<SmsResult> {
   // Normalise to the digits-only format providers require (Hubtel rejects "024…"). Keep this in the SAME
@@ -193,6 +203,10 @@ export async function sendSms(
   let id: string | undefined;
   let firstError: string | undefined;
   const used: SmsProvider[] = [];
+  const rates = await getSmsRates().catch(() => ({ hubtel: 0.03, nalo: 0.032 }));
+  const groupLogs: { provider: SmsProvider; sender: string; to: string[]; sent: number; segments: number; cost: number; error?: string }[] = [];
+  let costGhs = 0;
+  let billedSegments = 0;
 
   for (const [provider, idxs] of groups) {
     const nums = idxs.map((i) => recipients[i]!);
@@ -215,6 +229,23 @@ export async function sendSms(
     if (!id && r.id) id = r.id;
     if (!firstError && r.error) firstError = r.error;
     used.push(provider);
+
+    // The carrier bills per segment per recipient reached. Recorded now, at today's price, so a later price change
+    // never rewrites what an old text cost.
+    const reached = r.perOk.filter(Boolean).length;
+    const segments = segmentsFor(message);
+    const cost = Math.round(reached * segments * rateFor(rates, provider) * 10000) / 10000;
+    costGhs += cost;
+    billedSegments += reached * segments;
+    groupLogs.push({ provider, sender, to: nums, sent: reached, segments, cost, error: r.error });
+  }
+  costGhs = Math.round(costGhs * 10000) / 10000;
+
+  // Recorded before any retry below, so a failure at one carrier stays visible next to the retry that rescued it.
+  if (!opts?.logged) {
+    for (const g of groupLogs) {
+      await logPlatformSms({ to: g.to, sent: g.sent, carrier: g.provider, sender: g.sender, body: rawMessage, error: g.sent === 0 ? g.error ?? firstError : null, segments: g.segments, billedSegments: g.sent * g.segments, costGhs: g.cost, churchId: opts?.churchId ?? null });
+    }
   }
 
   const sentCount = perValidOk.filter(Boolean).length;
@@ -223,10 +254,6 @@ export async function sendSms(
     console.error(`[SMS] WorshipHQ's own text failed on Nalo, retrying on Hubtel: ${firstError ?? "no error given"}`);
     return sendSms(to, rawMessage, { ...opts, carrier: "hubtel" });
   }
-  // Churches' texts are recorded in SmsAuditLog by the credits code. These are WorshipHQ's own.
-  if (opts?.carrier === undefined) {
-    await logPlatformSms({ to: recipients, sent: sentCount, carrier: used.join("+") || routing.primary, body: rawMessage, error: sentCount === 0 ? firstError : null });
-  }
   return {
     ok: sentCount > 0,
     provider: used.join("+") || routing.primary,
@@ -234,6 +261,8 @@ export async function sendSms(
     id,
     ...(sentCount === 0 && firstError ? { error: firstError } : {}),
     sentCount,
+    costGhs,
+    billedSegments,
     results: toFullResults(perValidOk),
   };
 }

@@ -37,14 +37,14 @@ type SendInput = {
 /** Send one email or text to one church contact and keep a record of it. */
 export async function sendOutreach(input: SendInput): Promise<OutreachResult> {
   const [church, user] = await Promise.all([
-    db.church.findUnique({ where: { id: input.churchId }, select: { id: true, name: true } }),
+    db.church.findUnique({ where: { id: input.churchId }, select: { id: true, name: true, smsSenderId: true } }),
     db.user.findFirst({ where: { id: input.userId, churchId: input.churchId }, select: { id: true, name: true, email: true, phone: true } }),
   ]);
   if (!church || !user) return { ok: false, status: "failed", error: "That contact was not found." };
 
   const tpl = templateById(input.template);
   const contact = outreachContact();
-  const merge = { name: firstName(user.name), church: church.name, contact: await outreachContactLine() };
+  const merge = { name: firstName(user.name), church: church.name, contact: await outreachContactLine(), senderId: church.smsSenderId ?? undefined };
   const subject = mergeFields(input.subject ?? tpl?.subject ?? "A message from WorshipHQ", merge).trim();
   const written = mergeFields(input.body ?? tpl?.body ?? "", merge).trim();
   const body = written && input.appendBody ? `${written}

@@ -1,7 +1,7 @@
 /**
  * Emails and texts the platform owner sends to church contacts, and the automatic welcome at signup.
  * Pure functions only, so the SuperAdmin preview and the real send produce the same thing.
- * Merge fields: {{name}} (first name), {{church}}, {{contact}} (how to reach us).
+ * Merge fields: {{name}} (first name), {{church}}, {{contact}} (how to reach us), {{senderId}} (the sender name the church asked for).
  */
 
 export type OutreachChannel = "email" | "sms";
@@ -167,6 +167,59 @@ Blessings,
 The WorshipHQ team`,
   },
   {
+    id: "senderid-processing", channel: "email", label: "Sender name: in process", hint: "Tells a church its sender name request has gone to the networks. Texts go out automatically when you mark it in process; this is the email to send by hand",
+    subject: "Your sender name {{senderId}} is being processed",
+    body: `Hello {{name}},
+
+A quick update for {{church}}. Your sender name "{{senderId}}" is now in process: we have submitted it to the mobile networks for approval.
+
+What happens next:
+- This usually takes a few working days. The networks decide, so we cannot speed it up, but we are following it.
+- We will text you and email you the moment it is approved.
+- Until then your messages still go out, under the WorshipHQ sender with your church name at the top, so nothing is held up.
+
+You do not need to do anything. If you would like to change the name or have a question, reply to this email or reach us on {{contact}}.
+
+Blessings,
+The WorshipHQ team`,
+  },
+  {
+    id: "senderid-approved", channel: "email", label: "Sender name: approved", hint: "Tells a church its sender name is approved and how to use it. Texts go out automatically when you approve it; this is the email to send by hand",
+    subject: "Your sender name {{senderId}} is approved",
+    body: `Hello {{name}},
+
+Good news for {{church}}. Your sender name "{{senderId}}" has been approved.
+
+From now on your messages show "{{senderId}}" as the sender on your members' phones, instead of a number or a general name. It is used automatically for the texts you send from Communications, and for your automatic messages like birthdays and follow-ups. You do not need to turn anything on.
+
+A good first step is to send yourself a text from Communications and see how it looks.
+
+If anything looks wrong, reply to this email or reach us on {{contact}}.
+
+Blessings,
+The WorshipHQ team`,
+  },
+  {
+    id: "senderid-rejected", channel: "email", label: "Sender name: not approved", hint: "Tells a church its sender name was not approved and what to do next. Texts go out automatically when you reject it; this is the email to send by hand",
+    subject: "About your sender name {{senderId}}",
+    body: `Hello {{name}},
+
+An update for {{church}}. Unfortunately your sender name "{{senderId}}" was not approved by the mobile networks this time.
+
+This happens, and it is easy to fix. Networks often turn a name down because it is too close to another organisation's name, or because it does not clearly match your church.
+
+What to do next:
+- Choose another name, or a clearer version of it: 3 to 11 letters and numbers, no spaces, and not only numbers. Your full church name, shortened, usually works well.
+- Open Settings in WorshipHQ and send the new request, or reply to this email with the name you would like and we will submit it for you.
+
+Until a name is approved, your messages keep going out under the WorshipHQ sender with your church name at the top, so nothing stops working.
+
+Reply to this email or reach us on {{contact}}, and we will help you choose.
+
+Blessings,
+The WorshipHQ team`,
+  },
+  {
     id: "custom-email", channel: "email", label: "Write my own", hint: "Start from a blank message",
     subject: "A message from WorshipHQ", body: `Hello {{name}},\n\n\n\nBlessings,\nThe WorshipHQ team`,
   },
@@ -201,6 +254,21 @@ The WorshipHQ team`,
     body: "Hello {{name}}, on WorshipHQ Pro and Max nobody types names or counts heads. Members scan a face, palm or fingerprint at the door. Enquire: {{contact}}",
   },
   {
+    id: "senderid-processing-sms", channel: "sms", label: "Sender name: in process", hint: "The same text that goes out automatically when you mark a sender name in process",
+    subject: "",
+    body: `Update on your Sender ID "{{senderId}}": we've submitted it to the mobile networks for approval. This usually takes a few working days. We'll text you the moment it's approved.`,
+  },
+  {
+    id: "senderid-approved-sms", channel: "sms", label: "Sender name: approved", hint: "The same text that goes out automatically when you approve a sender name",
+    subject: "",
+    body: `Congratulations! Your Sender ID "{{senderId}}" has been approved. You can now use it for SMS broadcasts in WorshipHQ.`,
+  },
+  {
+    id: "senderid-rejected-sms", channel: "sms", label: "Sender name: not approved", hint: "The same text that goes out automatically when you reject a sender name",
+    subject: "",
+    body: `Your Sender ID "{{senderId}}" was not approved. Please contact WorshipHQ for assistance. Email: {{contact}}`,
+  },
+  {
     id: "custom-sms", channel: "sms", label: "Write my own", hint: "Start from a blank text",
     subject: "", body: "Hello {{name}}, ",
   },
@@ -208,11 +276,11 @@ The WorshipHQ team`,
 
 export const templateById = (id: string) => OUTREACH_TEMPLATES.find((t) => t.id === id) ?? null;
 
-export type MergeData = { name: string; church: string; contact: string };
+export type MergeData = { name: string; church: string; contact: string; senderId?: string };
 
-/** Fill in {{name}}, {{church}} and {{contact}}. Unknown fields are left alone. */
+/** Fill in {{name}}, {{church}}, {{contact}} and {{senderId}}. Unknown fields are left alone. */
 export function mergeFields(text: string, d: MergeData): string {
-  return text.replace(/\{\{\s*(name|church|contact)\s*\}\}/g, (_, k: keyof MergeData) => d[k]);
+  return text.replace(/\{\{\s*(name|church|contact|senderId)\s*\}\}/g, (_, k: keyof MergeData) => d[k] ?? "your sender name");
 }
 
 const TITLES = /^(ps\.?|pastor|rev\.?|reverend|dr\.?|apostle|bishop|prophet|elder|deacon|evangelist|mr\.?|mrs\.?|ms\.?)$/i;

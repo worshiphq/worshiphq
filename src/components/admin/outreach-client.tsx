@@ -236,7 +236,7 @@ function Compose({ data, composer, onClose, onDone }: { data: OutreachData; comp
   const targets = churches.map((c) => ({ church: c, contact: pickContact(c, mode, bulk ? undefined : contactId) })).filter((t): t is { church: OutreachChurch; contact: OutreachContact } => !!t.contact);
   const skipped = churches.length - targets.length;
   const sample = targets[0];
-  const merge = sample ? { name: firstName(sample.contact.name), church: sample.church.name, contact: data.contactLine } : { name: "Ama", church: "Your church", contact: data.contactLine };
+  const merge = sample ? { name: firstName(sample.contact.name), church: sample.church.name, contact: data.contactLine, senderId: sample.church.senderId ?? undefined } : { name: "Ama", church: "Your church", contact: data.contactLine, senderId: "GRACECHAPEL" };
   const previewHtml = mode === "email" ? renderEmailHtml({ subject: mergeFields(subject, merge), body: mergeFields(body, merge), church: merge.church, contact: data.contact }) : "";
   const smsText = mergeFields(body, merge);
   const smsParts = Math.max(1, Math.ceil(smsText.length / 160));

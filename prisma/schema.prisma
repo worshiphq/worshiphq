@@ -1206,6 +1206,8 @@ model SmsAuditLog {
   sentByName String? // kept as text so the row still reads after a user is removed
   trigger    String   @default("manual") // manual | automatic
   numbers    String? // JSON [{ to, ok }], capped - who got it and who did not
+  carrier    String? // which carrier took it: hubtel, nalo, or both for a mixed list
+  costGhs    Float? // what it cost us. Empty on sends from before cost tracking, which are estimated from credits.
   createdAt  DateTime @default(now())
 
   @@index([churchId, createdAt])
@@ -2430,6 +2432,16 @@ model PlatformSmsLog {
   sender     String?
   body       String
   error      String?
+  /// What kind of text it was, worked out from its wording: sign-in code, password reset, alert and so on.
+  purpose        String?
+  /// SMS segments in the message, per recipient.
+  segments       Int      @default(1)
+  /// Segments actually sent, so segments x recipients reached. This is what the carrier bills.
+  billedSegments Int      @default(0)
+  /// What it cost us, at the carrier's price when it was sent.
+  costGhs        Float    @default(0)
+  /// Set when the text is on behalf of a church but not charged to its credits (a donor's gift receipt).
+  churchId       String?
   createdAt  DateTime @default(now())
 
   @@index([createdAt])

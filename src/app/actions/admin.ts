@@ -1,6 +1,6 @@
 "use server";
 
-import { logAdminAction, logPlatformSms } from "@/lib/admin-audit";
+import { logAdminAction } from "@/lib/admin-audit";
 import { invalidatePlatformConfig } from "@/lib/data/platform-config";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -219,7 +219,6 @@ export async function sendSenderIdTest(churchId: string, carrier: string, target
     : `WorshipHQ test: ${church.name}, sender name ${church.smsSenderId}, sent through ${carrierName}.`;
 
   const r = await sendSms(phone, message, { heading: null, senderId: church.smsSenderId, carrier, senderCarrier: carrier });
-  await logPlatformSms({ to: [phone], sent: r.sentCount, carrier: r.provider, sender: church.smsSenderId, body: message, error: r.ok ? null : r.error });
   if (!r.ok) return { ok: false, error: r.error ?? `${carrierName} did not accept it.` };
   if (r.stubbed) return { ok: false, error: "Nothing was sent: SMS is not connected where this is running." };
   // A number outside Ghana always goes through Nalo, so a Hubtel test to one would prove nothing about the sender.
@@ -227,7 +226,24 @@ export async function sendSenderIdTest(churchId: string, carrier: string, target
   return { ok: true };
 }
 
-export async function approveSenderId(churchId: string, carrier = "hubtel") {
+/** Whether the text telling a church about its sender name decision actually went out. */
+export type SenderIdNotice = { status: "sent" | "failed" | "no-phone" | "not-connected"; to?: string; error?: string };
+
+/** The oldest phone-verified user is who these notices go to, the same person every sender name text reaches. */
+async function sendSenderIdNotice(churchId: string, message: string): Promise<SenderIdNotice> {
+  const owner = await db.user.findFirst({ where: { churchId, phoneVerified: true }, orderBy: { createdAt: "asc" }, select: { phone: true } });
+  if (!owner?.phone) return { status: "no-phone" };
+  const to = `${owner.phone.replace(/\s/g, "").slice(0, 4)}...${owner.phone.slice(-3)}`;
+  try {
+    const r = await sendSms(owner.phone, message, { heading: null, churchId });
+    if (r.stubbed) return { status: "not-connected", to };
+    return r.ok ? { status: "sent", to } : { status: "failed", to, error: r.error ?? "The carrier did not accept it." };
+  } catch (e) {
+    return { status: "failed", to, error: (e as Error).message };
+  }
+}
+
+export async function approveSenderId(churchId: string, carrier = "hubtel"): Promise<SenderIdNotice> {
   await requireSuperAdmin();
   await logAdminAction("approveSenderId", { churchId, carrier });
   if (!isCarrier(carrier)) throw new Error("Choose Hubtel or Nalo.");
@@ -244,34 +260,17 @@ export async function approveSenderId(churchId: string, carrier = "hubtel") {
     },
   });
 
-  const owner = await db.user.findFirst({
-    where: {
-      churchId,
-      phoneVerified: true,
-    },
-    orderBy: {
-      createdAt: "asc",
-    },
-    select: {
-      phone: true,
-    },
-  });
-
-  console.log("OWNER PHONE:", owner?.phone);
-
-  if (owner?.phone) {
-    await sendSms(
-      owner.phone,
-      `Congratulations!
+  const notice = await sendSenderIdNotice(
+    churchId,
+    `Congratulations!
 
 Your Sender ID "${church.smsSenderId}" has been approved.
 
 You can now use it for SMS broadcasts in WorshipHQ.`,
-      { heading: null }
-    );
-  }
+  );
 
   revalidatePath("/admin");
+  return notice;
 }
 
 /**
@@ -316,7 +315,7 @@ export async function sendSenderIdUpdate(churchId: string, key: string) {
   return { ok: true as const, sent: update.label };
 }
 
-export async function rejectSenderId(churchId: string) {
+export async function rejectSenderId(churchId: string): Promise<SenderIdNotice> {
   await requireSuperAdmin();
   await logAdminAction("rejectSenderId", { churchId });
 
@@ -330,32 +329,17 @@ export async function rejectSenderId(churchId: string) {
     },
   });
 
-  const owner = await db.user.findFirst({
-    where: {
-      churchId,
-      phoneVerified: true,
-    },
-    orderBy: {
-      createdAt: "asc",
-    },
-    select: {
-      phone: true,
-    },
-  });
-
-  if (owner?.phone) {
-    await sendSms(
-      owner.phone,
-      `Your Sender ID "${church.smsSenderId}" was not approved.
+  const notice = await sendSenderIdNotice(
+    churchId,
+    `Your Sender ID "${church.smsSenderId}" was not approved.
 
 Please contact WorshipHQ for assistance.
 
 Email: ${supportEmail()}`,
-      { heading: null }
-    );
-  }
+  );
 
   revalidatePath("/admin");
+  return notice;
 }
 
 /**

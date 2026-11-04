@@ -8,7 +8,7 @@ import { addSmsPurchase, deleteSmsPurchase, saveNaloCost } from "@/app/actions/s
 type Row = { id: string; kind: string; credits: number; costGhs: number; provider: string | null; note: string | null; purchasedAt: string };
 export type StockView = {
   ready: boolean; entries: Row[]; reading: { amountGhs: number; at: string } | null; costPerCredit: number;
-  heldGhs: number; held: number; sentSince: number; toppedUpSince: number; committed: number; freeTrial: number;
+  heldGhs: number; held: number; sentSince: number; ownSpentGhs: number; toppedUpSince: number; committed: number; freeTrial: number;
   cushion: number; worstCushion: number; level: "ok" | "low" | "over" | "none";
 };
 
@@ -90,6 +90,9 @@ export function SmsStockCard({ stock, isOwner, carrier = "Hubtel" }: { stock: St
             )}
             {stock.sentSince > 0 && (
               <div className="flex justify-between"><dt className="text-slate-400">Churches sent since ({n(stock.sentSince)} SMS)</dt><dd className="text-slate-200">- {cedi(stock.sentSince * cost)}</dd></div>
+            )}
+            {stock.ownSpentGhs > 0 && (
+              <div className="flex justify-between"><dt className="text-slate-400">WorshipHQ&apos;s own texts since (codes, alerts)</dt><dd className="text-slate-200">- {cedi(stock.ownSpentGhs)}</dd></div>
             )}
             <div className="flex justify-between border-t border-white/10 pt-2">
               <dt className="font-medium text-slate-200">You should hold now</dt>

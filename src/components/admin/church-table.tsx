@@ -15,6 +15,7 @@ import {
   setChurchSmsCarrier,
   setSenderIdCarrier,
   sendSenderIdTest,
+  type SenderIdNotice,
   sendSenderIdUpdate,
   rejectSenderId,
   setChurchSmsTier,
@@ -56,6 +57,14 @@ function SenderIdTest({ church, run }: { church: ChurchRow; run: ReturnType<type
       <button type="button" onClick={() => send("church")} className={btn}>Test to church admin</button>
     </div>
   );
+}
+
+/** What the approval or rejection text did, said plainly, so nobody has to wonder whether the church was told. */
+function noticeMessage(what: string, n: SenderIdNotice): { text: string; type: "success" | "error" } {
+  if (n.status === "sent") return { text: `${what}. Text sent to the church (${n.to}).`, type: "success" };
+  if (n.status === "no-phone") return { text: `${what}, but nobody at the church has a verified phone, so NO text was sent. Tell them another way.`, type: "error" };
+  if (n.status === "not-connected") return { text: `${what}. No text was sent: SMS is not connected where this is running.`, type: "error" };
+  return { text: `${what}, but the text to the church (${n.to}) did NOT go: ${n.error}. Tell them another way.`, type: "error" };
 }
 
 function SmsTierSelect({ church, run }: { church: ChurchRow; run: ReturnType<typeof useFeedback>["run"] }) {
@@ -138,6 +147,24 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
       </div>
     );
   };
+
+  const approve = (c: ChurchRow, carrier: "hubtel" | "nalo") =>
+    run(async () => {
+      const m = noticeMessage(`Sender ID approved on ${CARRIER_LABEL[carrier]}`, await approveSenderId(c.id, carrier));
+      toast(m.text, m.type);
+    }, { pending: "Approving and texting the church..." });
+  /** Move a request to "in process": records it and texts the church in one step, so the two can never disagree. */
+  const markInProcess = (c: ChurchRow) =>
+    run(async () => {
+      const r = await sendSenderIdUpdate(c.id, "submitted");
+      if (!r.ok) throw new Error(`Not changed, and no text was sent: ${r.error}`);
+      toast(`${c.name}'s sender name is now in process, and the church was texted.`, "success");
+    }, { pending: "Marking in process and texting the church..." });
+  const reject = (c: ChurchRow) =>
+    run(async () => {
+      const m = noticeMessage("Sender ID rejected", await rejectSenderId(c.id));
+      toast(m.text, m.type);
+    }, { pending: "Rejecting and texting the church..." });
 
   const grant = (c: ChurchRow) => {
     const v = prompt(`Grant SMS credits to ${c.name}:`, "500");
@@ -260,11 +287,14 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
             <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-white/5 pt-3">
               {c.smsSenderId && c.smsSenderIdStatus === "pending" && (
                 <>
+                  <button type="button" onClick={() => markInProcess(c)} className="rounded-md bg-sky-500/15 px-2 py-1 text-xs text-sky-300 hover:bg-sky-500/25">
+                    Mark in process
+                  </button>
                   {(["hubtel", "nalo"] as const).map((carrier) => (
                     <button
                       key={carrier}
                       type="button"
-                      onClick={() => run(() => approveSenderId(c.id, carrier), { pending: "Approving...", success: `Sender ID approved on ${CARRIER_LABEL[carrier]}` })}
+                      onClick={() => approve(c, carrier)}
                       className="rounded-md bg-emerald-500/15 px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-500/25"
                     >
                       Approve on {CARRIER_LABEL[carrier]}
@@ -272,7 +302,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                   ))}
                   <button
                     type="button"
-                    onClick={() => run(() => rejectSenderId(c.id), { pending: "Rejecting...", success: "Sender ID rejected" })}
+                    onClick={() => reject(c)}
                     className="rounded-md bg-red-500/15 px-2 py-1 text-xs text-red-300 hover:bg-red-500/25"
                   >
                     Reject
@@ -461,16 +491,14 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                   <div className="flex flex-wrap items-center justify-end gap-1">
                     {c.smsSenderId && c.smsSenderIdStatus === "pending" && (
                       <>
+                        <button type="button" onClick={() => markInProcess(c)} className="rounded-md bg-sky-500/15 px-2 py-1 text-xs text-sky-300 hover:bg-sky-500/25">
+                          Mark in process
+                        </button>
                         {(["hubtel", "nalo"] as const).map((carrier) => (
                           <button
                             key={carrier}
                             type="button"
-                            onClick={() =>
-                              run(() => approveSenderId(c.id, carrier), {
-                                pending: "Approving...",
-                                success: `Sender ID approved on ${CARRIER_LABEL[carrier]}`,
-                              })
-                            }
+                            onClick={() => approve(c, carrier)}
                             className="rounded-md bg-emerald-500/15 px-2 py-1 text-xs text-emerald-300 hover:bg-emerald-500/25"
                           >
                             Approve on {CARRIER_LABEL[carrier]}
@@ -479,12 +507,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
 
                         <button
                           type="button"
-                          onClick={() =>
-                            run(() => rejectSenderId(c.id), {
-                              pending: "Rejecting...",
-                              success: "Sender ID rejected",
-                            })
-                          }
+                          onClick={() => reject(c)}
                           className="rounded-md bg-red-500/15 px-2 py-1 text-xs text-red-300 hover:bg-red-500/25"
                         >
                           Reject
