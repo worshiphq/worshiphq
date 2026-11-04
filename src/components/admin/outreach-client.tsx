@@ -7,7 +7,7 @@ import { Mail, MessageSquare, Phone, MessageCircle, History, Search, Send, Loade
 import { AdminCard } from "@/components/admin/admin-shell";
 import { useFeedback } from "@/components/ui/feedback";
 import {
-  sendChurchEmail, sendChurchSms, getOutreachHistory, saveAlertPhone, sendAlertTest, sendTestSms,
+  sendChurchEmail, sendChurchSms, getOutreachHistory, saveAlertPhone, sendAlertTest, sendTestSms, savePlatformSmsCarrier,
   type TestSmsResult, type OutreachData, type OutreachChurch, type OutreachContact, type OutreachHistoryRow,
 } from "@/app/actions/admin-outreach";
 import { OUTREACH_TEMPLATES, firstName, mergeFields, renderEmailHtml, templateById, type OutreachChannel } from "@/lib/outreach/templates";
@@ -76,7 +76,7 @@ export function OutreachClient({ data }: { data: OutreachData }) {
       </div>
 
       <AlertCard alert={data.alert} smsLive={data.smsLive} />
-      <TestSmsCard smsLive={data.smsLive} provider={data.smsProvider} />
+      <TestSmsCard smsLive={data.smsLive} platformCarrier={data.platformCarrier} />
 
       {/* Welcome */}
       <AdminCard className="mb-6 p-5">
@@ -395,25 +395,50 @@ function HistoryDialog({ church, onClose }: { church: OutreachChurch; onClose: (
 }
 
 /** Send one text to any number to see whether it is delivered there, for example a number outside Ghana. */
-function TestSmsCard({ smsLive, provider }: { smsLive: boolean; provider: string }) {
+function TestSmsCard({ smsLive, platformCarrier }: { smsLive: boolean; platformCarrier: string }) {
   const [to, setTo] = useState("");
   const [message, setMessage] = useState("Test message from WorshipHQ. If you can read this, texts reach you.");
   const [busy, setBusy] = useState(false);
   const [res, setRes] = useState<TestSmsResult | null>(null);
+  const [carrier, setCarrier] = useState("nalo");
+  const [ownCarrier, setOwnCarrier] = useState(platformCarrier);
+  const [savingOwn, setSavingOwn] = useState(false);
+  const [ownNote, setOwnNote] = useState<string | null>(null);
+
+  async function saveOwn(next: string) {
+    const name = next === "nalo" ? "Nalo" : "Hubtel";
+    if (!confirm(`Send WorshipHQ's own texts, including sign-in codes, through ${name}? If Nalo fails, the text is retried on Hubtel.`)) return;
+    setSavingOwn(true);
+    setOwnNote(null);
+    const r = await savePlatformSmsCarrier(next).catch(() => ({ ok: false as const, error: "Something went wrong." }));
+    setSavingOwn(false);
+    if (r.ok) { setOwnCarrier(next); setOwnNote(`WorshipHQ's own texts now go through ${name}.`); }
+    else setOwnNote(r.error);
+  }
 
   async function go() {
     setBusy(true);
     setRes(null);
-    const r = await sendTestSms({ to, message }).catch(() => ({ ok: false as const, error: "Something went wrong." }));
+    const r = await sendTestSms({ to, message, carrier }).catch(() => ({ ok: false as const, error: "Something went wrong." }));
     setBusy(false);
     setRes(r);
   }
 
   return (
     <AdminCard className="mb-4 p-5">
+      <div className="mb-4 flex flex-wrap items-center gap-2 border-b border-white/10 pb-4 text-sm text-slate-300">
+        <label htmlFor="own-carrier" className="font-semibold text-slate-200">WorshipHQ&apos;s own texts go through</label>
+        <select id="own-carrier" className={cn(input, "w-auto")} value={ownCarrier} disabled={savingOwn} onChange={(e) => saveOwn(e.target.value)}>
+          <option value="hubtel" className="bg-slate-800">Hubtel</option>
+          <option value="nalo" className="bg-slate-800">Nalo</option>
+        </select>
+        {savingOwn && <span className="inline-flex items-center gap-1.5 text-xs text-slate-400"><Loader2 className="size-3.5 animate-spin" /> Saving...</span>}
+        {ownNote && <span className="text-xs text-slate-400">{ownNote}</span>}
+        <span className="w-full text-xs text-slate-500">Sign-in codes, alerts to you and notices. Churches&apos; texts follow their own setting on the Churches page.</span>
+      </div>
       <div className="flex items-center gap-2 text-sm font-semibold text-slate-200"><MessageSquare className="size-4 text-teal-400" /> Test a number, anywhere in the world</div>
       <p className="mt-1 text-sm text-slate-400">
-        Sends one text through <b className="text-slate-200">{provider}</b> to see whether it arrives. Include the country code, like +234 803 000 0000 or +44 7700 900000. One text uses one segment on the shared Hubtel balance.
+        Sends one text through the carrier you choose, under its WorshipHQ sender name, to see whether it arrives. Include the country code, like +234 803 000 0000 or +44 7700 900000. One text uses one segment on the shared Hubtel balance.
         {!smsLive && " SMS is not connected where this is running, so nothing is really sent."}
       </p>
       <div className="mt-3 flex flex-wrap items-end gap-2">
@@ -424,6 +449,13 @@ function TestSmsCard({ smsLive, provider }: { smsLive: boolean; provider: string
         <div className="min-w-56 flex-[2]">
           <label className="mb-1 block text-xs font-medium text-slate-400" htmlFor="test-sms-msg">Message ({message.length}/160)</label>
           <input id="test-sms-msg" className={input} value={message} onChange={(e) => setMessage(e.target.value)} maxLength={160} />
+        </div>
+        <div>
+          <label className="mb-1 block text-xs font-medium text-slate-400" htmlFor="test-sms-carrier">Send through</label>
+          <select id="test-sms-carrier" className={input} value={carrier} onChange={(e) => setCarrier(e.target.value)}>
+            <option value="nalo" className="bg-slate-800">Nalo</option>
+            <option value="hubtel" className="bg-slate-800">Hubtel</option>
+          </select>
         </div>
         <button type="button" className={primary} onClick={go} disabled={busy || !to.trim() || !message.trim()}>
           {busy ? <><Loader2 className="size-4 animate-spin" /> Sending…</> : <><Send className="size-4" /> Send test</>}

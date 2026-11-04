@@ -239,7 +239,7 @@ export async function sendChurchSms(
     }
     let chunkSent = 0;
     try {
-      const res = await sendSms(chunk, message, { heading, senderId, platformHeading: nameLine, carrier: church?.smsProvider, senderCarrier });
+      const res = await sendSms(chunk, message, { heading, senderId, platformHeading: nameLine, carrier: church?.smsProvider ?? null, senderCarrier });
       chunkSent = res.sentCount;
       results.push(...(res.results ?? chunk.map((r) => ({ to: r, ok: res.sentCount > 0 }))));
     } finally {

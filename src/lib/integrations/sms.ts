@@ -2,6 +2,7 @@ import "server-only";
 import { env, features } from "@/lib/env";
 import { normalisePhone } from "@/lib/phone";
 import { sendNaloBatch } from "@/lib/integrations/nalo";
+import { getPlatformCarrier } from "@/lib/sms/platform-carrier";
 import { providerForNumber, routingForChurch, type SmsProvider } from "@/lib/sms/routing";
 
 export type SmsResult = {
@@ -144,7 +145,8 @@ export async function sendSms(
     senderId?: string | null;
     /** Name line to prepend when a message goes out under a platform sender (e.g. Nalo for international). */
     platformHeading?: string | null;
-    /** The carrier this church is set to in SuperAdmin. Empty = the platform default. */
+    /** The carrier this church is set to in SuperAdmin, with null meaning the default. Left out entirely, the text is
+     *  one of WorshipHQ's own and follows the SuperAdmin setting for those. */
     carrier?: string | null;
     /** The carrier that approved `senderId`. Empty = the church's own carrier. */
     senderCarrier?: string | null;
@@ -166,7 +168,8 @@ export async function sendSms(
     return out;
   };
 
-  const routing = routingForChurch(opts?.carrier);
+  const platformCarrier = opts?.carrier === undefined ? await getPlatformCarrier() : null;
+  const routing = routingForChurch(opts?.carrier === undefined ? platformCarrier : opts.carrier);
 
   if (recipients.length === 0) {
     return { ok: false, provider: routing.primary, stubbed: false, error: "No valid phone numbers", sentCount: 0, results: toFullResults([]) };
@@ -214,6 +217,11 @@ export async function sendSms(
   }
 
   const sentCount = perValidOk.filter(Boolean).length;
+  // Sign-in codes travel this way, so a problem at Nalo must never lock people out: try Hubtel before giving up.
+  if (sentCount === 0 && platformCarrier === "nalo") {
+    console.error(`[SMS] WorshipHQ's own text failed on Nalo, retrying on Hubtel: ${firstError ?? "no error given"}`);
+    return sendSms(to, rawMessage, { ...opts, carrier: "hubtel" });
+  }
   return {
     ok: sentCount > 0,
     provider: used.join("+") || routing.primary,

@@ -6,6 +6,7 @@ import { requireSuperAdmin } from "@/lib/auth";
 import { env, features } from "@/lib/env";
 import { outreachContact, outreachContactLine, sendOutreach, type OutreachResult } from "@/lib/outreach/send";
 import { templateById } from "@/lib/outreach/templates";
+import { getPlatformCarrier, savePlatformCarrier } from "@/lib/sms/platform-carrier";
 import { getAlertPhone } from "@/lib/outreach/owner-alert";
 import { sendSms } from "@/lib/integrations/sms";
 
@@ -15,7 +16,7 @@ export type OutreachChurch = {
   contacts: OutreachContact[];
   welcomedAt: string | null; lastContactAt: string | null; messages: number;
 };
-export type OutreachData = { churches: OutreachChurch[]; emailLive: boolean; smsLive: boolean; contact: string; contactLine: string; smsProvider: string; alert: { phone: string; from: "saved" | "company" | "none"; saved: string } };
+export type OutreachData = { platformCarrier: string; churches: OutreachChurch[]; emailLive: boolean; smsLive: boolean; contact: string; contactLine: string; smsProvider: string; alert: { phone: string; from: "saved" | "company" | "none"; saved: string } };
 export type OutreachHistoryRow = { id: string; channel: string; template: string; to: string; toName: string | null; subject: string | null; body: string; status: string; error: string | null; auto: boolean; at: string };
 
 /** Every real church with its owner and admins, and what we have already sent them. */
@@ -39,7 +40,7 @@ export async function getOutreachData(): Promise<OutreachData> {
   const w = new Map(welcomes.map((x) => [x.churchId, x._min.createdAt]));
   const l = new Map(last.map((x) => [x.churchId, { at: x._max.createdAt, n: x._count._all }]));
   return {
-    emailLive: features.email, smsLive: features.sms, contact: outreachContact(), contactLine: await outreachContactLine(), smsProvider: env.SMS_PROVIDER, alert: { ...alert, saved: savedAlert },
+    platformCarrier: (await getPlatformCarrier()) ?? "hubtel", emailLive: features.email, smsLive: features.sms, contact: outreachContact(), contactLine: await outreachContactLine(), smsProvider: env.SMS_PROVIDER, alert: { ...alert, saved: savedAlert },
     churches: churches.map((c) => ({
       id: c.id, name: c.name, plan: c.subscription?.plan ?? "free", suspended: c.suspended, createdAt: c.createdAt.toISOString(), country: c.country, city: c.city,
       // The owner first, then admins.
@@ -91,7 +92,14 @@ export type TestSmsResult =
  * Send one test text to any number, to see whether the SMS provider delivers there (for example outside Ghana).
  * The number must include its country code, because a number starting with 0 is always read as Ghanaian.
  */
-export async function sendTestSms(input: { to: string; message: string }): Promise<TestSmsResult> {
+export async function savePlatformSmsCarrier(carrier: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  await requireSuperAdmin();
+  if (carrier !== "hubtel" && carrier !== "nalo") return { ok: false, error: "Choose Hubtel or Nalo." };
+  await savePlatformCarrier(carrier);
+  return { ok: true };
+}
+
+export async function sendTestSms(input: { to: string; message: string; carrier?: string }): Promise<TestSmsResult> {
   await requireSuperAdmin();
   const raw = String(input.to ?? "").trim();
   const message = String(input.message ?? "").trim().slice(0, 160);
@@ -100,7 +108,7 @@ export async function sendTestSms(input: { to: string; message: string }): Promi
   if (raw.replace(/[\s\-()]/g, "").startsWith("0") && !raw.startsWith("00")) return { ok: false, error: "Start with the country code, like +234 or +44. A number starting with 0 is read as Ghana." };
   if (digits.length < 8 || digits.length > 15) return { ok: false, error: "That phone number does not look right." };
   const ghana = digits.startsWith("233");
-  const r = await sendSms(digits, message, { heading: null });
+  const r = await sendSms(digits, message, { heading: null, carrier: input.carrier === "nalo" || input.carrier === "hubtel" ? input.carrier : null });
   if (!r.ok) return { ok: false, error: r.error ?? "The SMS provider refused it.", provider: r.provider, dialled: digits, ghana };
   return { ok: true, stubbed: r.stubbed, provider: r.provider, dialled: digits, ghana, id: r.id ?? null };
 }
