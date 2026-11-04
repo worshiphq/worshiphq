@@ -15,7 +15,7 @@ const FILTERS = [
   { key: "all", label: "Everything" },
   { key: "manual", label: "By a team member" },
   { key: "automatic", label: "Automatic" },
-  { key: "failed", label: "Nothing delivered" },
+  { key: "failed", label: "Nothing sent" },
 ] as const;
 
 const DAY = 86_400_000;
@@ -47,10 +47,10 @@ export default async function AdminSmsPage({
 
   const stats = [
     { label: "Sends, all time", value: allTime.sends },
-    { label: "Messages delivered", value: allTime.delivered },
+    { label: "Messages sent", value: allTime.delivered },
     { label: "Credits used", value: allTime.credits },
     { label: "Sends in the last 30 days", value: last30.sends },
-    { label: "Sends with nothing delivered", value: allTime.failed, bad: allTime.failed > 0 },
+    { label: "Sends where nothing went out", value: allTime.failed, bad: allTime.failed > 0 },
   ];
 
   return (
@@ -119,7 +119,7 @@ export default async function AdminSmsPage({
           <input
             name="q"
             defaultValue={sp.q ?? ""}
-            placeholder="Search what was sent"
+            placeholder="Search by church or what was sent"
             className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-teal-400/60 focus:outline-none"
           />
           {filter !== "all" && <input type="hidden" name="filter" value={filter} />}

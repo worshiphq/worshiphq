@@ -27,6 +27,9 @@ export type SmsLogRow = {
   numbers: { to: string; ok: boolean }[];
   churchId: string;
   churchName?: string;
+  /** All-churches view only: what the church had left just after this send, and what it has now. */
+  creditsLeftAfter?: number | null;
+  creditsLeftNow?: number;
 };
 
 export type SmsLogPage = {
@@ -72,6 +75,8 @@ export async function getSmsLog(opts: {
           OR: [
             { body: { contains: q, mode: "insensitive" as const } },
             { label: { contains: q, mode: "insensitive" as const } },
+            // Only the owner's all-churches view can search by church.
+            ...(opts.churchId ? [] : [{ church: { name: { contains: q, mode: "insensitive" as const } } }]),
           ],
         }
       : {}),
@@ -87,8 +92,22 @@ export async function getSmsLog(opts: {
       skip: (page - 1) * SMS_LOG_PAGE_SIZE,
       take: SMS_LOG_PAGE_SIZE,
       // The church name only matters on the owner's all-churches view.
-      include: opts.churchId ? undefined : { church: { select: { name: true } } },
+      include: opts.churchId ? undefined : { church: { select: { name: true, smsCredits: true } } },
     });
+
+    // The newest ledger row at or before each send holds the balance it left behind. A send that failed outright
+    // writes no row of its own, and its balance is simply whatever the row before it says.
+    const leftAfter = new Map<string, number | null>();
+    if (!opts.churchId) {
+      await Promise.all(found.map(async (r) => {
+        const row = await db.smsTransaction.findFirst({
+          where: { churchId: r.churchId, createdAt: { lte: r.createdAt } },
+          orderBy: { createdAt: "desc" },
+          select: { balanceAfter: true },
+        });
+        leftAfter.set(r.id, row?.balanceAfter ?? null);
+      }));
+    }
 
     return {
       total,
@@ -110,6 +129,8 @@ export async function getSmsLog(opts: {
         numbers: parseNumbers(r.numbers),
         churchId: r.churchId,
         churchName: "church" in r ? (r.church as { name: string } | undefined)?.name : undefined,
+        creditsLeftAfter: opts.churchId ? undefined : leftAfter.get(r.id) ?? null,
+        creditsLeftNow: "church" in r ? (r.church as { smsCredits: number } | undefined)?.smsCredits : undefined,
       })),
     };
   } catch {

@@ -17,6 +17,8 @@ export type AdminSmsLogItem = {
   trigger: string;
   numbers: { to: string; ok: boolean }[];
   churchName?: string;
+  creditsLeftAfter?: number | null;
+  creditsLeftNow?: number;
 };
 
 const when = (iso: string) =>
@@ -56,16 +58,19 @@ export function AdminSmsLogRows({ rows }: { rows: AdminSmsLogItem[] }) {
                 <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
                   <span className="text-sm font-semibold text-slate-100">{r.churchName ?? "Unknown church"}</span>
                   <span className="rounded bg-white/10 px-1.5 py-0.5 text-[11px] text-slate-300">{r.label || "Message"}</span>
-                  {failedAll && <span className="rounded bg-rose-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-rose-300">Nothing delivered</span>}
-                  {partial && <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-amber-300">Partly delivered</span>}
+                  {!failedAll && !partial && <span className="rounded bg-emerald-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-emerald-300">Sent</span>}
+                  {failedAll && <span className="rounded bg-rose-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-rose-300">Nothing sent</span>}
+                  {partial && <span className="rounded bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-amber-300">Partly sent</span>}
                 </div>
                 <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-sm text-slate-400">{r.body}</p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
                   <span>{when(r.createdAt)}</span>
                   <span>·</span>
-                  <span>{r.sent.toLocaleString()}/{r.recipients.toLocaleString()} delivered</span>
+                  <span>{r.sent.toLocaleString()} of {r.recipients.toLocaleString()} sent</span>
                   <span>·</span>
-                  <span>{r.credits.toLocaleString()} credits</span>
+                  <span>{r.credits.toLocaleString()} credits used</span>
+                  {r.creditsLeftAfter != null && <><span>·</span><span>{r.creditsLeftAfter.toLocaleString()} left after this</span></>}
+                  {r.creditsLeftNow != null && <><span>·</span><span className="text-slate-300">{r.creditsLeftNow.toLocaleString()} left now</span></>}
                   {r.segments > 1 && <><span>·</span><span>{r.segments} parts</span></>}
                   {r.sentByName && <><span>·</span><span>by {r.sentByName}</span></>}
                   {r.senderName && <><span>·</span><span>as {r.senderName}</span></>}
