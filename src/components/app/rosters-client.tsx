@@ -15,7 +15,7 @@ import {
   previewRosterNotify, notifyRoster,
   previewRosterAnnounce, announceRoster, saveRosterAnnounceSettings, saveRosterReminderSettings,
 } from "@/app/actions/rosters";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { MessageSquare, Megaphone, Users, Clock, Bell } from "lucide-react";
 import { WEEKDAY_OPTIONS, WEEKDAY_LABELS } from "@/lib/automations/weekdays";
 import { Segmented } from "@/components/ui/segmented";

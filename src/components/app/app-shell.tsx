@@ -1,7 +1,7 @@
 "use client";
 
 import { SessionRenew } from "@/components/app/session-renew";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { usePathname } from "next/navigation";
 import { useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { useRouter } from "next/navigation";
 import { Check, ChevronDown, Loader2, MessageSquareText, RotateCcw, Search, ShieldAlert, UserRound } from "lucide-react";
 import { Card } from "@/components/ui/card";

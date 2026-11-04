@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { ArrowUpRight, ChevronLeft, ChevronRight, Gift, Landmark, MessageSquare, Receipt, Sparkles, Users, Wallet, CreditCard } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

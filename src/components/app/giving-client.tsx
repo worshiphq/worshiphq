@@ -7,7 +7,7 @@ import {
   ChevronDown, Landmark, Sparkles, Wallet,
 } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
-import { FundDonut } from "@/components/app/charts";
+import { FundDonut } from "@/components/app/charts-lazy";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";

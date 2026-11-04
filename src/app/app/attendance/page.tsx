@@ -1,9 +1,9 @@
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { canEdit } from "@/lib/permissions";
 import { QrCode, UserCheck, TrendingUp, CalendarCheck2, Plus, ChevronRight, Users } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { StatCard } from "@/components/app/stat-card";
-import { AttendanceBarChart } from "@/components/app/charts";
+import { AttendanceBarChart } from "@/components/app/charts-lazy";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { SubmitButton } from "@/components/ui/submit-button";

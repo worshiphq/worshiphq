@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { canEdit } from "@/lib/permissions";
 import { MessageSquare, Mail, Users, BarChart3, Wallet, AlertTriangle, ScrollText } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";

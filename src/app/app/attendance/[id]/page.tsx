@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { canEdit } from "@/lib/permissions";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Users, Clock } from "lucide-react";
@@ -10,7 +10,7 @@ import { describeCurrentService } from "@/lib/attendance/service-times";
 import { startCheckIn } from "@/app/actions/attendance";
 import { getSmsBalance } from "@/lib/sms/credits";
 import { deleteSession } from "@/app/actions/attendance";
-import { MembershipDonut } from "@/components/app/charts";
+import { MembershipDonut } from "@/components/app/charts-lazy";
 import { Card } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { CheckInPanel } from "@/components/app/check-in-panel";

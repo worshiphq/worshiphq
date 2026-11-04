@@ -415,7 +415,13 @@ async function _loadSession(): Promise<Session | null> {
 
   const user = await db.user.findUnique({
     where: { id: payload.uid },
-    include: { church: true, branch: true, customRole: true, budgetDepartment: true },
+    include: {
+      // Runs on every request, so only what the session needs: the full church row carries all its settings and templates.
+      church: { select: { name: true, isDemo: true, suspended: true, rolePermissions: true } },
+      branch: { select: { name: true } },
+      customRole: { select: { name: true, sections: true, manageSections: true, manageSplit: true, canDelete: true } },
+      budgetDepartment: { select: { name: true } },
+    },
   });
   if (!user) return null;
   // A password change or reset bumps sessionVersion, which signs out every older cookie.

@@ -1,5 +1,6 @@
 "use server";
 
+import { invalidatePlatformConfig } from "@/lib/data/platform-config";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/auth";
@@ -28,7 +29,7 @@ export async function adminSaveBackupSettings(input: { enabled: boolean; keep: n
     where: { id: "default" },
     update: { backupsEnabled: input.enabled, backupKeep: keep },
     create: { id: "default", backupsEnabled: input.enabled, backupKeep: keep },
-  });
+  }); invalidatePlatformConfig();
   revalidatePath("/admin/backups");
   return { ok: true };
 }

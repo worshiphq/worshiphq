@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState, useTransition } from "react";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import {
   ArrowLeft, ChevronDown, ChevronUp, ExternalLink, GripVertical, Layers, Loader2, Plus, Save, Settings2, Trash2, X, Eye, Pencil,
 } from "lucide-react";

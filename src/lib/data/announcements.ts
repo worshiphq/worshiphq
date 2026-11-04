@@ -1,5 +1,6 @@
 import "server-only";
 import { cache } from "react";
+import { ttlCached } from "@/lib/ttl-cache";
 import { db } from "@/lib/db";
 
 export interface ActiveAnnouncement {
@@ -28,7 +29,8 @@ async function _getActiveAnnouncements(): Promise<ActiveAnnouncement[]> {
   }
 }
 
-export const getActiveAnnouncements = cache(_getActiveAnnouncements);
+/** Read by the layout of every app page. A new or ended announcement shows within a minute. */
+export const getActiveAnnouncements = cache(() => ttlCached("announcements", 60_000, _getActiveAnnouncements));
 
 /** All announcements, for the admin composer. */
 export async function getAllAnnouncements() {

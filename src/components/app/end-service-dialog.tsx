@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
 import { useFeedback } from "@/components/ui/feedback";
 import { endService, reopenService, thankAttendees } from "@/app/actions/attendance";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import {
   DEFAULT_ATTENDANCE_REPORT,
   ATTENDANCE_REPORT_PLACEHOLDERS,

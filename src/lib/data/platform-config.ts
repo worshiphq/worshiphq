@@ -1,3 +1,4 @@
+import { ttlCached, ttlInvalidate } from "@/lib/ttl-cache";
 import "server-only";
 import { cache } from "react";
 import { db } from "@/lib/db";
@@ -150,7 +151,17 @@ async function withPoolRetry<T>(label: string, read: () => Promise<T>): Promise<
   }
 }
 
-export const getPlatformConfig = cache(async () => {
+/** How long one server instance reuses the platform settings. A SuperAdmin change reaches every instance within this. */
+const CONFIG_TTL_MS = 60_000;
+
+/** Call after saving PlatformConfig, so the instance that saved it shows the change straight away. */
+export function invalidatePlatformConfig() {
+  ttlInvalidate("platform-config");
+}
+
+export const getPlatformConfig = cache(() => ttlCached("platform-config", CONFIG_TTL_MS, loadPlatformConfig));
+
+async function loadPlatformConfig() {
   // A plain read, so it never waits on a lock. The row is only written the first time, if it does not exist yet.
   const config = await withPoolRetry("platform-config", async () =>
     (await db.platformConfig.findUnique({ where: { id: "default" } })) ??
@@ -181,7 +192,7 @@ export const getPlatformConfig = cache(async () => {
     prices,
     /** Live GHS charged per 1 USD at Paystack checkout. Falls back to the
      *  DB-stored value (kept fresh by the FX helper), then a sane default. */
-    usdToGhsRate: getUsdToGhsRate(config.usdToGhsRate ?? 12.0),
+    usdToGhsRate: getUsdToGhsRate(config.usdToGhsRate ?? 12.0, config.fxRateCheckedAt),
     /** Full editable plan definitions (marketing + limits + features). */
     planDefs,
     /** Ordered list, handy for rendering pricing tables. */
@@ -191,6 +202,6 @@ export const getPlatformConfig = cache(async () => {
     /** Feature-gating table resolved from the database. */
     planTable,
   };
-});
+}
 
 export type PlatformConfig = Awaited<ReturnType<typeof getPlatformConfig>>;

@@ -1,5 +1,6 @@
 "use server";
 
+import { invalidatePlatformConfig } from "@/lib/data/platform-config";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { randomInt } from "node:crypto";
@@ -398,7 +399,7 @@ export async function updatePlatformPricing(
     where: { id: "default" },
     update: { currency, currencySymbol, planPrices: planPrices as object, ...(rate ? { usdToGhsRate: rate } : {}) },
     create: { id: "default", currency, currencySymbol, planPrices: planPrices as object, usdToGhsRate: rate ?? 12.0 },
-  });
+  }); invalidatePlatformConfig();
   revalidatePath("/admin/pricing");
   revalidatePath("/app/settings");
   revalidatePath("/", "layout");
@@ -482,7 +483,7 @@ export async function updatePlanDefinitions(input: {
       planDefs: planDefs as object,
       usdToGhsRate: rate ?? 12.0,
     },
-  });
+  }); invalidatePlatformConfig();
 
   // Everything that reads plans: marketing, sign-up, the app shell and settings.
   revalidatePath("/admin/pricing");
@@ -689,7 +690,7 @@ export async function setPlanGivingFees(input: Record<string, { percent: number;
     where: { id: "default" },
     update: { planDefs: defs as object },
     create: { id: "default", currency: "USD", currencySymbol: "$", planDefs: defs as object },
-  });
+  }); invalidatePlatformConfig();
   revalidatePath("/admin/payments");
   revalidatePath("/admin/pricing");
   revalidatePath("/app/settings");
@@ -705,7 +706,7 @@ export async function setGivingFeeSettings(input: { platformPercent: number; don
     where: { id: "default" },
     update: { givingPlatformPercent: platformPercent, givingDonorBearsFee: !!input.donorBearsFee, paystackFeePercent },
     create: { id: "default", currency: "USD", currencySymbol: "$", givingPlatformPercent: platformPercent, givingDonorBearsFee: !!input.donorBearsFee, paystackFeePercent },
-  });
+  }); invalidatePlatformConfig();
   revalidatePath("/admin/payments");
   return { ok: true as const };
 }
@@ -943,7 +944,7 @@ export async function setPlatformSmsTier(tier: string) {
     where: { id: "default" },
     update: { smsTier: tier },
     create: { id: "default", smsTier: tier },
-  });
+  }); invalidatePlatformConfig();
   revalidatePath("/admin/pricing");
   revalidatePath("/app/communications/credits");
   return { ok: true as const };
@@ -1094,7 +1095,7 @@ export async function setSmsCostPerCredit(cost: number) {
   await requireSuperAdmin();
   const n = Math.round(Number(cost) * 10000) / 10000;
   if (!Number.isFinite(n) || n <= 0 || n > 5) return { ok: false as const, error: "Enter a cost between 0 and 5 cedis." };
-  await db.platformConfig.upsert({ where: { id: "default" }, update: { smsCostPerCredit: n }, create: { id: "default", smsCostPerCredit: n } });
+  await db.platformConfig.upsert({ where: { id: "default" }, update: { smsCostPerCredit: n }, create: { id: "default", smsCostPerCredit: n } }); invalidatePlatformConfig();
   revalidatePath("/admin/revenue");
   return { ok: true as const };
 }

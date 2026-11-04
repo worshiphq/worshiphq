@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { AlertTriangle, CalendarClock } from "lucide-react";
 import { db } from "@/lib/db";
 

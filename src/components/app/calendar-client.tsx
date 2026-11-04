@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { OnFormComplete } from "@/components/ui/form-effects";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { ChevronLeft, ChevronRight, CalendarDays, Cake, CalendarCheck2, Plus, X, Clock, DoorOpen } from "lucide-react";
 import { createEvent, deleteEvent } from "@/app/actions/events";
 import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";

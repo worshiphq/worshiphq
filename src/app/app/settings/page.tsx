@@ -65,17 +65,20 @@ export default async function SettingsPage() {
   // How many people are actually in each department. Counted as distinct people across both links:
   // `departments` is the many-to-many, `departmentId` the legacy single one, and somebody can sit on
   // both - so adding the two relation counts together would double-count them.
-  const deptCounts = await Promise.all(
-    departments.map((d) =>
-      db.person.count({
-        where: {
-          churchId: session.churchId,
-          OR: [{ departments: { some: { id: d.id } } }, { departmentId: d.id }],
-        },
-      }),
-    ),
-  );
-  const departmentsWithCounts = departments.map((d, i) => ({ ...d, memberCount: deptCounts[i] }));
+  // One query, not one per department, which ran on every open of this page whatever tab was showing.
+  const peopleInDepts = departments.length
+    ? await db.person.findMany({
+      where: { churchId: session.churchId, OR: [{ departmentId: { not: null } }, { departments: { some: {} } }] },
+      select: { departmentId: true, departments: { select: { id: true } } },
+    })
+    : [];
+  const deptTally = new Map<string, number>();
+  for (const p of peopleInDepts) {
+    for (const id of new Set([p.departmentId, ...p.departments.map((d) => d.id)])) {
+      if (id) deptTally.set(id, (deptTally.get(id) ?? 0) + 1);
+    }
+  }
+  const departmentsWithCounts = departments.map((d) => ({ ...d, memberCount: deptTally.get(d.id) ?? 0 }));
 
   const churchData = church
     ? {

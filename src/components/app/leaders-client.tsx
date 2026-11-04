@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition, useRef, useEffect } from "react";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { useRouter } from "next/navigation";
 import { Crown, Users2, Plus, X, Check, Loader2, Settings2, GripVertical, ArrowUp, ArrowDown } from "lucide-react";
 import { Card } from "@/components/ui/card";

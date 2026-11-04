@@ -1,11 +1,11 @@
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { redirect } from "next/navigation";
 import {
   Users, CalendarCheck2, HandCoins, MessageSquare, Cake, ArrowRight,
   UserPlus, Send, CalendarPlus, Heart, Clock, TrendingUp, ChevronRight, Crown,
 } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
-import { TrendAreaChart, AttendanceBarChart, MembershipDonut } from "@/components/app/charts";
+import { TrendAreaChart, AttendanceBarChart, MembershipDonut } from "@/components/app/charts-lazy";
 import { SyncStatus } from "@/components/app/offline-indicator";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

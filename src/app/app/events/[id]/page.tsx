@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, CalendarDays, MapPin, Pencil, Ticket, Users } from "lucide-react";
 import { canEdit } from "@/lib/permissions";

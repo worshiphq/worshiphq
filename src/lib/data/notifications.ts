@@ -1,4 +1,5 @@
 import { cache } from "react";
+import { ttlCached } from "@/lib/ttl-cache";
 import { db } from "@/lib/db";
 
 export type AppNotification = {
@@ -104,4 +105,5 @@ async function _getRecentNotifications(churchId: string): Promise<AppNotificatio
   return notifs.slice(0, 20);
 }
 
-export const getRecentNotifications = cache(_getRecentNotifications);
+/** Five queries, read by the layout of every app page. The bell can be a minute behind. */
+export const getRecentNotifications = cache((churchId: string) => ttlCached(`notifications:${churchId}`, 60_000, () => _getRecentNotifications(churchId)));

@@ -278,7 +278,7 @@ export function BookingsClient({ facilities, bookings, accounts, canWrite, slug,
               <Card key={f.id} className={cn("overflow-hidden p-0", pending && "opacity-60")}>
                 {f.imageUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={f.imageUrl} alt={f.name} className="h-36 w-full object-cover" />
+                  <img loading="lazy" decoding="async" src={f.imageUrl} alt={f.name} className="h-36 w-full object-cover" />
                 ) : (
                   <div className="grid h-36 w-full place-items-center bg-surface-2"><Building className="size-8 text-ink-faint/60" /></div>
                 )}
@@ -535,7 +535,7 @@ function FacilityDialog({ facility, onClose }: { facility: FacilityRow | null; o
             <div className="relative h-20 w-32 shrink-0 overflow-hidden rounded-xl border border-line bg-surface-2">
               {image ? (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={image} alt="" className="size-full object-cover" />
+                <img loading="lazy" decoding="async" src={image} alt="" className="size-full object-cover" />
               ) : (
                 <div className="grid size-full place-items-center text-ink-faint"><Building className="size-6" /></div>
               )}

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { canEdit } from "@/lib/permissions";
 import { ArrowLeft, ChevronLeft, ChevronRight } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";

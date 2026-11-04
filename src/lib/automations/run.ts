@@ -86,11 +86,14 @@ export async function runAutomations(now = new Date(), opts: { only?: string[]; 
   const threeDaysAgo = new Date(now.getTime() - 3 * 86400000);
   const sevenDaysAgo = new Date(now.getTime() - 7 * 86400000);
 
-  await forEachChurch(churches, async (church) => {
-    const automations = await db.automation.findMany({
-      where: { churchId: church.id, active: true },
-    });
-    if (automations.length === 0) return;
+  // One query for every church, rather than one per church on every tick. Most churches have none switched on.
+  const activeRows = await db.automation.findMany({ where: { churchId: { in: churches.map((c) => c.id) }, active: true } });
+  const activeByChurch = new Map<string, typeof activeRows>();
+  for (const a of activeRows) activeByChurch.set(a.churchId, [...(activeByChurch.get(a.churchId) ?? []), a]);
+  const withAutomations = churches.filter((c) => activeByChurch.has(c.id));
+
+  await forEachChurch(withAutomations, async (church) => {
+    const automations = activeByChurch.get(church.id) ?? [];
 
     const localHour = localParts(now, church.timezone).hour;
     const nightTime = opts.quietHours && (localHour < 8 || localHour >= 20);

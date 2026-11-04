@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { ScanFace, Fingerprint, Hand, Plus, Wifi, WifiOff, Trash2, Copy, Check, Loader2, Users, Webhook, Usb, Radio, X, RefreshCw } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { Card } from "@/components/ui/card";

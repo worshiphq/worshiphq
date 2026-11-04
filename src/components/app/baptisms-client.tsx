@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { useRouter } from "next/navigation";
 import { Droplets, Plus, Printer, Search, Trash2, Check, Loader2, CalendarDays, Pencil, Palette, UserPlus, ListChecks } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";

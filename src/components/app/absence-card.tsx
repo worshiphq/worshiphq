@@ -2,7 +2,7 @@
 
 import { roleLabel } from "@/lib/roles";
 import { useEffect, useState, useTransition } from "react";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { useRouter } from "next/navigation";
 import { UserRoundSearch, Loader2, MessageSquareText, Check, Phone, ClipboardList } from "lucide-react";
 import { Card } from "@/components/ui/card";

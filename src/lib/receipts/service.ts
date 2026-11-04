@@ -1,10 +1,10 @@
+import { invalidatePlatformConfig } from "@/lib/data/platform-config";
 import "server-only";
 import type { Receipt } from "@prisma/client";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { sendEmail } from "@/lib/integrations/email";
 import { escapeHtml } from "@/lib/html";
-import { renderReceiptPdf } from "@/lib/receipts/pdf";
 import {
   DEFAULT_RECEIPT_SETTINGS, SIGNATURE_MAX_CHARS, SIGNATURE_PATTERN, money, receiptNumber, round2, totalsOf,
   type ReceiptBrand, type ReceiptData, type ReceiptItem, type ReceiptKind, type ReceiptSettings, type ReceiptSheet,
@@ -41,7 +41,7 @@ export async function saveReceiptSettings(input: Partial<ReceiptSettings>): Prom
     where: { id: "default" },
     update: { receiptSettings: clean },
     create: { id: "default", receiptSettings: clean },
-  });
+  }); invalidatePlatformConfig();
   return getReceiptSettings();
 }
 
@@ -133,6 +133,12 @@ export async function dataFromRow(row: Receipt, settings?: ReceiptSettings): Pro
     data.welcome = { church: row.toOrg || row.toName, members: free.memberLimit > 0 ? free.memberLimit : null, features: free.marketingFeatures ?? [] };
   }
   return data;
+}
+
+/** Loaded on demand: pdf-lib is large, and most requests that reach this file never draw a PDF. */
+async function renderReceiptPdf(...args: Parameters<typeof import("@/lib/receipts/pdf").renderReceiptPdf>) {
+  const { renderReceiptPdf: render } = await import("@/lib/receipts/pdf");
+  return render(...args);
 }
 
 export async function pdfForRow(row: Receipt): Promise<Buffer> {

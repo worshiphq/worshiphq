@@ -2,7 +2,7 @@
 
 import { sendLeaderGroupMessage } from "@/app/actions/leader-messages";
 import { useState, useTransition } from "react";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";

@@ -1,5 +1,6 @@
 "use server";
 
+import { invalidatePlatformConfig } from "@/lib/data/platform-config";
 import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/auth";
 import { env, features } from "@/lib/env";
@@ -78,7 +79,7 @@ export async function saveAlertPhone(phone: string): Promise<{ ok: true } | { ok
     const digits = raw.replace(/\D/g, "");
     if (digits.length < 9 || digits.length > 15) return { ok: false, error: "That phone number does not look right." };
   }
-  await db.platformConfig.upsert({ where: { id: "default" }, update: { alertPhone: raw || null }, create: { id: "default", alertPhone: raw || null } });
+  await db.platformConfig.upsert({ where: { id: "default" }, update: { alertPhone: raw || null }, create: { id: "default", alertPhone: raw || null } }); invalidatePlatformConfig();
   return { ok: true };
 }
 

@@ -1,7 +1,7 @@
 import { requireModule } from "@/lib/auth";
 import { canEdit } from "@/lib/permissions";
 import { getPeople, getAllPeopleStats } from "@/lib/data/people";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { db } from "@/lib/db";
 import { PeopleClient } from "@/components/app/people-client";
 import { JoinLinkCard } from "@/components/app/join-link-card";

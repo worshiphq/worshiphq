@@ -2,7 +2,7 @@
 
 import { QRCodeSVG } from "qrcode.react";
 import { ArrowLeft, Printer } from "lucide-react";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { hexToRgb } from "@/lib/color";
 
 export type CardPerson = { id: string; name: string; memberId: string; photoUrl: string | null };

@@ -309,7 +309,7 @@ export function VisitorsClient({
                 <div className="flex items-center gap-2.5">
                   {v.photoUrl ? (
                     // eslint-disable-next-line @next/next/no-img-element
-                    <img src={v.photoUrl} alt="" className="size-10 shrink-0 rounded-full object-cover ring-1 ring-line" />
+                    <img loading="lazy" decoding="async" src={v.photoUrl} alt="" className="size-10 shrink-0 rounded-full object-cover ring-1 ring-line" />
                   ) : (
                     <div className="grid size-10 shrink-0 place-items-center rounded-full bg-primary-soft text-sm font-bold text-primary">
                       {v.firstName[0]}{v.lastName?.[0] ?? ""}
@@ -395,7 +395,7 @@ export function VisitorsClient({
               <div className="flex items-center gap-4">
                 {addPhoto ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={addPhoto} alt="" className="size-14 rounded-full object-cover ring-1 ring-line" />
+                  <img loading="lazy" decoding="async" src={addPhoto} alt="" className="size-14 rounded-full object-cover ring-1 ring-line" />
                 ) : (
                   <div className="grid size-14 place-items-center rounded-full bg-surface-2 text-ink-faint"><UploadCloud className="size-6" /></div>
                 )}
@@ -479,7 +479,7 @@ export function VisitorsClient({
               <div className="flex items-center gap-4">
                 {editPhoto ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={editPhoto} alt="" className="size-14 rounded-full object-cover ring-1 ring-line" />
+                  <img loading="lazy" decoding="async" src={editPhoto} alt="" className="size-14 rounded-full object-cover ring-1 ring-line" />
                 ) : (
                   <div className="grid size-14 place-items-center rounded-full bg-surface-2 text-ink-faint"><UploadCloud className="size-6" /></div>
                 )}

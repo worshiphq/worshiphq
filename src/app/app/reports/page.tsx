@@ -1,6 +1,6 @@
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { ReportsClient } from "@/components/app/reports-client";
+import { ReportsClient } from "@/components/app/reports-client-lazy";
 import { PageHeader } from "@/components/app/page-header";
 
 export const metadata = { title: "Reports" };

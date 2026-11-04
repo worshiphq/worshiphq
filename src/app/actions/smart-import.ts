@@ -1,6 +1,6 @@
 "use server";
 
-import ExcelJS from "exceljs";
+import type ExcelJS from "exceljs";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
@@ -42,7 +42,8 @@ async function readTable(file: File): Promise<Table | { error: string }> {
   let grid: string[][] = [];
 
   if (name.endsWith(".xlsx")) {
-    const wb = new ExcelJS.Workbook();
+    const { default: Excel } = await import("exceljs");
+    const wb = new Excel.Workbook();
     try {
       await wb.xlsx.load(await file.arrayBuffer() as unknown as ArrayBuffer);
     } catch {

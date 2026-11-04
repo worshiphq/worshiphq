@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { useEffect, useState, useSyncExternalStore } from "react";
 import {
   Check, ExternalLink, HandHeart, Heart, Link2, MessageCircleHeart, QrCode as QrIcon, Settings2, Sparkles,

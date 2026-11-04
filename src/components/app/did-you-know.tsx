@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { Lightbulb, X, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { canEdit } from "@/lib/permissions";
 import { PageHeader } from "@/components/app/page-header";
 import { requireModule } from "@/lib/auth";

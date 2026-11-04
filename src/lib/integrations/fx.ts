@@ -114,7 +114,10 @@ async function refresh() {
  * cached rate is stale (or missing), a background refresh is kicked off for the
  * next call. `fallback` is the DB-stored rate (or a sane default).
  */
-export function getUsdToGhsRate(fallback: number): number {
+export function getUsdToGhsRate(fallback: number, checkedAt?: Date | null): number {
+  // Every new instance starts with an empty cache, and each used to fetch the rate and write it to the database. If
+  // any instance checked recently, the stored rate is already current, so use it and skip all of that.
+  if (!cache && checkedAt && Date.now() - checkedAt.getTime() < TTL_MS) cache = { rate: fallback, at: checkedAt.getTime() };
   const fresh = cache && Date.now() - cache.at < TTL_MS;
   if (!fresh && !inflight) inflight = refresh();
   return cache?.rate ?? fallback;

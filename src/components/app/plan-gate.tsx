@@ -1,7 +1,7 @@
 "use client";
 
 import { Lock, Sparkles, ArrowRight } from "lucide-react";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import type { PlanId } from "@/lib/plan-gate";
 
 const PLAN_NAMES: Record<string, string> = {

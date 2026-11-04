@@ -15,6 +15,7 @@ import { getRecentNotifications } from "@/lib/data/notifications";
 import { getChurchPlan } from "@/lib/plan-gate-server";
 import { commsTrial } from "@/lib/plan-gate";
 import { BillingBanner } from "@/components/app/billing-banner";
+import { NavProgress } from "@/components/app/nav-progress";
 
 export const metadata: Metadata = {
   title: "Dashboard",
@@ -70,6 +71,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       plan={plan}
       planTable={planTable}
     >
+      <NavProgress />
       <RecycleBinProvider canManage={session.canDelete} initialCount={binCount}>
         <TourProvider>
           <PhoneDefaults country={countryFromName(church?.country)}>
