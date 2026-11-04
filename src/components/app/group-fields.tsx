@@ -1,5 +1,6 @@
 "use client";
 
+import { HalfHourSelect } from "@/components/app/half-hour-select";
 import { useState } from "react";
 import { Bell } from "lucide-react";
 import { Field } from "@/components/app/action-dialog";
@@ -58,7 +59,6 @@ export function GroupFields({
   const [remHour, setRemHour] = useState(group?.meetingReminderHour ?? 8);
   const [remMinute, setRemMinute] = useState(group?.meetingReminderMinute ?? 0);
   const [remWeekday, setRemWeekday] = useState(group?.meetingReminderWeekday ?? 1);
-  const hhmm = (h: number, m: number) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
   // Each meeting day can have its own reminder timing (e.g. Sunday the day before,
   // Wednesday that morning). Off = every day follows the default above.
   const [perDay, setPerDay] = useState(initialSchedule.some((s) => s.remind));
@@ -190,8 +190,7 @@ export function GroupFields({
                     </select>
                   )}
                   <span className="text-ink-muted">at</span>
-                  <input type="time" value={hhmm(remHour, remMinute)}
-                    onChange={(e) => { const m = /^(\d{1,2}):(\d{2})$/.exec(e.target.value); if (m) { setRemHour(Math.min(23, +m[1])); setRemMinute(Math.min(59, +m[2])); } }}
+                  <HalfHourSelect hour={remHour} minute={remMinute} onChange={(h, m) => { setRemHour(h); setRemMinute(m); }}
                     className="h-9 rounded-lg border border-line bg-surface px-2 text-sm" />
                 </div>
 
@@ -232,10 +231,10 @@ export function GroupFields({
                               {r && !r.off && (
                                 <>
                                   <span className="text-xs text-ink-muted">at</span>
-                                  <input
-                                    type="time"
-                                    value={hhmm(r.hour, r.minute)}
-                                    onChange={(e) => { const m = /^(\d{1,2}):(\d{2})$/.exec(e.target.value); if (m) setRemind(d, { leadDays: r.leadDays, hour: Math.min(23, +m[1]), minute: Math.min(59, +m[2]) }); }}
+                                  <HalfHourSelect
+                                    hour={r.hour}
+                                    minute={r.minute}
+                                    onChange={(h, m) => setRemind(d, { leadDays: r.leadDays, hour: h, minute: m })}
                                     className="h-9 rounded-lg border border-line bg-surface px-2 text-sm"
                                   />
                                 </>

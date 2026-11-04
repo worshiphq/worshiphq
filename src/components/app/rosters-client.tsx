@@ -1,5 +1,6 @@
 "use client";
 
+import { HalfHourSelect } from "@/components/app/half-hour-select";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -23,8 +24,6 @@ import { confirmBinDelete } from "@/lib/recycle-bin-events";
 import { resolveRemind, describeRemind, sendLabelFor, type RemindOverride, type ChurchRemind } from "@/lib/rosters/remind";
 import { BIN_TOAST, RECYCLE_BIN_DAYS } from "@/lib/recycle-bin-config";
 
-const hhmm = (h: number, m: number) => `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-const parseHhmm = (v: string): [number, number] => { const m = /^(\d{1,2}):(\d{2})$/.exec(v); return m ? [Math.min(23, +m[1]), Math.min(59, +m[2])] : [8, 0]; };
 
 /** Shared "Days before / On a day" schedule picker used by the roster settings. */
 function ScheduleControl({ verb, mode, setMode, leadDays, setLeadDays, weekday, setWeekday, hour, minute, setTime }: {
@@ -55,7 +54,7 @@ function ScheduleControl({ verb, mode, setMode, leadDays, setLeadDays, weekday, 
           </select>
         )}
         <span className="text-sm">at</span>
-        <input type="time" value={hhmm(hour, minute)} onChange={(e) => { const [h, m] = parseHhmm(e.target.value); setTime(h, m); }} className={sel} />
+        <HalfHourSelect hour={hour} minute={minute} onChange={setTime} className={sel} />
       </div>
     </div>
   );
@@ -547,7 +546,7 @@ function ReminderPicker({ value, onChange, inheritLabel, inheritEffective, servi
             </select>
           )}
           <span className="text-ink-muted">at</span>
-          <input type="time" value={hhmm(hour, minute)} onChange={(e) => { const [h, m] = parseHhmm(e.target.value); onChange({ ...rel, hour: h, minute: m }); }} className={sel} />
+          <HalfHourSelect hour={hour} minute={minute} onChange={(h, m) => onChange({ ...rel, hour: h, minute: m })} className={sel} />
         </div>
       )}
       <p className="mt-1.5 text-[11px] text-ink-faint">
@@ -823,7 +822,7 @@ function SheetDialog({ sheet, members, roles, groups, departments, announce, rem
                   <input type="date" value={ovDate} onChange={(e) => setOvDate(e.target.value)} className={inputCls} />
                 )}
                 <span className="text-ink-muted">at</span>
-                <input type="time" value={hhmm(ovHour, ovMinute)} onChange={(e) => { const [h, m] = parseHhmm(e.target.value); setOvHour(h); setOvMinute(m); }} className={inputCls} />
+                <HalfHourSelect hour={ovHour} minute={ovMinute} onChange={(h, m) => { setOvHour(h); setOvMinute(m); }} className={inputCls} />
               </div>
             )}
             <p className="mt-1.5 text-[11px] text-ink-faint">“Use general” follows the church-wide schedule. “On a day” = a weekday. “On a date” = one exact day. Either way it sends once.</p>
