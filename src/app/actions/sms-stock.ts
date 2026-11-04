@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSuperAdminOwner } from "@/lib/auth";
+import { getNaloCostPerCredit, saveNaloCostPerCredit } from "@/lib/data/sms-stock";
 
 /**
  * The owner's record of SMS bought from the provider. Owner only, each action guarded on its own (the audit
@@ -16,18 +17,30 @@ import { requireSuperAdminOwner } from "@/lib/auth";
  * are worked out here from the provider cost per credit (the figure on the Revenue page) and stored, so an
  * old top-up keeps the units it was worth at the time even if that price changes later.
  */
+/** What Nalo charges per SMS, which drops when the reseller rate starts. */
+export async function saveNaloCost(cost: number) {
+  await requireSuperAdminOwner();
+  const value = Number(cost);
+  if (!Number.isFinite(value) || value <= 0 || value > 5) return { ok: false as const, error: "Enter the price per SMS in cedis, like 0.032." };
+  await saveNaloCostPerCredit(value);
+  revalidatePath("/admin/revenue");
+  return { ok: true as const };
+}
+
 export async function addSmsPurchase(input: { amountGhs: number; kind?: "topup" | "balance"; provider?: string; note?: string; date?: string }) {
   await requireSuperAdminOwner();
+  const isNaloEntry = input.provider?.trim().toLowerCase() === "nalo";
   const costGhs = Math.round(Number(input.amountGhs) * 100) / 100;
   const kind = input.kind === "balance" ? "balance" : "topup";
   if (!Number.isFinite(costGhs) || costGhs < 0 || (kind === "topup" && costGhs === 0)) {
-    return { ok: false as const, error: kind === "balance" ? "Enter the balance Hubtel shows, in cedis." : "Enter the amount you topped up, in cedis." };
+    return { ok: false as const, error: kind === "balance" ? `Enter the balance ${isNaloEntry ? "Nalo" : "Hubtel"} shows, in cedis.` : "Enter the amount you topped up, in cedis." };
   }
   const purchasedAt = input.date ? new Date(input.date) : new Date();
   if (Number.isNaN(purchasedAt.getTime())) return { ok: false as const, error: "That date is not valid." };
 
   const cfg = await db.platformConfig.findUnique({ where: { id: "default" }, select: { smsCostPerCredit: true } });
-  const perCredit = cfg?.smsCostPerCredit ?? 0.03;
+  const isNalo = input.provider?.trim().toLowerCase() === "nalo";
+  const perCredit = isNalo ? await getNaloCostPerCredit() : cfg?.smsCostPerCredit ?? 0.03;
   if (!(perCredit > 0)) return { ok: false as const, error: "Set the provider cost per credit on this page first." };
   const credits = Math.floor(costGhs / perCredit);
 

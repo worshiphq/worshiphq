@@ -14,7 +14,7 @@ import { db } from "@/lib/db";
  *
  *   held now      = reading + top-ups since - (credits churches sent since x provider cost per credit)
  *   committed     = credits churches hold that were BOUGHT or GIFTED (they are in the ledger)
- *   free trial    = credits churches hold that came free at signup (60 each, no ledger entry), mostly never used
+ *   free trial    = credits churches hold that came free at signup (30 each, no ledger entry), mostly never used
  *   cushion       = held - committed          <- the figure that decides the warning
  *   worst case    = held - (committed + free trial), if every church spent every free credit
  *
@@ -47,9 +47,29 @@ export type SmsStock = {
   level: "ok" | "low" | "over" | "none";
 };
 
-export async function getSmsStock(): Promise<SmsStock> {
+/** What Nalo charges per SMS segment. Starts at the quoted GH₵0.032; the owner changes it on the Revenue page. */
+const NALO_COST_KEY = "sms-nalo-cost";
+const DEFAULT_NALO_COST = 0.032;
+
+export async function getNaloCostPerCredit(): Promise<number> {
+  const row = await db.siteContent.findUnique({ where: { key: NALO_COST_KEY } }).catch(() => null);
+  const v = Number((row?.value as { cost?: number } | null)?.cost);
+  return v > 0 ? v : DEFAULT_NALO_COST;
+}
+
+export async function saveNaloCostPerCredit(cost: number): Promise<void> {
+  await db.siteContent.upsert({ where: { key: NALO_COST_KEY }, update: { value: { cost } }, create: { key: NALO_COST_KEY, value: { cost } } });
+}
+
+/**
+ * One carrier's account. Each has its own balance and price, so each gets its own answer. A church's sends and credits
+ * count against the carrier it is set to NOW: moving a church moves its held credits straight away, and sends to numbers
+ * outside Ghana from a Hubtel church really use Nalo, so a fresh reading is what keeps either figure honest.
+ */
+export async function getSmsStock(carrier: "hubtel" | "nalo" = "hubtel"): Promise<SmsStock> {
   const cfg = await db.platformConfig.findUnique({ where: { id: "default" }, select: { smsCostPerCredit: true } });
-  const cost = cfg?.smsCostPerCredit ?? 0.03;
+  const cost = carrier === "nalo" ? await getNaloCostPerCredit() : cfg?.smsCostPerCredit ?? 0.03;
+  const onCarrier = carrier === "nalo" ? { smsProvider: "nalo" } : { OR: [{ smsProvider: null }, { smsProvider: { not: "nalo" } }] };
 
   let entries: SmsEntryRow[] = [];
   let ready = true;
@@ -59,6 +79,9 @@ export async function getSmsStock(): Promise<SmsStock> {
     ready = false;
   }
 
+  // Entries saved before there were two carriers have the provider "Hubtel" or nothing.
+  entries = entries.filter((e) => (e.provider?.toLowerCase() === "nalo") === (carrier === "nalo"));
+
   const readingRow = entries.find((e) => e.kind === "balance") ?? null;
   const since = readingRow?.purchasedAt ?? null;
   const topups = entries.filter((e) => e.kind !== "balance");
@@ -66,13 +89,13 @@ export async function getSmsStock(): Promise<SmsStock> {
 
   const [usageSince, ledgerByChurch, trimsByChurch, churches] = await Promise.all([
     db.smsTransaction.aggregate({
-      where: { kind: "usage", church: { isDemo: false }, ...(since ? { createdAt: { gt: since } } : {}) },
+      where: { kind: "usage", church: { isDemo: false, ...onCarrier }, ...(since ? { createdAt: { gt: since } } : {}) },
       _sum: { credits: true },
     }),
     db.smsTransaction.groupBy({ by: ["churchId"], where: { church: { isDemo: false } }, _sum: { credits: true } }),
     // Free-credit trims are adjustments to FREE credits, not to bought or gifted ones, so they are added back.
     db.smsTransaction.groupBy({ by: ["churchId"], where: { church: { isDemo: false }, adminNote: { startsWith: "Free credits trimmed" } }, _sum: { credits: true } }),
-    db.church.findMany({ where: { isDemo: false, smsCredits: { gt: 0 } }, select: { id: true, smsCredits: true } }),
+    db.church.findMany({ where: { isDemo: false, smsCredits: { gt: 0 }, ...onCarrier }, select: { id: true, smsCredits: true } }),
   ]);
 
   const sentSince = Math.abs(usageSince._sum.credits ?? 0);

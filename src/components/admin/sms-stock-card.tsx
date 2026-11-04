@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Trash2, ShieldCheck, AlertTriangle, PackagePlus, Gauge } from "lucide-react";
-import { addSmsPurchase, deleteSmsPurchase } from "@/app/actions/sms-stock";
+import { addSmsPurchase, deleteSmsPurchase, saveNaloCost } from "@/app/actions/sms-stock";
 
 type Row = { id: string; kind: string; credits: number; costGhs: number; provider: string | null; note: string | null; purchasedAt: string };
 export type StockView = {
@@ -17,8 +17,9 @@ const cedi = (x: number) => `₵${x.toLocaleString("en-GB", { minimumFractionDig
 const field = "w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-teal-400/60 focus:outline-none";
 const days = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) / 86_400_000);
 
-/** "Are we safe on SMS?" Anyone with SuperAdmin can read it; only the owner can add or delete. */
-export function SmsStockCard({ stock, isOwner }: { stock: StockView; isOwner: boolean }) {
+/** "Are we safe on {carrier}?" Anyone with SuperAdmin can read it; only the owner can add or delete. */
+export function SmsStockCard({ stock, isOwner, carrier = "Hubtel" }: { stock: StockView; isOwner: boolean; carrier?: "Hubtel" | "Nalo" }) {
+  const [price, setPrice] = useState(String(stock.costPerCredit));
   const router = useRouter();
   const [reading, setReading] = useState("");
   const [amount, setAmount] = useState("");
@@ -33,7 +34,7 @@ export function SmsStockCard({ stock, isOwner }: { stock: StockView; isOwner: bo
     ok: "Safe: you hold more SMS than churches can send of what they bought or were gifted.",
     low: "Getting tight: your cushion is under 15% of what churches bought or were gifted. Top up soon.",
     over: "Short: churches hold more bought or gifted credits than your provider balance can send. Top up now.",
-    none: "Enter what Hubtel shows to see whether you are safe.",
+    none: `Enter what ${carrier} shows to see whether you are safe.`,
   }[stock.level];
   const stale = stock.reading ? days(stock.reading.at) : null;
 
@@ -53,9 +54,9 @@ export function SmsStockCard({ stock, isOwner }: { stock: StockView; isOwner: bo
     });
   };
   const saveReading = () =>
-    run("reading", () => addSmsPurchase({ amountGhs: Number(reading.replace(/,/g, "")), kind: "balance", provider: "Hubtel" }), (c) => `Saved: about ${n(c ?? 0)} SMS left.`, () => setReading(""));
+    run("reading", () => addSmsPurchase({ amountGhs: Number(reading.replace(/,/g, "")), kind: "balance", provider: carrier }), (c) => `Saved: about ${n(c ?? 0)} SMS left.`, () => setReading(""));
   const saveTopup = () =>
-    run("topup", () => addSmsPurchase({ amountGhs: Number(amount.replace(/,/g, "")), kind: "topup", provider: "Hubtel", note }), (c) => `Saved: about ${n(c ?? 0)} SMS.`, () => { setAmount(""); setNote(""); });
+    run("topup", () => addSmsPurchase({ amountGhs: Number(amount.replace(/,/g, "")), kind: "topup", provider: carrier, note }), (c) => `Saved: about ${n(c ?? 0)} SMS.`, () => { setAmount(""); setNote(""); });
   const remove = (id: string) => {
     if (!confirm("Delete this entry?")) return;
     setBusy(id);
@@ -80,7 +81,7 @@ export function SmsStockCard({ stock, isOwner }: { stock: StockView; isOwner: bo
           <dl className="mt-3 space-y-1.5 text-sm">
             {stock.reading && (
               <div className="flex justify-between">
-                <dt className="text-slate-400">Hubtel showed ({new Date(stock.reading.at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })})</dt>
+                <dt className="text-slate-400">{carrier} showed ({new Date(stock.reading.at).toLocaleDateString("en-GB", { day: "numeric", month: "short" })})</dt>
                 <dd className="text-slate-200">{cedi(stock.reading.amountGhs)}</dd>
               </div>
             )}
@@ -107,8 +108,8 @@ export function SmsStockCard({ stock, isOwner }: { stock: StockView; isOwner: bo
             </div>
           </dl>
           <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-            The free signup credits (60 per church) were never bought, and most are never used, so the cushion above leaves them out; the worst case is if every
-            church spent all of them. Your own sign-in codes and alerts, and HostHub on the same account, also use balance, so enter a fresh reading now and then.
+            The free signup credits (30 per church) were never bought, and most are never used, so the cushion above leaves them out; the worst case is if every
+            church spent all of them. {carrier === "Hubtel" ? "Your own sign-in codes and alerts, and HostHub on the same account, also use balance," : "Texts to numbers outside Ghana and any of your own texts sent this way also use balance,"} so enter a fresh reading now and then.
             {stale !== null && stale >= 7 && <span className="text-amber-300"> Your last reading is {stale} days old.</span>}
           </p>
         </>
@@ -117,9 +118,9 @@ export function SmsStockCard({ stock, isOwner }: { stock: StockView; isOwner: bo
       {isOwner && stock.ready && (
         <div className="mt-4 space-y-4 border-t border-white/10 pt-4">
           <div>
-            <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-300"><Gauge className="size-3.5" /> What does Hubtel show now?</div>
+            <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-300"><Gauge className="size-3.5" /> What does {carrier} show now?</div>
             <div className="flex flex-wrap gap-2">
-              <input className={`${field} max-w-[220px]`} inputMode="decimal" placeholder="Hubtel balance (GHS)" value={reading} onChange={(e) => setReading(e.target.value.replace(/[^\d.,]/g, ""))} />
+              <input className={`${field} max-w-[220px]`} inputMode="decimal" placeholder={`${carrier} balance (GHS)`} value={reading} onChange={(e) => setReading(e.target.value.replace(/[^\d.,]/g, ""))} />
               <button onClick={saveReading} disabled={pending || reading === ""} className="inline-flex items-center gap-2 rounded-lg bg-teal-500 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-teal-400 disabled:opacity-50">
                 {pending && busy === "reading" ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : "Save reading"}
               </button>
@@ -128,6 +129,18 @@ export function SmsStockCard({ stock, isOwner }: { stock: StockView; isOwner: bo
               <p className="mt-1 text-[11px] text-slate-500">About {n(Math.floor(Number(reading.replace(/,/g, "")) / cost))} SMS at ₵{cost.toFixed(4)} each</p>
             )}
           </div>
+          {carrier === "Nalo" && (
+            <div>
+              <div className="mb-2 text-xs font-semibold text-slate-300">Nalo price per SMS</div>
+              <div className="flex flex-wrap gap-2">
+                <input className={`${field} max-w-[220px]`} inputMode="decimal" aria-label="Nalo price per SMS in cedis" value={price} onChange={(e) => setPrice(e.target.value.replace(/[^\d.]/g, ""))} />
+                <button onClick={() => run("price", () => saveNaloCost(Number(price)), () => "Nalo price saved.", () => {})} disabled={pending || !Number(price)} className="inline-flex items-center gap-2 rounded-lg bg-white/10 px-4 py-2 text-sm font-semibold text-white disabled:opacity-50">
+                  {pending && busy === "price" ? <><Loader2 className="size-4 animate-spin" /> Saving...</> : "Save price"}
+                </button>
+              </div>
+              <p className="mt-1 text-[11px] text-slate-500">Change this to the reseller rate when it starts. Readings and top-ups already saved keep the SMS count they were worth.</p>
+            </div>
+          )}
           <div>
             <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-slate-300"><PackagePlus className="size-3.5" /> I topped up</div>
             <div className="grid gap-2 sm:grid-cols-[200px_1fr_auto]">
@@ -148,7 +161,7 @@ export function SmsStockCard({ stock, isOwner }: { stock: StockView; isOwner: bo
             <li key={p.id} className="flex items-center gap-3 px-3 py-2">
               <span className="w-20 shrink-0 text-xs text-slate-500">{new Date(p.purchasedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</span>
               <span className="min-w-0 flex-1 truncate text-slate-200">
-                {p.kind === "balance" ? <>Hubtel showed {cedi(p.costGhs)}</> : <>Topped up {cedi(p.costGhs)}</>}
+                {p.kind === "balance" ? <>{carrier} showed {cedi(p.costGhs)}</> : <>Topped up {cedi(p.costGhs)}</>}
                 {p.note && <span className="text-slate-500"> · {p.note}</span>}
               </span>
               {isOwner && (

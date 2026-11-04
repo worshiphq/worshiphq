@@ -15,9 +15,10 @@ const money = (n: number) => `₵${n.toLocaleString("en-GH", { minimumFractionDi
 
 export default async function AdminRevenuePage() {
   const sa = await requireSuperAdmin();
-  const [rev, stock, churches, config, team] = await Promise.all([
+  const [rev, stock, naloStock, churches, config, team] = await Promise.all([
     getRevenueOverview(),
-    getSmsStock(),
+    getSmsStock("hubtel"),
+    getSmsStock("nalo"),
     db.church.findMany({ where: { isDemo: false }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     getPlatformConfig(),
     db.user.findMany({ where: { church: { isDemo: false } }, orderBy: { createdAt: "asc" }, select: { churchId: true, name: true, role: true, email: true } }),
@@ -102,6 +103,20 @@ export default async function AdminRevenuePage() {
               ...stock,
               reading: stock.reading ? { amountGhs: stock.reading.amountGhs, at: stock.reading.at.toISOString() } : null,
               entries: stock.entries.map((p) => ({ ...p, purchasedAt: p.purchasedAt.toISOString() })),
+            }}
+            isOwner={sa.role === "owner"}
+          />
+        </AdminCard>
+      </div>
+
+      <div className="mb-4">
+        <AdminCard className="p-5">
+          <SmsStockCard
+            carrier="Nalo"
+            stock={{
+              ...naloStock,
+              reading: naloStock.reading ? { amountGhs: naloStock.reading.amountGhs, at: naloStock.reading.at.toISOString() } : null,
+              entries: naloStock.entries.map((p) => ({ ...p, purchasedAt: p.purchasedAt.toISOString() })),
             }}
             isOwner={sa.role === "owner"}
           />
