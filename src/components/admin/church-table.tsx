@@ -14,6 +14,7 @@ import {
   approveSenderId,
   setChurchSmsCarrier,
   setSenderIdCarrier,
+  sendSenderIdTest,
   sendSenderIdUpdate,
   rejectSenderId,
   setChurchSmsTier,
@@ -26,6 +27,36 @@ const SMS_TIERS = ["B", "C", "D"];
 
 /** Compact SMS-tier picker (Default = inherit site-wide). */
 const CARRIER_LABEL: Record<string, string> = { hubtel: "Hubtel", nalo: "Nalo" };
+
+/** Try a church's sender name on a carrier before approving it. Separate buttons for each person it can go to. */
+function SenderIdTest({ church, run }: { church: ChurchRow; run: ReturnType<typeof useFeedback>["run"] }) {
+  const [carrier, setCarrier] = useState(church.smsSenderIdProvider ?? "nalo");
+  const send = (target: "church" | "me") => {
+    if (target === "church" && !confirm(`Text ${church.name}'s Main Admin a test from ${church.smsSenderId}?`)) return;
+    run(async () => {
+      const res = await sendSenderIdTest(church.id, carrier, target);
+      if (!res.ok) throw new Error(res.error);
+    }, { pending: "Sending test...", success: target === "me" ? "Test sent to you. Check your phone" : "Test sent to the Main Admin" });
+  };
+  const btn = "rounded-md bg-sky-500/15 px-2 py-1 text-xs text-sky-300 hover:bg-sky-500/25";
+  return (
+    <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-slate-500">
+      <label className="flex items-center gap-1">
+        Test {church.smsSenderId} on
+        <select
+          value={carrier}
+          onChange={(e) => setCarrier(e.target.value)}
+          className="rounded-md border border-white/10 bg-white/5 px-1.5 py-0.5 text-xs text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400"
+        >
+          <option value="nalo" className="bg-slate-800">Nalo</option>
+          <option value="hubtel" className="bg-slate-800">Hubtel</option>
+        </select>
+      </label>
+      <button type="button" onClick={() => send("me")} className={btn}>Test to me</button>
+      <button type="button" onClick={() => send("church")} className={btn}>Test to church admin</button>
+    </div>
+  );
+}
 
 function SmsTierSelect({ church, run }: { church: ChurchRow; run: ReturnType<typeof useFeedback>["run"] }) {
   return (
@@ -224,6 +255,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
             )}
 
             <div className="mt-2">{carrierControls(c)}</div>
+            {c.smsSenderId && <SenderIdTest church={c} run={run} />}
 
             <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-white/5 pt-3">
               {c.smsSenderId && c.smsSenderIdStatus === "pending" && (
@@ -376,6 +408,7 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
                     <span className="text-slate-500">-</span>
                   )}
                   <div className="mt-1.5">{carrierControls(c)}</div>
+                  {c.smsSenderId && <SenderIdTest church={c} run={run} />}
                 </td>
                 <td className="px-4 py-3 text-slate-300">{c.members}</td>
                 <td className="px-4 py-3">

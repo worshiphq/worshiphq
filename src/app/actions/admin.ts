@@ -1,6 +1,6 @@
 "use server";
 
-import { logAdminAction } from "@/lib/admin-audit";
+import { logAdminAction, logPlatformSms } from "@/lib/admin-audit";
 import { invalidatePlatformConfig } from "@/lib/data/platform-config";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
@@ -15,6 +15,7 @@ import {
 } from "@/lib/auth";
 import { saveMarketingContent, type MarketingContent } from "@/lib/data/site-content";
 import { sendSms } from "@/lib/integrations/sms";
+import { getAlertPhone } from "@/lib/outreach/owner-alert";
 import { addCredits } from "@/lib/sms/credits";
 import { isSmsTier } from "@/config/sms";
 import { supportEmail } from "@/lib/lockout";
@@ -187,6 +188,43 @@ export async function setSenderIdCarrier(churchId: string, carrier: string) {
   if (!isCarrier(carrier)) throw new Error("Choose Hubtel or Nalo.");
   await db.church.update({ where: { id: churchId }, data: { smsSenderIdProvider: carrier } });
   revalidatePath("/admin/churches");
+}
+
+/**
+ * Send a test text under a church's own sender name, before or after approving it. It goes either to the church's
+ * Main Admin or to the SuperAdmin pressing the button. WorshipHQ bears the cost: no church credits are used.
+ */
+export async function sendSenderIdTest(churchId: string, carrier: string, target: "church" | "me"): Promise<{ ok: true } | { ok: false; error: string }> {
+  const sa = await requireSuperAdmin();
+  await logAdminAction("sendSenderIdTest", { churchId, carrier, target });
+  if (!isCarrier(carrier)) return { ok: false, error: "Choose Hubtel or Nalo." };
+  const church = await db.church.findUnique({ where: { id: churchId }, select: { name: true, smsSenderId: true } });
+  if (!church?.smsSenderId) return { ok: false, error: "This church has not requested a sender name." };
+  const carrierName = carrier === "nalo" ? "Nalo" : "Hubtel";
+
+  let phone: string | null | undefined;
+  if (target === "church") {
+    const owner = await db.user.findFirst({ where: { churchId, role: "Owner" }, orderBy: { createdAt: "asc" }, select: { phone: true } });
+    phone = owner?.phone;
+    if (!phone) return { ok: false, error: `${church.name}'s Main Admin has no phone number.` };
+  } else {
+    phone = sa.id
+      ? (await db.superAdminUser.findUnique({ where: { id: sa.id }, select: { phone: true } }))?.phone
+      : (await getAlertPhone()).phone;
+    if (!phone) return { ok: false, error: sa.id ? "Your SuperAdmin account has no phone number. Add one under Admin team." : "No number to text you on. Add your alert number on the Outreach page." };
+  }
+
+  const message = target === "church"
+    ? `This is a test from WorshipHQ. Your sender name ${church.smsSenderId} is being set up for ${church.name}. No action is needed.`
+    : `WorshipHQ test: ${church.name}, sender name ${church.smsSenderId}, sent through ${carrierName}.`;
+
+  const r = await sendSms(phone, message, { heading: null, senderId: church.smsSenderId, carrier, senderCarrier: carrier });
+  await logPlatformSms({ to: [phone], sent: r.sentCount, carrier: r.provider, sender: church.smsSenderId, body: message, error: r.ok ? null : r.error });
+  if (!r.ok) return { ok: false, error: r.error ?? `${carrierName} did not accept it.` };
+  if (r.stubbed) return { ok: false, error: "Nothing was sent: SMS is not connected where this is running." };
+  // A number outside Ghana always goes through Nalo, so a Hubtel test to one would prove nothing about the sender.
+  if (r.provider !== carrier) return { ok: false, error: `That number went through ${r.provider}, under the WorshipHQ sender, so this did not test ${church.smsSenderId} on ${carrierName}.` };
+  return { ok: true };
 }
 
 export async function approveSenderId(churchId: string, carrier = "hubtel") {
