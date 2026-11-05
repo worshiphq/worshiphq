@@ -9,7 +9,7 @@ import { getFormDefinition, questionFields } from "@/lib/forms/registration";
 import { buildPersonData } from "@/lib/forms/person-data";
 import { nextMemberId, resolveDepartmentIds, resolveGroupIds } from "@/lib/members/helpers";
 import { logAudit } from "@/lib/audit";
-import { getPersonFull } from "@/lib/data/people";
+import { getPersonFull, queryPeople, type PeopleQuery } from "@/lib/data/people";
 import { RecycleBin } from "@/lib/recycle-bin";
 import { saveMemberCategoryChoices } from "@/lib/members/categories";
 import { cleanLeaderTitle, leaderTitleList } from "@/lib/leader-titles";
@@ -206,3 +206,9 @@ export async function loadPerson(id: string) {
   return getPersonFull(session.churchId, id);
 }
 
+/** One page of the People list for a search and filters, answered by the database. Called as the user types. */
+export async function searchPeople(query: PeopleQuery) {
+  const session = await requireSession();
+  if (!session.isDemo && !session.impersonating && session.sections && !session.sections.includes("people")) throw new Error("Not allowed.");
+  return queryPeople(session.churchId, query);
+}

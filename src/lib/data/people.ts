@@ -153,22 +153,21 @@ export async function getPersonFull(churchId: string, id: string): Promise<Perso
  * contacts, custom answers...) are only used when someone opens a profile, which loads them with getPersonFull. For a
  * big church that is most of the page's size and most of the work to build it.
  */
-export async function getPeopleSlim(churchId: string): Promise<PersonListRow[]> {
-  const people = await db.person.findMany({
-    where: { churchId },
-    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-    select: {
-      id: true, memberId: true, firstName: true, lastName: true, otherNames: true, title: true, email: true, phone: true,
-      photoUrl: true, status: true, joinedAt: true, leaderTitle: true, gender: true, dateOfBirth: true, ageGroup: true,
-      guardianName: true, school: true, grade: true,
-      groups: { select: { id: true, name: true } },
-      departments: { select: { name: true } },
-      categoryOptions: { select: { id: true } },
-      positions: { select: { id: true, position: true, department: { select: { name: true } } } },
-      parent: { select: { firstName: true, lastName: true } },
-    },
-  });
-  return people.map((p) => ({
+const SLIM_SELECT = {
+  id: true, memberId: true, firstName: true, lastName: true, otherNames: true, title: true, email: true, phone: true,
+  photoUrl: true, status: true, joinedAt: true, leaderTitle: true, gender: true, dateOfBirth: true, ageGroup: true,
+  guardianName: true, school: true, grade: true,
+  groups: { select: { id: true, name: true } },
+  departments: { select: { name: true } },
+  categoryOptions: { select: { id: true } },
+  positions: { select: { id: true, position: true, department: { select: { name: true } } } },
+  parent: { select: { firstName: true, lastName: true } },
+} satisfies Prisma.PersonSelect;
+
+type SlimPerson = Prisma.PersonGetPayload<{ select: typeof SLIM_SELECT }>;
+
+function listRow(p: SlimPerson): PersonListRow {
+  return {
     id: p.id,
     memberId: p.memberId,
     firstName: p.firstName,
@@ -193,7 +192,100 @@ export async function getPeopleSlim(churchId: string): Promise<PersonListRow[]> 
     guardianName: p.guardianName,
     school: p.school,
     grade: p.grade,
-  }));
+  };
+}
+
+export const PEOPLE_PAGE_SIZE = 25;
+
+/** What the People screen asks for: a search, the filters, a sort and a page. All of it is answered by the database. */
+export interface PeopleQuery {
+  tab?: "adult" | "teen" | "child";
+  q?: string;
+  /** "all" or a status. Adults tab only. */
+  status?: string;
+  /** A department NAME. Adults tab only. */
+  department?: string;
+  groupId?: string;
+  engagement?: string;
+  categoryOptionId?: string;
+  /** Only people whose age falls in this range. Adults tab only. */
+  youth?: { min: number; max: number } | null;
+  sort?: "name-az" | "name-za" | "newest" | "oldest";
+  page?: number;
+}
+
+const digitsOf = (s: string) => s.replace(/\D/g, "");
+/** Same as phoneKey in lib/search: digits only, without the country code or leading zero. */
+function phoneKeyOf(input: string): string {
+  let d = digitsOf(input);
+  if (d.startsWith("233") && d.length > 9) d = d.slice(3);
+  if (d.startsWith("0")) d = d.slice(1);
+  return d;
+}
+
+/** Ids of people in the church whose phone number contains these digits, however the number was written. */
+async function idsByPhone(churchId: string, key: string): Promise<string[]> {
+  const like = "%" + key + "%";
+  const rows = await db.$queryRaw<{ id: string }[]>`
+    SELECT "id" FROM "Person"
+    WHERE "churchId" = ${churchId}
+      AND (regexp_replace(COALESCE("phone", ''), '\\D', '', 'g') LIKE ${like}
+        OR regexp_replace(COALESCE("homePhone", ''), '\\D', '', 'g') LIKE ${like})
+    LIMIT 500`;
+  return rows.map((r) => r.id);
+}
+
+export async function queryPeople(churchId: string, q: PeopleQuery): Promise<{ rows: PersonListRow[]; total: number; page: number; pages: number }> {
+  const tab = q.tab ?? "adult";
+  const and: Prisma.PersonWhereInput[] = [];
+  and.push(tab === "adult" ? { OR: [{ ageGroup: null }, { ageGroup: "adult" }] } : { ageGroup: tab });
+
+  if (tab === "adult") {
+    if (q.status && q.status !== "all" && ["active", "visitor", "inactive"].includes(q.status)) and.push({ status: q.status as PersonStatus });
+    if (q.department) and.push({ departments: { some: { name: q.department } } });
+    if (q.engagement === "new") and.push({ status: "visitor" });
+    else if (q.engagement === "at-risk") and.push({ status: "inactive" });
+    else if (q.engagement === "active") and.push({ status: { notIn: ["visitor", "inactive"] } });
+    if (q.youth) {
+      const now = new Date();
+      const youngest = new Date(now.getFullYear() - q.youth.min, now.getMonth(), now.getDate());
+      const oldest = new Date(now.getFullYear() - q.youth.max - 1, now.getMonth(), now.getDate() + 1);
+      and.push({ dateOfBirth: { gte: oldest, lte: youngest } });
+    }
+  }
+  if (q.groupId) and.push({ groups: { some: { id: q.groupId } } });
+  if (q.categoryOptionId) and.push({ categoryOptions: { some: { id: q.categoryOptionId } } });
+
+  // Every word typed must match something, in any order (like the old in-browser search).
+  const words = (q.q ?? "").trim().slice(0, 80).split(/\s+/).filter(Boolean).slice(0, 6);
+  for (const w of words) {
+    const has = { contains: w, mode: "insensitive" as const };
+    const or: Prisma.PersonWhereInput[] = [
+      { firstName: has }, { lastName: has }, { otherNames: has }, { title: has }, { email: has }, { memberId: has },
+      { school: has }, { guardianName: has },
+      { departments: { some: { name: has } } }, { groups: { some: { name: has } } },
+      { parent: { is: { OR: [{ firstName: has }, { lastName: has }] } } },
+    ];
+    const key = /^[+\d][\d\s\-()]*$/.test(w) ? phoneKeyOf(w) : "";
+    if (key.length >= 3) {
+      const ids = await idsByPhone(churchId, key);
+      if (ids.length) or.push({ id: { in: ids } });
+    }
+    and.push({ OR: or });
+  }
+
+  const where: Prisma.PersonWhereInput = { churchId, AND: and };
+  const orderBy: Prisma.PersonOrderByWithRelationInput[] =
+    q.sort === "name-za" ? [{ firstName: "desc" }, { lastName: "desc" }, { id: "asc" }]
+      : q.sort === "newest" ? [{ joinedAt: "desc" }, { id: "asc" }]
+        : q.sort === "oldest" ? [{ joinedAt: "asc" }, { id: "asc" }]
+          : [{ firstName: "asc" }, { lastName: "asc" }, { id: "asc" }];
+
+  const total = await db.person.count({ where });
+  const pages = Math.max(1, Math.ceil(total / PEOPLE_PAGE_SIZE));
+  const page = Math.min(Math.max(1, Math.floor(q.page ?? 1)), pages);
+  const people = await db.person.findMany({ where, orderBy, skip: (page - 1) * PEOPLE_PAGE_SIZE, take: PEOPLE_PAGE_SIZE, select: SLIM_SELECT });
+  return { rows: people.map(listRow), total, page, pages };
 }
 
 type FullPerson = Prisma.PersonGetPayload<{ include: typeof FULL_INCLUDE }>;

@@ -1,7 +1,7 @@
 "use client";
 
 import { PhoneInput } from "@/components/ui/phone-input";
-import { useMemo, useState, useEffect, useActionState } from "react";
+import { useMemo, useState, useEffect, useRef, useActionState } from "react";
 import { ScanFace,
   Search, Plus, Phone, Mail, MapPin, X, Users, Pencil, Trash2,
   Briefcase, Heart, Shield, User, Grid3X3, List, ChevronRight, Download, MessageSquare, QrCode as QrIcon, Fingerprint,
@@ -18,8 +18,8 @@ import { OnFormComplete } from "@/components/ui/form-effects";
 import { Badge } from "@/components/ui/badge";
 import { ClickableAvatar } from "@/components/ui/photo-lightbox";
 import { Label, Textarea } from "@/components/ui/input";
-import { updatePerson, deletePerson, createPersonState, loadPerson } from "@/app/actions/people";
-import { usePagedList } from "@/components/ui/list-pager";
+import { updatePerson, deletePerson, createPersonState, loadPerson, searchPeople } from "@/app/actions/people";
+import { ListPager } from "@/components/ui/list-pager";
 import { Spinner } from "@/components/ui/spinner";
 import { updateChild, assignParent, createChildState } from "@/app/actions/children";
 import { sendSmsToPerson } from "@/app/actions/communications";
@@ -62,9 +62,9 @@ type Dept = { id: string; name: string };
 type Adult = { id: string; firstName: string; lastName: string };
 
 export function PeopleClient({
-  people, stats, canWrite, departments, groups = [], formFields, adults, categories = [], leaderTitles = [], initialQuery = "", youth = null, idCardsLocked = false,
+  people, total: initialTotal, stats, canWrite, departments, groups = [], formFields, adults, categories = [], leaderTitles = [], initialQuery = "", youth = null, idCardsLocked = false,
 }: {
-  people: PersonListRow[]; stats: AllStats; canWrite: boolean; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; leaderTitles?: string[]; initialQuery?: string; youth?: { label: string; min: number; max: number } | null; idCardsLocked?: boolean;
+  people: PersonListRow[]; total: number; stats: AllStats; canWrite: boolean; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; leaderTitles?: string[]; initialQuery?: string; youth?: { label: string; min: number; max: number } | null; idCardsLocked?: boolean;
 }) {
   const [ageTab, setAgeTab] = useState<AgeTab>("adult");
   const [query, setQuery] = useState(initialQuery);
@@ -83,48 +83,68 @@ export function PeopleClient({
 
   const isAdultTab = ageTab === "adult";
 
-  const filtered = useMemo(() => {
-    const list = people.filter((p) => {
-      const pAge = p.ageGroup ?? "adult";
-      if (pAge !== ageTab) return false;
-      if (isAdultTab && segment !== "all" && p.status !== segment) return false;
-      if (isAdultTab && deptFilter && !p.departments.some((d) => d === deptFilter)) return false;
-      if (groupFilter && !p.groupIds.includes(groupFilter)) return false;
-      if (isAdultTab && engFilter && p.engagement !== engFilter) return false;
-      if (isAdultTab && youth && youthOnly) {
-        const a = ageOf(p.dateOfBirth);
-        if (a === null || a < youth.min || a > youth.max) return false;
-      }
-      if (catFilter && !p.categoryOptionIds.includes(catFilter)) return false;
-      if (query) {
-        const q = query.toLowerCase();
-        return (
-          p.fullName.toLowerCase().includes(q) ||
-          (p.email ?? "").toLowerCase().includes(q) ||
-          matchesPerson(query, { name: p.fullName, phone: p.phone, memberId: p.memberId, email: p.email }) ||
-          p.departments.some((d) => d.toLowerCase().includes(q)) ||
-          p.ministries.some((m) => m.toLowerCase().includes(q)) ||
-          (p.school ?? "").toLowerCase().includes(q) ||
-          (p.guardianName ?? "").toLowerCase().includes(q) ||
-          (p.parentName ?? "").toLowerCase().includes(q)
-        );
-      }
-      return true;
-    });
-    list.sort((a, b) => {
-      switch (sortBy) {
-        case "name-az": return a.firstName.localeCompare(b.firstName) || a.lastName.localeCompare(b.lastName);
-        case "name-za": return b.firstName.localeCompare(a.firstName) || b.lastName.localeCompare(a.lastName);
-        case "newest": return b.joined.localeCompare(a.joined);
-        case "oldest": return a.joined.localeCompare(b.joined);
-        default: return 0;
-      }
-    });
-    return list;
-  }, [people, query, segment, deptFilter, groupFilter, engFilter, catFilter, sortBy, ageTab, isAdultTab, youth, youthOnly]);
+  // The database does the searching, filtering, sorting and paging. Typing waits 300ms after the last key, then asks the
+  // server for just the matching page. Filters and page changes ask straight away.
+  const [rows, setRows] = useState<PersonListRow[]>(people);
+  const [total, setTotal] = useState(initialTotal);
+  const [pageNo, setPageNo] = useState(1);
+  const [searching, setSearching] = useState(false);
+  const [debounced, setDebounced] = useState(initialQuery);
+  useEffect(() => {
+    const t = setTimeout(() => setDebounced(query.trim()), 300);
+    return () => clearTimeout(t);
+  }, [query]);
 
-  // 25 to a page, and back to page 1 whenever the search or a filter changes.
-  const paged = usePagedList(filtered, 25, `${ageTab}|${query}|${segment}|${deptFilter}|${groupFilter}|${engFilter}|${catFilter}|${sortBy}|${youthOnly}`);
+  const filterKey = `${ageTab}|${debounced}|${segment}|${deptFilter}|${groupFilter}|${engFilter}|${catFilter}|${sortBy}|${youthOnly}`;
+  const lastKey = useRef(filterKey);
+  const reqId = useRef(0);
+  const mounted = useRef(false);
+  const pageSize = 25;
+  const pages = Math.max(1, Math.ceil(total / pageSize));
+
+  function runSearch(page: number) {
+    const id = ++reqId.current;
+    setSearching(true);
+    searchPeople({
+      tab: ageTab,
+      q: debounced,
+      status: segment,
+      department: deptFilter,
+      groupId: groupFilter,
+      engagement: engFilter,
+      categoryOptionId: catFilter,
+      youth: isAdultTab && youth && youthOnly ? { min: youth.min, max: youth.max } : null,
+      sort: sortBy,
+      page,
+    })
+      .then((res) => {
+        if (id !== reqId.current) return; // a newer search has gone out; ignore this late answer
+        setRows(res.rows);
+        setTotal(res.total);
+        setPageNo(res.page);
+      })
+      .catch(() => {})
+      .finally(() => { if (id === reqId.current) setSearching(false); });
+  }
+
+  // A new search or filter: back to page 1. The first render already has page 1 from the server.
+  useEffect(() => {
+    if (!mounted.current) { mounted.current = true; return; }
+    lastKey.current = filterKey;
+    runSearch(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [filterKey]);
+
+  // After someone is added, edited or removed the page re-renders with fresh data: show the current page again.
+  const seenPeople = useRef(people);
+  useEffect(() => {
+    if (seenPeople.current === people) return;
+    seenPeople.current = people;
+    runSearch(pageNo);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [people]);
+
+  const hasAnyInTab = ageTab === "adult" ? stats.adults > 0 : ageTab === "teen" ? stats.teens > 0 : stats.children > 0;
 
   // The list only carries what a row needs. The full profile is fetched when someone opens it.
   const [opening, setOpening] = useState(false);
@@ -332,17 +352,18 @@ export function PeopleClient({
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={`Search ${ageTab === "adult" ? "people" : ageTab === "teen" ? "teens" : "children"} by name, phone or ID...`}
-              className="h-10 w-full rounded-xl border border-line bg-surface pl-9 pr-3 text-sm placeholder:text-ink-faint focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 sm:w-64"
+              className="h-10 w-full rounded-xl border border-line bg-surface pl-9 pr-9 text-sm placeholder:text-ink-faint focus-visible:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/20 sm:w-64"
             />
+            {searching && <Spinner className="absolute right-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />}
           </div>
         </div>
       </div>
 
-      {filtered.length === 0 ? (
-        <EmptyState query={query} hasAny={people.some((p) => (p.ageGroup ?? "adult") === ageTab)} canWrite={canWrite} onAdd={() => setCreating(true)} ageTab={ageTab} />
+      {rows.length === 0 ? (
+        <EmptyState query={query} hasAny={hasAnyInTab} canWrite={canWrite} onAdd={() => setCreating(true)} ageTab={ageTab} />
       ) : view === "grid" ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {paged.slice.map((p, i) => {
+          {rows.map((p, i) => {
             const eng = engagementStyle[p.engagement];
             return (
               <div
@@ -400,7 +421,7 @@ export function PeopleClient({
               </tr>
             </thead>
             <tbody>
-              {paged.slice.map((p) => {
+              {rows.map((p) => {
                 const eng = engagementStyle[p.engagement];
                 return (
                   <tr
@@ -454,7 +475,7 @@ export function PeopleClient({
         </div>
       )}
 
-      {filtered.length > 0 && paged.pager}
+      {total > pageSize && <ListPager page={pageNo} pages={pages} total={total} size={pageSize} onPage={(p) => runSearch(p)} />}
       {opening && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/20" role="status" aria-live="polite">
           <div className="flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink shadow-lg"><Spinner className="size-4" /> Opening profile...</div>

@@ -1,6 +1,6 @@
 import { requireModule } from "@/lib/auth";
 import { canEdit } from "@/lib/permissions";
-import { getPeopleSlim, getAllPeopleStats } from "@/lib/data/people";
+import { queryPeople, getAllPeopleStats } from "@/lib/data/people";
 import Link from "@/components/ui/app-link";
 import { db } from "@/lib/db";
 import { PeopleClient } from "@/components/app/people-client";
@@ -15,8 +15,8 @@ export const metadata = { title: "People" };
 export default async function PeoplePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q } = await searchParams;
   const session = await requireModule("people");
-  const [allPeople, stats, departments, church, adults, categories, groups, waiting] = await Promise.all([
-    getPeopleSlim(session.churchId),
+  const [first, stats, departments, church, adults, categories, groups, waiting] = await Promise.all([
+    queryPeople(session.churchId, { tab: "adult", q: q ?? "", page: 1 }),
     getAllPeopleStats(session.churchId),
     db.department.findMany({
       where: { churchId: session.churchId },
@@ -63,7 +63,8 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
       )}
       <div data-tour="people-list">
         <PeopleClient
-          people={allPeople}
+          people={first.rows}
+          total={first.total}
           stats={stats}
           canWrite={canEdit(session, "people")}
           departments={departments}
