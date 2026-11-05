@@ -131,7 +131,7 @@ export function SearchSelect({
         <span className={cn("min-w-0 flex-1 truncate", !chosen && "text-ink-faint")}>
           {chosen ? chosen.label : empty?.label ?? placeholder}
         </span>
-        {chosen && chosen.hint && <span className="shrink-0 text-xs text-ink-faint">{chosen.hint}</span>}
+        {chosen && chosen.hint && !compact && <span className="shrink-0 text-xs text-ink-faint">{chosen.hint}</span>}
         {chosen && empty ? (
           <span
             aria-hidden
