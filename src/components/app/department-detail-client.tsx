@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "@/components/ui/app-link";
@@ -57,6 +58,7 @@ export function DepartmentDetailClient({
     start(async () => { await removeDepartmentMember(fd); setRemoving(null); router.refresh(); });
   };
 
+  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <div>
       <Link href="/app/settings?tab=departments" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
@@ -120,7 +122,7 @@ export function DepartmentDetailClient({
           </Card>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {shown.map((m) => (
+            {pgList.slice.map((m) => (
               <div key={m.id} className="flex items-center gap-3 rounded-xl border border-line bg-surface px-3 py-2.5">
                 <MemberAvatar name={m.name} photoUrl={m.photoUrl} gender={m.gender} size="sm" />
                 <div className="min-w-0 flex-1">
@@ -160,6 +162,7 @@ export function DepartmentDetailClient({
           </div>
         </div>
       </Modal>
+      {pgList.pager}
     </div>
   );
 }

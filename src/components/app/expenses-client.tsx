@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -102,6 +103,7 @@ function Records({ ledger, details, accounts, canWrite, canDelete }: { ledger: L
   };
 
   const heads = dayHeadings(shown, filters.sort !== "largest");
+  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <Card className="overflow-hidden p-0">
       <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-4 py-3">
@@ -122,7 +124,7 @@ function Records({ ledger, details, accounts, canWrite, canDelete }: { ledger: L
           </div>
         ) : (
           <div className="divide-y divide-line-soft">
-            {shown.map((r, i) => {
+            {pgList.slice.map((r, i) => {
               const d = details[r.id];
               const heading = heads[i];
               const account = acctName(r.accountId);
@@ -165,6 +167,7 @@ function Records({ ledger, details, accounts, canWrite, canDelete }: { ledger: L
           </div>
         </div>
       )}
+      {pgList.pager}
     </Card>
   );
 }

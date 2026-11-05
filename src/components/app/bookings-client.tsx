@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useMemo, useRef, useState, useSyncExternalStore, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -112,6 +113,7 @@ export function BookingsClient({ facilities, bookings, accounts, canWrite, slug,
       else toast(r.error, "error");
     });
 
+  const pgList = usePagedList(visible, 25, visible.length);
   return (
     <div className="space-y-4">
       {canWrite && !isDemo && <BookingLinkCard slug={slug} on={publicOn} note={publicNote} />}
@@ -183,7 +185,7 @@ export function BookingsClient({ facilities, bookings, accounts, canWrite, slug,
             </Card>
           ) : (
             <div className="space-y-2.5">
-              {visible.map((b) => {
+              {pgList.slice.map((b) => {
                 const isPast = new Date(b.endTime).getTime() < now;
                 const paid = paidOf(b);
                 const balance = b.amount != null ? Math.max(0, b.amount - paid) : null;
@@ -321,6 +323,7 @@ export function BookingsClient({ facilities, bookings, accounts, canWrite, slug,
         <FacilityDialog facility={editingFacility === "new" ? null : editingFacility} onClose={() => setEditingFacility(null)} />
       )}
       {payBooking && <PaymentDialog booking={payBooking} accounts={accounts} onClose={() => setPayFor(null)} />}
+      {pgList.pager}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useState, useTransition } from "react";
 import {
@@ -127,6 +128,7 @@ export function CounselingClient({
   const overdue = sessions.filter(isOverdue).length;
   const upcoming = sessions.filter(isUpcoming).length;
 
+  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -191,7 +193,7 @@ export function CounselingClient({
         </div>
       ) : (
         <div className="grid gap-3">
-          {shown.map((s) => {
+          {pgList.slice.map((s) => {
             const typeCfg = TYPE_CONFIG[s.type] ?? { label: s.type, icon: CircleDot };
             const statusCfg = STATUS_STYLE[s.status] ?? STATUS_STYLE.open;
             const TypeIcon = typeCfg.icon;
@@ -264,6 +266,7 @@ export function CounselingClient({
 
       {form && <SessionForm row={form.row} members={members} counselors={counselors} me={me} onClose={() => setForm(null)} />}
       {textFor && <TextDialog row={textFor} onClose={() => setTextFor(null)} />}
+      {pgList.pager}
     </div>
   );
 }

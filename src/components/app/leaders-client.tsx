@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState, useTransition, useRef, useEffect } from "react";
 import Link from "@/components/ui/app-link";
 import { useRouter } from "next/navigation";
@@ -112,6 +113,7 @@ export function LeadersClient({
     setDragIdx(null);
   }
 
+  const pg_leaders = usePagedList(leaders, 25, leaders.length);
   return (
     <div className="space-y-6">
       {/* Church-level leadership */}
@@ -152,7 +154,7 @@ export function LeadersClient({
             "grid gap-4 p-5",
             reordering ? "sm:grid-cols-1" : "sm:grid-cols-2 lg:grid-cols-3",
           )}>
-            {leaders.map((l, i) => {
+            {pg_leaders.slice.map((l, i) => {
               const isHead = i === 0 && !reordering;
               return (
                 <div
@@ -318,6 +320,7 @@ export function LeadersClient({
           </div>
         </div>
       )}
+      {pg_leaders.pager}
     </div>
   );
 }

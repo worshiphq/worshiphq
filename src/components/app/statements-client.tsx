@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -78,6 +79,7 @@ export function StatementsClient({
     w.print();
   };
 
+  const pgList = usePagedList(filtered, 25, filtered.length);
   if (selected) {
     return (
       <div className="mt-5">
@@ -171,7 +173,7 @@ export function StatementsClient({
         </Card>
       ) : (
         <div className="space-y-1">
-          {filtered.map((d) => (
+          {pgList.slice.map((d) => (
             <button
               key={d.id}
               onClick={() => setSelected(d)}
@@ -198,6 +200,7 @@ export function StatementsClient({
           ))}
         </div>
       )}
+      {pgList.pager}
     </div>
   );
 }

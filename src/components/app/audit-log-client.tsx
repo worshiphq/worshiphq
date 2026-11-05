@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +67,7 @@ export function AuditLogClient({ logs }: { logs: LogEntry[] }) {
   const shown = filtered.slice((cur - 1) * PAGE_SIZE, cur * PAGE_SIZE);
   const reset = (fn: () => void) => { fn(); setPage(1); };
 
+  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <div className="mt-5 space-y-4">
       <div className="space-y-2">
@@ -114,7 +116,7 @@ export function AuditLogClient({ logs }: { logs: LogEntry[] }) {
         </Card>
       ) : (
         <div className="space-y-1.5">
-          {shown.map((l) => {
+          {pgList.slice.map((l) => {
             const meta = ACTION_META[l.action] ?? ACTION_META.view;
             const Icon = meta.icon;
 
@@ -151,6 +153,7 @@ export function AuditLogClient({ logs }: { logs: LogEntry[] }) {
           <Pager page={cur} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </div>
       )}
+      {pgList.pager}
     </div>
   );
 }

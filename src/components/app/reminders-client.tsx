@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState, useTransition } from "react";
 import { Cake, Heart, Sparkles, Plus, Gift, Send, Zap, Pencil, Play, MessageSquare, UserPlus, Users, X, CalendarClock } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
@@ -56,6 +57,7 @@ export function RemindersClient({
   const { toast } = useFeedback();
   const [trigger, setTrigger] = useState("birthday");
 
+  const pg_automations = usePagedList(automations, 25, automations.length);
   return (
     <div>
       <PageHeader title="Reminders & automations" description="Care that never forgets - birthdays, anniversaries and follow-ups, on autopilot.">
@@ -168,7 +170,7 @@ export function RemindersClient({
           {automations.length === 0 && !automationsLocked && (
             <Card className="p-8 text-center text-sm text-ink-muted">No automations yet. Create one to start automatic birthday blessings and follow-ups.</Card>
           )}
-          {automations.map((a) => (
+          {pg_automations.slice.map((a) => (
             <AutomationCard key={a.id} automation={a} canWrite={canWrite && !automationsLocked} canDelete={canDelete} />
           ))}
         </div>
@@ -193,6 +195,7 @@ export function RemindersClient({
           )}
         </Card>
       </div>
+      {pg_automations.pager}
     </div>
   );
 }

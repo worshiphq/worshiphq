@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState, useTransition, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -572,6 +573,7 @@ function HistoryTab({
   const defaultAccountId = accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "";
   const [postAccounts, setPostAccounts] = useState<Record<string, string>>({});
 
+  const pg_weeks = usePagedList(weeks, 25, weeks.length);
   if (weeks.length === 0) {
     return (
       <Card className="p-8 text-center">
@@ -586,7 +588,7 @@ function HistoryTab({
 
   return (
     <div className="space-y-3">
-      {weeks.map((week) => {
+      {pg_weeks.slice.map((week) => {
         const sundayIso = new Date(new Date(week.weekOf).getTime() + 6 * 86400000).toISOString().slice(0, 10);
         return (
           <Card key={week.id} className="p-4">
@@ -695,6 +697,7 @@ function HistoryTab({
           </Card>
         );
       })}
+      {pg_weeks.pager}
     </div>
   );
 }

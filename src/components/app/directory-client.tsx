@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -49,6 +50,7 @@ export function DirectoryClient({
     );
   });
 
+  const pgList = usePagedList(filtered, 25, filtered.length);
   return (
     <div className="mt-5 space-y-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -113,7 +115,7 @@ export function DirectoryClient({
         </Card>
       ) : layout === "grid" ? (
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {filtered.map((m) => (
+          {pgList.slice.map((m) => (
             <Card key={m.id} className="p-4 text-center">
               <div className="mx-auto">
                 <MemberAvatar name={m.name} photoUrl={m.photoUrl} size="lg" />
@@ -142,7 +144,7 @@ export function DirectoryClient({
         </div>
       ) : (
         <div className="space-y-1">
-          {filtered.map((m) => (
+          {pgList.slice.map((m) => (
             <div key={m.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-surface-2">
               <MemberAvatar name={m.name} photoUrl={m.photoUrl} size="sm" />
               <div className="min-w-0 flex-1">
@@ -169,6 +171,7 @@ export function DirectoryClient({
           ))}
         </div>
       )}
+      {pgList.pager}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -238,6 +239,7 @@ export function VisitorsClient({
     compressImageFile(file).then(setEditCropping).catch(() => {});
   }
 
+  const pgList = usePagedList(filtered, 25, filtered.length);
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -299,7 +301,7 @@ export function VisitorsClient({
         </Card>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {filtered.map((v) => (
+          {pgList.slice.map((v) => (
             <Card
               key={v.id}
               className="group cursor-pointer p-4 space-y-2 transition-colors hover:border-primary/30"
@@ -618,6 +620,7 @@ export function VisitorsClient({
           </div>
         </>
       )}
+      {pgList.pager}
     </div>
   );
 }

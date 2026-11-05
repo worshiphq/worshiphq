@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useEffect, useMemo, useState } from "react";
 import Link from "@/components/ui/app-link";
 import { useRouter } from "next/navigation";
@@ -212,6 +213,7 @@ function CandidateAdder({ onAdd, busy, disabled }: { onAdd: (ids: string[], name
     return () => { live = false; clearTimeout(t); };
   }, [q]);
   const shown = q.trim().length < 2 ? [] : found;
+  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <div className="relative">
       <div className="flex items-center gap-2">
@@ -220,7 +222,7 @@ function CandidateAdder({ onAdd, busy, disabled }: { onAdd: (ids: string[], name
       </div>
       {shown.length > 0 && (
         <ul className="absolute z-20 mt-1 w-72 divide-y divide-line-soft rounded-xl border border-line bg-surface shadow-lg">
-          {shown.map((p) => (
+          {pgList.slice.map((p) => (
             <li key={p.id}>
               <button type="button" className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm hover:bg-surface-2" onClick={() => { onAdd([p.id], []); setQ(""); }}>
                 <span>{p.name}</span><span className="text-xs text-ink-faint">{p.baptized ? "already baptised" : p.phone ?? ""}</span>
@@ -229,6 +231,7 @@ function CandidateAdder({ onAdd, busy, disabled }: { onAdd: (ids: string[], name
           ))}
         </ul>
       )}
+      {pgList.pager}
     </div>
   );
 }

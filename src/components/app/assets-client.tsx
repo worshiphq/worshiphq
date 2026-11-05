@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState, useTransition } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -74,6 +75,7 @@ export function AssetsClient({
 
   const categories = [...new Set(assets.map((a) => a.category))].sort();
 
+  const pgList = usePagedList(filtered, 25, filtered.length);
   return (
     <div className="mt-5 space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
@@ -128,7 +130,7 @@ export function AssetsClient({
         </Card>
       ) : (
         <div className="space-y-2">
-          {filtered.map((a) => {
+          {pgList.slice.map((a) => {
             const meta = CAT_META[a.category] ?? CAT_META.other;
             const CatIcon = meta.icon;
 
@@ -178,6 +180,7 @@ export function AssetsClient({
           })}
         </div>
       )}
+      {pgList.pager}
     </div>
   );
 }

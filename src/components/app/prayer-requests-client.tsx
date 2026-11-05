@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState, useTransition } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -99,6 +100,7 @@ export function PrayerRequestsClient({ items, prayUrl, canWrite }: { items: Pray
     { key: "all", label: "All" },
   ];
 
+  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <div className="mt-5 space-y-4">
       <div className="space-y-2">
@@ -162,7 +164,7 @@ export function PrayerRequestsClient({ items, prayUrl, canWrite }: { items: Pray
         </Card>
       ) : (
         <div className="space-y-2">
-          {shown.map((p) => {
+          {pgList.slice.map((p) => {
             const meta = STATUS_META[p.status] ?? STATUS_META.active;
             const Icon = meta.icon;
             return (
@@ -211,6 +213,7 @@ export function PrayerRequestsClient({ items, prayUrl, canWrite }: { items: Pray
           <Pager page={cur} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </div>
       )}
+      {pgList.pager}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState, useTransition } from "react";
 import Link from "@/components/ui/app-link";
 import { Card } from "@/components/ui/card";
@@ -75,6 +76,7 @@ export function SermonsClient({ sermons, canWrite }: { sermons: SermonRow[]; can
     start(() => toggleSermonPublished(fd));
   };
 
+  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <div className="mt-5 space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -115,7 +117,7 @@ export function SermonsClient({ sermons, canWrite }: { sermons: SermonRow[]; can
         </Card>
       ) : (
         <div className="space-y-2">
-          {shown.map((s) => (
+          {pgList.slice.map((s) => (
             <Card key={s.id} className={`p-4 ${pending ? "opacity-60" : ""}`}>
               <div className="flex items-start gap-3">
                 <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand/10">
@@ -191,6 +193,7 @@ export function SermonsClient({ sermons, canWrite }: { sermons: SermonRow[]; can
           <Pager page={cur} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </div>
       )}
+      {pgList.pager}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
-import type { PersonStatus } from "@prisma/client";
+import type { Prisma, PersonStatus } from "@prisma/client";
 
 export interface PersonRow {
   id: string;
@@ -77,6 +77,12 @@ export interface PersonRow {
   grade: string | null;
 }
 
+/** What the People list, its search and its filters read. Everything else is loaded with getPersonFull when a profile is opened. */
+export type PersonListRow = Pick<PersonRow,
+  "id" | "memberId" | "firstName" | "lastName" | "fullName" | "email" | "phone" | "photoUrl" | "status" | "engagement" |
+  "ministries" | "departments" | "groupIds" | "categoryOptionIds" | "joined" | "leaderTitle" | "gender" | "dateOfBirth" |
+  "positions" | "ageGroup" | "parentName" | "guardianName" | "school" | "grade">;
+
 function engagementFor(status: PersonStatus): PersonRow["engagement"] {
   if (status === "visitor") return "new";
   if (status === "inactive") return "at-risk";
@@ -105,6 +111,20 @@ async function deviceCheckinIds(churchId: string, people: { id: string; memberId
   return ids;
 }
 
+const FULL_INCLUDE = {
+  branch: { select: { name: true } },
+  groups: { select: { id: true, name: true } },
+  household: { select: { name: true } },
+  departments: { select: { id: true, name: true } },
+  categoryOptions: { select: { id: true } },
+  positions: { select: { id: true, position: true, department: { select: { name: true } } } },
+  parent: { select: { firstName: true, lastName: true } },
+  _count: { select: { biometrics: true } },
+} as const;
+
+/**
+ * Everyone, with every field. Used where each row is opened in full (the children list, exports).
+ */
 export async function getPeople(churchId: string, ageFilter?: "adults" | "children"): Promise<PersonRow[]> {
   const ageWhere = ageFilter === "adults"
     ? { OR: [{ ageGroup: null }, { ageGroup: "adult" }] }
@@ -115,19 +135,71 @@ export async function getPeople(churchId: string, ageFilter?: "adults" | "childr
   const people = await db.person.findMany({
     where: { churchId, ...ageWhere },
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-    include: {
-      branch: { select: { name: true } },
+    include: FULL_INCLUDE,
+  });
+  const onDevice = await deviceCheckinIds(churchId, people);
+  return people.map((p) => fullRow(p, onDevice));
+}
+
+/** One person with every field, for when their profile or edit form is opened. Null if they are not in this church. */
+export async function getPersonFull(churchId: string, id: string): Promise<PersonRow | null> {
+  const p = await db.person.findFirst({ where: { id, churchId }, include: FULL_INCLUDE });
+  if (!p) return null;
+  return fullRow(p, await deviceCheckinIds(churchId, [p]));
+}
+
+/**
+ * The People list: only what a row, the search box and the filters need. The other ~40 fields (addresses, emergency
+ * contacts, custom answers...) are only used when someone opens a profile, which loads them with getPersonFull. For a
+ * big church that is most of the page's size and most of the work to build it.
+ */
+export async function getPeopleSlim(churchId: string): Promise<PersonListRow[]> {
+  const people = await db.person.findMany({
+    where: { churchId },
+    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+    select: {
+      id: true, memberId: true, firstName: true, lastName: true, otherNames: true, title: true, email: true, phone: true,
+      photoUrl: true, status: true, joinedAt: true, leaderTitle: true, gender: true, dateOfBirth: true, ageGroup: true,
+      guardianName: true, school: true, grade: true,
       groups: { select: { id: true, name: true } },
-      household: { select: { name: true } },
-      departments: { select: { id: true, name: true } },
+      departments: { select: { name: true } },
       categoryOptions: { select: { id: true } },
       positions: { select: { id: true, position: true, department: { select: { name: true } } } },
       parent: { select: { firstName: true, lastName: true } },
-      _count: { select: { biometrics: true } },
     },
   });
-  const onDevice = await deviceCheckinIds(churchId, people);
   return people.map((p) => ({
+    id: p.id,
+    memberId: p.memberId,
+    firstName: p.firstName,
+    lastName: p.lastName,
+    fullName: [p.title, p.firstName, p.otherNames, p.lastName].filter(Boolean).join(" "),
+    email: p.email,
+    phone: p.phone,
+    photoUrl: p.photoUrl,
+    status: p.status,
+    engagement: engagementFor(p.status),
+    ministries: p.groups.map((g) => g.name),
+    departments: p.departments.map((d) => d.name),
+    groupIds: p.groups.map((g) => g.id),
+    categoryOptionIds: p.categoryOptions.map((o) => o.id),
+    joined: p.joinedAt.toISOString(),
+    leaderTitle: p.leaderTitle,
+    gender: p.gender,
+    dateOfBirth: isoDate(p.dateOfBirth),
+    positions: p.positions.map((pos) => ({ id: pos.id, departmentName: pos.department.name, position: pos.position })),
+    ageGroup: p.ageGroup,
+    parentName: p.parent ? `${p.parent.firstName} ${p.parent.lastName}` : null,
+    guardianName: p.guardianName,
+    school: p.school,
+    grade: p.grade,
+  }));
+}
+
+type FullPerson = Prisma.PersonGetPayload<{ include: typeof FULL_INCLUDE }>;
+
+function fullRow(p: FullPerson, onDevice: Set<string>): PersonRow {
+  return {
     id: p.id,
     memberId: p.memberId,
     firstName: p.firstName,
@@ -194,7 +266,7 @@ export async function getPeople(churchId: string, ageFilter?: "adults" | "childr
     guardianPhone: p.guardianPhone,
     school: p.school,
     grade: p.grade,
-  }));
+  };
 }
 
 const ADULT_FILTER = { OR: [{ ageGroup: null }, { ageGroup: "adult" }] };

@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -550,9 +551,10 @@ function WeeklyRecords({ weeks }: { weeks: WeekGroup[] }) {
     });
   };
 
+  const pg_weeks = usePagedList(weeks, 25, weeks.length);
   return (
     <div className="space-y-3">
-      {weeks.map((week) => (
+      {pg_weeks.slice.map((week) => (
         <Card key={week.label} className="overflow-hidden">
           <button
             onClick={() => toggle(week.label)}
@@ -612,6 +614,7 @@ function WeeklyRecords({ weeks }: { weeks: WeekGroup[] }) {
           )}
         </Card>
       ))}
+      {pg_weeks.pager}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import { requireModule } from "@/lib/auth";
 import { canEdit } from "@/lib/permissions";
-import { getPeople, getAllPeopleStats } from "@/lib/data/people";
+import { getPeopleSlim, getAllPeopleStats } from "@/lib/data/people";
 import Link from "@/components/ui/app-link";
 import { db } from "@/lib/db";
 import { PeopleClient } from "@/components/app/people-client";
@@ -16,7 +16,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
   const { q } = await searchParams;
   const session = await requireModule("people");
   const [allPeople, stats, departments, church, adults, categories, groups, waiting] = await Promise.all([
-    getPeople(session.churchId),
+    getPeopleSlim(session.churchId),
     getAllPeopleStats(session.churchId),
     db.department.findMany({
       where: { churchId: session.churchId },

@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { HalfHourSelect } from "@/components/app/half-hour-select";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -89,6 +90,7 @@ export function RostersClient({ sheets, members, roles, smsBalance, messageTempl
   const [showRoles, setShowRoles] = useState(false);
   const [showAnnounce, setShowAnnounce] = useState(false);
 
+  const pg_sheets = usePagedList(sheets, 25, sheets.length);
   return (
     <div className="mt-5 space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
@@ -109,7 +111,7 @@ export function RostersClient({ sheets, members, roles, smsBalance, messageTempl
         </Card>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
-          {sheets.map((s) => (
+          {pg_sheets.slice.map((s) => (
             <SheetCard key={s.id} sheet={s} remind={remind} smsBalance={smsBalance} canWrite={canWrite} onEdit={() => setEditing(s)} />
           ))}
         </div>
@@ -131,6 +133,7 @@ export function RostersClient({ sheets, members, roles, smsBalance, messageTempl
       )}
       {showRoles && <RolesManager roles={roles} canWrite={canWrite} onClose={() => setShowRoles(false)} />}
       {showAnnounce && <AnnounceSettingsDialog announce={announce} remind={remind} groups={groups} departments={departments} onClose={() => setShowAnnounce(false)} />}
+      {pg_sheets.pager}
     </div>
   );
 }

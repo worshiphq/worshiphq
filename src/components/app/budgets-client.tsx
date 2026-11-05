@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState, useTransition } from "react";
 import { Trash2, ChevronDown, ChevronRight, Plus, Loader2, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { deleteBudget, deleteBudgetItem, setBudgetAmount } from "@/app/actions/budgets";
@@ -90,6 +91,7 @@ export function BudgetsClient({
     setExpanded((p) => ({ ...p, [id]: !p[id] }));
   }
 
+  const pg_budgets = usePagedList(budgets, 25, budgets.length);
   return (
     <div>
       <div className="mb-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -107,7 +109,7 @@ export function BudgetsClient({
         </div>
       ) : (
         <div className="grid gap-3">
-          {budgets.map((b) => {
+          {pg_budgets.slice.map((b) => {
             const open = expanded[b.id] ?? false;
             const t = tally(b);
             const pct = b.total > 0 ? Math.min(100, Math.round((t.spent / b.total) * 100)) : 0;
@@ -271,6 +273,7 @@ export function BudgetsClient({
           })}
         </div>
       )}
+      {pg_budgets.pager}
     </div>
   );
 }

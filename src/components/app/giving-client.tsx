@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -76,6 +77,7 @@ export function GivingClient({ year, month, kind, entries, pageInfo, funds, stat
   const offertoryNames = [...new Set(funds.map((f) => f.name).filter((n) => /offer/i.test(n)))];
   const collectionFunds = offertoryNames.length ? offertoryNames : ["Offertory"];
 
+  const pgList = usePagedList(entries, 25, entries.length);
   return (
     <div>
       <PageHeader title="Giving & donations" description="Tithes, offertory and Mobile Money giving, all in ₵. Offertory is counted together, so it shows as one total.">
@@ -128,7 +130,7 @@ export function GivingClient({ year, month, kind, entries, pageInfo, funds, stat
             </div>
           ) : (
             <div className="divide-y divide-line-soft">
-              {entries.map((e) => (e.type === "collection"
+              {pgList.slice.map((e) => (e.type === "collection"
                 ? <CollectionRow key={e.id} c={e} canDelete={canDelete} />
                 : <GiftRow key={e.id} g={e} canDelete={canDelete} />))}
             </div>
@@ -182,6 +184,7 @@ export function GivingClient({ year, month, kind, entries, pageInfo, funds, stat
           <CollectionForm funds={collectionFunds} accounts={accounts} onDone={() => setRecording(null)} />
         </Modal>
       )}
+      {pgList.pager}
     </div>
   );
 }

@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState, useTransition } from "react";
 import Link from "@/components/ui/app-link";
 import { useRouter } from "next/navigation";
@@ -64,6 +65,7 @@ export function GroupDetailClient({
 
   const sched: ScheduleEntry[] = group.schedule;
 
+  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-start gap-3">
@@ -157,7 +159,7 @@ export function GroupDetailClient({
           </Card>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {shown.map((m) => (
+            {pgList.slice.map((m) => (
               <div key={m.id} className="flex items-center gap-3 rounded-xl border border-line bg-surface px-3 py-2.5">
                 <MemberAvatar name={m.name} photoUrl={m.photoUrl} gender={m.gender} size="sm" />
                 <div className="min-w-0 flex-1">
@@ -192,6 +194,7 @@ export function GroupDetailClient({
           </div>
         </div>
       </Modal>
+      {pgList.pager}
     </div>
   );
 }

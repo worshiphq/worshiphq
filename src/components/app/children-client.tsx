@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useMemo, useState } from "react";
 import {
@@ -58,6 +59,7 @@ export function ChildrenClient({
     });
   }, [people, query, segment]);
 
+  const pgList = usePagedList(filtered, 25, filtered.length);
   return (
     <div>
       <PageHeader title="Children & Teens" description="Manage children and teens separately from adults. Assign parents and track school info.">
@@ -143,7 +145,7 @@ export function ChildrenClient({
         </div>
       ) : view === "grid" ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((p) => (
+          {pgList.slice.map((p) => (
             <div
               key={p.id}
               onClick={() => setSelected(p)}
@@ -182,7 +184,7 @@ export function ChildrenClient({
               </tr>
             </thead>
             <tbody>
-              {filtered.map((p) => (
+              {pgList.slice.map((p) => (
                 <tr
                   key={p.id}
                   onClick={() => setSelected(p)}
@@ -235,6 +237,7 @@ export function ChildrenClient({
           onClose={() => { setCreating(false); setEditing(null); }}
         />
       )}
+      {pgList.pager}
     </div>
   );
 }

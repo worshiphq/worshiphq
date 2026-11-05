@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState, useTransition } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -40,6 +41,7 @@ export function NoticesClient({ items }: { items: NoticeRow[] }) {
     start(async () => { await deleteNotice(fd); binDeleted(); });
   };
 
+  const pgList = usePagedList(filtered, 25, filtered.length);
   return (
     <div className="mt-5 space-y-4">
       <div className="relative">
@@ -61,7 +63,7 @@ export function NoticesClient({ items }: { items: NoticeRow[] }) {
         </Card>
       ) : (
         <div className="space-y-3">
-          {filtered.map((n) => (
+          {pgList.slice.map((n) => (
             <Card
               key={n.id}
               className={`p-4 ${n.pinned ? "border-brand/30 bg-brand/5" : ""} ${pending ? "opacity-60" : ""}`}
@@ -111,6 +113,7 @@ export function NoticesClient({ items }: { items: NoticeRow[] }) {
           ))}
         </div>
       )}
+      {pgList.pager}
     </div>
   );
 }

@@ -18,7 +18,9 @@ import { OnFormComplete } from "@/components/ui/form-effects";
 import { Badge } from "@/components/ui/badge";
 import { ClickableAvatar } from "@/components/ui/photo-lightbox";
 import { Label, Textarea } from "@/components/ui/input";
-import { updatePerson, deletePerson, createPersonState } from "@/app/actions/people";
+import { updatePerson, deletePerson, createPersonState, loadPerson } from "@/app/actions/people";
+import { usePagedList } from "@/components/ui/list-pager";
+import { Spinner } from "@/components/ui/spinner";
 import { updateChild, assignParent, createChildState } from "@/app/actions/children";
 import { sendSmsToPerson } from "@/app/actions/communications";
 import { BiometricRegisterButton, DeviceCheckinCard } from "@/components/app/biometric-register";
@@ -26,7 +28,7 @@ import { MemberFormFields, type MemberDefaults } from "@/components/app/member-f
 import { MemberGroupFields } from "@/components/app/member-group-fields";
 import { FamilySection } from "@/components/app/family-section";
 import { MemberCategoryFields, type FormCategory } from "@/components/app/member-category-fields";
-import type { PersonRow } from "@/lib/data/people";
+import type { PersonRow, PersonListRow } from "@/lib/data/people";
 import type { FormField } from "@/lib/forms/registration";
 import { formatDate, cn } from "@/lib/utils";
 import { confirmBinDelete } from "@/lib/recycle-bin-events";
@@ -62,7 +64,7 @@ type Adult = { id: string; firstName: string; lastName: string };
 export function PeopleClient({
   people, stats, canWrite, departments, groups = [], formFields, adults, categories = [], leaderTitles = [], initialQuery = "", youth = null, idCardsLocked = false,
 }: {
-  people: PersonRow[]; stats: AllStats; canWrite: boolean; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; leaderTitles?: string[]; initialQuery?: string; youth?: { label: string; min: number; max: number } | null; idCardsLocked?: boolean;
+  people: PersonListRow[]; stats: AllStats; canWrite: boolean; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; leaderTitles?: string[]; initialQuery?: string; youth?: { label: string; min: number; max: number } | null; idCardsLocked?: boolean;
 }) {
   const [ageTab, setAgeTab] = useState<AgeTab>("adult");
   const [query, setQuery] = useState(initialQuery);
@@ -120,6 +122,24 @@ export function PeopleClient({
     });
     return list;
   }, [people, query, segment, deptFilter, groupFilter, engFilter, catFilter, sortBy, ageTab, isAdultTab, youth, youthOnly]);
+
+  // 25 to a page, and back to page 1 whenever the search or a filter changes.
+  const paged = usePagedList(filtered, 25, `${ageTab}|${query}|${segment}|${deptFilter}|${groupFilter}|${engFilter}|${catFilter}|${sortBy}|${youthOnly}`);
+
+  // The list only carries what a row needs. The full profile is fetched when someone opens it.
+  const [opening, setOpening] = useState(false);
+  async function openPerson(p: PersonListRow) {
+    if (opening) return;
+    setOpening(true);
+    try {
+      const full = await loadPerson(p.id);
+      if (full) setSelected(full);
+    } catch {
+      // Could not load the profile (offline, or signed out): leave the list as it is.
+    } finally {
+      setOpening(false);
+    }
+  }
 
   const addLabel = ageTab === "child" ? "Add child" : ageTab === "teen" ? "Add teen" : "Add member";
 
@@ -322,14 +342,14 @@ export function PeopleClient({
         <EmptyState query={query} hasAny={people.some((p) => (p.ageGroup ?? "adult") === ageTab)} canWrite={canWrite} onAdd={() => setCreating(true)} ageTab={ageTab} />
       ) : view === "grid" ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {filtered.map((p, i) => {
+          {paged.slice.map((p, i) => {
             const eng = engagementStyle[p.engagement];
             return (
               <div
                 key={p.id}
-                onClick={() => setSelected(p)}
+                onClick={() => openPerson(p)}
                 role="button"
-                {...pressable(() => setSelected(p))}
+                {...pressable(() => openPerson(p))}
                 className="group cursor-pointer rounded-2xl border border-line bg-surface p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/20 hover:shadow-md"
                 style={{ animationDelay: `${i * 30}ms` }}
               >
@@ -380,13 +400,13 @@ export function PeopleClient({
               </tr>
             </thead>
             <tbody>
-              {filtered.map((p) => {
+              {paged.slice.map((p) => {
                 const eng = engagementStyle[p.engagement];
                 return (
                   <tr
                     key={p.id}
-                    onClick={() => setSelected(p)}
-                    {...pressable(() => setSelected(p))}
+                    onClick={() => openPerson(p)}
+                    {...pressable(() => openPerson(p))}
                     className="group cursor-pointer border-b border-line-soft transition-colors last:border-0 hover:bg-surface-2/50"
                   >
                     <td className="p-4">
@@ -434,6 +454,12 @@ export function PeopleClient({
         </div>
       )}
 
+      {filtered.length > 0 && paged.pager}
+      {opening && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/20" role="status" aria-live="polite">
+          <div className="flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink shadow-lg"><Spinner className="size-4" /> Opening profile...</div>
+        </div>
+      )}
       {selected && (
         <PersonDrawer
           person={selected}

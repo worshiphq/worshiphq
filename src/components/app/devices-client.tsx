@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "@/components/ui/app-link";
@@ -89,6 +90,7 @@ export function DevicesClient({ data: initial }: { data: DevicesData }) {
     finally { setBusy(null); }
   }
 
+  const pg_data_events = usePagedList(data.events, 25, data.events.length);
   return (
     <div>
       <PageHeader title="Biometric devices" description="Check people in with a face, palm or fingerprint scan. Add the devices your church uses and watch the scans come in.">
@@ -165,7 +167,7 @@ export function DevicesClient({ data: initial }: { data: DevicesData }) {
           <h2 className="mb-2 flex items-center gap-2 font-display text-lg font-semibold"><Radio className="size-4 text-primary" /> Recent scans</h2>
           <Card className="p-0">
             <ul className="divide-y divide-line-soft text-sm">
-              {data.events.map((e) => {
+              {pg_data_events.slice.map((e) => {
                 const r = RESULT_TEXT[e.result] ?? { text: e.result, tone: "text-ink-muted" };
                 return (
                   <li key={e.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5">
@@ -205,6 +207,7 @@ export function DevicesClient({ data: initial }: { data: DevicesData }) {
           )}
         </Modal>
       )}
+      {pg_data_events.pager}
     </div>
   );
 }

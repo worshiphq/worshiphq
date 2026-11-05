@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
@@ -192,6 +193,7 @@ export function FollowUpsClient({
     { key: "all", label: "All" },
   ];
 
+  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <div className="mt-5 space-y-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -270,7 +272,7 @@ export function FollowUpsClient({
         </Card>
       ) : (
         <div className="space-y-2">
-          {shown.map((f) => {
+          {pgList.slice.map((f) => {
             const typeMeta = TYPE_META[f.type] ?? TYPE_META.custom;
             const TypeIcon = typeMeta.icon;
             const overdue = isOverdue(f);
@@ -456,6 +458,7 @@ export function FollowUpsClient({
           )}
         </div>
       )}
+      {pgList.pager}
     </div>
   );
 }

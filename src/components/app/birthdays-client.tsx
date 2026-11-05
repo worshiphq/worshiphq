@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -126,6 +127,7 @@ export function BirthdaysClient({ items, today }: { items: Item[]; today: string
     return { b, a };
   };
 
+  const pgList = usePagedList(visible, 25, visible.length);
   return (
     <div className="mt-5 space-y-4">
       {todayCount > 0 && (
@@ -254,7 +256,7 @@ export function BirthdaysClient({ items, today }: { items: Item[]; today: string
               <p className="text-xs text-ink-faint">Showing the first {rows.list.length} of {rows.total} matches. Type more of the name to narrow it down.</p>
             )}
             <div className="space-y-1">
-              {visible.map((item) => {
+              {pgList.slice.map((item) => {
                 const dm = rows.mode === "month" && month != null ? dayOf(item, month) : null;
                 return (
                   <div
@@ -309,6 +311,7 @@ export function BirthdaysClient({ items, today }: { items: Item[]; today: string
           </>
         )
       )}
+      {pgList.pager}
     </div>
   );
 }

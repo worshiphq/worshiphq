@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useMemo, useState, useTransition } from "react";
 import { Search, Trash2, Star, Eye, EyeOff, Sparkles, Heart, HandHeart, Shield, BookOpen, Award, Loader2 } from "lucide-react";
 import { deleteTestimony, toggleTestimonyStatus } from "@/app/actions/testimonies";
@@ -43,6 +44,7 @@ export function TestimoniesClient({ testimonies }: { testimonies: Testimony[] })
     return list;
   }, [testimonies, q, filter]);
 
+  const pgList = usePagedList(filtered, 25, filtered.length);
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
@@ -81,7 +83,7 @@ export function TestimoniesClient({ testimonies }: { testimonies: Testimony[] })
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {filtered.map((t) => {
+          {pgList.slice.map((t) => {
             const cfg = CATEGORY_CONFIG[t.category] ?? CATEGORY_CONFIG.other;
             const Icon = cfg.icon;
             return (
@@ -117,6 +119,7 @@ export function TestimoniesClient({ testimonies }: { testimonies: Testimony[] })
           })}
         </div>
       )}
+      {pgList.pager}
     </div>
   );
 }

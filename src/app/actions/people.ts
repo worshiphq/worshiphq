@@ -9,6 +9,7 @@ import { getFormDefinition, questionFields } from "@/lib/forms/registration";
 import { buildPersonData } from "@/lib/forms/person-data";
 import { nextMemberId, resolveDepartmentIds, resolveGroupIds } from "@/lib/members/helpers";
 import { logAudit } from "@/lib/audit";
+import { getPersonFull } from "@/lib/data/people";
 import { RecycleBin } from "@/lib/recycle-bin";
 import { saveMemberCategoryChoices } from "@/lib/members/categories";
 import { cleanLeaderTitle, leaderTitleList } from "@/lib/leader-titles";
@@ -197,3 +198,11 @@ export async function issueMissingMemberIds() {
   revalidatePath("/app/people/id-cards");
   return { issued };
 }
+
+/** One person with every field, loaded when their profile or edit form is opened from the People list. */
+export async function loadPerson(id: string) {
+  const session = await requireSession();
+  if (!session.isDemo && !session.impersonating && session.sections && !session.sections.includes("people")) throw new Error("Not allowed.");
+  return getPersonFull(session.churchId, id);
+}
+

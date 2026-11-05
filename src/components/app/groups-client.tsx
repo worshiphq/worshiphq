@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { sendLeaderGroupMessage } from "@/app/actions/leader-messages";
 import { useState, useTransition } from "react";
 import Link from "@/components/ui/app-link";
@@ -104,6 +105,7 @@ export function GroupsClient({ items, people, typeSuggestions, canWrite, stats, 
     start(async () => { await deleteGroup(fd); binDeleted(); });
   };
 
+  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <div className="mt-5 space-y-4">
       {/* ── At a glance ── */}
@@ -162,7 +164,7 @@ export function GroupsClient({ items, people, typeSuggestions, canWrite, stats, 
       ) : (
         <>
           <div className={cn("grid gap-4 sm:grid-cols-2 xl:grid-cols-3", pending && "opacity-60")}>
-            {shown.map((g) => (
+            {pgList.slice.map((g) => (
               <Card key={g.id} className="flex flex-col overflow-hidden p-0 transition hover:shadow-md">
                 <div className="flex items-start gap-3 p-4">
                   <span className={cn("grid size-11 shrink-0 place-items-center rounded-xl text-[1rem]/6 font-bold", toneFor(g.type))}>
@@ -254,6 +256,7 @@ export function GroupsClient({ items, people, typeSuggestions, canWrite, stats, 
           <Pager page={cur} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </>
       )}
+      {pgList.pager}
     </div>
   );
 }

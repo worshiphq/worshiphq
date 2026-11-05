@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useState, useMemo, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -641,6 +642,7 @@ function ContributionRecorder({ members, year, accounts }: { members: HarvestDat
 /* ────── Contributions List ────── */
 
 function ContributionsList({ contributions, canWrite }: { contributions: HarvestContributionRow[]; canWrite: boolean }) {
+  const pg_contributions = usePagedList(contributions, 25, contributions.length);
   const router = useRouter();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -700,7 +702,7 @@ function ContributionsList({ contributions, canWrite }: { contributions: Harvest
         <Badge variant="outline">{contributions.length} total</Badge>
       </div>
       <div className="divide-y divide-line-soft">
-        {contributions.map((c) => {
+        {pg_contributions.slice.map((c) => {
           const Icon = methodIcon[c.method] ?? Banknote;
           const isEditing = editingId === c.id;
           const isDeleting = deletingId === c.id;
@@ -802,6 +804,7 @@ function ContributionsList({ contributions, canWrite }: { contributions: Harvest
           );
         })}
       </div>
+      {pg_contributions.pager}
     </Card>
   );
 }
@@ -857,6 +860,7 @@ function HarvestReport({
   const memberTotal = contributions.filter((c) => c.donorType === "member").reduce((s, c) => s + c.amount, 0);
   const visitorTotal = contributions.filter((c) => c.donorType === "visitor").reduce((s, c) => s + c.amount, 0);
 
+  const pg_donorList = usePagedList(donorList, 25, donorList.length);
   return (
     <div className="space-y-4">
       <Card className="p-6">
@@ -906,7 +910,7 @@ function HarvestReport({
             <p className="text-sm text-ink-muted">Ranked by total contribution</p>
           </div>
           <div className="divide-y divide-line-soft">
-            {donorList.map((d, i) => (
+            {pg_donorList.slice.map((d, i) => (
               <div key={i} className="flex items-center gap-3 px-5 py-3">
                 <span className="grid size-7 place-items-center rounded-full bg-surface-2 text-xs font-semibold text-ink-faint">{i + 1}</span>
                 <ContributionAvatar c={{ donorType: d.type, donorName: d.name, photoUrl: null }} />
@@ -927,6 +931,7 @@ function HarvestReport({
           </div>
         </Card>
       )}
+      {pg_donorList.pager}
     </div>
   );
 }

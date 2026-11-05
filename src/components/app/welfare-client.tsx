@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { SearchSelect } from "@/components/app/search-select";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -135,6 +136,7 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
   const applyRange = () =>
     router.push(`/app/welfare?from=${rFromY}-${String(rFromM).padStart(2, "0")}&to=${rToY}-${String(rToM).padStart(2, "0")}`);
 
+  const pgList = usePagedList(visible, 25, visible.length);
   return (
     <div className="space-y-4">
       {canWrite && (
@@ -261,7 +263,7 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
 
           {rangeMode && rangeBlocked ? null : (
           <div className="divide-y divide-line-soft overflow-hidden rounded-xl border border-line">
-            {visible.map((m) => (
+            {pgList.slice.map((m) => (
               <div key={m.id} onClick={() => setDetailFor({ id: m.id, name: m.name })}
                 role="button"
                 {...pressable(() => setDetailFor({ id: m.id, name: m.name }))}
@@ -327,6 +329,7 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
       {remindOne && <RemindDialog title={`Remind ${remindOne.name}`} personId={remindOne.id} smsBalance={smsBalance} onClose={() => setRemindOne(null)} />}
       {detailFor && <MemberDetailDialog member={detailFor} rates={data.rates} canWrite={canWrite} onClose={() => setDetailFor(null)} />}
       {showTemplates && <TemplatesDialog templates={templates} onClose={() => setShowTemplates(false)} />}
+      {pgList.pager}
     </div>
   );
 }

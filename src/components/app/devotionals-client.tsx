@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState, useTransition } from "react";
 import Link from "@/components/ui/app-link";
 import { Card } from "@/components/ui/card";
@@ -66,6 +67,7 @@ export function DevotionalsClient({
     start(() => toggleDevotionalPublished(fd));
   };
 
+  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <div className="mt-5 space-y-4">
       <div className="flex flex-wrap items-center gap-2">
@@ -100,7 +102,7 @@ export function DevotionalsClient({
         </Card>
       ) : (
         <div className="space-y-3">
-          {shown.map((d) => (
+          {pgList.slice.map((d) => (
             <Card key={d.id} className={`p-5 ${pending ? "opacity-60" : ""}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -162,6 +164,7 @@ export function DevotionalsClient({
       )}
 
       {sendFor && <DevotionalSendDialog devotional={sendFor} audiences={audiences} members={members} onClose={() => setSendFor(null)} />}
+      {pgList.pager}
     </div>
   );
 }

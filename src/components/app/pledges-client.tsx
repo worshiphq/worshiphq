@@ -1,5 +1,6 @@
 "use client";
 
+import { usePagedList } from "@/components/ui/list-pager";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
@@ -93,6 +94,7 @@ export function PledgesClient({
     start(async () => { await fn(fd); toast(msg, "info"); router.refresh(); });
   };
 
+  const pgList = usePagedList(filtered, 25, filtered.length);
   return (
     <div className={cn("mt-5 space-y-6", pending && "opacity-60")}>
       {/* Totals */}
@@ -219,7 +221,7 @@ export function PledgesClient({
           </Card>
         ) : (
           <div className="space-y-2">
-            {filtered.map((p) => {
+            {pgList.slice.map((p) => {
               const pct = p.amount > 0 ? Math.round((p.fulfilled / p.amount) * 100) : 0;
               const isComplete = p.fulfilled >= p.amount;
               const isOverdue = p.dueAt && !isComplete && new Date(p.dueAt) < new Date();
@@ -347,6 +349,7 @@ export function PledgesClient({
           </div>
         )}
       </div>
+      {pgList.pager}
     </div>
   );
 }
