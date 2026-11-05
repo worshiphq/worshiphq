@@ -48,14 +48,23 @@ export const BILLING_GRACE_DAYS = 7;
  * A gifted plan (status "grace") never expires, and a paid plan with no end date is left as it is.
  */
 export function effectivePlan(
-  sub: { plan: string; status?: string | null; renewsAt?: Date | null } | null | undefined,
+  sub: { plan: string; status?: string | null; renewsAt?: Date | null; trialPlan?: string | null; trialEndsAt?: Date | null } | null | undefined,
   now: Date = new Date(),
 ): PlanId {
   if (!sub) return "free";
   const plan = ((sub.plan as PlanId) || "free") as PlanId;
-  if (sub.status === "grace") return plan;
-  if (plan !== "free" && sub.renewsAt && now.getTime() > sub.renewsAt.getTime() + BILLING_GRACE_DAYS * 86_400_000) return "free";
-  return plan;
+  let paid: PlanId = plan;
+  if (sub.status !== "grace" && plan !== "free" && sub.renewsAt && now.getTime() > sub.renewsAt.getTime() + BILLING_GRACE_DAYS * 86_400_000) paid = "free";
+  // A running trial lifts the church to the trial plan, never above it and never below what it already pays for.
+  // When trialEndsAt passes this stops applying on its own.
+  const trial = sub.trialPlan as PlanId | null | undefined;
+  if (trial && sub.trialEndsAt && sub.trialEndsAt.getTime() > now.getTime() && planRank(trial) > planRank(paid)) return trial;
+  return paid;
+}
+
+/** The plan a church pays for right now, ignoring any free trial. Billing screens and paid-only rules use this. */
+export function paidPlan(sub: { plan: string; status?: string | null; renewsAt?: Date | null } | null | undefined, now: Date = new Date()): PlanId {
+  return effectivePlan(sub ? { plan: sub.plan, status: sub.status, renewsAt: sub.renewsAt } : sub, now);
 }
 
 export interface PlanLimits {

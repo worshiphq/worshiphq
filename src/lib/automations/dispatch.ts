@@ -1,4 +1,5 @@
 import "server-only";
+import { runTrialNotices } from "@/lib/automations/trial-notices";
 import { runAutomations } from "./run";
 import { refreshUsdToGhsRate } from "@/lib/integrations/fx";
 import { runPledgeReminders } from "@/lib/pledges/reminders";
@@ -51,6 +52,9 @@ export async function runDailyAutomations(now = new Date(), precise = false) {
   if (!precise) {
     summary.billing = await safe("billing", () => runBillingCycle());
   }
+
+  // Free-trial notices: a few rows, so it runs on every tick and a trial ending is announced within the half hour.
+  summary.trialNotices = await safe("trialNotices", () => runTrialNotices(now));
 
   // 2) Church-facing messages, each across churches in parallel.
   summary.birthdays = await safe("birthdays", () => runBirthdays(now, ignoreHour, smsDeadline));

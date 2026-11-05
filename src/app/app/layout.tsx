@@ -16,6 +16,7 @@ import { getRecentNotifications } from "@/lib/data/notifications";
 import { getChurchPlan } from "@/lib/plan-gate-server";
 import { commsTrial } from "@/lib/plan-gate";
 import { BillingBanner } from "@/components/app/billing-banner";
+import { TrialBanner } from "@/components/app/trial-banner";
 import { NavProgress } from "@/components/app/nav-progress";
 
 export const metadata: Metadata = {
@@ -76,6 +77,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
             <AmountPrivacy enabled={church?.hideAmounts ?? false}>
               {/* Only the Main Admin can renew, so only they are nagged. */}
               {session.role === "Owner" && !session.isDemo && !session.impersonating && <BillingBanner churchId={session.churchId} />}
+              {session.role === "Owner" && !session.isDemo && !session.impersonating && <TrialBanner churchId={session.churchId} />}
               {children}
             </AmountPrivacy>
           </PhoneDefaults>

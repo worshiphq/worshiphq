@@ -3,6 +3,7 @@ import "server-only";
 import { cache } from "react";
 import { db } from "@/lib/db";
 import { getUsdToGhsRate } from "@/lib/integrations/fx";
+import { normalizeTrialSettings } from "@/lib/trial-settings";
 import { plans as defaultPlans } from "@/config/pricing";
 import {
   DEFAULT_PLAN_TABLE, PLAN_IDS, membersText, syncMemberText, ALL_FEATURES, FEATURES_ADDED_LATER,
@@ -185,6 +186,8 @@ async function loadPlatformConfig() {
   }, {} as PlanTable);
 
   return {
+    /** Free trials of the next plan up (see lib/trial-settings.ts). */
+    trials: normalizeTrialSettings(config.trialSettings),
     currency: config.currency,
     currencySymbol: config.currencySymbol,
     /** Site-wide SMS pricing tier (B|C|D). Per-church override lives on Church.smsTier. */

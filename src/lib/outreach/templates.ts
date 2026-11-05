@@ -220,6 +220,50 @@ Blessings,
 The WorshipHQ team`,
   },
   {
+    id: "trial-invite", channel: "email", label: "Free trial of the next plan", hint: "Invites a church to try the plan above theirs free. Each church sees its own next plan and the trial length",
+    subject: "Try {{nextPlan}} free for {{trialDays}} days, {{church}}",
+    body: `Hello {{name}},
+
+{{church}} can try the {{nextPlan}} plan free for {{trialDays}} days. No card and no payment, just switch it on and use everything {{nextPlan}} adds.
+
+To start: sign in, open Settings, then Billing, and press the "Start my {{trialDays}}-day {{nextPlan}} trial" button. Only the Main Admin can do this.
+
+When the {{trialDays}} days are up, {{church}} goes back to its current plan and the extra {{nextPlan}} features switch off again. Your data is never touched. If you love it, you can upgrade at any time to keep it.
+
+Questions? Reply to this email or reach us on {{contact}}.
+
+Blessings,
+The WorshipHQ team`,
+  },
+  {
+    id: "trial-ending", channel: "email", label: "Trial ending soon", hint: "Sent automatically about 2 days before a trial ends. You can also send it by hand",
+    subject: "Your {{trialPlan}} trial ends soon, {{church}}",
+    body: `Hello {{name}},
+
+{{church}}'s free {{trialPlan}} trial ends in {{daysLeft}}. After that the {{trialPlan}} features switch off and {{church}} goes back to its current plan.
+
+To keep everything running, upgrade in Settings, then Billing. Your data and settings stay exactly as they are.
+
+Need help choosing or paying? Reply to this email or reach us on {{contact}}.
+
+Blessings,
+The WorshipHQ team`,
+  },
+  {
+    id: "trial-ended", channel: "email", label: "Trial ended", hint: "Sent automatically when a trial runs out. You can also send it by hand",
+    subject: "Your {{trialPlan}} trial has ended, {{church}}",
+    body: `Hello {{name}},
+
+{{church}}'s free {{trialPlan}} trial has ended, so the {{trialPlan}} features are switched off for now. Nothing has been deleted: everything you set up is still there.
+
+Upgrade to {{trialPlan}} in Settings, then Billing, and it all comes straight back.
+
+If you would like us to walk you through it, reply to this email or reach us on {{contact}}.
+
+Blessings,
+The WorshipHQ team`,
+  },
+  {
     id: "custom-email", channel: "email", label: "Write my own", hint: "Start from a blank message",
     subject: "A message from WorshipHQ", body: `Hello {{name}},\n\n\n\nBlessings,\nThe WorshipHQ team`,
   },
@@ -269,6 +313,21 @@ The WorshipHQ team`,
     body: `Your Sender ID "{{senderId}}" was not approved. Please contact WorshipHQ for assistance. Email: {{contact}}`,
   },
   {
+    id: "trial-invite-sms", channel: "sms", label: "Free trial of the next plan", hint: "Invites a church to try the plan above theirs free",
+    subject: "",
+    body: "Hello {{name}}, {{church}} can try {{nextPlan}} free for {{trialDays}} days. No card needed. Sign in, then Settings, Billing, Start my trial. Help: {{contact}}",
+  },
+  {
+    id: "trial-ending-sms", channel: "sms", label: "Trial ending soon", hint: "The text that goes out automatically about 2 days before a trial ends",
+    subject: "",
+    body: "Hello {{name}}, {{church}}'s free {{trialPlan}} trial ends in {{daysLeft}}. Upgrade in Settings, Billing to keep it. Data stays safe. Help: {{contact}}",
+  },
+  {
+    id: "trial-ended-sms", channel: "sms", label: "Trial ended", hint: "The text that goes out automatically when a trial runs out",
+    subject: "",
+    body: "Hello {{name}}, {{church}}'s {{trialPlan}} trial has ended and those features are off. Upgrade in Settings, Billing to switch them back on. Help: {{contact}}",
+  },
+  {
     id: "custom-sms", channel: "sms", label: "Write my own", hint: "Start from a blank text",
     subject: "", body: "Hello {{name}}, ",
   },
@@ -276,11 +335,17 @@ The WorshipHQ team`,
 
 export const templateById = (id: string) => OUTREACH_TEMPLATES.find((t) => t.id === id) ?? null;
 
-export type MergeData = { name: string; church: string; contact: string; senderId?: string };
+export type MergeData = { name: string; church: string; contact: string; senderId?: string; nextPlan?: string; trialDays?: string; trialPlan?: string; daysLeft?: string };
 
-/** Fill in {{name}}, {{church}}, {{contact}} and {{senderId}}. Unknown fields are left alone. */
+/** Fill in {{name}}, {{church}}, {{contact}}, {{senderId}} and the trial fields {{nextPlan}}, {{trialDays}}, {{trialPlan}}, {{daysLeft}}. Unknown fields are left alone. */
 export function mergeFields(text: string, d: MergeData): string {
-  return text.replace(/\{\{\s*(name|church|contact|senderId)\s*\}\}/g, (_, k: keyof MergeData) => d[k] ?? "your sender name");
+  return text.replace(/\{\{\s*(name|church|contact|senderId|nextPlan|trialDays|trialPlan|daysLeft)\s*\}\}/g, (_, k: keyof MergeData) => {
+    if (d[k] !== undefined) return d[k] as string;
+    if (k === "nextPlan" || k === "trialPlan") return "the next plan";
+    if (k === "trialDays") return "7";
+    if (k === "daysLeft") return "2 days";
+    return "your sender name";
+  });
 }
 
 const TITLES = /^(ps\.?|pastor|rev\.?|reverend|dr\.?|apostle|bishop|prophet|elder|deacon|evangelist|mr\.?|mrs\.?|ms\.?)$/i;

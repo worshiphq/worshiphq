@@ -34,6 +34,7 @@ const ago = (iso: string | null) => {
   return d < 60 ? `${d} d ago` : new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 };
 const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 type Composer = { mode: OutreachChannel; churches: OutreachChurch[]; template?: string } | null;
@@ -41,17 +42,21 @@ type Composer = { mode: OutreachChannel; churches: OutreachChurch[]; template?: 
 export function OutreachClient({ data }: { data: OutreachData }) {
   const router = useRouter();
   const [q, setQ] = useState("");
-  const [filter, setFilter] = useState<"all" | "new" | "free" | "paid">("all");
+  const [filter, setFilter] = useState<"all" | "new" | "free" | "paid" | "trialEligible" | "trialActive" | "trialEnded">("all");
   const [page, setPage] = useState(1);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [composer, setComposer] = useState<Composer>(null);
   const [history, setHistory] = useState<OutreachChurch | null>(null);
 
   const needWelcome = useMemo(() => data.churches.filter((c) => !c.welcomedAt && c.contacts.some((x) => x.email)), [data.churches]);
+  const trialEligible = useMemo(() => data.churches.filter((c) => c.trial.nextPlan && !c.suspended && c.contacts.length > 0), [data.churches]);
   const rows = useMemo(() => data.churches.filter((c) => {
     if (filter === "new" && c.welcomedAt) return false;
     if (filter === "free" && c.plan !== "free") return false;
     if (filter === "paid" && c.plan === "free") return false;
+    if (filter === "trialEligible" && !c.trial.nextPlan) return false;
+    if (filter === "trialActive" && c.trial.phase !== "active") return false;
+    if (filter === "trialEnded" && c.trial.phase !== "ended") return false;
     const t = q.trim().toLowerCase();
     if (!t) return true;
     return c.name.toLowerCase().includes(t) || (c.city ?? "").toLowerCase().includes(t) || c.contacts.some((x) => `${x.name} ${x.email} ${x.phone ?? ""}`.toLowerCase().includes(t));
@@ -104,13 +109,29 @@ export function OutreachClient({ data }: { data: OutreachData }) {
         </div>
       </AdminCard>
 
+      {/* Free trials */}
+      <AdminCard className="mb-6 p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 text-sm font-semibold text-slate-200"><Sparkles className="size-4 text-teal-400" /> Free trial invitations</div>
+            <p className="mt-1 text-sm text-slate-400">
+              <b className="text-teal-300">{trialEligible.length}</b> church{trialEligible.length === 1 ? "" : "es"} can start a {data.trialDays}-day trial of the plan above theirs. Each message names that church&apos;s own next plan. Rules and results are on the Free trials page.
+            </p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button className={ghost} disabled={trialEligible.length === 0} onClick={() => setComposer({ mode: "sms", churches: trialEligible, template: "trial-invite-sms" })}><MessageSquare className="size-4" /> Text {trialEligible.length}</button>
+            <button className={primary} disabled={trialEligible.length === 0} onClick={() => setComposer({ mode: "email", churches: trialEligible, template: "trial-invite" })}><Mail className="size-4" /> Email {trialEligible.length}</button>
+          </div>
+        </div>
+      </AdminCard>
+
       {/* Filters */}
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
           <input className={`${input} w-64 pl-9`} placeholder="Search church, name, email, phone" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
         </div>
-        {([["all", "All"], ["new", "Not welcomed"], ["free", "Free plan"], ["paid", "Paid plans"]] as const).map(([k, label]) => (
+        {([["all", "All"], ["new", "Not welcomed"], ["free", "Free plan"], ["paid", "Paid plans"], ["trialEligible", "Can start a trial"], ["trialActive", "On a trial"], ["trialEnded", "Trial ended"]] as const).map(([k, label]) => (
           <button key={k} onClick={() => { setFilter(k); setPage(1); }} className={cn("rounded-full border px-3 py-1 text-xs", filter === k ? "border-teal-500/60 bg-teal-500/15 text-teal-300" : "border-white/10 text-slate-400 hover:bg-white/5")}>{label}</button>
         ))}
         <span className="ml-auto text-xs text-slate-500">{rows.length} {rows.length === 1 ? "church matches" : "churches match"}</span>
@@ -248,7 +269,7 @@ function Compose({ data, composer, onClose, onDone }: { data: OutreachData; comp
   const targets = churches.map((c) => ({ church: c, contact: pickContact(c, mode, bulk ? undefined : contactId) })).filter((t): t is { church: OutreachChurch; contact: OutreachContact } => !!t.contact);
   const skipped = churches.length - targets.length;
   const sample = targets[0];
-  const merge = sample ? { name: firstName(sample.contact.name), church: sample.church.name, contact: data.contactLine, senderId: sample.church.senderId ?? undefined } : { name: "Ama", church: "Your church", contact: data.contactLine, senderId: "GRACECHAPEL" };
+  const merge = sample ? { name: firstName(sample.contact.name), church: sample.church.name, contact: data.contactLine, senderId: sample.church.senderId ?? undefined, nextPlan: sample.church.trial.nextPlan ? cap(sample.church.trial.nextPlan) : undefined, trialDays: String(data.trialDays), trialPlan: sample.church.trial.trialPlan ? cap(sample.church.trial.trialPlan) : undefined, daysLeft: sample.church.trial.phase === "active" ? `${sample.church.trial.daysLeft} ${sample.church.trial.daysLeft === 1 ? "day" : "days"}` : undefined } : { name: "Ama", church: "Your church", contact: data.contactLine, senderId: "GRACECHAPEL", nextPlan: "Starter", trialDays: String(data.trialDays), trialPlan: "Starter", daysLeft: "2 days" };
   const previewHtml = mode === "email" ? renderEmailHtml({ subject: mergeFields(subject, merge), body: mergeFields(body, merge), church: merge.church, contact: data.contact }) : "";
   const smsText = mergeFields(body, merge);
   const smsParts = Math.max(1, Math.ceil(smsText.length / 160));

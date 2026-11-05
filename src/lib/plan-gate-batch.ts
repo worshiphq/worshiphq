@@ -26,7 +26,7 @@ export async function onlyWithFeature<T extends { id: string }>(churches: T[], f
   // One cron run asks this about ten times, once per runner. Everyone's plan is read once and shared for a short
   // while instead of once per runner. A run is minutes long at most, so a 60 second wait on a plan change is harmless.
   const [allSubs, config, allCreated] = await Promise.all([
-    ttlCached("plan-gate-batch:subs", 60_000, () => db.subscription.findMany({ select: { churchId: true, plan: true, status: true, renewsAt: true } })),
+    ttlCached("plan-gate-batch:subs", 60_000, () => db.subscription.findMany({ select: { churchId: true, plan: true, status: true, renewsAt: true, trialPlan: true, trialEndsAt: true } })),
     import("@/lib/data/platform-config").then((m) => m.getPlatformConfig()),
     feature === "sms"
       ? ttlCached("plan-gate-batch:created", 60_000, () => db.church.findMany({ select: { id: true, createdAt: true } }))

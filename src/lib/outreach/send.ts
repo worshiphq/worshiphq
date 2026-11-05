@@ -5,6 +5,9 @@ import { env } from "@/lib/env";
 import { sendEmail } from "@/lib/integrations/email";
 import { sendSms } from "@/lib/integrations/sms";
 import { firstName, mergeFields, renderEmailHtml, templateById, type OutreachChannel } from "@/lib/outreach/templates";
+import { getPlatformConfig } from "@/lib/data/platform-config";
+import { paidPlan } from "@/lib/plan-gate";
+import { trialInfo, nextPlanUp } from "@/lib/trial-settings";
 import { issueRegistrationReceipt } from "@/lib/receipts/service";
 import { receiptNumber } from "@/lib/receipts/types";
 
@@ -37,14 +40,14 @@ type SendInput = {
 /** Send one email or text to one church contact and keep a record of it. */
 export async function sendOutreach(input: SendInput): Promise<OutreachResult> {
   const [church, user] = await Promise.all([
-    db.church.findUnique({ where: { id: input.churchId }, select: { id: true, name: true, smsSenderId: true } }),
+    db.church.findUnique({ where: { id: input.churchId }, select: { id: true, name: true, smsSenderId: true, subscription: { select: { plan: true, status: true, renewsAt: true, trialPlan: true, trialEndsAt: true, trialsUsed: true, trialStartedAt: true } } } }),
     db.user.findFirst({ where: { id: input.userId, churchId: input.churchId }, select: { id: true, name: true, email: true, phone: true } }),
   ]);
   if (!church || !user) return { ok: false, status: "failed", error: "That contact was not found." };
 
   const tpl = templateById(input.template);
   const contact = outreachContact();
-  const merge = { name: firstName(user.name), church: church.name, contact: await outreachContactLine(), senderId: church.smsSenderId ?? undefined };
+  const merge = { name: firstName(user.name), church: church.name, contact: await outreachContactLine(), senderId: church.smsSenderId ?? undefined, ...(await trialMerge(church.subscription)) };
   const subject = mergeFields(input.subject ?? tpl?.subject ?? "A message from WorshipHQ", merge).trim();
   const written = mergeFields(input.body ?? tpl?.body ?? "", merge).trim();
   const body = written && input.appendBody ? `${written}
@@ -115,4 +118,19 @@ export async function sendWelcome(churchId: string, auto: boolean): Promise<Outr
     }).catch(() => {});
   }
   return result;
+}
+
+const cap = (p: string) => p.charAt(0).toUpperCase() + p.slice(1);
+
+/** The trial fields a message can use, for this church: the plan it can try next, how long, and its running or last trial. */
+export async function trialMerge(sub: { plan: string; status?: string | null; renewsAt?: Date | null; trialPlan?: string | null; trialEndsAt?: Date | null; trialsUsed?: string[] | null; trialStartedAt?: Date | null } | null | undefined) {
+  const cfg = await getPlatformConfig();
+  const info = trialInfo(sub, paidPlan(sub), cfg.trials);
+  const next = nextPlanUp(paidPlan(sub));
+  return {
+    nextPlan: next ? cap(next) : undefined,
+    trialDays: String(cfg.trials.days),
+    trialPlan: info.plan ? cap(info.plan) : undefined,
+    daysLeft: info.phase === "active" ? `${info.daysLeft} ${info.daysLeft === 1 ? "day" : "days"}` : undefined,
+  };
 }

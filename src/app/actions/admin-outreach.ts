@@ -1,7 +1,9 @@
 "use server";
 
 import { logAdminAction } from "@/lib/admin-audit";
-import { invalidatePlatformConfig } from "@/lib/data/platform-config";
+import { invalidatePlatformConfig, getPlatformConfig } from "@/lib/data/platform-config";
+import { paidPlan } from "@/lib/plan-gate";
+import { trialInfo } from "@/lib/trial-settings";
 import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/auth";
 import { env, features } from "@/lib/env";
@@ -16,8 +18,10 @@ export type OutreachChurch = {
   id: string; name: string; senderId: string | null; plan: string; suspended: boolean; createdAt: string; country: string | null; city: string | null;
   contacts: OutreachContact[];
   welcomedAt: string | null; lastContactAt: string | null; messages: number;
+  /** Where the church stands with free trials. nextPlan is what it could try now (null if it cannot). */
+  trial: { phase: "none" | "active" | "ended" | "converted"; nextPlan: string | null; trialPlan: string | null; daysLeft: number };
 };
-export type OutreachData = { platformCarrier: string; churches: OutreachChurch[]; emailLive: boolean; smsLive: boolean; contact: string; contactLine: string; smsProvider: string; alert: { phone: string; from: "saved" | "company" | "none"; saved: string } };
+export type OutreachData = { trialDays: number; platformCarrier: string; churches: OutreachChurch[]; emailLive: boolean; smsLive: boolean; contact: string; contactLine: string; smsProvider: string; alert: { phone: string; from: "saved" | "company" | "none"; saved: string } };
 export type OutreachHistoryRow = { id: string; channel: string; template: string; to: string; toName: string | null; subject: string | null; body: string; status: string; error: string | null; auto: boolean; at: string };
 
 /** Every real church with its owner and admins, and what we have already sent them. */
@@ -29,18 +33,20 @@ export async function getOutreachData(): Promise<OutreachData> {
       orderBy: { createdAt: "desc" },
       select: {
         id: true, name: true, smsSenderId: true, suspended: true, createdAt: true, country: true, city: true,
-        subscription: { select: { plan: true } },
+        subscription: { select: { plan: true, status: true, renewsAt: true, trialPlan: true, trialStartedAt: true, trialEndsAt: true, trialsUsed: true } },
         users: { where: { role: { in: ["Owner", "Admin"] } }, orderBy: { createdAt: "asc" }, select: { id: true, name: true, email: true, phone: true, role: true } },
       },
     }),
     db.outreachMessage.groupBy({ by: ["churchId"], where: { channel: "email", template: "welcome", status: "sent" }, _min: { createdAt: true } }),
     db.outreachMessage.groupBy({ by: ["churchId"], _max: { createdAt: true }, _count: { _all: true } }),
   ]);
+  const trialCfg = (await getPlatformConfig()).trials;
   const alert = await getAlertPhone();
   const savedAlert = (await db.platformConfig.findUnique({ where: { id: "default" }, select: { alertPhone: true } }))?.alertPhone ?? "";
   const w = new Map(welcomes.map((x) => [x.churchId, x._min.createdAt]));
   const l = new Map(last.map((x) => [x.churchId, { at: x._max.createdAt, n: x._count._all }]));
   return {
+    trialDays: trialCfg.days,
     platformCarrier: (await getPlatformCarrier()) ?? "hubtel", emailLive: features.email, smsLive: features.sms, contact: outreachContact(), contactLine: await outreachContactLine(), smsProvider: env.SMS_PROVIDER, alert: { ...alert, saved: savedAlert },
     churches: churches.map((c) => ({
       id: c.id, name: c.name, senderId: c.smsSenderId, plan: c.subscription?.plan ?? "free", suspended: c.suspended, createdAt: c.createdAt.toISOString(), country: c.country, city: c.city,
@@ -49,6 +55,7 @@ export async function getOutreachData(): Promise<OutreachData> {
       welcomedAt: w.get(c.id)?.toISOString() ?? null,
       lastContactAt: l.get(c.id)?.at?.toISOString() ?? null,
       messages: l.get(c.id)?.n ?? 0,
+      trial: (() => { const info = trialInfo(c.subscription, paidPlan(c.subscription), trialCfg); return { phase: info.phase, nextPlan: info.canStart, trialPlan: info.plan, daysLeft: info.daysLeft }; })(),
     })),
   };
 }

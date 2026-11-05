@@ -21,6 +21,7 @@ import { ROLE_PERMISSIONS } from "@/lib/permissions";
 import { OnlinePaymentsTab } from "@/components/app/online-payments-tab";
 import { ServiceTimesTab } from "@/components/app/service-times-tab";
 import { PlanHero, UsageTiles, PaymentHistory, type PaymentItem } from "@/components/app/billing-parts";
+import { TrialCard, type TrialCardInfo } from "@/components/app/trial-card";
 import { BillingRenewal, type CardRow } from "@/components/app/billing-renewal";
 import { toastNow } from "@/components/ui/feedback";
 import { AutoInactiveCard, type AutoInactiveData } from "@/components/app/auto-inactive-card";
@@ -208,6 +209,7 @@ export function SettingsClient({
   platformPricing,
   payments = [],
   billingUsage,
+  trial,
   smsTopups = [],
   cards = [],
   autoInactive,
@@ -223,6 +225,7 @@ export function SettingsClient({
   platformPricing?: PlatformPricing;
   payments?: PlanPaymentRow[];
   billingUsage?: BillingUsage;
+  trial?: TrialCardInfo;
   smsTopups?: SmsTopupRow[];
   /** Cards the church kept for renewals. Never carries the charge token. */
   cards?: CardRow[];
@@ -649,7 +652,7 @@ export function SettingsClient({
         )}
 
         {/* ── Billing ── */}
-        {tab === "billing" && <BillingTab subscription={subscription} features={features} ro={ro} platformPricing={platformPricing} payments={payments} usage={billingUsage} smsTopups={smsTopups} cards={cards} isOwner={session.role === "Owner"} />}
+        {tab === "billing" && <BillingTab trial={trial} subscription={subscription} features={features} ro={ro} platformPricing={platformPricing} payments={payments} usage={billingUsage} smsTopups={smsTopups} cards={cards} isOwner={session.role === "Owner"} />}
 
         {/* ── Online Payments ── */}
         {tab === "online-payments" && <OnlinePaymentsTab canManage={isAdmin && !ro} />}
@@ -987,7 +990,7 @@ function UpgradeCelebration({ planName, newFeatures, onDone }: { planName: strin
   );
 }
 
-function BillingTab({ subscription, features, ro, platformPricing, payments = [], usage, smsTopups = [], cards = [], isOwner = false }: { subscription: SubscriptionData; features: FeatureMap; ro: boolean; platformPricing?: PlatformPricing; payments?: PlanPaymentRow[]; usage?: BillingUsage; smsTopups?: SmsTopupRow[]; cards?: CardRow[]; isOwner?: boolean }) {
+function BillingTab({ trial, subscription, features, ro, platformPricing, payments = [], usage, smsTopups = [], cards = [], isOwner = false }: { trial?: TrialCardInfo; subscription: SubscriptionData; features: FeatureMap; ro: boolean; platformPricing?: PlatformPricing; payments?: PlanPaymentRow[]; usage?: BillingUsage; smsTopups?: SmsTopupRow[]; cards?: CardRow[]; isOwner?: boolean }) {
   const router = useRouter();
   // What the SuperAdmin saved (name, member limit, wording, price) wins over the built-in defaults.
   const plans = defaultPlans.map((p) => {
@@ -1139,6 +1142,25 @@ function BillingTab({ subscription, features, ro, platformPricing, payments = []
             Keep my current plan
           </Button>
         </div>
+      )}
+
+      {trial && (
+        <TrialCard
+          trial={trial}
+          isOwner={isOwner}
+          readOnly={ro}
+          highlights={plans.find((p) => p.id === (trial.canStart ?? trial.plan))?.features ?? []}
+          onUpgrade={(planId) => {
+            const plan = plans.find((pl) => pl.id === planId);
+            if (!plan) return;
+            setUpgradePlan(plan);
+            setCouponCode(""); setCouponInfo(null); setCouponError(""); setAcceptedTerms(false);
+            setChangePreview(null);
+            startPreview(async () => {
+              setChangePreview(await previewPlanChangeAction(plan.id, interval));
+            });
+          }}
+        />
       )}
 
       <PlanHero

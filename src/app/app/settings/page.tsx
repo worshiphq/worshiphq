@@ -4,6 +4,7 @@ import { SettingsClient } from "@/components/app/settings-client";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { features } from "@/lib/env";
+import { getChurchTrial } from "@/lib/trials";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { loadMessageCenter } from "@/lib/messages/load";
 
@@ -58,6 +59,9 @@ export default async function SettingsPage() {
       select: { plan: true, status: true, interval: true, renewsAt: true, bypassPlan: true, scheduledPlan: true, cancelAtPeriodEnd: true, autoRenew: true, cardId: true, renewalFailures: true },
     });
   }
+
+  const trialFull = await getChurchTrial(session.churchId);
+  const trial = { phase: trialFull.phase, plan: trialFull.plan, endsAt: trialFull.endsAt, daysLeft: trialFull.daysLeft, canStart: trialFull.canStart, days: trialFull.settings.days };
 
   // Cards the church kept for renewals. listCards never selects the charge token.
   const cards = await listCards(session.churchId);
@@ -117,6 +121,7 @@ export default async function SettingsPage() {
         departments={departmentsWithCounts}
         customRoles={customRoles.map(({ manageSplit, ...r }) => ({ ...r, manageSections: manageSplit ? r.manageSections : r.sections }))}
         subscription={sub}
+        trial={trial}
         cards={cards}
         autoInactive={{ on: church?.autoInactiveOn ?? false, weeks: church?.autoInactiveWeeks ?? 12, locked: !session.isDemo && !!session.planLocked?.includes("auto-inactive") }}
         messageCenter={messageCenter}

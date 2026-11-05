@@ -36,6 +36,8 @@ model PlatformConfig {
   // Shape per plan: { name, tagline, membersLabel, memberLimit, teamUsers,
   //                   featured, cta, marketingFeatures: [], features: [] }
   planDefs                Json?
+  // Free trials of the next plan up: { enabled, days, steps: { starter, pro, max } }. Edited on SuperAdmin, Trials.
+  trialSettings           Json?
   // WODONA / WorshipHQ details printed on receipts (address, phone, email, registration number, who issues them).
   receiptSettings         Json?
   // ── Refund policy (surfaced in the Refund Policy page and enforced in code) ──
@@ -1400,6 +1402,18 @@ model Subscription {
   ownerAlertedFor      DateTime?
   // A bypass code stops working after this, so an old unused code cannot be redeemed months later.
   bypassExpiresAt      DateTime?
+
+  // A short free taste of the next plan up. While `trialEndsAt` is in the future the church gets `trialPlan`'s features
+  // (if that is above what it pays for); when it passes, access falls back to `plan` by itself - no job has to run.
+  trialPlan            String?
+  trialStartedAt       DateTime?
+  trialEndsAt          DateTime?
+  // Plans this church has already trialled. One trial per plan per church (SuperAdmin can still grant another).
+  trialsUsed           String[]  @default([])
+  // The trial notices already sent ("ending", "ended"), so each goes out once.
+  trialNotified        String[]  @default([])
+
+  @@index([trialEndsAt])
 }
 
 /**

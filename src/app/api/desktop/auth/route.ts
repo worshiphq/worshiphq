@@ -43,7 +43,8 @@ export async function POST(req: Request) {
 
     // Fetch subscription for plan enforcement
     const sub = await db.subscription.findUnique({ where: { churchId: user.churchId } });
-    const plan = effectivePlan(sub);
+    // Paid plan only: a short free trial must not become a desktop licence.
+    const plan = effectivePlan(sub && { plan: sub.plan, status: sub.status, renewsAt: sub.renewsAt });
     const renewsAt = sub?.renewsAt?.toISOString() ?? null;
     const subStatus = sub?.status ?? "active";
 
