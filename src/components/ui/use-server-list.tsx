@@ -4,7 +4,8 @@ import { useEffect, useRef, useState } from "react";
 import { ListPager } from "@/components/ui/list-pager";
 import { Spinner } from "@/components/ui/spinner";
 
-export type ServerPage<R> = { rows: R[]; total: number; page: number };
+/** One page of rows. `extra` carries anything else the screen shows that depends on the search (counts, totals). */
+export type ServerPage<R, X = undefined> = { rows: R[]; total: number; page: number; extra?: X };
 
 /**
  * A list whose searching, filtering and paging are answered by the server.
@@ -18,17 +19,18 @@ export type ServerPage<R> = { rows: R[]; total: number; page: number };
  *
  * `fetchPage` must be a server action: (search, filters, page) => { rows, total, page }.
  */
-export function useServerList<R, F>({
+export function useServerList<R, F, X = undefined>({
   initial, query, filters, fetchPage, pageSize = 25,
 }: {
-  initial: ServerPage<R>;
+  initial: ServerPage<R, X>;
   query: string;
   filters: F;
-  fetchPage: (search: string, filters: F, page: number) => Promise<ServerPage<R>>;
+  fetchPage: (search: string, filters: F, page: number) => Promise<ServerPage<R, X>>;
   pageSize?: number;
 }) {
   const [rows, setRows] = useState<R[]>(initial.rows);
   const [total, setTotal] = useState(initial.total);
+  const [extra, setExtra] = useState<X | undefined>(initial.extra);
   const [page, setPage] = useState(initial.page);
   const [searching, setSearching] = useState(false);
   const [debounced, setDebounced] = useState(query.trim());
@@ -53,6 +55,7 @@ export function useServerList<R, F>({
         if (id !== reqId.current) return;
         setRows(res.rows);
         setTotal(res.total);
+        setExtra(res.extra);
         setPage(res.page);
       })
       .catch(() => {})
@@ -76,6 +79,7 @@ export function useServerList<R, F>({
   const pages = Math.max(1, Math.ceil(total / pageSize));
   return {
     rows,
+    extra,
     total,
     page,
     searching,

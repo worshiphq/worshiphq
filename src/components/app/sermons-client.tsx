@@ -1,6 +1,8 @@
 "use client";
 
-import { usePagedList } from "@/components/ui/list-pager";
+import { useServerList } from "@/components/ui/use-server-list";
+import { searchSermons } from "@/app/actions/lists";
+import type { SermonFilters } from "@/lib/data/lists-a";
 import { useState, useTransition } from "react";
 import Link from "@/components/ui/app-link";
 import { Card } from "@/components/ui/card";
@@ -28,40 +30,27 @@ type SermonRow = {
   date: string;
 };
 
-export function SermonsClient({ sermons, canWrite }: { sermons: SermonRow[]; canWrite: boolean }) {
+export function SermonsClient({ initial, options, canWrite }: { initial: { rows: SermonRow[]; total: number; page: number }; options: { preachers: string[]; series: string[]; years: number[] }; canWrite: boolean }) {
   const [search, setSearch] = useState("");
   const [preacher, setPreacher] = useState("");
   const [series, setSeries] = useState("");
   const [year, setYear] = useState("");
   const [state, setState] = useState<"" | "published" | "draft">("");
-  const [page, setPage] = useState(1);
   const [pending, start] = useTransition();
   const PAGE_SIZE = 15;
 
-  const preachers = [...new Set(sermons.map((s) => s.preacher).filter((x): x is string => !!x))].sort();
-  const seriesList = [...new Set(sermons.map((s) => s.series).filter((x): x is string => !!x))].sort();
-  const years = [...new Set(sermons.map((s) => new Date(s.date).getFullYear()))].sort((a, b) => b - a);
-  const q = search.trim().toLowerCase();
-
-  const filtered = sermons.filter((s) => {
-    if (preacher && s.preacher !== preacher) return false;
-    if (series && s.series !== series) return false;
-    if (year && new Date(s.date).getFullYear() !== Number(year)) return false;
-    if (state === "published" && !s.published) return false;
-    if (state === "draft" && s.published) return false;
-    if (!q) return true;
-    return (
-      s.title.toLowerCase().includes(q) ||
-      !!s.preacher?.toLowerCase().includes(q) ||
-      !!s.series?.toLowerCase().includes(q) ||
-      !!s.scripture?.toLowerCase().includes(q) ||
-      !!s.notes?.toLowerCase().includes(q)
-    );
+  const preachers = options.preachers;
+  const seriesList = options.series;
+  const years = options.years;
+  const list = useServerList<SermonRow, SermonFilters>({
+    initial,
+    query: search,
+    filters: { preacher, series, year, state },
+    fetchPage: searchSermons,
+    pageSize: PAGE_SIZE,
   });
   const filtering = !!(search || preacher || series || year || state);
-  const cur = Math.min(page, Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)));
-  const shown = filtered.slice((cur - 1) * PAGE_SIZE, cur * PAGE_SIZE);
-  const reset = (fn: () => void) => { fn(); setPage(1); };
+  const reset = (fn: () => void) => { fn(); };
 
   const handleDelete = (id: string) => {
     const fd = new FormData();
@@ -76,13 +65,13 @@ export function SermonsClient({ sermons, canWrite }: { sermons: SermonRow[]; can
     start(() => toggleSermonPublished(fd));
   };
 
-  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <div className="mt-5 space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[14rem] flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-          <Input placeholder="Search title, scripture, notes..." value={search} onChange={(e) => reset(() => setSearch(e.target.value))} className="pl-10" />
+          <Input placeholder="Search title, scripture, notes..." value={search} onChange={(e) => reset(() => setSearch(e.target.value))} className="pl-10 pr-10" />
+          {list.spinner}
         </div>
         {preachers.length > 0 && (
           <select value={preacher} onChange={(e) => reset(() => setPreacher(e.target.value))} className={filterSelectCls} aria-label="Preacher">
@@ -105,10 +94,10 @@ export function SermonsClient({ sermons, canWrite }: { sermons: SermonRow[]; can
           <option value="published">Published</option>
           <option value="draft">Drafts</option>
         </select>
-        {filtering && <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setPreacher(""); setSeries(""); setYear(""); setState(""); setPage(1); }}>Clear filters</Button>}
+        {filtering && <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setPreacher(""); setSeries(""); setYear(""); setState(""); }}>Clear filters</Button>}
       </div>
 
-      {filtered.length === 0 ? (
+      {list.rows.length === 0 ? (
         <Card className="p-12 text-center">
           <BookOpen className="mx-auto size-10 text-ink-faint" />
           <p className="mt-3 text-sm text-ink-muted">
@@ -117,7 +106,7 @@ export function SermonsClient({ sermons, canWrite }: { sermons: SermonRow[]; can
         </Card>
       ) : (
         <div className="space-y-2">
-          {pgList.slice.map((s) => (
+          {list.rows.map((s) => (
             <Card key={s.id} className={`p-4 ${pending ? "opacity-60" : ""}`}>
               <div className="flex items-start gap-3">
                 <div className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand/10">
@@ -190,10 +179,9 @@ export function SermonsClient({ sermons, canWrite }: { sermons: SermonRow[]; can
               </div>
             </Card>
           ))}
-          <Pager page={cur} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </div>
       )}
-      {pgList.pager}
+      {list.pager}
     </div>
   );
 }

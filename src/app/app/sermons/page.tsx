@@ -1,6 +1,6 @@
 import { requireModule } from "@/lib/auth";
 import { canEdit } from "@/lib/permissions";
-import { db } from "@/lib/db";
+import { querySermons, sermonOptions } from "@/lib/data/lists-a";
 import { SermonsClient } from "@/components/app/sermons-client";
 import { PageHeader } from "@/components/app/page-header";
 import { PendingLink } from "@/components/ui/pending-link";
@@ -11,11 +11,10 @@ export const metadata = { title: "Sermons" };
 export default async function SermonsPage() {
   const session = await requireModule("sermons");
 
-  const sermons = await db.sermon.findMany({
-    where: { churchId: session.churchId },
-    orderBy: { date: "desc" },
-    take: 1000,
-  });
+  const [first, options] = await Promise.all([
+    querySermons(session.churchId, "", { preacher: "", series: "", year: "", state: "" }, 1),
+    sermonOptions(session.churchId),
+  ]);
 
   return (
     <div>
@@ -30,18 +29,8 @@ export default async function SermonsPage() {
 
       <SermonsClient
         canWrite={canEdit(session, "sermons")}
-        sermons={sermons.map((s) => ({
-          id: s.id,
-          title: s.title,
-          preacher: s.preacher,
-          series: s.series,
-          scripture: s.scripture,
-          notes: s.notes,
-          audioUrl: s.audioUrl,
-          videoUrl: s.videoUrl,
-          published: s.published,
-          date: s.date.toISOString(),
-        }))}
+        initial={first}
+        options={options}
       />
     </div>
   );

@@ -1,6 +1,8 @@
 "use client";
 
-import { usePagedList } from "@/components/ui/list-pager";
+import { useServerList } from "@/components/ui/use-server-list";
+import { searchDevotionals } from "@/app/actions/lists";
+import type { DevotionalFilters } from "@/lib/data/lists-a";
 import { useState, useTransition } from "react";
 import Link from "@/components/ui/app-link";
 import { Card } from "@/components/ui/card";
@@ -26,33 +28,21 @@ type DevotionalRow = {
 };
 
 export function DevotionalsClient({
-  devotionals, audiences, members, canWrite,
-}: { devotionals: DevotionalRow[]; audiences: AudienceOption[]; members: PickerOption[]; canWrite: boolean }) {
+  initial, options, audiences, members, canWrite,
+}: { initial: { rows: DevotionalRow[]; total: number; page: number }; options: { authors: string[]; years: number[] }; audiences: AudienceOption[]; members: PickerOption[]; canWrite: boolean }) {
   const [search, setSearch] = useState("");
   const [author, setAuthor] = useState("");
   const [year, setYear] = useState("");
   const [state, setState] = useState<"" | "published" | "draft">("");
-  const [page, setPage] = useState(1);
   const [pending, start] = useTransition();
   const [sendFor, setSendFor] = useState<DevotionalRow | null>(null);
   const PAGE_SIZE = 12;
 
-  const authors = [...new Set(devotionals.map((d) => d.author).filter((x): x is string => !!x))].sort();
-  const years = [...new Set(devotionals.map((d) => new Date(d.date).getFullYear()))].sort((a, b) => b - a);
-  const q = search.trim().toLowerCase();
-
-  const filtered = devotionals.filter((d) => {
-    if (author && d.author !== author) return false;
-    if (year && new Date(d.date).getFullYear() !== Number(year)) return false;
-    if (state === "published" && !d.published) return false;
-    if (state === "draft" && d.published) return false;
-    if (!q) return true;
-    return d.title.toLowerCase().includes(q) || d.body.toLowerCase().includes(q) || !!d.scripture?.toLowerCase().includes(q);
-  });
+  const authors = options.authors;
+  const years = options.years;
+  const list = useServerList<DevotionalRow, DevotionalFilters>({ initial, query: search, filters: { author, year, state }, fetchPage: searchDevotionals, pageSize: PAGE_SIZE });
   const filtering = !!(search || author || year || state);
-  const cur = Math.min(page, Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)));
-  const shown = filtered.slice((cur - 1) * PAGE_SIZE, cur * PAGE_SIZE);
-  const reset = (fn: () => void) => { fn(); setPage(1); };
+  const reset = (fn: () => void) => { fn(); };
 
   const handleDelete = (id: string) => {
     const fd = new FormData();
@@ -67,13 +57,13 @@ export function DevotionalsClient({
     start(() => toggleDevotionalPublished(fd));
   };
 
-  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <div className="mt-5 space-y-4">
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative min-w-[14rem] flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-          <Input placeholder="Search devotionals..." value={search} onChange={(e) => reset(() => setSearch(e.target.value))} className="pl-10" />
+          <Input placeholder="Search devotionals..." value={search} onChange={(e) => reset(() => setSearch(e.target.value))} className="pl-10 pr-10" />
+          {list.spinner}
         </div>
         {authors.length > 0 && (
           <select value={author} onChange={(e) => reset(() => setAuthor(e.target.value))} className={filterSelectCls} aria-label="Author">
@@ -90,10 +80,10 @@ export function DevotionalsClient({
           <option value="published">Published</option>
           <option value="draft">Drafts</option>
         </select>
-        {filtering && <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setAuthor(""); setYear(""); setState(""); setPage(1); }}>Clear filters</Button>}
+        {filtering && <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setAuthor(""); setYear(""); setState(""); }}>Clear filters</Button>}
       </div>
 
-      {filtered.length === 0 ? (
+      {list.rows.length === 0 ? (
         <Card className="p-12 text-center">
           <BookHeart className="mx-auto size-10 text-ink-faint" />
           <p className="mt-3 text-sm text-ink-muted">
@@ -102,7 +92,7 @@ export function DevotionalsClient({
         </Card>
       ) : (
         <div className="space-y-3">
-          {pgList.slice.map((d) => (
+          {list.rows.map((d) => (
             <Card key={d.id} className={`p-5 ${pending ? "opacity-60" : ""}`}>
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -159,12 +149,11 @@ export function DevotionalsClient({
               </div>
             </Card>
           ))}
-          <Pager page={cur} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </div>
       )}
 
       {sendFor && <DevotionalSendDialog devotional={sendFor} audiences={audiences} members={members} onClose={() => setSendFor(null)} />}
-      {pgList.pager}
+      {list.pager}
     </div>
   );
 }

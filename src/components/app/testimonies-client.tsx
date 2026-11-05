@@ -1,6 +1,7 @@
 "use client";
 
-import { usePagedList } from "@/components/ui/list-pager";
+import { useServerList } from "@/components/ui/use-server-list";
+import { searchTestimonies } from "@/app/actions/lists";
 import { useMemo, useState, useTransition } from "react";
 import { Search, Trash2, Star, Eye, EyeOff, Sparkles, Heart, HandHeart, Shield, BookOpen, Award, Loader2 } from "lucide-react";
 import { deleteTestimony, toggleTestimonyStatus } from "@/app/actions/testimonies";
@@ -31,26 +32,20 @@ const CATEGORY_CONFIG: Record<string, { label: string; icon: typeof Sparkles; co
   other: { label: "Other", icon: Award, color: "text-ink-muted" },
 };
 
-export function TestimoniesClient({ testimonies }: { testimonies: Testimony[] }) {
+export function TestimoniesClient({ initial, stats }: { initial: { rows: Testimony[]; total: number; page: number }; stats: { total: number; featured: number; praise: number; healing: number } }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState("all");
   const [pending, start] = useTransition();
   const { toast } = useFeedback();
 
-  const filtered = useMemo(() => {
-    let list = testimonies;
-    if (filter !== "all") list = list.filter((t) => t.category === filter);
-    if (q) list = list.filter((t) => t.title.toLowerCase().includes(q.toLowerCase()) || t.body.toLowerCase().includes(q.toLowerCase()));
-    return list;
-  }, [testimonies, q, filter]);
-
-  const pgList = usePagedList(filtered, 25, filtered.length);
+  const list = useServerList<Testimony, { category: string }>({ initial, query: q, filters: { category: filter }, fetchPage: searchTestimonies, pageSize: 20 });
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-3">
         <div className="relative flex-1">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search testimonies..." className="h-10 w-full rounded-xl border border-line bg-surface pl-10 pr-3 text-sm" />
+          <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search testimonies..." className="h-10 w-full rounded-xl border border-line bg-surface pl-10 pr-10 text-sm" />
+          {list.spinner}
         </div>
         <select value={filter} onChange={(e) => setFilter(e.target.value)} className="h-10 rounded-xl border border-line bg-surface px-3 text-sm">
           <option value="all">All categories</option>
@@ -60,30 +55,30 @@ export function TestimoniesClient({ testimonies }: { testimonies: Testimony[] })
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         <div className="rounded-xl border border-line bg-surface p-3 text-center">
-          <div className="text-2xl font-bold">{testimonies.length}</div>
+          <div className="text-2xl font-bold">{stats.total}</div>
           <div className="text-xs text-ink-muted">Total</div>
         </div>
         <div className="rounded-xl border border-line bg-surface p-3 text-center">
-          <div className="text-2xl font-bold text-success">{testimonies.filter((t) => t.status === "featured").length}</div>
+          <div className="text-2xl font-bold text-success">{stats.featured}</div>
           <div className="text-xs text-ink-muted">Featured</div>
         </div>
         <div className="rounded-xl border border-line bg-surface p-3 text-center">
-          <div className="text-2xl font-bold text-gold">{testimonies.filter((t) => t.category === "praise").length}</div>
+          <div className="text-2xl font-bold text-gold">{stats.praise}</div>
           <div className="text-xs text-ink-muted">Praise reports</div>
         </div>
         <div className="rounded-xl border border-line bg-surface p-3 text-center">
-          <div className="text-2xl font-bold text-brand">{testimonies.filter((t) => t.category === "healing").length}</div>
+          <div className="text-2xl font-bold text-brand">{stats.healing}</div>
           <div className="text-xs text-ink-muted">Healings</div>
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {list.rows.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-line p-10 text-center text-sm text-ink-faint">
           No testimonies found. Add praise reports and testimonies above.
         </div>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2">
-          {pgList.slice.map((t) => {
+          {list.rows.map((t) => {
             const cfg = CATEGORY_CONFIG[t.category] ?? CATEGORY_CONFIG.other;
             const Icon = cfg.icon;
             return (
@@ -119,7 +114,7 @@ export function TestimoniesClient({ testimonies }: { testimonies: Testimony[] })
           })}
         </div>
       )}
-      {pgList.pager}
+      {list.pager}
     </div>
   );
 }

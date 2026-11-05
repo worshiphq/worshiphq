@@ -7,19 +7,16 @@ import { PageHeader } from "@/components/app/page-header";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { Plus } from "lucide-react";
 import { headers } from "next/headers";
-import { asExtra } from "@/components/app/extra-answers";
+import { queryPrayer } from "@/lib/data/lists-a";
 
 export const metadata = { title: "Prayer requests" };
 
 export default async function PrayerRequestsPage() {
   const session = await requireModule("prayer-requests");
 
-  const [requests, church] = await Promise.all([
-    db.prayerRequest.findMany({
-      where: { churchId: session.churchId },
-      orderBy: [{ status: "asc" }, { createdAt: "desc" }],
-      take: 2000,
-    }),
+  const sinceMs = null;
+  const [first, church] = await Promise.all([
+    queryPrayer(session.churchId, "", { tab: "active", period: "", who: "", sort: "new", sinceMs }, 1),
     db.church.findUnique({
       where: { id: session.churchId },
       select: { slug: true },
@@ -55,17 +52,7 @@ export default async function PrayerRequestsPage() {
       <PrayerRequestsClient
         prayUrl={prayUrl}
         canWrite={canEdit(session, "prayer-requests")}
-        items={requests.map((r) => ({
-          id: r.id,
-          name: r.name,
-          request: r.request,
-          isAnonymous: r.isAnonymous,
-          status: r.status,
-          extra: asExtra(r.extra),
-          prayedAt: r.prayedAt?.toISOString() ?? null,
-          prayedBy: r.prayedBy,
-          createdAt: r.createdAt.toISOString(),
-        }))}
+        initial={first}
       />
     </div>
   );

@@ -1,6 +1,8 @@
 "use client";
 
-import { usePagedList } from "@/components/ui/list-pager";
+import { useServerList } from "@/components/ui/use-server-list";
+import { searchAudit } from "@/app/actions/lists";
+import type { AuditFilters } from "@/lib/data/lists-a";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -27,7 +29,7 @@ const ACTION_META: Record<string, { icon: typeof Plus; color: string; label: str
   view: { icon: Eye, color: "text-ink-muted", label: "Viewed" },
 };
 
-export function AuditLogClient({ logs }: { logs: LogEntry[] }) {
+export function AuditLogClient({ initial, options }: { initial: { rows: LogEntry[]; total: number; page: number }; options: { entities: string[]; actions: string[]; users: string[] } }) {
   const [search, setSearch] = useState("");
   const [entityFilter, setEntityFilter] = useState("");
   const [actionFilter, setActionFilter] = useState("");
@@ -35,46 +37,34 @@ export function AuditLogClient({ logs }: { logs: LogEntry[] }) {
   const [period, setPeriod] = useState("");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [page, setPage] = useState(1);
   const PAGE_SIZE = 30;
 
-  const entities = [...new Set(logs.map((l) => l.entity))].sort();
-  const actions = [...new Set(logs.map((l) => l.action))].sort();
-  const users = [...new Set(logs.map((l) => l.userName))].sort((a, b) => a.localeCompare(b));
+  const entities = options.entities;
+  const actions = options.actions;
+  const users = options.users;
 
   const since = from ? null : periodStart(period);
   const fromTs = from ? new Date(`${from}T00:00:00`).getTime() : since;
   const toTs = to ? new Date(`${to}T23:59:59.999`).getTime() : null;
-  const q = search.trim().toLowerCase();
 
-  const filtered = logs.filter((l) => {
-    if (entityFilter && l.entity !== entityFilter) return false;
-    if (actionFilter && l.action !== actionFilter) return false;
-    if (userFilter && l.userName !== userFilter) return false;
-    const t = new Date(l.createdAt).getTime();
-    if (fromTs !== null && t < fromTs) return false;
-    if (toTs !== null && t > toTs) return false;
-    if (!q) return true;
-    return (
-      l.userName.toLowerCase().includes(q) ||
-      !!l.detail?.toLowerCase().includes(q) ||
-      l.entity.toLowerCase().includes(q) ||
-      l.action.toLowerCase().includes(q)
-    );
+  const list = useServerList<LogEntry, AuditFilters>({
+    initial,
+    query: search,
+    filters: { entity: entityFilter, action: actionFilter, user: userFilter, fromMs: fromTs, toMs: toTs },
+    fetchPage: searchAudit,
+    pageSize: PAGE_SIZE,
   });
   const filtering = !!(search || entityFilter || actionFilter || userFilter || period || from || to);
-  const cur = Math.min(page, Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)));
-  const shown = filtered.slice((cur - 1) * PAGE_SIZE, cur * PAGE_SIZE);
-  const reset = (fn: () => void) => { fn(); setPage(1); };
+  const reset = (fn: () => void) => { fn(); };
 
-  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <div className="mt-5 space-y-4">
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-[14rem] flex-1">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-            <Input placeholder="Search logs..." value={search} onChange={(e) => reset(() => setSearch(e.target.value))} className="pl-10" />
+            <Input placeholder="Search logs..." value={search} onChange={(e) => reset(() => setSearch(e.target.value))} className="pl-10 pr-10" />
+            {list.spinner}
           </div>
           <select value={userFilter} onChange={(e) => reset(() => setUserFilter(e.target.value))} className={filterSelectCls} aria-label="Person">
             <option value="">Everyone</option>
@@ -99,15 +89,15 @@ export function AuditLogClient({ logs }: { logs: LogEntry[] }) {
           <span className="text-xs text-ink-faint">and</span>
           <input type="date" value={to} min={from || undefined} onChange={(e) => reset(() => setTo(e.target.value))} className={filterSelectCls} aria-label="To date" />
           {filtering && (
-            <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setEntityFilter(""); setActionFilter(""); setUserFilter(""); setPeriod(""); setFrom(""); setTo(""); setPage(1); }}>
+            <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setEntityFilter(""); setActionFilter(""); setUserFilter(""); setPeriod(""); setFrom(""); setTo(""); }}>
               Clear filters
             </Button>
           )}
-          <span className="ml-auto text-xs text-ink-muted">{filtered.length} entr{filtered.length === 1 ? "y" : "ies"}</span>
+          <span className="ml-auto text-xs text-ink-muted">{list.total} entr{list.total === 1 ? "y" : "ies"}</span>
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {list.rows.length === 0 ? (
         <Card className="p-12 text-center">
           <ScrollText className="mx-auto size-10 text-ink-faint" />
           <p className="mt-3 text-sm text-ink-muted">
@@ -116,7 +106,7 @@ export function AuditLogClient({ logs }: { logs: LogEntry[] }) {
         </Card>
       ) : (
         <div className="space-y-1.5">
-          {pgList.slice.map((l) => {
+          {list.rows.map((l) => {
             const meta = ACTION_META[l.action] ?? ACTION_META.view;
             const Icon = meta.icon;
 
@@ -150,10 +140,9 @@ export function AuditLogClient({ logs }: { logs: LogEntry[] }) {
               </Card>
             );
           })}
-          <Pager page={cur} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </div>
       )}
-      {pgList.pager}
+      {list.pager}
     </div>
   );
 }

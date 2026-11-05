@@ -1,6 +1,6 @@
 import { requireModule } from "@/lib/auth";
 import { canEdit } from "@/lib/permissions";
-import { db } from "@/lib/db";
+import { queryNotices } from "@/lib/data/lists-a";
 import { NoticesClient } from "@/components/app/notices-client";
 import { createNotice } from "@/app/actions/notices";
 import { PageHeader } from "@/components/app/page-header";
@@ -12,11 +12,7 @@ export const metadata = { title: "Notices" };
 export default async function NoticesPage() {
   const session = await requireModule("notices");
 
-  const notices = await db.churchNotice.findMany({
-    where: { churchId: session.churchId },
-    orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
-    take: 100,
-  });
+  const first = await queryNotices(session.churchId, "", 1);
 
   return (
     <div>
@@ -36,15 +32,7 @@ export default async function NoticesPage() {
         </ActionDialog>
       </PageHeader>
 
-      <NoticesClient
-        items={notices.map((n) => ({
-          id: n.id,
-          title: n.title,
-          body: n.body,
-          pinned: n.pinned,
-          createdAt: n.createdAt.toISOString(),
-        }))}
-      />
+      <NoticesClient initial={first} />
     </div>
   );
 }

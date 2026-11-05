@@ -1,6 +1,7 @@
 "use client";
 
-import { usePagedList } from "@/components/ui/list-pager";
+import { useServerList } from "@/components/ui/use-server-list";
+import { searchNotices } from "@/app/actions/lists";
 import { useState, useTransition } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -18,15 +19,11 @@ type NoticeRow = {
   createdAt: string;
 };
 
-export function NoticesClient({ items }: { items: NoticeRow[] }) {
+export function NoticesClient({ initial }: { initial: { rows: NoticeRow[]; total: number; page: number } }) {
   const [search, setSearch] = useState("");
   const [pending, start] = useTransition();
 
-  const filtered = items.filter((n) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return n.title.toLowerCase().includes(q) || n.body.toLowerCase().includes(q);
-  });
+  const list = useServerList<NoticeRow, Record<string, never>>({ initial, query: search, filters: {}, fetchPage: searchNotices, pageSize: 20 });
 
   const handlePin = (id: string) => {
     const fd = new FormData();
@@ -41,7 +38,6 @@ export function NoticesClient({ items }: { items: NoticeRow[] }) {
     start(async () => { await deleteNotice(fd); binDeleted(); });
   };
 
-  const pgList = usePagedList(filtered, 25, filtered.length);
   return (
     <div className="mt-5 space-y-4">
       <div className="relative">
@@ -50,11 +46,12 @@ export function NoticesClient({ items }: { items: NoticeRow[] }) {
           placeholder="Search notices..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
+          className="pl-10 pr-10"
         />
+        {list.spinner}
       </div>
 
-      {filtered.length === 0 ? (
+      {list.rows.length === 0 ? (
         <Card className="p-12 text-center">
           <Megaphone className="mx-auto size-10 text-ink-faint" />
           <p className="mt-3 text-sm text-ink-muted">
@@ -63,7 +60,7 @@ export function NoticesClient({ items }: { items: NoticeRow[] }) {
         </Card>
       ) : (
         <div className="space-y-3">
-          {pgList.slice.map((n) => (
+          {list.rows.map((n) => (
             <Card
               key={n.id}
               className={`p-4 ${n.pinned ? "border-brand/30 bg-brand/5" : ""} ${pending ? "opacity-60" : ""}`}
@@ -113,7 +110,7 @@ export function NoticesClient({ items }: { items: NoticeRow[] }) {
           ))}
         </div>
       )}
-      {pgList.pager}
+      {list.pager}
     </div>
   );
 }

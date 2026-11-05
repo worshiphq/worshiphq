@@ -1,5 +1,5 @@
 import { requireModule } from "@/lib/auth";
-import { db } from "@/lib/db";
+import { queryAudit, auditOptions } from "@/lib/data/lists-a";
 import { AuditLogClient } from "@/components/app/audit-log-client";
 import { PageHeader } from "@/components/app/page-header";
 
@@ -8,12 +8,10 @@ export const metadata = { title: "Audit log" };
 export default async function AuditLogPage() {
   const session = await requireModule("audit-log");
 
-  const logs = await db.auditLog.findMany({
-    where: { churchId: session.churchId },
-    include: { user: { select: { name: true, email: true } } },
-    orderBy: { createdAt: "desc" },
-    take: 3000,
-  });
+  const [first, options] = await Promise.all([
+    queryAudit(session.churchId, "", { entity: "", action: "", user: "", fromMs: null, toMs: null }, 1),
+    auditOptions(session.churchId),
+  ]);
 
   return (
     <div>
@@ -22,16 +20,8 @@ export default async function AuditLogPage() {
         description="A record of all actions performed in your church account."
       />
       <AuditLogClient
-        logs={logs.map((l) => ({
-          id: l.id,
-          action: l.action,
-          entity: l.entity,
-          entityId: l.entityId,
-          detail: l.detail,
-          userName: l.user.name,
-          userEmail: l.user.email,
-          createdAt: l.createdAt.toISOString(),
-        }))}
+        initial={first}
+        options={options}
       />
     </div>
   );

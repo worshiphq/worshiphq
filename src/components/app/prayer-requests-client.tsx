@@ -1,6 +1,8 @@
 "use client";
 
-import { usePagedList } from "@/components/ui/list-pager";
+import { useServerList } from "@/components/ui/use-server-list";
+import { searchPrayer, getPrayerActiveIds } from "@/app/actions/lists";
+import type { PrayerFilters } from "@/lib/data/lists-a";
 import { useState, useTransition } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -35,38 +37,28 @@ const STATUS_META: Record<string, { icon: typeof Circle; label: string; color: s
 
 const fmt = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
 
-export function PrayerRequestsClient({ items, prayUrl, canWrite }: { items: PrayerRow[]; prayUrl: string; canWrite: boolean }) {
+type PrayerCounts = { active: number; prayed: number; archived: number; all: number };
+
+export function PrayerRequestsClient({ initial, prayUrl, canWrite }: { initial: { rows: PrayerRow[]; total: number; page: number; extra?: PrayerCounts }; prayUrl: string; canWrite: boolean }) {
   const [search, setSearch] = useState("");
   const [tab, setTab] = useState<Tab>("active");
   const [period, setPeriod] = useState("");
   const [who, setWho] = useState<"" | "named" | "anonymous">("");
   const [sort, setSort] = useState<"new" | "old">("new");
-  const [page, setPage] = useState(1);
   const [pending, start] = useTransition();
   const [copied, setCopied] = useState(false);
   const { toast } = useFeedback();
   const PAGE_SIZE = 20;
 
   const since = periodStart(period);
-  const q = search.trim().toLowerCase();
-  const base = items.filter((p) => {
-    if (since !== null && new Date(p.createdAt).getTime() < since) return false;
-    if (who === "anonymous" && !p.isAnonymous) return false;
-    if (who === "named" && p.isAnonymous) return false;
-    if (!q) return true;
-    return p.name.toLowerCase().includes(q) || p.request.toLowerCase().includes(q);
+  const list = useServerList<PrayerRow, PrayerFilters, PrayerCounts>({
+    initial,
+    query: search,
+    filters: { tab, period, who, sort, sinceMs: since },
+    fetchPage: searchPrayer,
+    pageSize: PAGE_SIZE,
   });
-  const counts = {
-    active: base.filter((p) => p.status === "active").length,
-    prayed: base.filter((p) => p.status === "prayed").length,
-    archived: base.filter((p) => p.status === "archived").length,
-    all: base.length,
-  };
-  const filtered = base
-    .filter((p) => tab === "all" || p.status === tab)
-    .sort((x, y) => (sort === "old" ? x.createdAt.localeCompare(y.createdAt) : y.createdAt.localeCompare(x.createdAt)));
-  const cur = Math.min(page, Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)));
-  const shown = filtered.slice((cur - 1) * PAGE_SIZE, cur * PAGE_SIZE);
+  const counts: PrayerCounts = list.extra ?? { active: 0, prayed: 0, archived: 0, all: 0 };
   const filtering = !!(search || period || who);
 
   const setStatus = (id: string, status: string) => {
@@ -77,10 +69,11 @@ export function PrayerRequestsClient({ items, prayUrl, canWrite }: { items: Pray
   };
 
   const markAll = () => {
-    const ids = filtered.filter((p) => p.status === "active").map((p) => p.id);
-    if (ids.length === 0) return;
-    if (!window.confirm(`Mark ${ids.length} request${ids.length === 1 ? "" : "s"} as prayed for?`)) return;
     start(async () => {
+      // Every new request that matches the current search and filters, not just the page on screen.
+      const ids = await getPrayerActiveIds(search.trim(), { tab, period, who, sort, sinceMs: since });
+      if (ids.length === 0) return;
+      if (!window.confirm(`Mark ${ids.length} request${ids.length === 1 ? "" : "s"} as prayed for?`)) return;
       const res = await markPrayerRequestsPrayed(ids);
       toast(res.ok ? `${res.count} marked as prayed for` : "Could not update", res.ok ? "success" : "error");
     });
@@ -100,36 +93,36 @@ export function PrayerRequestsClient({ items, prayUrl, canWrite }: { items: Pray
     { key: "all", label: "All" },
   ];
 
-  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <div className="mt-5 space-y-4">
       <div className="space-y-2">
         <div className="flex flex-wrap items-center gap-2">
           <div className="relative min-w-[14rem] flex-1">
             <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-            <Input placeholder="Search prayer requests..." value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="pl-10" />
+            <Input placeholder="Search prayer requests..." value={search} onChange={(e) => { setSearch(e.target.value); }} className="pl-10 pr-10" />
+            {list.spinner}
           </div>
-          <select value={period} onChange={(e) => { setPeriod(e.target.value); setPage(1); }} className={filterSelectCls} aria-label="Period">
+          <select value={period} onChange={(e) => { setPeriod(e.target.value); }} className={filterSelectCls} aria-label="Period">
             {PERIODS.map((p) => <option key={p.key} value={p.key}>{p.label}</option>)}
           </select>
-          <select value={who} onChange={(e) => { setWho(e.target.value as typeof who); setPage(1); }} className={filterSelectCls} aria-label="Who asked">
+          <select value={who} onChange={(e) => { setWho(e.target.value as typeof who); }} className={filterSelectCls} aria-label="Who asked">
             <option value="">Named and anonymous</option>
             <option value="named">Named only</option>
             <option value="anonymous">Anonymous only</option>
           </select>
-          <select value={sort} onChange={(e) => { setSort(e.target.value as typeof sort); setPage(1); }} className={filterSelectCls} aria-label="Sort">
+          <select value={sort} onChange={(e) => { setSort(e.target.value as typeof sort); }} className={filterSelectCls} aria-label="Sort">
             <option value="new">Newest first</option>
             <option value="old">Oldest first</option>
           </select>
         </div>
         <div className="flex flex-wrap items-center gap-1">
           {TABS.map((t) => (
-            <Button key={t.key} variant={tab === t.key ? "primary" : "secondary"} size="sm" onClick={() => { setTab(t.key); setPage(1); }}>
+            <Button key={t.key} variant={tab === t.key ? "primary" : "secondary"} size="sm" onClick={() => { setTab(t.key); }}>
               {t.label}
               <span className={`ml-1 rounded-full px-1.5 text-[11px] font-semibold ${tab === t.key ? "bg-white/25" : "bg-surface-2 text-ink-faint"}`}>{counts[t.key]}</span>
             </Button>
           ))}
-          {filtering && <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setPeriod(""); setWho(""); setPage(1); }}>Clear filters</Button>}
+          {filtering && <Button variant="ghost" size="sm" onClick={() => { setSearch(""); setPeriod(""); setWho(""); }}>Clear filters</Button>}
           {canWrite && tab === "active" && counts.active > 0 && (
             <Button variant="secondary" size="sm" className="ml-auto" onClick={markAll} disabled={pending}>
               {pending ? <><Loader2 className="animate-spin" /> Updating…</> : <><CheckCircle2 /> Mark all as prayed for</>}
@@ -149,7 +142,7 @@ export function PrayerRequestsClient({ items, prayUrl, canWrite }: { items: Pray
         </Card>
       )}
 
-      {filtered.length === 0 ? (
+      {list.rows.length === 0 ? (
         <Card className="p-12 text-center">
           <Heart className="mx-auto size-10 text-ink-faint" />
           <p className="mt-3 text-sm text-ink-muted">
@@ -164,7 +157,7 @@ export function PrayerRequestsClient({ items, prayUrl, canWrite }: { items: Pray
         </Card>
       ) : (
         <div className="space-y-2">
-          {pgList.slice.map((p) => {
+          {list.rows.map((p) => {
             const meta = STATUS_META[p.status] ?? STATUS_META.active;
             const Icon = meta.icon;
             return (
@@ -210,10 +203,9 @@ export function PrayerRequestsClient({ items, prayUrl, canWrite }: { items: Pray
               </Card>
             );
           })}
-          <Pager page={cur} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </div>
       )}
-      {pgList.pager}
+      {list.pager}
     </div>
   );
 }

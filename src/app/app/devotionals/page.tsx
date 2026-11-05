@@ -6,18 +6,16 @@ import { PageHeader } from "@/components/app/page-header";
 import { PendingLink } from "@/components/ui/pending-link";
 import { audienceOptions } from "@/lib/sms/audience";
 import { Plus } from "lucide-react";
+import { queryDevotionals, devotionalOptions } from "@/lib/data/lists-a";
 
 export const metadata = { title: "Devotionals" };
 
 export default async function DevotionalsPage() {
   const session = await requireModule("devotionals");
 
-  const [devotionals, audiences, people] = await Promise.all([
-    db.devotional.findMany({
-      where: { churchId: session.churchId },
-      orderBy: { date: "desc" },
-      take: 1000,
-    }),
+  const [first, options, audiences, people] = await Promise.all([
+    queryDevotionals(session.churchId, "", { author: "", year: "", state: "" }, 1),
+    devotionalOptions(session.churchId),
     audienceOptions(session.churchId),
     db.person.findMany({ where: { churchId: session.churchId, phone: { not: null }, status: { not: "inactive" } }, select: { id: true, firstName: true, lastName: true, phone: true }, orderBy: [{ firstName: "asc" }, { lastName: "asc" }], take: 3000 }),
   ]);
@@ -37,15 +35,8 @@ export default async function DevotionalsPage() {
         canWrite={canEdit(session, "devotionals")}
         audiences={audiences}
         members={people.map((m) => ({ value: m.id, label: `${m.firstName} ${m.lastName}`.trim(), hint: m.phone ?? undefined }))}
-        devotionals={devotionals.map((d) => ({
-          id: d.id,
-          title: d.title,
-          scripture: d.scripture,
-          body: d.body,
-          author: d.author,
-          published: d.published,
-          date: d.date.toISOString(),
-        }))}
+        initial={first}
+        options={options}
       />
     </div>
   );

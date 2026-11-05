@@ -1,6 +1,6 @@
 import { requireModule } from "@/lib/auth";
 import { canEdit } from "@/lib/permissions";
-import { asExtra } from "@/components/app/extra-answers";
+import { queryTestimonies, testimonyStats } from "@/lib/data/lists-a";
 import { db } from "@/lib/db";
 import { TestimoniesClient } from "@/components/app/testimonies-client";
 import { createTestimony } from "@/app/actions/testimonies";
@@ -13,13 +13,9 @@ export const metadata = { title: "Testimonies" };
 export default async function TestimoniesPage() {
   const session = await requireModule("testimonies");
 
-  const [testimonies, members] = await Promise.all([
-    db.testimony.findMany({
-      where: { churchId: session.churchId },
-      orderBy: { date: "desc" },
-      take: 200,
-      include: { person: { select: { firstName: true, lastName: true } } },
-    }),
+  const [first, stats, members] = await Promise.all([
+    queryTestimonies(session.churchId, "", "all", 1),
+    testimonyStats(session.churchId),
     db.person.findMany({
       where: { churchId: session.churchId },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
@@ -60,19 +56,7 @@ export default async function TestimoniesPage() {
         </ActionDialog>
       </PageHeader>
 
-      <TestimoniesClient
-        testimonies={testimonies.map((t) => ({
-          id: t.id,
-          title: t.title,
-          body: t.body,
-          category: t.category,
-          status: t.status,
-          anonymous: t.anonymous,
-          memberName: t.person ? `${t.person.firstName} ${t.person.lastName}` : null,
-          extra: asExtra(t.extra),
-          date: t.date.toISOString(),
-        }))}
-      />
+      <TestimoniesClient initial={first} stats={stats} />
     </div>
   );
 }
