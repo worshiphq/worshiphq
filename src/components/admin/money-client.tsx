@@ -3,7 +3,7 @@
 import { usePaged } from "@/components/admin/pager";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { addMoneyEntry, deleteMoneyEntry } from "@/app/actions/owner-money";
 import { ArrowLeft, Plus, Trash2, TrendingUp, TrendingDown, Wallet, Loader2, Banknote } from "lucide-react";
 

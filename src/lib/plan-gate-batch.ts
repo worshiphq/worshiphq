@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { ttlCached } from "@/lib/ttl-cache";
 import { commsTrial, planHasFeature, effectivePlan } from "@/lib/plan-gate";
 
 /**
@@ -22,13 +23,18 @@ export async function onlyWithFeature<T extends { id: string }>(churches: T[], f
   if (churches.length === 0) return churches;
   const ids = churches.map((c) => c.id);
 
-  const [subs, config, created] = await Promise.all([
-    db.subscription.findMany({ where: { churchId: { in: ids } }, select: { churchId: true, plan: true, status: true, renewsAt: true } }),
+  // One cron run asks this about ten times, once per runner. Everyone's plan is read once and shared for a short
+  // while instead of once per runner. A run is minutes long at most, so a 60 second wait on a plan change is harmless.
+  const [allSubs, config, allCreated] = await Promise.all([
+    ttlCached("plan-gate-batch:subs", 60_000, () => db.subscription.findMany({ select: { churchId: true, plan: true, status: true, renewsAt: true } })),
     import("@/lib/data/platform-config").then((m) => m.getPlatformConfig()),
     feature === "sms"
-      ? db.church.findMany({ where: { id: { in: ids } }, select: { id: true, createdAt: true } })
+      ? ttlCached("plan-gate-batch:created", 60_000, () => db.church.findMany({ select: { id: true, createdAt: true } }))
       : Promise.resolve([] as { id: string; createdAt: Date }[]),
   ]);
+  const wanted = new Set(ids);
+  const subs = allSubs.filter((s) => wanted.has(s.churchId));
+  const created = allCreated.filter((c) => wanted.has(c.id));
 
   const planOf = new Map(subs.map((s) => [s.churchId, effectivePlan(s)]));
   const createdOf = new Map(created.map((c) => [c.id, c.createdAt]));

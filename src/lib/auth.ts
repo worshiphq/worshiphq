@@ -338,7 +338,7 @@ export async function requireSuperAdminOwner(): Promise<SuperAdminWho> {
 async function lockedFeatures(churchId: string): Promise<string[]> {
   const { getChurchPlan } = await import("@/lib/plan-gate-server");
   const { getPlatformConfig } = await import("@/lib/data/platform-config");
-  const [plan, cfg, church] = await Promise.all([getChurchPlan(churchId), getPlatformConfig(), db.church.findUnique({ where: { id: churchId }, select: { createdAt: true } })]);
+  const [plan, cfg, church] = await Promise.all([getChurchPlan(churchId), getPlatformConfig(), import("@/lib/church-chrome").then((m) => m.getChurchChrome(churchId))]);
   // A new Free church can use Communications (SMS) during its first month.
   const trialSms = plan === "free" && !!church && commsTrial(church.createdAt).active;
   return ALL_FEATURES.filter((f) => !ALWAYS_ON_FEATURES.includes(f) && !(trialSms && f === "sms") && !planHasFeature(plan as PlanId, f, cfg.planTable));

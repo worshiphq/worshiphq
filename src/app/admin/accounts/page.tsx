@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { Search, ChevronLeft, ChevronRight } from "lucide-react";
 import { requireSuperAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";

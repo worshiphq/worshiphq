@@ -1,6 +1,6 @@
 import { Pager } from "@/components/admin/pager";
 import { paging, readPage } from "@/lib/admin-paging";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requireSuperAdmin } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/admin-shell";

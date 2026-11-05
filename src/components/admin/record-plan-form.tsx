@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { Loader2, Check, Eye, Download, Receipt } from "lucide-react";
 import { recordChurchPlan, setSmsCostPerCredit } from "@/app/actions/admin";
 import { useFeedback } from "@/components/ui/feedback";

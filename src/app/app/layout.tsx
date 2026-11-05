@@ -4,6 +4,7 @@ import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
+import { getChurchChrome } from "@/lib/church-chrome";
 import { AppShell } from "@/components/app/app-shell";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { TourProvider } from "@/components/app/tour";
@@ -32,10 +33,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   const [announcements, church, notifications, plan, platformConfig, binCount] = await Promise.all([
     getActiveAnnouncements(),
-    db.church.findUnique({
-      where: { id: session.churchId },
-      select: { suspended: true, logoUrl: true, accentColor: true, hideAmounts: true, createdAt: true, country: true },
-    }),
+    getChurchChrome(session.churchId),
     getRecentNotifications(session.churchId),
     getChurchPlan(session.churchId),
     getPlatformConfig(),

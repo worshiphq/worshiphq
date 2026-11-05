@@ -1,6 +1,6 @@
 "use client";
 
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { ADMIN_PAGE_SIZE, pageWindow } from "@/lib/admin-paging";

@@ -32,7 +32,8 @@ const url = connectionUrl();
 export const db =
   globalForPrisma.prisma ??
   new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
+    // WHQ_LOG_QUERIES=1 prints every database query, to count what a page costs. Off in normal use.
+    log: process.env.WHQ_LOG_QUERIES === "1" ? ["query", "error", "warn"] : process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
     ...(url ? { datasources: { db: { url } } } : {}),
   });
 

@@ -1,4 +1,4 @@
-import Link from "next/link";
+import Link from "@/components/ui/app-link";
 import { LayoutDashboard, FileText, Megaphone, LogOut, CreditCard, Wallet, Undo2, DatabaseBackup, KeyRound, TrendingUp, Mail, Receipt, Users, UserCog, Menu, PiggyBank, ScrollText, MessageSquare, CalendarClock } from "lucide-react";
 import { superAdminSignOut } from "@/app/actions/admin";
 

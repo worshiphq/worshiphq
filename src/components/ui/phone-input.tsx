@@ -16,7 +16,7 @@ export function PhoneDefaults({ country, children }: { country: CountryCode | nu
 let geoPromise: Promise<CountryCode | null> | null = null;
 /** Where the visitor is, once per page: the host's country header, then the browser's language region. */
 function visitorCountry(): Promise<CountryCode | null> {
-  geoPromise ??= fetch("/api/geo", { cache: "no-store" })
+  geoPromise ??= fetch("/api/geo")
     .then((r) => (r.ok ? r.json() : null))
     .then((d: { country?: string | null } | null) => {
       const fromHost = countryByIso(d?.country)?.iso;
