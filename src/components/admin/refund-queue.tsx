@@ -1,5 +1,6 @@
 "use client";
 
+import { usePaged } from "@/components/admin/pager";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Undo2, Check, X, Clock, Loader2, AlertTriangle } from "lucide-react";
@@ -42,6 +43,7 @@ export function RefundQueue({ requests }: { requests: RefundRow[] }) {
   const [pending, start] = useTransition();
   const router = useRouter();
 
+  const rq = usePaged(requests, 10);
   const pendingCount = requests.filter((r) => r.status === "pending").length;
 
   function act(id: string, kind: "approve" | "reject") {
@@ -80,7 +82,7 @@ export function RefundQueue({ requests }: { requests: RefundRow[] }) {
         </p>
       ) : (
         <div className="mt-5 space-y-3">
-          {requests.map((r) => {
+          {rq.slice.map((r) => {
             const s = STATUS[r.status] ?? STATUS.pending;
             const isPending = r.status === "pending";
             return (
@@ -143,6 +145,7 @@ export function RefundQueue({ requests }: { requests: RefundRow[] }) {
               </div>
             );
           })}
+          {rq.pager}
         </div>
       )}
     </section>

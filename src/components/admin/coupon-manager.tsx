@@ -1,5 +1,6 @@
 "use client";
 
+import { usePaged } from "@/components/admin/pager";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Ticket, Wand2, Trash2, Copy, Check, Loader2 } from "lucide-react";
@@ -33,6 +34,7 @@ export function CouponManager({
   churches: { id: string; name: string }[];
   currencySymbol: string;
 }) {
+  const cp = usePaged(coupons, 10);
   const [discountType, setDiscountType] = useState<"percent" | "fixed">("percent");
   const [discountValue, setDiscountValue] = useState("50");
   const [code, setCode] = useState("");
@@ -196,7 +198,7 @@ export function CouponManager({
               </tr>
             </thead>
             <tbody>
-              {coupons.map((c) => {
+              {cp.slice.map((c) => {
                 const expired = c.expiresAt && new Date(c.expiresAt) < new Date();
                 const restrictions = [c.churchName, c.plan, c.interval].filter(Boolean).join(" · ") || "Anyone";
                 return (
@@ -241,6 +243,7 @@ export function CouponManager({
           </table>
         )}
       </div>
+      {cp.pager}
     </section>
   );
 }

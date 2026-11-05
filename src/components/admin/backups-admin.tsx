@@ -1,5 +1,6 @@
 "use client";
 
+import { usePaged } from "@/components/admin/pager";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { DatabaseBackup, Download, Loader2, AlertTriangle, CheckCircle2, Play, Mail } from "lucide-react";
@@ -46,6 +47,8 @@ export function BackupsAdmin({
     });
   }
 
+  const cp = usePaged(churches, 25);
+  const rp = usePaged(recent, 10);
   const totalBytes = churches.reduce((s, c) => s + c.bytes, 0);
   const stale = churches.filter((c) => c.autoBackup && (!c.lastBackupAt || Date.now() - new Date(c.lastBackupAt).getTime() > 2 * DAY)).length;
 
@@ -139,7 +142,7 @@ export function BackupsAdmin({
               </tr>
             </thead>
             <tbody>
-              {churches.map((c) => (
+              {cp.slice.map((c) => (
                 <tr key={c.id} className="border-b border-white/5 last:border-0">
                   <td className="py-3 pr-3 text-white">{c.name}</td>
                   <td className="py-3 pr-3">
@@ -174,6 +177,7 @@ export function BackupsAdmin({
             </tbody>
           </table>
         </div>
+        {cp.pager}
       </section>
 
       <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-6">
@@ -182,7 +186,7 @@ export function BackupsAdmin({
           <p className="mt-4 rounded-xl border border-dashed border-white/10 p-8 text-center text-sm text-white/40">No backups yet.</p>
         ) : (
           <div className="mt-4 divide-y divide-white/5">
-            {recent.map((r) => (
+            {rp.slice.map((r) => (
               <div key={r.id} className="flex flex-wrap items-center justify-between gap-3 py-3 text-sm">
                 <div>
                   <span className="text-white">{r.church}</span>
@@ -205,6 +209,7 @@ export function BackupsAdmin({
             ))}
           </div>
         )}
+        {rp.pager}
       </section>
     </div>
   );

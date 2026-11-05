@@ -1,3 +1,5 @@
+import { Pager } from "@/components/admin/pager";
+import { paging, readPage } from "@/lib/admin-paging";
 import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requireSuperAdmin } from "@/lib/auth";
@@ -23,7 +25,7 @@ const DAY = 86_400_000;
 export default async function AdminSmsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ page?: string; filter?: string; q?: string }>;
+  searchParams: Promise<{ page?: string; filter?: string; q?: string; apage?: string }>;
 }) {
   const sa = await requireSuperAdmin();
   const sp = await searchParams;
@@ -38,6 +40,8 @@ export default async function AdminSmsPage({
     db.church.count({ where: { isDemo: false } }),
   ]);
 
+  const ap = paging(adjustments.length, readPage(sp.apage), 10);
+  const shownAdj = adjustments.slice(ap.skip, ap.skip + ap.size);
   const href = (p: number, f = filter) =>
     `/admin/sms?${new URLSearchParams({
       ...(f !== "all" ? { filter: f } : {}),
@@ -83,7 +87,7 @@ export default async function AdminSmsPage({
             <p className="text-xs text-slate-500">Your reason is here only. The church's own history just says credits were granted or removed.</p>
           </div>
           <div className="divide-y divide-white/5">
-            {adjustments.map((a) => (
+            {shownAdj.map((a) => (
               <div key={a.id} className="flex items-center gap-3 px-4 py-2.5 text-sm">
                 <span className={`w-20 shrink-0 text-right font-semibold tabular-nums ${a.credits < 0 ? "text-rose-300" : "text-emerald-300"}`}>
                   {a.credits > 0 ? "+" : ""}{a.credits.toLocaleString()}
@@ -97,6 +101,9 @@ export default async function AdminSmsPage({
                 </span>
               </div>
             ))}
+          </div>
+          <div className="px-4 pb-3">
+            <Pager page={ap.page} pages={ap.pages} total={ap.total} size={ap.size} path="/admin/sms" pageParam="apage" params={{ filter: filter !== "all" ? filter : undefined, q: sp.q, page: sp.page }} />
           </div>
         </div>
       )}

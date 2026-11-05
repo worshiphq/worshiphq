@@ -12,6 +12,8 @@ import {
 } from "@/app/actions/admin-outreach";
 import { OUTREACH_TEMPLATES, firstName, mergeFields, renderEmailHtml, templateById, type OutreachChannel } from "@/lib/outreach/templates";
 import { cn } from "@/lib/utils";
+import { ClientPager, PagedList } from "@/components/admin/pager";
+import { ADMIN_PAGE_SIZE } from "@/lib/admin-paging";
 
 const btn = "inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors disabled:opacity-50";
 const primary = `${btn} bg-teal-500 text-slate-950 hover:bg-teal-400`;
@@ -40,6 +42,7 @@ export function OutreachClient({ data }: { data: OutreachData }) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "new" | "free" | "paid">("all");
+  const [page, setPage] = useState(1);
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [composer, setComposer] = useState<Composer>(null);
   const [history, setHistory] = useState<OutreachChurch | null>(null);
@@ -54,7 +57,12 @@ export function OutreachClient({ data }: { data: OutreachData }) {
     return c.name.toLowerCase().includes(t) || (c.city ?? "").toLowerCase().includes(t) || c.contacts.some((x) => `${x.name} ${x.email} ${x.phone ?? ""}`.toLowerCase().includes(t));
   }), [data.churches, q, filter]);
   const chosen = data.churches.filter((c) => sel.has(c.id));
-  const allOn = rows.length > 0 && rows.every((r) => sel.has(r.id));
+  // A page at a time. What is ticked is kept across pages, so a church ticked on page 1 is still chosen on page 3.
+  const pages = Math.max(1, Math.ceil(rows.length / ADMIN_PAGE_SIZE));
+  const cur = Math.min(page, pages);
+  const pageRows = rows.slice((cur - 1) * ADMIN_PAGE_SIZE, cur * ADMIN_PAGE_SIZE);
+  const allOn = pageRows.length > 0 && pageRows.every((r) => sel.has(r.id));
+  const moreMatching = rows.some((r) => !sel.has(r.id));
   const toggle = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   return (
@@ -100,12 +108,12 @@ export function OutreachClient({ data }: { data: OutreachData }) {
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <div className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
-          <input className={`${input} w-64 pl-9`} placeholder="Search church, name, email, phone" value={q} onChange={(e) => setQ(e.target.value)} />
+          <input className={`${input} w-64 pl-9`} placeholder="Search church, name, email, phone" value={q} onChange={(e) => { setQ(e.target.value); setPage(1); }} />
         </div>
         {([["all", "All"], ["new", "Not welcomed"], ["free", "Free plan"], ["paid", "Paid plans"]] as const).map(([k, label]) => (
-          <button key={k} onClick={() => setFilter(k)} className={cn("rounded-full border px-3 py-1 text-xs", filter === k ? "border-teal-500/60 bg-teal-500/15 text-teal-300" : "border-white/10 text-slate-400 hover:bg-white/5")}>{label}</button>
+          <button key={k} onClick={() => { setFilter(k); setPage(1); }} className={cn("rounded-full border px-3 py-1 text-xs", filter === k ? "border-teal-500/60 bg-teal-500/15 text-teal-300" : "border-white/10 text-slate-400 hover:bg-white/5")}>{label}</button>
         ))}
-        <span className="ml-auto text-xs text-slate-500">{rows.length} shown</span>
+        <span className="ml-auto text-xs text-slate-500">{rows.length} {rows.length === 1 ? "church matches" : "churches match"}</span>
       </div>
 
       {chosen.length > 0 && (
@@ -113,6 +121,9 @@ export function OutreachClient({ data }: { data: OutreachData }) {
           <b className="text-teal-300">{chosen.length} selected</b>
           <button className={ghost} onClick={() => setComposer({ mode: "email", churches: chosen })}><Mail className="size-4" /> Email them</button>
           <button className={ghost} onClick={() => setComposer({ mode: "sms", churches: chosen })}><MessageSquare className="size-4" /> Text them</button>
+          {moreMatching && rows.length > pageRows.length && (
+            <button className="text-xs text-teal-300 underline hover:text-white" onClick={() => setSel((s) => new Set([...s, ...rows.map((r) => r.id)]))}>Select all {rows.length} that match</button>
+          )}
           <button className="ml-auto text-xs text-slate-400 hover:text-white" onClick={() => setSel(new Set())}>Clear</button>
         </div>
       )}
@@ -122,12 +133,12 @@ export function OutreachClient({ data }: { data: OutreachData }) {
           <table className="w-full text-sm">
             <thead>
               <tr className="border-b border-white/10 text-left text-[11px] uppercase tracking-wide text-slate-500">
-                <th className="w-10 px-4 py-3"><input type="checkbox" checked={allOn} onChange={() => setSel(allOn ? new Set() : new Set(rows.map((r) => r.id)))} className="size-4 accent-teal-500" /></th>
+                <th className="w-10 px-4 py-3"><input type="checkbox" checked={allOn} onChange={() => setSel((s) => { const n = new Set(s); for (const r of pageRows) { if (allOn) n.delete(r.id); else n.add(r.id); } return n; })} className="size-4 accent-teal-500" /></th>
                 <th className="px-2 py-3">Church</th><th className="px-2 py-3">Owner</th><th className="px-2 py-3">Status</th><th className="px-2 py-3 text-right">Reach out</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
-              {rows.map((c) => {
+              {pageRows.map((c) => {
                 const o = c.contacts[0];
                 return (
                   <tr key={c.id} className="align-top hover:bg-white/[0.02]">
@@ -177,6 +188,7 @@ export function OutreachClient({ data }: { data: OutreachData }) {
           </table>
         </div>
       </AdminCard>
+      <ClientPager page={cur} pages={pages} total={rows.length} shown={pageRows.length} onPage={setPage} />
 
       {composer && (
         <Compose key={`${composer.mode}-${composer.template ?? ""}-${composer.churches.map((c) => c.id).join()}`} data={data} composer={composer}
@@ -369,8 +381,7 @@ function HistoryDialog({ church, onClose }: { church: OutreachChurch; onClose: (
         : rows === null ? <div className="flex items-center gap-2 text-sm text-slate-400"><Loader2 className="size-4 animate-spin" /> Loading…</div>
         : rows.length === 0 ? <p className="text-sm text-slate-400">Nothing has been sent to this church yet.</p>
         : (
-          <ul className="divide-y divide-white/5">
-            {rows.map((r) => (
+          <PagedList items={rows} size={10} wrap={(kids) => <ul className="divide-y divide-white/5">{kids}</ul>} render={(r) => (
               <li key={r.id} className="py-3">
                 <button className="flex w-full items-start gap-3 text-left" onClick={() => setOpen(open === r.id ? null : r.id)}>
                   {r.channel === "email" ? <Mail className="mt-0.5 size-4 shrink-0 text-slate-400" /> : <MessageSquare className="mt-0.5 size-4 shrink-0 text-slate-400" />}
@@ -387,8 +398,7 @@ function HistoryDialog({ church, onClose }: { church: OutreachChurch; onClose: (
                   </div>
                 )}
               </li>
-            ))}
-          </ul>
+          )} />
         )}
     </Modal>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Pager } from "@/components/admin/pager";
 import { Ban, CheckCircle2, Trash2, Search, Building2, Gift } from "lucide-react";
 import type { ChurchRow } from "@/lib/data/admin";
 import { SENDER_ID_UPDATE_OPTIONS, SENDER_ID_STATUS_LABEL } from "@/config/sender-id";
@@ -86,15 +87,10 @@ function SmsTierSelect({ church, run }: { church: ChurchRow; run: ReturnType<typ
   );
 }
 
-export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
-  const [q, setQ] = useState("");
+export function ChurchTable({ churches, q, total, page, pages, size }: { churches: ChurchRow[]; q: string; total: number; page: number; pages: number; size: number }) {
   const { run, toast } = useFeedback();
-  const filtered = churches.filter(
-    (c) =>
-      c.name.toLowerCase().includes(q.toLowerCase()) ||
-      (c.country ?? "").toLowerCase().includes(q.toLowerCase()) ||
-      (c.city ?? "").toLowerCase().includes(q.toLowerCase()),
-  );
+  // The server already searched every church and sent just this page, so there is nothing left to filter here.
+  const filtered = churches;
 
   // Granting and taking back credits are defined once here and used by BOTH layouts below. They were
   // written inline in the mobile cards first, which meant the "take back" button did not exist at all
@@ -189,17 +185,18 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
     <div>
       <div className="mb-4 flex items-center justify-between gap-3">
         <h2 className="text-sm font-semibold text-slate-200">
-          Churches <span className="text-slate-500">({churches.length})</span>
+          Churches <span className="text-slate-500">({total.toLocaleString()}{q ? ` matching` : ""})</span>
         </h2>
-        <div className="relative">
+        <form action="/admin" className="relative">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
           <input
-            value={q}
-            onChange={(e) => setQ(e.target.value)}
-            placeholder="Search churches…"
-            className="h-9 w-56 rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-teal-400/60 focus:outline-none"
+            name="q"
+            defaultValue={q}
+            aria-label="Search churches"
+            placeholder="Search churches, press Enter"
+            className="h-9 w-64 rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-teal-400/60 focus:outline-none"
           />
-        </div>
+        </form>
       </div>
 
       {/* Mobile card layout */}
@@ -575,6 +572,8 @@ export function ChurchTable({ churches }: { churches: ChurchRow[] }) {
           </tbody>
         </table>
       </div>
+
+      <Pager page={page} pages={pages} total={total} size={size} path="/admin" params={{ q: q || undefined }} />
     </div>
   );
 }

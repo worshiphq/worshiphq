@@ -1,3 +1,5 @@
+import { Pager } from "@/components/admin/pager";
+import { paging, readPage } from "@/lib/admin-paging";
 import { requireSuperAdmin } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { db } from "@/lib/db";
@@ -18,7 +20,7 @@ const KIND_LABEL: Record<string, string> = {
   card_saved: "Card saved", card_removed: "Card removed", auto_renew_on: "Auto-renew on", auto_renew_off: "Auto-renew off",
 };
 
-export default async function AdminRenewalsPage() {
+export default async function AdminRenewalsPage({ searchParams }: { searchParams: Promise<{ page?: string; epage?: string }> }) {
   const sa = await requireSuperAdmin();
   const now = Date.now();
   const cfg = await getPlatformConfig();
@@ -47,6 +49,10 @@ export default async function AdminRenewalsPage() {
       return a.end.getTime() - b.end.getTime();
     });
 
+  // The summary tiles above count every paid church. Only the table below is paged.
+  const sp = await searchParams;
+  const rp = paging(rows.length, readPage(sp.page));
+  const shownRows = rows.slice(rp.skip, rp.skip + rp.size);
   const ids = subs.map((s) => s.churchId);
   const [recent, last, cardCounts] = await Promise.all([
     db.billingEvent.findMany({ orderBy: { createdAt: "desc" }, take: 40, include: { church: { select: { name: true } } } }).catch(() => []),
@@ -59,6 +65,8 @@ export default async function AdminRenewalsPage() {
       .catch(() => []),
     db.savedCard.groupBy({ by: ["churchId"], where: { churchId: { in: ids } }, _count: true }).catch(() => []),
   ]);
+  const ep = paging(recent.length, readPage(sp.epage), 10);
+  const shownRecent = recent.slice(ep.skip, ep.skip + ep.size);
   const lastOf = new Map(last.map((e) => [e.churchId, e]));
   const hasCard = new Set(cardCounts.map((c) => c.churchId));
 
@@ -119,7 +127,7 @@ export default async function AdminRenewalsPage() {
             </tr>
           </thead>
           <tbody>
-            {rows.map(({ s, end, daysLeft, ended, gift }) => {
+            {shownRows.map(({ s, end, daysLeft, ended, gift }) => {
               const n = lastOf.get(s.churchId);
               const tone = gift ? "text-slate-400" : !end ? "text-rose-300" : ended ? "text-rose-300" : daysLeft! <= 7 ? "text-amber-300" : "text-slate-300";
               return (
@@ -164,6 +172,7 @@ export default async function AdminRenewalsPage() {
           </tbody>
         </table>
       </div>
+      <Pager page={rp.page} pages={rp.pages} total={rp.total} size={rp.size} path="/admin/renewals" params={{ epage: sp.epage }} />
 
       <h2 className="mb-2 mt-8 text-sm font-semibold text-slate-200">Latest billing activity</h2>
       <div className="rounded-2xl border border-white/10">
@@ -171,7 +180,7 @@ export default async function AdminRenewalsPage() {
           <div className="px-4 py-8 text-center text-slate-500">Nothing yet. Reminders, expiries and card charges will appear here as they happen.</div>
         ) : (
           <div className="divide-y divide-white/5">
-            {recent.map((e) => (
+            {shownRecent.map((e) => (
               <div key={e.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2.5 text-sm">
                 <span className="w-32 shrink-0 text-xs text-slate-500">{when(e.createdAt)}</span>
                 <span className="min-w-0 flex-1 text-slate-200">
@@ -186,6 +195,7 @@ export default async function AdminRenewalsPage() {
           </div>
         )}
       </div>
+      <Pager page={ep.page} pages={ep.pages} total={ep.total} size={ep.size} path="/admin/renewals" pageParam="epage" params={{ page: sp.page }} />
     </AdminShell>
   );
 }

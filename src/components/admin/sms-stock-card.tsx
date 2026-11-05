@@ -1,5 +1,6 @@
 "use client";
 
+import { usePaged } from "@/components/admin/pager";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Loader2, Trash2, ShieldCheck, AlertTriangle, PackagePlus, Gauge } from "lucide-react";
@@ -20,6 +21,7 @@ const days = (iso: string) => Math.floor((Date.now() - new Date(iso).getTime()) 
 /** "Are we safe on {carrier}?" Anyone with SuperAdmin can read it; only the owner can add or delete. */
 export function SmsStockCard({ stock, isOwner, carrier = "Hubtel" }: { stock: StockView; isOwner: boolean; carrier?: "Hubtel" | "Nalo" }) {
   const [price, setPrice] = useState(String(stock.costPerCredit));
+  const ep = usePaged(stock.entries, 8);
   const router = useRouter();
   const [reading, setReading] = useState("");
   const [amount, setAmount] = useState("");
@@ -160,7 +162,7 @@ export function SmsStockCard({ stock, isOwner, carrier = "Hubtel" }: { stock: St
 
       {stock.entries.length > 0 && (
         <ul className="mt-4 divide-y divide-white/5 rounded-xl border border-white/10 text-sm">
-          {stock.entries.slice(0, 8).map((p) => (
+          {ep.slice.map((p) => (
             <li key={p.id} className="flex items-center gap-3 px-3 py-2">
               <span className="w-20 shrink-0 text-xs text-slate-500">{new Date(p.purchasedAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "2-digit" })}</span>
               <span className="min-w-0 flex-1 truncate text-slate-200">
@@ -176,6 +178,7 @@ export function SmsStockCard({ stock, isOwner, carrier = "Hubtel" }: { stock: St
           ))}
         </ul>
       )}
+      {stock.entries.length > 0 && ep.pager}
     </div>
   );
 }

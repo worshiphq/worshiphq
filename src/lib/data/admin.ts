@@ -1,3 +1,4 @@
+import { paging } from "@/lib/admin-paging";
 import "server-only";
 import { db } from "@/lib/db";
 
@@ -22,11 +23,29 @@ export interface ChurchRow {
   smsTier: string | null;
 }
 
-/** Every church on the platform, with headline stats (newest first). */
-export async function getAllChurches(): Promise<ChurchRow[]> {
+export type ChurchesPage = { rows: ChurchRow[]; total: number; page: number; pages: number; size: number };
+
+/**
+ * One page of the platform's churches (newest first), with headline stats. The search runs across EVERY church, not just
+ * the page on screen, and giving is added up for this page's churches only, not for the whole platform.
+ */
+export async function getChurchesPage(opts: { page?: number; q?: string; size?: number } = {}): Promise<ChurchesPage> {
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const q = opts.q?.trim();
+  const where = q
+    ? { OR: [
+        { name: { contains: q, mode: "insensitive" as const } },
+        { country: { contains: q, mode: "insensitive" as const } },
+        { city: { contains: q, mode: "insensitive" as const } },
+      ] }
+    : {};
+  const total = await db.church.count({ where });
+  const { page, pages, size, skip } = paging(total, opts.page ?? 1, opts.size);
 
   const churches = await db.church.findMany({
+    where,
+    skip,
+    take: size,
     orderBy: { createdAt: "desc" },
     select: {
       id: true,
@@ -51,12 +70,12 @@ export async function getAllChurches(): Promise<ChurchRow[]> {
   // Per-church giving this month.
   const giving = await db.gift.groupBy({
     by: ["churchId"],
-    where: { date: { gte: startOfMonth } },
+    where: { churchId: { in: churches.map((c) => c.id) }, date: { gte: startOfMonth } },
     _sum: { amount: true },
   });
   const givingMap = new Map(giving.map((g) => [g.churchId, Number(g._sum.amount ?? 0)]));
 
-  return churches.map((c) => ({
+  const rows = churches.map((c) => ({
     id: c.id,
     slug: c.slug,
     name: c.name,
@@ -78,6 +97,7 @@ export async function getAllChurches(): Promise<ChurchRow[]> {
     givingThisMonth: givingMap.get(c.id) ?? 0,
     createdAt: c.createdAt.toISOString(),
   }));
+  return { rows, total, page, pages, size };
 }
 
 export interface PlatformStats {

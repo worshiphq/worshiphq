@@ -1,3 +1,5 @@
+import { Pager } from "@/components/admin/pager";
+import { paging, readPage } from "@/lib/admin-paging";
 import { requireSuperAdmin } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { db } from "@/lib/db";
@@ -5,11 +7,14 @@ import { db } from "@/lib/db";
 const fmt = (d: Date | null) =>
   d ? d.toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" }) : "-";
 
-export default async function AdminAccessPage() {
+export default async function AdminAccessPage({ searchParams }: { searchParams: Promise<{ page?: string }> }) {
   const sa = await requireSuperAdmin();
+  const total = await db.supportAccess.count();
+  const pg = paging(total, readPage((await searchParams).page));
   const rows = await db.supportAccess.findMany({
     orderBy: { createdAt: "desc" },
-    take: 100,
+    skip: pg.skip,
+    take: pg.size,
     include: { church: { select: { name: true } } },
   });
   const now = new Date();
@@ -72,6 +77,7 @@ export default async function AdminAccessPage() {
           </tbody>
         </table>
       </div>
+      <Pager page={pg.page} pages={pg.pages} total={pg.total} size={pg.size} path="/admin/access" />
     </AdminShell>
   );
 }

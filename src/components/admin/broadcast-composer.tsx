@@ -1,5 +1,6 @@
 "use client";
 
+import { usePaged } from "@/components/admin/pager";
 import { Megaphone, Trash2, Eye, EyeOff } from "lucide-react";
 import { createAnnouncement, toggleAnnouncement, deleteAnnouncement } from "@/app/actions/admin";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -23,6 +24,7 @@ const LEVEL_STYLES: Record<string, string> = {
 
 export function BroadcastComposer({ announcements }: { announcements: AnnouncementRow[] }) {
   const { run } = useFeedback();
+  const ap = usePaged(announcements, 10);
   const field =
     "w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-100 placeholder:text-slate-500 focus:border-teal-400/60 focus:outline-none";
 
@@ -64,7 +66,7 @@ export function BroadcastComposer({ announcements }: { announcements: Announceme
           Announcements <span className="text-slate-500">({announcements.length})</span>
         </h2>
         <div className="space-y-3">
-          {announcements.map((a) => (
+          {ap.slice.map((a) => (
             <div key={a.id} className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
               <div className="flex items-start justify-between gap-3">
                 <div className="min-w-0">
@@ -110,6 +112,7 @@ export function BroadcastComposer({ announcements }: { announcements: Announceme
               No announcements yet.
             </div>
           )}
+          {ap.pager}
         </div>
       </div>
     </div>

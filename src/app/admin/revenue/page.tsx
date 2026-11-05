@@ -1,3 +1,5 @@
+import { Pager } from "@/components/admin/pager";
+import { paging, readPage } from "@/lib/admin-paging";
 import { Wallet, MessageSquareText, TrendingUp, Gift } from "lucide-react";
 import { requireSuperAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
@@ -13,7 +15,7 @@ export const metadata = { title: "Revenue" };
 
 const money = (n: number) => `₵${n.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-export default async function AdminRevenuePage() {
+export default async function AdminRevenuePage({ searchParams }: { searchParams: Promise<{ rpage?: string }> }) {
   const sa = await requireSuperAdmin();
   const [rev, stock, naloStock, churches, config, team] = await Promise.all([
     getRevenueOverview(),
@@ -23,6 +25,8 @@ export default async function AdminRevenuePage() {
     getPlatformConfig(),
     db.user.findMany({ where: { church: { isDemo: false } }, orderBy: { createdAt: "asc" }, select: { churchId: true, name: true, role: true, email: true } }),
   ]);
+  const rp = paging(rev.recent.length, readPage((await searchParams).rpage), 10);
+  const shownRecent = rev.recent.slice(rp.skip, rp.skip + rp.size);
   const rank = (r: string) => (r === "Owner" ? 0 : r === "Admin" ? 1 : 2);
   const people: Record<string, { name: string; role: string; email: string }[]> = {};
   for (const u of [...team].sort((a, b) => rank(a.role) - rank(b.role))) (people[u.churchId] ??= []).push({ name: u.name ?? "", role: u.role, email: u.email ?? "" });
@@ -136,7 +140,7 @@ export default async function AdminRevenuePage() {
             <p className="text-sm text-slate-500">Nothing yet.</p>
           ) : (
             <ul className="divide-y divide-white/5">
-              {rev.recent.map((r) => (
+              {shownRecent.map((r) => (
                 <li key={r.id} className="flex items-center justify-between gap-3 py-2 text-sm">
                   <div className="min-w-0">
                     <div className="truncate text-slate-200">{r.church}</div>
@@ -152,6 +156,7 @@ export default async function AdminRevenuePage() {
               ))}
             </ul>
           )}
+          <Pager page={rp.page} pages={rp.pages} total={rp.total} size={rp.size} path="/admin/revenue" pageParam="rpage" />
         </AdminCard>
       </div>
     </AdminShell>

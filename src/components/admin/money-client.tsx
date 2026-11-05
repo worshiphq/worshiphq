@@ -1,5 +1,6 @@
 "use client";
 
+import { usePaged } from "@/components/admin/pager";
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -38,6 +39,7 @@ export function MoneyClient({ ledger, site, personal }: { ledger: "site" | "pers
     ];
     return all.sort((a, b) => new Date(b.when).getTime() - new Date(a.when).getTime());
   }, [view]);
+  const mp = usePaged(rows, 25);
 
   const submit = (fd: FormData) => {
     setError(null);
@@ -158,7 +160,7 @@ export function MoneyClient({ ledger, site, personal }: { ledger: "site" | "pers
             Nothing here yet.
           </p>
         )}
-        {rows.map((r) => {
+        {mp.slice.map((r) => {
           const out = r.type === "manual" && r.kind === "expense";
           return (
             <div key={r.id} className="flex items-center gap-3 rounded-xl border border-white/10 bg-white/5 px-3 py-2.5">
@@ -186,6 +188,7 @@ export function MoneyClient({ ledger, site, personal }: { ledger: "site" | "pers
             </div>
           );
         })}
+        {mp.pager}
       </div>
     </div>
   );

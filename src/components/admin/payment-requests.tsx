@@ -1,5 +1,6 @@
 "use client";
 
+import { usePaged } from "@/components/admin/pager";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { VERIFICATION_CHECKS, CHANGE_HOLD_HOURS, isVerified, readVerification } from "@/lib/giving/verification";
@@ -431,6 +432,8 @@ export function PaymentRequestsManager({ requests, fees, planPercents, planCaps,
   const active = requests.filter((r) => ["scheduled", "in_progress"].includes(r.status));
   const done = requests.filter((r) => ["completed", "declined", "revoked", "removed", "cancelled"].includes(r.status));
   const bin = requests.filter((r) => r.status === "trashed");
+  const vp = usePaged(requests.filter((r) => r.status !== "trashed"), 10);
+  const bp = usePaged(bin, 10);
 
   return (
     <div className="space-y-8">
@@ -463,7 +466,7 @@ export function PaymentRequestsManager({ requests, fees, planPercents, planCaps,
         </AdminCard>
       ) : (
         <div className="space-y-3">
-          {requests.filter((r) => r.status !== "trashed").map((req) => (
+          {vp.slice.map((req) => (
             <RequestCard
               key={req.id}
               request={req}
@@ -471,6 +474,7 @@ export function PaymentRequestsManager({ requests, fees, planPercents, planCaps,
               onToggle={() => setExpandedId(expandedId === req.id ? null : req.id)}
             />
           ))}
+          {vp.pager}
         </div>
       )}
 
@@ -480,7 +484,7 @@ export function PaymentRequestsManager({ requests, fees, planPercents, planCaps,
             <h2 className="font-semibold text-slate-100">Recycle bin ({bin.length})</h2>
             <p className="text-xs text-slate-400">Deleted payout accounts. Giving for these churches is off and the Paystack subaccount is switched off. Restore brings it all back.</p>
           </div>
-          {bin.map((req) => (
+          {bp.slice.map((req) => (
             <RequestCard
               key={req.id}
               request={req}
@@ -488,6 +492,7 @@ export function PaymentRequestsManager({ requests, fees, planPercents, planCaps,
               onToggle={() => setExpandedId(expandedId === req.id ? null : req.id)}
             />
           ))}
+          {bp.pager}
         </div>
       )}
     </div>

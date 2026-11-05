@@ -1,13 +1,16 @@
 import { Building2, Users, HandCoins, TrendingUp, UserCog, Activity } from "lucide-react";
 import { requireSuperAdmin } from "@/lib/auth";
-import { getAllChurches, getPlatformStats } from "@/lib/data/admin";
+import { getChurchesPage, getPlatformStats } from "@/lib/data/admin";
+import { readPage } from "@/lib/admin-paging";
 import { AdminShell, AdminCard } from "@/components/admin/admin-shell";
 import { ChurchTable } from "@/components/admin/church-table";
 import { RunAutomationsButton } from "@/components/admin/run-automations-button";
 
-export default async function AdminOverviewPage() {
+export default async function AdminOverviewPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string }> }) {
   const sa = await requireSuperAdmin();
-  const [churches, stats] = await Promise.all([getAllChurches(), getPlatformStats()]);
+  const sp = await searchParams;
+  const q = (sp.q ?? "").trim().slice(0, 100);
+  const [list, stats] = await Promise.all([getChurchesPage({ page: readPage(sp.page), q }), getPlatformStats()]);
 
   const kpis = [
     { label: "Churches", value: stats.churches, icon: Building2, hint: `${stats.activeChurches} active` },
@@ -66,7 +69,7 @@ export default async function AdminOverviewPage() {
         </div>
       </AdminCard>
 
-      <ChurchTable churches={churches} />
+      <ChurchTable churches={list.rows} q={q} total={list.total} page={list.page} pages={list.pages} size={list.size} />
     </AdminShell>
   );
 }
