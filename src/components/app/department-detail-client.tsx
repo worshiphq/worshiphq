@@ -1,6 +1,7 @@
 "use client";
 
-import { usePagedList } from "@/components/ui/list-pager";
+import { useServerList } from "@/components/ui/use-server-list";
+import { searchDepartmentMembers } from "@/app/actions/lists";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "@/components/ui/app-link";
@@ -20,8 +21,8 @@ type MemberInfo = { id: string; name: string; phone: string | null; photoUrl: st
 type PersonOpt = { id: string; name: string; phone: string | null };
 
 export function DepartmentDetailClient({
-  department, members, people, canWrite,
-}: { department: DeptInfo; members: MemberInfo[]; people: PersonOpt[]; canWrite: boolean }) {
+  department, initial, people, canWrite,
+}: { department: DeptInfo; initial: { rows: MemberInfo[]; total: number; page: number; extra?: { reachable: number; everyone: number } }; people: PersonOpt[]; canWrite: boolean }) {
   const router = useRouter();
   const { toast } = useFeedback();
   const [search, setSearch] = useState("");
@@ -30,9 +31,14 @@ export function DepartmentDetailClient({
   const [pending, start] = useTransition();
   const [removing, setRemoving] = useState<string | null>(null);
 
-  const q = search.trim().toLowerCase();
-  const shown = members.filter((m) => !q || matchesPerson(q, m));
-  const reachable = members.filter((m) => m.phone).length;
+  const list = useServerList<MemberInfo, Record<string, never>, { reachable: number; everyone: number }>({
+    initial,
+    query: search,
+    filters: {},
+    fetchPage: (q, _f, page) => searchDepartmentMembers(department.id, q, page),
+  });
+  const everyone = list.extra?.everyone ?? 0;
+  const reachable = list.extra?.reachable ?? 0;
   const candidates = people.map((p) => ({ value: p.id, label: p.name, hint: p.phone ?? undefined }));
 
   const addChosen = () => {
@@ -58,7 +64,6 @@ export function DepartmentDetailClient({
     start(async () => { await removeDepartmentMember(fd); setRemoving(null); router.refresh(); });
   };
 
-  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <div>
       <Link href="/app/settings?tab=departments" className="mb-4 inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
@@ -74,8 +79,8 @@ export function DepartmentDetailClient({
         <Card className="flex items-center gap-3 p-3.5">
           <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Users2 className="size-5" /></span>
           <div>
-            <div className="font-display text-2xl font-bold leading-none">{members.length}</div>
-            <div className="mt-1 text-xs text-ink-muted">{members.length === 1 ? "person" : "people"} in this department</div>
+            <div className="font-display text-2xl font-bold leading-none">{everyone}</div>
+            <div className="mt-1 text-xs text-ink-muted">{everyone === 1 ? "person" : "people"} in this department</div>
           </div>
         </Card>
         <Card className="flex items-center gap-3 p-3.5">
@@ -89,10 +94,10 @@ export function DepartmentDetailClient({
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="flex items-center gap-2 font-display text-[1rem] font-semibold">
-          Members <span className="rounded-full bg-surface-2 px-2 text-xs font-medium text-ink-muted">{members.length}</span>
+          Members <span className="rounded-full bg-surface-2 px-2 text-xs font-medium text-ink-muted">{everyone}</span>
         </h2>
         <div className="flex flex-wrap items-center gap-2">
-          {members.length > 6 && (
+          {everyone > 6 && (
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
               <input
@@ -108,21 +113,21 @@ export function DepartmentDetailClient({
       </div>
 
       <div className={cn("mt-3", pending && "opacity-70")}>
-        {shown.length === 0 ? (
+        {list.rows.length === 0 ? (
           <Card className="p-10 text-center">
             <Users2 className="mx-auto size-8 text-ink-faint" />
             <p className="mt-2 text-sm text-ink-muted">
-              {members.length === 0
+              {everyone === 0
                 ? "Nobody is in this department yet. Add people here, or let them choose it themselves on your sign-up form."
                 : "Nobody matches that search."}
             </p>
-            {canWrite && members.length === 0 && (
+            {canWrite && everyone === 0 && (
               <Button className="mt-4" size="sm" onClick={() => setAdding(true)}><UserPlus /> Add people</Button>
             )}
           </Card>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {pgList.slice.map((m) => (
+            {list.rows.map((m) => (
               <div key={m.id} className="flex items-center gap-3 rounded-xl border border-line bg-surface px-3 py-2.5">
                 <MemberAvatar name={m.name} photoUrl={m.photoUrl} gender={m.gender} size="sm" />
                 <div className="min-w-0 flex-1">
@@ -162,7 +167,7 @@ export function DepartmentDetailClient({
           </div>
         </div>
       </Modal>
-      {pgList.pager}
+      {list.pager}
     </div>
   );
 }

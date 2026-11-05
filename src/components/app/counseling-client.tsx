@@ -1,6 +1,8 @@
 "use client";
 
-import { usePagedList } from "@/components/ui/list-pager";
+import { useServerList } from "@/components/ui/use-server-list";
+import { searchCounseling } from "@/app/actions/lists";
+import type { CounselFilters } from "@/lib/data/lists-b";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useState, useTransition } from "react";
 import {
@@ -77,15 +79,14 @@ const Label = ({ children }: { children: React.ReactNode }) => <label className=
 const typeLabel = (t: string) => TYPE_CONFIG[t]?.label ?? t;
 
 export function CounselingClient({
-  sessions, members, counselors, canWrite, me,
-}: { sessions: CounselingRow[]; members: Member[]; counselors: Counselor[]; canWrite: boolean; me: string }) {
+  initial, meta, members, counselors, canWrite, me,
+}: { initial: { rows: CounselingRow[]; total: number; page: number }; meta: { total: number; open: number; overdue: number; upcoming: number; types: string[] }; members: Member[]; counselors: Counselor[]; canWrite: boolean; me: string }) {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("");
   const [counselorFilter, setCounselorFilter] = useState("");
   const [period, setPeriod] = useState("");
   const [quick, setQuick] = useState<"" | "upcoming" | "overdue">("");
-  const [page, setPage] = useState(1);
   const [pending, start] = useTransition();
   const [form, setForm] = useState<{ row: CounselingRow | null } | null>(null);
   const [textFor, setTextFor] = useState<CounselingRow | null>(null);
@@ -96,39 +97,20 @@ export function CounselingClient({
   const isOverdue = (s: CounselingRow) => !!s.followUpDate && s.status !== "closed" && new Date(s.followUpDate).getTime() < now;
   const isUpcoming = (s: CounselingRow) => !!s.scheduledAt && s.status !== "closed" && new Date(s.scheduledAt).getTime() >= now;
 
-  const types = [...new Set(sessions.map((s) => s.type))].sort();
+  const types = meta.types;
   const since = periodStart(period);
-  const text = q.trim().toLowerCase();
-
-  const filtered = sessions
-    .filter((s) => {
-      if (statusFilter !== "all" && s.status !== statusFilter) return false;
-      if (typeFilter && s.type !== typeFilter) return false;
-      if (counselorFilter && s.counselorId !== counselorFilter) return false;
-      if (since !== null && new Date(s.date).getTime() < since) return false;
-      if (quick === "upcoming" && !isUpcoming(s)) return false;
-      if (quick === "overdue" && !isOverdue(s)) return false;
-      if (!text) return true;
-      return (
-        s.summary.toLowerCase().includes(text) ||
-        !!s.memberName?.toLowerCase().includes(text) ||
-        !!s.counseleeName?.toLowerCase().includes(text) ||
-        !!s.phone?.includes(text)
-      );
-    })
-    .sort((a, b) =>
-      quick === "upcoming" ? new Date(a.scheduledAt ?? 0).getTime() - new Date(b.scheduledAt ?? 0).getTime()
-        : new Date(b.date).getTime() - new Date(a.date).getTime());
-
+  const list = useServerList<CounselingRow, CounselFilters>({
+    initial,
+    query: q,
+    filters: { status: statusFilter, type: typeFilter, counselorId: counselorFilter, sinceMs: since, quick },
+    fetchPage: searchCounseling,
+    pageSize: PAGE_SIZE,
+  });
   const filtering = !!(q || statusFilter !== "all" || typeFilter || counselorFilter || period || quick);
-  const cur = Math.min(page, Math.max(1, Math.ceil(filtered.length / PAGE_SIZE)));
-  const shown = filtered.slice((cur - 1) * PAGE_SIZE, cur * PAGE_SIZE);
-  const reset = (fn: () => void) => { fn(); setPage(1); };
+  const reset = (fn: () => void) => { fn(); };
+  const overdue = meta.overdue;
+  const upcoming = meta.upcoming;
 
-  const overdue = sessions.filter(isOverdue).length;
-  const upcoming = sessions.filter(isUpcoming).length;
-
-  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -162,8 +144,8 @@ export function CounselingClient({
 
       <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
         {[
-          { label: "Total sessions", value: sessions.length, tone: "", on: "" as const },
-          { label: "Open", value: sessions.filter((s) => s.status === "open").length, tone: "text-brand", on: "" as const },
+          { label: "Total sessions", value: meta.total, tone: "", on: "" as const },
+          { label: "Open", value: meta.open, tone: "text-brand", on: "" as const },
           { label: "Upcoming appointments", value: upcoming, tone: "text-primary", on: "upcoming" as const },
           { label: "Follow-up overdue", value: overdue, tone: "text-danger", on: "overdue" as const },
         ].map((c) => (
@@ -182,18 +164,18 @@ export function CounselingClient({
 
       {filtering && (
         <div className="mb-3 flex items-center justify-between text-xs text-ink-muted">
-          <span>{filtered.length} session{filtered.length === 1 ? "" : "s"} match</span>
-          <Button variant="ghost" size="sm" onClick={() => { setQ(""); setStatusFilter("all"); setTypeFilter(""); setCounselorFilter(""); setPeriod(""); setQuick(""); setPage(1); }}>Clear filters</Button>
+          <span>{list.total} session{list.total === 1 ? "" : "s"} match</span>
+          <Button variant="ghost" size="sm" onClick={() => { setQ(""); setStatusFilter("all"); setTypeFilter(""); setCounselorFilter(""); setPeriod(""); setQuick(""); }}>Clear filters</Button>
         </div>
       )}
 
-      {filtered.length === 0 ? (
+      {list.rows.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-line p-10 text-center text-sm text-ink-faint">
           {filtering ? "No sessions match those filters." : "No counseling sessions recorded. Use New session to log or book one."}
         </div>
       ) : (
         <div className="grid gap-3">
-          {pgList.slice.map((s) => {
+          {list.rows.map((s) => {
             const typeCfg = TYPE_CONFIG[s.type] ?? { label: s.type, icon: CircleDot };
             const statusCfg = STATUS_STYLE[s.status] ?? STATUS_STYLE.open;
             const TypeIcon = typeCfg.icon;
@@ -260,13 +242,12 @@ export function CounselingClient({
               </div>
             );
           })}
-          <Pager page={cur} pageSize={PAGE_SIZE} total={filtered.length} onPage={setPage} />
         </div>
       )}
 
       {form && <SessionForm row={form.row} members={members} counselors={counselors} me={me} onClose={() => setForm(null)} />}
       {textFor && <TextDialog row={textFor} onClose={() => setTextFor(null)} />}
-      {pgList.pager}
+      {list.pager}
     </div>
   );
 }

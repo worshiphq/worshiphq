@@ -4,6 +4,7 @@ import { requireModule } from "@/lib/auth";
 import { queryVisitors } from "@/lib/data/visitors";
 import { queryPeople } from "@/lib/data/people";
 import { queryDirectory } from "@/lib/data/directory";
+import { queryGroupMembers, queryDepartmentMembers, queryAssets, queryCounseling, type CounselFilters } from "@/lib/data/lists-b";
 import { queryFollowUps, type FollowUpFilters } from "@/lib/data/follow-ups-list";
 import { queryNotices, queryTestimonies, queryPrayer, prayerActiveIds, querySermons, queryDevotionals, queryAudit, type AuditFilters, type PrayerFilters, type SermonFilters, type DevotionalFilters } from "@/lib/data/lists-a";
 
@@ -67,4 +68,24 @@ export async function searchDevotionals(search: string, f: DevotionalFilters, pa
 export async function searchAudit(search: string, f: AuditFilters, page: number) {
   const session = await requireModule("audit-log");
   return queryAudit(session.churchId, search, f, page);
+}
+
+export async function searchGroupMembers(groupId: string, search: string, page: number) {
+  const session = await requireModule("people");
+  return queryGroupMembers(session.churchId, groupId, search, page);
+}
+
+export async function searchDepartmentMembers(departmentId: string, search: string, page: number) {
+  const session = await requireModule("people");
+  return queryDepartmentMembers(session.churchId, departmentId, search, page);
+}
+
+export async function searchAssets(search: string, f: { category: string }, page: number) {
+  const session = await requireModule("assets");
+  return queryAssets(session.churchId, search, f.category, page);
+}
+
+export async function searchCounseling(search: string, f: CounselFilters, page: number) {
+  const session = await requireModule("counseling");
+  return queryCounseling(session.churchId, search, f, page);
 }

@@ -1,6 +1,6 @@
 import { requireModule } from "@/lib/auth";
 import { canEdit } from "@/lib/permissions";
-import { db } from "@/lib/db";
+import { queryAssets, assetTotals } from "@/lib/data/lists-b";
 import { AssetsClient } from "@/components/app/assets-client";
 import { createAsset } from "@/app/actions/assets";
 import { PageHeader } from "@/components/app/page-header";
@@ -15,13 +15,7 @@ const CONDITIONS = ["new", "good", "fair", "poor", "decommissioned"];
 export default async function AssetsPage() {
   const session = await requireModule("assets");
 
-  const assets = await db.asset.findMany({
-    where: { churchId: session.churchId },
-    orderBy: { createdAt: "desc" },
-    take: 300,
-  });
-
-  const totalValue = assets.reduce((s, a) => s + (a.purchasePrice ?? 0), 0);
+  const [first, totals] = await Promise.all([queryAssets(session.churchId, "", "", 1), assetTotals(session.churchId)]);
 
   return (
     <div>
@@ -50,19 +44,10 @@ export default async function AssetsPage() {
       </PageHeader>
 
       <AssetsClient
-        assets={assets.map((a) => ({
-          id: a.id,
-          name: a.name,
-          category: a.category,
-          condition: a.condition,
-          location: a.location,
-          serialNo: a.serialNo,
-          purchasePrice: a.purchasePrice,
-          purchaseDate: a.purchaseDate?.toISOString() ?? null,
-          notes: a.notes,
-        }))}
-        totalValue={totalValue}
-        totalCount={assets.length}
+        initial={first}
+        totalValue={totals.totalValue}
+        totalCount={totals.totalCount}
+        categories={totals.categories}
       />
     </div>
   );

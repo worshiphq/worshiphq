@@ -1,6 +1,7 @@
 "use client";
 
-import { usePagedList } from "@/components/ui/list-pager";
+import { useServerList } from "@/components/ui/use-server-list";
+import { searchAssets } from "@/app/actions/lists";
 import { useState, useTransition } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -47,11 +48,13 @@ function formatGHS(n: number) {
 }
 
 export function AssetsClient({
-  assets,
+  initial,
   totalValue,
   totalCount,
+  categories,
 }: {
-  assets: AssetRow[];
+  initial: { rows: AssetRow[]; total: number; page: number };
+  categories: string[];
   totalValue: number;
   totalCount: number;
 }) {
@@ -59,12 +62,7 @@ export function AssetsClient({
   const [catFilter, setCatFilter] = useState("");
   const [pending, start] = useTransition();
 
-  const filtered = assets.filter((a) => {
-    if (catFilter && a.category !== catFilter) return false;
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return a.name.toLowerCase().includes(q) || a.location?.toLowerCase().includes(q) || a.serialNo?.toLowerCase().includes(q);
-  });
+  const list = useServerList<AssetRow, { category: string }>({ initial, query: search, filters: { category: catFilter }, fetchPage: searchAssets, pageSize: 20 });
 
   const handleDelete = (id: string) => {
     const fd = new FormData();
@@ -73,9 +71,6 @@ export function AssetsClient({
     start(async () => { await deleteAsset(fd); binDeleted(); });
   };
 
-  const categories = [...new Set(assets.map((a) => a.category))].sort();
-
-  const pgList = usePagedList(filtered, 25, filtered.length);
   return (
     <div className="mt-5 space-y-4">
       <div className="grid gap-3 sm:grid-cols-2">
@@ -121,7 +116,7 @@ export function AssetsClient({
         </select>
       </div>
 
-      {filtered.length === 0 ? (
+      {list.rows.length === 0 ? (
         <Card className="p-12 text-center">
           <Package className="mx-auto size-10 text-ink-faint" />
           <p className="mt-3 text-sm text-ink-muted">
@@ -130,7 +125,7 @@ export function AssetsClient({
         </Card>
       ) : (
         <div className="space-y-2">
-          {pgList.slice.map((a) => {
+          {list.rows.map((a) => {
             const meta = CAT_META[a.category] ?? CAT_META.other;
             const CatIcon = meta.icon;
 
@@ -180,7 +175,7 @@ export function AssetsClient({
           })}
         </div>
       )}
-      {pgList.pager}
+      {list.pager}
     </div>
   );
 }

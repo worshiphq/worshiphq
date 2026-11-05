@@ -1,6 +1,7 @@
 "use client";
 
-import { usePagedList } from "@/components/ui/list-pager";
+import { useServerList } from "@/components/ui/use-server-list";
+import { searchGroupMembers } from "@/app/actions/lists";
 import { useState, useTransition } from "react";
 import Link from "@/components/ui/app-link";
 import { useRouter } from "next/navigation";
@@ -31,8 +32,8 @@ const clock = (hm: string | null) => {
 };
 
 export function GroupDetailClient({
-  group, members, people, canWrite, leaderOf = [],
-}: { group: GroupInfo; members: MemberInfo[]; people: PersonOpt[]; canWrite: boolean; leaderOf?: string[] }) {
+  group, initial, people, canWrite, leaderOf = [],
+}: { group: GroupInfo; initial: { rows: MemberInfo[]; total: number; page: number; extra?: { reachable: number; everyone: number } }; people: PersonOpt[]; canWrite: boolean; leaderOf?: string[] }) {
   const router = useRouter();
   const { toast } = useFeedback();
   const [search, setSearch] = useState("");
@@ -41,10 +42,15 @@ export function GroupDetailClient({
   const [pending, start] = useTransition();
   const [removing, setRemoving] = useState<string | null>(null);
 
-  const q = search.trim().toLowerCase();
-  const shown = members.filter((m) => !q || matchesPerson(q, m));
+  const list = useServerList<MemberInfo, Record<string, never>, { reachable: number; everyone: number }>({
+    initial,
+    query: search,
+    filters: {},
+    fetchPage: (q, _f, page) => searchGroupMembers(group.id, q, page),
+  });
+  const everyone = list.extra?.everyone ?? 0;
+  const reachable = list.extra?.reachable ?? 0;
   const candidates = people.filter((p) => !p.member).map((p) => ({ value: p.id, label: p.name, hint: p.phone ?? undefined }));
-  const reachable = members.filter((m) => m.phone).length;
 
   const addChosen = () => {
     if (chosen.length === 0) return;
@@ -65,7 +71,6 @@ export function GroupDetailClient({
 
   const sched: ScheduleEntry[] = group.schedule;
 
-  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <div>
       <div className="mb-6 flex flex-wrap items-start gap-3">
@@ -83,12 +88,12 @@ export function GroupDetailClient({
         </div>
         {!canWrite && leaderOf.includes(group.id) && (
           <div className="flex flex-wrap items-center gap-2">
-            <GroupMessageDialog groupId={group.id} groupName={group.name} memberCount={members.length} label="Message group" asLeader />
+            <GroupMessageDialog groupId={group.id} groupName={group.name} memberCount={everyone} label="Message group" asLeader />
           </div>
         )}
         {canWrite && (
           <div className="flex flex-wrap items-center gap-2">
-            <GroupMessageDialog groupId={group.id} groupName={group.name} memberCount={members.length} label="Message group" />
+            <GroupMessageDialog groupId={group.id} groupName={group.name} memberCount={everyone} label="Message group" />
             <EditGroupDialog g={group} people={people.map((p) => ({ id: p.id, name: p.name }))} typeSuggestions={["Small group", "Ministry", "Committee", "Fellowship", "Workers", "Choir", "Ushers", "Department"]} />
           </div>
         )}
@@ -98,7 +103,7 @@ export function GroupDetailClient({
         <Card className="flex items-center gap-3 p-3.5">
           <span className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary"><Users2 className="size-5" /></span>
           <div>
-            <div className="font-display text-2xl font-bold leading-none">{members.length}</div>
+            <div className="font-display text-2xl font-bold leading-none">{everyone}</div>
             <div className="mt-1 text-xs text-ink-muted">{reachable} can be texted</div>
           </div>
         </Card>
@@ -139,9 +144,9 @@ export function GroupDetailClient({
       )}
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <h2 className="flex items-center gap-2 font-display text-[1rem] font-semibold">Members <span className="rounded-full bg-surface-2 px-2 text-xs font-medium text-ink-muted">{members.length}</span></h2>
+        <h2 className="flex items-center gap-2 font-display text-[1rem] font-semibold">Members <span className="rounded-full bg-surface-2 px-2 text-xs font-medium text-ink-muted">{everyone}</span></h2>
         <div className="flex flex-wrap items-center gap-2">
-          {members.length > 6 && (
+          {everyone > 6 && (
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
               <input value={search} onChange={(e) => setSearch(e.target.value)} placeholder="Search members…" className="h-9 w-52 rounded-xl border border-line bg-surface pl-9 pr-3 text-sm outline-none focus:border-primary/50" />
@@ -152,14 +157,14 @@ export function GroupDetailClient({
       </div>
 
       <div className={cn("mt-3", pending && "opacity-70")}>
-        {shown.length === 0 ? (
+        {list.rows.length === 0 ? (
           <Card className="p-10 text-center">
             <Users2 className="mx-auto size-8 text-ink-faint" />
-            <p className="mt-2 text-sm text-ink-muted">{members.length === 0 ? "No members in this group yet. Add people, or let them choose it themselves on a sign-up form." : "Nobody matches that search."}</p>
+            <p className="mt-2 text-sm text-ink-muted">{everyone === 0 ? "No members in this group yet. Add people, or let them choose it themselves on a sign-up form." : "Nobody matches that search."}</p>
           </Card>
         ) : (
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
-            {pgList.slice.map((m) => (
+            {list.rows.map((m) => (
               <div key={m.id} className="flex items-center gap-3 rounded-xl border border-line bg-surface px-3 py-2.5">
                 <MemberAvatar name={m.name} photoUrl={m.photoUrl} gender={m.gender} size="sm" />
                 <div className="min-w-0 flex-1">
@@ -194,7 +199,7 @@ export function GroupDetailClient({
           </div>
         </div>
       </Modal>
-      {pgList.pager}
+      {list.pager}
     </div>
   );
 }
