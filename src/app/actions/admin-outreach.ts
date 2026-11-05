@@ -7,7 +7,7 @@ import { trialInfo } from "@/lib/trial-settings";
 import { db } from "@/lib/db";
 import { requireSuperAdmin } from "@/lib/auth";
 import { env, features } from "@/lib/env";
-import { outreachContact, outreachContactLine, sendOutreach, type OutreachResult } from "@/lib/outreach/send";
+import { outreachContact, outreachContactLine, sendOutreach, featureLines, type OutreachResult } from "@/lib/outreach/send";
 import { templateById } from "@/lib/outreach/templates";
 import { getPlatformCarrier, savePlatformCarrier } from "@/lib/sms/platform-carrier";
 import { getAlertPhone } from "@/lib/outreach/owner-alert";
@@ -19,7 +19,7 @@ export type OutreachChurch = {
   contacts: OutreachContact[];
   welcomedAt: string | null; lastContactAt: string | null; messages: number;
   /** Where the church stands with free trials. nextPlan is what it could try now (null if it cannot). */
-  trial: { phase: "none" | "active" | "ended" | "converted"; nextPlan: string | null; trialPlan: string | null; daysLeft: number };
+  trial: { phase: "none" | "active" | "ended" | "converted"; nextPlan: string | null; trialPlan: string | null; daysLeft: number; features: string; featuresShort: string };
 };
 export type OutreachData = { trialDays: number; platformCarrier: string; churches: OutreachChurch[]; emailLive: boolean; smsLive: boolean; contact: string; contactLine: string; smsProvider: string; alert: { phone: string; from: "saved" | "company" | "none"; saved: string } };
 export type OutreachHistoryRow = { id: string; channel: string; template: string; to: string; toName: string | null; subject: string | null; body: string; status: string; error: string | null; auto: boolean; at: string };
@@ -40,7 +40,8 @@ export async function getOutreachData(): Promise<OutreachData> {
     db.outreachMessage.groupBy({ by: ["churchId"], where: { channel: "email", template: "welcome", status: "sent" }, _min: { createdAt: true } }),
     db.outreachMessage.groupBy({ by: ["churchId"], _max: { createdAt: true }, _count: { _all: true } }),
   ]);
-  const trialCfg = (await getPlatformConfig()).trials;
+  const trialCfgFull = await getPlatformConfig();
+  const trialCfg = trialCfgFull.trials;
   const alert = await getAlertPhone();
   const savedAlert = (await db.platformConfig.findUnique({ where: { id: "default" }, select: { alertPhone: true } }))?.alertPhone ?? "";
   const w = new Map(welcomes.map((x) => [x.churchId, x._min.createdAt]));
@@ -55,7 +56,7 @@ export async function getOutreachData(): Promise<OutreachData> {
       welcomedAt: w.get(c.id)?.toISOString() ?? null,
       lastContactAt: l.get(c.id)?.at?.toISOString() ?? null,
       messages: l.get(c.id)?.n ?? 0,
-      trial: (() => { const info = trialInfo(c.subscription, paidPlan(c.subscription), trialCfg); return { phase: info.phase, nextPlan: info.canStart, trialPlan: info.plan, daysLeft: info.daysLeft }; })(),
+      trial: (() => { const info = trialInfo(c.subscription, paidPlan(c.subscription), trialCfg); const f = featureLines(trialCfgFull, paidPlan(c.subscription), info.canStart); return { phase: info.phase, nextPlan: info.canStart, trialPlan: info.plan, daysLeft: info.daysLeft, features: f.trialFeatures ?? "", featuresShort: f.trialFeaturesShort ?? "" }; })(),
     })),
   };
 }

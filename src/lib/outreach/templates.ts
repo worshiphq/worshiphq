@@ -224,9 +224,14 @@ The WorshipHQ team`,
     subject: "Try {{nextPlan}} free for {{trialDays}} days, {{church}}",
     body: `Hello {{name}},
 
-{{church}} can try the {{nextPlan}} plan free for {{trialDays}} days. No card and no payment, just switch it on and use everything {{nextPlan}} adds.
+{{church}} can try the {{nextPlan}} plan free for {{trialDays}} days. No card and no payment, just switch it on and use everything {{nextPlan}} adds, like:
 
-To start: sign in, open Settings, then Billing, and press the "Start my {{trialDays}}-day {{nextPlan}} trial" button. Only the Main Admin can do this.
+{{trialFeatures}}
+
+And more.
+
+To start, open this link, sign in, and press the "Start my {{trialDays}}-day {{nextPlan}} trial" button. Only the Main Admin can do this.
+https://worshiphq.app/app/settings?tab=billing
 
 When the {{trialDays}} days are up, {{church}} goes back to its current plan and the extra {{nextPlan}} features switch off again. Your data is never touched. If you love it, you can upgrade at any time to keep it.
 
@@ -315,7 +320,7 @@ The WorshipHQ team`,
   {
     id: "trial-invite-sms", channel: "sms", label: "Free trial of the next plan", hint: "Invites a church to try the plan above theirs free",
     subject: "",
-    body: "Hello {{name}}, {{church}} can try {{nextPlan}} free for {{trialDays}} days. No card needed. Sign in, then Settings, Billing, Start my trial. Help: {{contact}}",
+    body: "Hello {{name}}, {{church}} can try {{nextPlan}} free for {{trialDays}} days: {{trialFeaturesShort}} and more. No card needed. Start here: worshiphq.app/app/settings?tab=billing Help: {{contact}}",
   },
   {
     id: "trial-ending-sms", channel: "sms", label: "Trial ending soon", hint: "The text that goes out automatically about 2 days before a trial ends",
@@ -335,15 +340,17 @@ The WorshipHQ team`,
 
 export const templateById = (id: string) => OUTREACH_TEMPLATES.find((t) => t.id === id) ?? null;
 
-export type MergeData = { name: string; church: string; contact: string; senderId?: string; nextPlan?: string; trialDays?: string; trialPlan?: string; daysLeft?: string };
+export type MergeData = { name: string; church: string; contact: string; senderId?: string; nextPlan?: string; trialDays?: string; trialPlan?: string; daysLeft?: string; trialFeatures?: string; trialFeaturesShort?: string };
 
-/** Fill in {{name}}, {{church}}, {{contact}}, {{senderId}} and the trial fields {{nextPlan}}, {{trialDays}}, {{trialPlan}}, {{daysLeft}}. Unknown fields are left alone. */
+/** Fill in {{name}}, {{church}}, {{contact}}, {{senderId}} and the trial fields {{nextPlan}}, {{trialDays}}, {{trialPlan}}, {{daysLeft}}, {{trialFeatures}} (a bullet list of the plan's best features) and {{trialFeaturesShort}} (the same in one line). Unknown fields are left alone. */
 export function mergeFields(text: string, d: MergeData): string {
-  return text.replace(/\{\{\s*(name|church|contact|senderId|nextPlan|trialDays|trialPlan|daysLeft)\s*\}\}/g, (_, k: keyof MergeData) => {
+  return text.replace(/\{\{\s*(name|church|contact|senderId|nextPlan|trialDays|trialPlan|daysLeft|trialFeatures|trialFeaturesShort)\s*\}\}/g, (_, k: keyof MergeData) => {
     if (d[k] !== undefined) return d[k] as string;
     if (k === "nextPlan" || k === "trialPlan") return "the next plan";
     if (k === "trialDays") return "7";
     if (k === "daysLeft") return "2 days";
+    if (k === "trialFeatures") return "- Texting your members\n- Birthday and anniversary reminders\n- Member ID cards";
+    if (k === "trialFeaturesShort") return "texting, reminders, member ID cards";
     return "your sender name";
   });
 }

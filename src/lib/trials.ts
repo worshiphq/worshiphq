@@ -83,3 +83,18 @@ export async function saveTrialSettings(next: TrialSettings): Promise<void> {
   });
   invalidatePlatformConfig();
 }
+
+/**
+ * Cancel a church's trial as if it had never been given: the trial and its notice go away, the plan it tried is taken off
+ * its "already tried" list, and the church can start that trial itself again. For a trial started by mistake, or started
+ * for them when you wanted them to start it themselves.
+ */
+export async function resetTrial(churchId: string): Promise<{ ok: boolean; error?: string }> {
+  const sub = await db.subscription.findUnique({ where: { churchId }, select: { trialPlan: true, trialsUsed: true } });
+  if (!sub?.trialPlan) return { ok: false, error: "This church has no trial to reset." };
+  await db.subscription.update({
+    where: { churchId },
+    data: { trialPlan: null, trialStartedAt: null, trialEndsAt: null, trialsUsed: sub.trialsUsed.filter((p) => p !== sub.trialPlan), trialNotified: [] },
+  });
+  return { ok: true };
+}

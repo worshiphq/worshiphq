@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { requireSuperAdmin } from "@/lib/auth";
 import { logAdminAction } from "@/lib/admin-audit";
-import { startTrial, extendTrial, endTrial, saveTrialSettings } from "@/lib/trials";
+import { startTrial, extendTrial, endTrial, resetTrial, saveTrialSettings } from "@/lib/trials";
 import { normalizeTrialSettings, type TrialSettings } from "@/lib/trial-settings";
 
 type Ok = { ok: true; message: string };
@@ -86,4 +86,25 @@ export async function endTrialBulk(churchIds: string[]): Promise<Bulk> {
   for (const id of ids) { const res = await endTrial(id); if (res.ok) done++; else skipped++; }
   revalidatePath("/admin/trials");
   return { ok: true, done, skipped, message: `${done} trial${done === 1 ? "" : "s"} ended${skipped ? `, ${skipped} were not running` : ""}.` };
+}
+
+/** Cancel the trial and give the church its Start button back, so it can start the trial itself. */
+export async function resetTrialAction(churchId: string): Promise<Ok | Fail> {
+  await requireSuperAdmin();
+  await logAdminAction("resetTrial", { churchId });
+  const res = await resetTrial(churchId);
+  if (!res.ok) return { ok: false, error: res.error ?? "Could not reset it." };
+  revalidatePath("/admin/trials");
+  return { ok: true, message: "The trial was reset. The church can start it itself again." };
+}
+
+export async function resetTrialBulk(churchIds: string[]): Promise<Bulk> {
+  await requireSuperAdmin();
+  const ids = [...new Set(churchIds)].slice(0, 500);
+  if (ids.length === 0) return { ok: false, error: "Choose at least one church." };
+  await logAdminAction("resetTrialBulk", { count: ids.length });
+  let done = 0, skipped = 0;
+  for (const id of ids) { const res = await resetTrial(id); if (res.ok) done++; else skipped++; }
+  revalidatePath("/admin/trials");
+  return { ok: true, done, skipped, message: `${done} trial${done === 1 ? "" : "s"} reset${skipped ? `, ${skipped} had no trial` : ""}. Those churches can start it themselves again.` };
 }

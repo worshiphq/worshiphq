@@ -6,6 +6,7 @@ import { Sparkles, Clock, Loader2, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useFeedback } from "@/components/ui/feedback";
 import { startPlanTrial } from "@/app/actions/trials";
+import { DismissibleNotice } from "@/components/app/dismissible-notice";
 import type { TrialStep } from "@/lib/trial-settings";
 
 export type TrialCardInfo = {
@@ -56,7 +57,8 @@ export function TrialCard({ trial, isOwner, readOnly, highlights, onUpgrade }: {
 
   if (trial.phase === "ended" && trial.plan) {
     return (
-      <div className="mb-5 rounded-2xl border border-warning/30 bg-warning/10 p-5">
+      <DismissibleNotice id={`trial-ended-card-${trial.endsAt}`}>
+      <div className="mb-5 rounded-2xl border border-warning/30 bg-warning/10 p-5 pr-10">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <div className="text-sm font-semibold text-warning">Your {label(trial.plan)} trial has ended</div>
@@ -67,6 +69,7 @@ export function TrialCard({ trial, isOwner, readOnly, highlights, onUpgrade }: {
           )}
         </div>
       </div>
+      </DismissibleNotice>
     );
   }
 

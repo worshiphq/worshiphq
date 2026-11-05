@@ -7,7 +7,7 @@ import { Loader2, Search, Sparkles } from "lucide-react";
 import { AdminCard } from "@/components/admin/admin-shell";
 import { useFeedback } from "@/components/ui/feedback";
 import {
-  saveTrialSettingsAction, grantTrial, extendTrialAction, endTrialAction, grantTrialBulk, extendTrialBulk, endTrialBulk,
+  saveTrialSettingsAction, grantTrial, extendTrialAction, endTrialAction, grantTrialBulk, extendTrialBulk, endTrialBulk, resetTrialAction, resetTrialBulk,
 } from "@/app/actions/admin-trials";
 import { TRIAL_STEPS, MAX_TRIAL_DAYS, type TrialSettings, type TrialStep } from "@/lib/trial-settings";
 import type { TrialRow, TrialFilter, TrialSort } from "@/lib/data/admin-trials";
@@ -196,6 +196,7 @@ export function TrialsClient({ settings, rows, counts, conversionPct, filter, q,
           <button className={ghost} disabled={pending} onClick={() => bulk("b-e3", (ids) => extendTrialBulk(ids, 3))}>{busy === "b-e3" ? <Loader2 className="size-3.5 animate-spin" /> : "+3 days"}</button>
           <button className={ghost} disabled={pending} onClick={() => bulk("b-e7", (ids) => extendTrialBulk(ids, 7))}>{busy === "b-e7" ? <Loader2 className="size-3.5 animate-spin" /> : "+7 days"}</button>
           <button className={ghost} disabled={pending} onClick={() => { if (window.confirm(`End the trial for ${chosen.length} church${chosen.length === 1 ? "" : "es"} now?`)) bulk("b-end", (ids) => endTrialBulk(ids)); }}>{busy === "b-end" ? <Loader2 className="size-3.5 animate-spin" /> : "End now"}</button>
+          <button className={ghost} title="Cancel the trial and let the church start it itself again" disabled={pending} onClick={() => { if (window.confirm(`Reset the trial for ${chosen.length} church${chosen.length === 1 ? "" : "es"}? The trial and its notice go away, and they can start it themselves again.`)) bulk("b-reset", (ids) => resetTrialBulk(ids)); }}>{busy === "b-reset" ? <Loader2 className="size-3.5 animate-spin" /> : "Reset trial"}</button>
           <button className="ml-auto text-xs text-slate-400 hover:text-white" onClick={() => { setSel(new Set()); lastIdx.current = null; }}>Clear</button>
         </div>
       )}
@@ -237,10 +238,17 @@ export function TrialsClient({ settings, rows, counts, conversionPct, filter, q,
                             <button className={ghost} disabled={pending} onClick={() => { if (window.confirm(`End ${r.name}'s trial now? They drop back to their plan straight away.`)) run(k("end"), () => endTrialAction(r.churchId)); }}>{busy === k("end") ? <Loader2 className="size-3.5 animate-spin" /> : "End now"}</button>
                           </>
                         ) : r.paidPlan !== "max" ? (
-                          <button className={primary} disabled={pending} onClick={() => run(k("g"), () => grantTrial(r.churchId, settings.days))}>
-                            {busy === k("g") ? <><Loader2 className="size-3.5 animate-spin" /> Starting…</> : r.canStart ? `Start ${settings.days}-day trial` : `Give another trial`}
+                          <button className={primary} disabled={pending} title="Starts the trial for them right now. To let them start it themselves, send the invitation from Outreach instead." onClick={() => { if (window.confirm(`This starts ${r.name}'s ${settings.days}-day trial right now.
+
+If you want them to start it themselves from the email or text, press Cancel and send the invitation from Outreach instead.`)) run(k("g"), () => grantTrial(r.churchId, settings.days)); }}>
+                            {busy === k("g") ? <><Loader2 className="size-3.5 animate-spin" /> Starting…</> : r.canStart ? `Start it for them` : `Give another trial`}
                           </button>
                         ) : null}
+                        {(r.phase === "active" || r.phase === "ended") && (
+                          <button className={ghost} disabled={pending} title="Cancel the trial and let the church start it itself again" onClick={() => { if (window.confirm(`Reset ${r.name}'s trial? The trial and its notice go away, and they can start it themselves again.`)) run(k("reset"), () => resetTrialAction(r.churchId)); }}>
+                            {busy === k("reset") ? <Loader2 className="size-3.5 animate-spin" /> : "Reset"}
+                          </button>
+                        )}
                       </div>
                     </td>
                   </tr>

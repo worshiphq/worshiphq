@@ -6,8 +6,8 @@ import { sendEmail } from "@/lib/integrations/email";
 import { sendSms } from "@/lib/integrations/sms";
 import { firstName, mergeFields, renderEmailHtml, templateById, type OutreachChannel } from "@/lib/outreach/templates";
 import { getPlatformConfig } from "@/lib/data/platform-config";
-import { paidPlan } from "@/lib/plan-gate";
-import { trialInfo, nextPlanUp } from "@/lib/trial-settings";
+import { paidPlan, FEATURE_LABELS, type PlanId } from "@/lib/plan-gate";
+import { trialInfo, nextPlanUp, trialFeatureSplit, type TrialStep } from "@/lib/trial-settings";
 import { issueRegistrationReceipt } from "@/lib/receipts/service";
 import { receiptNumber } from "@/lib/receipts/types";
 
@@ -132,5 +132,18 @@ export async function trialMerge(sub: { plan: string; status?: string | null; re
     trialDays: String(cfg.trials.days),
     trialPlan: info.plan ? cap(info.plan) : undefined,
     daysLeft: info.phase === "active" ? `${info.daysLeft} ${info.daysLeft === 1 ? "day" : "days"}` : undefined,
+    ...featureLines(cfg, paidPlan(sub), next),
   };
+}
+
+/** The best things the next plan adds, for the invitation: its first few features that the trial really gives (not the ones held back). */
+export function featureLines(cfg: Awaited<ReturnType<typeof getPlatformConfig>>, paid: PlanId, next: TrialStep | null): { trialFeatures?: string; trialFeaturesShort?: string } {
+  if (!next) return {};
+  const labels = trialFeatureSplit(cfg.planTable, paid, next, cfg.trials.hold[next]).usable.map((f) => FEATURE_LABELS[f] ?? f);
+  if (labels.length === 0) return {};
+  const top = labels.slice(0, 6);
+  // Lower-case the first letter, but leave acronyms alone (SMS, QR codes).
+  const short = labels.slice(0, 3).map((l) => (/^[A-Z]{2}/.test(l) ? l : l.charAt(0).toLowerCase() + l.slice(1)));
+  const joined = short.join(", ");
+  return { trialFeatures: top.map((l) => `- ${l}`).join("\n"), trialFeaturesShort: joined };
 }
