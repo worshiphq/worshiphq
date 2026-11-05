@@ -15,6 +15,7 @@ import {
 } from "@/lib/pledges/templates";
 import type { GiftMethod } from "@prisma/client";
 import { ownedId } from "@/lib/tenant";
+import { queryPledges } from "@/lib/data/pledges";
 
 const METHOD_FROM_LABEL: Record<string, GiftMethod> = {
   "MTN MoMo": "MTN_MoMo",
@@ -259,4 +260,10 @@ export async function sendPledgeReminder(formData: FormData) {
   });
   const res = await sendChurchSms(session.churchId, pledge.donorPhone, msg, { note: "Pledge reminder" });
   return res.ok ? { ok: true } : { ok: false, error: "Couldn't send - check your SMS credits." };
+}
+
+/** One page of pledges for a search, answered by the database. Called as the user types. */
+export async function searchPledges(search: string, _filters: Record<string, never>, page: number) {
+  const session = await requireModule("pledges");
+  return queryPledges(session.churchId, search, page);
 }

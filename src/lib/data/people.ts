@@ -199,7 +199,7 @@ export const PEOPLE_PAGE_SIZE = 25;
 
 /** What the People screen asks for: a search, the filters, a sort and a page. All of it is answered by the database. */
 export interface PeopleQuery {
-  tab?: "adult" | "teen" | "child";
+  tab?: "adult" | "teen" | "child" | "kids";
   q?: string;
   /** "all" or a status. Adults tab only. */
   status?: string;
@@ -238,7 +238,7 @@ async function idsByPhone(churchId: string, key: string): Promise<string[]> {
 export async function queryPeople(churchId: string, q: PeopleQuery): Promise<{ rows: PersonListRow[]; total: number; page: number; pages: number }> {
   const tab = q.tab ?? "adult";
   const and: Prisma.PersonWhereInput[] = [];
-  and.push(tab === "adult" ? { OR: [{ ageGroup: null }, { ageGroup: "adult" }] } : { ageGroup: tab });
+  and.push(tab === "adult" ? { OR: [{ ageGroup: null }, { ageGroup: "adult" }] } : tab === "kids" ? { ageGroup: { in: ["child", "teen"] } } : { ageGroup: tab });
 
   if (tab === "adult") {
     if (q.status && q.status !== "all" && ["active", "visitor", "inactive"].includes(q.status)) and.push({ status: q.status as PersonStatus });

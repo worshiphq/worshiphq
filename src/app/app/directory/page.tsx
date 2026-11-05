@@ -2,56 +2,32 @@ import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { DirectoryClient } from "@/components/app/directory-client";
 import { PageHeader } from "@/components/app/page-header";
+import { queryDirectory } from "@/lib/data/directory";
 
 export const metadata = { title: "Member directory" };
 
 export default async function DirectoryPage() {
   const session = await requireModule("directory");
 
-  const [people, departments, groups] = await Promise.all([
-    db.person.findMany({
-      where: { churchId: session.churchId, status: "active" },
-      select: {
-        id: true,
-        firstName: true,
-        lastName: true,
-        phone: true,
-        email: true,
-        photoUrl: true,
-        title: true,
-        occupation: true,
-        memberId: true,
-        departments: { select: { id: true, name: true } },
-        groups: { where: { isActive: true }, select: { id: true } },
-      },
-      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-    }),
+  const [first, departments, groups, activeCount] = await Promise.all([
+    queryDirectory(session.churchId, "", "", "", 1),
     db.department.findMany({
       where: { churchId: session.churchId },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
     db.group.findMany({ where: { churchId: session.churchId, isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    db.person.count({ where: { churchId: session.churchId, status: "active" } }),
   ]);
 
   return (
     <div>
       <PageHeader
         title="Member directory"
-        description={`${people.length} active member${people.length !== 1 ? "s" : ""}`}
+        description={`${activeCount} active member${activeCount !== 1 ? "s" : ""}`}
       />
       <DirectoryClient
-        members={people.map((p) => ({
-          id: p.id,
-          name: `${p.title ? p.title + " " : ""}${p.firstName} ${p.lastName}`,
-          phone: p.phone,
-          email: p.email,
-          photoUrl: p.photoUrl,
-          memberId: p.memberId,
-          occupation: p.occupation,
-          departments: p.departments.map((d) => d.name),
-          groupIds: p.groups.map((g) => g.id),
-        }))}
+        initial={first}
         departments={departments.map((d) => ({ id: d.id, name: d.name }))}
         groups={groups}
       />

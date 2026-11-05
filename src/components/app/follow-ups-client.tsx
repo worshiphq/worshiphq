@@ -1,6 +1,8 @@
 "use client";
 
-import { usePagedList } from "@/components/ui/list-pager";
+import { useServerList } from "@/components/ui/use-server-list";
+import { searchFollowUps } from "@/app/actions/lists";
+import type { FollowUpFilters } from "@/lib/data/follow-ups-list";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
@@ -72,8 +74,8 @@ const startOfToday = () => {
 };
 
 export function FollowUpsClient({
-  items, users, me, canWrite, canManage = false,
-}: { items: FollowUpRow[]; users: { id: string; name: string }[]; me: string; canWrite: boolean; canManage?: boolean }) {
+  initial, counts, users, me, canWrite, canManage = false,
+}: { initial: { rows: FollowUpRow[]; total: number; page: number }; counts: Record<Filter, number>; users: { id: string; name: string }[]; me: string; canWrite: boolean; canManage?: boolean }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<Filter>("active");
@@ -89,63 +91,21 @@ export function FollowUpsClient({
   const [dateBy, setDateBy] = useState<DateBy>("due");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
-  const [page, setPage] = useState(1);
 
   const today = startOfToday();
   const isOverdue = (f: FollowUpRow) => !!f.dueDate && f.status !== "done" && new Date(f.dueDate).getTime() < today;
   const isActive = (f: FollowUpRow) => f.status !== "done";
 
-  const counts = {
-    active: items.filter(isActive).length,
-    mine: items.filter((f) => isActive(f) && f.assignees.some((a) => a.id === me)).length,
-    overdue: items.filter(isOverdue).length,
-    done: items.filter((f) => !isActive(f)).length,
-    all: items.length,
-  };
-
-  const dateOf = (f: FollowUpRow) => (dateBy === "due" ? f.dueDate : dateBy === "created" ? f.createdAt : f.completedAt);
-  const fromMs = from ? new Date(`${from}T00:00:00`).getTime() : null;
-  const toMs = to ? new Date(`${to}T23:59:59`).getTime() : null;
-
-  const filtered = items.filter((f) => {
-    if (filter === "active" && !isActive(f)) return false;
-    if (filter === "mine" && !(isActive(f) && f.assignees.some((a) => a.id === me))) return false;
-    if (filter === "overdue" && !isOverdue(f)) return false;
-    if (filter === "done" && isActive(f)) return false;
-    if (typeF !== "all" && f.type !== typeF) return false;
-    if (whoF === "none" && f.assignees.length > 0) return false;
-    if (whoF !== "all" && whoF !== "none" && !f.assignees.some((a) => a.id === whoF)) return false;
-    if (fromMs !== null || toMs !== null) {
-      const d = dateOf(f);
-      if (!d) return false;
-      const t = new Date(d).getTime();
-      if (fromMs !== null && t < fromMs) return false;
-      if (toMs !== null && t > toMs) return false;
-    }
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      f.title.toLowerCase().includes(q) ||
-      f.personName?.toLowerCase().includes(q) ||
-      f.visitorName?.toLowerCase().includes(q) ||
-      f.assignees.some((a) => a.name.toLowerCase().includes(q))
-    );
-  }).sort((x, y) => {
-    const ms = (v: string | null, fallback: number) => (v ? new Date(v).getTime() : fallback);
-    switch (sort) {
-      case "newest": return ms(y.createdAt, 0) - ms(x.createdAt, 0);
-      case "oldest": return ms(x.createdAt, 0) - ms(y.createdAt, 0);
-      case "name": return (x.visitorName ?? x.personName ?? x.title).localeCompare(y.visitorName ?? y.personName ?? y.title);
-      case "completed": return ms(y.completedAt, 0) - ms(x.completedAt, 0);
-      default: return ms(x.dueDate, Infinity) - ms(y.dueDate, Infinity) || ms(y.createdAt, 0) - ms(x.createdAt, 0);
-    }
+  // The database searches, filters, sorts and pages. The date range, search words and every filter go out together.
+  const list = useServerList<FollowUpRow, FollowUpFilters>({
+    initial,
+    query: search,
+    filters: { filter, sort, type: typeF, who: whoF, dateBy, from, to, todayMs: today },
+    fetchPage: searchFollowUps,
+    pageSize: PAGE_SIZE,
   });
-
-  const pages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
-  const current = Math.min(page, pages);
-  const shown = filtered.slice((current - 1) * PAGE_SIZE, current * PAGE_SIZE);
   const narrowed = typeF !== "all" || whoF !== "all" || !!from || !!to;
-  const clearNarrow = () => { setTypeF("all"); setWhoF("all"); setFrom(""); setTo(""); setPage(1); };
+  const clearNarrow = () => { setTypeF("all"); setWhoF("all"); setFrom(""); setTo(""); };
 
   function run(id: string, fn: () => Promise<unknown>) {
     setError("");
@@ -193,17 +153,17 @@ export function FollowUpsClient({
     { key: "all", label: "All" },
   ];
 
-  const pgList = usePagedList(shown, 25, shown.length);
   return (
     <div className="mt-5 space-y-4">
       <div className="flex flex-wrap items-center gap-3">
         <div className="relative min-w-[14rem] flex-1">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-          <Input placeholder="Search follow-ups…" value={search} onChange={(e) => { setSearch(e.target.value); setPage(1); }} className="pl-10" />
+          <Input placeholder="Search follow-ups…" value={search} onChange={(e) => { setSearch(e.target.value); }} className="pl-10 pr-10" />
+          {list.spinner}
         </div>
         <div className="flex flex-wrap gap-1">
           {FILTERS.map(({ key, label, danger }) => (
-            <Button key={key} variant={filter === key ? "primary" : "secondary"} size="sm" onClick={() => { setFilter(key); setPage(1); }}>
+            <Button key={key} variant={filter === key ? "primary" : "secondary"} size="sm" onClick={() => { setFilter(key); }}>
               {label}
               <span className={cn("ml-1 rounded-full px-1.5 text-[11px] font-semibold", filter === key ? "bg-white/25" : danger && counts[key] > 0 ? "bg-danger/15 text-danger" : "bg-surface-2 text-ink-faint")}>
                 {counts[key]}
@@ -215,19 +175,19 @@ export function FollowUpsClient({
 
       <div className="flex flex-wrap items-end gap-3 rounded-xl border border-line bg-surface-2/40 p-3">
         <label className="text-xs font-medium text-ink-muted">Sort
-          <select value={sort} onChange={(e) => { setSort(e.target.value as SortKey); setPage(1); }} className="mt-1 block h-9 rounded-lg border border-line bg-surface px-2 text-sm">
+          <select value={sort} onChange={(e) => { setSort(e.target.value as SortKey); }} className="mt-1 block h-9 rounded-lg border border-line bg-surface px-2 text-sm">
             {SORTS.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
           </select>
         </label>
         <label className="text-xs font-medium text-ink-muted">Kind
-          <select value={typeF} onChange={(e) => { setTypeF(e.target.value); setPage(1); }} className="mt-1 block h-9 rounded-lg border border-line bg-surface px-2 text-sm">
+          <select value={typeF} onChange={(e) => { setTypeF(e.target.value); }} className="mt-1 block h-9 rounded-lg border border-line bg-surface px-2 text-sm">
             <option value="all">All kinds</option>
             {Object.entries(TYPE_META).map(([k, m]) => <option key={k} value={k}>{m.label}</option>)}
           </select>
         </label>
         {users.length > 1 && (
           <label className="text-xs font-medium text-ink-muted">Assigned to
-            <select value={whoF} onChange={(e) => { setWhoF(e.target.value); setPage(1); }} className="mt-1 block h-9 rounded-lg border border-line bg-surface px-2 text-sm">
+            <select value={whoF} onChange={(e) => { setWhoF(e.target.value); }} className="mt-1 block h-9 rounded-lg border border-line bg-surface px-2 text-sm">
               <option value="all">Anyone</option>
               <option value="none">Not assigned yet</option>
               {users.map((u) => <option key={u.id} value={u.id}>{u.id === me ? `${u.name} (me)` : u.name}</option>)}
@@ -236,26 +196,26 @@ export function FollowUpsClient({
         )}
         <div className="flex flex-wrap items-end gap-2">
           <label className="text-xs font-medium text-ink-muted">Dates by
-            <select value={dateBy} onChange={(e) => { setDateBy(e.target.value as DateBy); setPage(1); }} className="mt-1 block h-9 rounded-lg border border-line bg-surface px-2 text-sm">
+            <select value={dateBy} onChange={(e) => { setDateBy(e.target.value as DateBy); }} className="mt-1 block h-9 rounded-lg border border-line bg-surface px-2 text-sm">
               {DATE_BY.map((o) => <option key={o.key} value={o.key}>{o.label}</option>)}
             </select>
           </label>
           <label className="text-xs font-medium text-ink-muted">From
-            <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); setPage(1); }} className="mt-1 block h-9 rounded-lg border border-line bg-surface px-2 text-sm" />
+            <input type="date" value={from} onChange={(e) => { setFrom(e.target.value); }} className="mt-1 block h-9 rounded-lg border border-line bg-surface px-2 text-sm" />
           </label>
           <label className="text-xs font-medium text-ink-muted">To
-            <input type="date" value={to} onChange={(e) => { setTo(e.target.value); setPage(1); }} className="mt-1 block h-9 rounded-lg border border-line bg-surface px-2 text-sm" />
+            <input type="date" value={to} onChange={(e) => { setTo(e.target.value); }} className="mt-1 block h-9 rounded-lg border border-line bg-surface px-2 text-sm" />
           </label>
         </div>
         {narrowed && (
           <Button size="sm" variant="ghost" onClick={clearNarrow}><X className="size-4" /> Clear filters</Button>
         )}
-        <span className="ml-auto self-center text-xs text-ink-faint">{filtered.length} follow-up{filtered.length === 1 ? "" : "s"}</span>
+        <span className="ml-auto self-center text-xs text-ink-faint">{list.total} follow-up{list.total === 1 ? "" : "s"}</span>
       </div>
 
       {error && <div className="rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">{error}</div>}
 
-      {filtered.length === 0 ? (
+      {list.rows.length === 0 ? (
         <Card className="p-12 text-center">
           <CheckCircle2 className="mx-auto size-10 text-ink-faint" />
           <p className="mt-3 text-sm text-ink-muted">
@@ -272,7 +232,7 @@ export function FollowUpsClient({
         </Card>
       ) : (
         <div className="space-y-2">
-          {pgList.slice.map((f) => {
+          {list.rows.map((f) => {
             const typeMeta = TYPE_META[f.type] ?? TYPE_META.custom;
             const TypeIcon = typeMeta.icon;
             const overdue = isOverdue(f);
@@ -446,19 +406,9 @@ export function FollowUpsClient({
               </Card>
             );
           })}
-          {pages > 1 && (
-            <div className="flex items-center justify-between pt-2 text-sm">
-              <span className="text-ink-faint">Showing {(current - 1) * PAGE_SIZE + 1} to {Math.min(current * PAGE_SIZE, filtered.length)} of {filtered.length}</span>
-              <div className="flex items-center gap-1">
-                <Button size="sm" variant="secondary" disabled={current <= 1} onClick={() => setPage(current - 1)}><ChevronLeft className="size-4" /> Previous</Button>
-                <span className="px-2 text-ink-muted">Page {current} of {pages}</span>
-                <Button size="sm" variant="secondary" disabled={current >= pages} onClick={() => setPage(current + 1)}>Next <ChevronRight className="size-4" /></Button>
-              </div>
-            </div>
-          )}
         </div>
       )}
-      {pgList.pager}
+      {list.pager}
     </div>
   );
 }

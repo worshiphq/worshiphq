@@ -1,6 +1,7 @@
 "use client";
 
-import { usePagedList } from "@/components/ui/list-pager";
+import { useServerList } from "@/components/ui/use-server-list";
+import { searchDirectory } from "@/app/actions/lists";
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -25,11 +26,11 @@ type MemberRow = {
 type Dept = { id: string; name: string };
 
 export function DirectoryClient({
-  members,
+  initial,
   departments,
   groups = [],
 }: {
-  members: MemberRow[];
+  initial: { rows: MemberRow[]; total: number; page: number };
   departments: Dept[];
   groups?: Dept[];
 }) {
@@ -38,19 +39,14 @@ export function DirectoryClient({
   const [groupFilter, setGroupFilter] = useState<string>("all");
   const [layout, setLayout] = useState<"grid" | "list">("grid");
 
-  const filtered = members.filter((m) => {
-    if (deptFilter !== "all" && !m.departments.includes(deptFilter)) return false;
-    if (groupFilter !== "all" && !m.groupIds.includes(groupFilter)) return false;
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      matchesPerson(search, m) ||
-      m.email?.toLowerCase().includes(q) ||
-      m.occupation?.toLowerCase().includes(q)
-    );
+  const list = useServerList<MemberRow, { department: string; groupId: string }>({
+    initial,
+    query: search,
+    filters: { department: deptFilter === "all" ? "" : deptFilter, groupId: groupFilter === "all" ? "" : groupFilter },
+    fetchPage: searchDirectory,
+    pageSize: 24,
   });
 
-  const pgList = usePagedList(filtered, 25, filtered.length);
   return (
     <div className="mt-5 space-y-4">
       <div className="flex flex-wrap items-center gap-3">
@@ -60,8 +56,9 @@ export function DirectoryClient({
             placeholder="Search by name, phone, member ID or email..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="pl-10"
+            className="pl-10 pr-10"
           />
+          {list.spinner}
         </div>
 
         {groups.length > 0 && (
@@ -106,16 +103,16 @@ export function DirectoryClient({
         </div>
       </div>
 
-      <p className="text-xs text-ink-faint">{filtered.length} member{filtered.length !== 1 ? "s" : ""}</p>
+      <p className="text-xs text-ink-faint">{list.total} member{list.total !== 1 ? "s" : ""}</p>
 
-      {filtered.length === 0 ? (
+      {list.rows.length === 0 ? (
         <Card className="p-12 text-center">
           <Search className="mx-auto size-10 text-ink-faint" />
           <p className="mt-3 text-sm text-ink-muted">No members match your search.</p>
         </Card>
       ) : layout === "grid" ? (
         <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-          {pgList.slice.map((m) => (
+          {list.rows.map((m) => (
             <Card key={m.id} className="p-4 text-center">
               <div className="mx-auto">
                 <MemberAvatar name={m.name} photoUrl={m.photoUrl} size="lg" />
@@ -144,7 +141,7 @@ export function DirectoryClient({
         </div>
       ) : (
         <div className="space-y-1">
-          {pgList.slice.map((m) => (
+          {list.rows.map((m) => (
             <div key={m.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-surface-2">
               <MemberAvatar name={m.name} photoUrl={m.photoUrl} size="sm" />
               <div className="min-w-0 flex-1">
@@ -171,7 +168,7 @@ export function DirectoryClient({
           ))}
         </div>
       )}
-      {pgList.pager}
+      {list.pager}
     </div>
   );
 }

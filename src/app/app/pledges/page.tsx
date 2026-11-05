@@ -6,6 +6,7 @@ import { PledgesClient } from "@/components/app/pledges-client";
 import { PledgeRecorder } from "@/components/app/pledge-recorder";
 import { createCampaign } from "@/app/actions/pledges";
 import { PageHeader } from "@/components/app/page-header";
+import { queryPledges, pledgeTotals } from "@/lib/data/pledges";
 import { ActionDialog, Field } from "@/components/app/action-dialog";
 import { Target } from "lucide-react";
 
@@ -14,22 +15,13 @@ export const metadata = { title: "Pledges & campaigns" };
 export default async function PledgesPage() {
   const session = await requireModule("pledges");
 
-  const [campaigns, pledges, members, harvests, church] = await Promise.all([
+  const [campaigns, firstPledges, members, harvests, church, totals] = await Promise.all([
     db.campaign.findMany({
       where: { churchId: session.churchId },
       include: { _count: { select: { pledges: true } } },
       orderBy: { endsAt: "asc" },
     }),
-    db.pledge.findMany({
-      where: { churchId: session.churchId },
-      include: {
-        campaign: { select: { name: true } },
-        harvest: { select: { year: true, title: true } },
-        payments: { orderBy: { date: "desc" } },
-      },
-      orderBy: [{ dueAt: "asc" }, { donorName: "asc" }],
-      take: 500,
-    }),
+    queryPledges(session.churchId, "", 1),
     db.person.findMany({
       where: { churchId: session.churchId, status: { not: "inactive" } },
       select: { id: true, firstName: true, lastName: true, phone: true, memberId: true },
@@ -45,6 +37,7 @@ export default async function PledgesPage() {
       where: { id: session.churchId },
       select: { pledgeReminderDays: true, pledgeReceiptTemplate: true, pledgeReminderTemplate: true },
     }),
+    pledgeTotals(session.churchId),
   ]);
 
   const accounts = await getAccountOptions(session.churchId);
@@ -90,25 +83,8 @@ export default async function PledgesPage() {
           endsAt: c.endsAt?.toISOString() ?? null,
           pledgeCount: c._count.pledges,
         }))}
-        pledges={pledges.map((p) => ({
-          id: p.id,
-          donorName: p.donorName,
-          donorPhone: p.donorPhone,
-          donorType: p.donorType,
-          amount: Number(p.amount),
-          fulfilled: Number(p.fulfilled),
-          dueAt: p.dueAt?.toISOString() ?? null,
-          campaignName: p.campaign?.name ?? null,
-          harvestLabel: p.harvest ? `${p.harvest.title} ${p.harvest.year}` : null,
-          notes: p.notes,
-          payments: p.payments.map((pay) => ({
-            id: pay.id,
-            amount: Number(pay.amount),
-            method: String(pay.method).replace(/_/g, " "),
-            note: pay.note,
-            date: pay.date.toISOString(),
-          })),
-        }))}
+        initial={firstPledges}
+        totals={totals}
         reminderDays={church?.pledgeReminderDays ?? [30, 7, 3]}
         receiptTemplate={church?.pledgeReceiptTemplate ?? null}
         reminderTemplate={church?.pledgeReminderTemplate ?? null}

@@ -1,6 +1,6 @@
 "use client";
 
-import { usePagedList } from "@/components/ui/list-pager";
+import { useServerList } from "@/components/ui/use-server-list";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
@@ -14,7 +14,7 @@ import {
   Phone, BellRing, Settings2, ChevronDown, ChevronRight,
 } from "lucide-react";
 import {
-  recordPledgePayment, deletePledge, deleteCampaign, savePledgeSettings, sendPledgeReminder,
+  recordPledgePayment, deletePledge, deleteCampaign, savePledgeSettings, sendPledgeReminder, searchPledges,
 } from "@/app/actions/pledges";
 import { AccountSelect, type AccountOption } from "@/components/app/account-select";
 import { cn } from "@/lib/utils";
@@ -50,7 +50,8 @@ const shortDate = (iso: string) =>
 
 export function PledgesClient({
   campaigns,
-  pledges,
+  initial,
+  totals,
   reminderDays,
   receiptTemplate,
   reminderTemplate,
@@ -58,7 +59,8 @@ export function PledgesClient({
   isDemo,
 }: {
   campaigns: CampaignRow[];
-  pledges: PledgeRow[];
+  initial: { rows: PledgeRow[]; total: number; page: number };
+  totals: { pledged: number; paid: number; outstanding: number };
   reminderDays: number[];
   receiptTemplate: string | null;
   reminderTemplate: string | null;
@@ -73,20 +75,11 @@ export function PledgesClient({
   const { toast } = useFeedback();
   const router = useRouter();
 
-  const filtered = pledges.filter((p) => {
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      p.donorName.toLowerCase().includes(q) ||
-      p.campaignName?.toLowerCase().includes(q) ||
-      p.harvestLabel?.toLowerCase().includes(q) ||
-      p.donorPhone?.includes(q)
-    );
-  });
+  const list = useServerList<PledgeRow, Record<string, never>>({ initial, query: search, filters: {}, fetchPage: searchPledges });
 
-  const outstanding = pledges.reduce((s, p) => s + Math.max(0, p.amount - p.fulfilled), 0);
-  const pledgedTotal = pledges.reduce((s, p) => s + p.amount, 0);
-  const paidTotal = pledges.reduce((s, p) => s + p.fulfilled, 0);
+  const outstanding = totals.outstanding;
+  const pledgedTotal = totals.pledged;
+  const paidTotal = totals.paid;
 
   const simple = (fn: (fd: FormData) => Promise<unknown>, id: string, msg: string) => {
     const fd = new FormData();
@@ -94,7 +87,6 @@ export function PledgesClient({
     start(async () => { await fn(fd); toast(msg, "info"); router.refresh(); });
   };
 
-  const pgList = usePagedList(filtered, 25, filtered.length);
   return (
     <div className={cn("mt-5 space-y-6", pending && "opacity-60")}>
       {/* Totals */}
@@ -209,10 +201,11 @@ export function PledgesClient({
 
         <div className="relative mb-3">
           <Search className="absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
-          <Input placeholder="Search by name, phone, campaign or harvest…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10" />
+          <Input placeholder="Search by name, phone, campaign or harvest…" value={search} onChange={(e) => setSearch(e.target.value)} className="pl-10 pr-10" />
+          {list.spinner}
         </div>
 
-        {filtered.length === 0 ? (
+        {list.rows.length === 0 ? (
           <Card className="p-12 text-center">
             <HandCoins className="mx-auto size-10 text-ink-faint" />
             <p className="mt-3 text-sm text-ink-muted">
@@ -221,7 +214,7 @@ export function PledgesClient({
           </Card>
         ) : (
           <div className="space-y-2">
-            {pgList.slice.map((p) => {
+            {list.rows.map((p) => {
               const pct = p.amount > 0 ? Math.round((p.fulfilled / p.amount) * 100) : 0;
               const isComplete = p.fulfilled >= p.amount;
               const isOverdue = p.dueAt && !isComplete && new Date(p.dueAt) < new Date();
@@ -349,7 +342,7 @@ export function PledgesClient({
           </div>
         )}
       </div>
-      {pgList.pager}
+      {list.pager}
     </div>
   );
 }

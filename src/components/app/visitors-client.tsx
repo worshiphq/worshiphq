@@ -1,6 +1,7 @@
 "use client";
 
-import { usePagedList } from "@/components/ui/list-pager";
+import { useServerList } from "@/components/ui/use-server-list";
+import { searchVisitors } from "@/app/actions/lists";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useMemo, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
@@ -136,12 +137,14 @@ function InvitedByPicker({ members, fieldName, initial }: {
 }
 
 export function VisitorsClient({
-  visitors,
+  initial,
+  counts,
   members,
   visitUrl,
   canWrite,
 }: {
-  visitors: VisitorRow[];
+  initial: { rows: VisitorRow[]; total: number; page: number };
+  counts: { all: number; regular: number };
   members: MemberOption[];
   visitUrl: string | null;
   canWrite: boolean;
@@ -174,20 +177,8 @@ export function VisitorsClient({
     });
   }
 
-  const filtered = visitors.filter((v) => {
-    if (filter === "regular" && !v.isRegular) return false;
-    if (!search) return true;
-    const q = search.toLowerCase();
-    return (
-      v.firstName.toLowerCase().includes(q) ||
-      v.lastName.toLowerCase().includes(q) ||
-      v.phone?.toLowerCase().includes(q) ||
-      v.email?.toLowerCase().includes(q) ||
-      v.purpose?.toLowerCase().includes(q)
-    );
-  });
-
-  const regularCount = visitors.filter((v) => v.isRegular).length;
+  const list = useServerList<VisitorRow, { regular: boolean }>({ initial, query: search, filters: { regular: filter === "regular" }, fetchPage: searchVisitors });
+  const regularCount = counts.regular;
 
   function handleDelete(v: VisitorRow) {
     if (!confirmBinDelete(`Delete visitor ${v.firstName} ${v.lastName}?`)) return;
@@ -239,14 +230,13 @@ export function VisitorsClient({
     compressImageFile(file).then(setEditCropping).catch(() => {});
   }
 
-  const pgList = usePagedList(filtered, 25, filtered.length);
   return (
     <div className="space-y-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-2xl font-bold">Visitors</h1>
           <p className="text-sm text-ink-muted">
-            {visitors.length} visitor{visitors.length !== 1 ? "s" : ""} recorded
+            {counts.all} visitor{counts.all !== 1 ? "s" : ""} recorded
             {regularCount > 0 && <> &middot; <Star className="mb-0.5 inline size-3 text-gold" /> {regularCount} regular</>}
           </p>
         </div>
@@ -275,7 +265,7 @@ export function VisitorsClient({
 
       <div className="flex items-center gap-2">
         <button onClick={() => setFilter("all")} className={`rounded-full px-3 py-1 text-xs font-semibold transition-colors ${filter === "all" ? "bg-primary text-white" : "bg-surface-2 text-ink-muted hover:bg-surface-2/80"}`}>
-          All ({visitors.length})
+          All ({counts.all})
         </button>
         <button onClick={() => setFilter("regular")} className={`flex items-center gap-1 rounded-full px-3 py-1 text-xs font-semibold transition-colors ${filter === "regular" ? "bg-gold/90 text-white" : "bg-surface-2 text-ink-muted hover:bg-surface-2/80"}`}>
           <Star className="size-3" /> Regular ({regularCount})
@@ -288,11 +278,12 @@ export function VisitorsClient({
           placeholder="Search visitors…"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
+          className="pl-10 pr-10"
         />
+        {list.spinner}
       </div>
 
-      {filtered.length === 0 ? (
+      {list.rows.length === 0 ? (
         <Card className="p-12 text-center">
           <UserRoundPlus className="mx-auto size-10 text-ink-faint" />
           <p className="mt-3 text-sm text-ink-muted">
@@ -301,7 +292,7 @@ export function VisitorsClient({
         </Card>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {pgList.slice.map((v) => (
+          {list.rows.map((v) => (
             <Card
               key={v.id}
               className="group cursor-pointer p-4 space-y-2 transition-colors hover:border-primary/30"
@@ -620,7 +611,7 @@ export function VisitorsClient({
           </div>
         </>
       )}
-      {pgList.pager}
+      {list.pager}
     </div>
   );
 }

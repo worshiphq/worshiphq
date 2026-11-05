@@ -1,6 +1,9 @@
 "use client";
 
-import { usePagedList } from "@/components/ui/list-pager";
+import { useServerList } from "@/components/ui/use-server-list";
+import { searchDonors, loadStatement } from "@/app/actions/statements";
+import type { DonorRow, StatementDetail } from "@/lib/data/statements";
+import { Spinner } from "@/components/ui/spinner";
 import { useState, useRef } from "react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -8,51 +11,41 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Search, FileText, Printer, ChevronRight, ArrowLeft, HandCoins } from "lucide-react";
 
-import { matchesPerson } from "@/lib/search";
 import { escapeHtml } from "@/lib/html";
-type GiftLine = {
-  id: string;
-  amount: number;
-  date: string;
-  method: string;
-  fund: string;
-};
-
-type Donor = {
-  id: string;
-  name: string;
-  memberId: string | null;
-  phone: string | null;
-  email: string | null;
-  total: number;
-  giftCount: number;
-  byFund: { fund: string; amount: number }[];
-  gifts: GiftLine[];
-};
-
 function formatGHS(n: number) {
   return new Intl.NumberFormat("en-GH", { style: "currency", currency: "GHS" }).format(n);
 }
 
 export function StatementsClient({
-  donors,
+  initial,
   year,
   churchName,
   churchAddress,
 }: {
-  donors: Donor[];
+  initial: { rows: DonorRow[]; total: number; page: number };
   year: number;
   churchName: string;
   churchAddress: string;
 }) {
   const [search, setSearch] = useState("");
-  const [selected, setSelected] = useState<Donor | null>(null);
+  const [selected, setSelected] = useState<StatementDetail | null>(null);
+  const [opening, setOpening] = useState(false);
   const printRef = useRef<HTMLDivElement>(null);
 
-  const filtered = donors.filter((d) => {
-    if (!search) return true;
-    return matchesPerson(search, { name: d.name, phone: d.phone, memberId: d.memberId, email: d.email });
-  });
+  const list = useServerList<DonorRow, Record<string, never>>({ initial, query: search, filters: {}, fetchPage: searchDonors });
+
+  async function openDonor(id: string) {
+    if (opening) return;
+    setOpening(true);
+    try {
+      const full = await loadStatement(id);
+      if (full) setSelected(full);
+    } catch {
+      // Could not load the statement: stay on the list.
+    } finally {
+      setOpening(false);
+    }
+  }
 
   const handlePrint = () => {
     if (!printRef.current) return;
@@ -79,7 +72,6 @@ export function StatementsClient({
     w.print();
   };
 
-  const pgList = usePagedList(filtered, 25, filtered.length);
   if (selected) {
     return (
       <div className="mt-5">
@@ -160,11 +152,12 @@ export function StatementsClient({
           placeholder="Search donors by name, phone or ID..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="pl-10"
+          className="pl-10 pr-10"
         />
+        {list.spinner}
       </div>
 
-      {filtered.length === 0 ? (
+      {list.rows.length === 0 ? (
         <Card className="p-12 text-center">
           <FileText className="mx-auto size-10 text-ink-faint" />
           <p className="mt-3 text-sm text-ink-muted">
@@ -173,10 +166,10 @@ export function StatementsClient({
         </Card>
       ) : (
         <div className="space-y-1">
-          {pgList.slice.map((d) => (
+          {list.rows.map((d) => (
             <button
               key={d.id}
-              onClick={() => setSelected(d)}
+              onClick={() => openDonor(d.id)}
               className="flex w-full items-center gap-3 rounded-xl px-3 py-3 text-left hover:bg-surface-2"
             >
               <div className="flex size-10 items-center justify-center rounded-xl bg-brand/10">
@@ -187,8 +180,8 @@ export function StatementsClient({
                 <div className="flex flex-wrap gap-x-3 text-xs text-ink-muted">
                   {d.memberId && <span>{d.memberId}</span>}
                   <span>{d.giftCount} gift{d.giftCount !== 1 ? "s" : ""}</span>
-                  {d.byFund.length > 1 && (
-                    <span>{d.byFund.length} funds</span>
+                  {d.fundCount > 1 && (
+                    <span>{d.fundCount} funds</span>
                   )}
                 </div>
               </div>
@@ -200,7 +193,12 @@ export function StatementsClient({
           ))}
         </div>
       )}
-      {pgList.pager}
+      {list.pager}
+      {opening && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/20" role="status" aria-live="polite">
+          <div className="flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink shadow-lg"><Spinner className="size-4" /> Opening statement...</div>
+        </div>
+      )}
     </div>
   );
 }

@@ -9,6 +9,7 @@ import { Plus, Settings2, BarChart3 } from "lucide-react";
 import { PendingLink } from "@/components/ui/pending-link";
 import { canManage } from "@/lib/permissions";
 import { MultiPicker } from "@/components/app/multi-picker";
+import { queryFollowUps, followUpCounts, type FollowUpFilters } from "@/lib/data/follow-ups-list";
 
 export const metadata = { title: "Follow-ups" };
 
@@ -22,33 +23,18 @@ const TYPE_OPTIONS = [
 export default async function FollowUpsPage() {
   const session = await requireModule("follow-ups");
 
-  const since = new Date(Date.now() - 60 * 86400000);
-  const include = {
-    person: { select: { firstName: true, lastName: true, phone: true } },
-    visitor: { select: { firstName: true, lastName: true, phone: true } },
-    assignees: { select: { user: { select: { id: true, name: true } } } },
-    reports: {
-      orderBy: { createdAt: "desc" },
-      select: { id: true, method: true, outcome: true, note: true, authorId: true, authorName: true, createdAt: true },
-    },
-  } as const;
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayMs = todayStart.getTime();
+  const defaults: FollowUpFilters = { filter: "active", sort: "due", type: "all", who: "all", dateBy: "due", from: "", to: "", todayMs };
 
-  // Everything still open (never capped by a pile of old finished tasks), plus
-  // recently finished ones for the Done tab.
-  const [openItems, doneItems, users, church] = await Promise.all([
-    db.followUp.findMany({ where: { churchId: session.churchId, status: { not: "done" } }, include, take: 500 }),
-    db.followUp.findMany({ where: { churchId: session.churchId, status: "done", completedAt: { gte: since } }, include, orderBy: { completedAt: "desc" }, take: 100 }),
+  // Only the first page and the button counts. Searching, filtering and paging are asked of the database as you go.
+  const [first, counts, users, church] = await Promise.all([
+    queryFollowUps(session.churchId, session.userId, "", defaults, 1),
+    followUpCounts(session.churchId, session.userId, todayMs),
     db.user.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     db.church.findUnique({ where: { id: session.churchId }, select: { followUpAssigneeId: true, followUpNewMembers: true } }),
   ]);
-
-  // Most urgent first: soonest due date (overdue naturally leads), undated last.
-  const byUrgency = (a: (typeof openItems)[number], b: (typeof openItems)[number]) => {
-    const ad = a.dueDate?.getTime() ?? Infinity;
-    const bd = b.dueDate?.getTime() ?? Infinity;
-    return ad - bd || b.createdAt.getTime() - a.createdAt.getTime();
-  };
-  const items = [...openItems.sort(byUrgency), ...doneItems];
 
   return (
     <div>
@@ -109,21 +95,8 @@ export default async function FollowUpsPage() {
         canWrite={canEdit(session, "follow-ups")}
         canManage={canManage(session, "follow-ups")}
         users={users}
-        items={items.map((f) => ({
-          id: f.id,
-          title: f.title,
-          type: f.type,
-          note: f.note,
-          status: f.status,
-          dueDate: f.dueDate?.toISOString() ?? null,
-          completedAt: f.completedAt?.toISOString() ?? null,
-          createdAt: f.createdAt.toISOString(),
-          personName: f.person ? `${f.person.firstName} ${f.person.lastName}` : null,
-          visitorName: f.visitor ? `${f.visitor.firstName} ${f.visitor.lastName}` : null,
-          phone: f.visitor?.phone ?? f.person?.phone ?? null,
-          assignees: f.assignees.map((a) => ({ id: a.user.id, name: a.user.name })),
-          reports: f.reports.map((r) => ({ ...r, createdAt: r.createdAt.toISOString() })),
-        }))}
+        initial={first}
+        counts={counts}
       />
     </div>
   );

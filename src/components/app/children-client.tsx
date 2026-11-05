@@ -1,6 +1,9 @@
 "use client";
 
-import { usePagedList } from "@/components/ui/list-pager";
+import { useServerList } from "@/components/ui/use-server-list";
+import { searchChildren } from "@/app/actions/lists";
+import { loadPerson } from "@/app/actions/people";
+import { Spinner } from "@/components/ui/spinner";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useMemo, useState } from "react";
 import {
@@ -16,7 +19,7 @@ import { ClickableAvatar } from "@/components/ui/photo-lightbox";
 import { Label } from "@/components/ui/input";
 import { createChild, updateChild, assignParent } from "@/app/actions/children";
 import { deletePerson } from "@/app/actions/people";
-import type { PersonRow } from "@/lib/data/people";
+import type { PersonRow, PersonListRow } from "@/lib/data/people";
 import { formatDate, cn } from "@/lib/utils";
 import { confirmBinDelete } from "@/lib/recycle-bin-events";
 import { BIN_TOAST } from "@/lib/recycle-bin-config";
@@ -32,9 +35,9 @@ type Adult = { id: string; firstName: string; lastName: string };
 type Stats = { total: number; children: number; teens: number };
 
 export function ChildrenClient({
-  people, stats, adults, canWrite,
+  initial, stats, adults, canWrite,
 }: {
-  people: PersonRow[]; stats: Stats; adults: Adult[]; canWrite: boolean;
+  initial: { rows: PersonListRow[]; total: number; page: number }; stats: Stats; adults: Adult[]; canWrite: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [segment, setSegment] = useState<(typeof segments)[number]["key"]>("all");
@@ -43,23 +46,23 @@ export function ChildrenClient({
   const [creating, setCreating] = useState(false);
   const [view, setView] = useState<"list" | "grid">("list");
 
-  const filtered = useMemo(() => {
-    return people.filter((p) => {
-      if (segment !== "all" && p.ageGroup !== segment) return false;
-      if (query) {
-        const q = query.toLowerCase();
-        return (
-          p.fullName.toLowerCase().includes(q) ||
-          (p.school ?? "").toLowerCase().includes(q) ||
-          (p.guardianName ?? "").toLowerCase().includes(q) ||
-          (p.parentName ?? "").toLowerCase().includes(q)
-        );
-      }
-      return true;
-    });
-  }, [people, query, segment]);
+  const list = useServerList<PersonListRow, { segment: "all" | "child" | "teen" }>({ initial, query, filters: { segment }, fetchPage: searchChildren });
 
-  const pgList = usePagedList(filtered, 25, filtered.length);
+  // The list only carries what a row needs. The full profile is fetched when someone opens it.
+  const [opening, setOpening] = useState(false);
+  async function openPerson(p: PersonListRow) {
+    if (opening) return;
+    setOpening(true);
+    try {
+      const full = await loadPerson(p.id);
+      if (full) setSelected(full);
+    } catch {
+      // Could not load the profile: stay on the list.
+    } finally {
+      setOpening(false);
+    }
+  }
+
   return (
     <div>
       <PageHeader title="Children & Teens" description="Manage children and teens separately from adults. Assign parents and track school info.">
@@ -130,27 +133,27 @@ export function ChildrenClient({
         </div>
       </div>
 
-      {filtered.length === 0 ? (
+      {list.rows.length === 0 ? (
         <div className="grid place-items-center rounded-2xl border border-dashed border-line py-20 text-center">
           <div className="mb-4 grid size-14 place-items-center rounded-2xl border border-line bg-surface text-ink-muted">
             <Baby className="size-6" />
           </div>
-          <h3 className="font-display text-lg font-semibold">{people.length ? "No results" : "No children or teens yet"}</h3>
+          <h3 className="font-display text-lg font-semibold">{stats.total ? "No results" : "No children or teens yet"}</h3>
           <p className="mt-1 max-w-xs text-sm text-ink-muted">
             {query ? `No one matches "${query}".` : "Add children and teens to track them separately from adult members."}
           </p>
-          {!people.length && canWrite && (
+          {!stats.total && canWrite && (
             <Button className="mt-5" onClick={() => setCreating(true)}><Plus className="size-4" /> Add child</Button>
           )}
         </div>
       ) : view === "grid" ? (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {pgList.slice.map((p) => (
+          {list.rows.map((p) => (
             <div
               key={p.id}
-              onClick={() => setSelected(p)}
+              onClick={() => openPerson(p)}
               role="button"
-              {...pressable(() => setSelected(p))}
+              {...pressable(() => openPerson(p))}
               className="group cursor-pointer rounded-2xl border border-line bg-surface p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/20 hover:shadow-md"
             >
               <div className="flex flex-col items-center text-center">
@@ -184,11 +187,11 @@ export function ChildrenClient({
               </tr>
             </thead>
             <tbody>
-              {pgList.slice.map((p) => (
+              {list.rows.map((p) => (
                 <tr
                   key={p.id}
-                  onClick={() => setSelected(p)}
-                  {...pressable(() => setSelected(p))}
+                  onClick={() => openPerson(p)}
+                  {...pressable(() => openPerson(p))}
                   className="group cursor-pointer border-b border-line-soft transition-colors last:border-0 hover:bg-surface-2/50"
                 >
                   <td className="p-4">
@@ -237,7 +240,12 @@ export function ChildrenClient({
           onClose={() => { setCreating(false); setEditing(null); }}
         />
       )}
-      {pgList.pager}
+      {list.pager}
+      {opening && (
+        <div className="fixed inset-0 z-50 grid place-items-center bg-black/20" role="status" aria-live="polite">
+          <div className="flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink shadow-lg"><Spinner className="size-4" /> Opening profile...</div>
+        </div>
+      )}
     </div>
   );
 }

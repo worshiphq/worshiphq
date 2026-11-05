@@ -1,6 +1,6 @@
 import { requireModule } from "@/lib/auth";
 import { canEdit } from "@/lib/permissions";
-import { getPeople, getChildrenStats } from "@/lib/data/people";
+import { queryPeople, getChildrenStats } from "@/lib/data/people";
 import { db } from "@/lib/db";
 import { ChildrenClient } from "@/components/app/children-client";
 
@@ -10,7 +10,7 @@ export default async function ChildrenPage() {
   const session = await requireModule("people");
 
   const [children, stats, adults] = await Promise.all([
-    getPeople(session.churchId, "children"),
+    queryPeople(session.churchId, { tab: "kids", page: 1 }),
     getChildrenStats(session.churchId),
     db.person.findMany({
       where: {
@@ -25,7 +25,7 @@ export default async function ChildrenPage() {
 
   return (
     <ChildrenClient
-      people={children}
+      initial={children}
       stats={stats}
       adults={adults}
       canWrite={canEdit(session, "people")}
