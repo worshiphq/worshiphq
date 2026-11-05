@@ -1,7 +1,7 @@
 "use client";
 
 import { useServerList } from "@/components/ui/use-server-list";
-import { searchCounseling } from "@/app/actions/lists";
+import { searchCounseling, searchPickerPeople } from "@/app/actions/lists";
 import type { CounselFilters } from "@/lib/data/lists-b";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useState, useTransition } from "react";
@@ -79,8 +79,8 @@ const Label = ({ children }: { children: React.ReactNode }) => <label className=
 const typeLabel = (t: string) => TYPE_CONFIG[t]?.label ?? t;
 
 export function CounselingClient({
-  initial, meta, members, counselors, canWrite, me,
-}: { initial: { rows: CounselingRow[]; total: number; page: number }; meta: { total: number; open: number; overdue: number; upcoming: number; types: string[] }; members: Member[]; counselors: Counselor[]; canWrite: boolean; me: string }) {
+  initial, meta, counselors, canWrite, me,
+}: { initial: { rows: CounselingRow[]; total: number; page: number }; meta: { total: number; open: number; overdue: number; upcoming: number; types: string[] }; counselors: Counselor[]; canWrite: boolean; me: string }) {
   const [q, setQ] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [typeFilter, setTypeFilter] = useState("");
@@ -245,7 +245,7 @@ export function CounselingClient({
         </div>
       )}
 
-      {form && <SessionForm row={form.row} members={members} counselors={counselors} me={me} onClose={() => setForm(null)} />}
+      {form && <SessionForm row={form.row} counselors={counselors} me={me} onClose={() => setForm(null)} />}
       {textFor && <TextDialog row={textFor} onClose={() => setTextFor(null)} />}
       {list.pager}
     </div>
@@ -254,8 +254,8 @@ export function CounselingClient({
 
 /* ───────── New / edit session ───────── */
 
-function SessionForm({ row, members, counselors, me, onClose }: {
-  row: CounselingRow | null; members: Member[]; counselors: Counselor[]; me: string; onClose: () => void;
+function SessionForm({ row, counselors, me, onClose }: {
+  row: CounselingRow | null; counselors: Counselor[]; me: string; onClose: () => void;
 }) {
   const { toast } = useFeedback();
   const [pending, start] = useTransition();
@@ -278,7 +278,9 @@ function SessionForm({ row, members, counselors, me, onClose }: {
   const [textUpdates, setTextUpdates] = useState(row?.textUpdates ?? true);
   const [notify, setNotify] = useState(true);
 
-  const member = members.find((m) => m.id === personId);
+  // The member is searched on the server; keep who was chosen (and their phone) here.
+  const [pickedMember, setPickedMember] = useState<Member | null>(row?.personId ? { id: row.personId, name: row.memberName ?? "", phone: row.phone } : null);
+  const member = personId && pickedMember?.id === personId ? pickedMember : undefined;
   // The phone box shows when you type a name, or when the chosen member has no number on file.
   const needsPhone = (!personId && name.trim().length > 0) || (!!member && !member.phone);
   const effectivePhone = member?.phone ?? phone.trim();
@@ -332,13 +334,14 @@ function SessionForm({ row, members, counselors, me, onClose }: {
             <Label>Who is it with?</Label>
             <SearchSelect
               value={personId}
-              onChange={(v) => { setPersonId(v); if (v) { setName(""); } }}
+              onChange={(v, opt) => { setPersonId(v); if (v) { setName(""); setPickedMember({ id: v, name: opt?.label ?? "", phone: opt?.phone ?? null }); } else setPickedMember(null); }}
               placeholder="Search for a member…"
               searchPlaceholder="Name, phone or member ID…"
               options={[
                 { value: "", label: "Not a member (type a name below)" },
-                ...members.map((m) => ({ value: m.id, label: m.name, hint: m.phone ?? "no phone" })),
+                ...(pickedMember ? [{ value: pickedMember.id, label: pickedMember.name }] : []),
               ]}
+              search={async (q) => [{ value: "", label: "Not a member (type a name below)" }, ...(await searchPickerPeople("counseling", q))]}
             />
             {!personId && (
               <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Or type their name, e.g. Kofi Mensah" className={`${field} mt-2`} />

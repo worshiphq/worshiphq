@@ -13,17 +13,10 @@ export const metadata = { title: "Testimonies" };
 export default async function TestimoniesPage() {
   const session = await requireModule("testimonies");
 
-  const [first, stats, members] = await Promise.all([
+  const [first, stats] = await Promise.all([
     queryTestimonies(session.churchId, "", "all", 1),
     testimonyStats(session.churchId),
-    db.person.findMany({
-      where: { churchId: session.churchId },
-      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-      select: { id: true, firstName: true, lastName: true },
-    }),
   ]);
-
-  const memberOptions = members.map((m) => ({ label: `${m.firstName} ${m.lastName}`, value: m.id }));
 
   return (
     <div>
@@ -50,7 +43,7 @@ export default async function TestimoniesPage() {
             { label: "Other", value: "other" },
           ]} />
           <Field label="If “Other”, type the category" name="categoryOther" placeholder="e.g. Restored relationship" />
-          <Field label="Member (optional)" name="personId" type="select" searchable options={[{ label: "- None -", value: "" }, ...memberOptions]} />
+          <Field label="Member (optional)" name="personId" peopleSearch={{ module: "testimonies" }} />
           <Field label="Date" name="date" type="date" />
           <Field label="Testimony" name="body" type="textarea" rows={6} placeholder="Share the full testimony - take as much space as you need…" required />
         </ActionDialog>

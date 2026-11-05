@@ -9,25 +9,15 @@ export const metadata = { title: "Children & Teens" };
 export default async function ChildrenPage() {
   const session = await requireModule("people");
 
-  const [children, stats, adults] = await Promise.all([
+  const [children, stats] = await Promise.all([
     queryPeople(session.churchId, { tab: "kids", page: 1 }),
     getChildrenStats(session.churchId),
-    db.person.findMany({
-      where: {
-        churchId: session.churchId,
-        OR: [{ ageGroup: null }, { ageGroup: "adult" }],
-      },
-      select: { id: true, firstName: true, lastName: true },
-      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-      take: 500,
-    }),
   ]);
 
   return (
     <ChildrenClient
       initial={children}
       stats={stats}
-      adults={adults}
       canWrite={canEdit(session, "people")}
     />
   );

@@ -15,7 +15,7 @@ export const metadata = { title: "People" };
 export default async function PeoplePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q } = await searchParams;
   const session = await requireModule("people");
-  const [first, stats, departments, church, adults, categories, groups, waiting] = await Promise.all([
+  const [first, stats, departments, church, categories, groups, waiting] = await Promise.all([
     queryPeople(session.churchId, { tab: "adult", q: q ?? "", page: 1 }),
     getAllPeopleStats(session.churchId),
     db.department.findMany({
@@ -26,15 +26,6 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
     db.church.findUnique({
       where: { id: session.churchId },
       select: { slug: true, isDemo: true, registrationFields: true, ageTeenMax: true, ageYouthOn: true, ageYouthMax: true, ageYouthLabel: true, leaderTitles: true },
-    }),
-    db.person.findMany({
-      where: {
-        churchId: session.churchId,
-        OR: [{ ageGroup: null }, { ageGroup: "adult" }],
-      },
-      select: { id: true, firstName: true, lastName: true },
-      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-      take: 500,
     }),
     getCategoriesForForm(session.churchId),
     db.group.findMany({ where: { churchId: session.churchId, isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
@@ -70,7 +61,6 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
           departments={departments}
           groups={groups}
           formFields={formFields}
-          adults={adults}
           categories={categories}
           leaderTitles={leaderTitleList(church?.leaderTitles)}
           initialQuery={q ?? ""}

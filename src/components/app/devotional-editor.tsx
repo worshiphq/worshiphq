@@ -32,8 +32,8 @@ const Label = ({ children, hint }: { children: React.ReactNode; hint?: string })
 );
 
 /** Full-page devotional writer, with a one-click way to text it to the church. */
-export function DevotionalEditor({ initial, canWrite, audiences, members, authorSuggestions }: {
-  initial: DevotionalDraft; canWrite: boolean; audiences: AudienceOption[]; members: PickerOption[]; authorSuggestions: string[];
+export function DevotionalEditor({ initial, canWrite, audiences, authorSuggestions }: {
+  initial: DevotionalDraft; canWrite: boolean; audiences: AudienceOption[]; authorSuggestions: string[];
 }) {
   const router = useRouter();
   const { toast } = useFeedback();
@@ -135,7 +135,7 @@ export function DevotionalEditor({ initial, canWrite, audiences, members, author
         </div>
       </div>
 
-      {sendFor && <DevotionalSendDialog devotional={sendFor} audiences={audiences} members={members} onClose={() => setSendFor(null)} />}
+      {sendFor && <DevotionalSendDialog devotional={sendFor} audiences={audiences} onClose={() => setSendFor(null)} />}
     </div>
   );
 }

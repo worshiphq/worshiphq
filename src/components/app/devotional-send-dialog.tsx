@@ -5,6 +5,7 @@ import { AlertTriangle, CheckCircle2, Loader2, Send, Wallet, X } from "lucide-re
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { previewDevotionalBlast, blastDevotional } from "@/app/actions/devotionals";
+import { searchPickerPeople } from "@/app/actions/lists";
 import { MultiPicker, type PickerOption } from "@/components/app/multi-picker";
 
 export type AudienceOption = { value: string; label: string };
@@ -22,12 +23,11 @@ type Preview = {
 
 /** Text a devotional to the whole church (or a department / group) by SMS. */
 export function DevotionalSendDialog({
-  devotional, audiences, members = [], onClose,
+  devotional, audiences, onClose,
 }: {
   devotional: { id: string; title: string };
   audiences: AudienceOption[];
   /** Members with a phone number, for choosing specific people. */
-  members?: PickerOption[];
   onClose: () => void;
 }) {
   const [audience, setAudience] = useState("all");
@@ -107,7 +107,8 @@ export function DevotionalSendDialog({
                 {audience === "people" && (
                   <div className="mt-2">
                     <MultiPicker
-                      options={members}
+                      options={[]}
+                      search={(q) => searchPickerPeople("devotionals", q, { who: "withPhone" })}
                       defaultValue={people}
                       onChange={(v) => { setPeople(v); setConfirming(false); }}
                       placeholder="Search your members..."

@@ -2,7 +2,8 @@
 
 import { usePagedList } from "@/components/ui/list-pager";
 import { PhoneInput } from "@/components/ui/phone-input";
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useEffect, useTransition } from "react";
+import { searchPickerPeople } from "@/app/actions/lists";
 import { useRouter } from "next/navigation";
 import {
   Search, Plus, Trash2, Pencil, Send, Download, Calendar, Settings2,
@@ -51,7 +52,6 @@ export function HarvestClient({
   visitorCount,
   anonymousTotal,
   envelopeCount,
-  members,
   year,
   accounts = [],
   canWrite,
@@ -135,7 +135,7 @@ export function HarvestClient({
         <>
           <HarvestEditBar harvest={harvest} year={year} />
           <HarvestTemplateEditor template={harvestTemplate} />
-          <RecordModeSwitch members={members} year={year} accounts={accounts} harvestDate={harvest.date} />
+          <RecordModeSwitch year={year} accounts={accounts} harvestDate={harvest.date} />
         </>
       )}
       {tab === "contributions" && <ContributionsList contributions={contributions} canWrite={canWrite} />}
@@ -289,7 +289,7 @@ function HarvestTemplateEditor({ template }: { template: string | null }) {
 
 /* ────── Record: named contributions or a counted total ────── */
 
-function RecordModeSwitch({ members, year, accounts, harvestDate }: { members: HarvestData["members"]; year: number; accounts: AccountOption[]; harvestDate: string | null }) {
+function RecordModeSwitch({ year, accounts, harvestDate }: { year: number; accounts: AccountOption[]; harvestDate: string | null }) {
   const [mode, setMode] = useState<"named" | "total">("named");
   return (
     <div className="space-y-3">
@@ -312,7 +312,7 @@ function RecordModeSwitch({ members, year, accounts, harvestDate }: { members: H
         ))}
       </div>
       {mode === "named" ? (
-        <ContributionRecorder members={members} year={year} accounts={accounts} />
+        <ContributionRecorder year={year} accounts={accounts} />
       ) : (
         <TotalRecorder year={year} accounts={accounts} harvestDate={harvestDate} />
       )}
@@ -414,7 +414,10 @@ function TotalRecorder({ year, accounts, harvestDate }: { year: number; accounts
   );
 }
 
-function ContributionRecorder({ members, year, accounts }: { members: HarvestData["members"]; year: number; accounts: AccountOption[] }) {
+/** A member offered by the server-side search in the recorder. */
+type HarvestMember = { id: string; name: string; phone: string | null; photoUrl: string | null };
+
+function ContributionRecorder({ year, accounts }: { year: number; accounts: AccountOption[] }) {
   const router = useRouter();
   const [entries, setEntries] = useState<LocalEntry[]>([]);
   const [search, setSearch] = useState("");
@@ -426,15 +429,26 @@ function ContributionRecorder({ members, year, accounts }: { members: HarvestDat
   const defaultAccountId = accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "";
   const [accountId, setAccountId] = useState(defaultAccountId);
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return members.slice(0, 20);
-    return members.filter((m) => matchesPerson(search, { name: `${m.firstName} ${m.lastName}`, phone: m.phone, memberId: m.memberId })).slice(0, 20);
-  }, [members, search]);
+  // Members are looked up on the server as you type (after a 300ms pause), so none are loaded with the page.
+  const [filtered, setFiltered] = useState<HarvestMember[]>([]);
+  const [looking, setLooking] = useState(false);
+  useEffect(() => {
+    if (!showList) return;
+    let live = true;
+    setLooking(true);
+    const t = setTimeout(() => {
+      searchPickerPeople("harvest", search.trim(), { who: "activeOrVisitor" })
+        .then((res) => { if (live) setFiltered(res.map((o) => ({ id: o.value, name: o.label, phone: o.phone ?? null, photoUrl: o.photoUrl ?? null }))); })
+        .catch(() => { if (live) setFiltered([]); })
+        .finally(() => { if (live) setLooking(false); });
+    }, search ? 300 : 0);
+    return () => { live = false; clearTimeout(t); };
+  }, [search, showList]);
 
-  const addMember = (m: typeof members[0]) => {
+  const addMember = (m: HarvestMember) => {
     setEntries((prev) => [...prev, {
       personId: m.id,
-      name: `${m.firstName} ${m.lastName}`,
+      name: m.name,
       phone: m.phone ?? "",
       type: "member",
       amount: "",
@@ -533,13 +547,13 @@ function ContributionRecorder({ members, year, accounts }: { members: HarvestDat
               <div className="fixed inset-0 z-10" onClick={() => setShowList(false)} />
               <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-y-auto overscroll-contain rounded-xl border border-line bg-surface shadow-xl">
                 {filtered.length === 0 ? (
-                  <div className="p-4 text-center text-sm text-ink-faint">No members found</div>
+                  <div className="p-4 text-center text-sm text-ink-faint">{looking ? "Searching…" : "No members found"}</div>
                 ) : filtered.map((m) => (
                   <button key={m.id} onClick={() => addMember(m)}
                     className="flex w-full items-center gap-3 px-4 py-2.5 text-left text-sm transition-colors hover:bg-surface-2">
-                    <Avatar name={`${m.firstName} ${m.lastName}`} src={m.photoUrl ?? undefined} size="sm" />
+                    <Avatar name={m.name} src={m.photoUrl ?? undefined} size="sm" />
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium">{m.firstName} {m.lastName}</div>
+                      <div className="font-medium">{m.name}</div>
                       {m.phone && <div className="text-xs text-ink-faint">{m.phone}</div>}
                     </div>
                     <Plus className="size-4 text-ink-faint" />

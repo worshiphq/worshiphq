@@ -19,6 +19,7 @@ import { Badge } from "@/components/ui/badge";
 import { ClickableAvatar } from "@/components/ui/photo-lightbox";
 import { Label, Textarea } from "@/components/ui/input";
 import { updatePerson, deletePerson, createPersonState, loadPerson, searchPeople } from "@/app/actions/people";
+import { ParentSelect } from "@/components/app/parent-select";
 import { ListPager } from "@/components/ui/list-pager";
 import { Spinner } from "@/components/ui/spinner";
 import { updateChild, assignParent, createChildState } from "@/app/actions/children";
@@ -64,7 +65,7 @@ type Adult = { id: string; firstName: string; lastName: string };
 export function PeopleClient({
   people, total: initialTotal, stats, canWrite, departments, groups = [], formFields, adults, categories = [], leaderTitles = [], initialQuery = "", youth = null, idCardsLocked = false,
 }: {
-  people: PersonListRow[]; total: number; stats: AllStats; canWrite: boolean; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; leaderTitles?: string[]; initialQuery?: string; youth?: { label: string; min: number; max: number } | null; idCardsLocked?: boolean;
+  people: PersonListRow[]; total: number; stats: AllStats; canWrite: boolean; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults?: Adult[]; categories?: FormCategory[]; leaderTitles?: string[]; initialQuery?: string; youth?: { label: string; min: number; max: number } | null; idCardsLocked?: boolean;
 }) {
   const [ageTab, setAgeTab] = useState<AgeTab>("adult");
   const [query, setQuery] = useState(initialQuery);
@@ -527,7 +528,7 @@ function EmptyState({ query, hasAny, canWrite, onAdd, ageTab }: { query: string;
   );
 }
 
-function PersonDrawer({ person, canWrite, adults, categories = [], onClose, onEdit }: { person: PersonRow; canWrite: boolean; adults: Adult[]; categories?: FormCategory[]; onClose: () => void; onEdit: () => void }) {
+function PersonDrawer({ person, canWrite, adults, categories = [], onClose, onEdit }: { person: PersonRow; canWrite: boolean; adults?: Adult[]; categories?: FormCategory[]; onClose: () => void; onEdit: () => void }) {
   const eng = engagementStyle[person.engagement];
   const [smsOpen, setSmsOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
@@ -612,17 +613,7 @@ function PersonDrawer({ person, canWrite, adults, categories = [], onClose, onEd
                   <input type="hidden" name="childId" value={person.id} />
                   <div className="flex-1">
                     <Label htmlFor="parentId" className="text-xs">Assign parent (member)</Label>
-                    <select
-                      id="parentId"
-                      name="parentId"
-                      defaultValue={person.parentId ?? ""}
-                      className="flex h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none"
-                    >
-                      <option value="">No parent</option>
-                      {adults.map((a) => (
-                        <option key={a.id} value={a.id}>{a.firstName} {a.lastName}</option>
-                      ))}
-                    </select>
+                    <ParentSelect parentId={person.parentId} parentName={person.parentName} />
                   </div>
                   <SubmitButton size="sm" pendingLabel="Saving…" successMessage="Parent assigned">Save</SubmitButton>
                 </form>
@@ -814,7 +805,7 @@ type AddResult = { ok: boolean; personId?: string; name?: string; error?: string
 function PersonForm({
   person, departments, groups = [], formFields, adults, categories = [], leaderTitles = [], ageTab, onClose,
 }: {
-  person: PersonRow | null; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults: Adult[]; categories?: FormCategory[]; leaderTitles?: string[]; ageTab: AgeTab; onClose: () => void;
+  person: PersonRow | null; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults?: Adult[]; categories?: FormCategory[]; leaderTitles?: string[]; ageTab: AgeTab; onClose: () => void;
 }) {
   const isEdit = !!person;
   const currentTitle = person?.leaderTitle ?? "";
@@ -918,12 +909,7 @@ function PersonForm({
                 </div>
                 <div>
                   <Label htmlFor="parentId">Assign parent (church member)</Label>
-                  <select id="parentId" name="parentId" defaultValue={person?.parentId ?? ""} className={selectBase}>
-                    <option value="">- Select a member -</option>
-                    {adults.map((a) => (
-                      <option key={a.id} value={a.id}>{a.firstName} {a.lastName}</option>
-                    ))}
-                  </select>
+                  <ParentSelect parentId={person?.parentId ?? null} parentName={person?.parentName ?? null} noneLabel="- Select a member -" />
                 </div>
               </div>
               <div className="grid gap-4 sm:grid-cols-2">

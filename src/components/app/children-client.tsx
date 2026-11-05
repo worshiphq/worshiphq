@@ -1,5 +1,6 @@
 "use client";
 
+import { ParentSelect } from "@/components/app/parent-select";
 import { useServerList } from "@/components/ui/use-server-list";
 import { searchChildren } from "@/app/actions/lists";
 import { loadPerson } from "@/app/actions/people";
@@ -37,7 +38,7 @@ type Stats = { total: number; children: number; teens: number };
 export function ChildrenClient({
   initial, stats, adults, canWrite,
 }: {
-  initial: { rows: PersonListRow[]; total: number; page: number }; stats: Stats; adults: Adult[]; canWrite: boolean;
+  initial: { rows: PersonListRow[]; total: number; page: number }; stats: Stats; adults?: Adult[]; canWrite: boolean;
 }) {
   const [query, setQuery] = useState("");
   const [segment, setSegment] = useState<(typeof segments)[number]["key"]>("all");
@@ -253,7 +254,7 @@ export function ChildrenClient({
 function ChildDrawer({
   person, adults, canWrite, onClose, onEdit,
 }: {
-  person: PersonRow; adults: Adult[]; canWrite: boolean; onClose: () => void; onEdit: () => void;
+  person: PersonRow; adults?: Adult[]; canWrite: boolean; onClose: () => void; onEdit: () => void;
 }) {
   return (
     <>
@@ -306,17 +307,7 @@ function ChildDrawer({
                 <input type="hidden" name="childId" value={person.id} />
                 <div className="flex-1">
                   <Label htmlFor="parentId" className="text-xs">Assign parent (member)</Label>
-                  <select
-                    id="parentId"
-                    name="parentId"
-                    defaultValue={person.parentId ?? ""}
-                    className="flex h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none"
-                  >
-                    <option value="">No parent</option>
-                    {adults.map((a) => (
-                      <option key={a.id} value={a.id}>{a.firstName} {a.lastName}</option>
-                    ))}
-                  </select>
+                  <ParentSelect parentId={person.parentId} parentName={person.parentName} />
                 </div>
                 <SubmitButton size="sm" pendingLabel="Saving…" successMessage="Parent assigned">Save</SubmitButton>
               </form>
@@ -356,7 +347,7 @@ function ChildDrawer({
 function ChildForm({
   person, adults, onClose,
 }: {
-  person: PersonRow | null; adults: Adult[]; onClose: () => void;
+  person: PersonRow | null; adults?: Adult[]; onClose: () => void;
 }) {
   const isEdit = !!person;
   const selectBase = "flex h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30";
@@ -432,12 +423,7 @@ function ChildForm({
             <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-ink-faint">Parent / Guardian</h3>
             <div>
               <Label htmlFor="parentId">Assign parent (church member)</Label>
-              <select id="parentId" name="parentId" defaultValue={person?.parentId ?? ""} className={selectBase}>
-                <option value="">- Select a member -</option>
-                {adults.map((a) => (
-                  <option key={a.id} value={a.id}>{a.firstName} {a.lastName}</option>
-                ))}
-              </select>
+              <ParentSelect parentId={person?.parentId ?? null} parentName={person?.parentName ?? null} noneLabel="- Select a member -" />
               <p className="mt-1 text-xs text-ink-faint">Links this child to an existing adult member record.</p>
             </div>
             <div className="mt-3 grid gap-4 sm:grid-cols-2">

@@ -1,7 +1,7 @@
 "use client";
 
 import { usePagedList } from "@/components/ui/list-pager";
-import { useState, useMemo, useTransition } from "react";
+import { useState, useMemo, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   Search, Plus, Trash2, Send, ChevronDown, ChevronRight,
@@ -21,7 +21,11 @@ import { Pencil, MessageSquare, X } from "lucide-react";
 import { Input, Label } from "@/components/ui/input";
 import { formatCurrency } from "@/config/brand";
 import { formatDate, cn } from "@/lib/utils";
-import type { TitheMember, WeekGroup } from "@/lib/data/giving";
+import type { WeekGroup } from "@/lib/data/giving";
+import { searchPickerPeople } from "@/app/actions/lists";
+
+/** A member offered by the server-side search in the recorder. */
+type TitheMember = { id: string; name: string; phone: string | null; memberId: string | null; photoUrl: string | null };
 
 import { matchesPerson } from "@/lib/search";
 const methods = ["MTN MoMo", "Telecel Cash", "AirtelTigo", "Card", "Bank", "Cash"] as const;
@@ -42,7 +46,6 @@ const FUND_TYPES = [
 const DEFAULT_TITHE_TEMPLATE = "Dear {name}, your Tithe of GHS {amount} has been received by {church}. God Bless You for paying your Tithes to the Lord. Malachi 3:10 Shalom!";
 
 export function TitheClient({
-  members,
   weeks,
   monthTotal,
   monthLabel,
@@ -53,7 +56,6 @@ export function TitheClient({
   titheTemplate,
   customFunds = [],
 }: {
-  members: TitheMember[];
   weeks: WeekGroup[];
   monthTotal: number;
   monthLabel: string;
@@ -237,7 +239,7 @@ export function TitheClient({
         </div>
       )}
 
-      {tab === "record" && canWrite && <BatchRecorder members={members} fundType={fundType} activeFundName={activeFundName} accounts={accounts} />}
+      {tab === "record" && canWrite && <BatchRecorder fundType={fundType} activeFundName={activeFundName} accounts={accounts} />}
       {tab === "records" && <WeeklyRecords weeks={weeks} />}
       {tab === "report" && <MonthlyReport weeks={weeks} monthLabel={monthLabel} monthTotal={monthTotal} year={year} month={month} />}
     </div>
@@ -246,7 +248,7 @@ export function TitheClient({
 
 /* ────── Batch Recorder ────── */
 
-function BatchRecorder({ members, fundType, activeFundName, accounts }: { members: TitheMember[]; fundType: string; activeFundName: string; accounts: AccountOption[] }) {
+function BatchRecorder({ fundType, activeFundName, accounts }: { fundType: string; activeFundName: string; accounts: AccountOption[] }) {
   const router = useRouter();
   const [entries, setEntries] = useState<LocalEntry[]>([]);
   const [search, setSearch] = useState("");
@@ -260,10 +262,21 @@ function BatchRecorder({ members, fundType, activeFundName, accounts }: { member
   // per member. Tithes stay per-member (each person gets a receipt).
   const [lumpMode, setLumpMode] = useState(fundType !== "tithes");
 
-  const filtered = useMemo(() => {
-    if (!search.trim()) return members.slice(0, 20);
-    return members.filter((m) => matchesPerson(search, { name: `${m.firstName} ${m.lastName}`, phone: m.phone, memberId: m.memberId })).slice(0, 20);
-  }, [members, search]);
+  // Members are looked up on the server as you type (after a 300ms pause), so none are loaded with the page.
+  const [filtered, setFiltered] = useState<TitheMember[]>([]);
+  const [looking, setLooking] = useState(false);
+  useEffect(() => {
+    if (!showList) return;
+    let live = true;
+    setLooking(true);
+    const t = setTimeout(() => {
+      searchPickerPeople("giving", search.trim(), { who: "activeOrVisitor" })
+        .then((res) => { if (live) setFiltered(res.map((o) => ({ id: o.value, name: o.label, phone: o.phone ?? null, memberId: o.memberId ?? null, photoUrl: o.photoUrl ?? null }))); })
+        .catch(() => { if (live) setFiltered([]); })
+        .finally(() => { if (live) setLooking(false); });
+    }, search ? 300 : 0);
+    return () => { live = false; clearTimeout(t); };
+  }, [search, showList]);
 
   const addEntry = (member: TitheMember) => {
     if (entries.some((e) => e.personId === member.id)) {
@@ -272,7 +285,7 @@ function BatchRecorder({ members, fundType, activeFundName, accounts }: { member
     }
     setEntries((prev) => [...prev, {
       personId: member.id,
-      name: `${member.firstName} ${member.lastName}`,
+      name: member.name,
       amount: "",
       method,
       phone: member.phone,
@@ -393,7 +406,7 @@ function BatchRecorder({ members, fundType, activeFundName, accounts }: { member
             <div className="fixed inset-0 z-10" onClick={() => setShowList(false)} />
             <div className="absolute left-0 right-0 top-full z-20 mt-1 max-h-60 overflow-y-auto overscroll-contain rounded-xl border border-line bg-surface shadow-xl">
               {filtered.length === 0 ? (
-                <div className="p-4 text-center text-sm text-ink-faint">No members found</div>
+                <div className="p-4 text-center text-sm text-ink-faint">{looking ? "Searching…" : "No members found"}</div>
               ) : filtered.map((m) => (
                 <button
                   key={m.id}
@@ -404,9 +417,9 @@ function BatchRecorder({ members, fundType, activeFundName, accounts }: { member
                     entries.some((e) => e.personId === m.id) && "opacity-40",
                   )}
                 >
-                  <Avatar name={`${m.firstName} ${m.lastName}`} src={m.photoUrl ?? undefined} size="sm" />
+                  <Avatar name={m.name} src={m.photoUrl ?? undefined} size="sm" />
                   <div className="min-w-0 flex-1">
-                    <div className="font-medium">{m.firstName} {m.lastName}</div>
+                    <div className="font-medium">{m.name}</div>
                     {m.phone && <div className="text-xs text-ink-faint">{m.phone}</div>}
                   </div>
                   {entries.some((e) => e.personId === m.id) ? (

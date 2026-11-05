@@ -2,6 +2,7 @@
 
 import { usePagedList } from "@/components/ui/list-pager";
 import { SearchSelect } from "@/components/app/search-select";
+import { searchPickerPeople } from "@/app/actions/lists";
 import { useEffect, useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
@@ -45,9 +46,9 @@ type Member = { id: string; name: string; hasPhone: boolean };
 type Templates = { receipt: string | null; reminder: string | null };
 
 export function WelfareClient({
-  data, members, accounts, smsBalance, templates, canWrite,
+  data, accounts, smsBalance, templates, canWrite,
 }: {
-  data: WelfareData; members: Member[]; accounts: AccountOption[]; smsBalance: number; templates: Templates; canWrite: boolean;
+  data: WelfareData; accounts: AccountOption[]; smsBalance: number; templates: Templates; canWrite: boolean;
 }) {
   const [tab, setTab] = useState<"dues" | "aid">("dues");
   const balance = data.collected - data.disbursed;
@@ -74,7 +75,7 @@ export function WelfareClient({
       </div>
 
       {tab === "dues" ? (
-        <DuesTab data={data} members={members} accounts={accounts} smsBalance={smsBalance} templates={templates} canWrite={canWrite} />
+        <DuesTab data={data} accounts={accounts} smsBalance={smsBalance} templates={templates} canWrite={canWrite} />
       ) : (
         <AidTab data={data} canWrite={canWrite} />
       )}
@@ -95,8 +96,8 @@ function Stat({ icon: Icon, tone, value, label }: { icon: typeof Heart; tone: "s
 
 /* ─────────────────── Dues tab ─────────────────── */
 
-function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
-  data: WelfareData; members: Member[]; accounts: AccountOption[]; smsBalance: number; templates: Templates; canWrite: boolean;
+function DuesTab({ data, accounts, smsBalance, templates, canWrite }: {
+  data: WelfareData; accounts: AccountOption[]; smsBalance: number; templates: Templates; canWrite: boolean;
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -149,7 +150,7 @@ function DuesTab({ data, members, accounts, smsBalance, templates, canWrite }: {
             </Button>
             <Button size="sm" variant={tool === "start" ? "primary" : "secondary"} onClick={() => setTool(tool === "start" ? null : "start")}><Calendar className="size-4" /> Dues start</Button>
           </div>
-          {tool === "record" && <RecordDuesForm members={members} accounts={accounts} rates={data.rates} currentYear={data.currentYear} />}
+          {tool === "record" && <RecordDuesForm accounts={accounts} rates={data.rates} currentYear={data.currentYear} />}
           {tool === "rates" && <RatesPanel rates={data.rates} currentYear={data.currentYear} defaultOpen />}
           {tool === "start" && <ChurchStartCard churchStart={data.churchStart} />}
         </div>
@@ -420,8 +421,8 @@ function RatesPanel({ rates, currentYear, defaultOpen = false }: { rates: { year
   );
 }
 
-function RecordDuesForm({ members, accounts, rates, currentYear }: {
-  members: Member[]; accounts: AccountOption[]; rates: { year: number; amount: number }[]; currentYear: number;
+function RecordDuesForm({ accounts, rates, currentYear }: {
+  accounts: AccountOption[]; rates: { year: number; amount: number }[]; currentYear: number;
 }) {
   const router = useRouter();
   const { toast } = useFeedback();
@@ -483,7 +484,8 @@ function RecordDuesForm({ members, accounts, rates, currentYear }: {
           compact
           placeholder="Search or choose a member…"
           searchPlaceholder="Type a member's name…"
-          options={members.map((m) => ({ value: m.id, label: m.name, hint: m.hasPhone ? undefined : "no phone" }))}
+          options={[]}
+          search={(q) => searchPickerPeople("welfare", q, { who: "notInactive" })}
         />
         <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)}
           placeholder="Amount / month (optional - else uses each year's rate)" className={inputCls} />

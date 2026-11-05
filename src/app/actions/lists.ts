@@ -4,6 +4,7 @@ import { requireModule } from "@/lib/auth";
 import { queryVisitors } from "@/lib/data/visitors";
 import { queryPeople } from "@/lib/data/people";
 import { queryDirectory } from "@/lib/data/directory";
+import { queryPickerPeople, pickerLabels, type PickerQuery } from "@/lib/data/picker";
 import { queryGroupMembers, queryDepartmentMembers, queryAssets, queryCounseling, type CounselFilters } from "@/lib/data/lists-b";
 import { queryFollowUps, type FollowUpFilters } from "@/lib/data/follow-ups-list";
 import { queryNotices, queryTestimonies, queryPrayer, prayerActiveIds, querySermons, queryDevotionals, queryAudit, type AuditFilters, type PrayerFilters, type SermonFilters, type DevotionalFilters } from "@/lib/data/lists-a";
@@ -88,4 +89,19 @@ export async function searchAssets(search: string, f: { category: string }, page
 export async function searchCounseling(search: string, f: CounselFilters, page: number) {
   const session = await requireModule("counseling");
   return queryCounseling(session.churchId, search, f, page);
+}
+
+/**
+ * Top matches for a "choose a person" box. `moduleName` is the section the box lives in, so the same permission that
+ * opens that page is what allows this lookup.
+ */
+export async function searchPickerPeople(moduleName: string, search: string, opts: PickerQuery = {}) {
+  const session = await requireModule(moduleName);
+  return queryPickerPeople(session.churchId, search, opts);
+}
+
+/** Names for people already chosen, so a saved selection shows who it is without loading everyone. */
+export async function getPickerLabels(moduleName: string, ids: string[]) {
+  const session = await requireModule(moduleName);
+  return pickerLabels(session.churchId, ids);
 }

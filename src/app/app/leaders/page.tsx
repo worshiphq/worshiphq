@@ -38,7 +38,6 @@ export default async function LeadersPage() {
         departmentLeaders={data.departmentLeaders}
         groupLeaders={data.groupLeaders}
         departments={data.departments}
-        people={data.people}
         customPositions={data.customPositions}
         isAdmin={isAdmin}
         isDemo={session.isDemo}

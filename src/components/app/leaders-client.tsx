@@ -9,6 +9,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { MemberAvatar } from "@/components/ui/member-avatar";
+import { SearchSelect } from "@/components/app/search-select";
+import { searchPickerPeople } from "@/app/actions/lists";
 import { addPosition, removePosition } from "@/app/actions/positions";
 import { reorderLeaders } from "@/app/actions/leaders";
 import { setGroupLeader } from "@/app/actions/groups";
@@ -62,7 +64,6 @@ export function LeadersClient({
   departmentLeaders = [],
   groupLeaders = [],
   departments = [],
-  people = [],
   customPositions = [],
   isAdmin,
   isDemo,
@@ -71,7 +72,6 @@ export function LeadersClient({
   departmentLeaders: DeptLeader[];
   groupLeaders?: GroupLeader[];
   departments: Dept[];
-  people: PersonOption[];
   customPositions: string[];
   isAdmin: boolean;
   isDemo: boolean;
@@ -285,7 +285,6 @@ export function LeadersClient({
                 key={dept.id}
                 dept={dept}
                 members={deptData?.members ?? []}
-                people={people}
                 customPositions={customPositions}
                 isAdmin={isAdmin}
                 isDemo={isDemo}
@@ -315,7 +314,7 @@ export function LeadersClient({
 
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {groupLeaders.map((g) => (
-              <GroupLeaderCard key={g.id} group={g} people={people} isAdmin={isAdmin} isDemo={isDemo} />
+              <GroupLeaderCard key={g.id} group={g} isAdmin={isAdmin} isDemo={isDemo} />
             ))}
           </div>
         </div>
@@ -326,8 +325,8 @@ export function LeadersClient({
 }
 
 function GroupLeaderCard({
-  group, people, isAdmin, isDemo,
-}: { group: GroupLeader; people: PersonOption[]; isAdmin: boolean; isDemo: boolean }) {
+  group, isAdmin, isDemo,
+}: { group: GroupLeader; isAdmin: boolean; isDemo: boolean }) {
   const router = useRouter();
   const { toast } = useFeedback();
   const [pending, start] = useTransition();
@@ -364,15 +363,17 @@ function GroupLeaderCard({
       </div>
 
       {isAdmin && !isDemo && (
-        <select
-          value={group.leader?.id ?? ""}
-          disabled={pending}
-          onChange={(e) => choose(e.target.value)}
-          className="mt-3 h-9 w-full rounded-xl border border-line bg-surface px-2 text-sm focus-visible:border-primary/60 focus-visible:outline-none"
-        >
-          <option value="">No leader</option>
-          {people.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-        </select>
+        <div className="mt-3">
+          <SearchSelect
+            compact
+            value={group.leader?.id ?? ""}
+            onChange={(v) => { if (!pending) choose(v); }}
+            placeholder="Choose a leader…"
+            searchPlaceholder="Type a name…"
+            options={[{ value: "", label: "No leader" }, ...(group.leader ? [{ value: group.leader.id, label: group.leader.name }] : [])]}
+            search={async (q) => [{ value: "", label: "No leader" }, ...(await searchPickerPeople("leaders", q, { who: "notInactive" }))]}
+          />
+        </div>
       )}
     </Card>
   );
@@ -381,14 +382,12 @@ function GroupLeaderCard({
 function DepartmentCard({
   dept,
   members,
-  people,
   customPositions,
   isAdmin,
   isDemo,
 }: {
   dept: Dept;
   members: DeptMember[];
-  people: PersonOption[];
   customPositions: string[];
   isAdmin: boolean;
   isDemo: boolean;
@@ -416,7 +415,7 @@ function DepartmentCard({
       {isAdmin && !isDemo && (
         <div className="border-t border-line p-3">
           {showAdd ? (
-            <AddPositionForm deptId={dept.id} people={people} customPositions={customPositions} onDone={() => setShowAdd(false)} />
+            <AddPositionForm deptId={dept.id} customPositions={customPositions} onDone={() => setShowAdd(false)} />
           ) : (
             <Button variant="ghost" size="sm" className="w-full text-xs" onClick={() => setShowAdd(true)}>
               <Plus className="size-3.5" /> Assign leader
@@ -458,12 +457,10 @@ function RemovableMember({ member: m, isAdmin, isDemo }: { member: DeptMember; i
 
 function AddPositionForm({
   deptId,
-  people,
   customPositions = [],
   onDone,
 }: {
   deptId: string;
-  people: PersonOption[];
   customPositions: string[];
   onDone: () => void;
 }) {
@@ -476,10 +473,18 @@ function AddPositionForm({
   const [showDropdown, setShowDropdown] = useState(false);
   const wrapperRef = useRef<HTMLDivElement>(null);
 
-  const safepeople = people ?? [];
-  const filtered = search.length >= 1
-    ? safepeople.filter((p) => p.name.toLowerCase().includes(search.toLowerCase())).slice(0, 8)
-    : [];
+  // Members are looked up on the server as you type (after a 300ms pause), so none are loaded with the page.
+  const [filtered, setFiltered] = useState<PersonOption[]>([]);
+  useEffect(() => {
+    if (selectedPerson || search.trim().length < 1) { setFiltered([]); return; }
+    let live = true;
+    const t = setTimeout(() => {
+      searchPickerPeople("leaders", search.trim(), { who: "notInactive" })
+        .then((res) => { if (live) setFiltered(res.slice(0, 8).map((o) => ({ id: o.value, name: o.label, photoUrl: o.photoUrl ?? null }))); })
+        .catch(() => { if (live) setFiltered([]); });
+    }, 300);
+    return () => { live = false; clearTimeout(t); };
+  }, [search, selectedPerson]);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -550,11 +555,6 @@ function AddPositionForm({
                     <span className="font-medium text-ink">{p.name}</span>
                   </button>
                 ))}
-              </div>
-            )}
-            {showDropdown && search.length >= 2 && filtered.length === 0 && (
-              <div className="absolute left-0 right-0 top-full z-20 mt-1 rounded-xl border border-line bg-surface p-3 text-center text-xs text-ink-faint shadow-lg">
-                No members found
               </div>
             )}
           </div>

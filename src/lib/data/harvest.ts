@@ -37,11 +37,10 @@ export interface HarvestData {
   /** Counted lump sums (anonymous envelopes): total amount and envelopes. */
   anonymousTotal: number;
   envelopeCount: number;
-  members: { id: string; firstName: string; lastName: string; phone: string | null; memberId: string | null; photoUrl: string | null }[];
 }
 
 export async function getHarvestData(churchId: string, year: number): Promise<HarvestData> {
-  const [harvest, members] = await Promise.all([
+  const [harvest] = await Promise.all([
     db.harvest.findUnique({
       where: { churchId_year: { churchId, year } },
       include: {
@@ -51,15 +50,10 @@ export async function getHarvestData(churchId: string, year: number): Promise<Ha
         },
       },
     }),
-    db.person.findMany({
-      where: { churchId, status: { in: ["active", "visitor"] } },
-      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-      select: { id: true, firstName: true, lastName: true, phone: true, memberId: true, photoUrl: true },
-    }),
   ]);
 
   if (!harvest) {
-    return { harvest: null, contributions: [], totalRaised: 0, contributorCount: 0, memberCount: 0, visitorCount: 0, anonymousTotal: 0, envelopeCount: 0, members };
+    return { harvest: null, contributions: [], totalRaised: 0, contributorCount: 0, memberCount: 0, visitorCount: 0, anonymousTotal: 0, envelopeCount: 0 };
   }
 
   const contributions: HarvestContributionRow[] = harvest.contributions.map((c) => ({
@@ -99,6 +93,5 @@ export async function getHarvestData(churchId: string, year: number): Promise<Ha
     visitorCount: visitorContribs.length,
     anonymousTotal: anonymous.reduce((s, c) => s + c.amount, 0),
     envelopeCount: anonymous.reduce((s, c) => s + (c.envelopeCount ?? 0), 0),
-    members,
   };
 }

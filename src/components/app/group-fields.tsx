@@ -19,6 +19,7 @@ export type GroupFormValues = {
   meetingTime: string | null;
   location: string | null;
   leaderId: string | null;
+  leaderName?: string | null;
   onForms: boolean;
   meetingReminderOn: boolean;
   meetingReminderAuto: boolean;
@@ -34,11 +35,9 @@ export type GroupFormValues = {
  *  <form>, so every input serialises straight into the server action. */
 export function GroupFields({
   group,
-  people,
   typeSuggestions,
 }: {
   group?: Partial<GroupFormValues> | null;
-  people: { id: string; name: string }[];
   typeSuggestions: string[];
 }) {
   // Per-day schedule: initialise from meetingSchedule, else legacy days/day+time.
@@ -140,8 +139,7 @@ export function GroupFields({
       <Field
         label="Leader"
         name="leaderId"
-        options={[{ label: "- No leader -", value: "" }, ...people.map((p) => ({ label: p.name, value: p.id }))]}
-        defaultValue={group?.leaderId ?? ""}
+        peopleSearch={{ module: "groups", noneLabel: "- No leader -", selected: group?.leaderId && group.leaderName ? { value: group.leaderId, label: group.leaderName } : null }}
         hint="Optional - some groups don’t have a leader"
       />
 

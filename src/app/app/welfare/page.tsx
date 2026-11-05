@@ -43,20 +43,14 @@ export default async function WelfarePage({
     range = { fromY: ordered.a.y, fromM: ordered.a.m, toY: ordered.b.y, toM: ordered.b.m };
   }
 
-  const [welfare, people, accounts, smsBalance, church] = await Promise.all([
+  const [welfare, accounts, smsBalance, church] = await Promise.all([
     getWelfareData(session.churchId, year, range),
-    db.person.findMany({
-      where: { churchId: session.churchId, status: { not: "inactive" } },
-      select: { id: true, firstName: true, lastName: true, phone: true, memberId: true },
-      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-    }),
     getAccountOptions(session.churchId),
     getSmsBalance(session.churchId),
     db.church.findUnique({ where: { id: session.churchId }, select: { welfareDuesReceiptTemplate: true, welfareDuesReminderTemplate: true } }),
   ]);
 
   const accountField = accounts.length > 1;
-  const memberOptions = people.map((p) => ({ label: `${p.firstName} ${p.lastName}`, value: p.id, hint: [p.memberId, p.phone].filter(Boolean).join(" · ") || undefined }));
 
   return (
     <div>
@@ -85,13 +79,12 @@ export default async function WelfarePage({
           <Field label="Description" name="description" placeholder="Details of aid given..." />
           <Field label="Date" name="date" type="date" />
           <Field label="Link to member (optional)" name="personId" searchable
-            options={[{ label: "- None -", value: "" }, ...memberOptions]} />
+            peopleSearch={{ module: "welfare", who: "notInactive" }} />
         </ActionDialog>
       </PageHeader>
 
       <WelfareClient
         data={welfare}
-        members={people.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`.trim(), hasPhone: !!p.phone }))}
         accounts={accounts}
         smsBalance={smsBalance}
         templates={{

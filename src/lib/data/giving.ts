@@ -53,7 +53,6 @@ export interface WeekGroup {
 }
 
 export interface TitheData {
-  members: TitheMember[];
   weeks: WeekGroup[];
   monthTotal: number;
   monthLabel: string;
@@ -93,12 +92,7 @@ export async function getTitheData(churchId: string, year: number, month: number
     where: { churchId, name: { equals: "Tithes", mode: "insensitive" } },
   });
 
-  const [members, gifts] = await Promise.all([
-    db.person.findMany({
-      where: { churchId, status: { in: ["active", "visitor"] } },
-      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-      select: { id: true, firstName: true, lastName: true, phone: true, memberId: true, photoUrl: true },
-    }),
+  const [gifts] = await Promise.all([
     titheFund
       ? db.gift.findMany({
           where: { churchId, fundId: titheFund.id, date: { gte: startOfMonth, lte: endOfMonth } },
@@ -133,7 +127,6 @@ export async function getTitheData(churchId: string, year: number, month: number
   const monthNames = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
   return {
-    members,
     weeks,
     monthTotal: gifts.reduce((sum, g) => sum + Number(g.amount), 0),
     monthLabel: `${monthNames[month]} ${year}`,

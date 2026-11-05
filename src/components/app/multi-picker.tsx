@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Check, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -15,7 +15,7 @@ export type PickerOption = { value: string; label: string; hint?: string };
  * Keyboard: type to search, Down arrow into the list, Up/Down/Home/End to move, Space or Enter to tick, Escape back to the search.
  */
 export function MultiPicker({
-  name, options, defaultValue = [], onChange, placeholder = "Search…", emptyLabel = "Nobody selected",
+  name, options, defaultValue = [], onChange, placeholder = "Search…", emptyLabel = "Nobody selected", search,
 }: {
   name?: string;
   options: PickerOption[];
@@ -23,6 +23,8 @@ export function MultiPicker({
   onChange?: (values: string[]) => void;
   placeholder?: string;
   emptyLabel?: string;
+  /** Ask the server for matches instead of filtering `options` (use for people). Called after a 300ms pause, and once on load. */
+  search?: (query: string) => Promise<PickerOption[]>;
 }) {
   const [selected, setSelected] = useState<string[]>(defaultValue);
   const [query, setQuery] = useState("");
@@ -44,9 +46,30 @@ export function MultiPicker({
     items[to]?.focus();
   }
 
-  const label = new Map(options.map((o) => [o.value, o.label]));
+  // Server-backed: results for what is typed. Names already seen are remembered so chips keep their label.
+  const [remote, setRemote] = useState<PickerOption[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const seen = useRef(new Map<string, string>());
+  for (const o of options) seen.current.set(o.value, o.label);
+  if (remote) for (const o of remote) seen.current.set(o.value, o.label);
+  const reqId = useRef(0);
+  useEffect(() => {
+    if (!search) return;
+    const id = ++reqId.current;
+    setLoading(true);
+    const t = setTimeout(() => {
+      search(query.trim())
+        .then((res) => { if (id === reqId.current) setRemote(res); })
+        .catch(() => { if (id === reqId.current) setRemote([]); })
+        .finally(() => { if (id === reqId.current) setLoading(false); });
+    }, query ? 300 : 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
+
+  const label = search ? seen.current : new Map(options.map((o) => [o.value, o.label]));
   const q = query.trim().toLowerCase();
-  const shown = (q ? options.filter((o) => matchesPerson(q, { name: o.label, text: o.hint })) : options).slice(0, 80);
+  const shown = search ? (remote ?? []) : (q ? options.filter((o) => matchesPerson(q, { name: o.label, text: o.hint })) : options).slice(0, 80);
 
   function toggle(v: string) {
     const next = selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v];
@@ -88,7 +111,8 @@ export function MultiPicker({
         />
       </div>
       <ul ref={listRef} role="listbox" aria-multiselectable aria-label={placeholder} onKeyDown={onListKey} className="max-h-48 divide-y divide-line overflow-y-auto border-t border-line">
-        {shown.length === 0 && <li className="px-3 py-3 text-sm text-ink-faint">No match.</li>}
+        {loading && shown.length === 0 && <li className="px-3 py-3 text-sm text-ink-faint">Searching…</li>}
+        {!loading && shown.length === 0 && <li className="px-3 py-3 text-sm text-ink-faint">No match.</li>}
         {shown.map((o) => {
           const on = selected.includes(o.value);
           return (

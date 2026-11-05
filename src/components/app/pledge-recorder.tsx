@@ -1,16 +1,16 @@
 "use client";
 
 import { PhoneInput } from "@/components/ui/phone-input";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Search, X, Check, Phone, Loader2, UserRound } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { useFeedback } from "@/components/ui/feedback";
 import { createPledge } from "@/app/actions/pledges";
+import { searchPickerPeople } from "@/app/actions/lists";
 import { cn } from "@/lib/utils";
 
-import { matchesPerson } from "@/lib/search";
 export interface MemberOption {
   id: string;
   name: string;
@@ -19,12 +19,10 @@ export interface MemberOption {
 }
 
 export function PledgeRecorder({
-  members,
   campaigns,
   harvests,
   disabled,
 }: {
-  members: MemberOption[];
   campaigns: { id: string; name: string }[];
   harvests: { id: string; label: string }[];
   disabled?: boolean;
@@ -37,13 +35,21 @@ export function PledgeRecorder({
   const { toast } = useFeedback();
   const router = useRouter();
 
-  const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    if (!q) return members.slice(0, 8);
-    return members
-      .filter((m) => matchesPerson(q, m))
-      .slice(0, 8);
-  }, [query, members]);
+  // Members are looked up on the server as you type (after a 300ms pause), so none are loaded with the page.
+  const [matches, setMatches] = useState<MemberOption[]>([]);
+  const [looking, setLooking] = useState(false);
+  useEffect(() => {
+    if (!open || tab !== "member" || picked) return;
+    let live = true;
+    setLooking(true);
+    const t = setTimeout(() => {
+      searchPickerPeople("pledges", query.trim(), { who: "notInactive" })
+        .then((res) => { if (live) setMatches(res.map((o) => ({ id: o.value, name: o.label, phone: o.phone ?? null, memberId: o.memberId ?? null }))); })
+        .catch(() => { if (live) setMatches([]); })
+        .finally(() => { if (live) setLooking(false); });
+    }, query ? 300 : 0);
+    return () => { live = false; clearTimeout(t); };
+  }, [query, open, tab, picked]);
 
   function close() {
     setOpen(false);
@@ -130,7 +136,7 @@ export function PledgeRecorder({
                       </div>
                       <div className="mt-2 max-h-56 divide-y divide-line-soft overflow-y-auto overscroll-contain rounded-xl border border-line">
                         {matches.length === 0 ? (
-                          <p className="p-3 text-sm text-ink-faint">No members match.</p>
+                          <p className="p-3 text-sm text-ink-faint">{looking ? "Searching…" : "No members match."}</p>
                         ) : (
                           matches.map((m) => (
                             <button

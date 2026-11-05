@@ -28,8 +28,8 @@ type DevotionalRow = {
 };
 
 export function DevotionalsClient({
-  initial, options, audiences, members, canWrite,
-}: { initial: { rows: DevotionalRow[]; total: number; page: number }; options: { authors: string[]; years: number[] }; audiences: AudienceOption[]; members: PickerOption[]; canWrite: boolean }) {
+  initial, options, audiences, canWrite,
+}: { initial: { rows: DevotionalRow[]; total: number; page: number }; options: { authors: string[]; years: number[] }; audiences: AudienceOption[]; canWrite: boolean }) {
   const [search, setSearch] = useState("");
   const [author, setAuthor] = useState("");
   const [year, setYear] = useState("");
@@ -152,7 +152,7 @@ export function DevotionalsClient({
         </div>
       )}
 
-      {sendFor && <DevotionalSendDialog devotional={sendFor} audiences={audiences} members={members} onClose={() => setSendFor(null)} />}
+      {sendFor && <DevotionalSendDialog devotional={sendFor} audiences={audiences} onClose={() => setSendFor(null)} />}
       {list.pager}
     </div>
   );

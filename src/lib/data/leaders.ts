@@ -15,7 +15,7 @@ const POSITION_PRIORITY: Record<string, number> = {
 };
 
 export async function getLeaders(churchId: string) {
-  const [churchLeaders, departmentPositions, departments, allPeople, churchTitles, groups] = await Promise.all([
+  const [churchLeaders, departmentPositions, departments, churchTitles, groups] = await Promise.all([
     db.person.findMany({
       where: { churchId, featured: true, leaderTitle: { not: null } },
       select: {
@@ -37,11 +37,6 @@ export async function getLeaders(churchId: string) {
       where: { churchId },
       select: { id: true, name: true },
       orderBy: { name: "asc" },
-    }),
-    db.person.findMany({
-      where: { churchId, status: "active" },
-      select: { id: true, firstName: true, lastName: true, title: true, photoUrl: true },
-      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     }),
     db.church.findUnique({ where: { id: churchId }, select: { leaderTitles: true } }),
     // Groups belong on this page too: a group leader leads part of the church just as a department
@@ -116,11 +111,6 @@ export async function getLeaders(churchId: string) {
     })),
     departmentLeaders,
     departments,
-    people: allPeople.map((p) => ({
-      id: p.id,
-      name: `${p.title ? p.title + " " : ""}${p.firstName} ${p.lastName}`,
-      photoUrl: p.photoUrl,
-    })),
     customPositions,
     groupLeaders: groups.map((g) => ({
       id: g.id,

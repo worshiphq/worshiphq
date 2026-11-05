@@ -1,7 +1,7 @@
 "use client";
 
 import { useServerList } from "@/components/ui/use-server-list";
-import { searchDepartmentMembers } from "@/app/actions/lists";
+import { searchDepartmentMembers, searchPickerPeople } from "@/app/actions/lists";
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import Link from "@/components/ui/app-link";
@@ -21,8 +21,8 @@ type MemberInfo = { id: string; name: string; phone: string | null; photoUrl: st
 type PersonOpt = { id: string; name: string; phone: string | null };
 
 export function DepartmentDetailClient({
-  department, initial, people, canWrite,
-}: { department: DeptInfo; initial: { rows: MemberInfo[]; total: number; page: number; extra?: { reachable: number; everyone: number } }; people: PersonOpt[]; canWrite: boolean }) {
+  department, initial, canWrite,
+}: { department: DeptInfo; initial: { rows: MemberInfo[]; total: number; page: number; extra?: { reachable: number; everyone: number } }; canWrite: boolean }) {
   const router = useRouter();
   const { toast } = useFeedback();
   const [search, setSearch] = useState("");
@@ -39,7 +39,6 @@ export function DepartmentDetailClient({
   });
   const everyone = list.extra?.everyone ?? 0;
   const reachable = list.extra?.reachable ?? 0;
-  const candidates = people.map((p) => ({ value: p.id, label: p.name, hint: p.phone ?? undefined }));
 
   const addChosen = () => {
     if (chosen.length === 0) return;
@@ -158,7 +157,7 @@ export function DepartmentDetailClient({
           <p className="text-sm text-ink-muted">
             Pick as many people as you like. Visitors are left out - they join a department once they become members.
           </p>
-          <MultiPicker options={candidates} defaultValue={chosen} onChange={setChosen} placeholder="Search by name or phone…" emptyLabel="Nobody picked yet" />
+          <MultiPicker options={[]} search={(q) => searchPickerPeople("people", q, { who: "notVisitor", excludeDepartmentId: department.id })} defaultValue={chosen} onChange={setChosen} placeholder="Search by name or phone…" emptyLabel="Nobody picked yet" />
           <div className="flex gap-2">
             <Button variant="secondary" className="flex-1" onClick={() => setAdding(false)} disabled={pending}>Cancel</Button>
             <Button className="flex-1" onClick={addChosen} disabled={pending || chosen.length === 0}>

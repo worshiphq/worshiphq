@@ -70,9 +70,8 @@ const toneFor = (type: string) => {
   return TONES[h % TONES.length];
 };
 
-export function GroupsClient({ items, people, typeSuggestions, canWrite, stats, leaderOf = [] }: {
+export function GroupsClient({ items, typeSuggestions, canWrite, stats, leaderOf = [] }: {
   items: GroupRow[];
-  people: PersonOpt[];
   typeSuggestions: string[];
   canWrite: boolean;
   /** Groups this person leads and may text, when the church has switched that on. */
@@ -243,7 +242,7 @@ export function GroupsClient({ items, people, typeSuggestions, canWrite, stats, 
                   {canWrite && (
                     <>
                       <GroupMessageDialog groupId={g.id} groupName={g.name} memberCount={g.memberCount} />
-                      <EditGroupDialog g={g} people={people} typeSuggestions={typeSuggestions} />
+                      <EditGroupDialog g={g} typeSuggestions={typeSuggestions} />
                       <button onClick={() => handleDelete(g.id)} className="grid size-9 place-items-center rounded-xl text-ink-faint hover:bg-danger/10 hover:text-danger" title="Delete">
                         <Trash2 className="size-4" />
                       </button>
@@ -261,9 +260,8 @@ export function GroupsClient({ items, people, typeSuggestions, canWrite, stats, 
   );
 }
 
-export function EditGroupDialog({ g, people, typeSuggestions }: {
-  g: Pick<GroupRow, "id" | "name" | "type" | "description" | "schedule" | "meetingDays" | "location" | "leaderId" | "onForms" | "meetingReminderOn" | "meetingReminderAuto" | "meetingReminderLeadDays" | "meetingReminderHour" | "meetingReminderMinute" | "meetingReminderWeekday" | "meetingReminderText">;
-  people: PersonOpt[];
+export function EditGroupDialog({ g, typeSuggestions }: {
+  g: Pick<GroupRow, "id" | "name" | "type" | "description" | "schedule" | "meetingDays" | "location" | "leaderId" | "leaderName" | "onForms" | "meetingReminderOn" | "meetingReminderAuto" | "meetingReminderLeadDays" | "meetingReminderHour" | "meetingReminderMinute" | "meetingReminderWeekday" | "meetingReminderText">;
   typeSuggestions: string[];
 }) {
   return (
@@ -278,7 +276,7 @@ export function EditGroupDialog({ g, people, typeSuggestions }: {
       successMessage="Group updated"
     >
       <input type="hidden" name="id" value={g.id} />
-      <GroupFields group={g} people={people} typeSuggestions={typeSuggestions} />
+      <GroupFields group={g} typeSuggestions={typeSuggestions} />
     </ActionDialog>
   );
 }

@@ -5,7 +5,7 @@ import { Check, ChevronDown, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { matchesPerson } from "@/lib/search";
-export type SearchOption = { value: string; label: string; hint?: string };
+export type SearchOption = { value: string; label: string; hint?: string; phone?: string | null };
 
 /**
  * A select you can type into: click it, start typing a name (or phone, or
@@ -15,19 +15,26 @@ export type SearchOption = { value: string; label: string; hint?: string };
  */
 export function SearchSelect({
   name, options, value, defaultValue = "", onChange, placeholder = "Select…", searchPlaceholder = "Type to search…",
-  required, className, compact,
+  required, className, compact, search,
 }: {
   name?: string;
   options: SearchOption[];
   value?: string;
   defaultValue?: string;
-  onChange?: (value: string) => void;
+  /** Called with the chosen value and the whole option (which may carry more, like a phone number). */
+  onChange?: (value: string, option?: SearchOption) => void;
   placeholder?: string;
   searchPlaceholder?: string;
   required?: boolean;
   className?: string;
   /** Shorter trigger that matches 36px inputs. */
   compact?: boolean;
+  /**
+   * Ask the server for matches instead of filtering `options` (use for people: nothing has to be preloaded). Called after
+   * a 300ms pause in typing, and once when the list opens. `options` then only needs to hold what is already chosen, so
+   * its name can be shown.
+   */
+  search?: (query: string) => Promise<SearchOption[]>;
 }) {
   const [inner, setInner] = useState(defaultValue);
   const current = value ?? inner;
@@ -40,15 +47,36 @@ export function SearchSelect({
   const trigger = useRef<HTMLButtonElement>(null);
   const listId = useId();
 
+  // Server-backed: results for what is typed, plus every option ever seen so a chosen name keeps showing.
+  const [remote, setRemote] = useState<SearchOption[] | null>(null);
+  const [loading, setLoading] = useState(false);
+  const known = useRef(new Map<string, SearchOption>());
+  for (const o of options) if (o.value !== "") known.current.set(o.value, o);
+  if (remote) for (const o of remote) known.current.set(o.value, o);
+  const reqId = useRef(0);
+  useEffect(() => {
+    if (!search || !open) return;
+    const id = ++reqId.current;
+    setLoading(true);
+    const t = setTimeout(() => {
+      search(query.trim())
+        .then((res) => { if (id === reqId.current) setRemote(res); })
+        .catch(() => { if (id === reqId.current) setRemote([]); })
+        .finally(() => { if (id === reqId.current) setLoading(false); });
+    }, query ? 300 : 0);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, open]);
+
   const empty = options.find((o) => o.value === "");
-  const real = options.filter((o) => o.value !== "");
+  const real = search ? (remote ?? options.filter((o) => o.value !== "")) : options.filter((o) => o.value !== "");
   const q = query.trim().toLowerCase();
-  const shown = (q ? real.filter((o) => matchesPerson(q, { name: o.label, text: o.hint })) : real).slice(0, 100);
-  const chosen = real.find((o) => o.value === current);
+  const shown = search ? real : (q ? real.filter((o) => matchesPerson(q, { name: o.label, text: o.hint })) : real).slice(0, 100);
+  const chosen = search ? known.current.get(current) : real.find((o) => o.value === current);
 
   function pick(v: string) {
     setInner(v);
-    onChange?.(v);
+    onChange?.(v, v === "" ? empty : (search ? known.current.get(v) : real.find((o) => o.value === v)));
     setOpen(false);
     setQuery("");
     trigger.current?.focus(); // the search box goes away with the list, so keep the keyboard on the field
@@ -137,7 +165,8 @@ export function SearchSelect({
             />
           </div>
           <ul ref={list} id={listId} role="listbox" className="max-h-60 overflow-y-auto py-1">
-            {shown.length === 0 && <li className="px-3.5 py-3 text-sm text-ink-faint">No match for “{query}”.</li>}
+            {loading && shown.length === 0 && <li className="px-3.5 py-3 text-sm text-ink-faint">Searching…</li>}
+            {!loading && shown.length === 0 && <li className="px-3.5 py-3 text-sm text-ink-faint">No match for “{query}”.</li>}
             {shown.map((o, i) => (
               <li key={o.value} data-i={i} role="presentation">
                 <button

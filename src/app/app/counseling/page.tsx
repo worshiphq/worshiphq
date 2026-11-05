@@ -10,14 +10,9 @@ export const metadata = { title: "Counseling" };
 export default async function CounselingPage() {
   const session = await requireModule("counseling");
 
-  const [first, meta, members, users] = await Promise.all([
+  const [first, meta, users] = await Promise.all([
     queryCounseling(session.churchId, "", { status: "all", type: "", counselorId: "", sinceMs: null, quick: "" }, 1),
     counselingMeta(session.churchId),
-    db.person.findMany({
-      where: { churchId: session.churchId },
-      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-      select: { id: true, firstName: true, lastName: true, phone: true },
-    }),
     db.user.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
   ]);
 
@@ -31,7 +26,6 @@ export default async function CounselingPage() {
       <CounselingClient
         canWrite={canEdit(session, "counseling")}
         me={session.userId}
-        members={members.map((m) => ({ id: m.id, name: `${m.firstName} ${m.lastName}`.trim(), phone: m.phone }))}
         counselors={users}
         initial={first}
         meta={meta}

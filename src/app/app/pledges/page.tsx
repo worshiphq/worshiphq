@@ -15,19 +15,13 @@ export const metadata = { title: "Pledges & campaigns" };
 export default async function PledgesPage() {
   const session = await requireModule("pledges");
 
-  const [campaigns, firstPledges, members, harvests, church, totals] = await Promise.all([
+  const [campaigns, firstPledges, harvests, church, totals] = await Promise.all([
     db.campaign.findMany({
       where: { churchId: session.churchId },
       include: { _count: { select: { pledges: true } } },
       orderBy: { endsAt: "asc" },
     }),
     queryPledges(session.churchId, "", 1),
-    db.person.findMany({
-      where: { churchId: session.churchId, status: { not: "inactive" } },
-      select: { id: true, firstName: true, lastName: true, phone: true, memberId: true },
-      orderBy: { firstName: "asc" },
-      take: 2000,
-    }),
     db.harvest.findMany({
       where: { churchId: session.churchId },
       select: { id: true, year: true, title: true },
@@ -62,12 +56,6 @@ export default async function PledgesPage() {
 
           <PledgeRecorder
             disabled={!canEdit(session, "pledges")}
-            members={members.map((m) => ({
-              id: m.id,
-              name: `${m.firstName} ${m.lastName}`.trim(),
-              phone: m.phone,
-              memberId: m.memberId,
-            }))}
             campaigns={campaigns.map((c) => ({ id: c.id, name: c.name }))}
             harvests={harvests.map((h) => ({ id: h.id, label: `${h.title} ${h.year}` }))}
           />

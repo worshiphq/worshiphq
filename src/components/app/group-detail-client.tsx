@@ -1,7 +1,7 @@
 "use client";
 
 import { useServerList } from "@/components/ui/use-server-list";
-import { searchGroupMembers } from "@/app/actions/lists";
+import { searchGroupMembers, searchPickerPeople } from "@/app/actions/lists";
 import { useState, useTransition } from "react";
 import Link from "@/components/ui/app-link";
 import { useRouter } from "next/navigation";
@@ -32,8 +32,8 @@ const clock = (hm: string | null) => {
 };
 
 export function GroupDetailClient({
-  group, initial, people, canWrite, leaderOf = [],
-}: { group: GroupInfo; initial: { rows: MemberInfo[]; total: number; page: number; extra?: { reachable: number; everyone: number } }; people: PersonOpt[]; canWrite: boolean; leaderOf?: string[] }) {
+  group, initial, canWrite, leaderOf = [],
+}: { group: GroupInfo; initial: { rows: MemberInfo[]; total: number; page: number; extra?: { reachable: number; everyone: number } }; canWrite: boolean; leaderOf?: string[] }) {
   const router = useRouter();
   const { toast } = useFeedback();
   const [search, setSearch] = useState("");
@@ -50,7 +50,6 @@ export function GroupDetailClient({
   });
   const everyone = list.extra?.everyone ?? 0;
   const reachable = list.extra?.reachable ?? 0;
-  const candidates = people.filter((p) => !p.member).map((p) => ({ value: p.id, label: p.name, hint: p.phone ?? undefined }));
 
   const addChosen = () => {
     if (chosen.length === 0) return;
@@ -94,7 +93,7 @@ export function GroupDetailClient({
         {canWrite && (
           <div className="flex flex-wrap items-center gap-2">
             <GroupMessageDialog groupId={group.id} groupName={group.name} memberCount={everyone} label="Message group" />
-            <EditGroupDialog g={group} people={people.map((p) => ({ id: p.id, name: p.name }))} typeSuggestions={["Small group", "Ministry", "Committee", "Fellowship", "Workers", "Choir", "Ushers", "Department"]} />
+            <EditGroupDialog g={{ ...group, leaderName: group.leader?.name ?? null }} typeSuggestions={["Small group", "Ministry", "Committee", "Fellowship", "Workers", "Choir", "Ushers", "Department"]} />
           </div>
         )}
       </div>
@@ -190,7 +189,7 @@ export function GroupDetailClient({
 
       <Modal open={adding} onClose={() => (pending ? undefined : setAdding(false))} title={`Add people to ${group.name}`} description="Search and tick as many as you like, then add them in one go.">
         <div className="space-y-4">
-          <MultiPicker options={candidates} defaultValue={chosen} onChange={setChosen} placeholder="Search by name or phone…" emptyLabel="Nobody picked yet" />
+          <MultiPicker options={[]} search={(q) => searchPickerPeople("people", q, { excludeGroupId: group.id })} defaultValue={chosen} onChange={setChosen} placeholder="Search by name or phone…" emptyLabel="Nobody picked yet" />
           <div className="flex gap-2">
             <Button variant="secondary" className="flex-1" onClick={() => setAdding(false)} disabled={pending}>Cancel</Button>
             <Button className="flex-1" onClick={addChosen} disabled={pending || chosen.length === 0}>

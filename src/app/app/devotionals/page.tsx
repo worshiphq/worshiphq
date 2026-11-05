@@ -13,11 +13,10 @@ export const metadata = { title: "Devotionals" };
 export default async function DevotionalsPage() {
   const session = await requireModule("devotionals");
 
-  const [first, options, audiences, people] = await Promise.all([
+  const [first, options, audiences] = await Promise.all([
     queryDevotionals(session.churchId, "", { author: "", year: "", state: "" }, 1),
     devotionalOptions(session.churchId),
     audienceOptions(session.churchId),
-    db.person.findMany({ where: { churchId: session.churchId, phone: { not: null }, status: { not: "inactive" } }, select: { id: true, firstName: true, lastName: true, phone: true }, orderBy: [{ firstName: "asc" }, { lastName: "asc" }], take: 3000 }),
   ]);
 
   return (
@@ -34,7 +33,6 @@ export default async function DevotionalsPage() {
       <DevotionalsClient
         canWrite={canEdit(session, "devotionals")}
         audiences={audiences}
-        members={people.map((m) => ({ value: m.id, label: `${m.firstName} ${m.lastName}`.trim(), hint: m.phone ?? undefined }))}
         initial={first}
         options={options}
       />

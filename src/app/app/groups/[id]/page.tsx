@@ -4,7 +4,7 @@ import { requireModule, planLockFor } from "@/lib/auth";
 import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { GroupDetailClient } from "@/components/app/group-detail-client";
-import { queryGroupMembers, groupMemberIds } from "@/lib/data/lists-b";
+import { queryGroupMembers } from "@/lib/data/lists-b";
 import { parseSchedule } from "@/lib/groups/meeting-reminder";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
@@ -28,21 +28,12 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
 
   if (!group) notFound();
 
-  const allPeople = await db.person.findMany({
-    where: { churchId: session.churchId },
-    select: { id: true, firstName: true, lastName: true, phone: true },
-    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-    take: 3000,
-  });
-
-  const [first, memberIdList, me, churchSettings] = await Promise.all([
+  const [first, me, churchSettings] = await Promise.all([
     queryGroupMembers(session.churchId, group.id, "", 1),
-    groupMemberIds(group.id),
     db.user.findUnique({ where: { id: session.userId }, select: { personId: true } }),
     db.church.findUnique({ where: { id: session.churchId }, select: { leaderMessagingOn: true } }),
   ]);
   const iLead = !!churchSettings?.leaderMessagingOn && !!me?.personId && me.personId === group.leaderId;
-  const memberIds = new Set(memberIdList);
   const schedule = (() => {
     const s = parseSchedule(group.meetingSchedule);
     return s.length ? s : group.meetingDay ? [{ day: group.meetingDay, time: group.meetingTime }] : [];
@@ -75,7 +66,6 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
         meetingReminderText: group.meetingReminderText,
       }}
       initial={first}
-      people={allPeople.map((p) => ({ id: p.id, name: `${p.firstName} ${p.lastName}`.trim(), phone: p.phone, member: memberIds.has(p.id) }))}
     />
   );
 }

@@ -8,6 +8,7 @@ import { SubmitButton } from "@/components/ui/submit-button";
 import { Modal } from "@/components/ui/modal";
 import { OtherSelect } from "@/components/app/other-select";
 import { SearchSelect } from "@/components/app/search-select";
+import { searchPickerPeople } from "@/app/actions/lists";
 
 /**
  * A button that opens a modal with a form bound to a server action.
@@ -94,6 +95,7 @@ export function Field({
   hint,
   rows,
   searchable,
+  peopleSearch,
 }: {
   label: string;
   name: string;
@@ -109,6 +111,11 @@ export function Field({
   rows?: number;
   /** A select you can type into to narrow the list (use for members and other long lists). */
   searchable?: boolean;
+  /**
+   * Choose a person, searched on the server as you type (nobody is preloaded). `module` is the section this field is in.
+   * The chosen person's id is submitted under `name`. Use instead of `options` + `searchable` for members.
+   */
+  peopleSearch?: { module: string; who?: "all" | "notInactive" | "notVisitor" | "withPhone"; noneLabel?: string; /** The person already chosen, so their name shows. */ selected?: { value: string; label: string } | null };
 }) {
   const base =
     "flex h-11 w-full rounded-xl border border-line bg-surface px-3.5 text-sm text-ink placeholder:text-ink-faint focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30";
@@ -116,7 +123,16 @@ export function Field({
   return (
     <div>
       <label className="mb-1.5 block text-sm font-medium text-ink-muted">{label}</label>
-      {options && searchable ? (
+      {peopleSearch ? (
+        <SearchSelect
+          name={name}
+          required={required}
+          defaultValue={peopleSearch.selected?.value ?? ""}
+          options={[{ label: peopleSearch.noneLabel ?? "- None -", value: "" }, ...(peopleSearch.selected ? [peopleSearch.selected] : [])]}
+          placeholder={placeholder ?? "Search for a person…"}
+          search={(q) => searchPickerPeople(peopleSearch.module, q, { who: peopleSearch.who })}
+        />
+      ) : options && searchable ? (
         <SearchSelect
           name={name}
           required={required}

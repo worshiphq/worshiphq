@@ -1,9 +1,9 @@
 "use client";
 
 import { useServerList } from "@/components/ui/use-server-list";
-import { searchVisitors } from "@/app/actions/lists";
+import { searchVisitors, searchPickerPeople } from "@/app/actions/lists";
 import { PhoneInput } from "@/components/ui/phone-input";
-import { useMemo, useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -75,21 +75,28 @@ function PurposeSelect({ initial }: { initial?: string | null }) {
   );
 }
 
-function InvitedByPicker({ members, fieldName, initial }: {
-  members: MemberOption[];
+function InvitedByPicker({ fieldName, initial }: {
   fieldName: string;
   initial?: { id: string; name: string } | null;
 }) {
   const [query, setQuery] = useState("");
   const [picked, setPicked] = useState<{ id: string; name: string } | null>(initial ?? null);
 
-  const matches = useMemo(() => {
-    const q = query.trim().toLowerCase();
-    const pool = q
-      ? members.filter((m) => m.name.toLowerCase().includes(q) || m.phone?.includes(q))
-      : members;
-    return pool.slice(0, 8);
-  }, [query, members]);
+  // Members are looked up on the server as you type (after a 300ms pause), so none are loaded with the page.
+  const [matches, setMatches] = useState<MemberOption[]>([]);
+  const [looking, setLooking] = useState(false);
+  useEffect(() => {
+    if (picked) return;
+    let live = true;
+    setLooking(true);
+    const t = setTimeout(() => {
+      searchPickerPeople("visitors", query.trim(), { who: "notInactive" })
+        .then((res) => { if (live) setMatches(res.slice(0, 8).map((o) => ({ id: o.value, name: o.label, phone: o.phone ?? null }))); })
+        .catch(() => { if (live) setMatches([]); })
+        .finally(() => { if (live) setLooking(false); });
+    }, query ? 300 : 0);
+    return () => { live = false; clearTimeout(t); };
+  }, [query, picked]);
 
   return (
     <div>
@@ -115,7 +122,7 @@ function InvitedByPicker({ members, fieldName, initial }: {
           </div>
           <div className="mt-2 max-h-48 divide-y divide-line-soft overflow-y-auto overscroll-contain rounded-xl border border-line">
             {matches.length === 0 ? (
-              <p className="p-3 text-sm text-ink-faint">No members match.</p>
+              <p className="p-3 text-sm text-ink-faint">{looking ? "Searching…" : "No members match."}</p>
             ) : (
               matches.map((m) => (
                 <button
@@ -139,13 +146,11 @@ function InvitedByPicker({ members, fieldName, initial }: {
 export function VisitorsClient({
   initial,
   counts,
-  members,
   visitUrl,
   canWrite,
 }: {
   initial: { rows: VisitorRow[]; total: number; page: number };
   counts: { all: number; regular: number };
-  members: MemberOption[];
   visitUrl: string | null;
   canWrite: boolean;
 }) {
@@ -439,7 +444,7 @@ export function VisitorsClient({
                 />
               </div>
 
-              <InvitedByPicker members={members} fieldName="invitedById" />
+              <InvitedByPicker fieldName="invitedById" />
 
               <label className="flex items-center justify-between rounded-xl border border-line px-4 py-3">
                 <span className="text-sm font-medium">Send them a welcome text?</span>
@@ -578,7 +583,7 @@ export function VisitorsClient({
                 />
               </div>
 
-              <InvitedByPicker key={editing.id} members={members} fieldName="invitedById" initial={editing.invitedBy} />
+              <InvitedByPicker key={editing.id} fieldName="invitedById" initial={editing.invitedBy} />
               {!editing.invitedBy && editing.invitedByName && (
                 <p className="text-xs text-ink-faint">They told us &ldquo;{editing.invitedByName}&rdquo; invited them (typed on the visitor form - not linked to a member record above).</p>
               )}
