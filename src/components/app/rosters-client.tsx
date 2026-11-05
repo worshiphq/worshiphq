@@ -1,5 +1,7 @@
 "use client";
 
+import { SearchSelect } from "@/components/app/search-select";
+import { searchPickerPeople } from "@/app/actions/lists";
 import { usePagedList } from "@/components/ui/list-pager";
 import { HalfHourSelect } from "@/components/app/half-hour-select";
 import { useMemo, useState, useTransition } from "react";
@@ -81,8 +83,8 @@ const fmtTime = (t: string) => { const m = /^(\d{1,2}):(\d{2})$/.exec(t); if (!m
 
 type DeletedSheet = { id: string; name: string; date: string; deletedAt: string };
 
-export function RostersClient({ sheets, members, roles, smsBalance, messageTemplates, groups, departments, announce, remind, deletedSheets, canWrite }: {
-  sheets: Sheet[]; members: Member[]; roles: Role[]; smsBalance: number; messageTemplates: Record<string, string>;
+export function RostersClient({ sheets, roles, smsBalance, messageTemplates, groups, departments, announce, remind, deletedSheets, canWrite }: {
+  sheets: Sheet[]; roles: Role[]; smsBalance: number; messageTemplates: Record<string, string>;
   groups: Group[]; departments: Dept[]; announce: Announce; remind: Remind; deletedSheets: DeletedSheet[]; canWrite: boolean;
 }) {
   const [editing, setEditing] = useState<Sheet | null>(null);
@@ -122,7 +124,6 @@ export function RostersClient({ sheets, members, roles, smsBalance, messageTempl
       {(creating || editing) && (
         <SheetDialog
           sheet={editing}
-          members={members}
           roles={roles}
           groups={groups}
           departments={departments}
@@ -565,15 +566,13 @@ function ReminderPicker({ value, onChange, inheritLabel, inheritEffective, servi
   );
 }
 
-type DialogRow = { role: string; personId: string; typed: string };
+type DialogRow = { role: string; personId: string; label: string; typed: string };
 type DialogService = { service: string; date: string; time: string; remind: RemindOverride | null; rows: DialogRow[] };
 
-function SheetDialog({ sheet, members, roles, groups, departments, announce, remind, onClose }: { sheet: Sheet | null; members: Member[]; roles: Role[]; groups: Group[]; departments: Dept[]; announce: Announce; remind: Remind; onClose: () => void }) {
+function SheetDialog({ sheet, roles, groups, departments, announce, remind, onClose }: { sheet: Sheet | null; roles: Role[]; groups: Group[]; departments: Dept[]; announce: Announce; remind: Remind; onClose: () => void }) {
   const router = useRouter();
   const { toast } = useFeedback();
   const [pending, start] = useTransition();
-
-  const memberName = useMemo(() => new Map(members.map((m) => [m.id, m.name])), [members]);
 
   const makeRows = useMemo(() => (assignments: Assignment[]): DialogRow[] => {
     const byRole = new Map(assignments.map((a) => [a.role, a]));
@@ -581,7 +580,7 @@ function SheetDialog({ sheet, members, roles, groups, departments, announce, rem
     for (const a of assignments) if (!names.includes(a.role)) names.push(a.role);
     return names.map((role) => {
       const a = byRole.get(role);
-      return { role, personId: a?.personId ?? "", typed: a?.personId ? "" : (a?.personName ?? "") };
+      return { role, personId: a?.personId ?? "", label: a?.personId ? (a.personName ?? "") : "", typed: a?.personId ? "" : (a?.personName ?? "") };
     });
   }, [roles]);
 
@@ -626,7 +625,7 @@ function SheetDialog({ sheet, members, roles, groups, departments, announce, rem
   const inputCls = "h-9 rounded-lg border border-line bg-surface px-2.5 text-sm outline-none focus:border-primary/50";
 
   // Live message-size estimate (the exact credit cost is shown at Announce time).
-  const nameOf = (r: DialogRow) => (r.personId ? memberName.get(r.personId) ?? "" : r.typed.trim());
+  const nameOf = (r: DialogRow) => (r.personId ? r.label : r.typed.trim());
   const bodyText = services
     .map((s) => {
       const head = `${s.service || "Service"} - ${s.date}${s.time ? ` ${s.time}` : ""}`;
@@ -717,10 +716,17 @@ function SheetDialog({ sheet, members, roles, groups, departments, announce, rem
                   <div key={r.role} className="grid grid-cols-[minmax(0,1fr)_minmax(0,1.4fr)] items-center gap-2">
                     <span className="min-w-0 break-words text-sm text-ink-muted">{r.role}</span>
                     <div className="flex min-w-0 items-center gap-1">
-                      <select value={r.personId} onChange={(e) => setRow(si, ri, { personId: e.target.value, typed: e.target.value ? "" : r.typed })} className={cn(inputCls, "min-w-0 flex-1")}>
-                        <option value="">- Member -</option>
-                        {members.map((m) => <option key={m.id} value={m.id}>{m.name}{m.hasPhone ? "" : " (no phone)"}</option>)}
-                      </select>
+                      <div className="min-w-0 flex-1">
+                        <SearchSelect
+                          compact
+                          value={r.personId}
+                          onChange={(v, opt) => setRow(si, ri, { personId: v, label: opt?.label ?? "", typed: v ? "" : r.typed })}
+                          placeholder="- Member -"
+                          searchPlaceholder="Type a name…"
+                          options={[{ value: "", label: "- Member -" }, ...(r.personId ? [{ value: r.personId, label: r.label }] : [])]}
+                          search={async (q) => [{ value: "", label: "- Member -" }, ...(await searchPickerPeople("volunteers", q, { who: "notInactive" }))]}
+                        />
+                      </div>
                       <input value={r.typed} onChange={(e) => setRow(si, ri, { typed: e.target.value, personId: e.target.value ? "" : r.personId })}
                         placeholder="or type" className={cn(inputCls, "w-20 shrink-0")} />
                     </div>

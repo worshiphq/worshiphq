@@ -16,6 +16,7 @@ export default async function CalendarPage() {
 
   // Facility bookings sit on the same calendar so leaders can see who has the hall (only for people who may see bookings).
   const canSeeBookings = hasSection(session, "bookings");
+  const shownMonths = [...new Set([0, 1, 2].map((i) => ((start.getMonth() + i) % 12) + 1))];
   const [events, sessions, birthdays, bookings] = await Promise.all([
     db.event.findMany({
       where: {
@@ -35,7 +36,8 @@ export default async function CalendarPage() {
       orderBy: { date: "asc" },
     }),
     db.person.findMany({
-      where: { churchId: session.churchId, birthday: { not: null } },
+      // Birthdays are stored as MM-DD. Only the months the calendar can show (last, this and next) are read.
+      where: { churchId: session.churchId, OR: shownMonths.map((m) => ({ birthday: { startsWith: `${String(m).padStart(2, "0")}-` } })) },
       select: { firstName: true, lastName: true, birthday: true },
     }),
     canSeeBookings

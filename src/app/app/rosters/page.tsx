@@ -12,7 +12,7 @@ export const metadata = { title: "Rosters" };
 export default async function RostersPage() {
   const session = await requireModule("volunteers");
 
-  const [sheets, members, roles, smsBalance, church] = await Promise.all([
+  const [sheets, roles, smsBalance, church] = await Promise.all([
     db.volunteerRoster.findMany({
       where: { churchId: session.churchId, deletedAt: null },
       orderBy: { startDate: "desc" },
@@ -22,11 +22,6 @@ export default async function RostersPage() {
           include: { person: { select: { firstName: true, lastName: true, phone: true } } },
         },
       },
-    }),
-    db.person.findMany({
-      where: { churchId: session.churchId, status: { not: "inactive" } },
-      orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
-      select: { id: true, firstName: true, lastName: true, phone: true },
     }),
     getServiceRoles(session.churchId),
     getSmsBalance(session.churchId),
@@ -103,7 +98,6 @@ export default async function RostersPage() {
             services,
           };
         })}
-        members={members.map((m) => ({ id: m.id, name: `${m.firstName} ${m.lastName}`.trim(), hasPhone: !!m.phone }))}
         roles={roles}
         smsBalance={smsBalance}
         messageTemplates={messageTemplates}
