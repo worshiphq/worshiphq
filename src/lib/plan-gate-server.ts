@@ -23,5 +23,8 @@ export const getChurchPlan = cache(async (churchId: string): Promise<PlanId> => 
 export async function churchHasFeature(churchId: string, feature: string): Promise<boolean> {
   if (ALWAYS_ON_FEATURES.includes(feature)) return true;
   const [plan, cfg] = await Promise.all([getChurchPlan(churchId), getPlatformConfig()]);
-  return planHasFeature(plan, feature, cfg.planTable);
+  if (!planHasFeature(plan, feature, cfg.planTable)) return false;
+  // A running trial can hold this feature back.
+  const { getTrialAccess } = await import("@/lib/trials");
+  return !(await getTrialAccess(churchId)).withheld.includes(feature);
 }

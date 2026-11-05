@@ -16,15 +16,18 @@ export interface TrialSettings {
   days: number;
   /** Which upgrades can be trialled. */
   steps: Record<TrialStep, boolean>;
+  /** Features each trial holds back: they stay locked during that trial, and only come with the paid plan. */
+  hold: Record<TrialStep, string[]>;
 }
 
-export const DEFAULT_TRIAL_SETTINGS: TrialSettings = { enabled: true, days: 7, steps: { starter: true, pro: true, max: true } };
+export const DEFAULT_TRIAL_SETTINGS: TrialSettings = { enabled: true, days: 7, steps: { starter: true, pro: true, max: true }, hold: { starter: [], pro: [], max: [] } };
 
 export const MAX_TRIAL_DAYS = 30;
 
 /** Whatever is saved, turned into safe settings (a missing or odd value falls back to the default). */
 export function normalizeTrialSettings(raw: unknown): TrialSettings {
-  const r = (raw && typeof raw === "object" ? raw : {}) as Partial<TrialSettings> & { steps?: Partial<Record<TrialStep, unknown>> };
+  const r = (raw && typeof raw === "object" ? raw : {}) as Partial<TrialSettings> & { steps?: Partial<Record<TrialStep, unknown>>; hold?: Partial<Record<TrialStep, unknown>> };
+  const list = (v: unknown) => (Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === "string"))].slice(0, 200) : []);
   const days = Number(r.days);
   return {
     enabled: typeof r.enabled === "boolean" ? r.enabled : DEFAULT_TRIAL_SETTINGS.enabled,
@@ -34,6 +37,7 @@ export function normalizeTrialSettings(raw: unknown): TrialSettings {
       pro: typeof r.steps?.pro === "boolean" ? r.steps.pro : true,
       max: typeof r.steps?.max === "boolean" ? r.steps.max : true,
     },
+    hold: { starter: list(r.hold?.starter), pro: list(r.hold?.pro), max: list(r.hold?.max) },
   };
 }
 
@@ -100,4 +104,20 @@ export function trialInfo(sub: TrialSub | null | undefined, paid: PlanId, settin
   else canStart = target;
 
   return { phase, plan: trialPlan, endsAt: endsAt?.toISOString() ?? null, daysLeft, canStart, blockedReason };
+}
+
+/**
+ * What a running trial adds on top of the paid plan, split into what the church can use now (`usable`) and what the trial
+ * holds back (`withheld`, set by SuperAdmin). `table` is the plan table: plan id -> { features }.
+ */
+export function trialFeatureSplit(
+  table: Record<string, { features: string[] }>,
+  paid: PlanId,
+  trialPlan: TrialStep,
+  hold: string[],
+): { usable: string[]; withheld: string[] } {
+  const have = new Set(table[paid]?.features ?? []);
+  const added = (table[trialPlan]?.features ?? []).filter((f) => !have.has(f));
+  const held = new Set(hold);
+  return { usable: added.filter((f) => !held.has(f)), withheld: added.filter((f) => held.has(f)) };
 }

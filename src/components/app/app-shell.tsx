@@ -11,6 +11,7 @@ import { Topbar } from "./topbar";
 import { ChurchLogo } from "@/components/app/church-logo";
 import { nav, navSection } from "@/config/nav";
 import { hasSection, type Session } from "@/lib/permissions";
+import { TrialTag } from "@/components/app/trial-tag";
 import { routeAllowedByPlan, type PlanId, type PlanTable } from "@/lib/plan-gate";
 import { cn } from "@/lib/utils";
 import { themeFromAccent } from "@/lib/color";
@@ -126,6 +127,7 @@ export function AppShell({
                             <item.icon className={cn("size-5", active && !locked && "text-primary-bright", locked && "opacity-40")} />
                             <span className={cn(locked && "opacity-40")}>{item.label}</span>
                             {locked && <Lock className="ml-auto size-3 text-ink-faint/60" />}
+                            {!locked && <TrialTag href={item.href} />}
                           </Link>
                         );
                       })}

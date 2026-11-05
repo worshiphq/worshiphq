@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getPlatformConfig, invalidatePlatformConfig } from "@/lib/data/platform-config";
 import { getChurchSub } from "@/lib/plan-gate-server";
 import { paidPlan } from "@/lib/plan-gate";
-import { trialInfo, nextPlanUp, MAX_TRIAL_DAYS, type TrialInfo, type TrialStep, type TrialSettings } from "@/lib/trial-settings";
+import { trialInfo, nextPlanUp, trialFeatureSplit, MAX_TRIAL_DAYS, type TrialInfo, type TrialStep, type TrialSettings } from "@/lib/trial-settings";
 
 const DAY = 86_400_000;
 
@@ -11,6 +11,19 @@ const DAY = 86_400_000;
 export async function getChurchTrial(churchId: string): Promise<TrialInfo & { settings: TrialSettings }> {
   const [sub, cfg] = await Promise.all([getChurchSub(churchId), getPlatformConfig()]);
   return { ...trialInfo(sub, paidPlan(sub), cfg.trials), settings: cfg.trials };
+}
+
+/**
+ * What a running trial gives this church: the features it can use only because of the trial (`usable`) and the ones the
+ * trial holds back (`withheld`, chosen by SuperAdmin). Both are empty when no trial is running.
+ */
+export async function getTrialAccess(churchId: string): Promise<{ plan: TrialStep | null; startedAt: string | null; endsAt: string | null; daysLeft: number; usable: string[]; withheld: string[] }> {
+  const [sub, cfg] = await Promise.all([getChurchSub(churchId), getPlatformConfig()]);
+  const paid = paidPlan(sub);
+  const info = trialInfo(sub, paid, cfg.trials);
+  if (info.phase !== "active" || !info.plan) return { plan: null, startedAt: null, endsAt: null, daysLeft: 0, usable: [], withheld: [] };
+  const split = trialFeatureSplit(cfg.planTable, paid, info.plan, cfg.trials.hold[info.plan]);
+  return { plan: info.plan, startedAt: sub?.trialStartedAt?.toISOString() ?? null, endsAt: info.endsAt, daysLeft: info.daysLeft, ...split };
 }
 
 export type TrialResult = { ok: true; plan: TrialStep; endsAt: string } | { ok: false; error: string };

@@ -8,6 +8,7 @@ import { ChurchLogo } from "@/components/app/church-logo";
 import { nav, navSection } from "@/config/nav";
 import { hasSection } from "@/lib/permissions";
 import { routeAllowedByPlan, getRouteFeature, planHasFeature, type PlanId, type PlanTable } from "@/lib/plan-gate";
+import { TrialTag } from "@/components/app/trial-tag";
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 
@@ -86,6 +87,7 @@ export function Sidebar({ sections, exactSections, churchName, churchLogo, plan 
                       {!collapsed && locked && (
                         <Lock className="relative size-3 text-ink-faint/60" />
                       )}
+                      {!collapsed && !locked && <TrialTag href={item.href} />}
                       {!collapsed && !locked && isNewlyUnlocked(item.href) && (
                         <span className="whq-new-tag relative ml-auto rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-red-500 bg-red-500/10">
                           NEW

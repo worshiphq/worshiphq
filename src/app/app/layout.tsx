@@ -17,6 +17,8 @@ import { getChurchPlan } from "@/lib/plan-gate-server";
 import { commsTrial } from "@/lib/plan-gate";
 import { BillingBanner } from "@/components/app/billing-banner";
 import { TrialBanner } from "@/components/app/trial-banner";
+import { TrialProvider, TrialWelcome } from "@/components/app/trial-context";
+import { getTrialAccess } from "@/lib/trials";
 import { NavProgress } from "@/components/app/nav-progress";
 
 export const metadata: Metadata = {
@@ -32,13 +34,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/verify-phone");
   }
 
-  const [announcements, church, notifications, plan, platformConfig, binCount] = await Promise.all([
+  const [announcements, church, notifications, plan, platformConfig, binCount, trialAccess] = await Promise.all([
     getActiveAnnouncements(),
     getChurchChrome(session.churchId),
     getRecentNotifications(session.churchId),
     getChurchPlan(session.churchId),
     getPlatformConfig(),
     session.canDelete ? countRecycleBin(session.churchId) : Promise.resolve(0),
+    session.isDemo || session.impersonating ? Promise.resolve(null) : getTrialAccess(session.churchId),
   ]);
 
   // During its free month of Communications, a Free church's sidebar shows SMS as open.
@@ -60,7 +63,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       </div>
     );
   }
+  // A running trial: the sidebar must not unlock what the trial holds back, and what the trial adds is marked as trial.
+  const heldBack = new Set(trialAccess?.withheld ?? []);
+  const tablePlan = heldBack.size ? { ...planTable, [plan]: { ...planTable[plan], features: planTable[plan].features.filter((f) => !heldBack.has(f)) } } : planTable;
   return (
+    <TrialProvider value={{ plan: trialAccess?.plan ?? null, features: trialAccess?.usable ?? [], startedAt: trialAccess?.startedAt ?? null, endsAt: trialAccess?.endsAt ?? null, daysLeft: trialAccess?.daysLeft ?? 0 }}>
+    <TrialWelcome />
     <AppShell
       session={session}
       announcements={announcements}
@@ -68,7 +76,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       churchLogo={church?.logoUrl ?? null}
       accentColor={church?.accentColor ?? null}
       plan={plan}
-      planTable={planTable}
+      planTable={tablePlan}
     >
       <NavProgress />
       <RecycleBinProvider canManage={session.canDelete} initialCount={binCount}>
@@ -84,6 +92,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         </TourProvider>
       </RecycleBinProvider>
     </AppShell>
+    </TrialProvider>
   );
 }
 

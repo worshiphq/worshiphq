@@ -48,3 +48,42 @@ export async function endTrialAction(churchId: string): Promise<Ok | Fail> {
   revalidatePath("/admin/trials");
   return { ok: true, message: "The trial has ended." };
 }
+
+type Bulk = { ok: true; message: string; done: number; skipped: number } | { ok: false; error: string };
+
+/** Start a trial for many churches. Running trials and churches on the top plan are skipped, and counted. */
+export async function grantTrialBulk(churchIds: string[], days: number): Promise<Bulk> {
+  await requireSuperAdmin();
+  const ids = [...new Set(churchIds)].slice(0, 500);
+  if (ids.length === 0) return { ok: false, error: "Choose at least one church." };
+  await logAdminAction("grantTrialBulk", { count: ids.length, days });
+  let done = 0, skipped = 0;
+  for (const id of ids) {
+    const res = await startTrial(id, { force: true, days });
+    if (res.ok) done++; else skipped++;
+  }
+  revalidatePath("/admin/trials");
+  return { ok: true, done, skipped, message: `${done} trial${done === 1 ? "" : "s"} started${skipped ? `, ${skipped} skipped (already on a trial or on the top plan)` : ""}.` };
+}
+
+export async function extendTrialBulk(churchIds: string[], days: number): Promise<Bulk> {
+  await requireSuperAdmin();
+  const ids = [...new Set(churchIds)].slice(0, 500);
+  if (ids.length === 0) return { ok: false, error: "Choose at least one church." };
+  await logAdminAction("extendTrialBulk", { count: ids.length, days });
+  let done = 0, skipped = 0;
+  for (const id of ids) { const res = await extendTrial(id, days); if (res.ok) done++; else skipped++; }
+  revalidatePath("/admin/trials");
+  return { ok: true, done, skipped, message: `${done} trial${done === 1 ? "" : "s"} extended by ${days} days${skipped ? `, ${skipped} had no trial` : ""}.` };
+}
+
+export async function endTrialBulk(churchIds: string[]): Promise<Bulk> {
+  await requireSuperAdmin();
+  const ids = [...new Set(churchIds)].slice(0, 500);
+  if (ids.length === 0) return { ok: false, error: "Choose at least one church." };
+  await logAdminAction("endTrialBulk", { count: ids.length });
+  let done = 0, skipped = 0;
+  for (const id of ids) { const res = await endTrial(id); if (res.ok) done++; else skipped++; }
+  revalidatePath("/admin/trials");
+  return { ok: true, done, skipped, message: `${done} trial${done === 1 ? "" : "s"} ended${skipped ? `, ${skipped} were not running` : ""}.` };
+}

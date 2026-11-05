@@ -1,7 +1,8 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { ttlCached } from "@/lib/ttl-cache";
-import { commsTrial, planHasFeature, effectivePlan } from "@/lib/plan-gate";
+import { commsTrial, planHasFeature, effectivePlan, paidPlan } from "@/lib/plan-gate";
+import { trialFeatureSplit, type TrialStep } from "@/lib/trial-settings";
 
 /**
  * Plan gating for the scheduled jobs.
@@ -37,11 +38,19 @@ export async function onlyWithFeature<T extends { id: string }>(churches: T[], f
   const created = allCreated.filter((c) => wanted.has(c.id));
 
   const planOf = new Map(subs.map((s) => [s.churchId, effectivePlan(s)]));
+  // Churches on a trial that holds this feature back do not get it from the trial.
+  const heldBack = new Set(
+    subs.filter((s) => {
+      const trial = s.trialPlan as TrialStep | null;
+      if (!trial || !s.trialEndsAt || s.trialEndsAt.getTime() <= Date.now() || effectivePlan(s) !== trial) return false;
+      return trialFeatureSplit(config.planTable, paidPlan(s), trial, config.trials.hold[trial]).withheld.includes(feature);
+    }).map((s) => s.churchId),
+  );
   const createdOf = new Map(created.map((c) => [c.id, c.createdAt]));
 
   const allowed = churches.filter((c) => {
     const plan = planOf.get(c.id) ?? "free";
-    if (planHasFeature(plan, feature, config.planTable)) return true;
+    if (planHasFeature(plan, feature, config.planTable) && !heldBack.has(c.id)) return true;
     if (feature === "sms" && plan === "free") {
       const at = createdOf.get(c.id);
       return !!at && commsTrial(at).active;
