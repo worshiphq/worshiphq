@@ -2134,6 +2134,29 @@ model PaymentRequest {
   @@index([status])
 }
 
+// ── Giving Authorization ─────────────────────────────────
+// Paystack requires a signed and stamped letter from each church authorizing WorshipHQ to process its online giving.
+// One row per payment request: who accepted (typed signature), when and from where, plus the uploaded stamped letter.
+// The letter is kept here (private, read only by SuperAdmin through a guarded route), never on a public CDN.
+model GivingAuthorization {
+  id               String   @id @default(cuid())
+  paymentRequestId String   @unique
+  churchId         String
+  signerName       String
+  signerTitle      String
+  termsVersion     String
+  acceptedAt       DateTime @default(now())
+  acceptedIp       String?
+  acceptedUa       String?
+  letterName       String?
+  letterType       String?
+  letterSize       Int?
+  letterBytes      Bytes?
+  createdAt        DateTime @default(now())
+
+  @@index([churchId])
+}
+
 // ── Biometric Credentials ────────────────────────────────
 // Supports BOTH:
 //   "webauthn" — laptop/phone fingerprint (instant, no setup)
