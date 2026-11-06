@@ -1,0 +1,23 @@
+# The once-a-day job (billing, backups, recycle bin, trial notices) for when the site runs on Cloud Run, because Vercel's
+# own cron does not exist there. It stays OFF until you set the repository variable CRON_VIA_GITHUB to "true"
+# (Settings, Secrets and variables, Actions, Variables). Leave it off while Vercel is serving the site, or the daily
+# job would run twice.
+name: Daily job
+
+on:
+  schedule:
+    - cron: "0 7 * * *"
+  workflow_dispatch:
+
+jobs:
+  run:
+    if: ${{ vars.CRON_VIA_GITHUB == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Call the daily job
+        run: |
+          curl --fail --silent --show-error --max-time 120 \
+            -H "Authorization: Bearer ${CRON_SECRET}" \
+            "https://worshiphq.app/api/cron/automations"
+        env:
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}

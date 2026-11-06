@@ -1,0 +1,11 @@
+# Settings for the Netlify copy of the site (the backup host). Vercel ignores this file.
+# Netlify found Next.js but no build command, so it published the source files as a static site and every page was a 404.
+
+[build]
+  # Prisma's engine must also be built for Netlify's servers (Amazon Linux, "rhel-openssl-3.0.x"), or every page that reads
+  # the database fails. This adds it for the Netlify build only, so the schema used by Vercel is unchanged.
+  command = '''sed -i 's/provider = "prisma-client-js"/provider = "prisma-client-js"\n  binaryTargets = ["native", "rhel-openssl-3.0.x"]/' prisma/schema.prisma && npm run build'''
+
+[build.environment]
+  NODE_VERSION = "22"
+  NEXT_TELEMETRY_DISABLED = "1"

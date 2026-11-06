@@ -1,0 +1,15 @@
+node_modules
+.next
+.git
+.github
+.env
+.env.*
+*.log
+apps
+scripts
+sql
+docs
+coverage
+Dockerfile
+.dockerignore
+**/.DS_Store

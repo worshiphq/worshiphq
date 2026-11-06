@@ -1,6 +1,11 @@
 import type { NextConfig } from "next";
 
+// The Google Cloud Run copy of the site is built with BUILD_STANDALONE=1 (see Dockerfile). Vercel builds never set it,
+// so they are unchanged.
+const standalone = process.env.BUILD_STANDALONE === "1";
+
 const nextConfig: NextConfig = {
+  ...(standalone ? { output: "standalone" as const, outputFileTracingRoot: __dirname } : {}),
   // The home directory contains a stray package-lock.json; pin the workspace
   // root to this project so Turbopack/Next resolves files correctly.
   turbopack: {

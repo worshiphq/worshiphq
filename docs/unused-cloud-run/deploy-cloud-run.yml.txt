@@ -1,0 +1,76 @@
+# Deploys WorshipHQ to Google Cloud Run. Runs ONLY when you press "Run workflow" on the Actions tab, never on a push,
+# so it cannot disturb the Vercel site. Setup steps are in docs/CLOUD-RUN.md.
+name: Deploy to Cloud Run
+
+on:
+  workflow_dispatch:
+
+env:
+  PROJECT: ${{ vars.GCP_PROJECT }}
+  REGION: ${{ vars.GCP_REGION }}
+  SERVICE: worshiphq
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: google-github-actions/auth@v2
+        with:
+          credentials_json: ${{ secrets.GCP_SA_KEY }}
+
+      - uses: google-github-actions/setup-gcloud@v2
+
+      - name: Let Docker push to Google Artifact Registry
+        run: gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Write the production settings to a temporary file
+        run: printf '%s' "$APP_ENV" > prod.env
+        env:
+          APP_ENV: ${{ secrets.APP_ENV }}
+
+      - name: Build and push the image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/worshiphq/app:${{ github.sha }}
+          secret-files: |
+            envfile=prod.env
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Turn the settings into a Cloud Run env file
+        run: |
+          node -e '
+            const fs = require("fs");
+            const out = [];
+            for (const raw of fs.readFileSync("prod.env", "utf8").split(/\r?\n/)) {
+              const line = raw.trim();
+              if (!line || line.startsWith("#")) continue;
+              const i = line.indexOf("=");
+              if (i < 1) continue;
+              const key = line.slice(0, i).trim();
+              let val = line.slice(i + 1).trim();
+              if ((val.startsWith("\"") && val.endsWith("\"")) || (val.startsWith("\x27") && val.endsWith("\x27"))) val = val.slice(1, -1);
+              if (key === "PORT" || key === "NODE_ENV") continue;
+              out.push(key + ": " + JSON.stringify(val));
+            }
+            fs.writeFileSync("env.yaml", out.join("\n") + "\n");
+          '
+
+      - name: Deploy
+        run: |
+          gcloud run deploy "$SERVICE" \
+            --image "${REGION}-docker.pkg.dev/${PROJECT}/worshiphq/app:${GITHUB_SHA}" \
+            --project "$PROJECT" --region "$REGION" --platform managed \
+            --allow-unauthenticated --port 8080 \
+            --cpu 1 --memory 1Gi --concurrency 80 \
+            --min-instances 0 --max-instances 2 \
+            --timeout 60 \
+            --env-vars-file env.yaml
