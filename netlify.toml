@@ -6,6 +6,13 @@
   # the database fails. This adds it for the Netlify build only, so the schema used by Vercel is unchanged.
   command = '''sed -i 's/provider = "prisma-client-js"/provider = "prisma-client-js"\n  binaryTargets = ["native", "rhel-openssl-3.0.x"]/' prisma/schema.prisma && npm run build'''
 
+  # Next.js builds into .next. The project's saved setting was the root folder, which stopped Netlify's Next.js support from
+  # switching on (the log said "0 new function(s)" and every page was a 404).
+  publish = ".next"
+
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
+
 [build.environment]
   NODE_VERSION = "22"
   NEXT_TELEMETRY_DISABLED = "1"
