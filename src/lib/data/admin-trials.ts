@@ -1,7 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { paidPlan } from "@/lib/plan-gate";
-import { trialInfo, type TrialPhase, type TrialSettings, type TrialStep } from "@/lib/trial-settings";
+import { trialInfo, trialOffered, type TrialPhase, type TrialSettings, type TrialStep } from "@/lib/trial-settings";
 
 export type TrialFilter = "all" | "eligible" | "active" | "ended" | "converted";
 
@@ -19,6 +19,14 @@ export interface TrialRow {
   used: string[];
   /** People on the church's list, visitors left out (the number its plan limit counts). */
   members: number;
+  /** Invited by SuperAdmin. */
+  invited: boolean;
+  /** Passes the automatic rule (enough members, long enough on the site). */
+  auto: boolean;
+  /** Is shown the Start button right now (invited or auto), when a trial is available at all. */
+  offered: boolean;
+  /** Free month of Communications: none, running (days left) or ended. */
+  comms: { phase: "none" | "active" | "ended"; daysLeft: number; endsAt: string | null };
 }
 
 export interface TrialOverview {
@@ -38,8 +46,8 @@ export async function getTrialOverview(settings: TrialSettings, filter: TrialFil
   const churches = await db.church.findMany({
     where: { isDemo: false },
     select: {
-      id: true, name: true,
-      subscription: { select: { plan: true, status: true, renewsAt: true, trialPlan: true, trialStartedAt: true, trialEndsAt: true, trialsUsed: true } },
+      id: true, name: true, createdAt: true,
+      subscription: { select: { plan: true, status: true, renewsAt: true, trialPlan: true, trialStartedAt: true, trialEndsAt: true, trialsUsed: true, trialInvitedAt: true, commsTrialEndsAt: true } },
     },
     orderBy: { name: "asc" },
   });
@@ -49,11 +57,20 @@ export async function getTrialOverview(settings: TrialSettings, filter: TrialFil
   const all: TrialRow[] = churches.map((c) => {
     const paid = paidPlan(c.subscription, now);
     const info = trialInfo(c.subscription, paid, settings, now);
+    const members = memberOf.get(c.id) ?? 0;
+    const ageDays = Math.floor((now.getTime() - c.createdAt.getTime()) / 86_400_000);
+    const access = { invited: !!c.subscription?.trialInvitedAt, members, ageDays };
+    const ends = c.subscription?.commsTrialEndsAt ?? null;
+    const commsLeft = ends ? Math.ceil((ends.getTime() - now.getTime()) / 86_400_000) : 0;
     return {
       churchId: c.id, name: c.name, paidPlan: paid, phase: info.phase, trialPlan: info.plan,
       endsAt: info.endsAt, daysLeft: info.daysLeft, canStart: info.canStart, blockedReason: info.blockedReason,
       used: c.subscription?.trialsUsed ?? [],
-      members: memberOf.get(c.id) ?? 0,
+      members,
+      invited: access.invited,
+      auto: settings.auto.enabled && members >= settings.auto.minMembers && ageDays >= settings.auto.minDays,
+      offered: !!info.canStart && trialOffered(access, settings),
+      comms: { phase: !ends ? "none" : commsLeft > 0 ? "active" : "ended", daysLeft: Math.max(0, commsLeft), endsAt: ends?.toISOString() ?? null },
     };
   });
 

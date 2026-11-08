@@ -8,7 +8,7 @@ import { db } from "@/lib/db";
 import { env } from "@/lib/env";
 import { type Session, can, ROLE_PERMISSIONS, ALL_MODULES, modulesForRole, hasSection, canManage } from "@/lib/permissions";
 import { authSecret, safeEqual, signToken, readToken } from "@/lib/auth/tokens";
-import { commsTrial, featureForSection, planHasFeature, ALL_FEATURES, ALWAYS_ON_FEATURES, FEATURE_LABELS, getMinimumPlan, type PlanId } from "@/lib/plan-gate";
+import { commsTrialOf, featureForSection, planHasFeature, ALL_FEATURES, ALWAYS_ON_FEATURES, FEATURE_LABELS, getMinimumPlan, type PlanId } from "@/lib/plan-gate";
 
 export type { Session };
 export { can, ROLE_PERMISSIONS };
@@ -338,11 +338,12 @@ export async function requireSuperAdminOwner(): Promise<SuperAdminWho> {
 async function lockedFeatures(churchId: string): Promise<string[]> {
   const { getChurchPlan } = await import("@/lib/plan-gate-server");
   const { getPlatformConfig } = await import("@/lib/data/platform-config");
-  const [plan, cfg, church, trial] = await Promise.all([getChurchPlan(churchId), getPlatformConfig(), import("@/lib/church-chrome").then((m) => m.getChurchChrome(churchId)), import("@/lib/trials").then((m) => m.getTrialAccess(churchId))]);
+  const { getChurchSub } = await import("@/lib/plan-gate-server");
+  const [plan, cfg, sub, trial] = await Promise.all([getChurchPlan(churchId), getPlatformConfig(), getChurchSub(churchId), import("@/lib/trials").then((m) => m.getTrialAccess(churchId))]);
   // A trial can hold some features back: those stay locked until the church pays for the plan.
   const withheld = new Set(trial.withheld);
-  // A new Free church can use Communications (SMS) during its first month.
-  const trialSms = plan === "free" && !!church && commsTrial(church.createdAt).active;
+  // A Free church SuperAdmin switched the free month of Communications (SMS) on for.
+  const trialSms = plan === "free" && commsTrialOf(sub, cfg.trials.comms.enabled).active;
   return ALL_FEATURES.filter((f) => !ALWAYS_ON_FEATURES.includes(f) && !(trialSms && f === "sms") && (withheld.has(f) || !planHasFeature(plan as PlanId, f, cfg.planTable)));
 }
 

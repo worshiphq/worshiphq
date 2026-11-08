@@ -22,16 +22,20 @@ export function syncMemberText(text: string, limit: number): string {
     .replace(/\b(U)nlimited members\b/gi, (_, u: string) => (unlimited ? `${u}nlimited members` : `${u === "U" ? "Up" : "up"} to ${n} members`));
 }
 
-/** A new church on the Free plan can use Communications (SMS) for its first month, with this many free credits. */
-export const COMMS_TRIAL_DAYS = 30;
+/** Free credits that come with the Communications month. */
 export const COMMS_TRIAL_CREDITS = 30;
-/** Churches that signed up before this day get their free month from this day, so nobody misses out. */
-export const COMMS_TRIAL_LAUNCH = new Date("2026-10-26T00:00:00Z");
 
-/** Is this church still inside its free month of Communications? Only the Free plan has a trial: paid plans include it already. */
-export function commsTrial(createdAt: Date | string, now: Date = new Date()): { active: boolean; endsAt: Date; daysLeft: number } {
-  const start = Math.max(new Date(createdAt).getTime(), COMMS_TRIAL_LAUNCH.getTime());
-  const endsAt = new Date(start + COMMS_TRIAL_DAYS * 86_400_000);
+/**
+ * Is this church inside a free month of Communications (SMS)? Only a church SuperAdmin switched it on for has one (its
+ * end date is stored on the subscription), and only while the master switch is on. Paid plans include Communications.
+ */
+export function commsTrialOf(
+  sub: { commsTrialEndsAt?: Date | null } | null | undefined,
+  enabled = true,
+  now: Date = new Date(),
+): { active: boolean; endsAt: Date | null; daysLeft: number } {
+  const endsAt = sub?.commsTrialEndsAt ?? null;
+  if (!enabled || !endsAt) return { active: false, endsAt, daysLeft: 0 };
   const msLeft = endsAt.getTime() - now.getTime();
   return { active: msLeft > 0, endsAt, daysLeft: Math.max(0, Math.ceil(msLeft / 86_400_000)) };
 }

@@ -1412,6 +1412,11 @@ model Subscription {
   trialsUsed           String[]  @default([])
   // The trial notices already sent ("ending", "ended"), so each goes out once.
   trialNotified        String[]  @default([])
+  // When SuperAdmin invited this church to start a plan trial (it may then start one itself). Null = not invited.
+  trialInvitedAt       DateTime?
+  // A free month of Communications (SMS) on the Free plan. Only churches SuperAdmin switches it on for have one.
+  commsTrialStartedAt  DateTime?
+  commsTrialEndsAt     DateTime?
 
   @@index([trialEndsAt])
 }

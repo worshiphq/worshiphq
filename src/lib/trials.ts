@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getPlatformConfig, invalidatePlatformConfig } from "@/lib/data/platform-config";
 import { getChurchSub } from "@/lib/plan-gate-server";
 import { paidPlan } from "@/lib/plan-gate";
-import { trialInfo, nextPlanUp, trialFeatureSplit, MAX_TRIAL_DAYS, type TrialInfo, type TrialStep, type TrialSettings } from "@/lib/trial-settings";
+import { trialInfo, nextPlanUp, trialFeatureSplit, trialOffered, MAX_TRIAL_DAYS, type TrialAccess, type TrialInfo, type TrialStep, type TrialSettings } from "@/lib/trial-settings";
 
 const DAY = 86_400_000;
 
@@ -26,6 +26,29 @@ export async function getTrialAccess(churchId: string): Promise<{ plan: TrialSte
   return { plan: info.plan, startedAt: sub?.trialStartedAt?.toISOString() ?? null, endsAt: info.endsAt, daysLeft: info.daysLeft, ...split };
 }
 
+/** The facts that decide whether a church is offered a trial: invited, how many members, how long on the site. */
+export async function getTrialAccess_(churchId: string, invitedAt: Date | null | undefined): Promise<TrialAccess> {
+  const [church, members] = await Promise.all([
+    db.church.findUnique({ where: { id: churchId }, select: { createdAt: true } }),
+    db.person.count({ where: { churchId, status: { not: "visitor" } } }),
+  ]);
+  const ageDays = church ? Math.floor((Date.now() - church.createdAt.getTime()) / 86_400_000) : 0;
+  return { invited: !!invitedAt, members, ageDays };
+}
+
+/**
+ * Where a church stands with trials, INCLUDING whether it is offered one (invited, or past the automatic rule). Only the
+ * billing screen and starting a trial need this: it counts members, so the menu banner uses getChurchTrial instead.
+ */
+export async function getTrialOffer(churchId: string): Promise<TrialInfo & { settings: TrialSettings; access: TrialAccess }> {
+  const [sub, cfg] = await Promise.all([getChurchSub(churchId), getPlatformConfig()]);
+  const paid = paidPlan(sub);
+  const base = trialInfo(sub, paid, cfg.trials);
+  // Only look up the access facts when a trial could otherwise be started.
+  const access = base.canStart ? await getTrialAccess_(churchId, sub?.trialInvitedAt) : { invited: !!sub?.trialInvitedAt, members: 0, ageDays: 0 };
+  return { ...trialInfo(sub, paid, cfg.trials, new Date(), access), settings: cfg.trials, access };
+}
+
 export type TrialResult = { ok: true; plan: TrialStep; endsAt: string } | { ok: false; error: string };
 
 /**
@@ -34,11 +57,13 @@ export type TrialResult = { ok: true; plan: TrialStep; endsAt: string } | { ok: 
  */
 export async function startTrial(churchId: string, opts: { force?: boolean; days?: number } = {}): Promise<TrialResult> {
   const [sub, cfg] = await Promise.all([
-    db.subscription.findUnique({ where: { churchId }, select: { plan: true, status: true, renewsAt: true, trialPlan: true, trialStartedAt: true, trialEndsAt: true, trialsUsed: true } }),
+    db.subscription.findUnique({ where: { churchId }, select: { plan: true, status: true, renewsAt: true, trialPlan: true, trialStartedAt: true, trialEndsAt: true, trialsUsed: true, trialInvitedAt: true } }),
     getPlatformConfig(),
   ]);
   const paid = paidPlan(sub);
-  const info = trialInfo(sub, paid, cfg.trials);
+  // A church starting its own must be offered one (invited, or passing the automatic rule). SuperAdmin (force) is not held to it.
+  const access = opts.force ? undefined : await getTrialAccess_(churchId, sub?.trialInvitedAt);
+  const info = trialInfo(sub, paid, cfg.trials, new Date(), access);
   let target: TrialStep | null = info.canStart;
   if (!target && opts.force && info.phase !== "active") target = nextPlanUp(paid);
   if (!target) return { ok: false, error: info.blockedReason ?? "No trial is available." };
@@ -97,4 +122,41 @@ export async function resetTrial(churchId: string): Promise<{ ok: boolean; error
     data: { trialPlan: null, trialStartedAt: null, trialEndsAt: null, trialsUsed: sub.trialsUsed.filter((p) => p !== sub.trialPlan), trialNotified: [] },
   });
   return { ok: true };
+}
+
+/** Invite churches to start a trial themselves (they then see the Start button). */
+export async function inviteToTrial(churchIds: string[]): Promise<number> {
+  let n = 0;
+  for (const churchId of churchIds) {
+    await db.subscription.upsert({ where: { churchId }, update: { trialInvitedAt: new Date() }, create: { churchId, plan: "free", interval: "monthly", status: "active", trialInvitedAt: new Date() } });
+    n++;
+  }
+  return n;
+}
+
+export async function uninviteFromTrial(churchIds: string[]): Promise<number> {
+  const r = await db.subscription.updateMany({ where: { churchId: { in: churchIds } }, data: { trialInvitedAt: null } });
+  return r.count;
+}
+
+/** Switch on the free month of Communications for a church (SuperAdmin). */
+export async function grantCommsMonth(churchId: string, days?: number): Promise<{ ok: true; endsAt: string } | { ok: false; error: string }> {
+  const cfg = await getPlatformConfig();
+  const sub = await db.subscription.findUnique({ where: { churchId }, select: { plan: true } });
+  if (sub && sub.plan !== "free") return { ok: false, error: "Paid plans already include Communications." };
+  const d = Math.min(MAX_TRIAL_DAYS, Math.max(1, Math.round(days ?? cfg.trials.comms.days)));
+  const now = new Date();
+  const endsAt = new Date(now.getTime() + d * DAY);
+  await db.subscription.upsert({
+    where: { churchId },
+    update: { commsTrialStartedAt: now, commsTrialEndsAt: endsAt },
+    create: { churchId, plan: "free", interval: "monthly", status: "active", commsTrialStartedAt: now, commsTrialEndsAt: endsAt },
+  });
+  return { ok: true, endsAt: endsAt.toISOString() };
+}
+
+/** End a church's free month of Communications now. */
+export async function endCommsMonth(churchId: string): Promise<boolean> {
+  const r = await db.subscription.updateMany({ where: { churchId, commsTrialEndsAt: { not: null } }, data: { commsTrialEndsAt: new Date(Date.now() - 1000) } });
+  return r.count > 0;
 }

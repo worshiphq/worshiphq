@@ -77,6 +77,14 @@ ${input.appendBody}` : written;
   await db.outreachMessage.create({
     data: { churchId: church.id, userId: user.id, toName: user.name, to, channel: input.channel, template: input.template, subject: input.channel === "email" ? subject : null, body, status, error: error ?? null, auto: !!input.auto },
   });
+  // Sending a trial invitation is what invites the church: from now on it sees the Start button.
+  if (status !== "failed" && (input.template === "trial-invite" || input.template === "trial-invite-sms")) {
+    await db.subscription.upsert({
+      where: { churchId: church.id },
+      update: { trialInvitedAt: new Date() },
+      create: { churchId: church.id, plan: "free", interval: "monthly", status: "active", trialInvitedAt: new Date() },
+    }).catch(() => {});
+  }
   return { ok: status !== "failed", status, error };
 }
 

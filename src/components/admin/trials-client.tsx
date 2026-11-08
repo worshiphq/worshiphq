@@ -8,6 +8,7 @@ import { AdminCard } from "@/components/admin/admin-shell";
 import { useFeedback } from "@/components/ui/feedback";
 import {
   saveTrialSettingsAction, grantTrial, extendTrialAction, endTrialAction, grantTrialBulk, extendTrialBulk, endTrialBulk, resetTrialAction, resetTrialBulk,
+  inviteTrialBulk, uninviteTrialBulk, grantCommsBulk, endCommsBulk,
 } from "@/app/actions/admin-trials";
 import { TRIAL_STEPS, MAX_TRIAL_DAYS, type TrialSettings, type TrialStep } from "@/lib/trial-settings";
 import type { TrialRow, TrialFilter, TrialSort } from "@/lib/data/admin-trials";
@@ -126,6 +127,33 @@ export function TrialsClient({ settings, rows, counts, conversionPct, filter, q,
           </div>
         </div>
 
+        <div className="mt-5 grid gap-5 border-t border-white/10 pt-4 sm:grid-cols-2">
+          <div className="text-sm">
+            <div className="font-semibold text-slate-200">Who can start a plan trial</div>
+            <p className="mt-1 text-xs text-slate-500">A church sees the Start button only if you invite it, or if it passes this automatic rule.</p>
+            <label className="mt-2 flex items-center gap-2 text-slate-300">
+              <input type="checkbox" checked={draft.auto.enabled} onChange={(e) => setDraft({ ...draft, auto: { ...draft.auto, enabled: e.target.checked } })} className="size-4 accent-teal-500" />
+              Offer it automatically when a church has
+            </label>
+            <div className="mt-2 flex flex-wrap items-center gap-2 text-slate-300">
+              <input type="number" min={0} value={draft.auto.minMembers} disabled={!draft.auto.enabled} onChange={(e) => setDraft({ ...draft, auto: { ...draft.auto, minMembers: Math.max(0, Number(e.target.value) || 0) } })} className={`${input} w-20`} /> or more members, and has been on the site
+              <input type="number" min={0} value={draft.auto.minDays} disabled={!draft.auto.enabled} onChange={(e) => setDraft({ ...draft, auto: { ...draft.auto, minDays: Math.max(0, Number(e.target.value) || 0) } })} className={`${input} w-20`} /> or more days
+            </div>
+          </div>
+          <div className="text-sm">
+            <div className="font-semibold text-slate-200">Free month of Communications (SMS)</div>
+            <p className="mt-1 text-xs text-slate-500">No church gets it by itself. You switch it on for chosen churches below. Turning this off ends it for everyone.</p>
+            <label className="mt-2 flex items-center gap-2 text-slate-300">
+              <input type="checkbox" checked={draft.comms.enabled} onChange={(e) => setDraft({ ...draft, comms: { ...draft.comms, enabled: e.target.checked } })} className="size-4 accent-teal-500" />
+              The free month is available
+            </label>
+            <div className="mt-2 flex items-center gap-2 text-slate-300">
+              Usual length
+              <input type="number" min={1} max={MAX_TRIAL_DAYS} value={draft.comms.days} onChange={(e) => setDraft({ ...draft, comms: { ...draft.comms, days: Math.max(1, Math.min(MAX_TRIAL_DAYS, Number(e.target.value) || 1)) } })} className={`${input} w-20`} /> days
+            </div>
+          </div>
+        </div>
+
         {/* Which features each trial gives. Ticked = held back (stays locked during the trial). */}
         <div className="mt-5 border-t border-white/10 pt-4">
           <div className="text-sm font-semibold text-slate-200">Features each trial holds back</div>
@@ -196,6 +224,10 @@ export function TrialsClient({ settings, rows, counts, conversionPct, filter, q,
           <button className={ghost} disabled={pending} onClick={() => bulk("b-e3", (ids) => extendTrialBulk(ids, 3))}>{busy === "b-e3" ? <Loader2 className="size-3.5 animate-spin" /> : "+3 days"}</button>
           <button className={ghost} disabled={pending} onClick={() => bulk("b-e7", (ids) => extendTrialBulk(ids, 7))}>{busy === "b-e7" ? <Loader2 className="size-3.5 animate-spin" /> : "+7 days"}</button>
           <button className={ghost} disabled={pending} onClick={() => { if (window.confirm(`End the trial for ${chosen.length} church${chosen.length === 1 ? "" : "es"} now?`)) bulk("b-end", (ids) => endTrialBulk(ids)); }}>{busy === "b-end" ? <Loader2 className="size-3.5 animate-spin" /> : "End now"}</button>
+          <button className={primary} title="They see the Start button and start the trial themselves" disabled={pending} onClick={() => bulk("b-invite", (ids) => inviteTrialBulk(ids))}>{busy === "b-invite" ? <><Loader2 className="size-3.5 animate-spin" /> Inviting…</> : "Invite to trial"}</button>
+          <button className={ghost} disabled={pending} onClick={() => bulk("b-uninvite", (ids) => uninviteTrialBulk(ids))}>{busy === "b-uninvite" ? <Loader2 className="size-3.5 animate-spin" /> : "Remove invite"}</button>
+          <button className={ghost} title="Switch on the free month of Communications for these churches" disabled={pending || !settings.comms.enabled} onClick={() => { if (window.confirm(`Switch on ${settings.comms.days} days of free Communications for ${chosen.length} church${chosen.length === 1 ? "" : "es"}? Paid churches are skipped.`)) bulk("b-comms", (ids) => grantCommsBulk(ids, settings.comms.days)); }}>{busy === "b-comms" ? <><Loader2 className="size-3.5 animate-spin" /> Switching on…</> : `Give ${settings.comms.days}-day Communications`}</button>
+          <button className={ghost} disabled={pending} onClick={() => bulk("b-commsend", (ids) => endCommsBulk(ids))}>{busy === "b-commsend" ? <Loader2 className="size-3.5 animate-spin" /> : "End Communications"}</button>
           <button className={ghost} title="Cancel the trial and let the church start it itself again" disabled={pending} onClick={() => { if (window.confirm(`Reset the trial for ${chosen.length} church${chosen.length === 1 ? "" : "es"}? The trial and its notice go away, and they can start it themselves again.`)) bulk("b-reset", (ids) => resetTrialBulk(ids)); }}>{busy === "b-reset" ? <Loader2 className="size-3.5 animate-spin" /> : "Reset trial"}</button>
           <button className="ml-auto text-xs text-slate-400 hover:text-white" onClick={() => { setSel(new Set()); lastIdx.current = null; }}>Clear</button>
         </div>
@@ -207,7 +239,7 @@ export function TrialsClient({ settings, rows, counts, conversionPct, filter, q,
             <thead>
               <tr className="border-b border-white/10 text-left text-[11px] uppercase tracking-wide text-slate-500">
                 <th className="w-10 px-4 py-3"><input type="checkbox" aria-label="Select this page" checked={pageAllOn} onChange={togglePage} className="size-4 accent-teal-500" /></th>
-                <th className="px-2 py-3">Church</th><th className="px-2 py-3 text-right">Members</th><th className="px-2 py-3">Plan</th><th className="px-2 py-3">Trial</th><th className="px-2 py-3 text-right">Actions</th>
+                <th className="px-2 py-3">Church</th><th className="px-2 py-3 text-right">Members</th><th className="px-2 py-3">Plan</th><th className="px-2 py-3">Offer</th><th className="px-2 py-3">Trial</th><th className="px-2 py-3">Communications</th><th className="px-2 py-3 text-right">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -223,11 +255,22 @@ export function TrialsClient({ settings, rows, counts, conversionPct, filter, q,
                     <td className="px-2 py-3 text-right tabular-nums text-slate-200">{r.members.toLocaleString()}</td>
                     <td className="px-2 py-3 capitalize text-slate-300">{r.paidPlan}</td>
                     <td className="px-2 py-3 text-xs">
+                      {r.offered ? <span className="text-teal-300">{r.invited ? "Invited" : "Automatic"}</span>
+                        : r.invited ? <span className="text-slate-400">Invited</span>
+                          : r.auto ? <span className="text-slate-400">Passes the rule</span>
+                            : <span className="text-slate-600">Not offered</span>}
+                    </td>
+                    <td className="px-2 py-3 text-xs">
                       {r.phase === "active" && <span className="text-teal-300">{cap(r.trialPlan ?? "")} trial: {r.daysLeft} {r.daysLeft === 1 ? "day" : "days"} left (ends {r.endsAt ? day(r.endsAt) : ""})</span>}
                       {r.phase === "ended" && <span className="text-amber-300">{cap(r.trialPlan ?? "")} trial ended {r.endsAt ? day(r.endsAt) : ""}, did not upgrade</span>}
                       {r.phase === "converted" && <span className="text-emerald-400">Upgraded after a {cap(r.trialPlan ?? "")} trial</span>}
                       {r.phase === "none" && (r.canStart ? <span className="text-slate-300">Can try {cap(r.canStart)}</span> : <span className="text-slate-500">{r.blockedReason}</span>)}
                       {r.used.length > 0 && <div className="mt-0.5 text-slate-500">Has tried: {r.used.map(cap).join(", ")}</div>}
+                    </td>
+                    <td className="px-2 py-3 text-xs">
+                      {r.comms.phase === "active" && <span className="text-teal-300">{r.comms.daysLeft} {r.comms.daysLeft === 1 ? "day" : "days"} left</span>}
+                      {r.comms.phase === "ended" && <span className="text-slate-500">Ended</span>}
+                      {r.comms.phase === "none" && <span className="text-slate-600">None</span>}
                     </td>
                     <td className="px-2 py-3">
                       <div className="flex flex-wrap justify-end gap-1.5">
@@ -254,7 +297,7 @@ If you want them to start it themselves from the email or text, press Cancel and
                   </tr>
                 );
               })}
-              {rows.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-500">No churches match.</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-500">No churches match.</td></tr>}
             </tbody>
           </table>
         </div>

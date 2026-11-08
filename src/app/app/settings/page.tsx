@@ -4,7 +4,7 @@ import { SettingsClient } from "@/components/app/settings-client";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { features } from "@/lib/env";
-import { getChurchTrial } from "@/lib/trials";
+import { getTrialOffer } from "@/lib/trials";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { loadMessageCenter } from "@/lib/messages/load";
 
@@ -60,7 +60,7 @@ export default async function SettingsPage() {
     });
   }
 
-  const trialFull = await getChurchTrial(session.churchId);
+  const trialFull = await getTrialOffer(session.churchId);
   const trial = { phase: trialFull.phase, plan: trialFull.plan, endsAt: trialFull.endsAt, daysLeft: trialFull.daysLeft, canStart: trialFull.canStart, days: trialFull.settings.days };
 
   // Cards the church kept for renewals. listCards never selects the charge token.

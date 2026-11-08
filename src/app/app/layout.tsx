@@ -13,8 +13,8 @@ import { RecycleBinProvider } from "@/components/app/recycle-bin-provider";
 import { binCutoff } from "@/lib/recycle-bin";
 import { getActiveAnnouncements } from "@/lib/data/announcements";
 import { getRecentNotifications } from "@/lib/data/notifications";
-import { getChurchPlan } from "@/lib/plan-gate-server";
-import { commsTrial } from "@/lib/plan-gate";
+import { getChurchPlan, getChurchSub } from "@/lib/plan-gate-server";
+import { commsTrialOf } from "@/lib/plan-gate";
 import { BillingBanner } from "@/components/app/billing-banner";
 import { TrialBanner } from "@/components/app/trial-banner";
 import { TrialProvider, TrialWelcome } from "@/components/app/trial-context";
@@ -34,7 +34,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     redirect("/verify-phone");
   }
 
-  const [announcements, church, notifications, plan, platformConfig, binCount, trialAccess] = await Promise.all([
+  const [announcements, church, notifications, plan, platformConfig, binCount, trialAccess, subRow] = await Promise.all([
     getActiveAnnouncements(),
     getChurchChrome(session.churchId),
     getRecentNotifications(session.churchId),
@@ -42,10 +42,11 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     getPlatformConfig(),
     session.canDelete ? countRecycleBin(session.churchId) : Promise.resolve(0),
     session.isDemo || session.impersonating ? Promise.resolve(null) : getTrialAccess(session.churchId),
+    getChurchSub(session.churchId),
   ]);
 
-  // During its free month of Communications, a Free church's sidebar shows SMS as open.
-  const trialOn = plan === "free" && !!church && commsTrial(church.createdAt).active;
+  // During a free month of Communications (switched on by SuperAdmin), a Free church's sidebar shows SMS as open.
+  const trialOn = plan === "free" && commsTrialOf(subRow, platformConfig.trials.comms.enabled).active;
   const planTable = trialOn
     ? { ...platformConfig.planTable, free: { ...platformConfig.planTable.free, features: [...platformConfig.planTable.free.features, "sms"] } }
     : platformConfig.planTable;

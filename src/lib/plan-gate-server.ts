@@ -8,7 +8,7 @@ import { getPlatformConfig } from "@/lib/data/platform-config";
 export const getChurchSub = cache(async (churchId: string) => {
   return db.subscription.findUnique({
     where: { churchId },
-    select: { plan: true, status: true, renewsAt: true, trialPlan: true, trialStartedAt: true, trialEndsAt: true, trialsUsed: true },
+    select: { plan: true, status: true, renewsAt: true, trialPlan: true, trialStartedAt: true, trialEndsAt: true, trialsUsed: true, trialInvitedAt: true, commsTrialEndsAt: true },
   });
 });
 

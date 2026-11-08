@@ -1,7 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { ttlCached } from "@/lib/ttl-cache";
-import { commsTrial, planHasFeature, effectivePlan, paidPlan } from "@/lib/plan-gate";
+import { commsTrialOf, planHasFeature, effectivePlan, paidPlan } from "@/lib/plan-gate";
 import { trialFeatureSplit, type TrialStep } from "@/lib/trial-settings";
 
 /**
@@ -26,16 +26,12 @@ export async function onlyWithFeature<T extends { id: string }>(churches: T[], f
 
   // One cron run asks this about ten times, once per runner. Everyone's plan is read once and shared for a short
   // while instead of once per runner. A run is minutes long at most, so a 60 second wait on a plan change is harmless.
-  const [allSubs, config, allCreated] = await Promise.all([
-    ttlCached("plan-gate-batch:subs", 60_000, () => db.subscription.findMany({ select: { churchId: true, plan: true, status: true, renewsAt: true, trialPlan: true, trialEndsAt: true } })),
+  const [allSubs, config] = await Promise.all([
+    ttlCached("plan-gate-batch:subs", 60_000, () => db.subscription.findMany({ select: { churchId: true, plan: true, status: true, renewsAt: true, trialPlan: true, trialEndsAt: true, commsTrialEndsAt: true } })),
     import("@/lib/data/platform-config").then((m) => m.getPlatformConfig()),
-    feature === "sms"
-      ? ttlCached("plan-gate-batch:created", 60_000, () => db.church.findMany({ select: { id: true, createdAt: true } }))
-      : Promise.resolve([] as { id: string; createdAt: Date }[]),
   ]);
   const wanted = new Set(ids);
   const subs = allSubs.filter((s) => wanted.has(s.churchId));
-  const created = allCreated.filter((c) => wanted.has(c.id));
 
   const planOf = new Map(subs.map((s) => [s.churchId, effectivePlan(s)]));
   // Churches on a trial that holds this feature back do not get it from the trial.
@@ -46,14 +42,13 @@ export async function onlyWithFeature<T extends { id: string }>(churches: T[], f
       return trialFeatureSplit(config.planTable, paidPlan(s), trial, config.trials.hold[trial]).withheld.includes(feature);
     }).map((s) => s.churchId),
   );
-  const createdOf = new Map(created.map((c) => [c.id, c.createdAt]));
+  const subOf = new Map(subs.map((x) => [x.churchId, x]));
 
   const allowed = churches.filter((c) => {
     const plan = planOf.get(c.id) ?? "free";
     if (planHasFeature(plan, feature, config.planTable) && !heldBack.has(c.id)) return true;
     if (feature === "sms" && plan === "free") {
-      const at = createdOf.get(c.id);
-      return !!at && commsTrial(at).active;
+      return commsTrialOf(subOf.get(c.id), config.trials.comms.enabled).active;
     }
     return false;
   });

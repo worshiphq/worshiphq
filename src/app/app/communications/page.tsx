@@ -14,7 +14,9 @@ import { getCommunications } from "@/lib/data/modules";
 import { getPeopleStats } from "@/lib/data/people";
 import { getSmsBalance } from "@/lib/sms/credits";
 import { getChurchPlan } from "@/lib/plan-gate-server";
-import { commsTrial, planRank, type PlanId } from "@/lib/plan-gate";
+import { commsTrialOf, planRank, type PlanId } from "@/lib/plan-gate";
+import { getChurchSub } from "@/lib/plan-gate-server";
+import { getPlatformConfig } from "@/lib/data/platform-config";
 import { suggestSenderId } from "@/lib/sms/sender-suggestion";
 import { MessageNameCard } from "@/components/app/message-name-card";
 import { currentNameLine } from "@/lib/sms/message-name";
@@ -43,7 +45,8 @@ export default async function CommunicationsPage({
   const senderTeaser = churchRow && suggestion && churchRow.smsSenderIdStatus !== "approved" && planRank(plan as PlanId) < planRank("max")
     ? { suggestion, churchName: churchRow.name }
     : null;
-  const trial = plan === "free" && churchRow ? commsTrial(churchRow.createdAt) : null;
+  const [subRow, platformCfg] = await Promise.all([getChurchSub(session.churchId), getPlatformConfig()]);
+  const trial = plan === "free" ? commsTrialOf(subRow, platformCfg.trials.comms.enabled) : null;
   // A church with its own approved sender name needs no name line; every other church picks how its name shows.
   const ownSender = churchRow?.smsSenderIdStatus === "approved";
   const nameLine = !ownSender && churchRow ? currentNameLine(churchRow.smsPrefix, churchRow.name) : null;
