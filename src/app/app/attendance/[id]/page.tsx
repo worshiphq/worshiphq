@@ -4,7 +4,9 @@ import { planLockFor } from "@/lib/auth";
 import { absenteeGroupings } from "@/lib/attendance/absentees";
 import { AbsenteeFollowUpButton } from "@/components/app/absentee-follow-up";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Users, Clock } from "lucide-react";
+import { ArrowLeft, Users, Clock, Lock } from "lucide-react";
+import { PlanBadge } from "@/components/app/plan-gate";
+import { getMinimumPlan } from "@/lib/plan-gate";
 import { requireModule } from "@/lib/auth";
 import { getBaseUrl } from "@/lib/url";
 import { getAttendanceSession, getCheckInCandidates, getAttendanceReportConfig, getAttendanceBreakdown, getGroupingLabels } from "@/lib/data/attendance";
@@ -49,7 +51,10 @@ export default async function AttendanceSessionPage({
   if (!data) notFound();
 
   // "Follow up absentees": needs Manage on follow-ups and a plan with follow-ups.
-  const canFollowUp = !session.isDemo && canManage(session, "follow-ups") && !planLockFor(session, "follow-ups");
+  const followUpLocked = !!planLockFor(session, "follow-ups");
+  const canFollowUp = !session.isDemo && canManage(session, "follow-ups") && !followUpLocked;
+  // On a plan without follow-ups, show the button locked (with the plan it needs) so they know it exists.
+  const showLockedFollowUp = !session.isDemo && followUpLocked && canEdit(session, "attendance");
   const [absGroupings, absUsers] = canFollowUp
     ? await Promise.all([
         absenteeGroupings(session.churchId),
@@ -72,6 +77,15 @@ export default async function AttendanceSessionPage({
           <ArrowLeft className="size-4" /> All services
         </Link>
         <div className="flex flex-wrap items-center gap-2">
+          {showLockedFollowUp && (
+            <Link
+              href="/app/settings?tab=billing"
+              title="Follow up the people who missed this service. Upgrade to unlock it."
+              className="inline-flex h-9 items-center gap-2 rounded-xl border border-line bg-elevated px-3.5 text-sm text-ink-muted transition-colors hover:bg-surface-2 hover:text-ink"
+            >
+              <Lock className="size-4" /> Follow up absentees <PlanBadge plan={getMinimumPlan("follow-ups")} />
+            </Link>
+          )}
           {canFollowUp && (
             <AbsenteeFollowUpButton
               sessionId={data.id}

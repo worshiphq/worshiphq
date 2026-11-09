@@ -34,6 +34,24 @@ const FeedbackContext = createContext<FeedbackApi | null>(null);
 /** Set by the mounted provider so plain event handlers can toast without a hook. */
 let activeToast: FeedbackApi["toast"] | null = null;
 
+/**
+ * After a new version goes live, a page opened before it calls server actions that no longer exist
+ * ("Server Action ... was not found on the server"). Reload once so the person gets the new version,
+ * instead of showing that message. Guarded so it can never loop.
+ */
+export function isStaleDeploy(message: unknown) {
+  return typeof message === "string" && /Server Action .* (was )?not found|Failed to find Server Action|older or newer deployment/i.test(message);
+}
+function reloadForUpdate() {
+  try {
+    const last = Number(sessionStorage.getItem("whq_update_reload") || 0);
+    if (Date.now() - last < 60_000) return false;
+    sessionStorage.setItem("whq_update_reload", String(Date.now()));
+  } catch { /* storage blocked: still reload once */ }
+  window.location.reload();
+  return true;
+}
+
 /** Show a toast from anywhere on the client (no-op if no provider is mounted). */
 export function toastNow(message: string, type: ToastType = "info") {
   activeToast?.(message, type);
@@ -54,11 +72,41 @@ export function FeedbackProvider({ children }: { children: React.ReactNode }) {
   const idRef = useRef(0);
 
   const toast = useCallback((message: string, type: ToastType = "info") => {
+    if (isStaleDeploy(message)) {
+      // An old page after an update: say so plainly and load the new version.
+      message = "WorshipHQ was just updated. Refreshing the page, then please try again.";
+      type = "info";
+      setTimeout(reloadForUpdate, 1200);
+    }
     const id = ++idRef.current;
     setToasts((t) => [...t, { id, type, message }]);
     // Longer messages stay up a little longer so they can actually be read.
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), Math.min(7000, Math.max(3500, message.length * 60)));
   }, []);
+
+  // Stale-version errors that no code caught (a form action, a background call) also trigger the refresh.
+  useEffect(() => {
+    const onRejection = (e: PromiseRejectionEvent) => {
+      const msg = (e.reason as Error)?.message ?? String(e.reason ?? "");
+      if (isStaleDeploy(msg)) { e.preventDefault(); toast(msg); }
+    };
+    const onError = (e: ErrorEvent) => { if (isStaleDeploy(e.message)) { e.preventDefault(); toast(e.message); } };
+    window.addEventListener("unhandledrejection", onRejection);
+    window.addEventListener("error", onError);
+    // Buttons that catch their own errors (and show them inline) never reach the listeners above, so also watch
+    // the responses: Next marks an unknown server action with this header. One wrapper, installed once.
+    const w = window as Window & { __whqFetchWrapped?: boolean };
+    if (!w.__whqFetchWrapped) {
+      w.__whqFetchWrapped = true;
+      const original = window.fetch.bind(window);
+      window.fetch = async (...args: Parameters<typeof fetch>) => {
+        const res = await original(...args);
+        if (res.headers.get("x-nextjs-action-not-found") === "1") activeToast?.("Server Action was not found on the server");
+        return res;
+      };
+    }
+    return () => { window.removeEventListener("unhandledrejection", onRejection); window.removeEventListener("error", onError); };
+  }, [toast]);
 
   useEffect(() => {
     activeToast = toast;
