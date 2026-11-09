@@ -15,7 +15,7 @@ export default async function RemindersPage() {
     getReminders(session.churchId),
     db.department.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     db.church.findUnique({ where: { id: session.churchId }, select: { timezone: true, absenceOn: true, absenceWeeks: true, absenceTextMember: true, absenceAlertAdmins: true, absenceMaxTexts: true, absenceRepeatWeeks: true, absenceCreateFollowUp: true, absenceNotifyUserIds: true, briefing: true } }),
-    db.user.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true, role: true }, orderBy: { name: "asc" } }),
+    db.user.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true, role: true, phone: true }, orderBy: { name: "asc" } }),
   ]);
   const away = await absentMembers(session.churchId, church?.absenceWeeks ?? 3, church?.timezone ?? "Africa/Accra");
   const absence = {
@@ -40,7 +40,7 @@ export default async function RemindersPage() {
     <>
       <BriefingCard
         initial={normalizeBriefing(church?.briefing)}
-        team={team.map((u) => ({ id: u.id, name: u.name, role: String(u.role) }))}
+        team={team.map((u) => ({ id: u.id, name: u.name, role: String(u.role), hasPhone: !!u.phone }))}
         locked={briefingLocked}
         canWrite={!session.isDemo && canEdit(session, "reminders")}
       />

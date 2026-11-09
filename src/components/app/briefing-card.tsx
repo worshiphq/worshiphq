@@ -24,7 +24,7 @@ const WHAT = [
 
 export function BriefingCard({ initial, team, locked, canWrite }: {
   initial: BriefingSettings;
-  team: { id: string; name: string; role: string }[];
+  team: { id: string; name: string; role: string; hasPhone?: boolean }[];
   locked: boolean;
   canWrite: boolean;
 }) {
@@ -64,6 +64,8 @@ export function BriefingCard({ initial, team, locked, canWrite }: {
     catch (e) { toastNow(e instanceof Error ? e.message : "Could not send.", "error"); }
     setBusy(null);
   };
+  // SMS cost: about 2 credits per person per week (the briefing is 2 SMS long).
+  const smsPeople = (s.userIds.length ? team.filter((u) => s.userIds.includes(u.id)) : team.filter((u) => ["Owner", "Admin", "Pastor"].includes(u.role))).filter((u) => u.hasPhone).length;
   const toggleUser = (id: string) => setS({ ...s, userIds: s.userIds.includes(id) ? s.userIds.filter((x) => x !== id) : [...s.userIds, id] });
 
   return (
@@ -96,8 +98,15 @@ export function BriefingCard({ initial, team, locked, canWrite }: {
           <div className="mt-3 text-xs font-semibold uppercase tracking-wide text-ink-muted">How</div>
           <div className="mt-1.5 flex flex-wrap gap-4 text-sm">
             <label className="flex items-center gap-2"><input type="checkbox" disabled={!canWrite} checked={s.email} onChange={(e) => setS({ ...s, email: e.target.checked })} className="size-4 accent-[var(--color-primary)]" /><Mail className="size-4 text-ink-muted" /> Email (free)</label>
-            <label className="flex items-center gap-2"><input type="checkbox" disabled={!canWrite} checked={s.sms} onChange={(e) => setS({ ...s, sms: e.target.checked })} className="size-4 accent-[var(--color-primary)]" /><MessageSquare className="size-4 text-ink-muted" /> SMS (about 2 credits each)</label>
+            <label className="flex items-center gap-2"><input type="checkbox" disabled={!canWrite} checked={s.sms} onChange={(e) => setS({ ...s, sms: e.target.checked })} className="size-4 accent-[var(--color-primary)]" /><MessageSquare className="size-4 text-ink-muted" /> SMS (uses credits)</label>
           </div>
+          {s.sms && (
+            <p className="mt-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs text-ink">
+              Text messages use your SMS credits: about <strong>2 credits per person</strong> each week.
+              {smsPeople > 0 ? <> For {smsPeople} {smsPeople === 1 ? "person" : "people"}, that&rsquo;s about <strong>{smsPeople * 2} credits a week</strong> (about {smsPeople * 9} a month).</> : " Nobody chosen has a phone number yet."}
+              {" "}Email is free.
+            </p>
+          )}
         </div>
         <div>
           <div className="text-xs font-semibold uppercase tracking-wide text-ink-muted">Who gets it</div>
