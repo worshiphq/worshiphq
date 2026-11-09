@@ -329,6 +329,9 @@ model Church {
   // Max: the Monday briefing for the pastor/admins. { on, day, hour, userIds, email, sms } (see src/lib/briefing).
   briefing     Json?
   briefingSent String? // local YYYY-MM-DD it last went out (one per week)
+  // Sign-up: "How did you hear about WorshipHQ?" (tiktok, facebook, friend, ...) and, for a referral, who.
+  heardFrom       String?
+  heardFromDetail String?
   // SuperAdmin can block a church's online giving outright (e.g. suspected scam).
   givingBlocked      Boolean   @default(false)
   receipts           Receipt[]

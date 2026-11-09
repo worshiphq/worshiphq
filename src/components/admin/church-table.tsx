@@ -410,6 +410,7 @@ export function ChurchTable({ churches, q, total, page, pages, size }: { churche
                       <div className="truncate text-xs text-slate-500">
                         {[c.city, c.country].filter(Boolean).join(", ") || "-"} · /{c.slug}
                       </div>
+                      {c.heardFrom && <div className="truncate text-xs text-teal-300/80">Heard via {c.heardFrom}</div>}
                     </div>
                   </div>
                 </td>

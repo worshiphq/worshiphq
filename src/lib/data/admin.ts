@@ -8,6 +8,8 @@ export interface ChurchRow {
   name: string;
   country: string | null;
   city: string | null;
+  /** Sign-up answer to "How did you hear about WorshipHQ?", with who referred them. */
+  heardFrom: string | null;
   suspended: boolean;
   isDemo: boolean;
   plan: string;
@@ -62,6 +64,8 @@ export async function getChurchesPage(opts: { page?: number; q?: string; size?: 
       smsProvider: true,
       smsSenderIdProvider: true,
       createdAt: true,
+      heardFrom: true,
+      heardFromDetail: true,
       subscription: { select: { plan: true } },
       _count: { select: { people: true, users: true } },
     },
@@ -81,6 +85,7 @@ export async function getChurchesPage(opts: { page?: number; q?: string; size?: 
     name: c.name,
     country: c.country,
     city: c.city,
+    heardFrom: c.heardFrom ? `${c.heardFrom}${c.heardFromDetail ? `: ${c.heardFromDetail}` : ""}` : null,
     suspended: c.suspended,
     isDemo: c.isDemo,
 

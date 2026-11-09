@@ -66,6 +66,9 @@ export async function signUp(formData: FormData) {
   const validPlans = ["free", "starter", "pro", "max"];
   const chosenPlan = validPlans.includes(plan) ? plan : "free";
   const acceptedTerms = formData.get("acceptedTerms") === "true";
+  const heardRaw = String(formData.get("heardFrom") ?? "").trim();
+  const heardFrom = ["tiktok", "facebook", "instagram", "youtube", "whatsapp", "google", "friend", "event", "other"].includes(heardRaw) ? heardRaw : "";
+  const heardDetail = heardFrom ? String(formData.get("heardDetail") ?? "").trim().slice(0, 120) : "";
 
   const { passwordMeetsPolicy } = await import("@/lib/password-policy");
   // Email is always required (it's the login identity). A phone is required only
@@ -87,6 +90,8 @@ export async function signUp(formData: FormData) {
     phone: phone ? normalisePhone(phone) : "",
     plan: chosenPlan,
     channel,
+    heardFrom,
+    heardDetail,
   };
   const result = channel === "email"
     ? await sendOtp({ channel: "email", email, purpose: "signup", payload })
@@ -132,6 +137,8 @@ export async function completeSignup(formData: FormData) {
     phone: string;
     plan?: string;
     channel?: string;
+    heardFrom?: string;
+    heardDetail?: string;
   };
   const verifiedByEmail = p.channel === "email";
 
@@ -148,6 +155,8 @@ export async function completeSignup(formData: FormData) {
       city: p.city || null,
       country: p.country || "Ghana",
       termsAcceptedAt: new Date(),
+      heardFrom: p.heardFrom || null,
+      heardFromDetail: p.heardDetail || null,
       branches: { create: { name: "Main Branch", isHQ: true } },
     },
     include: { branches: true },

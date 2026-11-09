@@ -40,6 +40,19 @@ const STEPS = [
   { key: "review", label: "Review", icon: ClipboardCheck, title: "Everything look right?", sub: "One tap and we'll send your verification code." },
 ] as const;
 
+/** "How did you hear about us?" choices. `ask` shows a follow-up field with that placeholder. */
+const HEARD_FROM = [
+  { value: "tiktok", label: "TikTok" },
+  { value: "facebook", label: "Facebook" },
+  { value: "instagram", label: "Instagram" },
+  { value: "youtube", label: "YouTube" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "google", label: "Google search" },
+  { value: "friend", label: "A friend or another church", ask: "Who referred you? Their church or name" },
+  { value: "event", label: "A church event or conference", ask: "Which event?" },
+  { value: "other", label: "Other", ask: "Tell us where" },
+];
+
 export function SignupWizard({
   plans,
   currencySymbol,
@@ -67,6 +80,8 @@ export function SignupWizard({
     password: "",
     plan: initialPlan,
     channel: "phone" as "phone" | "email",
+    heardFrom: "",
+    heardDetail: "",
   });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
 
@@ -175,6 +190,8 @@ export function SignupWizard({
         <input type="hidden" name="plan" value={data.plan} />
         <input type="hidden" name="channel" value={data.channel} />
         <input type="hidden" name="acceptedTerms" value={String(acceptedTerms)} />
+        <input type="hidden" name="heardFrom" value={data.heardFrom} />
+        <input type="hidden" name="heardDetail" value={data.heardDetail} />
 
         <div className="relative overflow-hidden">
           <AnimatePresence mode="wait" custom={dir} initial={false}>
@@ -384,6 +401,30 @@ export function SignupWizard({
                       <span className="max-w-[60%] truncate text-sm font-medium text-ink">{row.value}</span>
                     </div>
                   ))}
+                </div>
+              )}
+
+              {STEPS[step].key === "review" && (
+                <div className="mt-4 rounded-lg border border-line p-3">
+                  <label htmlFor="heardFrom" className="text-sm font-medium text-ink">How did you hear about WorshipHQ? <span className="font-normal text-ink-faint">(optional)</span></label>
+                  <select
+                    id="heardFrom"
+                    value={data.heardFrom}
+                    onChange={(e) => setData((d) => ({ ...d, heardFrom: e.target.value, heardDetail: "" }))}
+                    className="mt-2 h-10 w-full rounded-lg border border-line bg-base px-3 text-sm text-ink outline-none focus:border-primary/60"
+                  >
+                    <option value="">Choose one</option>
+                    {HEARD_FROM.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
+                  </select>
+                  {HEARD_FROM.find((o) => o.value === data.heardFrom)?.ask && (
+                    <input
+                      value={data.heardDetail}
+                      maxLength={120}
+                      onChange={(e) => setData((d) => ({ ...d, heardDetail: e.target.value }))}
+                      placeholder={HEARD_FROM.find((o) => o.value === data.heardFrom)?.ask}
+                      className="mt-2 h-10 w-full rounded-lg border border-line bg-base px-3 text-sm text-ink outline-none focus:border-primary/60"
+                    />
+                  )}
                 </div>
               )}
 
