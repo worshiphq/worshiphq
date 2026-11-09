@@ -9,7 +9,8 @@ import { absentMembers } from "@/lib/automations/absence";
 import { sendEmail } from "@/lib/integrations/email";
 import { sendChurchSms } from "@/lib/sms/credits";
 import { money } from "@/lib/receipts/types";
-import { normalizeBriefing } from "@/lib/briefing/settings";
+import { normalizeBriefing, DEFAULT_BRIEFING, type BriefingSection } from "@/lib/briefing/settings";
+import { fundKind } from "@/lib/giving/channels";
 
 const DAY = 86400000;
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -26,11 +27,19 @@ export type Briefing = {
   drifting: { count: number; names: string[] };
   birthdays: { count: number; names: string[] };
   followUps: { overdue: number; doneThisWeek: number; open: number };
+  /** Optional sections (present only when ticked). */
+  funds?: { name: string; amount: number }[];
+  tithers?: { thisMonth: number; lastMonthSoFar: number };
+  returners?: string[];
+  pledges?: { name: string; raised: number; goal: number }[];
+  smsCredits?: { balance: number; low: boolean };
 };
 
+const LOW_SMS = 100;
+
 /** Everything a pastor wants to know on Monday morning, from the church's own records. Read-only. */
-export async function buildBriefing(churchId: string, now = new Date()): Promise<Briefing | null> {
-  const church = await db.church.findUnique({ where: { id: churchId }, select: { name: true, timezone: true } });
+export async function buildBriefing(churchId: string, now = new Date(), sections: BriefingSection[] = DEFAULT_BRIEFING.sections): Promise<Briefing | null> {
+  const church = await db.church.findUnique({ where: { id: churchId }, select: { name: true, timezone: true, smsCredits: true } });
   if (!church) return null;
   const tz = church.timezone;
   const today = ymdInTz(now, tz);
@@ -67,6 +76,23 @@ export async function buildBriefing(churchId: string, now = new Date()): Promise
   const lastMonthSoFar = Number(givePrev._sum.amount ?? 0);
   const full = (p: { firstName: string; lastName: string }) => `${p.firstName} ${p.lastName}`.trim();
 
+  const want = new Set(sections);
+  const giftPick = { personId: true, donorName: true, fund: { select: { name: true } } } as const;
+  const [fundGifts, titheNow, tithePrev, returners, campaigns] = await Promise.all([
+    want.has("funds") ? db.gift.findMany({ where: { churchId, date: { gte: weekAgo, lt: startToday } }, select: { amount: true, fund: { select: { name: true } } } }) : Promise.resolve([]),
+    want.has("tithers") ? db.gift.findMany({ where: { churchId, date: { gte: monthStart, lte: now } }, select: giftPick }) : Promise.resolve([]),
+    want.has("tithers") ? db.gift.findMany({ where: { churchId, date: { gte: prevStart, lte: prevSameDay } }, select: giftPick }) : Promise.resolve([]),
+    want.has("returners") ? db.visitor.findMany({ where: { churchId, visitCount: { gte: 2 }, lastVisit: { gte: weekAgo, lt: startToday } }, select: { firstName: true, lastName: true }, take: 30 }) : Promise.resolve([]),
+    want.has("pledges") ? db.campaign.findMany({ where: { churchId, goal: { gt: 0 }, OR: [{ endsAt: null }, { endsAt: { gte: startToday } }] }, select: { name: true, goal: true, raised: true }, take: 4 }) : Promise.resolve([]),
+  ]);
+  const byFund = new Map<string, number>();
+  for (const g of fundGifts) {
+    const k = g.fund?.name ?? "General offering";
+    byFund.set(k, (byFund.get(k) ?? 0) + Number(g.amount));
+  }
+  const countTithers = (rows: { personId: string | null; donorName: string | null; fund: { name: string } | null }[]) =>
+    new Set(rows.filter((g) => fundKind(g.fund?.name) === "tithes" && (g.personId || g.donorName)).map((g) => g.personId ?? `n:${(g.donorName ?? "").toLowerCase()}`)).size;
+
   return {
     church: church.name,
     weekLabel: new Date(now).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric", timeZone: tz }),
@@ -86,6 +112,11 @@ export async function buildBriefing(churchId: string, now = new Date()): Promise
     drifting: { count: drifting.length, names: drifting.map((d) => `${d.name} (${d.weeksAway}w)`) },
     birthdays: { count: bdays.length, names: bdays.map(full) },
     followUps: { overdue, doneThisWeek: doneWeek, open },
+    ...(want.has("funds") ? { funds: [...byFund].map(([name, amount]) => ({ name, amount })).sort((a, b) => b.amount - a.amount).slice(0, 8) } : {}),
+    ...(want.has("tithers") ? { tithers: { thisMonth: countTithers(titheNow), lastMonthSoFar: countTithers(tithePrev) } } : {}),
+    ...(want.has("returners") ? { returners: returners.map(full) } : {}),
+    ...(want.has("pledges") ? { pledges: campaigns.map((c) => ({ name: c.name, raised: Number(c.raised), goal: Number(c.goal) })) } : {}),
+    ...(want.has("sms") ? { smsCredits: { balance: church.smsCredits ?? 0, low: (church.smsCredits ?? 0) < LOW_SMS } } : {}),
   };
 }
 
@@ -100,7 +131,34 @@ export function briefingSms(b: Briefing, note?: BriefingNote): string {
   lines.push(`Missing 2+ wks: ${b.drifting.count}`);
   lines.push(`Birthdays this wk: ${b.birthdays.count}`);
   lines.push(`Follow-ups overdue: ${b.followUps.overdue}`);
+  if (b.tithers) lines.push(`Tithers: ${b.tithers.thisMonth} (${b.tithers.lastMonthSoFar} last mo)`);
+  if (b.returners?.length) lines.push(`Visitors back: ${b.returners.length}`);
+  if (b.smsCredits?.low) lines.push(`Low SMS credits: ${b.smsCredits.balance}`);
+  if (note === "intro") lines.push("Choose who gets this: Reminders page.");
+  if (note === "sample") lines.push("Max churches get this every Monday.");
   return lines.join("\n");
+}
+
+function fundsHtml(b: Briefing) {
+  if (!b.funds) return "";
+  const rows = b.funds.map((f) => `<tr><td style="padding:4px 0;border-bottom:1px solid #eee6d6">${esc(f.name)}</td><td style="padding:4px 0;border-bottom:1px solid #eee6d6;text-align:right;font-weight:600">${esc(money(f.amount))}</td></tr>`).join("");
+  return `<div style="margin-top:18px"><div style="font-weight:700">Giving last week, by type</div>${rows ? `<table style="width:100%;margin-top:6px;font-size:14px;border-collapse:collapse">${rows}</table>` : `<div style="color:#6b6456;font-size:14px;margin-top:4px">No giving recorded last week.</div>`}</div>`;
+}
+
+function pledgesHtml(b: Briefing) {
+  if (!b.pledges?.length) return "";
+  const bars = b.pledges.map((c) => {
+    const pct = Math.min(100, Math.round((c.raised / c.goal) * 100));
+    return `<div style="margin-top:8px;font-size:14px">${esc(c.name)}: ${esc(money(c.raised))} of ${esc(money(c.goal))} (${pct}%)<div style="height:8px;background:#eee6d6;border-radius:6px;margin-top:4px"><div style="height:8px;width:${pct}%;background:#0d7377;border-radius:6px"></div></div></div>`;
+  }).join("");
+  return `<div style="margin-top:18px"><div style="font-weight:700">Pledge progress</div>${bars}</div>`;
+}
+
+function smsHtml(b: Briefing, app: string) {
+  if (!b.smsCredits) return "";
+  const tone = b.smsCredits.low ? "background:#fef3c7;color:#92400e" : "background:#eef7f6;color:#0b4f52";
+  const warn = b.smsCredits.low ? ". Running low: top up before Sunday so texts don't stop." : "";
+  return `<div style="margin-top:18px;padding:12px 14px;border-radius:10px;${tone}"><strong>SMS credits: ${b.smsCredits.balance}</strong>${warn} <a href="${app}/app/settings" style="color:inherit">Top up</a></div>`;
 }
 
 export function briefingEmail(b: Briefing, note?: BriefingNote): string {
@@ -133,6 +191,11 @@ export function briefingEmail(b: Briefing, note?: BriefingNote): string {
       ${stat("Birthdays this week", String(b.birthdays.count))}
       ${stat("Follow-ups overdue", String(b.followUps.overdue), `${b.followUps.doneThisWeek} done this week, ${b.followUps.open} open`, b.followUps.overdue ? "#b45309" : "#0d7377")}
     </tr></table>
+    ${fundsHtml(b)}
+    ${b.tithers ? `<div style="margin-top:18px"><div style="font-weight:700">Tithers this month</div><div style="font-size:14px;margin-top:4px"><strong style="font-size:20px;color:#0d7377">${b.tithers.thisMonth}</strong> people so far, against ${b.tithers.lastMonthSoFar} at this point last month.</div></div>` : ""}
+    ${pledgesHtml(b)}
+    ${b.returners ? list("First-timers who came back", b.returners, "/app/visitors", "No returning visitors last week.") : ""}
+    ${smsHtml(b, app)}
     ${list("Who to check on", b.drifting.names, "/app/reminders", "Nobody has missed 2 weeks. Praise God!")}
     ${list("New visitors to welcome", b.visitors.names, "/app/visitors", "No new visitors recorded last week.")}
     ${list("Birthdays this week", b.birthdays.names, "/app/birthdays", "No birthdays this week.")}
@@ -187,7 +250,7 @@ export async function runWeeklyBriefing(now = new Date(), ignoreHour = false, de
     const today = ymdInTz(now, church.timezone);
     const claim = await db.church.updateMany({ where: { id: church.id, OR: [{ briefingSent: null }, { briefingSent: { not: today } }] }, data: { briefingSent: today } });
     if (claim.count === 0) return;
-    const b = await buildBriefing(church.id, now);
+    const b = await buildBriefing(church.id, now, cfg.sections);
     if (!b) return;
     const note: BriefingNote = !isMax ? "sample" : cfg.intro ? "intro" : undefined;
     const r = await recipients(church.id, cfg.userIds);

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { toastNow } from "@/components/ui/feedback";
 import { PlanBadge } from "@/components/app/plan-gate";
 import { saveBriefing, sendBriefingPreview } from "@/app/actions/briefing";
-import type { BriefingSettings } from "@/lib/briefing/settings";
+import { BRIEFING_SECTIONS, type BriefingSettings } from "@/lib/briefing/settings";
 
 const DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
 const field = "h-10 rounded-lg border border-line bg-base px-3 text-sm text-ink outline-none focus:border-primary/60";
@@ -60,7 +60,7 @@ export function BriefingCard({ initial, team, locked, canWrite }: {
   };
   const preview = async () => {
     setBusy("preview");
-    try { const r = await sendBriefingPreview(); toastNow(r.ok ? `This week's briefing was emailed to you. ${r.message}` : r.error, r.ok ? "success" : "error"); }
+    try { const r = await sendBriefingPreview(s.sections); toastNow(r.ok ? `This week's briefing was emailed to you. ${r.message}` : r.error, r.ok ? "success" : "error"); }
     catch (e) { toastNow(e instanceof Error ? e.message : "Could not send.", "error"); }
     setBusy(null);
   };
@@ -119,6 +119,19 @@ export function BriefingCard({ initial, team, locked, canWrite }: {
               </label>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className={`mt-4 ${s.on ? "" : "opacity-60"}`}>
+        <div className="text-xs font-semibold uppercase tracking-wide text-ink-muted">What to include</div>
+        <p className="mt-1 text-xs text-ink-faint">Attendance, giving, visitors, who is missing, birthdays and follow-ups are always in. Add any of these. Email shows everything; SMS keeps to the main lines so it does not cost more.</p>
+        <div className="mt-2 grid gap-2 sm:grid-cols-2">
+          {BRIEFING_SECTIONS.map((x) => (
+            <label key={x.key} className="flex items-start gap-2 rounded-lg border border-line p-2.5 text-sm">
+              <input type="checkbox" disabled={!canWrite} checked={s.sections.includes(x.key)} onChange={(e) => setS({ ...s, sections: e.target.checked ? [...s.sections, x.key] : s.sections.filter((k) => k !== x.key) })} className="mt-0.5 size-4 accent-[var(--color-primary)]" />
+              <span><span className="font-medium text-ink">{x.label}</span><span className="block text-xs text-ink-muted">{x.hint}</span></span>
+            </label>
+          ))}
         </div>
       </div>
 

@@ -24,13 +24,13 @@ export async function saveBriefing(input: BriefingSettings) {
 }
 
 /** Send this week's briefing to yourself now (email only, so it never spends SMS credits). */
-export async function sendBriefingPreview() {
+export async function sendBriefingPreview(sections?: string[]) {
   const session = await requireManage("reminders");
   assertCanWrite(session, "reminders");
   assertPlanFeature(session, "weekly-briefing");
   const me = session.userId ? await db.user.findUnique({ where: { id: session.userId }, select: { email: true } }) : null;
   if (!me?.email || me.email.endsWith("@invite.worshiphq.app")) return { ok: false as const, error: "Your account has no email address to send the preview to." };
-  const b = await buildBriefing(session.churchId);
+  const b = await buildBriefing(session.churchId, new Date(), normalizeBriefing({ sections }).sections);
   if (!b) return { ok: false as const, error: "Could not build the briefing." };
   const r = await deliverBriefing(session.churchId, b, { emails: [me.email], phones: [] });
   return r.emails ? { ok: true as const, message: `Sent to ${me.email}.` } : { ok: false as const, error: "The email could not be sent. Try again in a moment." };
