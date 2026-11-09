@@ -80,6 +80,13 @@ export const MESSAGE_TEMPLATES: MessageTemplate[] = [
     default: "Hi {name}, we have missed you at {church}. You are always welcome, and we would love to see you again. Is there any way we can pray with you or support you? God bless you.",
   },
   {
+    key: "missed_service",
+    label: "We missed you today (absentee check-in)",
+    description: "Texted to members who missed a service, when you follow up absentees from that service and tick 'Send a check-in text'. You can still change the words each time.",
+    placeholders: ["name", "church", "service"],
+    default: "Hi {name}, we missed you at {service} today. We hope you are doing well. If there is anything we can pray with you about, please let us know. God bless you. - {church}",
+  },
+  {
     key: "absent_admin",
     label: "Members not seen in a while (to admins)",
     description: "Texted and emailed to the team members you choose (every admin if you choose nobody) once, when members have been away for the number of weeks you set.",

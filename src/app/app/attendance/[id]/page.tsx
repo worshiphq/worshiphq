@@ -1,5 +1,8 @@
 import Link from "@/components/ui/app-link";
-import { canEdit } from "@/lib/permissions";
+import { canEdit, canManage } from "@/lib/permissions";
+import { planLockFor } from "@/lib/auth";
+import { absenteeGroupings } from "@/lib/attendance/absentees";
+import { AbsenteeFollowUpButton } from "@/components/app/absentee-follow-up";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Users, Clock } from "lucide-react";
 import { requireModule } from "@/lib/auth";
@@ -45,6 +48,15 @@ export default async function AttendanceSessionPage({
   ]);
   if (!data) notFound();
 
+  // "Follow up absentees": needs Manage on follow-ups and a plan with follow-ups.
+  const canFollowUp = !session.isDemo && canManage(session, "follow-ups") && !planLockFor(session, "follow-ups");
+  const [absGroupings, absUsers] = canFollowUp
+    ? await Promise.all([
+        absenteeGroupings(session.churchId),
+        db.user.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+      ])
+    : [[], []];
+
   // With service times on, nudge staff across when the next service has begun.
   const current = !data.endedAt ? await describeCurrentService(session.churchId, session.branchId ?? null) : null;
   const sameDay = new Date(data.date).toDateString() === new Date().toDateString();
@@ -59,7 +71,18 @@ export default async function AttendanceSessionPage({
         <Link href="/app/attendance" className="inline-flex items-center gap-1.5 text-sm text-ink-muted hover:text-ink">
           <ArrowLeft className="size-4" /> All services
         </Link>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          {canFollowUp && (
+            <AbsenteeFollowUpButton
+              sessionId={data.id}
+              serviceName={data.serviceName}
+              groupings={absGroupings}
+              users={absUsers}
+              smsDefault={templateFor(thankChurch?.messageTemplates, "missed_service")}
+              canSms={!planLockFor(session, "sms")}
+              smsBalance={smsBalance}
+            />
+          )}
           <EndServiceButton
             sessionId={data.id}
             serviceName={data.serviceName}

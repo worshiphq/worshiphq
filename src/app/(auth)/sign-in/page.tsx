@@ -12,7 +12,7 @@ import {
   startPasswordReset,
   verifyResetCode,
 } from "@/app/actions/auth";
-import { getLoginChoices } from "@/lib/auth";
+import { getLoginChoices, getSession } from "@/lib/auth";
 import { supportEmail } from "@/lib/lockout";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Label } from "@/components/ui/input";
@@ -36,6 +36,13 @@ export default async function SignInPage({
   }>;
 }) {
   const { error, reset, via, login, dev, resent, left } = await searchParams;
+
+  // Already signed in (for example, opened from an email's "Open WorshipHQ" button): go straight in instead of
+  // showing the login form, which made people think they had been signed out. Reset and login steps still show.
+  if (!reset && !login && !error) {
+    const current = await getSession();
+    if (current?.userId && !current.isDemo) redirect("/app");
+  }
   const support = supportEmail();
   const triesLeft = Number(left);
   const warn = triesLeft >= 1 && triesLeft <= 4 ? ` You have ${triesLeft} ${triesLeft === 1 ? "try" : "tries"} left before this account is locked for 24 hours.` : "";
