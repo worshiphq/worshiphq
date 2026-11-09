@@ -9,6 +9,7 @@ import { ListPager } from "@/components/ui/list-pager";
 import { toastNow } from "@/components/ui/feedback";
 import { loadAbsentees, followUpAbsentees } from "@/app/actions/absentees";
 import type { AbsenteeRow } from "@/lib/attendance/absentees";
+import { segmentsFor } from "@/config/sms";
 
 type Grouping = { key: string; label: string; groups: { id: string; name: string }[] };
 type User = { id: string; name: string };
@@ -23,6 +24,7 @@ export function AbsenteeFollowUpButton(props: {
   smsDefault: string;
   canSms: boolean;
   smsBalance: number;
+  churchName: string;
 }) {
   const [open, setOpen] = useState(false);
   return (
@@ -35,7 +37,7 @@ export function AbsenteeFollowUpButton(props: {
   );
 }
 
-function AbsenteeDialog({ sessionId, serviceName, groupings, users, smsDefault, canSms, smsBalance, onClose }: Parameters<typeof AbsenteeFollowUpButton>[0] & { onClose: () => void }) {
+function AbsenteeDialog({ sessionId, serviceName, groupings, users, smsDefault, canSms, smsBalance, churchName, onClose }: Parameters<typeof AbsenteeFollowUpButton>[0] & { onClose: () => void }) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [grouping, setGrouping] = useState("");
@@ -45,6 +47,8 @@ function AbsenteeDialog({ sessionId, serviceName, groupings, users, smsDefault, 
   const [rows, setRows] = useState<AbsenteeRow[]>([]);
   const [total, setTotal] = useState(0);
   const [allIds, setAllIds] = useState<string[]>([]);
+  // Everyone seen so far who has a phone number (across pages and filters), for the SMS count.
+  const [phoned, setPhoned] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [chosen, setChosen] = useState<Set<string>>(new Set());
@@ -65,6 +69,7 @@ function AbsenteeDialog({ sessionId, serviceName, groupings, users, smsDefault, 
     if (!res.ok) { setError(res.error); return; }
     setError(null);
     setRows(res.rows); setTotal(res.total); setAllIds(res.allIds);
+    setPhoned((prev) => { const n = new Set(prev); for (const id of res.phoneIds) n.add(id); return n; });
   }, [sessionId, q, grouping, groupId, regularsOnly]);
 
   // Filters apply at once; typing waits 300ms. Any change goes back to page 1.
@@ -75,8 +80,9 @@ function AbsenteeDialog({ sessionId, serviceName, groupings, users, smsDefault, 
 
   const pages = Math.max(1, Math.ceil(total / PAGE));
   const groupOpts = groupings.find((g) => g.key === grouping)?.groups ?? [];
-  const pageIds = rows.map((r) => r.id);
-  const allOnPage = pageIds.length > 0 && pageIds.every((id) => chosen.has(id));
+  // The top tick box means everyone who matches the filters, on every page.
+  const allChosen = allIds.length > 0 && allIds.every((id) => chosen.has(id));
+  const someChosen = !allChosen && allIds.some((id) => chosen.has(id));
 
   const toggle = (idx: number, shift: boolean) => {
     const id = rows[idx].id;
@@ -101,7 +107,7 @@ function AbsenteeDialog({ sessionId, serviceName, groupings, users, smsDefault, 
 
   const submit = async () => {
     if (chosen.size === 0) return;
-    if (sms && !window.confirm(`Text ${chosen.size} ${chosen.size === 1 ? "person" : "people"} now? This uses SMS credits (you have ${smsBalance}).`)) return;
+    if (sms && textable > 0 && !window.confirm(`Text ${textable} ${textable === 1 ? "person" : "people"} now? This uses about ${credits} SMS credits (you have ${smsBalance}).`)) return;
     setSaving(true);
     try {
       const res = await followUpAbsentees({
@@ -124,6 +130,11 @@ function AbsenteeDialog({ sessionId, serviceName, groupings, users, smsDefault, 
   };
 
   const assigned = [...chosen].filter((id) => perPerson[id]).length;
+  const textable = [...chosen].filter((id) => phoned.has(id)).length;
+  // Worst case: a long first name, plus the church name line some messages carry.
+  const segs = segmentsFor(`${churchName}
+${smsText.replace(/\{name\}/g, "Christabella").replace(/\{service\}/g, serviceName).replace(/\{church\}/g, churchName)}`);
+  const credits = textable * segs;
 
   return (
     <Modal open onClose={saving ? () => {} : onClose} wide title={`Follow up absentees: ${serviceName}`} description="Members who did not check in to this service. People who already have an open follow-up are left out.">
@@ -175,11 +186,13 @@ function AbsenteeDialog({ sessionId, serviceName, groupings, users, smsDefault, 
           <thead className="bg-surface-2 text-left text-xs uppercase tracking-wide text-ink-muted">
             <tr>
               <th className="w-10 px-3 py-2">
-                <input type="checkbox" aria-label="Choose everyone on this page" checked={allOnPage} onChange={(e) => {
-                  const next = new Set(chosen);
-                  for (const id of pageIds) { if (e.target.checked) next.add(id); else next.delete(id); }
-                  setChosen(next);
-                }} className="size-4 accent-[var(--color-primary)]" />
+                <input type="checkbox" aria-label={`Choose all ${total}`} title={`Choose all ${total}`} checked={allChosen}
+                  ref={(el) => { if (el) el.indeterminate = someChosen; }}
+                  onChange={(e) => {
+                    const next = new Set(chosen);
+                    for (const id of allIds) { if (e.target.checked) next.add(id); else next.delete(id); }
+                    setChosen(next);
+                  }} className="size-4 accent-[var(--color-primary)]" />
               </th>
               <th className="px-2 py-2">Name</th>
               <th className="hidden px-2 py-2 sm:table-cell">Last seen</th>
@@ -231,7 +244,12 @@ function AbsenteeDialog({ sessionId, serviceName, groupings, users, smsDefault, 
         {sms && (
           <>
             <textarea value={smsText} onChange={(e) => setSmsText(e.target.value)} rows={3} maxLength={640} className="mt-2 w-full rounded-lg border border-line bg-base p-3 text-sm text-ink outline-none focus:border-primary/60" />
-            <p className="mt-1 text-xs text-ink-faint">{"{name}"} becomes their first name, {"{service}"} the service, {"{church}"} your church. Only people with a phone number are texted. Balance: {smsBalance} credits. Change the default wording in Settings, Messages.</p>
+            <div className={`mt-2 flex flex-wrap gap-x-4 gap-y-1 rounded-lg px-3 py-2 text-sm ${credits > smsBalance ? "bg-danger/10 text-danger" : "bg-primary/10 text-ink"}`}>
+              <span><strong>{textable}</strong> of {chosen.size} chosen will be texted{chosen.size - textable > 0 ? ` (${chosen.size - textable} have no phone)` : ""}</span>
+              <span>{segs} SMS each · about <strong>{credits}</strong> credits</span>
+              <span>Balance: {smsBalance}{credits > smsBalance ? " (not enough, some won't be sent)" : ""}</span>
+            </div>
+            <p className="mt-1 text-xs text-ink-faint">{"{name}"} becomes their first name, {"{service}"} the service, {"{church}"} your church. Only people with a phone number are texted. Change the default wording in Settings, Messages.</p>
           </>
         )}
       </div>

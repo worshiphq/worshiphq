@@ -95,6 +95,7 @@ export default async function AttendanceSessionPage({
               smsDefault={templateFor(thankChurch?.messageTemplates, "missed_service")}
               canSms={!planLockFor(session, "sms")}
               smsBalance={smsBalance}
+              churchName={thankChurch?.name ?? ""}
             />
           )}
           <EndServiceButton

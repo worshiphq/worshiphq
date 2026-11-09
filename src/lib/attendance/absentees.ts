@@ -69,7 +69,7 @@ export async function listAbsentees(churchId: string, sessionId: string, f: Abse
         attendance: { where: { NOT: { sessionId: w.sess.id } }, orderBy: { date: "desc" }, take: 1, select: { date: true } },
       },
     }),
-    db.person.findMany({ where: w.where, select: { id: true }, take: 2000 }),
+    db.person.findMany({ where: w.where, select: { id: true, phone: true }, take: 2000 }),
   ]);
   const rows: AbsenteeRow[] = people.map((p) => ({
     id: p.id,
@@ -78,7 +78,7 @@ export async function listAbsentees(churchId: string, sessionId: string, f: Abse
     lastSeen: p.attendance[0]?.date.toISOString() ?? null,
     groups: [...new Set([p.department?.name, ...p.departments.map((d) => d.name), ...p.groups.map((g) => g.name)].filter(Boolean) as string[])].slice(0, 3),
   }));
-  return { rows, total, allIds: all.map((a) => a.id), service: w.sess.serviceName, date: w.sess.date.toISOString() };
+  return { rows, total, allIds: all.map((a) => a.id), phoneIds: all.filter((a) => !!a.phone).map((a) => a.id), service: w.sess.serviceName, date: w.sess.date.toISOString() };
 }
 
 /** Re-check a chosen list against the same rules on the server (so a stale page can't add someone who came). */
