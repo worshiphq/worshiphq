@@ -118,6 +118,7 @@ const PRO_ADDS = [
 const MAX_ADDS = [
   "biometric-devices", "counseling", "budgets", "fund-accounting", "assets", "audit-log",
   "auto-inactive", "linked-churches", "advanced-reports", "api-access", "white-label-posters",
+  "weekly-briefing",
 ];
 
 const STARTER_FEATURES = [...FREE_FEATURES, ...STARTER_ADDS];
@@ -174,7 +175,7 @@ export const FEATURE_LABELS: Record<string, string> = {
   testimonies: "Testimonies", automations: "Automations", volunteers: "Volunteers",
   rosters: "Rosters", "volunteer-scheduling": "Volunteer scheduling",
   "engagement-scoring": "Engagement scoring", "advanced-reports": "Advanced reports",
-  welfare: "Welfare", counseling: "Counseling", "auto-inactive": "Auto-inactive members",
+  welfare: "Welfare", counseling: "Counseling", "auto-inactive": "Auto-inactive members", "weekly-briefing": "Monday briefing",
   bookings: "Facility bookings", accounting: "Accounting", budgets: "Budgets",
   expenses: "Expenses", "fund-accounting": "Fund accounting", assets: "Assets",
   "api-access": "API access", "audit-log": "Audit log",

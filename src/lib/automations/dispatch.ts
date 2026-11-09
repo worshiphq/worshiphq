@@ -1,4 +1,5 @@
 import "server-only";
+import { runWeeklyBriefing } from "@/lib/briefing/briefing";
 import { runTrialNotices } from "@/lib/automations/trial-notices";
 import { runAutomations } from "./run";
 import { refreshUsdToGhsRate } from "@/lib/integrations/fx";
@@ -65,6 +66,7 @@ export async function runDailyAutomations(now = new Date(), precise = false) {
   summary.absence = await safe("absence", () => runAbsenceCheck(now, ignoreHour, smsDeadline));
   summary.serviceThanks = await safe("serviceThanks", () => runServiceThanks(now, ignoreHour, smsDeadline));
   summary.followUpDigest = await safe("followUpDigest", () => runFollowUpDigest(now, ignoreHour, smsDeadline));
+  summary.weeklyBriefing = await safe("weeklyBriefing", () => runWeeklyBriefing(now, ignoreHour, smsDeadline));
 
   // 3) Welcome / we-miss-you / thank-you / anniversary / visitor follow-up texts.
   // Every trigger is safe to repeat (per-person "already sent" flags, plus a
