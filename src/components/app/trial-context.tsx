@@ -3,7 +3,7 @@
 import { createContext, useContext, useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import Link from "@/components/ui/app-link";
-import { X, Sparkles } from "lucide-react";
+import { X, Sparkles, Hourglass } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { FEATURE_LABELS, getRouteFeature } from "@/lib/plan-gate";
 
@@ -46,6 +46,25 @@ export function useIsTrialOnly(href: string): boolean {
 }
 
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
+
+/** Next to the notification bell, on every screen: which plan is on trial and how many days are left. */
+export function TrialCountdown() {
+  const t = useTrial();
+  if (!t.plan) return null;
+  const urgent = t.daysLeft <= 2;
+  const left = t.daysLeft <= 0 ? "ends today" : `${t.daysLeft} day${t.daysLeft === 1 ? "" : "s"} left`;
+  return (
+    <Link
+      href="/app/settings?tab=billing"
+      title={`Your free ${cap(t.plan)} trial: ${left}. Upgrade to keep these features.`}
+      className={`inline-flex h-10 items-center gap-1.5 rounded-xl border px-2.5 text-xs font-semibold transition-colors ${urgent ? "border-red-500/40 bg-red-500/10 text-red-600 dark:text-red-400" : "border-amber-500/40 bg-amber-500/10 text-amber-700 dark:text-amber-400"} hover:opacity-90`}
+    >
+      <Hourglass className="size-3.5" aria-hidden />
+      <span className="hidden sm:inline">{cap(t.plan)} trial · {left}</span>
+      <span className="sm:hidden">{t.daysLeft <= 0 ? "Today" : `${t.daysLeft}d`}</span>
+    </Link>
+  );
+}
 
 /** A small "Trial" label for a page title, shown only on screens the church has because of its trial. */
 export function TrialPill() {

@@ -1,5 +1,6 @@
 import { requireModule } from "@/lib/auth";
 import { canEdit } from "@/lib/permissions";
+import { planLockFor } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { VisitorsClient } from "@/components/app/visitors-client";
 import { queryVisitors, visitorCounts } from "@/lib/data/visitors";
@@ -23,6 +24,9 @@ export default async function VisitorsPage() {
     : null;
 
   const canWrite = canEdit(session, "visitors");
+  // Bulk text to visitors goes through Communications: open it for those who may send texts, show it locked below Starter.
+  const smsLocked = !!planLockFor(session, "sms") || !!planLockFor(session, "communications");
+  const sms = session.isDemo ? "hidden" : smsLocked ? "locked" : canEdit(session, "communications") ? "on" : "hidden";
 
   return (
     <VisitorsClient
@@ -30,6 +34,7 @@ export default async function VisitorsPage() {
       counts={counts}
       visitUrl={visitUrl}
       canWrite={canWrite}
+      sms={sms}
     />
   );
 }

@@ -27,10 +27,11 @@ export const metadata = { title: "Communications" };
 export default async function CommunicationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string }>;
+  searchParams: Promise<{ error?: string; to?: string }>;
 }) {
   const session = await requireModule("communications");
-  const { error } = await searchParams;
+  const { error, to } = await searchParams;
+  const initialTarget = to === "visitor" || to === "visitor-30" ? to : "all";
   const [{ campaigns, stats }, people, smsBalance, departments, groups, plan, churchRow] = await Promise.all([
     getCommunications(session.churchId),
     getPeopleStats(session.churchId),
@@ -96,7 +97,7 @@ export default async function CommunicationsPage({
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-2"><Composer departments={departments} groups={groups} canWrite={canEdit(session, "communications")} senderTeaser={senderTeaser} nameLine={nameLine} /></div>
+        <div className="lg:col-span-2"><Composer initialTarget={initialTarget} departments={departments} groups={groups} canWrite={canEdit(session, "communications")} senderTeaser={senderTeaser} nameLine={nameLine} /></div>
 
         <CampaignHistory campaigns={campaigns} />
       </div>

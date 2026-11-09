@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { Search, Bell, BellRing, ChevronDown, LogOut, Settings, Menu, UserCircle, BookOpen, UserPlus, UserRoundPlus, HandCoins, CalendarCheck2, Heart, Users2, CalendarDays, Loader2 } from "lucide-react";
 import { MemberAvatar } from "@/components/ui/member-avatar";
 import { OfflineIndicator } from "@/components/app/offline-indicator";
+import { TrialCountdown } from "@/components/app/trial-context";
 import { signOut } from "@/app/actions/auth";
 import type { Session } from "@/lib/permissions";
 import type { AppNotification } from "@/lib/data/notifications";
@@ -73,6 +74,7 @@ export function Topbar({
 
       <div className="ml-auto flex items-center gap-2">
         <OfflineIndicator />
+        <TrialCountdown />
 
         {/* Notifications */}
         <div className="relative" ref={notifRef} onKeyDown={(e) => menuKey(e, "notif")} onBlur={(e) => menuBlur(e, "notif")}>

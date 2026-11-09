@@ -97,12 +97,36 @@ export async function sendBroadcast(formData: FormData) {
     });
     recipientObjs = pick(people);
     segmentLabel = "Adults missing Ghana Card";
+  } else if (target === "visitor" || target === "visitor-30") {
+    // Visitors live in two places: the Visitors list (its own records) and anyone in People marked "visitor".
+    // Both are texted, each number once. A visitor who has since become an active member is left out.
+    const since = target === "visitor-30" ? new Date(Date.now() - 30 * 86400000) : null;
+    const [listed, people] = await Promise.all([
+      db.visitor.findMany({
+        where: {
+          churchId: session.churchId,
+          AND: [
+            { OR: [{ personId: null }, { person: { status: "visitor" } }] },
+            ...(since ? [{ OR: [{ visitDate: { gte: since } }, { lastVisit: { gte: since } }] }] : []),
+          ],
+        },
+        select: PERSON_SELECT,
+      }),
+      since ? Promise.resolve([]) : db.person.findMany({ where: { churchId: session.churchId, status: "visitor" }, select: PERSON_SELECT }),
+    ]);
+    const seen = new Set<string>();
+    recipientObjs = [...pick(people), ...pick(listed).map((r) => ({ ...r, id: null }))].filter((r) => {
+      const key = r.contact.replace(/\D/g, "").slice(-9) || r.contact.toLowerCase();
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+    segmentLabel = since ? "Visitors (last 30 days)" : "Visitors";
   } else {
     const where: { churchId: string; status?: "active" | "visitor"; departments?: { some: { id: string } }; groups?: { some: { id: string } } } = {
       churchId: session.churchId,
     };
     if (target === "active") { where.status = "active"; segmentLabel = "Active members"; }
-    else if (target === "visitor") { where.status = "visitor"; segmentLabel = "Visitors"; }
     else if (target.startsWith("dept:")) {
       const id = target.slice(5);
       where.departments = { some: { id } };

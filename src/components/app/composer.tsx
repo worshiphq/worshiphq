@@ -15,8 +15,11 @@ export function Composer({
   canWrite,
   senderTeaser = null,
   nameLine = null,
+  initialTarget = "all",
 }: {
   departments: { id: string; name: string }[];
+  /** Pre-selected audience, e.g. "visitor" when opened from the Visitors page. */
+  initialTarget?: string;
   groups?: { id: string; name: string }[];
   canWrite: boolean;
   /** A suggested own sender name, shown as a quiet hint to churches that do not have one yet. */
@@ -37,7 +40,7 @@ export function Composer({
     setHideTeaser(true);
     try { localStorage.setItem("whq-sender-teaser", "off"); } catch { /* ignore */ }
   }
-  const [target, setTarget] = useState("all");
+  const [target, setTarget] = useState(initialTarget);
   const [message, setMessage] = useState(
     "Shalom! Join us this Sunday at 8am for our Celebration Service. God bless you!",
   );
@@ -63,7 +66,8 @@ export function Composer({
           <select name="target" value={target} onChange={(e) => setTarget(e.target.value)} className={selectCls}>
             <option value="all">Everyone</option>
             <option value="active">Active members</option>
-            <option value="visitor">Visitors</option>
+            <option value="visitor">All visitors</option>
+            <option value="visitor-30">Visitors from the last 30 days</option>
             <option value="leaders">Church leaders</option>
             <option value="group-leaders">Group / ministry leaders</option>
             <option value="missing-national-id">Adults missing Ghana Card</option>

@@ -11,7 +11,9 @@ import { Input, Label } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { OnFormComplete } from "@/components/ui/form-effects";
-import { Search, Link2, UserRoundPlus, Mail, Phone, Calendar, Pencil, Trash2, UserPlus, X, Star, UploadCloud, Fingerprint, CalendarCheck, Check, Loader2, MessageSquareHeart } from "lucide-react";
+import { Search, Link2, UserRoundPlus, Mail, Phone, Calendar, Pencil, Trash2, UserPlus, X, Star, UploadCloud, Fingerprint, CalendarCheck, Check, Loader2, MessageSquareHeart, MessageSquare, Lock } from "lucide-react";
+import Link from "@/components/ui/app-link";
+import { PlanBadge } from "@/components/app/plan-gate";
 import { useFeedback } from "@/components/ui/feedback";
 import { updateVisitor, deleteVisitor, convertVisitorToMember, addVisitor, toggleRegular, sendVisitorReturnMessage } from "@/app/actions/visit";
 import { checkInVisitorNow } from "@/app/actions/attendance";
@@ -148,11 +150,14 @@ export function VisitorsClient({
   counts,
   visitUrl,
   canWrite,
+  sms = "hidden",
 }: {
   initial: { rows: VisitorRow[]; total: number; page: number };
   counts: { all: number; regular: number };
   visitUrl: string | null;
   canWrite: boolean;
+  /** Bulk text to visitors: "on" (opens Communications), "locked" (plan without SMS) or "hidden". */
+  sms?: "on" | "locked" | "hidden";
 }) {
   const router = useRouter();
   const [search, setSearch] = useState("");
@@ -253,6 +258,16 @@ export function VisitorsClient({
             </Button>
           )}
           {canWrite && <ImportVisitorsModal onImported={() => router.refresh()} />}
+          {sms === "on" && (
+            <Link href="/app/communications?to=visitor" className="inline-flex h-11 items-center gap-2 rounded-xl border border-line bg-elevated px-4 text-sm font-medium text-ink hover:bg-surface-2">
+              <MessageSquare className="size-4" /> Text all visitors
+            </Link>
+          )}
+          {sms === "locked" && (
+            <Link href="/app/settings?tab=billing" title="Send one message to all your visitors at once. Upgrade to unlock it." className="inline-flex h-11 items-center gap-2 rounded-xl border border-line bg-elevated px-4 text-sm text-ink-muted hover:bg-surface-2">
+              <Lock className="size-4" /> Text all visitors <PlanBadge plan="starter" />
+            </Link>
+          )}
           {visitUrl && (
             <Button
               variant="secondary"
