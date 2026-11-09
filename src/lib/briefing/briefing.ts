@@ -89,8 +89,10 @@ export async function buildBriefing(churchId: string, now = new Date()): Promise
   };
 }
 
-export function briefingSms(b: Briefing): string {
-  const lines = [`Monday briefing - ${b.church}`];
+export type BriefingNote = "intro" | "sample" | undefined;
+
+export function briefingSms(b: Briefing, note?: BriefingNote): string {
+  const lines = [note === "intro" ? `NEW on WorshipHQ Max! Your Monday briefing - ${b.church}` : note === "sample" ? `A taste of WorshipHQ Max: the Monday briefing - ${b.church}` : `Monday briefing - ${b.church}`];
   if (b.service) lines.push(`${b.service.name}: ${b.service.count}${b.service.change !== null ? ` (${b.service.change >= 0 ? "+" : ""}${b.service.change} vs last wk)` : ""}`);
   else lines.push("No service recorded last week");
   lines.push(`Giving ${b.giving.month}: ${money(b.giving.thisMonth).replace("GH₵", "GHS")}${b.giving.pct !== null ? ` (${b.giving.pct}% of last month so far)` : ""}`);
@@ -101,7 +103,7 @@ export function briefingSms(b: Briefing): string {
   return lines.join("\n");
 }
 
-export function briefingEmail(b: Briefing): string {
+export function briefingEmail(b: Briefing, note?: BriefingNote): string {
   const app = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
   const stat = (label: string, value: string, note = "", tone = "#0d7377") =>
     `<td style="padding:6px;width:50%;vertical-align:top"><div style="border:1px solid #e7e1d4;border-radius:12px;padding:14px 16px;background:#fff">
@@ -116,6 +118,8 @@ export function briefingEmail(b: Briefing): string {
   const change = svc && svc.change !== null ? `${svc.change >= 0 ? "Up" : "Down"} ${Math.abs(svc.change)} from last week` : "";
   const givePct = b.giving.pct !== null ? `${b.giving.pct}% of last month at this point` : "";
   return `<div style="font-family:system-ui,-apple-system,sans-serif;max-width:600px;margin:0 auto;color:#1c1a16;background:#fbf8f1;padding:24px;border-radius:16px">
+    ${note === "intro" ? `<div style="background:#0d7377;color:#fff;border-radius:12px;padding:14px 16px;margin-bottom:18px"><div style="font-size:12px;font-weight:700;letter-spacing:.1em;color:#e5b567">NEW FOR MAX CHURCHES</div><div style="margin-top:4px;font-size:15px">Here is your first Monday briefing. From now on it arrives every Monday morning with last week's attendance, giving, new visitors, who is missing, birthdays and overdue follow-ups.</div><div style="margin-top:8px;font-size:14px">Choose who receives it, the day and time, and email or SMS on the <a href="${app}/app/reminders" style="color:#e5b567;font-weight:700">Reminders page</a>.</div></div>` : ""}
+    ${note === "sample" ? `<div style="background:#1c1a16;color:#fff;border-radius:12px;padding:14px 16px;margin-bottom:18px"><div style="font-size:12px;font-weight:700;letter-spacing:.1em;color:#e5b567">A FREE PREVIEW OF WORSHIPHQ MAX</div><div style="margin-top:4px;font-size:15px">This is the Monday briefing, built from your own church's records. Max churches get it every Monday morning, by email or SMS, for the pastor and leaders.</div><div style="margin-top:10px"><a href="${app}/app/settings?tab=billing" style="background:#e5b567;color:#1c1a16;padding:9px 16px;border-radius:9px;text-decoration:none;font-weight:700">See Max</a></div></div>` : ""}
     <div style="font-size:13px;color:#97742a;font-weight:700;letter-spacing:.08em">YOUR MONDAY BRIEFING</div>
     <h1 style="margin:4px 0 2px;font-size:24px">${esc(b.church)}</h1>
     <div style="color:#6b6456;font-size:14px">${esc(b.weekLabel)}</div>
@@ -149,14 +153,14 @@ async function recipients(churchId: string, userIds: string[]) {
   };
 }
 
-export async function deliverBriefing(churchId: string, b: Briefing, to: { emails: string[]; phones: string[] }) {
+export async function deliverBriefing(churchId: string, b: Briefing, to: { emails: string[]; phones: string[] }, note?: BriefingNote) {
   let emails = 0, texts = 0;
   if (to.emails.length) {
-    const r = await sendEmail({ to: to.emails, subject: `Your Monday briefing - ${b.church}`, html: briefingEmail(b), log: { churchId, name: "Monday briefing", segment: "briefing" } });
+    const r = await sendEmail({ to: to.emails, subject: note === "intro" ? `New for Max: your Monday briefing - ${b.church}` : note === "sample" ? `A preview of WorshipHQ Max: your Monday briefing - ${b.church}` : `Your Monday briefing - ${b.church}`, html: briefingEmail(b, note), log: { churchId, name: "Monday briefing", segment: "briefing" } });
     if (r.ok) emails = to.emails.length;
   }
   if (to.phones.length) {
-    const r = await sendChurchSms(churchId, to.phones, briefingSms(b), { note: "Monday briefing" });
+    const r = await sendChurchSms(churchId, to.phones, briefingSms(b, note), { note: "Monday briefing" });
     texts = r.sent;
   }
   return { emails, texts };
@@ -164,15 +168,19 @@ export async function deliverBriefing(churchId: string, b: Briefing, to: { email
 
 /** Hourly: each Max church with the briefing on gets it once, on its chosen day, from its chosen hour. */
 export async function runWeeklyBriefing(now = new Date(), ignoreHour = false, deadline?: Deadline) {
-  const churches = await onlyWithFeature(await db.church.findMany({
+  const all = await db.church.findMany({
     where: { isDemo: false, briefing: { not: Prisma.DbNull } },
     select: { id: true, timezone: true, briefing: true },
-  }), "weekly-briefing");
+  });
+  // Max churches, plus any church the platform owner sent a one-time sample to.
+  const max = new Set((await onlyWithFeature(all, "weekly-briefing")).map((c) => c.id));
+  const churches = all.filter((c) => max.has(c.id) || normalizeBriefing(c.briefing).sample);
 
   let sent = 0;
   const pool = await forEachChurch(churches, async (church) => {
     const cfg = normalizeBriefing(church.briefing);
-    if (!cfg.on || (!cfg.email && !cfg.sms)) return;
+    const isMax = max.has(church.id);
+    if (!(isMax ? cfg.on : cfg.sample) || (!cfg.email && !cfg.sms)) return;
     // The day always counts (the daily fallback run only skips the hour check).
     if (localParts(now, church.timezone).weekday !== cfg.day) return;
     if (!ignoreHour && !timeReached(now, church.timezone, cfg.hour, 0)) return;
@@ -181,8 +189,14 @@ export async function runWeeklyBriefing(now = new Date(), ignoreHour = false, de
     if (claim.count === 0) return;
     const b = await buildBriefing(church.id, now);
     if (!b) return;
+    const note: BriefingNote = !isMax ? "sample" : cfg.intro ? "intro" : undefined;
     const r = await recipients(church.id, cfg.userIds);
-    await deliverBriefing(church.id, b, { emails: cfg.email ? r.emails : [], phones: cfg.sms ? r.phones : [] });
+    await deliverBriefing(church.id, b, { emails: cfg.email ? r.emails : [], phones: cfg.sms ? r.phones : [] }, note);
+    // Launch notes go out once. A sample to a non-Max church is a single send.
+    if (note) {
+      const rest = { ...cfg, intro: undefined, sample: undefined, ...(note === "sample" ? { on: false } : {}) };
+      await db.church.update({ where: { id: church.id }, data: { briefing: JSON.parse(JSON.stringify(rest)) } });
+    }
     sent++;
   }, { deadline, label: "weeklyBriefing" });
   return { churches: churches.length, sent, ...pool };

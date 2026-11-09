@@ -9,6 +9,9 @@ export type BriefingSettings = {
   userIds: string[];
   email: boolean;
   sms: boolean;
+  /** One-time launch notes, set by the platform owner (SQL), cleared after sending. */
+  intro?: boolean;
+  sample?: boolean;
 };
 
 export const DEFAULT_BRIEFING: BriefingSettings = { on: false, day: 1, hour: 7, userIds: [], email: true, sms: false };
@@ -26,5 +29,7 @@ export function normalizeBriefing(raw: unknown): BriefingSettings {
     userIds: Array.isArray(r.userIds) ? r.userIds.filter((x): x is string => typeof x === "string").slice(0, 30) : [],
     email: r.email !== false,
     sms: r.sms === true,
+    ...(r.intro === true ? { intro: true } : {}),
+    ...(r.sample === true ? { sample: true } : {}),
   };
 }
