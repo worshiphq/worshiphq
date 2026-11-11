@@ -10,6 +10,7 @@ export function StatCard({
   decimals,
   change,
   icon: Icon,
+  note,
 }: {
   label: string;
   value: number;
@@ -18,6 +19,8 @@ export function StatCard({
   decimals?: number;
   change?: number;
   icon?: LucideIcon;
+  /** A small line under the number, e.g. "1,240 all time". */
+  note?: string;
 }) {
   const up = (change ?? 0) >= 0;
   return (
@@ -33,6 +36,7 @@ export function StatCard({
       <div className="mt-3 font-display text-3xl font-bold tracking-tight">
         <AnimatedNumber value={value} prefix={prefix} suffix={suffix} decimals={decimals} />
       </div>
+      {note && <div className="mt-1.5 text-xs text-ink-faint">{note}</div>}
       {change !== undefined && (
         <div className="mt-2 flex items-center gap-1.5 text-xs">
           <span

@@ -1,7 +1,8 @@
 import "server-only";
 import { routingForChurch } from "@/lib/sms/routing";
 import { db } from "@/lib/db";
-import { sendSms } from "@/lib/integrations/sms";
+import { sendSms, type SmsRecipientResult } from "@/lib/integrations/sms";
+import { toLogNumber, countStatuses, type LogNumber } from "@/lib/sms/delivery-status";
 import { segmentsFor, smsNormalize } from "@/config/sms";
 import { currentNameLine } from "@/lib/sms/message-name";
 
@@ -86,7 +87,7 @@ export async function addCredits(
 
 /** How many recipient outcomes we keep on an audit row. A 2,000-person broadcast doesn't need every
  *  number in the log to answer "did it go out?", and an unbounded JSON column would bloat the table. */
-const AUDIT_NUMBER_CAP = 300;
+const AUDIT_NUMBER_CAP = 2000;
 
 /**
  * Record what went out. Never throws and never blocks a send: if the table has not been created yet,
@@ -102,10 +103,11 @@ async function logSmsSend(row: {
   sent: number;
   credits: number;
   senderName: string | null;
-  results: { to: string; ok: boolean }[];
+  results: SmsRecipientResult[];
   carrier?: string | null;
   costGhs?: number | null;
-}) {
+  communicationId?: string | null;
+}): Promise<string | null> {
   try {
     // Who pressed send. A cron run, a public form or a webhook has no cookie, and getSession() throws
     // outside a request, so an unknown sender is the normal case rather than a failure.
@@ -122,7 +124,11 @@ async function logSmsSend(row: {
       // no request context - leave it as an automatic send
     }
 
-    await db.smsAuditLog.create({
+    const numbers: LogNumber[] = row.results.slice(0, AUDIT_NUMBER_CAP).map((r) => toLogNumber(r, row.carrier));
+    const counts = countStatuses(numbers);
+    // Numbers past the cap are not listed, but their failures still count.
+    for (const r of row.results.slice(AUDIT_NUMBER_CAP)) if (!r.ok) counts.failed++;
+    const created = await db.smsAuditLog.create({
       data: {
         churchId: row.churchId,
         label: row.label ?? null,
@@ -135,13 +141,22 @@ async function logSmsSend(row: {
         sentById,
         sentByName,
         trigger: sentById ? "manual" : "automatic",
-        numbers: JSON.stringify(row.results.slice(0, AUDIT_NUMBER_CAP)),
+        numbers: JSON.stringify(numbers),
         carrier: row.carrier ?? null,
         costGhs: row.costGhs ?? null,
+        delivered: counts.delivered,
+        failed: counts.failed,
+        pending: counts.pending,
+        // Nothing left to ask the carrier about: the row is final from the start.
+        statusDone: counts.pending === 0,
+        communicationId: row.communicationId ?? null,
       },
+      select: { id: true },
     });
+    return created.id;
   } catch (e) {
     console.error("[sms audit]", (e as Error).message);
+    return null;
   }
 }
 
@@ -153,7 +168,9 @@ export interface ChurchSmsResult {
   insufficient?: boolean;
   /** Per-recipient outcome, same order as the `to` list passed in, so the
    *  caller can log a detailed send audit (who got it, who didn't). */
-  results?: { to: string; ok: boolean }[];
+  results?: SmsRecipientResult[];
+  /** The SMS record this send was written to, for linking it to a campaign. */
+  logId?: string | null;
 }
 
 /**
@@ -166,10 +183,19 @@ export async function sendChurchSms(
   churchId: string,
   to: string | string[],
   rawMessage: string,
-  opts?: { note?: string },
+  opts?: {
+    note?: string;
+    /** A different text per recipient (e.g. "Hi {name}"), by position in `to`. Everything still goes out as ONE
+     *  send with one record, a few at a time, instead of one slow send per person. */
+    textFor?: (index: number) => string;
+    /** The campaign this send belongs to, so delivery reports can update its history too. */
+    communicationId?: string | null;
+  },
 ): Promise<ChurchSmsResult> {
   const recipients = (Array.isArray(to) ? to : [to]).filter(Boolean);
   const message = smsNormalize(rawMessage);
+  const textFor = opts?.textFor;
+  const messageAt = (i: number) => (textFor ? smsNormalize(textFor(i)) : message);
 
   // Brand the message with the church's name so members know who it's from
   // (the SMS sender ID is the platform's, e.g. "HostHub").
@@ -201,28 +227,33 @@ export async function sendChurchSms(
   const smsText = heading ? `${heading}\n${message}` : message;
 
   const segments = segmentsFor(smsText);
+  // Each recipient's own part count: a personal text can be longer for a long name.
+  const segAt = (i: number) => (textFor ? segmentsFor(heading ? `${heading}\n${messageAt(i)}` : messageAt(i)) : segments);
+  const segList = recipients.map((_, i) => segAt(i));
+  const maxSegments = Math.max(segments, ...segList);
   // Worst-case cost, used to gate whether we attempt the send at all.
-  const estimatedCost = segments * recipients.length;
+  const estimatedCost = segList.reduce((a, b) => a + b, 0);
 
   const balance = await getSmsBalance(churchId);
   if (recipients.length === 0) return { ok: true, sent: 0, cost: 0, balance };
   if (balance < estimatedCost) {
     // Worth a row of its own: "the birthday texts never went out because the wallet was empty" is the
     // single most useful thing the log can tell a church weeks later.
-    await logSmsSend({
-      churchId, label: opts?.note, body: message, segments,
+    const logId = await logSmsSend({
+      churchId, label: opts?.note, body: message, segments: maxSegments,
       recipients: recipients.length, sent: 0, credits: 0,
       senderName: ownSender ? church?.smsSenderId : nameLine,
-      results: recipients.map((r) => ({ to: r, ok: false })),
+      results: recipients.map((r) => ({ to: r, ok: false, error: "Not enough SMS credits" })),
+      communicationId: opts?.communicationId,
     });
-    return { ok: false, sent: 0, cost: estimatedCost, balance, insufficient: true };
+    return { ok: false, sent: 0, cost: estimatedCost, balance, insufficient: true, logId };
   }
 
   // Credits are taken BEFORE each chunk is sent (only if the balance still covers it), and the unsent
   // part is handed back after. So sends running at the same time can never overspend the wallet, and a
   // send cut off half way has already paid for what went out.
   const senderId = senderApproved ? church?.smsSenderId ?? null : null;
-  const results: { to: string; ok: boolean }[] = [];
+  const results: SmsRecipientResult[] = [];
   let sent = 0;
   let cost = 0;
   let sendCostGhs = 0;
@@ -232,26 +263,49 @@ export async function sendChurchSms(
   let ranOut = false;
   for (let i = 0; i < recipients.length; i += SEND_CHUNK) {
     const chunk = recipients.slice(i, i + SEND_CHUNK);
-    const reserve = segments * chunk.length;
+    const chunkSegs = segList.slice(i, i + SEND_CHUNK);
+    const reserve = chunkSegs.reduce((a, b) => a + b, 0);
     const claimed = await db.church.updateMany({
       where: { id: churchId, smsCredits: { gte: reserve } },
       data: { smsCredits: { decrement: reserve } },
     });
     if (claimed.count === 0) {
       ranOut = true;
-      for (const r of chunk) results.push({ to: r, ok: false });
-      for (const r of recipients.slice(i + SEND_CHUNK)) results.push({ to: r, ok: false });
+      for (const r of recipients.slice(i)) results.push({ to: r, ok: false, error: "Not enough SMS credits" });
       break;
     }
     let chunkSent = 0;
+    let chunkCharged = 0;
     try {
-      const res = await sendSms(chunk, message, { heading, senderId, platformHeading: nameLine, carrier: church?.smsProvider ?? null, senderCarrier, logged: true });
-      chunkSent = res.sentCount;
-      sendCostGhs += res.costGhs ?? 0;
-      for (const p of res.provider.split("+")) if (p) carriersUsed.add(p);
-      results.push(...(res.results ?? chunk.map((r) => ({ to: r, ok: res.sentCount > 0 }))));
+      const sendOpts = { heading, senderId, platformHeading: nameLine, carrier: church?.smsProvider ?? null, senderCarrier, logged: true } as const;
+      let chunkResults: SmsRecipientResult[];
+      if (!textFor) {
+        const res = await sendSms(chunk, message, sendOpts);
+        sendCostGhs += res.costGhs ?? 0;
+        for (const p of res.provider.split("+")) if (p) carriersUsed.add(p);
+        chunkResults = res.results ?? chunk.map((r) => ({ to: r, ok: res.sentCount > 0 }));
+      } else {
+        // Personal texts: each one is its own message, sent a few at a time.
+        chunkResults = new Array(chunk.length);
+        let next = 0;
+        await Promise.all(Array.from({ length: Math.min(5, chunk.length) }, async () => {
+          while (next < chunk.length) {
+            const k = next++;
+            try {
+              const res = await sendSms(chunk[k]!, messageAt(i + k), sendOpts);
+              sendCostGhs += res.costGhs ?? 0;
+              for (const p of res.provider.split("+")) if (p) carriersUsed.add(p);
+              chunkResults[k] = res.results?.[0] ?? { to: chunk[k]!, ok: res.ok };
+            } catch (e) {
+              chunkResults[k] = { to: chunk[k]!, ok: false, error: (e as Error).message };
+            }
+          }
+        }));
+      }
+      chunkResults.forEach((r, k) => { if (r.ok) { chunkSent++; chunkCharged += chunkSegs[k] ?? segments; } });
+      results.push(...chunkResults);
     } finally {
-      const unused = reserve - segments * chunkSent;
+      const unused = reserve - chunkCharged;
       const after = await db.church.update({
         where: { id: churchId },
         data: unused > 0 ? { smsCredits: { increment: unused } } : {},
@@ -260,7 +314,7 @@ export async function sendChurchSms(
       balanceAfter = after.smsCredits;
     }
     sent += chunkSent;
-    cost += segments * chunkSent;
+    cost += chunkCharged;
     if (chunkSent > 0) {
       // One ledger row per send, kept up to date chunk by chunk.
       const note =
@@ -281,11 +335,11 @@ export async function sendChurchSms(
 
   // Logged whether or not anything went out: "we tried and nothing was delivered" is exactly the
   // question a church asks later, so a failed send is worth a row too.
-  await logSmsSend({
+  const logId = await logSmsSend({
     churchId,
     label: opts?.note,
     body: message,
-    segments,
+    segments: maxSegments,
     recipients: recipients.length,
     sent,
     credits: cost,
@@ -293,10 +347,11 @@ export async function sendChurchSms(
     carrier: [...carriersUsed].join("+") || null,
     costGhs: Math.round(sendCostGhs * 10000) / 10000,
     results,
+    communicationId: opts?.communicationId,
   });
 
   if (sent === 0) {
-    return { ok: false, sent: 0, cost: estimatedCost, balance: balanceAfter, insufficient: ranOut || undefined, results };
+    return { ok: false, sent: 0, cost: estimatedCost, balance: balanceAfter, insufficient: ranOut || undefined, results, logId };
   }
-  return { ok: true, sent, cost, balance: balanceAfter, results };
+  return { ok: true, sent, cost, balance: balanceAfter, results, logId };
 }

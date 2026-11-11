@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight, BarChart3, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { ChevronLeft, ChevronRight, BarChart3, Loader2, CheckCircle2, CheckCheck, Clock, XCircle } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Modal } from "@/components/ui/modal";
@@ -37,7 +37,9 @@ function CampaignDetail({ campaign, onClose }: { campaign: CampaignRow; onClose:
     getCampaignRecipients(campaign.id).then(setRows);
   }, [campaign.id]);
 
-  const failed = rows?.filter((r) => r.status !== "sent").length ?? 0;
+  const failed = rows?.filter((r) => r.status === "failed").length ?? 0;
+  const delivered = rows?.filter((r) => r.status === "delivered").length ?? 0;
+  const waiting = rows?.filter((r) => r.status === "pending").length ?? 0;
 
   return (
     <Modal open onClose={onClose} title={campaign.name} description={`${formatDate(campaign.date)} · ${campaign.channel}`}>
@@ -51,7 +53,9 @@ function CampaignDetail({ campaign, onClose }: { campaign: CampaignRow; onClose:
         <>
           <div className="mb-3 flex items-center gap-2 text-xs text-ink-faint">
             <span>{rows.length} recipient(s)</span>
-            {failed > 0 && <span className="text-danger">· {failed} failed</span>}
+            {delivered > 0 && <span className="text-success">· {delivered} confirmed delivered</span>}
+            {waiting > 0 && <span>· {waiting} waiting for the network</span>}
+            {failed > 0 && <span className="text-danger">· {failed} not delivered</span>}
           </div>
           <div className="max-h-96 space-y-1 overflow-y-auto overscroll-contain">
             {rows.map((r, i) => (
@@ -60,10 +64,14 @@ function CampaignDetail({ campaign, onClose }: { campaign: CampaignRow; onClose:
                   {r.name && <div className="truncate font-medium">{r.name}</div>}
                   <div className="truncate text-xs text-ink-faint">{r.contact}</div>
                 </div>
-                {r.status === "sent" ? (
-                  <CheckCircle2 className="size-4 shrink-0 text-success" />
+                {r.status === "delivered" ? (
+                  <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-success"><CheckCheck className="size-4" /> Delivered</span>
+                ) : r.status === "pending" ? (
+                  <span className="inline-flex shrink-0 items-center gap-1 text-xs text-ink-faint"><Clock className="size-4" /> Waiting</span>
+                ) : r.status === "failed" ? (
+                  <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-danger"><XCircle className="size-4" /> Not delivered</span>
                 ) : (
-                  <XCircle className="size-4 shrink-0 text-danger" />
+                  <span className="inline-flex shrink-0 items-center gap-1 text-xs text-ink-muted"><CheckCircle2 className="size-4 text-success" /> Sent</span>
                 )}
               </div>
             ))}
@@ -95,7 +103,7 @@ export function CampaignHistory({ campaigns }: { campaigns: CampaignRow[] }) {
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead className="border-b border-line text-left text-xs uppercase tracking-wide text-ink-faint">
-                <tr><th className="p-4 font-medium">Campaign</th><th className="p-4 font-medium">Channel</th><th className="p-4 font-medium">Delivered</th><th className="hidden p-4 font-medium sm:table-cell">Date</th><th className="p-4 font-medium">Status</th></tr>
+                <tr><th className="p-4 font-medium">Campaign</th><th className="p-4 font-medium">Channel</th><th className="p-4 font-medium">Reached</th><th className="hidden p-4 font-medium sm:table-cell">Date</th><th className="p-4 font-medium">Status</th></tr>
               </thead>
               <tbody>
                 {slice.map((c) => (
@@ -109,7 +117,7 @@ export function CampaignHistory({ campaigns }: { campaigns: CampaignRow[] }) {
                     <td className="p-4"><Badge variant={c.channel === "SMS" ? "primary" : "info"}>{c.channel}</Badge></td>
                     <td className="p-4 text-ink-muted">{c.sent > 0 ? `${c.delivered}/${c.sent}` : "-"}{c.channel === "Email" && c.opened > 0 && <span className="ml-1 text-xs text-ink-faint">({c.opened} opened)</span>}</td>
                     <td className="hidden p-4 text-ink-muted sm:table-cell">{formatDate(c.date)}</td>
-                    <td className="p-4"><Badge variant={c.status === "Sent" ? "success" : "warning"}>{c.status}</Badge></td>
+                    <td className="p-4"><Badge variant={c.status === "Sent" ? (c.delivered < c.sent ? "warning" : "success") : c.status === "Failed" ? "danger" : "warning"}>{c.status === "Sent" && c.delivered < c.sent ? `${c.sent - c.delivered} not delivered` : c.status}</Badge></td>
                   </tr>
                 ))}
               </tbody>

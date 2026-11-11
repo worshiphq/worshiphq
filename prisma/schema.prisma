@@ -1216,10 +1216,19 @@ model SmsAuditLog {
   numbers    String? // JSON [{ to, ok }], capped - who got it and who did not
   carrier    String? // which carrier took it: hubtel, nalo, or both for a mixed list
   costGhs    Float? // what it cost us. Empty on sends from before cost tracking, which are estimated from credits.
+  // Delivery reports (src/lib/sms/delivery.ts): how many numbers the network confirmed, refused, or has not answered yet.
+  // `sent` above only means the carrier took the message. statusDone = nothing left to ask the carrier about.
+  delivered       Int     @default(0)
+  failed          Int     @default(0)
+  pending         Int     @default(0)
+  statusDone      Boolean @default(true)
+  communicationId String? // the campaign (Communications history) this send belongs to
   createdAt  DateTime @default(now())
 
   @@index([churchId, createdAt])
   @@index([createdAt])
+  @@index([statusDone, createdAt])
+  @@index([communicationId])
 }
 
 // ── Phone verification (OTP) ──────────────────────────────

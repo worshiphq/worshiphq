@@ -63,15 +63,12 @@ export async function sendLeaderGroupMessage(input: { groupId: string; message: 
   let sent = 0;
   let broke = false;
   const outcome: boolean[] = [];
-  if (personalise) {
-    for (const p of people) {
-      const r = await sendChurchSms(session.churchId, p.phone!, outBase.replace(/\{name\}/g, p.firstName || "there"), { note: label });
-      if (r.insufficient) { broke = true; break; }
-      outcome.push(r.ok);
-    }
-    sent = outcome.filter(Boolean).length;
-  } else {
-    const r = await sendChurchSms(session.churchId, people.map((p) => p.phone!), outBase, { note: label });
+  {
+    // One send for the whole group (personal "{name}" texts included), a few at a time, so it never runs out of time.
+    const r = await sendChurchSms(session.churchId, people.map((p) => p.phone!), outBase, {
+      note: label,
+      ...(personalise ? { textFor: (i: number) => outBase.replace(/\{name\}/g, people[i]?.firstName || "there") } : {}),
+    });
     if (r.insufficient) broke = true;
     sent = r.sent;
     people.forEach((_, i) => outcome.push(r.results ? !!r.results[i]?.ok : r.ok));

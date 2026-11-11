@@ -25,8 +25,11 @@ export type SmsResult = {
   billedSegments?: number;
   /** Per-recipient outcome (normalised phone/email actually dialled), in the
    *  same order as the input list, so callers can log a detailed send audit. */
-  results: { to: string; ok: boolean }[];
+  results: SmsRecipientResult[];
 };
+
+/** One recipient's outcome. `id` is the carrier's message id, kept so delivery can be checked later. */
+export type SmsRecipientResult = { to: string; ok: boolean; id?: string; error?: string };
 
 // Approved sender IDs (e.g. Hubtel "HostHub") aren't our brand name, so we brand
 // every message body with a heading (default "WorshipHQ"; church messages pass
@@ -64,7 +67,7 @@ function reportHubtelUsage(segments: number) {
   }).catch(() => {});
 }
 
-type GroupResult = { perOk: boolean[]; id?: string; error?: string };
+type GroupResult = { perOk: boolean[]; ids?: (string | undefined)[]; errors?: (string | undefined)[]; id?: string; error?: string };
 
 /** Send one already-normalised group of recipients through a single carrier, with the message and sender
  *  already decided for that carrier. Returns one ok per recipient, in order. Never throws. */
@@ -84,28 +87,46 @@ async function sendViaProvider(provider: SmsProvider, recipients: string[], mess
     if (provider === "hubtel") {
       let id: string | undefined;
       let error: string | undefined;
-      const perOk: boolean[] = [];
+      const perOk: boolean[] = new Array(recipients.length).fill(false);
+      const ids: (string | undefined)[] = new Array(recipients.length);
+      const errors: (string | undefined)[] = new Array(recipients.length);
       let sent = 0;
-      for (const recipient of recipients) {
+      // A few at a time: one by one, a broadcast to a whole church could outlast the request.
+      let next = 0;
+      const one = async (k: number) => {
+        const recipient = recipients[k]!;
         const url = new URL("https://sms.hubtel.com/v1/messages/send");
         url.searchParams.set("clientsecret", env.HUBTEL_CLIENT_SECRET!);
         url.searchParams.set("clientid", env.HUBTEL_CLIENT_ID!);
         url.searchParams.set("from", sender);
         url.searchParams.set("to", recipient);
         url.searchParams.set("content", message);
-        const res = await fetch(url.toString());
-        const data = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          console.error(`[SMS:hubtel] ${res.status} → ${recipient}:`, data);
-          error = `Hubtel said ${res.status}: ${JSON.stringify(data).slice(0, 300)}`;
-        } else {
-          sent++;
+        try {
+          const res = await fetch(url.toString(), { signal: AbortSignal.timeout(20_000) });
+          const data = await res.json().catch(() => ({}));
+          // Hubtel answers 200/201 with status 0 when it takes the message. Any other status is a refusal, even on a 2xx.
+          const st = data?.status ?? data?.Status;
+          const accepted = res.ok && !(typeof st === "number" && st !== 0);
+          const mid = data?.messageId ?? data?.MessageId;
+          if (!accepted) {
+            console.error(`[SMS:hubtel] ${res.status} → ${recipient}:`, data);
+            errors[k] = `Hubtel said ${res.status}${st != null ? ` (status ${st})` : ""}: ${JSON.stringify(data).slice(0, 200)}`;
+            error = errors[k];
+          } else {
+            sent++;
+          }
+          perOk[k] = accepted;
+          if (mid) { ids[k] = String(mid); id = id ?? String(mid); }
+        } catch (e) {
+          errors[k] = `Could not reach Hubtel: ${(e as Error).message}`;
+          error = errors[k];
         }
-        perOk.push(res.ok);
-        id = data?.messageId ?? data?.MessageId ?? id;
-      }
+      };
+      await Promise.all(Array.from({ length: Math.min(5, recipients.length) }, async () => {
+        while (next < recipients.length) await one(next++);
+      }));
       reportHubtelUsage(sent); // one usage report for the whole group, not per recipient.
-      return { perOk, id, error };
+      return { perOk, ids, errors, id, error };
     }
 
     if (provider === "nalo") {
@@ -121,7 +142,7 @@ async function sendViaProvider(provider: SmsProvider, recipients: string[], mess
         const failed = outcomes.filter((o) => !o.ok).length;
         console.error(`[SMS:nalo] ${failed} of ${outcomes.length} not sent (${firstFailure.code ?? "no code"}): ${firstFailure.error}`);
       }
-      return { perOk: outcomes.map((o) => o.ok), id: outcomes.find((o) => o.ok)?.id, error: firstFailure?.error };
+      return { perOk: outcomes.map((o) => o.ok), ids: outcomes.map((o) => o.id), errors: outcomes.map((o) => o.error), id: outcomes.find((o) => o.ok)?.id, error: firstFailure?.error };
     }
 
     // mnotify / twilio implementations follow the same shape.
@@ -173,9 +194,13 @@ export async function sendSms(
   normalised.forEach((p, i) => {
     if (p.length >= 11) { validIdx.push(i); recipients.push(p); }
   });
-  const toFullResults = (perValidOk: boolean[]): { to: string; ok: boolean }[] => {
-    const out = normalised.map((p) => ({ to: p, ok: false }));
-    validIdx.forEach((origIdx, i) => { out[origIdx].ok = perValidOk[i]; });
+  const toFullResults = (perValidOk: boolean[], ids?: (string | undefined)[], errs?: (string | undefined)[]): SmsRecipientResult[] => {
+    const out: SmsRecipientResult[] = normalised.map((p) => ({ to: p, ok: false, ...(p.length >= 11 ? {} : { error: "Not a valid phone number" }) }));
+    validIdx.forEach((origIdx, i) => {
+      out[origIdx].ok = perValidOk[i];
+      if (ids?.[i]) out[origIdx].id = ids[i];
+      if (!perValidOk[i] && errs?.[i]) out[origIdx].error = errs[i];
+    });
     return out;
   };
 
@@ -200,6 +225,8 @@ export async function sendSms(
   });
 
   const perValidOk = new Array<boolean>(recipients.length).fill(false);
+  const perValidId = new Array<string | undefined>(recipients.length);
+  const perValidErr = new Array<string | undefined>(recipients.length);
   let id: string | undefined;
   let firstError: string | undefined;
   const used: SmsProvider[] = [];
@@ -225,7 +252,11 @@ export async function sendSms(
     const message = withHeading(rawMessage, heading);
 
     const r = await sendViaProvider(provider, nums, message, sender);
-    idxs.forEach((origIdx, k) => { perValidOk[origIdx] = r.perOk[k] ?? false; });
+    idxs.forEach((origIdx, k) => {
+      perValidOk[origIdx] = r.perOk[k] ?? false;
+      perValidId[origIdx] = r.ids?.[k];
+      perValidErr[origIdx] = r.errors?.[k] ?? (r.perOk[k] ? undefined : r.error);
+    });
     if (!id && r.id) id = r.id;
     if (!firstError && r.error) firstError = r.error;
     used.push(provider);
@@ -263,6 +294,6 @@ export async function sendSms(
     sentCount,
     costGhs,
     billedSegments,
-    results: toFullResults(perValidOk),
+    results: toFullResults(perValidOk, perValidId, perValidErr),
   };
 }

@@ -87,6 +87,12 @@ export async function runDailyAutomations(now = new Date(), precise = false) {
     summary.pledgeReminders = await safe("pledgeReminders", () => runPledgeReminders(smsDeadline));
   }
 
+  // 4b) Delivery reports for texts sent in the last few days (Delivered / Not delivered on the SMS records).
+  summary.smsDelivery = await safe("smsDelivery", async () => {
+    const { checkDeliveries } = await import("@/lib/sms/delivery");
+    return checkDeliveries({ budgetMs: 15_000 });
+  });
+
   // 5) Backups use whatever time is left, then stop starting new churches.
   summary.backups = await safe("backups", () => runScheduledBackups(now, Math.max(0, t0 + BACKUP_DEADLINE_MS - Date.now())));
 

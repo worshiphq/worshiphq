@@ -221,7 +221,7 @@ export async function getAccounting(churchId: string, year?: number, month?: num
 
 // ── Communications ────────────────────────────────────────
 export async function getCommunications(churchId: string) {
-  const list = await db.communication.findMany({ where: { churchId }, orderBy: { createdAt: "desc" }, take: 12 });
+  const list = await db.communication.findMany({ where: { churchId }, orderBy: { createdAt: "desc" }, take: 200 });
   const sent = list.reduce((s, c) => s + c.sent, 0);
   const delivered = list.reduce((s, c) => s + c.delivered, 0);
   return {

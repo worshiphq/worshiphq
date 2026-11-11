@@ -31,6 +31,8 @@ export default async function AdminSmsPage({
   const sp = await searchParams;
   const filter = FILTERS.some((f) => f.key === sp.filter) ? sp.filter! : "all";
 
+  // Ask the network about texts still waiting (briefly) so the page shows the latest word.
+  await (await import("@/lib/sms/delivery")).checkDeliveries({ budgetMs: 4000, maxLookups: 80 });
   const [log, allTime, last30, adjustments, onNalo, totalChurches] = await Promise.all([
     getSmsLog({ page: parseInt(sp.page ?? "1", 10) || 1, filter, q: sp.q }),
     getSmsLogTotals(),
@@ -51,10 +53,11 @@ export default async function AdminSmsPage({
 
   const stats = [
     { label: "Sends, all time", value: allTime.sends },
-    { label: "Messages sent", value: allTime.delivered },
+    { label: "Texts sent", value: allTime.accepted },
+    { label: "Confirmed delivered", value: allTime.delivered },
+    { label: "Not delivered", value: allTime.failed, bad: allTime.failed > 0 },
     { label: "Credits used", value: allTime.credits },
-    { label: "Sends in the last 30 days", value: last30.sends },
-    { label: "Sends where nothing went out", value: allTime.failed, bad: allTime.failed > 0 },
+    { label: "Texts in the last 30 days", value: last30.accepted },
   ];
 
   return (
@@ -69,7 +72,7 @@ export default async function AdminSmsPage({
 
       <SmsCarrierSwitch hubtel={totalChurches - onNalo} nalo={onNalo} naloReady={naloConfigured()} />
 
-      <div className="mb-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-5">
+      <div className="mb-5 grid gap-3 sm:grid-cols-3 lg:grid-cols-6">
         {stats.map((s) => (
           <div key={s.label} className="rounded-2xl border border-white/10 bg-white/[0.02] p-4">
             <div className="text-xs text-slate-500">{s.label}</div>

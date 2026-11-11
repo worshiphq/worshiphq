@@ -88,12 +88,16 @@ export async function followUpAbsentees(input: AbsenteeAssign) {
   let texted = 0, noPhone = 0, insufficient = false;
   if (smsText && !session.isDemo) {
     const church = await db.church.findUnique({ where: { id: session.churchId }, select: { name: true } });
-    for (const p of people) {
-      if (!p.phone) { noPhone++; continue; }
-      const msg = renderTemplate(smsText, { name: p.firstName, church: church?.name ?? "", service: sess.serviceName });
-      const res = await sendChurchSms(session.churchId, p.phone, msg, { note: "We missed you (absentee check-in)" });
-      if (res.insufficient) { insufficient = true; break; }
-      if (res.ok) texted++;
+    const withPhone = people.filter((p) => !!p.phone);
+    noPhone = people.length - withPhone.length;
+    if (withPhone.length) {
+      // One send with a personal text each, so a long list never runs out of time half way.
+      const res = await sendChurchSms(session.churchId, withPhone.map((p) => p.phone!), smsText, {
+        note: "We missed you (absentee check-in)",
+        textFor: (i) => renderTemplate(smsText, { name: withPhone[i]!.firstName, church: church?.name ?? "", service: sess.serviceName }),
+      });
+      insufficient = !!res.insufficient;
+      texted = res.sent;
     }
   }
 

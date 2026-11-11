@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { stateOf, type DeliveryState } from "@/lib/sms/delivery-status";
 
 /**
  * Reading the SMS send records. One reader serves both sides: a church reads its own rows on
@@ -24,7 +25,11 @@ export type SmsLogRow = {
   senderName: string | null;
   sentByName: string | null;
   trigger: string;
-  numbers: { to: string; ok: boolean }[];
+  numbers: { to: string; ok: boolean; st: DeliveryState; e?: string }[];
+  /** Network reports: confirmed delivered, not delivered, still waiting. */
+  delivered: number;
+  failed: number;
+  pending: number;
   churchId: string;
   churchName?: string;
   /** All-churches view only: what the church had left just after this send, and what it has now. */
@@ -41,14 +46,14 @@ export type SmsLogPage = {
   ready: boolean;
 };
 
-function parseNumbers(raw: string | null): { to: string; ok: boolean }[] {
+function parseNumbers(raw: string | null): { to: string; ok: boolean; st: DeliveryState; e?: string }[] {
   if (!raw) return [];
   try {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return [];
     return parsed
-      .filter((n): n is { to: string; ok: boolean } => !!n && typeof n.to === "string")
-      .map((n) => ({ to: n.to, ok: !!n.ok }));
+      .filter((n): n is { to: string; ok: boolean; st?: DeliveryState; e?: string } => !!n && typeof n.to === "string")
+      .map((n) => ({ to: n.to, ok: !!n.ok, st: stateOf({ ok: !!n.ok, st: n.st }), ...(n.e ? { e: String(n.e) } : {}) }));
   } catch {
     return [];
   }
@@ -69,7 +74,7 @@ export async function getSmsLog(opts: {
     ...(opts.churchId ? { churchId: opts.churchId } : {}),
     ...(filter === "manual" ? { trigger: "manual" } : {}),
     ...(filter === "automatic" ? { trigger: "automatic" } : {}),
-    ...(filter === "failed" ? { sent: 0 } : {}),
+    ...(filter === "failed" ? { OR: [{ sent: 0 }, { failed: { gt: 0 } }] } : {}),
     ...(q
       ? {
           OR: [
@@ -127,6 +132,9 @@ export async function getSmsLog(opts: {
         sentByName: r.sentByName,
         trigger: r.trigger,
         numbers: parseNumbers(r.numbers),
+        delivered: r.delivered ?? 0,
+        failed: r.failed ?? Math.max(0, r.recipients - r.sent),
+        pending: r.pending ?? 0,
         churchId: r.churchId,
         churchName: "church" in r ? (r.church as { name: string } | undefined)?.name : undefined,
         creditsLeftAfter: opts.churchId ? undefined : leftAfter.get(r.id) ?? null,
@@ -172,17 +180,65 @@ export async function getSmsLogTotals(churchId?: string, since?: Date) {
     };
     const agg = await db.smsAuditLog.aggregate({
       where,
-      _sum: { sent: true, credits: true },
+      _sum: { sent: true, credits: true, recipients: true, delivered: true, failed: true, pending: true },
       _count: { _all: true },
     });
-    const failed = await db.smsAuditLog.count({ where: { ...where, sent: 0 } });
     return {
       sends: agg._count._all,
-      delivered: agg._sum.sent ?? 0,
+      /** Texts the carrier took (it may still fail on the network). */
+      accepted: agg._sum.sent ?? 0,
+      /** Texts the phone network confirmed reached the phone. */
+      delivered: agg._sum.delivered ?? 0,
+      /** Refused, or reported undelivered by the network. */
+      failed: agg._sum.failed ?? 0,
+      pending: agg._sum.pending ?? 0,
+      /** Texts that went out and did not fail: delivered, plus sent with no report (yet). */
+      reached: Math.max(0, (agg._sum.sent ?? 0) - Math.max(0, (agg._sum.failed ?? 0) - ((agg._sum.recipients ?? 0) - (agg._sum.sent ?? 0)))),
       credits: Math.abs(agg._sum.credits ?? 0),
-      failed,
     };
   } catch {
-    return { sends: 0, delivered: 0, credits: 0, failed: 0 };
+    return { sends: 0, accepted: 0, delivered: 0, failed: 0, pending: 0, reached: 0, credits: 0 };
+  }
+}
+
+/**
+ * A church's SMS usage, counted from every text it has sent (broadcasts AND automatic ones like birthdays and
+ * receipts), not just the campaigns on screen. Credits come from the credit ledger, so they match the balance.
+ */
+export async function getSmsUsage(churchId: string) {
+  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
+  const empty = { creditsMonth: 0, creditsAll: 0, textsMonth: 0, textsAll: 0, failedAll: 0, delivered: 0, peopleReached: 0 };
+  try {
+    const [usedAll, usedMonth, refundAll, refundMonth, all, month] = await Promise.all([
+      db.smsTransaction.aggregate({ where: { churchId, kind: "usage" }, _sum: { credits: true } }),
+      db.smsTransaction.aggregate({ where: { churchId, kind: "usage", createdAt: { gte: monthStart } }, _sum: { credits: true } }),
+      // Credits handed back for texts that never went out are not "used".
+      db.smsTransaction.aggregate({ where: { churchId, kind: "refund", source: "undelivered" }, _sum: { credits: true } }),
+      db.smsTransaction.aggregate({ where: { churchId, kind: "refund", source: "undelivered", createdAt: { gte: monthStart } }, _sum: { credits: true } }),
+      db.smsAuditLog.aggregate({ where: { churchId }, _sum: { sent: true, failed: true, delivered: true, recipients: true } }),
+      db.smsAuditLog.aggregate({ where: { churchId, createdAt: { gte: monthStart } }, _sum: { sent: true } }),
+    ]);
+    // Different people (phone numbers) who received at least one text that did not fail.
+    let peopleReached = 0;
+    try {
+      const r = await db.$queryRaw<{ n: bigint }[]>`
+        SELECT COUNT(DISTINCT RIGHT(REGEXP_REPLACE(e->>'to', '\D', '', 'g'), 9)) AS n
+        FROM "SmsAuditLog" l, jsonb_array_elements(COALESCE(NULLIF(l."numbers", ''), '[]')::jsonb) e
+        WHERE l."churchId" = ${churchId} AND (e->>'ok')::boolean IS TRUE AND COALESCE(e->>'st', '') <> 'failed'`;
+      peopleReached = Number(r[0]?.n ?? 0);
+    } catch {
+      peopleReached = 0;
+    }
+    return {
+      creditsAll: Math.max(0, -(usedAll._sum.credits ?? 0) - (refundAll._sum.credits ?? 0)),
+      creditsMonth: Math.max(0, -(usedMonth._sum.credits ?? 0) - (refundMonth._sum.credits ?? 0)),
+      textsAll: all._sum.sent ?? 0,
+      textsMonth: month._sum.sent ?? 0,
+      failedAll: all._sum.failed ?? 0,
+      delivered: all._sum.delivered ?? 0,
+      peopleReached,
+    };
+  } catch {
+    return empty;
   }
 }

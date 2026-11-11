@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getCommunications } from "@/lib/data/modules";
+import { getSmsUsage } from "@/lib/data/sms-audit";
+import { checkDeliveries } from "@/lib/sms/delivery";
 import { getPeopleStats } from "@/lib/data/people";
 import { getSmsBalance } from "@/lib/sms/credits";
 import { getChurchPlan } from "@/lib/plan-gate-server";
@@ -23,6 +25,8 @@ import { currentNameLine } from "@/lib/sms/message-name";
 import { formatDate } from "@/lib/utils";
 
 export const metadata = { title: "Communications" };
+// A broadcast to a whole church runs inside this page's server action.
+export const maxDuration = 60;
 
 export default async function CommunicationsPage({
   searchParams,
@@ -32,9 +36,12 @@ export default async function CommunicationsPage({
   const session = await requireModule("communications");
   const { error, to } = await searchParams;
   const initialTarget = to === "visitor" || to === "visitor-30" ? to : "all";
-  const [{ campaigns, stats }, people, smsBalance, departments, groups, plan, churchRow] = await Promise.all([
+  // Ask the network about recent texts still waiting (briefly), so statuses are current.
+  await checkDeliveries({ churchId: session.churchId, budgetMs: 3000, maxLookups: 60 });
+  const [{ campaigns }, people, usage, smsBalance, departments, groups, plan, churchRow] = await Promise.all([
     getCommunications(session.churchId),
     getPeopleStats(session.churchId),
+    getSmsUsage(session.churchId),
     getSmsBalance(session.churchId),
     db.department.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     db.group.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
@@ -90,10 +97,10 @@ export default async function CommunicationsPage({
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="SMS credits" value={smsBalance} icon={Wallet} />
-        <StatCard label="Messages sent" value={stats.sent} icon={MessageSquare} />
-        <StatCard label="People reached" value={stats.reach} icon={Users} />
-        <StatCard label="Audience" value={people.total} icon={Mail} />
+        <StatCard label="SMS credits left" value={smsBalance} icon={Wallet} />
+        <StatCard label="Credits used this month" value={usage.creditsMonth} icon={MessageSquare} note={`${usage.creditsAll.toLocaleString()} used all time`} />
+        <StatCard label="Texts sent" value={usage.textsAll} icon={Mail} note={`${usage.textsMonth.toLocaleString()} this month${usage.failedAll ? ` · ${usage.failedAll.toLocaleString()} not delivered` : ""}`} />
+        <StatCard label="People reached" value={usage.peopleReached} icon={Users} note={`of ${people.total.toLocaleString()} in your church`} />
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-5">

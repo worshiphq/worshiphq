@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronDown, Check, X, Bot, User as UserIcon } from "lucide-react";
+import { ChevronDown, Check, CheckCheck, X, Clock, Bot, User as UserIcon } from "lucide-react";
+import { STATE_LABEL, type DeliveryState } from "@/lib/sms/delivery-status";
 import { cn } from "@/lib/utils";
 
 export type SmsLogItem = {
@@ -16,7 +17,10 @@ export type SmsLogItem = {
   senderName: string | null;
   sentByName: string | null;
   trigger: string;
-  numbers: { to: string; ok: boolean }[];
+  numbers: { to: string; ok: boolean; st?: DeliveryState; e?: string }[];
+  delivered?: number;
+  failed?: number;
+  pending?: number;
   churchName?: string;
 };
 
@@ -36,8 +40,11 @@ export function SmsLogList({ rows, showChurch = false }: { rows: SmsLogItem[]; s
   return (
     <div className="divide-y divide-line-soft">
       {rows.map((r) => {
-        const failedAll = r.sent === 0;
-        const partial = r.sent > 0 && r.sent < r.recipients;
+        const failedCount = r.failed ?? Math.max(0, r.recipients - r.sent);
+        const failedAll = r.sent === 0 || failedCount >= r.recipients;
+        const partial = !failedAll && failedCount > 0;
+        const waiting = r.pending ?? 0;
+        const confirmed = r.delivered ?? 0;
         const expanded = open === r.id;
         return (
           <div key={r.id}>
@@ -62,13 +69,14 @@ export function SmsLogList({ rows, showChurch = false }: { rows: SmsLogItem[]; s
                     <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] font-medium text-ink-muted">{r.churchName}</span>
                   )}
                   {failedAll && <span className="rounded bg-danger/10 px-1.5 py-0.5 text-[11px] font-semibold text-danger">Nothing delivered</span>}
-                  {partial && <span className="rounded bg-warning/10 px-1.5 py-0.5 text-[11px] font-semibold text-warning">Partly delivered</span>}
+                  {partial && <span className="rounded bg-warning/10 px-1.5 py-0.5 text-[11px] font-semibold text-warning">{failedCount.toLocaleString()} not delivered</span>}
+                  {!failedAll && waiting > 0 && <span className="rounded bg-surface-2 px-1.5 py-0.5 text-[11px] font-semibold text-ink-muted">{waiting.toLocaleString()} waiting for the network</span>}
                 </div>
                 <p className="mt-1 line-clamp-2 whitespace-pre-wrap text-sm text-ink-muted">{r.body}</p>
                 <div className="mt-1.5 flex flex-wrap items-center gap-x-2 text-xs text-ink-faint">
                   <span>{when(r.createdAt)}</span>
                   <span>·</span>
-                  <span>{r.sent.toLocaleString()} of {r.recipients.toLocaleString()} delivered</span>
+                  <span>{r.sent.toLocaleString()} of {r.recipients.toLocaleString()} sent{confirmed > 0 ? `, ${confirmed.toLocaleString()} confirmed delivered` : ""}</span>
                   <span>·</span>
                   <span>{r.credits.toLocaleString()} {r.credits === 1 ? "credit" : "credits"}</span>
                   {r.segments > 1 && <><span>·</span><span>{r.segments} parts each</span></>}
@@ -91,19 +99,32 @@ export function SmsLogList({ rows, showChurch = false }: { rows: SmsLogItem[]; s
                       Numbers{r.numbers.length < r.recipients ? ` (first ${r.numbers.length} of ${r.recipients})` : ""}
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      {r.numbers.map((n, i) => (
-                        <span
-                          key={`${n.to}-${i}`}
-                          className={cn(
-                            "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-xs",
-                            n.ok ? "border-success/30 bg-success/5 text-ink-muted" : "border-danger/30 bg-danger/5 text-danger",
-                          )}
-                        >
-                          {n.ok ? <Check className="size-3" /> : <X className="size-3" />}
-                          {n.to}
-                        </span>
-                      ))}
+                      {r.numbers.map((n, i) => {
+                        const st: DeliveryState = n.st ?? (n.ok ? "sent" : "failed");
+                        return (
+                          <span
+                            key={`${n.to}-${i}`}
+                            title={`${STATE_LABEL[st]}${n.e ? `: ${n.e}` : ""}`}
+                            className={cn(
+                              "inline-flex items-center gap-1 rounded-md border px-2 py-0.5 font-mono text-xs",
+                              st === "delivered" ? "border-success/40 bg-success/10 text-success"
+                                : st === "failed" ? "border-danger/30 bg-danger/5 text-danger"
+                                : st === "pending" ? "border-line bg-surface text-ink-muted"
+                                : "border-success/30 bg-success/5 text-ink-muted",
+                            )}
+                          >
+                            {st === "delivered" ? <CheckCheck className="size-3" /> : st === "failed" ? <X className="size-3" /> : st === "pending" ? <Clock className="size-3" /> : <Check className="size-3" />}
+                            {n.to}
+                          </span>
+                        );
+                      })}
                     </div>
+                    <p className="mt-3 flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink-faint">
+                      <span className="inline-flex items-center gap-1"><CheckCheck className="size-3 text-success" /> Delivered to the phone</span>
+                      <span className="inline-flex items-center gap-1"><Check className="size-3" /> Sent (no report from the network)</span>
+                      <span className="inline-flex items-center gap-1"><Clock className="size-3" /> Waiting for the network</span>
+                      <span className="inline-flex items-center gap-1"><X className="size-3 text-danger" /> Not delivered (hover for the reason)</span>
+                    </p>
                   </>
                 )}
               </div>

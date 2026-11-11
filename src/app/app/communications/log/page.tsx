@@ -1,11 +1,12 @@
 import Link from "@/components/ui/app-link";
-import { ArrowLeft, ChevronLeft, ChevronRight, Send, CheckCircle2, AlertTriangle, Wallet } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, CheckCircle2, AlertTriangle, Wallet, Users } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { StatCard } from "@/components/app/stat-card";
 import { Card } from "@/components/ui/card";
 import { redirect } from "next/navigation";
 import { requireModule } from "@/lib/auth";
 import { getSmsLog, getSmsLogTotals, SMS_LOG_PAGE_SIZE } from "@/lib/data/sms-audit";
+import { checkDeliveries } from "@/lib/sms/delivery";
 import { SmsLogList } from "@/components/app/sms-log-list";
 import { cn } from "@/lib/utils";
 
@@ -31,6 +32,8 @@ export default async function SmsLogPage({
 
   const sp = await searchParams;
   const filter = FILTERS.some((f) => f.key === sp.filter) ? sp.filter! : "all";
+  // Ask the network about anything still waiting first (briefly), so the page shows the latest word.
+  await checkDeliveries({ churchId: session.churchId, budgetMs: 4000, maxLookups: 80 });
   const [log, totals] = await Promise.all([
     getSmsLog({ churchId: session.churchId, page: parseInt(sp.page ?? "1", 10) || 1, filter, q: sp.q }),
     getSmsLogTotals(session.churchId),
@@ -54,10 +57,10 @@ export default async function SmsLogPage({
       />
 
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard icon={Send} label="Sends" value={totals.sends} />
-        <StatCard icon={CheckCircle2} label="Messages delivered" value={totals.delivered} />
-        <StatCard icon={Wallet} label="Credits used" value={totals.credits} />
-        <StatCard icon={AlertTriangle} label="Sends with nothing delivered" value={totals.failed} />
+        <StatCard icon={Users} label="Texts sent (all time)" value={totals.accepted} />
+        <StatCard icon={CheckCircle2} label="Confirmed delivered" value={totals.delivered} />
+        <StatCard icon={AlertTriangle} label="Not delivered" value={totals.failed} />
+        <StatCard icon={Wallet} label="Credits used (all time)" value={totals.credits} />
       </div>
 
       <Card className="mt-4">

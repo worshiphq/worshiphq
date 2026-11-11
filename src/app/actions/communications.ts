@@ -146,16 +146,26 @@ export async function sendBroadcast(formData: FormData) {
 
   const recipients = recipientObjs.map((r) => r.contact);
   let sent = recipients.length;
-  // Per-recipient outcome for the audit log - defaults to "all succeeded"
+  // Per-recipient outcome for the history - defaults to "all succeeded"
   // (email / stub mode has no finer granularity than the whole-batch result).
   let statusByIndex: boolean[] = recipients.map(() => true);
-  // {name} means each recipient needs their own rendered message, so this
-  // sends one at a time instead of one shared batch call - same pattern the
-  // automations use for personalized texts.
+  // {name} means each recipient gets their own text. SMS still goes out as ONE send (a few at a time), so a
+  // whole church is texted well inside the time a request is allowed.
   const outMessage = groupLabel && channel === "SMS" ? `${groupLabel}: ${message}` : message;
   const personalize = outMessage.includes("{name}");
   const renderFor = (recipientName: string) => outMessage.replace(/\{name\}/g, recipientName || "there");
 
+  // The history row is written BEFORE sending, so even a send that is cut off part way still shows up.
+  const comm = await db.communication.create({
+    data: { churchId: session.churchId, name, channel, body: message, segment: segmentLabel, sent: 0, delivered: 0, status: "sending" },
+  });
+  if (recipientObjs.length) {
+    await db.communicationRecipient.createMany({
+      data: recipientObjs.map((r) => ({ communicationId: comm.id, personId: r.id, name: r.name || null, contact: r.contact, status: "pending" })),
+    });
+  }
+
+  let outOfCredits = false;
   if (recipients.length) {
     if (channel === "Email") {
       if (personalize) {
@@ -169,50 +179,30 @@ export async function sendBroadcast(formData: FormData) {
         statusByIndex = recipients.map(() => result.ok);
         sent = result.ok ? recipients.length : 0;
       }
-    } else if (personalize) {
-      // SMS is billed against the church's prepaid credits, one recipient at a time.
-      const results: boolean[] = [];
-      for (const r of recipientObjs) {
-        const res = await sendChurchSms(session.churchId, r.contact, renderFor(r.name), { note: name });
-        if (res.insufficient) break;
-        results.push(res.ok);
-      }
-      statusByIndex = recipientObjs.map((_, i) => results[i] ?? false);
-      sent = results.filter(Boolean).length;
-      if (sent === 0) redirect("/app/communications?error=credits");
     } else {
-      const result = await sendChurchSms(session.churchId, recipients, outMessage, { note: name });
-      if (result.insufficient) {
-        redirect("/app/communications?error=credits");
-      }
+      // SMS is billed against the church's prepaid credits.
+      const result = await sendChurchSms(session.churchId, recipients, outMessage, {
+        note: name,
+        communicationId: comm.id,
+        ...(personalize ? { textFor: (i: number) => renderFor(recipientObjs[i]?.name ?? "") } : {}),
+      });
+      outOfCredits = !!result.insufficient && result.sent === 0;
       sent = result.sent;
       statusByIndex = result.results ? result.results.map((r) => r.ok) : recipients.map(() => result.ok);
     }
   }
 
-  const comm = await db.communication.create({
-    data: {
-      churchId: session.churchId,
-      name,
-      channel,
-      body: message,
-      segment: segmentLabel,
-      sent,
-      delivered: sent, // optimistic in stub mode
-      status: "sent",
-    },
-  });
-
-  if (recipientObjs.length) {
-    await db.communicationRecipient.createMany({
-      data: recipientObjs.map((r, i) => ({
-        communicationId: comm.id,
-        personId: r.id,
-        name: r.name || null,
-        contact: r.contact,
-        status: statusByIndex[i] ? "sent" : "failed",
-      })),
-    });
+  await db.communication.update({ where: { id: comm.id }, data: { sent, delivered: sent, status: outOfCredits ? "failed" : "sent" } });
+  const failedContacts = [...new Set(recipientObjs.filter((_, i) => !statusByIndex[i]).map((r) => r.contact))];
+  await db.communicationRecipient.updateMany({ where: { communicationId: comm.id, contact: { notIn: failedContacts } }, data: { status: "sent" } });
+  if (failedContacts.length) await db.communicationRecipient.updateMany({ where: { communicationId: comm.id, contact: { in: failedContacts } }, data: { status: "failed" } });
+  if (channel === "SMS") {
+    const { syncCampaign } = await import("@/lib/sms/delivery");
+    await syncCampaign(comm.id).catch(() => {});
+  }
+  if (outOfCredits) {
+    revalidatePath("/app/communications");
+    redirect("/app/communications?error=credits");
   }
 
   await audit(session, "send", "broadcast", `Sent "${name}" to ${sent} recipient(s)`);
