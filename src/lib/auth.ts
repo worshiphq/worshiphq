@@ -350,8 +350,9 @@ async function lockedFeatures(churchId: string): Promise<string[]> {
 /** Current session (null when signed out). Reads a signed cookie and loads the DB user. */
 async function _getSession(): Promise<Session | null> {
   const session = await _loadSession();
-  // Demo and support sessions see everything; real users get their church's plan.
-  if (session && !session.isDemo && !session.impersonating) {
+  // The demo sees everything. Real users AND SuperAdmin support get the church's plan, so support sees exactly what the
+  // church sees (locks included). Support is still allowed to save on a locked screen: see assertPlanFeature.
+  if (session && !session.isDemo) {
     session.planLocked = await lockedFeatures(session.churchId);
   }
   return session;
@@ -463,10 +464,14 @@ async function _loadSession(): Promise<Session | null> {
 
   // Custom role overrides the built-in role's access + delete permission.
   // Church-level rolePermissions override the hardcoded defaults for built-in roles.
-  const churchOverrides = (user.church.rolePermissions as Record<string, string[]> | null) ?? {};
+  // A built-in role adjusted on the Team screen is stored as { view, manage, canDelete } and means exactly that,
+  // like a custom role. An older adjustment is a plain list of areas, each of which is viewed and managed.
+  const churchOverrides = (user.church.rolePermissions as Record<string, unknown> | null) ?? {};
+  const own = churchOverrides[user.role];
+  const precise = !user.customRole && own && typeof own === "object" && !Array.isArray(own) ? (own as { view?: string[]; manage?: string[]; canDelete?: boolean }) : null;
   const sections = user.customRole
     ? user.customRole.sections
-    : churchOverrides[user.role] ?? modulesForRole(user.role);
+    : precise ? (precise.view ?? []) : (Array.isArray(own) ? (own as string[]) : modulesForRole(user.role));
   // Built-in roles manage everything they can see; custom roles manage only the
   // subset explicitly granted (falling back to all sections for legacy roles
   // saved before the View/Manage split existed).
@@ -474,8 +479,8 @@ async function _loadSession(): Promise<Session | null> {
   // pre-date the split (manageSplit = false) keep managing everything they can see.
   const manageSections = user.customRole
     ? (user.customRole.manageSplit ? user.customRole.manageSections : user.customRole.sections)
-    : sections;
-  const canDelete = user.customRole ? user.customRole.canDelete : true;
+    : precise ? (precise.manage ?? []).filter((k) => sections.includes(k)) : sections;
+  const canDelete = user.customRole ? user.customRole.canDelete : precise ? precise.canDelete !== false : true;
 
   return {
     userId: user.id,
@@ -486,7 +491,7 @@ async function _loadSession(): Promise<Session | null> {
     sections,
     manageSections,
     // Custom roles mean exactly what was ticked - no sibling expansion.
-    exactSections: !!user.customRole,
+    exactSections: !!user.customRole || !!precise,
     canDelete,
     churchId: user.churchId,
     churchName: user.church.name,
@@ -542,7 +547,7 @@ export class PlanLockedError extends Error {
 
 /** Refuse an action whose feature the church's plan does not include (the feature key, not a permission section). */
 export function assertPlanFeature(session: Session, feature: string) {
-  if (!session.isDemo && session.planLocked?.includes(feature)) throw new PlanLockedError(feature);
+  if (!session.isDemo && !session.impersonating && session.planLocked?.includes(feature)) throw new PlanLockedError(feature);
 }
 
 export function assertCanWrite(session: Session, module?: string) {
@@ -550,7 +555,7 @@ export function assertCanWrite(session: Session, module?: string) {
   // A suspended church is frozen. The layout hides the app from it, but a stale open tab or a hand-made
   // request can still reach a server action, so the refusal lives here as well.
   if (session.suspended && !session.impersonating) throw new Error("This church account is suspended. Please contact WorshipHQ support.");
-  if (module) {
+  if (module && !session.impersonating) {
     const locked = planLockFor(session, module);
     if (locked) throw new PlanLockedError(locked);
   }

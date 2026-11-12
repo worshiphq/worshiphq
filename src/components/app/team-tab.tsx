@@ -17,7 +17,7 @@ import { SECTION_GROUPS } from "@/lib/permissions";
 import { roleLabel } from "@/lib/roles";
 import { cn } from "@/lib/utils";
 import {
-  ROLE_BLURB, ROLE_TEMPLATES, AREAS, accessFor, accessSummary, builtinKeys, menuFor, type TeamRoleChoice,
+  ROLE_BLURB, ROLE_TEMPLATES, accessFor, accessSummary, builtinExact, menuFor, type TeamRoleChoice, type RolePermissions,
 } from "@/lib/team-access";
 import {
   inviteTeammate, inviteBudgetLeader, changeUserRole, removeTeamMember, resendTeamInvite,
@@ -39,7 +39,7 @@ type Props = {
   members: TeamMember[];
   customRoles: TeamCustomRole[];
   departments: { id: string; name: string }[];
-  rolePermissions: Record<string, string[]> | null;
+  rolePermissions: RolePermissions | null;
   seats: { used: number; limit: number | null };
   customRolesLocked: boolean;
 };
@@ -83,7 +83,7 @@ function Drawer({ title, onClose, children, footer }: { title: string; onClose: 
 }
 
 /** The menu someone would see, so nobody has to guess what a role means. */
-function MenuPreview({ choice, rolePermissions }: { choice: TeamRoleChoice; rolePermissions: Record<string, string[]> | null }) {
+function MenuPreview({ choice, rolePermissions }: { choice: TeamRoleChoice; rolePermissions: RolePermissions | null }) {
   const a = accessFor(choice, rolePermissions);
   const groups = menuFor(a);
   return (
@@ -114,7 +114,7 @@ function MenuPreview({ choice, rolePermissions }: { choice: TeamRoleChoice; role
 /** Pick a role from cards that say what each one does. */
 function RolePicker({ value, onChange, customRoles, departments, rolePermissions, allowAdmin, customRolesLocked }: {
   value: string; onChange: (c: TeamRoleChoice) => void; customRoles: TeamCustomRole[]; departments: { id: string; name: string }[];
-  rolePermissions: Record<string, string[]> | null; allowAdmin: boolean; customRolesLocked: boolean;
+  rolePermissions: RolePermissions | null; allowAdmin: boolean; customRolesLocked: boolean;
 }) {
   const [dept, setDept] = useState(value.startsWith("budget:") ? value.slice(7) : departments[0]?.id ?? "");
   const card = (key: string, active: boolean, title: React.ReactNode, blurb: string, onClick: () => void, disabled = false) => (
@@ -132,6 +132,11 @@ function RolePicker({ value, onChange, customRoles, departments, rolePermissions
       {BUILT_INS.map((r) => card(r, value === r, roleLabel(r), `${ROLE_BLURB[r]}`, () => onChange({ kind: "builtin", role: r }), r === "Admin" && !allowAdmin))}
       {customRoles.length > 0 && <div className="pt-2 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">Your church&rsquo;s roles</div>}
       {customRoles.map((r) => card(r.id, value === `custom:${r.id}`, r.name, accessSummary(accessFor({ kind: "custom", ...r }, rolePermissions)), () => onChange({ kind: "custom", ...r }), customRolesLocked))}
+      {customRoles.length === 0 && (
+        <p className="rounded-xl border border-dashed border-line p-3 text-xs text-ink-muted">
+          None of these fit? You can change what any role can use under <b>Roles</b> on this page{customRolesLocked ? ", or create roles with your own names on the Pro plan." : ", or create a role with its own name there."}
+        </p>
+      )}
       <div className="pt-2 text-[10px] font-semibold uppercase tracking-wider text-ink-faint">Department budget</div>
       {departments.length === 0
         ? <p className="rounded-xl border border-dashed border-line p-3 text-xs text-ink-muted">Add a department first (Departments tab) to give someone only that department&rsquo;s budget.</p>
@@ -397,10 +402,18 @@ export function TeamTab({ me, members, customRoles, departments, rolePermissions
       )}
 
       {roleEditor?.kind === "builtin" && (
-        <BuiltinRoleDrawer role={roleEditor.role} current={builtinKeys(roleEditor.role, rolePermissions)} busy={busy === "builtin"} onClose={() => setRoleEditor(null)}
-          onSave={(keys) => {
-            const fd = new FormData(); fd.set("role", roleEditor.role); keys.forEach((k) => fd.append("sections", k));
-            act("builtin", () => updateRolePermissions(fd), `${roleEditor.role} updated`, () => setRoleEditor(null));
+        <BuiltinRoleDrawer role={roleEditor.role} start={builtinExact(roleEditor.role, rolePermissions)} adjusted={!!rolePermissions?.[roleEditor.role]} busy={busy}
+          count={members.filter((m) => m.role === roleEditor.role && !m.customRole && !m.budgetDepartment).length}
+          onClose={() => setRoleEditor(null)}
+          onSave={(v) => {
+            const fd = new FormData(); fd.set("role", roleEditor.role);
+            v.view.forEach((k) => fd.append("sections", k)); v.manage.forEach((k) => fd.append("manageSections", k));
+            if (v.canDelete) fd.set("canDelete", "on");
+            act("builtin", () => updateRolePermissions(fd), `${roleLabel(roleEditor.role)} updated`, () => setRoleEditor(null));
+          }}
+          onReset={() => {
+            const fd = new FormData(); fd.set("role", roleEditor.role); fd.set("reset", "1");
+            act("reset", () => updateRolePermissions(fd), `${roleLabel(roleEditor.role)} is back to its default`, () => setRoleEditor(null));
           }} />
       )}
     </div>
@@ -429,7 +442,7 @@ function RoleRow({ name, blurb, summary, count, onEdit, custom, changed, icon }:
 
 function MemberDrawer({ m, me, isOwner, canEdit, customRoles, departments, rolePermissions, customRolesLocked, busy, pending, onClose, onSaveRole, onResend, onRemove }: {
   m: TeamMember; me: { id: string }; isOwner: boolean; canEdit: boolean; customRoles: TeamCustomRole[]; departments: { id: string; name: string }[];
-  rolePermissions: Record<string, string[]> | null; customRolesLocked: boolean; busy: string | null; pending: boolean;
+  rolePermissions: RolePermissions | null; customRolesLocked: boolean; busy: string | null; pending: boolean;
   onClose: () => void; onSaveRole: (c: TeamRoleChoice) => void; onResend: () => void; onRemove: () => void;
 }) {
   const start = choiceOf(m, customRoles);
@@ -487,7 +500,7 @@ function MemberDrawer({ m, me, isOwner, canEdit, customRoles, departments, roleP
 }
 
 function InviteDrawer({ customRoles, departments, rolePermissions, isOwner, customRolesLocked, busy, onClose, onSend }: {
-  customRoles: TeamCustomRole[]; departments: { id: string; name: string }[]; rolePermissions: Record<string, string[]> | null; isOwner: boolean;
+  customRoles: TeamCustomRole[]; departments: { id: string; name: string }[]; rolePermissions: RolePermissions | null; isOwner: boolean;
   customRolesLocked: boolean; busy: boolean; onClose: () => void; onSend: (fd: FormData, c: TeamRoleChoice) => void;
 }) {
   const [step, setStep] = useState(1);
@@ -624,36 +637,39 @@ function CustomRoleDrawer({ role, template, busy, onClose, onSave, onDelete }: {
   );
 }
 
-function BuiltinRoleDrawer({ role, current, busy, onClose, onSave }: { role: Role; current: string[]; busy: boolean; onClose: () => void; onSave: (keys: string[]) => void }) {
-  const [keys, setKeys] = useState<Set<string>>(new Set(current));
-  const toggle = (k: string) => setKeys((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
+function BuiltinRoleDrawer({ role, start, adjusted, count, busy, onClose, onSave, onReset }: {
+  role: Role; start: { view: string[]; manage: string[]; canDelete: boolean }; adjusted: boolean; count: number; busy: string | null;
+  onClose: () => void; onSave: (v: { view: string[]; manage: string[]; canDelete: boolean }) => void; onReset: () => void;
+}) {
+  const [view, setView] = useState<Set<string>>(new Set(start.view));
+  const [manage, setManage] = useState<Set<string>>(new Set(start.manage));
+  const [canDelete, setCanDelete] = useState(start.canDelete);
+  const choice: TeamRoleChoice = { kind: "custom", id: role, name: role, sections: [...view], manageSections: [...manage], canDelete };
   return (
-    <Drawer title={`What ${role}s can use`} onClose={onClose}
+    <Drawer title={`Adjust the ${roleLabel(role)} role`} onClose={onClose}
       footer={(
         <div className="flex items-center gap-2">
-          <Button className="flex-1" disabled={busy} onClick={() => onSave([...keys])}>{busy ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : "Save"}</Button>
-          <Button variant="ghost" onClick={() => setKeys(new Set(builtinKeys(role, null)))}>Back to default</Button>
+          <Button className="flex-1" disabled={busy === "builtin" || view.size === 0} onClick={() => onSave({ view: [...view], manage: [...manage], canDelete })}>
+            {busy === "builtin" ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : "Save"}
+          </Button>
+          {adjusted && <Button variant="ghost" disabled={busy === "reset"} onClick={onReset}>{busy === "reset" ? <><Loader2 className="size-4 animate-spin" /> Resetting…</> : "Back to default"}</Button>}
         </div>
       )}>
-      <p className="mb-4 text-sm text-ink-muted">{ROLE_BLURB[role]} Switch whole areas on or off. Everyone on this role can view and edit what is switched on.</p>
-      <div className="space-y-2">
-        {AREAS.map((a) => {
-          const on = keys.has(a.key);
-          return (
-            <button key={a.key} type="button" onClick={() => toggle(a.key)} aria-pressed={on}
-              className={cn("flex w-full items-start justify-between gap-3 rounded-xl border p-3 text-left", on ? "border-primary/50 bg-primary/5" : "border-line hover:bg-surface-2")}>
-              <span>
-                <span className="font-medium">{a.label}</span>
-                <span className="mt-0.5 block text-xs text-ink-muted">{a.includes.join(", ")}</span>
-              </span>
-              <span className={cn("relative mt-0.5 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors", on ? "bg-primary" : "border border-line bg-surface-2")}>
-                <span className={cn("inline-block size-4 rounded-full bg-white shadow transition-transform", on ? "translate-x-6" : "translate-x-1")} />
-              </span>
-            </button>
-          );
-        })}
+      <div className="space-y-5">
+        <div className="rounded-xl bg-surface-2/60 p-3 text-sm text-ink-muted">
+          {ROLE_BLURB[role]} {count > 0 ? `${count} ${count === 1 ? "person has" : "people have"} this role, and the change applies to them straight away.` : "Nobody has this role yet."}
+        </div>
+        <div>
+          <Label>What this role can use</Label>
+          <p className="mb-3 text-xs text-ink-muted"><b>Off</b> hides it from their menu. <b>View</b> lets them open and read it. <b>Edit</b> also lets them add and change things.</p>
+          <AccessGrid view={view} manage={manage} setView={setView} setManage={setManage} />
+        </div>
+        <label className="flex items-start gap-2 rounded-xl border border-line p-3 text-sm">
+          <input type="checkbox" checked={canDelete} onChange={(e) => setCanDelete(e.target.checked)} className="mt-0.5 size-4 accent-[var(--color-primary)]" />
+          <span><span className="font-medium">Can delete records</span><span className="block text-xs text-ink-muted">Off means they can add and edit, but not delete. Deleted records go to the recycle bin either way.</span></span>
+        </label>
+        <MenuPreview choice={choice} rolePermissions={null} />
       </div>
-      <div className="mt-5"><MenuPreview choice={{ kind: "builtin", role }} rolePermissions={{ [role]: [...keys] }} /></div>
     </Drawer>
   );
 }

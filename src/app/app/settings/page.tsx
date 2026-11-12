@@ -7,6 +7,7 @@ import { db } from "@/lib/db";
 import { features } from "@/lib/env";
 import { getTrialOffer } from "@/lib/trials";
 import { churchHasFeature } from "@/lib/plan-gate-server";
+import type { RolePermissions } from "@/lib/team-access";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { loadMessageCenter } from "@/lib/messages/load";
 
@@ -116,7 +117,7 @@ export default async function SettingsPage() {
       smsSenderId: church.smsSenderId,
       smsSenderIdStatus: church.smsSenderIdStatus,
       smsSenderIdRequestedAt: church.smsSenderIdRequestedAt,
-      rolePermissions: (church.rolePermissions as Record<string, string[]> | null) ?? null,
+      rolePermissions: (church.rolePermissions as RolePermissions | null) ?? null,
     }
     : null;
 

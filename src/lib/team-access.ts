@@ -12,16 +12,23 @@ export type TeamRoleChoice =
   | { kind: "custom"; id: string; name: string; sections: string[]; manageSections: string[]; canDelete: boolean }
   | { kind: "budget"; departmentId: string; departmentName: string };
 
-/** One line on what each built-in role is for, in plain words. */
+/** Who each built-in role is usually for. What it can actually use is shown separately, from its real settings. */
 export const ROLE_BLURB: Record<string, string> = {
-  Owner: "Full control of the church account, including billing. There is only one.",
-  Admin: "Runs the account day to day: every section, the team and settings. Billing stays with the Main Admin.",
-  Pastor: "Looks after the flock: people, attendance, giving, events, volunteers and messages.",
-  Finance: "Handles the money: giving, accounting, harvest and reminders, plus the member list.",
-  Media: "Sends messages and notices, runs events, and sees the member list.",
-  Leader: "Leads a ministry: people, attendance, events, volunteers, messages and reminders.",
-  Volunteer: "Helps on the day: marks attendance and sees people and events.",
+  Owner: "The person who owns the account. Can do everything, including billing. There is only one.",
+  Admin: "For the person who runs the account with you, such as the church secretary.",
+  Pastor: "For pastors and associate pastors.",
+  Finance: "For the treasurer and the finance team.",
+  Media: "For the media and communications team.",
+  Leader: "For ministry and department leaders.",
+  Volunteer: "For ushers and helpers on Sunday.",
 };
+
+/**
+ * How a church has adjusted a built-in role. Adjusted on the Team screen it is { view, manage, canDelete } (exact,
+ * like a custom role). Adjusted before that it is a plain list of areas, each viewed and edited.
+ */
+export type RoleOverride = string[] | { view: string[]; manage: string[]; canDelete?: boolean };
+export type RolePermissions = Record<string, RoleOverride>;
 
 /** Ready-made starting points for a custom role (sections it can view, and the ones it can also edit). */
 export const ROLE_TEMPLATES: { name: string; blurb: string; view: string[]; manage: string[] }[] = [
@@ -33,16 +40,30 @@ export const ROLE_TEMPLATES: { name: string; blurb: string; view: string[]; mana
 ];
 
 /** The sections a built-in role holds in this church (its own settings override the defaults). */
-export function builtinKeys(role: string, overrides: Record<string, string[]> | null): string[] {
+export function builtinKeys(role: string, overrides: RolePermissions | null): string[] {
   if (role === "Owner") return ["*"];
-  return overrides?.[role] ?? ROLE_PERMISSIONS[role as Role] ?? [];
+  const o = overrides?.[role];
+  if (o && !Array.isArray(o)) return o.view;
+  return o ?? ROLE_PERMISSIONS[role as Role] ?? [];
+}
+
+/** A built-in role as exact View / Edit lists, for the editor (areas are opened up into their sections). */
+export function builtinExact(role: string, overrides: RolePermissions | null): { view: string[]; manage: string[]; canDelete: boolean } {
+  const o = overrides?.[role];
+  if (o && !Array.isArray(o)) return { view: o.view, manage: o.manage, canDelete: o.canDelete !== false };
+  const keys = o ?? ROLE_PERMISSIONS[role as Role] ?? [];
+  const all = SECTION_GROUPS.flatMap((g) => g.sections);
+  const view = all.filter((s) => granted(keys, s.key)).map((s) => s.key);
+  return { view, manage: view.filter((k) => all.find((s) => s.key === k)?.manageable), canDelete: true };
 }
 
 export type Access = { all: boolean; budgetOnly?: string; view: string[]; manage: string[]; exact: boolean };
 
-export function accessFor(choice: TeamRoleChoice, overrides: Record<string, string[]> | null): Access {
+export function accessFor(choice: TeamRoleChoice, overrides: RolePermissions | null): Access {
   if (choice.kind === "budget") return { all: false, budgetOnly: choice.departmentName, view: [], manage: [], exact: true };
   if (choice.kind === "custom") return { all: false, view: choice.sections, manage: choice.manageSections, exact: true };
+  const o = overrides?.[choice.role];
+  if (choice.role !== "Owner" && o && !Array.isArray(o)) return { all: false, view: o.view, manage: o.manage, exact: true };
   const keys = builtinKeys(choice.role, overrides);
   return { all: keys.includes("*"), view: keys, manage: keys, exact: false };
 }

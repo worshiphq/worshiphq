@@ -535,16 +535,19 @@ export async function updateRolePermissions(formData: FormData): Promise<ActionR
   if (role === "Admin" && session.role !== "Owner") return { ok: false, error: "Only the Main Admin can change what Admins can do." };
 
   const sections = formData.getAll("sections").map(String);
+  const manage = formData.getAll("manageSections").map(String).filter((s) => sections.includes(s));
   const church = await db.church.findUnique({
     where: { id: session.churchId },
     select: { rolePermissions: true },
   });
-  const current = (church?.rolePermissions as Record<string, string[]> | null) ?? {};
-  current[role] = sections;
+  const current = (church?.rolePermissions as Record<string, unknown> | null) ?? {};
+  // "Back to default" clears the adjustment so the role follows the built-in default again.
+  if (formData.get("reset") === "1") delete current[role];
+  else current[role] = { view: sections, manage, canDelete: formData.get("canDelete") === "on" };
 
   await db.church.update({
     where: { id: session.churchId },
-    data: { rolePermissions: current },
+    data: { rolePermissions: current as object },
   });
 
   await audit(session, "update", "role", `Changed what the ${role} role can use`);

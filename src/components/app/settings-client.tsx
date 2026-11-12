@@ -73,7 +73,7 @@ type Church = {
   smsSenderId?: string | null;
   smsSenderIdStatus?: string | null;
   smsSenderIdRequestedAt?: Date | null;
-  rolePermissions?: Record<string, string[]> | null;
+  rolePermissions?: import("@/lib/team-access").RolePermissions | null;
 } | null;
 type TeamUser = TeamMember;
 type Dept = { id: string; name: string; memberCount?: number };
@@ -269,7 +269,7 @@ export function SettingsClient({
   /** The plan feature a tab needs when the church's plan does not include it, else null. */
   const lockedFeature = (key: string): string | null => {
     const f = TAB_FEATURE[key];
-    if (!f || session.isDemo || session.impersonating) return null;
+    if (!f || session.isDemo) return null;
     if (key === "linked" && church?.hasLinks) return null;
     return session.planLocked?.includes(f) ? f : null;
   };
