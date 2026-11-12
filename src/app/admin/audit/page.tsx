@@ -1,3 +1,4 @@
+import { LiveSearch } from "@/components/admin/list-tools";
 import Link from "@/components/ui/app-link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requireSuperAdminOwner } from "@/lib/auth";
@@ -122,11 +123,7 @@ export default async function AdminAuditPage({ searchParams }: { searchParams: P
             {t.label}
           </Link>
         ))}
-        <form action="/admin/audit" className="ml-auto flex gap-2">
-          <input type="hidden" name="tab" value={tab} />
-          <input name="q" defaultValue={q} placeholder="Search" aria-label="Search this log" className="rounded-lg border border-white/10 bg-black/30 px-3 py-1.5 text-sm text-white placeholder:text-slate-500 focus:border-teal-400/60 focus:outline-none" />
-          <button className="rounded-lg bg-white/10 px-3 py-1.5 text-sm text-white hover:bg-white/15">Search</button>
-        </form>
+        <LiveSearch placeholder="Search this log" className="ml-auto" />
       </div>
 
       {tab === "admin" && <p className="mb-3 text-xs text-slate-500">Recorded the moment an action is used, so a row can also be an attempt that failed on bad input. Passwords, codes, keys and account numbers are never stored.</p>}

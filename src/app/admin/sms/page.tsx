@@ -1,3 +1,4 @@
+import { LiveSearch } from "@/components/admin/list-tools";
 import { Pager } from "@/components/admin/pager";
 import { paging, readPage } from "@/lib/admin-paging";
 import Link from "@/components/ui/app-link";
@@ -125,15 +126,7 @@ export default async function AdminSmsPage({
             </Link>
           ))}
         </div>
-        <form action="/admin/sms" className="flex-1 min-w-[220px]">
-          <input
-            name="q"
-            defaultValue={sp.q ?? ""}
-            placeholder="Search by church or what was sent"
-            className="w-full rounded-lg border border-white/10 bg-black/30 px-3 py-2 text-sm text-white placeholder:text-slate-500 focus:border-teal-400/60 focus:outline-none"
-          />
-          {filter !== "all" && <input type="hidden" name="filter" value={filter} />}
-        </form>
+        <LiveSearch placeholder="Search by church or what was sent" className="min-w-[220px] flex-1 [&_input]:w-full" />
       </div>
 
       <div className="rounded-2xl border border-white/10">

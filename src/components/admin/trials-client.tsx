@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "@/components/ui/app-link";
 import { Loader2, Search, Sparkles } from "lucide-react";
@@ -59,6 +59,14 @@ export function TrialsClient({ settings, rows, counts, conversionPct, filter, q,
     if (s !== "status") sp.set("sort", s);
     router.push(`${pathname}${sp.toString() ? `?${sp}` : ""}`);
   };
+
+  // Results follow the typing, a moment after it stops. No Enter needed.
+  useEffect(() => {
+    if (search.trim() === q) return;
+    const t = setTimeout(() => go({ q: search.trim() }), 300);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   const run = (key: string, fn: () => Promise<Result>, after?: () => void) => {
     setBusy(key);
@@ -197,9 +205,9 @@ export function TrialsClient({ settings, rows, counts, conversionPct, filter, q,
       </AdminCard>
 
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <form className="relative" onSubmit={(e) => { e.preventDefault(); go({ q: search.trim() }); }}>
+        <form className="relative" onSubmit={(e) => { e.preventDefault(); go({ q: search.trim() }); }} role="search">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
-          <input className={`${input} w-64 pl-9`} placeholder="Search church (press Enter)" value={search} onChange={(e) => setSearch(e.target.value)} />
+          <input className={`${input} w-64 pl-9`} placeholder="Search church" value={search} onChange={(e) => setSearch(e.target.value)} />
         </form>
         {TABS.map((t) => (
           <button key={t.key} onClick={() => go({ filter: t.key })} className={cn("rounded-full border px-3 py-1 text-xs", filter === t.key ? "border-teal-500/60 bg-teal-500/15 text-teal-300" : "border-white/10 text-slate-400 hover:bg-white/5")}>

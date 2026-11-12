@@ -1,5 +1,6 @@
 "use client";
 
+import { SortTh, type SortDir } from "@/components/admin/list-tools";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
@@ -44,6 +45,7 @@ export function OutreachClient({ data }: { data: OutreachData }) {
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "new" | "free" | "paid" | "trialEligible" | "trialActive" | "trialEnded">("all");
   const [page, setPage] = useState(1);
+  const [sort, setSort] = useState<{ k: string; dir: SortDir }>({ k: "joined", dir: "desc" });
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [composer, setComposer] = useState<Composer>(null);
   const [history, setHistory] = useState<OutreachChurch | null>(null);
@@ -60,7 +62,18 @@ export function OutreachClient({ data }: { data: OutreachData }) {
     const t = q.trim().toLowerCase();
     if (!t) return true;
     return c.name.toLowerCase().includes(t) || (c.city ?? "").toLowerCase().includes(t) || c.contacts.some((x) => `${x.name} ${x.email} ${x.phone ?? ""}`.toLowerCase().includes(t));
-  }), [data.churches, q, filter]);
+  }).sort((a, b) => {
+    const m = sort.dir === "asc" ? 1 : -1;
+    const val = (c: OutreachChurch): number | string =>
+      sort.k === "name" ? c.name.toLowerCase()
+      : sort.k === "members" ? c.members
+      : sort.k === "team" ? c.team
+      : sort.k === "contacted" ? (c.lastContactAt ? Date.parse(c.lastContactAt) : 0)
+      : Date.parse(c.createdAt);
+    const x = val(a), y = val(b);
+    return (x < y ? -1 : x > y ? 1 : 0) * m;
+  }), [data.churches, q, filter, sort]);
+  const onSort = (k: string, dir: SortDir) => { setSort({ k, dir }); setPage(1); };
   const chosen = data.churches.filter((c) => sel.has(c.id));
   // A page at a time. What is ticked is kept across pages, so a church ticked on page 1 is still chosen on page 3.
   const pages = Math.max(1, Math.ceil(rows.length / ADMIN_PAGE_SIZE));
@@ -155,7 +168,11 @@ export function OutreachClient({ data }: { data: OutreachData }) {
             <thead>
               <tr className="border-b border-white/10 text-left text-[11px] uppercase tracking-wide text-slate-500">
                 <th className="w-10 px-4 py-3"><input type="checkbox" checked={allOn} onChange={() => setSel((s) => { const n = new Set(s); for (const r of pageRows) { if (allOn) n.delete(r.id); else n.add(r.id); } return n; })} className="size-4 accent-teal-500" /></th>
-                <th className="px-2 py-3">Church</th><th className="px-2 py-3">Owner</th><th className="px-2 py-3">Status</th><th className="px-2 py-3 text-right">Reach out</th>
+                <SortTh label="Church" k="name" sort={sort.k} dir={sort.dir} onSort={onSort} />
+                <SortTh label="Members" k="members" numeric sort={sort.k} dir={sort.dir} onSort={onSort} className="text-right" />
+                <th className="px-2 py-3">Owner</th>
+                <SortTh label="Contacted" k="contacted" numeric sort={sort.k} dir={sort.dir} onSort={onSort} />
+                <th className="px-2 py-3 text-right">Reach out</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-white/5">
@@ -168,9 +185,13 @@ export function OutreachClient({ data }: { data: OutreachData }) {
                       <div className="font-medium text-slate-100">{c.name}</div>
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
                         <span className="rounded bg-white/5 px-1.5 py-0.5 capitalize text-slate-300">{c.plan}</span>
-                        <span>Joined {day(c.createdAt)}</span>
+                        <button type="button" onClick={() => onSort("joined", sort.k === "joined" && sort.dir === "desc" ? "asc" : "desc")} className="hover:text-slate-300" title="Sort by date joined">Joined {day(c.createdAt)}</button>
                         {c.suspended && <span className="text-red-400">Suspended</span>}
                       </div>
+                    </td>
+                    <td className="px-2 py-3 text-right tabular-nums">
+                      <div className="font-semibold text-slate-100">{c.members.toLocaleString()}</div>
+                      <div className="text-[11px] text-slate-500">{c.team} on team</div>
                     </td>
                     <td className="px-2 py-3">
                       {o ? (
@@ -204,7 +225,7 @@ export function OutreachClient({ data }: { data: OutreachData }) {
                   </tr>
                 );
               })}
-              {rows.length === 0 && <tr><td colSpan={5} className="px-4 py-10 text-center text-sm text-slate-500">No churches match.</td></tr>}
+              {rows.length === 0 && <tr><td colSpan={6} className="px-4 py-10 text-center text-sm text-slate-500">No churches match.</td></tr>}
             </tbody>
           </table>
         </div>

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { Pager } from "@/components/admin/pager";
-import { Ban, CheckCircle2, Trash2, Search, Building2, Gift } from "lucide-react";
+import { Ban, CheckCircle2, Trash2, Building2, Gift } from "lucide-react";
 import type { ChurchRow } from "@/lib/data/admin";
 import { SENDER_ID_UPDATE_OPTIONS, SENDER_ID_STATUS_LABEL } from "@/config/sender-id";
 import {
@@ -23,6 +23,7 @@ import {
 } from "@/app/actions/admin";
 import { useFeedback } from "@/components/ui/feedback";
 import { SupportAccessButton } from "@/components/admin/support-access-dialog";
+import { LiveSearch, UrlSortTh, UrlFilter } from "@/components/admin/list-tools";
 
 const PLANS = ["free", "starter", "pro", "max"];
 const SMS_TIERS = ["B", "C", "D"];
@@ -87,7 +88,7 @@ function SmsTierSelect({ church, run }: { church: ChurchRow; run: ReturnType<typ
   );
 }
 
-export function ChurchTable({ churches, q, total, page, pages, size }: { churches: ChurchRow[]; q: string; total: number; page: number; pages: number; size: number }) {
+export function ChurchTable({ churches, q, total, page, pages, size, params = {} }: { churches: ChurchRow[]; q: string; total: number; page: number; pages: number; size: number; params?: Record<string, string | undefined> }) {
   const { run, toast } = useFeedback();
   // The server already searched every church and sent just this page, so there is nothing left to filter here.
   const filtered = churches;
@@ -187,16 +188,12 @@ export function ChurchTable({ churches, q, total, page, pages, size }: { churche
         <h2 className="text-sm font-semibold text-slate-200">
           Churches <span className="text-slate-500">({total.toLocaleString()}{q ? ` matching` : ""})</span>
         </h2>
-        <form action="/admin" className="relative">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
-          <input
-            name="q"
-            defaultValue={q}
-            aria-label="Search churches"
-            placeholder="Search churches, press Enter"
-            className="h-9 w-64 rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-teal-400/60 focus:outline-none"
-          />
-        </form>
+        <div className="flex flex-wrap items-center gap-2">
+          <UrlFilter param="plan" label="Plan" options={[{ value: "", label: "All plans" }, { value: "free", label: "Free" }, { value: "starter", label: "Starter" }, { value: "pro", label: "Pro" }, { value: "max", label: "Max" }]} />
+          <UrlFilter param="status" label="Status" options={[{ value: "", label: "Any status" }, { value: "active", label: "Active" }, { value: "suspended", label: "Suspended" }]} />
+          <UrlFilter param="sort" label="Sort" options={[{ value: "", label: "Newest first" }, { value: "members", label: "Most members" }, { value: "team", label: "Biggest team" }, { value: "sms", label: "Most SMS credits" }, { value: "name", label: "Name A-Z" }]} />
+          <LiveSearch placeholder="Church, city, owner email or phone" />
+        </div>
       </div>
 
       {/* Mobile card layout */}
@@ -384,10 +381,10 @@ export function ChurchTable({ churches, q, total, page, pages, size }: { churche
         <table className="w-full min-w-[760px] text-sm">
           <thead>
             <tr className="border-b border-white/10 bg-white/[0.02] text-left text-xs uppercase tracking-wide text-slate-500">
-              <th className="px-4 py-3 font-medium">Church</th>
+              <UrlSortTh label="Church" k="name" className="px-4 font-medium" />
               <th className="px-4 py-3 font-medium">Sender ID</th>
-              <th className="px-4 py-3 font-medium">Members</th>
-              <th className="px-4 py-3 font-medium">SMS</th>
+              <UrlSortTh label="Members" k="members" numeric className="px-4 font-medium" />
+              <UrlSortTh label="SMS" k="sms" numeric className="px-4 font-medium" />
               <th className="px-4 py-3 font-medium">Giving (mo)</th>
               <th className="px-4 py-3 font-medium">Plan</th>
               <th className="px-4 py-3 font-medium">Status</th>
@@ -574,7 +571,7 @@ export function ChurchTable({ churches, q, total, page, pages, size }: { churche
         </table>
       </div>
 
-      <Pager page={page} pages={pages} total={total} size={size} path="/admin" params={{ q: q || undefined }} />
+      <Pager page={page} pages={pages} total={total} size={size} path="/admin" params={{ q: q || undefined, ...params }} />
     </div>
   );
 }

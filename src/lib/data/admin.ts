@@ -1,5 +1,6 @@
 import { paging } from "@/lib/admin-paging";
 import "server-only";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 
 export interface ChurchRow {
@@ -31,16 +32,35 @@ export type ChurchesPage = { rows: ChurchRow[]; total: number; page: number; pag
  * One page of the platform's churches (newest first), with headline stats. The search runs across EVERY church, not just
  * the page on screen, and giving is added up for this page's churches only, not for the whole platform.
  */
-export async function getChurchesPage(opts: { page?: number; q?: string; size?: number } = {}): Promise<ChurchesPage> {
+export async function getChurchesPage(opts: { page?: number; q?: string; size?: number; sort?: string; dir?: string; plan?: string; status?: string } = {}): Promise<ChurchesPage> {
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const q = opts.q?.trim();
-  const where = q
-    ? { OR: [
-        { name: { contains: q, mode: "insensitive" as const } },
-        { country: { contains: q, mode: "insensitive" as const } },
-        { city: { contains: q, mode: "insensitive" as const } },
-      ] }
-    : {};
+  const digits = q?.replace(/\D/g, "") ?? "";
+  const and: Prisma.ChurchWhereInput[] = [];
+  if (q) and.push({ OR: [
+    { name: { contains: q, mode: "insensitive" } },
+    { country: { contains: q, mode: "insensitive" } },
+    { city: { contains: q, mode: "insensitive" } },
+    { slug: { contains: q, mode: "insensitive" } },
+    // The owner or an admin, by name, email or phone.
+    { users: { some: { OR: [
+      { name: { contains: q, mode: "insensitive" } },
+      { email: { contains: q, mode: "insensitive" } },
+      ...(digits.length >= 4 ? [{ phone: { contains: digits.replace(/^0/, "") } }] : []),
+    ] } } },
+  ] });
+  if (opts.plan === "free") and.push({ OR: [{ subscription: null }, { subscription: { plan: "free" } }] });
+  else if (opts.plan && ["starter", "pro", "max"].includes(opts.plan)) and.push({ subscription: { plan: opts.plan } });
+  if (opts.status === "suspended") and.push({ suspended: true });
+  else if (opts.status === "active") and.push({ suspended: false });
+  const where: Prisma.ChurchWhereInput = and.length ? { AND: and } : {};
+  const dir: Prisma.SortOrder = opts.dir === "asc" ? "asc" : "desc";
+  const orderBy: Prisma.ChurchOrderByWithRelationInput[] =
+    opts.sort === "name" ? [{ name: dir }]
+    : opts.sort === "members" ? [{ people: { _count: dir } }, { createdAt: "desc" }]
+    : opts.sort === "team" ? [{ users: { _count: dir } }, { createdAt: "desc" }]
+    : opts.sort === "sms" ? [{ smsCredits: dir }, { createdAt: "desc" }]
+    : [{ createdAt: dir }];
   const total = await db.church.count({ where });
   const { page, pages, size, skip } = paging(total, opts.page ?? 1, opts.size);
 
@@ -48,7 +68,7 @@ export async function getChurchesPage(opts: { page?: number; q?: string; size?: 
     where,
     skip,
     take: size,
-    orderBy: { createdAt: "desc" },
+    orderBy,
     select: {
       id: true,
       slug: true,

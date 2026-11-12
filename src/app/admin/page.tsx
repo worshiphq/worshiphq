@@ -6,11 +6,11 @@ import { AdminShell, AdminCard } from "@/components/admin/admin-shell";
 import { ChurchTable } from "@/components/admin/church-table";
 import { RunAutomationsButton } from "@/components/admin/run-automations-button";
 
-export default async function AdminOverviewPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string }> }) {
+export default async function AdminOverviewPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string; sort?: string; dir?: string; plan?: string; status?: string }> }) {
   const sa = await requireSuperAdmin();
   const sp = await searchParams;
   const q = (sp.q ?? "").trim().slice(0, 100);
-  const [list, stats] = await Promise.all([getChurchesPage({ page: readPage(sp.page), q }), getPlatformStats()]);
+  const [list, stats] = await Promise.all([getChurchesPage({ page: readPage(sp.page), q, sort: sp.sort, dir: sp.dir, plan: sp.plan, status: sp.status }), getPlatformStats()]);
 
   const kpis = [
     { label: "Churches", value: stats.churches, icon: Building2, hint: `${stats.activeChurches} active` },
@@ -69,7 +69,7 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
         </div>
       </AdminCard>
 
-      <ChurchTable churches={list.rows} q={q} total={list.total} page={list.page} pages={list.pages} size={list.size} />
+      <ChurchTable churches={list.rows} q={q} total={list.total} page={list.page} pages={list.pages} size={list.size} params={{ sort: sp.sort, dir: sp.dir, plan: sp.plan, status: sp.status }} />
     </AdminShell>
   );
 }

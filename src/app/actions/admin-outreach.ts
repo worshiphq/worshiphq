@@ -16,6 +16,8 @@ import { sendSms } from "@/lib/integrations/sms";
 export type OutreachContact = { userId: string; name: string; email: string; phone: string | null; role: string };
 export type OutreachChurch = {
   id: string; name: string; senderId: string | null; plan: string; suspended: boolean; createdAt: string; country: string | null; city: string | null;
+  /** Members (people records) and team users. */
+  members: number; team: number;
   contacts: OutreachContact[];
   welcomedAt: string | null; lastContactAt: string | null; messages: number;
   /** Where the church stands with free trials. nextPlan is what it could try now (null if it cannot). */
@@ -33,6 +35,7 @@ export async function getOutreachData(): Promise<OutreachData> {
       orderBy: { createdAt: "desc" },
       select: {
         id: true, name: true, smsSenderId: true, suspended: true, createdAt: true, country: true, city: true,
+        _count: { select: { people: true, users: true } },
         subscription: { select: { plan: true, status: true, renewsAt: true, trialPlan: true, trialStartedAt: true, trialEndsAt: true, trialsUsed: true } },
         users: { where: { role: { in: ["Owner", "Admin"] } }, orderBy: { createdAt: "asc" }, select: { id: true, name: true, email: true, phone: true, role: true } },
       },
@@ -51,6 +54,7 @@ export async function getOutreachData(): Promise<OutreachData> {
     platformCarrier: (await getPlatformCarrier()) ?? "hubtel", emailLive: features.email, smsLive: features.sms, contact: outreachContact(), contactLine: await outreachContactLine(), smsProvider: env.SMS_PROVIDER, alert: { ...alert, saved: savedAlert },
     churches: churches.map((c) => ({
       id: c.id, name: c.name, senderId: c.smsSenderId, plan: c.subscription?.plan ?? "free", suspended: c.suspended, createdAt: c.createdAt.toISOString(), country: c.country, city: c.city,
+      members: c._count.people, team: c._count.users,
       // The owner first, then admins.
       contacts: [...c.users].sort((a, b) => (a.role === "Owner" ? 0 : 1) - (b.role === "Owner" ? 0 : 1)).map((u) => ({ userId: u.id, name: u.name, email: u.email, phone: u.phone, role: u.role })),
       welcomedAt: w.get(c.id)?.toISOString() ?? null,

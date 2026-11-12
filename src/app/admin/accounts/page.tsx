@@ -1,5 +1,6 @@
+import { LiveSearch } from "@/components/admin/list-tools";
 import Link from "@/components/ui/app-link";
-import { Search, ChevronLeft, ChevronRight } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requireSuperAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { AdminShell, AdminCard } from "@/components/admin/admin-shell";
@@ -61,13 +62,9 @@ export default async function AdminAccountsPage({ searchParams }: { searchParams
         <p className="mt-1 text-sm text-slate-400">Every person who signs in, grouped by church. Send someone a password reset link, or unlock an account that was locked for 24 hours. You are signed in as {sa.role === "owner" ? "the owner" : sa.name}.</p>
       </div>
 
-      <form className="mb-5 flex max-w-lg items-center gap-2" action="/admin/accounts">
-        <div className="relative flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-slate-500" />
-          <input name="q" defaultValue={q} placeholder="Search a church, name, email or phone" className="h-10 w-full rounded-lg border border-white/10 bg-white/5 pl-9 pr-3 text-sm text-slate-100 placeholder:text-slate-500 focus:border-teal-500/60 focus:outline-none" />
-        </div>
-        <button className="h-10 rounded-lg bg-teal-500 px-4 text-sm font-semibold text-slate-950 hover:bg-teal-400">Search</button>
-      </form>
+      <div className="mb-5 max-w-lg">
+        <LiveSearch placeholder="Search a church, name, email or phone" className="[&_input]:h-10 [&_input]:w-full" />
+      </div>
 
       {churches.length === 0 ? (
         <AdminCard className="p-8 text-center text-sm text-slate-400">No accounts match that.</AdminCard>
