@@ -192,12 +192,12 @@ const sections = [
     ],
   },
   {
-    title: "Mobile & offline",
+    title: "Mobile & slow connections",
     icon: Smartphone,
     features: [
       {
         name: "Progressive Web App",
-        desc: "WorshipHQ works as a PWA - install it on any phone or tablet from the browser. It works like a native app with offline support.",
+        desc: "WorshipHQ works as a PWA - install it on any phone or tablet from the browser. It works like a native app. You need a connection to save changes.",
       },
       {
         name: "Responsive design",

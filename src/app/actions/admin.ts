@@ -612,7 +612,20 @@ export async function saveMarketing(formData: FormData) {
     }))
     .filter((t) => t.quote && t.name);
 
-  const content: MarketingContent = { heroSubhead, testimonials };
+  // The landing page numbers: shown or hidden, and an optional figure of the SuperAdmin's own (blank = the real one).
+  const { STAT_KEYS, normalizeStatSettings, getRealStats, shownValue } = await import("@/lib/data/landing-stats");
+  const [{ getMarketingContent }, real] = await Promise.all([import("@/lib/data/site-content"), getRealStats()]);
+  const before = (await getMarketingContent()).stats;
+  const stats = normalizeStatSettings(Object.fromEntries(STAT_KEYS.map((k) => {
+    const raw = String(formData.get(`stat_${k}`) ?? "").replace(/[^0-9]/g, "");
+    const show = formData.get(`stat_${k}_show`) === "on";
+    if (!raw) return [k, { show, override: null, realAtSet: null }]; // blank = live data
+    const typed = Number(raw);
+    // The box shows today's grown figure. Saving that same figure keeps the original starting point, so it keeps growing.
+    if (before[k].override != null && typed === shownValue(k, real, before[k])) return [k, { ...before[k], show }];
+    return [k, { show, override: typed, realAtSet: real[k] }];
+  })));
+  const content: MarketingContent = { heroSubhead, testimonials, stats };
   await saveMarketingContent(content);
   revalidatePath("/admin/content");
   revalidatePath("/", "layout");

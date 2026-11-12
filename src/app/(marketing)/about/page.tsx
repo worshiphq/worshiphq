@@ -14,7 +14,7 @@ export const metadata: Metadata = {
 
 const values = [
   { icon: Heart, title: "Ministry first", body: "Technology should serve the mission, never complicate it. Every feature earns its place by helping you shepherd people." },
-  { icon: Globe2, title: "Built for every church", body: "Mobile Money, SMS broadcasts, online giving and offline-ready design - built around how churches actually operate, wherever they are." },
+  { icon: Globe2, title: "Built for every church", body: "Mobile Money, SMS broadcasts, online giving and a light app that loads fast on mobile data - built around how churches actually operate, wherever they are." },
   { icon: ShieldCheck, title: "Trust & stewardship", body: "Your data and your offerings are sacred. Bank-grade security, full audit trails and strict tenant isolation." },
   { icon: Zap, title: "Delightfully simple", body: "Powerful doesn't have to mean complicated. WorshipHQ is fast, beautiful and a joy to use on any device." },
 ];

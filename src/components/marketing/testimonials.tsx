@@ -6,6 +6,8 @@ import { testimonials as defaultTestimonials, type Testimonial } from "@/config/
 
 export function Testimonials({ items }: { items?: Testimonial[] }) {
   const list = items && items.length ? items : defaultTestimonials;
+  // Only real testimonials are shown. With none saved yet, the section is left out.
+  if (list.length === 0) return null;
   // Whether we're showing the placeholder set (config/marketing.ts) vs. real
   // testimonials the SuperAdmin has saved via /admin/content - only the
   // placeholders need the "illustrative" disclaimer, never a real customer's words.

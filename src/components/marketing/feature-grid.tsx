@@ -1,112 +1,95 @@
 "use client";
 
-import { useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import Link from "next/link";
 import { Reveal } from "@/components/ui/reveal";
-import { featureCards } from "@/config/marketing";
 import { cn } from "@/lib/utils";
 
-export function FeatureGrid() {
-  const [active, setActive] = useState(0);
-  const feature = featureCards[active];
+type Tier = "free" | "starter" | "pro" | "max";
+const TIERS: Tier[] = ["free", "starter", "pro", "max"];
+const NAME: Record<Tier, string> = { free: "Free", starter: "Starter", pro: "Pro", max: "Max" };
+const LINE: Record<Tier, string> = {
+  free: "Get organised",
+  starter: "Reach every member",
+  pro: "Run the money side right",
+  max: "Run the whole church",
+};
 
+/** What churches get, by the plan feature it belongs to. The plan each one lands on is read live from SuperAdmin. */
+const FEATURES: [string, string][] = [
+  ["people", "Members, households & departments"],
+  ["attendance", "Attendance by name"],
+  ["visitors", "Visitor & prayer request forms"],
+  ["giving", "Tithes, offerings & Day Born"],
+  ["events", "Events & calendar"],
+  ["reports", "Reports"],
+  ["sms", "Bulk SMS to your church"],
+  ["auto-receipts", "Giving receipts by text"],
+  ["follow-ups", "Absentee follow-up"],
+  ["birthday-automations", "Birthday texts & alerts"],
+  ["qr-codes", "QR check-in"],
+  ["member-ids", "Member ID cards"],
+  ["import-export", "Import from Excel"],
+  ["custom-messages", "Your own message wording"],
+  ["online-payments", "Online giving by Mobile Money & card"],
+  ["accounting", "Church accounts & expenses"],
+  ["harvest", "Harvest & pledges"],
+  ["rosters", "Rosters & volunteers"],
+  ["welfare", "Welfare"],
+  ["member-categories", "Zones, fellowships & service times"],
+  ["custom-roles", "Your own team roles"],
+  ["fingerprint", "USB fingerprint scanner"],
+  ["biometric-devices", "Face, palm & fingerprint door devices"],
+  ["weekly-briefing", "Monday briefing for the pastor"],
+  ["linked-churches", "Branches & linked churches"],
+  ["sermons", "Sermons, devotionals & testimonies"],
+  ["counseling", "Private counselling records"],
+  ["budgets", "Budgets & assets"],
+];
+
+export function FeatureGrid({ tiers, members }: { tiers: Record<string, Tier>; members: Record<Tier, string> }) {
+  const byTier = (t: Tier) => FEATURES.filter(([k]) => (tiers[k] ?? "max") === t);
   return (
     <section id="features" className="relative py-20 sm:py-28">
       <div className="mx-auto max-w-6xl px-5">
-        {/* ── Section heading ── */}
         <Reveal>
-          <p className="rubric mb-4">Platform</p>
+          <p className="rubric mb-4">What you get</p>
           <div className="grid gap-8 border-t-2 border-evergreen pt-8 lg:grid-cols-[1.2fr_1fr]">
             <h2 className="press-display text-4xl sm:text-5xl">
-              Every ministry,
+              Start free.
               <br />
-              <span className="text-primary">one platform.</span>
+              <span className="text-primary">Grow one step at a time.</span>
             </h2>
-            <p className="dropcap max-w-md self-end text-[15px] leading-[1.8] text-ink-muted">
-              Stop juggling spreadsheets, WhatsApp groups and paper notebooks.
-              WorshipHQ gathers the whole life of your church - the people, the
-              giving, the services, the messages - into one calm, well-kept book.
+            <p className="self-end text-[15px] leading-[1.8] text-ink-muted">
+              Each plan adds to the one before it. Begin with your members and Sunday attendance, then add texting, the church&rsquo;s money,
+              and the devices at the door when you are ready. Moving up only charges the difference.
             </p>
           </div>
         </Reveal>
 
-        {/* ── Hymnal index + reading pane ── */}
-        <div className="mt-14 grid gap-10 lg:grid-cols-[1fr_1.1fr] lg:gap-16">
-          {/* Index list with dotted leaders */}
-          <Reveal>
-            <ol className="divide-y divide-ink/8">
-              {featureCards.map((f, i) => {
-                const isActive = i === active;
-                return (
-                  <li key={f.title}>
-                    <button
-                      onClick={() => setActive(i)}
-                      onMouseEnter={() => setActive(i)}
-                      className={cn(
-                        "leaders group w-full py-3.5 text-left transition-colors",
-                        isActive ? "text-evergreen-deep" : "text-ink-muted hover:text-ink",
-                      )}
-                    >
-                      <span
-                        className={cn(
-                          "text-[15px] transition-all",
-                          isActive ? "font-display text-lg font-bold" : "font-medium",
-                        )}
-                      >
-                        {f.title}
-                      </span>
-                      <span
-                        className={cn(
-                          "font-mono text-xs tabular-nums",
-                          isActive ? "text-brass" : "text-ink-faint",
-                        )}
-                      >
-                        {String(i + 1).padStart(2, "0")}
-                      </span>
-                    </button>
-                  </li>
-                );
-              })}
-            </ol>
-          </Reveal>
-
-          {/* Reading pane - the selected entry, set like a hymn page */}
-          <Reveal delay={0.12}>
-            <div className="paper-panel sticky top-24 overflow-hidden border border-ink/12 p-8 shadow-[0_18px_44px_-30px_rgba(28,26,22,0.4)] sm:p-10">
-              {/* corner ticks */}
-              <span className="absolute left-3 top-3 size-3 border-l border-t border-brass/50" aria-hidden />
-              <span className="absolute right-3 top-3 size-3 border-r border-t border-brass/50" aria-hidden />
-              <span className="absolute bottom-3 left-3 size-3 border-b border-l border-brass/50" aria-hidden />
-              <span className="absolute bottom-3 right-3 size-3 border-b border-r border-brass/50" aria-hidden />
-
-              <AnimatePresence mode="wait">
-                <motion.div
-                  key={active}
-                  initial={{ opacity: 0, y: 14 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -10 }}
-                  transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
-                  className="relative"
-                >
-                  <div className="mb-6 flex items-center justify-between">
-                    <span className="font-display text-5xl font-bold text-brass/40">
-                      {String(active + 1).padStart(2, "0")}
-                    </span>
-                    <div className="grid size-12 place-items-center border border-evergreen/20 bg-evergreen/5 text-evergreen">
-                      <feature.icon className="size-5" strokeWidth={1.75} />
-                    </div>
-                  </div>
-
-                  <h3 className="font-display text-2xl font-bold text-evergreen-deep sm:text-3xl">
-                    {feature.title}
-                  </h3>
-                  <div className="ornament-divider my-5 text-[10px]">✦</div>
-                  <p className="text-[15px] leading-[1.85] text-ink-muted">{feature.blurb}</p>
-                </motion.div>
-              </AnimatePresence>
-            </div>
-          </Reveal>
-        </div>
+        <Reveal delay={0.08}>
+          <div className="mt-12 grid gap-px overflow-hidden border border-ink/12 bg-ink/10 sm:grid-cols-2 lg:grid-cols-4">
+            {TIERS.map((t, i) => (
+              <div key={t} className={cn("flex flex-col bg-parchment p-6", t === "max" && "bg-evergreen-deep text-parchment")}>
+                <div className="flex items-baseline justify-between">
+                  <h3 className="font-display text-2xl font-bold">{NAME[t]}</h3>
+                  <span className={cn("text-[11px] uppercase tracking-[0.14em]", t === "max" ? "text-brass" : "text-ink-faint")}>{i === 0 ? "Base" : `+ ${NAME[TIERS[i - 1]!]}`}</span>
+                </div>
+                <p className={cn("mt-1 text-sm", t === "max" ? "text-parchment/70" : "text-ink-muted")}>{LINE[t]} · {members[t]}</p>
+                <ul className="mt-5 space-y-2.5">
+                  {byTier(t).map(([k, label]) => (
+                    <li key={k} className="flex items-baseline gap-2.5 text-sm">
+                      <span className={t === "max" ? "text-brass" : "text-brass"}>✦</span>
+                      <span>{label}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+          <p className="mt-5 text-center text-sm text-ink-muted">
+            Door devices and scanners are hardware, bought separately. <Link href="#pricing" className="font-medium text-evergreen underline underline-offset-4">See prices</Link>
+          </p>
+        </Reveal>
       </div>
     </section>
   );

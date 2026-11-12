@@ -3,15 +3,20 @@
 import { useState } from "react";
 import { Plus, Trash2, Save } from "lucide-react";
 import type { Testimonial } from "@/config/marketing";
+import { STAT_KEYS, STAT_LABELS, niceFloor, shownValue, type StatSettings, type RealStats } from "@/lib/landing-stats-shared";
 import { saveMarketing } from "@/app/actions/admin";
 import { SubmitButton } from "@/components/ui/submit-button";
 
 export function MarketingEditor({
   heroSubhead,
   testimonials,
+  stats,
+  real,
 }: {
   heroSubhead: string;
   testimonials: Testimonial[];
+  stats: StatSettings;
+  real: RealStats;
 }) {
   const [rows, setRows] = useState<Testimonial[]>(
     testimonials.length ? testimonials : [{ quote: "", name: "", role: "", church: "" }],
@@ -34,10 +39,31 @@ export function MarketingEditor({
         />
       </section>
 
+      {/* Numbers */}
+      <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+        <h2 className="text-sm font-semibold text-slate-200">Numbers on the homepage</h2>
+        <p className="mb-4 mt-1 text-xs text-slate-500">Empty box = live data: the real figure, rounded down with a plus. Type a number to show your own: it then keeps growing as real ones come in (type 300 with 271 real, 5 more join, it shows 305). Clear the box to go back to live data. Untick to hide it.</p>
+        <div className="divide-y divide-white/5 rounded-xl border border-white/10">
+          {STAT_KEYS.map((k) => (
+            <div key={k} className="flex flex-wrap items-center gap-3 px-4 py-3">
+              <label className="flex w-56 items-center gap-2 text-sm text-slate-200">
+                <input type="checkbox" name={`stat_${k}_show`} defaultChecked={stats[k].show} className="size-4 accent-teal-500" />
+                {STAT_LABELS[k]}
+              </label>
+              <span className="w-52 text-xs text-slate-500">Real: {real[k].toLocaleString()} · showing {(stats[k].override == null ? niceFloor(real[k]) : shownValue(k, real, stats[k])).toLocaleString()}+{stats[k].override == null ? " (live)" : " (yours, growing)"}</span>
+              <input name={`stat_${k}`} inputMode="numeric" defaultValue={stats[k].override == null ? "" : shownValue(k, real, stats[k])} placeholder="Live data" className={`${field} w-36`} />
+            </div>
+          ))}
+        </div>
+      </section>
+
       {/* Testimonials */}
       <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-slate-200">Testimonials</h2>
+          <div>
+            <h2 className="text-sm font-semibold text-slate-200">Testimonials</h2>
+            <p className="mt-1 text-xs text-slate-500">Real quotes from real people who agreed to be named. The section is hidden while this list is empty.</p>
+          </div>
           <button
             type="button"
             onClick={() => setRows((r) => [...r, { quote: "", name: "", role: "", church: "" }])}
@@ -52,7 +78,8 @@ export function MarketingEditor({
             <div key={i} className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
               <div className="mb-2 flex items-center justify-between">
                 <span className="text-xs font-medium text-slate-500">#{i + 1}</span>
-                {rows.length > 1 && (
+                {(
+
                   <button
                     type="button"
                     onClick={() => setRows((r) => r.filter((_, idx) => idx !== i))}

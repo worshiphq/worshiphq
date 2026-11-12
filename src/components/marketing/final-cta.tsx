@@ -25,8 +25,8 @@ export function FinalCTA({ freeMembers = "up to 40 members" }: { freeMembers?: s
             </h2>
 
             <p className="mx-auto mt-6 max-w-md text-[15px] leading-[1.8] text-ink-muted">
-              Join churches around the world keeping every member, every gift and
-              every Sunday in one well-ordered place.
+              Every member, every gift and every Sunday in one well-ordered place.
+              Set up in an afternoon, free for as long as you like.
             </p>
 
             <div className="ornament-divider mx-auto my-9 max-w-[16rem] text-xs">✦</div>
