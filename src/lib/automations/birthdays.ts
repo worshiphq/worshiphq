@@ -27,7 +27,9 @@ export async function runBirthdays(now = new Date(), ignoreHour = false, deadlin
       birthdayWishOn: true, birthdayAdminAlertOn: true, birthdayDigestOn: true, birthdayDigestDay: true,
       messageTemplates: true,
     },
-  }), "birthday-automations"); // Starter and up. A Free church's free Communications trial does not include it.
+  }), "sms"); // Member wishes need SMS: Starter and up, or a Free church inside its free Communications trial.
+  // Today's-birthdays alerts and the weekly list to admins are Starter and up only (not part of the SMS trial).
+  const adminExtras = new Set((await onlyWithFeature(churches, "birthday-automations")).map((c) => c.id));
 
   let wishes = 0, adminAlerts = 0, digests = 0;
 
@@ -69,7 +71,7 @@ export async function runBirthdays(now = new Date(), ignoreHour = false, deadlin
     }
 
     // 2) Same-day admin alert.
-    if (church.birthdayAdminAlertOn && todayPeople.length > 0) {
+    if (church.birthdayAdminAlertOn && adminExtras.has(church.id) && todayPeople.length > 0) {
       const names = todayPeople.map((p) => `${p.firstName} ${p.lastName}`.trim());
       const sms = renderTemplate(templateFor(church.messageTemplates, "birthday_admin_today"), {
         count: String(todayPeople.length), church: church.name, list: names.slice(0, 8).join(", ") + (names.length > 8 ? "..." : ""),
@@ -83,7 +85,7 @@ export async function runBirthdays(now = new Date(), ignoreHour = false, deadlin
     }
 
     // 3) Weekly digest on the chosen weekday.
-    if (church.birthdayDigestOn && weekday === church.birthdayDigestDay) {
+    if (church.birthdayDigestOn && adminExtras.has(church.id) && weekday === church.birthdayDigestDay) {
       const keys: string[] = [];
       const labelByKey = new Map<string, string>();
       for (let i = 0; i < 7; i++) {

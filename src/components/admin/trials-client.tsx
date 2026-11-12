@@ -150,7 +150,7 @@ export function TrialsClient({ settings, rows, counts, conversionPct, filter, q,
           </div>
           <div className="text-sm">
             <div className="font-semibold text-slate-200">Free Communications trial (SMS, up to 14 days)</div>
-            <p className="mt-1 text-xs text-slate-500">No church gets it by itself. You switch it on for chosen churches below. Turning this off ends it for everyone.</p>
+            <p className="mt-1 text-xs text-slate-500">Every new church gets it automatically when it signs up. You can also switch it on for chosen churches below. Turning this off ends it for everyone and stops new churches getting it.</p>
             <label className="mt-2 flex items-center gap-2 text-slate-300">
               <input type="checkbox" checked={draft.comms.enabled} onChange={(e) => setDraft({ ...draft, comms: { ...draft.comms, enabled: e.target.checked } })} className="size-4 accent-teal-500" />
               The free Communications trial is available

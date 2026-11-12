@@ -4,7 +4,6 @@ import { db } from "@/lib/db";
 import { BirthdaysClient } from "@/components/app/birthdays-client";
 import { BirthdaySettings } from "@/components/app/birthday-settings";
 import { PageHeader } from "@/components/app/page-header";
-import { churchHasFeature } from "@/lib/plan-gate-server";
 
 export const metadata = { title: "Birthdays & anniversaries" };
 
@@ -15,7 +14,7 @@ function getMonthDay(d: Date): string {
 export default async function BirthdaysPage() {
   const session = await requireModule("birthdays");
 
-  const [church, membersWithPhone, adminCount, autoOn] = await Promise.all([
+  const [church, membersWithPhone, adminCount] = await Promise.all([
     db.church.findUnique({
       where: { id: session.churchId },
       select: {
@@ -26,7 +25,6 @@ export default async function BirthdaysPage() {
     }),
     db.person.count({ where: { churchId: session.churchId, status: { not: "inactive" }, phone: { not: null } } }),
     db.user.count({ where: { churchId: session.churchId, role: { in: ["Owner", "Admin", "Pastor"] }, phone: { not: null } } }),
-    churchHasFeature(session.churchId, "birthday-automations"),
   ]);
 
   const people = await db.person.findMany({
@@ -85,7 +83,9 @@ export default async function BirthdaysPage() {
         adminCount={adminCount}
         messageTemplates={(church?.messageTemplates as Record<string, string> | null) ?? {}}
         canWrite={canEdit(session, "birthdays")}
-        locked={!autoOn}
+        // Member wishes need SMS (Starter and up, or the free SMS trial). Admin alerts and the weekly list are Starter and up.
+        locked={!session.isDemo && !!session.planLocked?.includes("sms") && !!session.planLocked?.includes("birthday-automations")}
+        adminLocked={!session.isDemo && !!session.planLocked?.includes("birthday-automations")}
       />
       <div className="mt-4">
         <BirthdaysClient items={items} today={today} />

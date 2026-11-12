@@ -31,10 +31,12 @@ function hourLabel(h: number) {
   return `${hr}:00 ${ampm}`;
 }
 
-export function BirthdaySettings({ settings, membersWithPhone, adminCount, canWrite, messageTemplates, locked }: {
+export function BirthdaySettings({ settings, membersWithPhone, adminCount, canWrite, messageTemplates, locked, adminLocked }: {
   settings: Settings; membersWithPhone: number; adminCount: number; canWrite: boolean; messageTemplates?: Record<string, string>;
   /** The church's plan does not include automatic birthday messages (Starter and up). */
   locked?: boolean;
+  /** Member wishes are allowed (e.g. during the free SMS trial) but the admin alert and weekly list are Starter and up. */
+  adminLocked?: boolean;
 }) {
   const router = useRouter();
   const { toast } = useFeedback();
@@ -112,9 +114,10 @@ export function BirthdaySettings({ settings, membersWithPhone, adminCount, canWr
             <div>
               <div className="text-sm font-medium">Tell admins whose birthday is today</div>
               <div className="text-xs text-ink-muted">On the day, texts + emails admins ({adminCount} with a phone) the day's birthdays.</div>
+              {adminLocked && <div className="mt-1 text-xs text-ink-faint"><Lock className="mr-1 inline size-3" />Comes with the Starter plan and above. <Link href="/app/settings?tab=billing" className="font-medium text-primary hover:underline">See plans</Link></div>}
             </div>
           </div>
-          <Toggle on={s.adminAlertOn} onChange={(v) => set({ adminAlertOn: v })} disabled={!canWrite} />
+          <Toggle on={s.adminAlertOn && !adminLocked} onChange={(v) => set({ adminAlertOn: v })} disabled={!canWrite || adminLocked} />
         </div>
 
         {/* Weekly digest */}
@@ -125,11 +128,12 @@ export function BirthdaySettings({ settings, membersWithPhone, adminCount, canWr
               <div>
                 <div className="text-sm font-medium">Weekly birthday list to admins</div>
                 <div className="text-xs text-ink-muted">Once a week, texts + emails admins the coming week's birthdays.</div>
+                {adminLocked && <div className="mt-1 text-xs text-ink-faint"><Lock className="mr-1 inline size-3" />Comes with the Starter plan and above. <Link href="/app/settings?tab=billing" className="font-medium text-primary hover:underline">See plans</Link></div>}
               </div>
             </div>
-            <Toggle on={s.digestOn} onChange={(v) => set({ digestOn: v })} disabled={!canWrite} />
+            <Toggle on={s.digestOn && !adminLocked} onChange={(v) => set({ digestOn: v })} disabled={!canWrite || adminLocked} />
           </div>
-          {s.digestOn && (
+          {s.digestOn && !adminLocked && (
             <div className="mt-2 flex items-center gap-2 pl-6 text-sm">
               <span className="text-xs text-ink-muted">Send every</span>
               <select value={s.digestDay} onChange={(e) => set({ digestDay: Number(e.target.value) })} disabled={!canWrite}

@@ -305,6 +305,8 @@ export async function updateSlug(newSlug: string) {
 const BUILT_IN_ROLES: Role[] = ["Owner", "Admin", "Pastor", "Finance", "Media", "Leader", "Volunteer"];
 
 /** A role <select> value is either a built-in enum or "custom:<id>". */
+export type ActionResult = { ok: true } | { ok: false; error: string };
+
 function parseRoleValue(value: string): { role: Role; customRoleId: string | null } {
   if (value.startsWith("custom:")) return { role: "Volunteer", customRoleId: value.slice(7) };
   const role = (BUILT_IN_ROLES.includes(value as Role) ? value : "Volunteer") as Role;
@@ -312,10 +314,10 @@ function parseRoleValue(value: string): { role: Role; customRoleId: string | nul
 }
 
 /** Invite a teammate - creates a User in this church with a temporary password. */
-export async function inviteTeammate(formData: FormData) {
+export async function inviteTeammate(formData: FormData): Promise<ActionResult> {
   const session = await requireSession();
   assertCanWrite(session);
-  if (session.role !== "Owner" && session.role !== "Admin") return;
+  if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the Main Admin or an Admin can do this." };
 
   const name = String(formData.get("name") ?? "").trim();
   const emailRaw = String(formData.get("email") ?? "").toLowerCase().trim();
@@ -323,21 +325,23 @@ export async function inviteTeammate(formData: FormData) {
   const parsedRole = parseRoleValue(String(formData.get("role") ?? "Volunteer"));
   const role = parsedRole.role;
   const customRoleId = await ownedId("customRole", parsedRole.customRoleId, session.churchId);
-  if (!name || phone.length < 10) return;
+  if (!name) return { ok: false, error: "Add their name." };
+  if (phone.length < 10) return { ok: false, error: "Add a valid mobile number. The invite goes by text." };
+  if (parsedRole.customRoleId && !customRoleId) return { ok: false, error: "That role no longer exists. Pick another." };
   // The Main Admin role is only ever handed over with "Transfer Main Admin", never by an invite.
-  if (role === "Owner") return;
+  if (role === "Owner") return { ok: false, error: "The Main Admin role is handed over in Settings, not by invite." };
 
   // Email is the login identifier but optional to type - synthesize a stable
   // placeholder from the phone when the admin doesn't provide one.
   const email = emailRaw || `p${phone.replace(/\D/g, "")}@invite.worshiphq.app`;
 
-  if (await db.user.findUnique({ where: { email } })) return;
-  if (await db.user.findFirst({ where: { churchId: session.churchId, phone } })) return;
+  if (await db.user.findUnique({ where: { email } })) return { ok: false, error: "Someone already uses that email on WorshipHQ." };
+  if (await db.user.findFirst({ where: { churchId: session.churchId, phone } })) return { ok: false, error: "Someone on your team already has that number." };
 
   // The plan's team size is enforced here, not just shown. Invites are also capped per day: each one is a text we pay for.
-  if (!(await teamHasRoom(session.churchId))) return;
+  if (!(await teamHasRoom(session.churchId))) return { ok: false, error: "Your plan's team is full. Upgrade in Billing to add more people." };
   const { rateLimit, DAY } = await import("@/lib/rate-limit");
-  if (!(await rateLimit(`invite:${session.churchId}`, 30, DAY))) return;
+  if (!(await rateLimit(`invite:${session.churchId}`, 30, DAY))) return { ok: false, error: "That is a lot of invites for one day. Please try again tomorrow." };
 
   // Optional temp password lets them also sign in immediately; otherwise they
   // set their own password when accepting the invite.
@@ -386,6 +390,7 @@ export async function inviteTeammate(formData: FormData) {
   }
 
   revalidatePath("/app/settings");
+  return { ok: true };
 }
 
 /** Whether the church's plan has room for one more team member. */
@@ -403,28 +408,30 @@ async function teamHasRoom(churchId: string): Promise<boolean> {
 
 /** Invite a department budget leader - a scoped account that only ever sees its
  *  own department's budget, income and expenses. Uses the same SMS accept flow. */
-export async function inviteBudgetLeader(formData: FormData) {
+export async function inviteBudgetLeader(formData: FormData): Promise<ActionResult> {
   const session = await requireSession();
   assertCanWrite(session);
-  if (session.role !== "Owner" && session.role !== "Admin") return;
+  if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the Main Admin or an Admin can do this." };
 
   const name = String(formData.get("name") ?? "").trim();
   const phone = normalisePhone(String(formData.get("phone") ?? ""));
   const emailRaw = String(formData.get("email") ?? "").toLowerCase().trim();
   const departmentId = String(formData.get("departmentId") ?? "").trim();
-  if (!name || phone.length < 10 || !departmentId) return;
+  if (!name) return { ok: false, error: "Add their name." };
+  if (phone.length < 10) return { ok: false, error: "Add a valid mobile number. The invite goes by text." };
+  if (!departmentId) return { ok: false, error: "Choose their department." };
 
   const dept = await db.department.findFirst({ where: { id: departmentId, churchId: session.churchId }, select: { id: true, name: true } });
-  if (!dept) return;
+  if (!dept) return { ok: false, error: "That department was not found." };
 
   const email = emailRaw || `p${phone.replace(/\D/g, "")}@invite.worshiphq.app`;
-  if (await db.user.findUnique({ where: { email } })) return;
-  if (await db.user.findFirst({ where: { churchId: session.churchId, phone } })) return;
+  if (await db.user.findUnique({ where: { email } })) return { ok: false, error: "Someone already uses that email on WorshipHQ." };
+  if (await db.user.findFirst({ where: { churchId: session.churchId, phone } })) return { ok: false, error: "Someone on your team already has that number." };
 
   // The plan's team size is enforced here, not just shown. Invites are also capped per day: each one is a text we pay for.
-  if (!(await teamHasRoom(session.churchId))) return;
+  if (!(await teamHasRoom(session.churchId))) return { ok: false, error: "Your plan's team is full. Upgrade in Billing to add more people." };
   const { rateLimit, DAY } = await import("@/lib/rate-limit");
-  if (!(await rateLimit(`invite:${session.churchId}`, 30, DAY))) return;
+  if (!(await rateLimit(`invite:${session.churchId}`, 30, DAY))) return { ok: false, error: "That is a lot of invites for one day. Please try again tomorrow." };
 
   const inviteToken = crypto.randomBytes(24).toString("base64url");
   await db.user.create({
@@ -449,53 +456,58 @@ export async function inviteBudgetLeader(formData: FormData) {
   );
 
   revalidatePath("/app/settings");
+  return { ok: true };
 }
 
 /** Change a team member's role (Owner/Admin only). */
-export async function changeUserRole(formData: FormData) {
+export async function changeUserRole(formData: FormData): Promise<ActionResult> {
   const session = await requireSession();
   assertCanWrite(session);
-  if (session.role !== "Owner" && session.role !== "Admin") return;
+  if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the Main Admin or an Admin can do this." };
 
   const userId = String(formData.get("userId") ?? "").trim();
   const value = String(formData.get("role") ?? "").trim();
-  if (!userId || !value) return;
+  if (!userId || !value) return { ok: false, error: "Pick a role." };
 
   // Can't change your own role
-  if (userId === session.userId) return;
+  if (userId === session.userId) return { ok: false, error: "You cannot change your own role." };
   const parsedRole = parseRoleValue(value);
   const role = parsedRole.role;
   const customRoleId = await ownedId("customRole", parsedRole.customRoleId, session.churchId);
-  if (parsedRole.customRoleId && !customRoleId) return;
+  if (parsedRole.customRoleId && !customRoleId) return { ok: false, error: "That role no longer exists." };
   // The Main Admin role is only ever handed over with "Transfer Main Admin".
-  if (role === "Owner") return;
+  if (role === "Owner") return { ok: false, error: "Use \"Hand over the Main Admin role\" for that." };
   const current = await db.user.findFirst({ where: { id: userId, churchId: session.churchId }, select: { role: true } });
   // Nobody changes the Main Admin's role, and only the Main Admin changes another Admin's role.
-  if (current?.role === "Owner") return;
-  if (current?.role === "Admin" && session.role !== "Owner") return;
+  if (!current) return { ok: false, error: "That person is not on your team." };
+  if (current.role === "Owner") return { ok: false, error: "The Main Admin's role cannot be changed here." };
+  if (current.role === "Admin" && session.role !== "Owner") return { ok: false, error: "Only the Main Admin can change another Admin's role." };
 
   const target = await db.user.findFirst({ where: { id: userId, churchId: session.churchId }, select: { name: true } });
   await db.user.updateMany({
     where: { id: userId, churchId: session.churchId },
-    data: { role, customRoleId },
+    // A new role replaces a department-budget scope.
+    data: { role, customRoleId, budgetDepartmentId: null },
   });
 
   await audit(session, "update", "user", `Changed ${target?.name ?? "a member"}'s role to ${role}`, userId);
   revalidatePath("/app/settings");
   revalidatePath("/app", "layout");
+  return { ok: true };
 }
 
 /** Create a custom role with section access + delete permission (Owner/Admin). */
-export async function createCustomRole(formData: FormData) {
+export async function createCustomRole(formData: FormData): Promise<ActionResult> {
   const session = await requireSession();
   assertCanWrite(session);
-  if (session.role !== "Owner" && session.role !== "Admin") return;
+  if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the Main Admin or an Admin can do this." };
   // Custom roles are a Pro feature. assertCanWrite(session) with no module never consults the plan,
   // so this was open to every church including Free.
   assertPlanFeature(session, "custom-roles");
 
   const name = String(formData.get("name") ?? "").trim();
-  if (!name) return;
+  if (!name) return { ok: false, error: "Give the role a name." };
+  if (BUILT_IN_ROLES.some((r) => r.toLowerCase() === name.toLowerCase()) || /^main admin$/i.test(name)) return { ok: false, error: "That name belongs to a built-in role. Choose another." };
   const sections = formData.getAll("sections").map(String);
   // A section can only be managed if it's also viewable - keep them consistent.
   const manageSections = formData.getAll("manageSections").map(String).filter((s) => sections.includes(s));
@@ -508,18 +520,19 @@ export async function createCustomRole(formData: FormData) {
   });
 
   await audit(session, "create", "role", `Saved custom role "${name}"`);
-
-  await audit(session, "create", "role", `Saved custom role "${name}"`);
   revalidatePath("/app/settings");
+  return { ok: true };
 }
 
-export async function updateRolePermissions(formData: FormData) {
+export async function updateRolePermissions(formData: FormData): Promise<ActionResult> {
   const session = await requireSession();
   assertCanWrite(session);
-  if (session.role !== "Owner" && session.role !== "Admin") return;
+  if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the Main Admin or an Admin can do this." };
 
   const role = String(formData.get("role") ?? "").trim();
-  if (!role) return;
+  if (!role || !BUILT_IN_ROLES.includes(role as Role) || role === "Owner") return { ok: false, error: "That role cannot be edited." };
+  // Only the Main Admin decides what Admins can do.
+  if (role === "Admin" && session.role !== "Owner") return { ok: false, error: "Only the Main Admin can change what Admins can do." };
 
   const sections = formData.getAll("sections").map(String);
   const church = await db.church.findUnique({
@@ -534,25 +547,28 @@ export async function updateRolePermissions(formData: FormData) {
     data: { rolePermissions: current },
   });
 
+  await audit(session, "update", "role", `Changed what the ${role} role can use`);
   revalidatePath("/app/settings");
   revalidatePath("/app", "layout");
+  return { ok: true };
 }
 
 /** Edit an existing custom role's name, sections and delete permission. */
-export async function updateCustomRole(formData: FormData) {
+export async function updateCustomRole(formData: FormData): Promise<ActionResult> {
   const session = await requireSession();
   assertCanWrite(session);
-  if (session.role !== "Owner" && session.role !== "Admin") return;
+  if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the Main Admin or an Admin can do this." };
+  assertPlanFeature(session, "custom-roles");
 
   const id = String(formData.get("id") ?? "").trim();
   const name = String(formData.get("name") ?? "").trim();
-  if (!id || !name) return;
+  if (!id || !name) return { ok: false, error: "Give the role a name." };
 
   const role = await db.customRole.findFirst({
     where: { id, churchId: session.churchId },
     select: { id: true },
   });
-  if (!role) return;
+  if (!role) return { ok: false, error: "That role was not found." };
 
   const sections = formData.getAll("sections").map(String);
   const manageSections = formData.getAll("manageSections").map(String).filter((s) => sections.includes(s));
@@ -566,39 +582,93 @@ export async function updateCustomRole(formData: FormData) {
   revalidatePath("/app/settings");
   // Anyone signed in with this role needs their nav re-resolved.
   revalidatePath("/app", "layout");
+  return { ok: true };
 }
 
-export async function deleteCustomRole(id: string) {
+export async function deleteCustomRole(id: string): Promise<ActionResult> {
   const session = await requireSession();
   assertCanWrite(session);
-  if (session.role !== "Owner" && session.role !== "Admin") return;
+  if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the Main Admin or an Admin can do this." };
   await moveToBin(session, "customRole", "CustomRole", id);
   // Detach any users on this role first (they fall back to their base role).
   await db.user.updateMany({ where: { customRoleId: id, churchId: session.churchId }, data: { customRoleId: null } });
   await db.customRole.deleteMany({ where: { id, churchId: session.churchId } });
   revalidatePath("/app/settings");
   revalidatePath("/app", "layout");
+  return { ok: true };
 }
 
 /** Remove a team member (Owner/Admin only, can't remove yourself). */
-export async function removeTeamMember(formData: FormData) {
+export async function removeTeamMember(formData: FormData): Promise<ActionResult> {
   const session = await requireSession();
   assertCanWrite(session);
-  if (session.role !== "Owner" && session.role !== "Admin") return;
+  if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the Main Admin or an Admin can do this." };
 
   const userId = String(formData.get("userId") ?? "").trim();
-  if (!userId || userId === session.userId) return;
+  if (!userId) return { ok: false, error: "Nobody was chosen." };
+  if (userId === session.userId) return { ok: false, error: "You cannot remove yourself." };
 
   // Nobody removes the Main Admin, and only the Main Admin removes another Admin.
   const target = await db.user.findFirst({ where: { id: userId, churchId: session.churchId } });
-  if (!target || target.role === "Owner") return;
-  if (target.role === "Admin" && session.role !== "Owner") return;
+  if (!target) return { ok: false, error: "That person is not on your team." };
+  if (target.role === "Owner") return { ok: false, error: "The Main Admin cannot be removed." };
+  if (target.role === "Admin" && session.role !== "Owner") return { ok: false, error: "Only the Main Admin can remove an Admin." };
 
   await moveToBin(session, "teamMember", "User", userId);
   await db.user.delete({ where: { id: userId } });
+  await audit(session, "delete", "user", `Removed ${target.name} from the team`, userId);
   revalidatePath("/app/settings");
+  return { ok: true };
 }
 
+
+/** Make a team member a department budget leader: they then see only that department's budget, income and expenses. */
+export async function setBudgetDepartment(formData: FormData): Promise<ActionResult> {
+  const session = await requireSession();
+  assertCanWrite(session);
+  if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the Main Admin or an Admin can do this." };
+  const userId = String(formData.get("userId") ?? "").trim();
+  const departmentId = String(formData.get("departmentId") ?? "").trim();
+  if (userId === session.userId) return { ok: false, error: "You cannot change your own role." };
+  const [target, dept] = await Promise.all([
+    db.user.findFirst({ where: { id: userId, churchId: session.churchId }, select: { name: true, role: true } }),
+    db.department.findFirst({ where: { id: departmentId, churchId: session.churchId }, select: { id: true, name: true } }),
+  ]);
+  if (!target) return { ok: false, error: "That person is not on your team." };
+  if (!dept) return { ok: false, error: "That department was not found." };
+  if (target.role === "Owner") return { ok: false, error: "The Main Admin's role cannot be changed here." };
+  if (target.role === "Admin" && session.role !== "Owner") return { ok: false, error: "Only the Main Admin can change another Admin's role." };
+  await db.user.updateMany({ where: { id: userId, churchId: session.churchId }, data: { role: "Volunteer", customRoleId: null, budgetDepartmentId: dept.id } });
+  await audit(session, "update", "user", `Made ${target.name} the ${dept.name} budget leader`, userId);
+  revalidatePath("/app/settings");
+  revalidatePath("/app", "layout");
+  return { ok: true };
+}
+
+/** Send a fresh invite link to someone who has not accepted yet. The old link stops working. */
+export async function resendTeamInvite(userId: string): Promise<ActionResult> {
+  const session = await requireSession();
+  assertCanWrite(session);
+  if (session.role !== "Owner" && session.role !== "Admin") return { ok: false, error: "Only the Main Admin or an Admin can do this." };
+  const u = await db.user.findFirst({ where: { id: userId, churchId: session.churchId }, select: { id: true, name: true, phone: true, role: true, inviteAcceptedAt: true, passwordHash: true, budgetDepartment: { select: { name: true } }, customRole: { select: { name: true } } } });
+  if (!u) return { ok: false, error: "That person is not on your team." };
+  if (u.inviteAcceptedAt) return { ok: false, error: `${u.name} has already accepted.` };
+  if (!u.phone) return { ok: false, error: "They have no phone number to text the invite to." };
+  const { rateLimit, DAY } = await import("@/lib/rate-limit");
+  if (!(await rateLimit(`invite:${session.churchId}`, 30, DAY))) return { ok: false, error: "That is a lot of invites for one day. Please try again tomorrow." };
+  if (!(await rateLimit(`invite-resend:${u.id}`, 3, DAY))) return { ok: false, error: "This invite was already resent 3 times today." };
+
+  const inviteToken = crypto.randomBytes(24).toString("base64url");
+  await db.user.update({ where: { id: u.id }, data: { inviteToken } });
+  const church = await db.church.findUnique({ where: { id: session.churchId }, select: { name: true } });
+  const acceptUrl = `${await getBaseUrl()}/invite/${inviteToken}`;
+  const as = u.budgetDepartment ? `${u.budgetDepartment.name} budget leader` : u.customRole?.name ?? u.role;
+  const r = await sendSms(u.phone, `Reminder: you've been invited to join ${church?.name ?? "your church"} on WorshipHQ as ${as}. Accept & set up your account: ${acceptUrl}`, { heading: null });
+  await audit(session, "update", "user", `Resent the team invite to ${u.name}`, u.id);
+  revalidatePath("/app/settings");
+  if (!r.ok && !r.stubbed) return { ok: false, error: r.error ?? "The text did not go. Check their number." };
+  return { ok: true };
+}
 /**
  * The Main Admin hands the role to one of the church's Admins. The new Main Admin gets full control (billing, removing Admins),
  * and the person handing over becomes an Admin. The current password is asked for, because this cannot be done by someone

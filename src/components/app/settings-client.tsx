@@ -1,15 +1,13 @@
 "use client";
 
 import Link from "@/components/ui/app-link";
-import { PhoneInput } from "@/components/ui/phone-input";
 import { useState, useTransition, useEffect, useCallback } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   Building, Palette, Users2, CreditCard, Plug, Check, Pencil, CircleDot,
-  Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, Shield, MessageSquare, MessageSquareText,
-  ExternalLink, Rocket, Wallet, Loader2 as Spinner, Clock, CheckCircle2, X, Receipt, DatabaseBackup, Tags, Baby, GitBranch, Lock,
+  Sparkles, Link2, Layers, Trash2, ChevronDown, MessageSquare, MessageSquareText,
+  ExternalLink, Rocket, Wallet, Loader2 as Spinner, Clock, CheckCircle2, Receipt, DatabaseBackup, Tags, Baby, GitBranch, Lock,
 } from "lucide-react";
-import { OnFormComplete } from "@/components/ui/form-effects";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { SubmitButton } from "@/components/ui/submit-button";
@@ -17,7 +15,6 @@ import { SenderIdCard } from "@/components/app/sender-id-card";
 import { Badge } from "@/components/ui/badge";
 import { Input, Label } from "@/components/ui/input";
 import type { Session } from "@/lib/permissions";
-import { ROLE_PERMISSIONS } from "@/lib/permissions";
 import { OnlinePaymentsTab } from "@/components/app/online-payments-tab";
 import { ServiceTimesTab } from "@/components/app/service-times-tab";
 import { PlanHero, UsageTiles, PaymentHistory, type PaymentItem } from "@/components/app/billing-parts";
@@ -30,16 +27,11 @@ import { AgeGroupsTab } from "@/components/app/age-groups-tab";
 import { LinkedChurchesTab } from "@/components/app/linked-churches-tab";
 import { canManage as canManageSection } from "@/lib/permissions";
 import {
-  updateChurch, inviteTeammate,
-  changeUserRole, removeTeamMember,
-  createCustomRole, deleteCustomRole, updateCustomRole,
-  updateRolePermissions, changePlan, redeemPlanBypass, verifyPlanUpgrade, previewCoupon,
+  updateChurch, changePlan, redeemPlanBypass, verifyPlanUpgrade, previewCoupon,
   previewPlanChangeAction, cancelScheduledChange,
-  updateSlug, inviteBudgetLeader, transferMainAdmin,
+  updateSlug, transferMainAdmin,
 } from "@/app/actions/settings";
-import { roleLabel } from "@/lib/roles";
-import { ALL_MODULES, MODULE_LABELS } from "@/lib/permissions";
-import { RoleMatrix } from "@/components/app/role-matrix";
+import { TeamTab, type TeamMember } from "@/components/app/team-tab";
 import { BrandingForm } from "@/components/app/branding-form";
 import { BackupsPanel } from "@/components/app/backups-panel";
 import { LinksTab } from "@/components/app/links-tab";
@@ -83,7 +75,7 @@ type Church = {
   smsSenderIdRequestedAt?: Date | null;
   rolePermissions?: Record<string, string[]> | null;
 } | null;
-type TeamUser = { id: string; name: string; email: string; role: string; customRole?: { id: string; name: string } | null };
+type TeamUser = TeamMember;
 type Dept = { id: string; name: string; memberCount?: number };
 type CustomRoleRow = { id: string; name: string; sections: string[]; manageSections?: string[]; canDelete: boolean };
 type SubscriptionData = { plan: string; status: string; interval: string; renewsAt: Date | null; bypassPlan: string | null; scheduledPlan?: string | null; cancelAtPeriodEnd?: boolean; autoRenew?: boolean; cardId?: string | null; renewalFailures?: number } | null;
@@ -179,7 +171,6 @@ const integrationList = [
   { key: "database", name: "Database", desc: "PostgreSQL persistence" },
 ];
 
-const ALL_ROLES = ["Admin", "Pastor", "Finance", "Media", "Leader", "Volunteer"];
 
 /** The Main Admin hands the role to one of the church's Admins (asks for their password). */
 function TransferMainAdmin({ admins }: { admins: { id: string; name: string }[] }) {
@@ -273,7 +264,6 @@ export function SettingsClient({
   // Links such as /app/settings?tab=billing open straight on that tab.
   const asked = useSearchParams().get("tab");
   const [tab, setTab] = useState<(typeof tabs)[number]["key"]>(() => (tabs.find((t) => t.key === asked)?.key ?? "church"));
-  const [editingRole, setEditingRole] = useState<CustomRoleRow | null>(null);
   const ro = session.isDemo;
   const isAdmin = session.role === "Owner" || session.role === "Admin";
   /** The plan feature a tab needs when the church's plan does not include it, else null. */
@@ -378,247 +368,19 @@ export function SettingsClient({
 
         {/* ── Team / roles ── */}
         {tab === "team" && (
-          <div className="space-y-4">
-            <Card>
-              <div className="flex items-center justify-between border-b border-line p-6">
-                <div>
-                  <h3 className="font-display text-lg font-semibold">Your team</h3>
-                  <p className="text-sm text-ink-muted">
-                    Signed in as <Badge variant="primary">{roleLabel(session.role)}</Badge>
-                  </p>
-                </div>
-              </div>
-              <div className="divide-y divide-line-soft">
-                {users.map((u) => (
-                  <div key={u.email} className="flex items-center justify-between gap-4 p-5">
-                    <div>
-                      <div className="font-medium">{u.name}</div>
-                      <div className="text-xs text-ink-faint">{u.email}</div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      {isAdmin && u.id !== session.userId && u.role !== "Owner" && !(u.role === "Admin" && session.role !== "Owner") ? (
-                        <form action={changeUserRole} className="flex items-center gap-2">
-                          <input type="hidden" name="userId" value={u.id} />
-                          <select
-                            name="role"
-                            defaultValue={u.customRole ? `custom:${u.customRole.id}` : u.role}
-                            className="h-8 rounded-lg border border-line bg-surface px-2 text-xs"
-                          >
-                            {ALL_ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-                            {customRoles.length > 0 && (
-                              <optgroup label="Custom roles">
-                                {customRoles.map((cr) => <option key={cr.id} value={`custom:${cr.id}`}>{cr.name}</option>)}
-                              </optgroup>
-                            )}
-                          </select>
-                          <SubmitButton size="sm" variant="secondary" overlay={false} successMessage="Role updated" className="h-8 px-2 text-xs">
-                            Update
-                          </SubmitButton>
-                        </form>
-                      ) : (
-                        <Badge variant="default">{u.customRole?.name ?? roleLabel(u.role)}</Badge>
-                      )}
-                      {isAdmin && u.id !== session.userId && u.role !== "Owner" && !(u.role === "Admin" && session.role !== "Owner") && (
-                        <form action={removeTeamMember} onSubmit={(e) => { if (!confirmBinDelete(`Remove ${u.name ?? "this person"} from your team?`)) e.preventDefault(); }}>
-                          <input type="hidden" name="userId" value={u.id} />
-                          <SubmitButton size="sm" variant="danger" overlay={false} successMessage={BIN_TOAST} className="h-8 px-2">
-                            <Trash2 className="size-3" />
-                          </SubmitButton>
-                        </form>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </Card>
-
-            {session.role === "Owner" && !session.isDemo && (
-              <TransferMainAdmin admins={users.filter((u) => u.role === "Admin").map((u) => ({ id: u.id, name: u.name ?? u.email }))} />
-            )}
-
-            {isAdmin && (
-              <Card className="p-6">
-                <h3 className="flex items-center gap-2 font-display text-[1rem] font-semibold">
-                  <UserPlus className="size-4" /> Invite a teammate
-                </h3>
-                {billingUsage?.teamLimit != null && billingUsage.teamUsers >= billingUsage.teamLimit && (
-                  <p className="mt-3 rounded-lg bg-surface-2 px-3 py-2 text-sm text-ink-muted">
-                    Your plan includes {billingUsage.teamLimit} team members and you have {billingUsage.teamUsers}. Upgrade in the Billing tab to invite more.
-                  </p>
-                )}
-                <form action={inviteTeammate} className="mt-4 grid gap-3 sm:grid-cols-2">
-                  <Input name="name" placeholder="Full name" required disabled={ro} />
-                  <PhoneInput name="phone" aria-label="Mobile number for the SMS invite" required disabled={ro} />
-                  <div>
-                    <Input name="email" type="email" placeholder="Email (optional)" disabled={ro} />
-                    <label className="mt-1.5 flex items-center gap-2 text-xs text-ink-muted">
-                      <input type="checkbox" name="alsoEmail" disabled={ro} className="size-3.5 rounded border-line accent-[var(--color-primary)]" />
-                      Also email the invite
-                    </label>
-                  </div>
-                  <select
-                    name="role"
-                    defaultValue="Leader"
-                    disabled={ro}
-                    className="flex h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                  >
-                    {ALL_ROLES.map((r) => (
-                      <option key={r} value={r}>{r}</option>
-                    ))}
-                    {customRoles.length > 0 && (
-                      <optgroup label="Custom roles">
-                        {customRoles.map((cr) => <option key={cr.id} value={`custom:${cr.id}`}>{cr.name}</option>)}
-                      </optgroup>
-                    )}
-                  </select>
-                  <Input name="password" placeholder="Temp password (optional)" disabled={ro} />
-                  <SubmitButton className="sm:col-span-2" disabled={ro} pendingLabel="Sending invite…" successMessage="Invite sent">Send SMS invite</SubmitButton>
-                </form>
-                <p className="mt-2 text-xs text-ink-faint">
-                  They get a text with a link to accept, verify their number, set a password and add a photo - like a Discord invite. A temp password is optional.
-                </p>
-              </Card>
-            )}
-
-            {/* ── Department budget leaders ── */}
-            {isAdmin && (
-              <Card className="p-6">
-                <h3 className="flex items-center gap-2 font-display text-[1rem] font-semibold">
-                  <Wallet className="size-4" /> Department budget leaders
-                </h3>
-                <p className="mt-1 text-sm text-ink-muted">
-                  Give a ministry leader a scoped login to record their own income &amp; expenses. They see <b>only</b> their department&rsquo;s budget - nothing else.
-                </p>
-                {departments.length === 0 ? (
-                  <p className="mt-3 rounded-lg bg-surface-2 px-3 py-2 text-xs text-ink-faint">
-                    Add a department first (Departments tab) so you can assign a budget leader to it.
-                  </p>
-                ) : (
-                  <form action={inviteBudgetLeader} className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <Input name="name" placeholder="Leader's full name" required disabled={ro} />
-                    <PhoneInput name="phone" aria-label="Mobile number for the SMS invite" required disabled={ro} />
-                    <Input name="email" type="email" placeholder="Email (optional)" disabled={ro} />
-                    <select
-                      name="departmentId"
-                      required
-                      disabled={ro}
-                      defaultValue=""
-                      className="flex h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30"
-                    >
-                      <option value="" disabled>Choose department…</option>
-                      {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-                    </select>
-                    <SubmitButton className="sm:col-span-2" disabled={ro} pendingLabel="Sending invite…" successMessage="Budget leader invited">Invite budget leader</SubmitButton>
-                  </form>
-                )}
-              </Card>
-            )}
-
-            {/* ── Custom roles ── */}
-            {isAdmin && (
-              <Card className="p-6">
-                <h3 className="flex items-center gap-2 font-display text-[1rem] font-semibold">
-                  <Shield className="size-4" /> Custom roles
-                </h3>
-                <p className="mt-1 text-sm text-ink-muted">
-                  Create a role that can only see certain sections - e.g. an &ldquo;Attendance&rdquo; role that sees only attendance. Choose whether they can delete records or only add.
-                </p>
-
-                {customRoles.length > 0 && (
-                  <div className="mt-4 divide-y divide-line-soft rounded-xl border border-line">
-                    {customRoles.map((cr) => (
-                      <div key={cr.id} className="flex items-start justify-between gap-3 p-4">
-                        <div className="min-w-0">
-                          <div className="font-medium">{cr.name}</div>
-                          <div className="mt-0.5 text-xs text-ink-faint">
-                            {cr.sections.length ? cr.sections.map((s) => MODULE_LABELS[s] ?? s).join(", ") : "No sections"}
-                            {" · "}{cr.canDelete ? "can delete" : "add only"}
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-1">
-                          <Button size="sm" variant="secondary" onClick={() => setEditingRole(cr)} disabled={ro}>
-                            <Pencil className="size-3.5" /> Edit
-                          </Button>
-                          <form action={deleteCustomRole.bind(null, cr.id)} onSubmit={(e) => { if (!confirmBinDelete(`Delete the "${cr.name}" role? People on it go back to their basic role.`)) e.preventDefault(); }}>
-                            <SubmitButton size="sm" variant="ghost" overlay={false} successMessage={BIN_TOAST} className="text-danger">
-                              <Trash2 className="size-3.5" />
-                            </SubmitButton>
-                          </form>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                <form action={createCustomRole} className="mt-4 space-y-4">
-                  <Input name="name" placeholder="Role name (e.g. Finance - Day Born)" required disabled={ro} />
-                  <div>
-                    <Label>What can this role do?</Label>
-                    {/* Everyone on the team sees the calendar unless an admin takes it away, so a new role starts with it ticked. */}
-                    <RoleMatrix idPrefix="new-role" initialView={["calendar"]} />
-                  </div>
-                  <label className="flex items-center gap-2 text-sm text-ink-muted">
-                    <input type="checkbox" name="canDelete" className="size-4 rounded border-line accent-primary" />
-                    Allow this role to delete records (otherwise they can only add/edit)
-                  </label>
-                  <SubmitButton disabled={ro} pendingLabel="Saving…" successMessage="Role saved">Create role</SubmitButton>
-                </form>
-              </Card>
-            )}
-
-            {/* ── Edit an existing custom role ── */}
-            {editingRole && (
-              <>
-                <div className="fixed inset-0 z-40 bg-black/40 backdrop-blur-sm" onClick={() => setEditingRole(null)} />
-                <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md overflow-y-auto overscroll-contain border-l border-line bg-surface shadow-2xl">
-                  <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-surface px-5 py-4">
-                    <h2 className="font-display text-lg font-semibold">Edit role</h2>
-                    <button onClick={() => setEditingRole(null)} className="grid size-8 place-items-center rounded-lg hover:bg-surface-2">
-                      <X className="size-5" />
-                    </button>
-                  </div>
-
-                  <form action={updateCustomRole} className="space-y-4 p-5">
-                    <OnFormComplete onComplete={() => setEditingRole(null)} />
-                    <input type="hidden" name="id" value={editingRole.id} />
-
-                    <div>
-                      <Label>Role name</Label>
-                      <Input name="name" defaultValue={editingRole.name} required disabled={ro} />
-                    </div>
-
-                    <div>
-                      <Label>What can this role do?</Label>
-                      <RoleMatrix
-                        key={editingRole.id}
-                        idPrefix={`edit-${editingRole.id}`}
-                        initialView={editingRole.sections}
-                        initialManage={editingRole.manageSections ?? []}
-                      />
-                    </div>
-
-                    <label className="flex items-center gap-2 text-sm text-ink-muted">
-                      <input
-                        type="checkbox"
-                        name="canDelete"
-                        defaultChecked={editingRole.canDelete}
-                        className="size-4 rounded border-line accent-primary"
-                      />
-                      Allow this role to delete records
-                    </label>
-
-                    <SubmitButton className="w-full" disabled={ro} pendingLabel="Saving…" successMessage="Role updated">
-                      Save changes
-                    </SubmitButton>
-                  </form>
-                </div>
-              </>
-            )}
-
-            <BuiltInRolesEditor
+          <div className="space-y-6">
+            <TeamTab
+              me={{ id: session.userId, role: session.role, isDemo: ro }}
+              members={users}
+              customRoles={customRoles.map((r) => ({ ...r, manageSections: r.manageSections ?? r.sections }))}
+              departments={departments.map((d) => ({ id: d.id, name: d.name }))}
               rolePermissions={church?.rolePermissions ?? null}
-              readOnly={ro}
+              seats={{ used: billingUsage?.teamUsers ?? users.length, limit: billingUsage?.teamLimit ?? null }}
+              customRolesLocked={!ro && !!session.planLocked?.includes("custom-roles")}
             />
+            {session.role === "Owner" && !session.isDemo && (
+              <TransferMainAdmin admins={users.filter((u) => u.role === "Admin").map((u) => ({ id: u.id, name: u.name ?? u.email ?? "" }))} />
+            )}
           </div>
         )}
 
@@ -733,94 +495,6 @@ export function SettingsClient({
         )}
       </div>
     </div>
-  );
-}
-
-const EDITABLE_ROLES = ["Admin", "Pastor", "Finance", "Media", "Leader", "Volunteer"] as const;
-
-function BuiltInRolesEditor({
-  rolePermissions,
-  readOnly,
-}: {
-  rolePermissions: Record<string, string[]> | null;
-  readOnly: boolean;
-}) {
-  const [editingRole, setEditingRole] = useState<string | null>(null);
-
-  return (
-    <Card>
-      <div className="border-b border-line p-6">
-        <h3 className="font-display text-[1rem] font-semibold">Built-in role permissions</h3>
-        <p className="mt-1 text-sm text-ink-muted">
-          Click the pencil to customize what each role can access. The Main Admin always has full access.
-        </p>
-      </div>
-      <div className="divide-y divide-line-soft">
-        <div className="flex items-start justify-between gap-4 p-5">
-          <div>
-            <div className="font-medium">Main Admin</div>
-            <div className="mt-1 text-xs text-ink-faint">Full access to everything</div>
-          </div>
-        </div>
-        {EDITABLE_ROLES.map((role) => {
-          const defaults = ROLE_PERMISSIONS[role] ?? [];
-          const current = rolePermissions?.[role] ?? defaults;
-          const isEditing = editingRole === role;
-
-          return (
-            <div key={role} className="p-5">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <div className="font-medium">{role}</div>
-                  <div className="mt-1 text-xs text-ink-faint">
-                    {current.map((s) => MODULE_LABELS[s] ?? s).join(", ") || "No access"}
-                  </div>
-                </div>
-                {!readOnly && (
-                  <button
-                    type="button"
-                    onClick={() => setEditingRole(isEditing ? null : role)}
-                    className={cn(
-                      "grid size-8 place-items-center rounded-lg border border-line transition-colors",
-                      isEditing ? "bg-primary/10 text-primary-bright border-primary/30" : "text-ink-muted hover:bg-surface-2",
-                    )}
-                  >
-                    <Pencil className="size-3.5" />
-                  </button>
-                )}
-              </div>
-              {isEditing && (
-                <form action={updateRolePermissions} className="mt-4 space-y-3">
-                  <input type="hidden" name="role" value={role} />
-                  <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-3">
-                    {ALL_MODULES.map((m) => (
-                      <label key={m} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-surface-2">
-                        <input
-                          type="checkbox"
-                          name="sections"
-                          value={m}
-                          defaultChecked={current.includes(m)}
-                          className="size-4 rounded border-line accent-primary"
-                        />
-                        {MODULE_LABELS[m] ?? m}
-                      </label>
-                    ))}
-                  </div>
-                  <div className="flex gap-2">
-                    <SubmitButton size="sm" pendingLabel="Saving…" successMessage="Permissions updated">
-                      Save
-                    </SubmitButton>
-                    <Button type="button" size="sm" variant="ghost" onClick={() => setEditingRole(null)}>
-                      Cancel
-                    </Button>
-                  </div>
-                </form>
-              )}
-            </div>
-          );
-        })}
-      </div>
-    </Card>
   );
 }
 

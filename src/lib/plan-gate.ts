@@ -26,7 +26,7 @@ export function syncMemberText(text: string, limit: number): string {
 export const COMMS_TRIAL_CREDITS = 30;
 
 /**
- * Is this church inside a free month of Communications (SMS)? Only a church SuperAdmin switched it on for has one (its
+ * Is this church inside its free Communications (SMS) trial? New churches get one at signup, and SuperAdmin can switch it on (its
  * end date is stored on the subscription), and only while the master switch is on. Paid plans include Communications.
  */
 export function commsTrialOf(

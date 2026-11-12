@@ -169,8 +169,18 @@ export async function completeSignup(formData: FormData) {
   // typing any email, so the address was never proven to be theirs. A gift of a plan is made by the
   // SuperAdmin, to a church that exists, where it is recorded and can be seen.
   const intendedPlan = p.plan && ["starter", "pro", "max"].includes(p.plan) ? p.plan : null;
+  // Every new church gets the free Communications (SMS) trial straight away, with the 30 credits it starts with.
+  // Its length comes from SuperAdmin (Free trials), never more than 14 days. Switched off there = no trial.
+  const { getPlatformConfig } = await import("@/lib/data/platform-config");
+  const { COMMS_TRIAL_MAX_DAYS } = await import("@/lib/trial-settings");
+  const comms = (await getPlatformConfig()).trials.comms;
+  const commsStart = new Date();
+  const commsEnd = comms.enabled ? new Date(commsStart.getTime() + Math.min(COMMS_TRIAL_MAX_DAYS, comms.days) * 86_400_000) : null;
   await db.subscription.create({
-    data: { churchId: church.id, plan: "free", interval: "monthly", status: "active" },
+    data: {
+      churchId: church.id, plan: "free", interval: "monthly", status: "active",
+      ...(commsEnd ? { commsTrialStartedAt: commsStart, commsTrialEndsAt: commsEnd } : {}),
+    },
   });
 
   const user = await db.user.create({
