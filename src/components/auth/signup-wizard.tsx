@@ -22,6 +22,8 @@ export interface WizardPlan {
   id: string;
   name: string;
   monthly: number;
+  /** What a church in Ghana pays a month, in cedis. */
+  ghsMonthly?: number;
   members: string;
   features: string[];
 }
@@ -84,6 +86,9 @@ export function SignupWizard({
     heardDetail: "",
   });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
+  // A church in Ghana is shown the cedi price it will actually pay.
+  const priceLabel = (p: WizardPlan) =>
+    data.country === "Ghana" && p.ghsMonthly ? `GHS ${p.ghsMonthly.toLocaleString()}/mo` : `${currencySymbol}${p.monthly.toLocaleString()}/mo`;
 
   const set = (key: keyof typeof data) => (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) =>
     setData((d) => ({ ...d, [key]: e.target.value }));
@@ -356,7 +361,7 @@ export function SignupWizard({
                         >
                           <div className="font-display text-sm font-semibold">{p.name}</div>
                           <div className="mt-0.5 text-xs text-ink-muted">
-                            {p.monthly === 0 ? "Free forever" : `${currencySymbol}${p.monthly.toLocaleString()}/mo`}
+                            {p.monthly === 0 ? "Free forever" : priceLabel(p)}
                           </div>
                           <div className="mt-1 text-[10px] text-ink-faint">{p.members}</div>
                         </button>
@@ -393,7 +398,7 @@ export function SignupWizard({
                     { label: "Verify by", value: data.channel === "email" ? "Email code" : "SMS code" },
                     {
                       label: "Plan",
-                      value: `${selectedPlan.name}${selectedPlan.monthly > 0 ? ` · ${currencySymbol}${selectedPlan.monthly}/mo` : " · Free forever"}`,
+                      value: `${selectedPlan.name}${selectedPlan.monthly > 0 ? ` · ${priceLabel(selectedPlan)}` : " · Free forever"}`,
                     },
                   ].map((row) => (
                     <div key={row.label} className="flex items-center justify-between px-4 py-3">

@@ -92,7 +92,10 @@ export async function chargeSavedCard(churchId: string, plan: string, interval: 
   const cfg = await getPlatformConfig();
   const price = cfg.prices[plan];
   const listUsd = interval === "yearly" ? (price?.yearly ?? 0) : (price?.monthly ?? 0);
-  const amountGhs = Math.round(listUsd * cfg.usdToGhsRate);
+  // A church in Ghana renews at its fixed cedi price; everyone else at the dollar price converted.
+  const { chargeRate, churchIsGhana } = await import("@/lib/billing/local-price");
+  const rate = chargeRate(cfg, plan, interval, await churchIsGhana(churchId));
+  const amountGhs = Math.round(listUsd * rate);
   if (!(listUsd > 0) || !(amountGhs > 0)) return { status: "skipped", reason: "this plan has no price" };
   const subunits = amountGhs * 100;
 
@@ -106,7 +109,7 @@ export async function chargeSavedCard(churchId: string, plan: string, interval: 
     displayAmountUsd: listUsd,
     listAmountUsd: listUsd,
     couponId: null,
-    usdToGhsRate: cfg.usdToGhsRate,
+    usdToGhsRate: rate,
     prorated: false,
     renewal: true,
     saveCard: false,

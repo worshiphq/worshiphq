@@ -10,6 +10,7 @@ import { formatCurrency as defaultFmt } from "@/config/brand";
 import { cn } from "@/lib/utils";
 import type { PlanPrices } from "@/lib/data/platform-config";
 import { splitGift } from "@/lib/giving/fees";
+import { useGhanaVisitor } from "@/hooks/use-ghana-visitor";
 
 export function PricingSection({ showComparison = true, platformPricing }: {
   showComparison?: boolean;
@@ -20,26 +21,34 @@ export function PricingSection({ showComparison = true, platformPricing }: {
     /** Full plan definitions from the SuperAdmin plan editor. */
     planList?: Array<{
       id: string; name: string; tagline: string; monthly: number; yearly: number;
+      /** Fixed cedi prices for visitors in Ghana (0 = convert the dollar price). */
+      ghsMonthly?: number; ghsYearly?: number;
       membersLabel: string; featured: boolean; cta: string; marketingFeatures: string[];
       /** WorshipHQ's online giving fee on this plan: a percent of each gift, and an optional cap per gift (0 = none). */
       givingPercent?: number; givingCap?: number;
     }>;
   };
 }) {
+  // Visitors in Ghana see the cedi prices they will actually pay; everyone else sees dollars.
+  const rate = platformPricing?.usdToGhsRate ?? 0;
+  const ghana = useGhanaVisitor() && rate > 0;
+  const local = (usd: number, fixed?: number) => (!ghana ? usd : fixed && fixed > 0 ? fixed : Math.round(usd * rate));
   // Prefer the SuperAdmin-edited plans; fall back to the code defaults.
   const plans = platformPricing?.planList?.length
     ? platformPricing.planList.map((p) => ({
         id: p.id, name: p.name, tagline: p.tagline,
-        monthly: p.monthly, yearly: p.yearly,
+        monthly: local(p.monthly, p.ghsMonthly), yearly: local(p.yearly, p.ghsYearly),
         members: p.membersLabel, featured: p.featured,
         cta: p.cta, features: p.marketingFeatures,
       }))
     : defaultPlans.map((p) => {
         const dbPrice = platformPricing?.prices[p.id];
-        return dbPrice ? { ...p, monthly: dbPrice.monthly, yearly: dbPrice.yearly } : p;
+        return dbPrice
+          ? { ...p, monthly: local(dbPrice.monthly, dbPrice.ghsMonthly), yearly: local(dbPrice.yearly, dbPrice.ghsYearly) }
+          : { ...p, monthly: local(p.monthly), yearly: local(p.yearly) };
       });
-  const sym = platformPricing?.currencySymbol ?? "$";
-  const formatCurrency = (amount: number) => platformPricing ? `${sym}${amount.toLocaleString()}` : defaultFmt(amount);
+  const sym = ghana ? "GHS " : platformPricing?.currencySymbol ?? "$";
+  const formatCurrency = (amount: number) => ghana || platformPricing ? `${sym}${amount.toLocaleString()}` : defaultFmt(amount);
   const [yearly, setYearly] = useState(false);
 
   // The "Members" comparison row is otherwise a hardcoded string in config -
@@ -67,7 +76,7 @@ export function PricingSection({ showComparison = true, platformPricing }: {
                 <span className="text-primary"> stated.</span>
               </h2>
               <p className="mt-3 text-sm text-ink-muted">
-                Prices in US dollars, billed securely via Paystack.
+                {ghana ? "Prices in Ghana cedis" : "Prices in US dollars"}, billed securely via Paystack.
               </p>
             </div>
 

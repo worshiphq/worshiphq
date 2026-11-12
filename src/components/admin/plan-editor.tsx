@@ -278,6 +278,21 @@ export function PlanEditor({
                 />
               </div>
 
+              {p.id !== "free" && (
+                <>
+                  <FieldLabel className="mt-3">Ghana price (GHS / mo)</FieldLabel>
+                  <div className="relative">
+                    <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">₵</span>
+                    <input
+                      type="number" min={0} step="1" value={p.ghsMonthly || ""}
+                      placeholder={String(Math.round(p.monthly * (Number(rate) || 0)))}
+                      onChange={(e) => patch(p.id, { ghsMonthly: Math.round(Number(e.target.value) || 0) })}
+                      className={cell + " pl-7"}
+                    />
+                  </div>
+                </>
+              )}
+
               {yearlyOpen && (
                 <>
                   <FieldLabel className="mt-3">Price ({currency} / yr)</FieldLabel>
@@ -289,6 +304,20 @@ export function PlanEditor({
                       className={cell + " pl-7"}
                     />
                   </div>
+                  {p.id !== "free" && (
+                    <>
+                      <FieldLabel className="mt-3">Ghana price (GHS / yr)</FieldLabel>
+                      <div className="relative">
+                        <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">₵</span>
+                        <input
+                          type="number" min={0} step="1" value={p.ghsYearly || ""}
+                          placeholder={String(Math.round(p.yearly * (Number(rate) || 0)))}
+                          onChange={(e) => patch(p.id, { ghsYearly: Math.round(Number(e.target.value) || 0) })}
+                          className={cell + " pl-7"}
+                        />
+                      </div>
+                    </>
+                  )}
                 </>
               )}
 

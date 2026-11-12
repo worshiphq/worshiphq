@@ -4,6 +4,7 @@ import { requireSuperAdmin } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { db } from "@/lib/db";
 import { getPlatformConfig } from "@/lib/data/platform-config";
+import { chargeRate, isGhana } from "@/lib/billing/local-price";
 
 export const metadata = { title: "Renewals" };
 export const dynamic = "force-dynamic";
@@ -24,14 +25,15 @@ export default async function AdminRenewalsPage({ searchParams }: { searchParams
   const sa = await requireSuperAdmin();
   const now = Date.now();
   const cfg = await getPlatformConfig();
-  const priceGhs = (plan: string, interval: string) => {
+  const priceGhs = (plan: string, interval: string, country?: string | null) => {
     const p = cfg.prices[plan];
-    return Math.round((interval === "yearly" ? (p?.yearly ?? 0) : (p?.monthly ?? 0)) * cfg.usdToGhsRate);
+    const iv = interval === "yearly" ? "yearly" : "monthly";
+    return Math.round((iv === "yearly" ? (p?.yearly ?? 0) : (p?.monthly ?? 0)) * chargeRate(cfg, plan, iv, isGhana(country)));
   };
 
   const subs = await db.subscription.findMany({
     where: { plan: { not: "free" }, church: { isDemo: false } },
-    include: { church: { select: { id: true, name: true, suspended: true } } },
+    include: { church: { select: { id: true, name: true, suspended: true, country: true } } },
   });
 
   // Soonest first; anything with no date goes to the top, because that is the one that never expires.
@@ -75,10 +77,10 @@ export default async function AdminRenewalsPage({ searchParams }: { searchParams
   const expired = live.filter((r) => r.ended);
   const noDate = live.filter((r) => !r.end);
   const autoOn = live.filter((r) => r.s.autoRenew && hasCard.has(r.s.churchId)).length;
-  const weekTotal = week.reduce((t, r) => t + priceGhs(r.s.plan, r.s.interval), 0);
+  const weekTotal = week.reduce((t, r) => t + priceGhs(r.s.plan, r.s.interval, r.s.church.country), 0);
   const monthTotal = live
     .filter((r) => r.end && !r.ended && r.daysLeft! <= 30)
-    .reduce((t, r) => t + priceGhs(r.s.plan, r.s.interval), 0);
+    .reduce((t, r) => t + priceGhs(r.s.plan, r.s.interval, r.s.church.country), 0);
 
   const tiles = [
     { label: "Renewing in 7 days", value: String(week.length), sub: week.length ? `about ${cedi(weekTotal)}` : "nothing due" },
@@ -147,7 +149,7 @@ export default async function AdminRenewalsPage({ searchParams }: { searchParams
                       </>
                     )}
                   </td>
-                  <td className="px-4 py-3 text-slate-300">{gift ? "-" : cedi(priceGhs(s.plan, s.interval))}</td>
+                  <td className="px-4 py-3 text-slate-300">{gift ? "-" : cedi(priceGhs(s.plan, s.interval, s.church.country))}</td>
                   <td className="px-4 py-3 text-xs">
                     {gift ? "-" : s.autoRenew && hasCard.has(s.churchId)
                       ? <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-emerald-300">Card, automatic{s.renewalFailures ? ` (${s.renewalFailures} failed)` : ""}</span>

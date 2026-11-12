@@ -46,7 +46,11 @@ export async function activatePlanPayment(txn: PaystackTxn, expectChurchId?: str
     // Unsealed: honour it only at full price, with no proration or coupon.
     const price = platformConfig.prices[plan];
     const listUsd = interval === "yearly" ? Number(price?.yearly ?? 0) : Number(price?.monthly ?? 0);
-    const fullGhs = Math.round(listUsd * platformConfig.usdToGhsRate);
+    // The lower of the converted price and any fixed cedi price, so a Ghana church paying its cedi price still matches.
+    const { ghsListPrice } = await import("@/lib/billing/local-price");
+    const fixed = ghsListPrice(platformConfig, plan, interval);
+    const converted = Math.round(listUsd * platformConfig.usdToGhsRate);
+    const fullGhs = fixed ? Math.min(fixed, converted) : converted;
     if (!(fullGhs > 0) || amountGhs + 0.01 < fullGhs || String(txn.currency ?? "GHS").toUpperCase() !== "GHS") {
       console.warn(`[billing] unsealed plan charge ${reference} paid ${amountGhs} for ${plan}/${interval}, ignored`);
       return { ok: false, error: "This payment couldn't be matched to a plan. Please contact support." };

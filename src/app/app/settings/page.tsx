@@ -1,4 +1,5 @@
 import { listCards } from "@/lib/billing/cards";
+import { localPrices, isGhana } from "@/lib/billing/local-price";
 import { PageHeader } from "@/components/app/page-header";
 import { SettingsClient } from "@/components/app/settings-client";
 import { requireModule } from "@/lib/auth";
@@ -125,7 +126,7 @@ export default async function SettingsPage() {
         cards={cards}
         autoInactive={{ on: church?.autoInactiveOn ?? false, weeks: church?.autoInactiveWeeks ?? 12, locked: !session.isDemo && !!session.planLocked?.includes("auto-inactive") }}
         messageCenter={messageCenter}
-        platformPricing={platformConfig}
+        platformPricing={{ ...platformConfig, ...(localPrices(platformConfig, isGhana(church?.country)) ?? {}) }}
         billingUsage={(() => {
           const limits = platformConfig.planTable[(sub?.plan ?? "free") as keyof typeof platformConfig.planTable];
           return {

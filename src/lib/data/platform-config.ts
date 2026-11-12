@@ -11,7 +11,8 @@ import {
 } from "@/lib/plan-gate";
 
 export interface PlanPrices {
-  [planId: string]: { monthly: number; yearly: number };
+  /** USD prices (everyone), plus optional fixed cedi prices that churches in Ghana see and pay instead. */
+  [planId: string]: { monthly: number; yearly: number; ghsMonthly?: number; ghsYearly?: number };
 }
 
 /** A fully editable plan, as stored in PlatformConfig.planDefs. */
@@ -21,6 +22,9 @@ export interface EditablePlan {
   tagline: string;
   monthly: number;
   yearly: number;
+  /** Fixed cedi prices for churches in Ghana. 0 = none set (they pay the dollar price converted). */
+  ghsMonthly: number;
+  ghsYearly: number;
   /** Shown on the pricing card, e.g. "Up to 250 members". */
   membersLabel: string;
   /** Hard limit used for enforcement. -1 means unlimited. */
@@ -62,6 +66,8 @@ function codeDefaults(): Record<PlanId, EditablePlan> {
       tagline: p?.tagline ?? "",
       monthly: p?.monthly ?? 0,
       yearly: p?.yearly ?? 0,
+      ghsMonthly: 0,
+      ghsYearly: 0,
       membersLabel: p?.members ?? "",
       memberLimit: toStored(limits.members),
       teamUsers: toStored(limits.teamUsers),
@@ -120,6 +126,8 @@ function resolvePlans(
     if (pr) {
       base[id].monthly = pr.monthly;
       base[id].yearly = pr.yearly;
+      base[id].ghsMonthly = Number(pr.ghsMonthly) > 0 ? Number(pr.ghsMonthly) : 0;
+      base[id].ghsYearly = Number(pr.ghsYearly) > 0 ? Number(pr.ghsYearly) : 0;
     }
   }
   return base;

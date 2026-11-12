@@ -665,18 +665,23 @@ export async function previewPlanChangeAction(plan: string, interval: "monthly" 
   const session = await requireSession();
   const { loadPlanChange } = await import("@/lib/billing/context");
   const c = await loadPlanChange(session.churchId, plan, interval);
+  // A church in Ghana sees cedis, worked out exactly as the charge will be (see lib/billing/local-price).
+  const { chargeRate, churchIsGhana } = await import("@/lib/billing/local-price");
+  const ghana = await churchIsGhana(session.churchId);
+  const r = ghana ? chargeRate(c.platformConfig, plan, c.interval, true) : 1;
+  const show = (usd: number) => (ghana ? Math.round(usd * r) : usd);
   return {
     direction: c.preview.direction,
-    amountDueUsd: c.preview.amountDueUsd,
-    listPrice: c.listPrice,
+    amountDueUsd: show(c.preview.amountDueUsd),
+    listPrice: show(c.listPrice),
     // The interval the change is really priced on. An upgrade inside a paid period keeps the one the church is on.
     interval: c.interval,
     daysLeft: c.preview.daysLeft,
-    unusedCreditUsd: c.preview.unusedCreditUsd,
+    unusedCreditUsd: show(c.preview.unusedCreditUsd),
     effectiveDate: c.preview.effectiveDate.toISOString(),
     renewsAt: c.preview.renewsAt ? c.preview.renewsAt.toISOString() : null,
-    summary: c.preview.summary,
-    symbol: c.platformConfig.currencySymbol,
+    summary: ghana ? c.preview.summary.replace(/\$\s?([\d,]+(?:\.\d+)?)/g, (_m, n: string) => `GHS ${Math.round(Number(n.replace(/,/g, "")) * r).toLocaleString()}`) : c.preview.summary,
+    symbol: ghana ? "GHS " : c.platformConfig.currencySymbol,
   };
 }
 
@@ -703,6 +708,13 @@ export async function previewCoupon(code: string, plan: string, interval: "month
   });
   if (!check.ok) return { ok: false as const, error: check.error ?? "Invalid coupon." };
 
+  const { chargeRate, churchIsGhana } = await import("@/lib/billing/local-price");
+  if (await churchIsGhana(session.churchId)) {
+    const r = chargeRate(platformConfig, plan, interval, true);
+    const list = Math.round(listAmount * r);
+    const now = Math.round(check.newAmount! * r);
+    return { ok: true as const, label: check.label!, listAmount: list, newAmount: now, saved: list - now, symbol: "GHS " };
+  }
   return {
     ok: true as const,
     label: check.label!,
@@ -794,8 +806,11 @@ export async function changePlan(
     couponId = check.couponId ?? null;
   }
 
-  // Prices are displayed in USD; Paystack (Ghana) charges the GHS equivalent.
-  const chargeAmountGhs = Math.round(amount * platformConfig.usdToGhsRate);
+  // Prices are kept in USD; Paystack charges cedis. A church in Ghana pays the fixed cedi price the
+  // SuperAdmin set (prorations and coupons in proportion); everyone else pays the dollar price converted.
+  const { chargeRate, churchIsGhana } = await import("@/lib/billing/local-price");
+  const rate = chargeRate(platformConfig, plan, interval, await churchIsGhana(session.churchId));
+  const chargeAmountGhs = Math.round(amount * rate);
 
   // A 100%-off coupon means nothing to charge - activate straight away.
   if (couponId && chargeAmountGhs <= 0) {
@@ -820,13 +835,13 @@ export async function changePlan(
       reference: `COUPON-${couponId}-${Date.now()}`,
       plan, interval,
       amountUsd: 0, amountGhs: 0,
-      usdToGhsRate: platformConfig.usdToGhsRate,
+      usdToGhsRate: rate,
       couponId, discountUsd: listAmount,
       kind: isRenewal ? "renewal" : isProratedUpgrade ? "upgrade" : "new",
       periodStart, periodEnd: renewsAt,
     });
     await sendUpgradeReceipt(session.churchId, planConfig.name, "Free (100% coupon)", interval, `COUPON-${Date.now()}`, {
-      amountGhs: 0, discountGhs: Math.round(listAmount * platformConfig.usdToGhsRate), from: periodStart, to: renewsAt, method: "Coupon",
+      amountGhs: 0, discountGhs: Math.round(listAmount * rate), from: periodStart, to: renewsAt, method: "Coupon",
     });
     revalidatePath("/app/settings");
     revalidatePath("/app", "layout");
@@ -848,7 +863,7 @@ export async function changePlan(
           kind: "plan_upgrade",
           churchId: session.churchId,
           amountGhs: chargeAmountGhs,
-          data: { plan, interval, amountUsd: amount, listAmountUsd: listAmount, couponId, prorated: isProratedUpgrade, renewal: isRenewal, usdToGhsRate: platformConfig.usdToGhsRate },
+          data: { plan, interval, amountUsd: amount, listAmountUsd: listAmount, couponId, prorated: isProratedUpgrade, renewal: isRenewal, usdToGhsRate: rate },
         },
       });
       const r = await initHubtelCheckout(cfg, {
@@ -884,7 +899,7 @@ export async function changePlan(
       displayAmountUsd: amount,
       listAmountUsd: listAmount,
       couponId,
-      usdToGhsRate: platformConfig.usdToGhsRate,
+      usdToGhsRate: rate,
       prorated: isProratedUpgrade,
       renewal: isRenewal,
       // Sealed with the rest, so it cannot be switched on from outside. Honoured only for a real card payment.
@@ -910,7 +925,7 @@ export async function changePlan(
       churchId: session.churchId,
       reference, plan, interval,
       amountUsd: amount, amountGhs: chargeAmountGhs,
-      usdToGhsRate: platformConfig.usdToGhsRate,
+      usdToGhsRate: rate,
       couponId, discountUsd: listAmount - amount,
       kind: isRenewal ? "renewal" : isProratedUpgrade ? "upgrade" : "new",
       periodStart, periodEnd: renewsAt,
@@ -918,7 +933,7 @@ export async function changePlan(
     });
     const sym = platformConfig.currencySymbol;
     await sendUpgradeReceipt(session.churchId, planConfig.name, `${sym}${amount.toLocaleString()} (₵${chargeAmountGhs.toLocaleString()})`, interval, reference, {
-      amountGhs: chargeAmountGhs, discountGhs: Math.max(0, Math.round((listAmount - amount) * platformConfig.usdToGhsRate)), from: periodStart, to: renewsAt, prorated: isProratedUpgrade,
+      amountGhs: chargeAmountGhs, discountGhs: Math.max(0, Math.round((listAmount - amount) * rate)), from: periodStart, to: renewsAt, prorated: isProratedUpgrade,
     });
     revalidatePath("/app/settings");
     revalidatePath("/app", "layout");

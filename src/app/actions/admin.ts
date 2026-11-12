@@ -512,6 +512,8 @@ export async function updatePlanDefinitions(input: {
     tagline: string;
     monthly: number;
     yearly: number;
+    ghsMonthly?: number;
+    ghsYearly?: number;
     membersLabel: string;
     memberLimit: number;
     teamUsers: number;
@@ -528,13 +530,16 @@ export async function updatePlanDefinitions(input: {
 
   const VALID = ["free", "starter", "pro", "max"];
   const planDefs: Record<string, unknown> = {};
-  const planPrices: Record<string, { monthly: number; yearly: number }> = {};
+  const planPrices: Record<string, { monthly: number; yearly: number; ghsMonthly?: number; ghsYearly?: number }> = {};
 
   for (const p of input.plans) {
     if (!VALID.includes(p.id)) continue;
     const monthly = Math.max(0, Number(p.monthly) || 0);
     const yearly = Math.max(0, Number(p.yearly) || 0);
-    planPrices[p.id] = { monthly, yearly };
+    // Fixed cedi prices for churches in Ghana. Left out when blank, so they pay the dollar price converted.
+    const ghsMonthly = Math.max(0, Math.round(Number(p.ghsMonthly) || 0));
+    const ghsYearly = Math.max(0, Math.round(Number(p.ghsYearly) || 0));
+    planPrices[p.id] = { monthly, yearly, ...(ghsMonthly ? { ghsMonthly } : {}), ...(ghsYearly ? { ghsYearly } : {}) };
     planDefs[p.id] = {
       name: String(p.name || p.id).slice(0, 40),
       tagline: String(p.tagline || "").slice(0, 120),

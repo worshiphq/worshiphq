@@ -19,6 +19,8 @@ export default async function SignUpPage({
     id: p.id,
     name: p.name,
     monthly: p.monthly,
+    // What a church in Ghana will pay: the fixed cedi price, or the dollar price converted.
+    ghsMonthly: p.ghsMonthly || Math.round(p.monthly * platformConfig.usdToGhsRate),
     members: p.membersLabel,
     features: p.marketingFeatures,
   }));
