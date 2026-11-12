@@ -20,14 +20,17 @@ export interface TrialSettings {
   hold: Record<TrialStep, string[]>;
   /** A church that passes this on its own may start a trial without being invited. */
   auto: { enabled: boolean; minMembers: number; minDays: number };
-  /** The free month of Communications. Off = nobody has it (even if switched on for them). Days = the usual length. */
+  /** The free Communications (SMS) trial. Off = nobody has it (even if switched on for them). Days = its length, at most COMMS_TRIAL_MAX_DAYS. */
   comms: { enabled: boolean; days: number };
 }
 
 export const DEFAULT_TRIAL_SETTINGS: TrialSettings = { enabled: true, days: 7, steps: { starter: true, pro: true, max: true }, hold: { starter: [], pro: [], max: [] },
-  auto: { enabled: true, minMembers: 20, minDays: 14 }, comms: { enabled: true, days: 30 } };
+  auto: { enabled: true, minMembers: 20, minDays: 14 }, comms: { enabled: true, days: 14 } };
 
 export const MAX_TRIAL_DAYS = 30;
+
+/** The free Communications trial never runs longer than this (it was a month until Nov 2026; now two weeks). */
+export const COMMS_TRIAL_MAX_DAYS = 14;
 
 /** Whatever is saved, turned into safe settings (a missing or odd value falls back to the default). */
 export function normalizeTrialSettings(raw: unknown): TrialSettings {
@@ -50,7 +53,7 @@ export function normalizeTrialSettings(raw: unknown): TrialSettings {
     },
     comms: {
       enabled: typeof r.comms?.enabled === "boolean" ? r.comms.enabled : DEFAULT_TRIAL_SETTINGS.comms.enabled,
-      days: Number.isFinite(Number(r.comms?.days)) && Number(r.comms?.days) >= 1 ? Math.min(MAX_TRIAL_DAYS, Math.round(Number(r.comms?.days))) : DEFAULT_TRIAL_SETTINGS.comms.days,
+      days: Number.isFinite(Number(r.comms?.days)) && Number(r.comms?.days) >= 1 ? Math.min(COMMS_TRIAL_MAX_DAYS, Math.round(Number(r.comms?.days))) : DEFAULT_TRIAL_SETTINGS.comms.days,
     },
   };
 }

@@ -27,7 +27,7 @@ export async function runBirthdays(now = new Date(), ignoreHour = false, deadlin
       birthdayWishOn: true, birthdayAdminAlertOn: true, birthdayDigestOn: true, birthdayDigestDay: true,
       messageTemplates: true,
     },
-  }), "sms");
+  }), "birthday-automations"); // Starter and up. A Free church's free Communications trial does not include it.
 
   let wishes = 0, adminAlerts = 0, digests = 0;
 

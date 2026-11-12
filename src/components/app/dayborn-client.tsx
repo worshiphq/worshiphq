@@ -189,7 +189,7 @@ export function DayBornClient({
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Day Born</h1>
+          <h1 className="text-2xl font-bold">Day Born <span className="font-medium text-ink-muted">(Kofi ne Ama)</span></h1>
           <p className="text-muted-fg text-sm">
             Sunday day-born collections by day of the week
           </p>

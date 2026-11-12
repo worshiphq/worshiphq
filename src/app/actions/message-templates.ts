@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireSession } from "@/lib/auth";
+import { requireSession, assertPlanFeature } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { itemByKey } from "@/lib/messages/catalog";
@@ -11,6 +11,7 @@ import { canManage } from "@/lib/permissions";
 function assertCanEditMessages(session: Awaited<ReturnType<typeof requireSession>>) {
   const ok = ["communications", "settings", "rosters", "reminders", "giving", "welfare"].some((m) => canManage(session, m));
   if (!ok) throw new Error("Your role can view this but not make changes to it.");
+  assertPlanFeature(session, "custom-messages");
 }
 
 /**

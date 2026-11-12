@@ -7,7 +7,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Building, Palette, Users2, CreditCard, Plug, Check, Pencil, CircleDot,
   Sparkles, UserPlus, Link2, Layers, Trash2, ChevronDown, Shield, MessageSquare, MessageSquareText,
-  ExternalLink, Rocket, Wallet, Loader2 as Spinner, Clock, CheckCircle2, X, Receipt, DatabaseBackup, Tags, Baby, GitBranch,
+  ExternalLink, Rocket, Wallet, Loader2 as Spinner, Clock, CheckCircle2, X, Receipt, DatabaseBackup, Tags, Baby, GitBranch, Lock,
 } from "lucide-react";
 import { OnFormComplete } from "@/components/ui/form-effects";
 import { Card } from "@/components/ui/card";
@@ -49,7 +49,7 @@ import { getFormDefinition, getVisitorFormDefinition, getChildrenFormDefinition,
 import { createDepartment, deleteDepartment } from "@/app/actions/departments";
 import { plans as defaultPlans } from "@/config/pricing";
 import type { EditablePlan, PlanPrices } from "@/lib/data/platform-config";
-import { getPlanLimits, planRank, syncMemberText, type PlanId } from "@/lib/plan-gate";
+import { getPlanLimits, planRank, syncMemberText, getMinimumPlan, FEATURE_LABELS as PLAN_FEATURE_LABELS, type PlanId } from "@/lib/plan-gate";
 import { usePaystack } from "@/components/payments/use-paystack";
 import { cn } from "@/lib/utils";
 import { confirmBinDelete } from "@/lib/recycle-bin-events";
@@ -66,6 +66,10 @@ type Church = {
   hideAmounts?: boolean;
   birthdayDigestOn?: boolean;
   birthdayDigestDay?: number;
+  /** The plan does not include automatic birthday messages (Starter and up). */
+  birthdayLocked?: boolean;
+  /** Already linked to other churches: the Linked churches tab stays open even on a plan without it. */
+  hasLinks?: boolean;
   accentColor: string;
   logoUrl: string;
   slug: string;
@@ -112,6 +116,40 @@ export type PlanPaymentRow = {
 };
 export type BillingUsage = { members: number; memberLimit: number | null; teamUsers: number; teamLimit: number | null; smsCredits: number };
 export type SmsTopupRow = { id: string; at: string; credits: number; amountGhs: number | null; kind: string; note: string | null };
+
+/** Settings tabs that need a plan feature. A church without it sees the tab, locked, with a way to upgrade. */
+const TAB_FEATURE: Record<string, string> = {
+  categories: "member-categories",
+  "service-times": "service-times",
+  linked: "linked-churches",
+  "online-payments": "online-payments",
+  messages: "custom-messages",
+};
+
+/** What a tab offers, said plainly, for the locked panel. */
+const LOCKED_COPY: Record<string, string> = {
+  "member-categories": "Group your members into zones, fellowships or any category you like, and let members pick theirs on the join form.",
+  "service-times": "Set your service times so check-ins land on the right service and late arrivals are marked.",
+  "linked-churches": "Link your branches, partner churches and teens chapel, and see them all from one account.",
+  "online-payments": "Receive tithes, offerings and gifts by Mobile Money and card, paid straight into your church account.",
+  "custom-messages": "Write your own wording for birthday wishes, receipts, reminders and every other message the church sends.",
+};
+
+function LockedTab({ feature, isOwner }: { feature: string; isOwner: boolean }) {
+  const plan = getMinimumPlan(feature);
+  const planName = plan.charAt(0).toUpperCase() + plan.slice(1);
+  return (
+    <Card className="p-8 text-center">
+      <div className="mx-auto flex size-12 items-center justify-center rounded-2xl bg-primary/10"><Lock className="size-6 text-primary" /></div>
+      <h3 className="mt-4 font-display text-lg font-semibold">{PLAN_FEATURE_LABELS[feature] ?? feature} comes with {planName}</h3>
+      <p className="mx-auto mt-2 max-w-md text-sm text-ink-muted">{LOCKED_COPY[feature]}</p>
+      <p className="mx-auto mt-2 max-w-md text-sm text-ink-muted">
+        Available on the {planName} plan{plan === "max" ? "" : " and above"}. {isOwner ? "Unlock it in Billing." : "Ask your Main Admin to upgrade in Billing."}
+      </p>
+      <a href="/app/settings?tab=billing" className="mt-5 inline-flex h-10 items-center rounded-xl bg-primary px-5 text-sm font-semibold text-white hover:opacity-90">Unlock in Billing</a>
+    </Card>
+  );
+}
 
 const tabs = [
   { key: "church", label: "Church profile", icon: Building },
@@ -238,6 +276,14 @@ export function SettingsClient({
   const [editingRole, setEditingRole] = useState<CustomRoleRow | null>(null);
   const ro = session.isDemo;
   const isAdmin = session.role === "Owner" || session.role === "Admin";
+  /** The plan feature a tab needs when the church's plan does not include it, else null. */
+  const lockedFeature = (key: string): string | null => {
+    const f = TAB_FEATURE[key];
+    if (!f || session.isDemo || session.impersonating) return null;
+    if (key === "linked" && church?.hasLinks) return null;
+    return session.planLocked?.includes(f) ? f : null;
+  };
+  const tabLock = lockedFeature(tab);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[220px_1fr]">
@@ -258,6 +304,7 @@ export function SettingsClient({
             )}
           >
             <t.icon className="size-4" aria-hidden /> {t.label}
+            {lockedFeature(t.key) && <Lock className="ml-auto size-3.5 text-ink-faint" aria-label="Locked on your plan" />}
           </button>
         ))}
       </nav>
@@ -299,9 +346,12 @@ export function SettingsClient({
               </label>
               <div className="mt-3 rounded-xl border border-line bg-surface-2/40 p-3 text-sm text-ink-muted">
                 <label className="flex items-start gap-2">
-                  <input type="checkbox" name="birthdayDigestOn" defaultChecked={church?.birthdayDigestOn ?? true} disabled={ro} className="mt-0.5 size-4 rounded border-line accent-primary" />
+                  {/* Locked: keep the saved choice so it is still there after an upgrade. */}
+                  {church?.birthdayLocked && (church?.birthdayDigestOn ?? true) && <input type="hidden" name="birthdayDigestOn" value="on" />}
+                  <input type="checkbox" name={church?.birthdayLocked ? undefined : "birthdayDigestOn"} defaultChecked={church?.birthdayDigestOn ?? true} disabled={ro || church?.birthdayLocked} className="mt-0.5 size-4 rounded border-line accent-primary" />
                   <span>
                     <span className="font-medium text-ink">Weekly birthday digest</span> - text &amp; email admins the week&rsquo;s upcoming birthdays.
+                    {church?.birthdayLocked && <span className="mt-1 block text-xs text-ink-faint">Comes with the Starter plan and above. <a href="/app/settings?tab=billing" className="font-medium text-primary hover:underline">See plans</a></span>}
                   </span>
                 </label>
                 <div className="mt-2 flex items-center gap-2 pl-6">
@@ -654,12 +704,14 @@ export function SettingsClient({
         {/* ── Billing ── */}
         {tab === "billing" && <BillingTab trial={trial} subscription={subscription} features={features} ro={ro} platformPricing={platformPricing} payments={payments} usage={billingUsage} smsTopups={smsTopups} cards={cards} isOwner={session.role === "Owner"} />}
 
+        {tabLock && <LockedTab feature={tabLock} isOwner={session.role === "Owner"} />}
+
         {/* ── Online Payments ── */}
-        {tab === "online-payments" && <OnlinePaymentsTab canManage={isAdmin && !ro} />}
+        {tab === "online-payments" && !tabLock && <OnlinePaymentsTab canManage={isAdmin && !ro} />}
 
-        {tab === "categories" && <MemberCategoriesTab canManage={!ro && canManageSection(session, "people")} />}
+        {tab === "categories" && !tabLock && <MemberCategoriesTab canManage={!ro && canManageSection(session, "people")} />}
 
-        {tab === "linked" && <LinkedChurchesTab canManage={!ro && isAdmin} />}
+        {tab === "linked" && !tabLock && <LinkedChurchesTab canManage={!ro && isAdmin} />}
 
         {tab === "age-groups" && (
           <div className="space-y-4">
@@ -668,11 +720,11 @@ export function SettingsClient({
           </div>
         )}
 
-        {tab === "service-times" && <ServiceTimesTab canManage={!ro && canManageSection(session, "attendance")} />}
+        {tab === "service-times" && !tabLock && <ServiceTimesTab canManage={!ro && canManageSection(session, "attendance")} />}
 
         {tab === "backups" && <BackupsPanel />}
 
-        {tab === "messages" && (
+        {tab === "messages" && !tabLock && (
           <MessageCenter values={messageCenter.values} automations={messageCenter.automations} canWrite={!ro && isAdmin} />
         )}
 

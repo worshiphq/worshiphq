@@ -10,7 +10,7 @@ import {
   saveTrialSettingsAction, grantTrial, extendTrialAction, endTrialAction, grantTrialBulk, extendTrialBulk, endTrialBulk, resetTrialAction, resetTrialBulk,
   inviteTrialBulk, uninviteTrialBulk, grantCommsBulk, endCommsBulk,
 } from "@/app/actions/admin-trials";
-import { TRIAL_STEPS, MAX_TRIAL_DAYS, type TrialSettings, type TrialStep } from "@/lib/trial-settings";
+import { TRIAL_STEPS, MAX_TRIAL_DAYS, COMMS_TRIAL_MAX_DAYS, type TrialSettings, type TrialStep } from "@/lib/trial-settings";
 import type { TrialRow, TrialFilter, TrialSort } from "@/lib/data/admin-trials";
 import { cn } from "@/lib/utils";
 
@@ -141,15 +141,15 @@ export function TrialsClient({ settings, rows, counts, conversionPct, filter, q,
             </div>
           </div>
           <div className="text-sm">
-            <div className="font-semibold text-slate-200">Free month of Communications (SMS)</div>
+            <div className="font-semibold text-slate-200">Free Communications trial (SMS, up to 14 days)</div>
             <p className="mt-1 text-xs text-slate-500">No church gets it by itself. You switch it on for chosen churches below. Turning this off ends it for everyone.</p>
             <label className="mt-2 flex items-center gap-2 text-slate-300">
               <input type="checkbox" checked={draft.comms.enabled} onChange={(e) => setDraft({ ...draft, comms: { ...draft.comms, enabled: e.target.checked } })} className="size-4 accent-teal-500" />
-              The free month is available
+              The free Communications trial is available
             </label>
             <div className="mt-2 flex items-center gap-2 text-slate-300">
               Usual length
-              <input type="number" min={1} max={MAX_TRIAL_DAYS} value={draft.comms.days} onChange={(e) => setDraft({ ...draft, comms: { ...draft.comms, days: Math.max(1, Math.min(MAX_TRIAL_DAYS, Number(e.target.value) || 1)) } })} className={`${input} w-20`} /> days
+              <input type="number" min={1} max={COMMS_TRIAL_MAX_DAYS} value={draft.comms.days} onChange={(e) => setDraft({ ...draft, comms: { ...draft.comms, days: Math.max(1, Math.min(COMMS_TRIAL_MAX_DAYS, Number(e.target.value) || 1)) } })} className={`${input} w-20`} /> days
             </div>
           </div>
         </div>
@@ -226,7 +226,7 @@ export function TrialsClient({ settings, rows, counts, conversionPct, filter, q,
           <button className={ghost} disabled={pending} onClick={() => { if (window.confirm(`End the trial for ${chosen.length} church${chosen.length === 1 ? "" : "es"} now?`)) bulk("b-end", (ids) => endTrialBulk(ids)); }}>{busy === "b-end" ? <Loader2 className="size-3.5 animate-spin" /> : "End now"}</button>
           <button className={primary} title="They see the Start button and start the trial themselves" disabled={pending} onClick={() => bulk("b-invite", (ids) => inviteTrialBulk(ids))}>{busy === "b-invite" ? <><Loader2 className="size-3.5 animate-spin" /> Inviting…</> : "Invite to trial"}</button>
           <button className={ghost} disabled={pending} onClick={() => bulk("b-uninvite", (ids) => uninviteTrialBulk(ids))}>{busy === "b-uninvite" ? <Loader2 className="size-3.5 animate-spin" /> : "Remove invite"}</button>
-          <button className={ghost} title="Switch on the free month of Communications for these churches" disabled={pending || !settings.comms.enabled} onClick={() => { if (window.confirm(`Switch on ${settings.comms.days} days of free Communications for ${chosen.length} church${chosen.length === 1 ? "" : "es"}? Paid churches are skipped.`)) bulk("b-comms", (ids) => grantCommsBulk(ids, settings.comms.days)); }}>{busy === "b-comms" ? <><Loader2 className="size-3.5 animate-spin" /> Switching on…</> : `Give ${settings.comms.days}-day Communications`}</button>
+          <button className={ghost} title="Switch on the free Communications trial for these churches" disabled={pending || !settings.comms.enabled} onClick={() => { if (window.confirm(`Switch on ${settings.comms.days} days of free Communications for ${chosen.length} church${chosen.length === 1 ? "" : "es"}? Paid churches are skipped.`)) bulk("b-comms", (ids) => grantCommsBulk(ids, settings.comms.days)); }}>{busy === "b-comms" ? <><Loader2 className="size-3.5 animate-spin" /> Switching on…</> : `Give ${settings.comms.days}-day Communications`}</button>
           <button className={ghost} disabled={pending} onClick={() => bulk("b-commsend", (ids) => endCommsBulk(ids))}>{busy === "b-commsend" ? <Loader2 className="size-3.5 animate-spin" /> : "End Communications"}</button>
           <button className={ghost} title="Cancel the trial and let the church start it itself again" disabled={pending} onClick={() => { if (window.confirm(`Reset the trial for ${chosen.length} church${chosen.length === 1 ? "" : "es"}? The trial and its notice go away, and they can start it themselves again.`)) bulk("b-reset", (ids) => resetTrialBulk(ids)); }}>{busy === "b-reset" ? <Loader2 className="size-3.5 animate-spin" /> : "Reset trial"}</button>
           <button className="ml-auto text-xs text-slate-400 hover:text-white" onClick={() => { setSel(new Set()); lastIdx.current = null; }}>Clear</button>

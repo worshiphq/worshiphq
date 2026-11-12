@@ -14,7 +14,7 @@ import { binCutoff } from "@/lib/recycle-bin";
 import { getActiveAnnouncements } from "@/lib/data/announcements";
 import { getRecentNotifications } from "@/lib/data/notifications";
 import { getChurchPlan, getChurchSub } from "@/lib/plan-gate-server";
-import { commsTrialOf } from "@/lib/plan-gate";
+import { commsTrialOf, paidPlan } from "@/lib/plan-gate";
 import { BillingBanner } from "@/components/app/billing-banner";
 import { TrialBanner } from "@/components/app/trial-banner";
 import { TrialProvider, TrialWelcome } from "@/components/app/trial-context";
@@ -46,7 +46,19 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   ]);
 
   // During a free month of Communications (switched on by SuperAdmin), a Free church's sidebar shows SMS as open.
-  const trialOn = plan === "free" && commsTrialOf(subRow, platformConfig.trials.comms.enabled).active;
+  const comms = commsTrialOf(subRow, platformConfig.trials.comms.enabled);
+  const trialOn = plan === "free" && comms.active;
+  // The plan badge beside the bell: only the Main Admin and Admins see the plan and its renewal.
+  const showPlan = !session.isDemo && (session.role === "Owner" || session.role === "Admin");
+  const billing = showPlan
+    ? {
+      plan: paidPlan(subRow),
+      status: subRow?.status ?? "active",
+      renewsAt: subRow?.renewsAt?.toISOString() ?? null,
+      autoRenew: !!subRow?.autoRenew,
+      cancelAtPeriodEnd: !!subRow?.cancelAtPeriodEnd,
+    }
+    : null;
   const planTable = trialOn
     ? { ...platformConfig.planTable, free: { ...platformConfig.planTable.free, features: [...platformConfig.planTable.free.features, "sms"] } }
     : platformConfig.planTable;
@@ -68,7 +80,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   const heldBack = new Set(trialAccess?.withheld ?? []);
   const tablePlan = heldBack.size ? { ...planTable, [plan]: { ...planTable[plan], features: planTable[plan].features.filter((f) => !heldBack.has(f)) } } : planTable;
   return (
-    <TrialProvider value={{ plan: trialAccess?.plan ?? null, features: trialAccess?.usable ?? [], startedAt: trialAccess?.startedAt ?? null, endsAt: trialAccess?.endsAt ?? null, daysLeft: trialAccess?.daysLeft ?? 0 }}>
+    <TrialProvider value={{ plan: trialAccess?.plan ?? null, features: trialAccess?.usable ?? [], startedAt: trialAccess?.startedAt ?? null, endsAt: trialAccess?.endsAt ?? null, daysLeft: trialAccess?.daysLeft ?? 0, commsDaysLeft: trialOn ? comms.daysLeft : null, billing }}>
     <TrialWelcome />
     <AppShell
       session={session}

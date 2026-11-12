@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { Cake, Bell, Users, Clock, Check, Loader2, MessageSquare, Wallet } from "lucide-react";
+import { Cake, Bell, Users, Clock, Check, Loader2, MessageSquare, Wallet, Lock } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { useFeedback } from "@/components/ui/feedback";
@@ -31,8 +31,10 @@ function hourLabel(h: number) {
   return `${hr}:00 ${ampm}`;
 }
 
-export function BirthdaySettings({ settings, membersWithPhone, adminCount, canWrite, messageTemplates }: {
+export function BirthdaySettings({ settings, membersWithPhone, adminCount, canWrite, messageTemplates, locked }: {
   settings: Settings; membersWithPhone: number; adminCount: number; canWrite: boolean; messageTemplates?: Record<string, string>;
+  /** The church's plan does not include automatic birthday messages (Starter and up). */
+  locked?: boolean;
 }) {
   const router = useRouter();
   const { toast } = useFeedback();
@@ -54,6 +56,26 @@ export function BirthdaySettings({ settings, membersWithPhone, adminCount, canWr
       else toast(r?.error ?? "Failed", "error");
     });
   };
+
+  if (locked) {
+    return (
+      <Card className="p-5">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div className="flex items-start gap-2">
+            <div className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-primary/10"><Cake className="size-5 text-primary" /></div>
+            <div>
+              <h3 className="flex items-center gap-1.5 font-display text-lg font-semibold">Birthday reminders <Lock className="size-4 text-ink-faint" /></h3>
+              <p className="mt-0.5 max-w-xl text-sm text-ink-muted">
+                Automatic birthday texts to members, today&rsquo;s birthdays sent to your admins, and the weekly birthday list come with the Starter plan and above.
+                Your birthday list below works on every plan.
+              </p>
+            </div>
+          </div>
+          <Link href="/app/settings?tab=billing"><Button size="sm" type="button">See plans</Button></Link>
+        </div>
+      </Card>
+    );
+  }
 
   return (
     <Card className="p-5">

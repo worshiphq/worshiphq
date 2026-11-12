@@ -99,7 +99,7 @@ const FREE_FEATURES = [
 const STARTER_ADDS = [
   "sms", "reminders", "member-ids", "qr-codes",
   "form-builder", "import-export", "auto-receipts", "follow-ups",
-  "baptisms", "poster-maker",
+  "baptisms", "poster-maker", "birthday-automations", "custom-messages",
 ];
 
 /** Pro adds - run your ministries: teams, giving campaigns, content, welfare, facilities, the church's accounts,
@@ -110,7 +110,7 @@ const PRO_ADDS = [
   "volunteers", "rosters", "volunteer-scheduling", "bookings",
   "sermons", "devotionals", "testimonies", "welfare",
   "accounting", "expenses", "automations", "engagement-scoring", "fingerprint",
-  "sms-audit",
+  "sms-audit", "member-categories", "service-times", "online-payments",
 ];
 
 /** Max adds - run the whole church: wall-mounted face / palm / fingerprint terminals (`biometric-devices`),
@@ -165,6 +165,9 @@ export const FEATURE_LABELS: Record<string, string> = {
   "children-forms": "Children's forms", "teens-forms": "Teens forms",
   visitors: "Visitors", "prayer-requests": "Prayer requests", groups: "Groups",
   households: "Households / families", directory: "Directory", birthdays: "Birthdays",
+  "birthday-automations": "Automatic birthday texts and admin birthday alerts",
+  "custom-messages": "Edit your own message wording", "member-categories": "Zones & fellowships",
+  "service-times": "Service times", "online-payments": "Online payments (receive giving online)",
   calendar: "Calendar", departments: "Departments", leaders: "Leaders", notices: "Notices",
   sms: "SMS broadcasts", "form-builder": "Form builder", "import-export": "Import & export",
   "member-ids": "Member IDs", "qr-codes": "QR codes", "custom-roles": "Custom roles",
@@ -189,7 +192,7 @@ export const FEATURE_LABELS: Record<string, string> = {
  * Features added after plans were first saved in the editor. A saved plan that has never seen one of these follows the
  * built-in tier for it, so a new feature never silently lands on no plan at all. Add a feature here when it is added to a tier.
  */
-export const FEATURES_ADDED_LATER = ["baptisms", "linked-churches", "biometric-devices", "poster-maker", "white-label-posters", "sms-audit"];
+export const FEATURES_ADDED_LATER = ["baptisms", "linked-churches", "biometric-devices", "poster-maker", "white-label-posters", "sms-audit", "birthday-automations", "custom-messages", "member-categories", "service-times", "online-payments"];
 
 /** Permission section keys whose plan feature has a different name. */
 const SECTION_FEATURE_MAP: Record<string, string> = {

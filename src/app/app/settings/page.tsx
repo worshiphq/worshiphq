@@ -6,6 +6,7 @@ import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { features } from "@/lib/env";
 import { getTrialOffer } from "@/lib/trials";
+import { churchHasFeature } from "@/lib/plan-gate-server";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { loadMessageCenter } from "@/lib/messages/load";
 
@@ -85,6 +86,12 @@ export default async function SettingsPage() {
   }
   const departmentsWithCounts = departments.map((d) => ({ ...d, memberCount: deptTally.get(d.id) ?? 0 }));
 
+  const [birthdayLocked, childLinks] = await Promise.all([
+    churchHasFeature(session.churchId, "birthday-automations").then((on) => !on),
+    db.church.count({ where: { parentChurchId: session.churchId } }),
+  ]);
+  // A church already linked (as a branch / teens chapel, or with its own links) keeps the tab so it can see and undo the link.
+  const hasLinks = !!church?.parentChurchId || childLinks > 0;
   const churchData = church
     ? {
       name: church.name,
@@ -96,6 +103,8 @@ export default async function SettingsPage() {
       hideAmounts: church.hideAmounts ?? false,
       birthdayDigestOn: church.birthdayDigestOn ?? true,
       birthdayDigestDay: church.birthdayDigestDay ?? 1,
+      birthdayLocked,
+      hasLinks,
       accentColor: church.accentColor ?? "#0d7377",
       logoUrl: church.logoUrl ?? "",
       slug: church.slug,

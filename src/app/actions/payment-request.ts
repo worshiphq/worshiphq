@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
-import { requireSession, assertCanWrite } from "@/lib/auth";
+import { requireSession, assertCanWrite, assertPlanFeature } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { listBanks, resolveAccount, updateSubaccount } from "@/lib/integrations/paystack";
 import { isFeeMode } from "@/lib/giving/fees";
@@ -15,6 +15,7 @@ import { Prisma } from "@prisma/client";
 async function requireGivingAdmin() {
   const session = await requireSession();
   assertCanWrite(session);
+  assertPlanFeature(session, "online-payments");
   if (session.role !== "Owner" && session.role !== "Admin") throw new Error("Only the Main Admin or an Admin can manage online giving.");
   return session;
 }

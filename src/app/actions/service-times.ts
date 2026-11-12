@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
-import { requireSession, assertCanWrite } from "@/lib/auth";
+import { requireSession, assertCanWrite, assertPlanFeature } from "@/lib/auth";
 import { canManage } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { describeCurrentService } from "@/lib/attendance/service-times";
@@ -11,6 +11,7 @@ import { describeCurrentService } from "@/lib/attendance/service-times";
 async function requireAttendanceManager() {
   const session = await requireSession();
   assertCanWrite(session);
+  assertPlanFeature(session, "service-times");
   if (!canManage(session, "attendance")) throw new Error("Only people who manage attendance can change service times.");
   return session;
 }

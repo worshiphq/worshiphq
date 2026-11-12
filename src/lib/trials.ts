@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { getPlatformConfig, invalidatePlatformConfig } from "@/lib/data/platform-config";
 import { getChurchSub } from "@/lib/plan-gate-server";
 import { paidPlan } from "@/lib/plan-gate";
-import { trialInfo, nextPlanUp, trialFeatureSplit, trialOffered, MAX_TRIAL_DAYS, type TrialAccess, type TrialInfo, type TrialStep, type TrialSettings } from "@/lib/trial-settings";
+import { trialInfo, nextPlanUp, trialFeatureSplit, trialOffered, MAX_TRIAL_DAYS, COMMS_TRIAL_MAX_DAYS, type TrialAccess, type TrialInfo, type TrialStep, type TrialSettings } from "@/lib/trial-settings";
 
 const DAY = 86_400_000;
 
@@ -139,12 +139,12 @@ export async function uninviteFromTrial(churchIds: string[]): Promise<number> {
   return r.count;
 }
 
-/** Switch on the free month of Communications for a church (SuperAdmin). */
+/** Switch on the free Communications trial (up to 14 days) for a church (SuperAdmin). */
 export async function grantCommsMonth(churchId: string, days?: number): Promise<{ ok: true; endsAt: string } | { ok: false; error: string }> {
   const cfg = await getPlatformConfig();
   const sub = await db.subscription.findUnique({ where: { churchId }, select: { plan: true } });
   if (sub && sub.plan !== "free") return { ok: false, error: "Paid plans already include Communications." };
-  const d = Math.min(MAX_TRIAL_DAYS, Math.max(1, Math.round(days ?? cfg.trials.comms.days)));
+  const d = Math.min(COMMS_TRIAL_MAX_DAYS, Math.max(1, Math.round(days ?? cfg.trials.comms.days)));
   const now = new Date();
   const endsAt = new Date(now.getTime() + d * DAY);
   await db.subscription.upsert({
@@ -155,7 +155,7 @@ export async function grantCommsMonth(churchId: string, days?: number): Promise<
   return { ok: true, endsAt: endsAt.toISOString() };
 }
 
-/** End a church's free month of Communications now. */
+/** End a church's free Communications trial now. */
 export async function endCommsMonth(churchId: string): Promise<boolean> {
   const r = await db.subscription.updateMany({ where: { churchId, commsTrialEndsAt: { not: null } }, data: { commsTrialEndsAt: new Date(Date.now() - 1000) } });
   return r.count > 0;

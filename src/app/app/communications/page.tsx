@@ -79,7 +79,7 @@ export default async function CommunicationsPage({
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-brand/30 bg-brand/10 px-4 py-3 text-sm text-ink">
           <MessageSquare className="size-4 shrink-0 text-brand" />
           <span>
-            <b>Free month of Communications:</b> {trial.daysLeft} {trial.daysLeft === 1 ? "day" : "days"} left, with your {smsBalance.toLocaleString()} free credits. Your credits never expire. After the free month, upgrade to Starter to keep sending.
+            <b>Free Communications trial:</b> {trial.daysLeft} {trial.daysLeft === 1 ? "day" : "days"} left, with your {smsBalance.toLocaleString()} free credits. Your credits never expire. When the trial ends, upgrade to Starter to keep sending.
           </span>
         </div>
       )}

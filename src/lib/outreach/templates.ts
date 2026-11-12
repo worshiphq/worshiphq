@@ -75,18 +75,18 @@ Blessings,
 The WorshipHQ team`,
   },
   {
-    id: "sms-trial", channel: "email", label: "Try bulk SMS free for a month", hint: "Tells free churches they can test Communications for 30 days",
-    subject: "{{church}} can now try bulk SMS free for a month",
+    id: "sms-trial", channel: "email", label: "Try bulk SMS free for 2 weeks", hint: "Tells free churches they can test Communications for 14 days",
+    subject: "{{church}} can now try bulk SMS free for 2 weeks",
     body: `Hello {{name}},
 
-Good news for {{church}}. Bulk SMS is normally part of our paid plans, but for the next month you can try it free on your account, with free credits to send your first messages.
+Good news for {{church}}. Bulk SMS is normally part of our paid plans, but for the next 2 weeks you can try it free on your account, with free credits to send your first messages.
 
 To try it, sign in and open Communications. You can text your whole church, a department, a group, or just one person, for example a Sunday reminder, a prayer meeting, or a thank you to your visitors.
 
 A few things to know:
-- The free month runs for 30 days, and your credits never expire.
+- The free trial runs for 14 days, and your credits never expire.
 - Texts currently reach Ghana phone numbers.
-- After the month, Communications is part of the Starter plan. You can compare the plans here: https://worshiphq.app/pricing
+- After the 2 weeks, Communications is part of the Starter plan. You can compare the plans here: https://worshiphq.app/pricing
 
 If you would like a quick walkthrough, reply to this email or reach us on {{contact}} and we will gladly help.
 
@@ -283,7 +283,7 @@ The WorshipHQ team`,
     body: "Hello {{name}}, how is {{church}} getting on with WorshipHQ? If you need any help, reach us on {{contact}} and we will gladly assist.",
   },
   {
-    id: "sms-trial-sms", channel: "sms", label: "Try bulk SMS free for a month", hint: "Tells free churches they can test Communications for 30 days",
+    id: "sms-trial-sms", channel: "sms", label: "Try bulk SMS free for 2 weeks", hint: "Tells free churches they can test Communications for 14 days",
     subject: "",
     body: "Hello {{name}}, {{church}} can now try bulk SMS free for 1 month, with free credits. Sign in and open Communications to send. Questions? Reach us on {{contact}}.",
   },

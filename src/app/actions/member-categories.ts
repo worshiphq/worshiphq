@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
-import { requireSession, assertCanWrite } from "@/lib/auth";
+import { requireSession, assertCanWrite, assertPlanFeature } from "@/lib/auth";
 import { canManage } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { getFormDefinition, GROUPS_FIELD_ID } from "@/lib/forms/registration";
@@ -13,6 +13,7 @@ type Result = { ok: true; warning?: string } | { ok: false; error: string };
 async function requirePeopleManager() {
   const session = await requireSession();
   assertCanWrite(session);
+  assertPlanFeature(session, "member-categories");
   if (!canManage(session, "people")) throw new Error("Only people who manage members can change categories.");
   return session;
 }

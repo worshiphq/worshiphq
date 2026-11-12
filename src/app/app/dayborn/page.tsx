@@ -4,7 +4,7 @@ import { getDayBornData } from "@/lib/data/dayborn";
 import { getAccountOptions } from "@/lib/data/accounts";
 import { DayBornClient } from "@/components/app/dayborn-client";
 
-export const metadata = { title: "Day Born" };
+export const metadata = { title: "Day Born (Kofi ne Ama)" };
 
 export default async function DayBornPage() {
   const session = await requireModule("dayborn");
