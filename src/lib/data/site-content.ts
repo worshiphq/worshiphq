@@ -4,7 +4,7 @@ import { testimonials as defaultTestimonials, type Testimonial } from "@/config/
 import { DEFAULT_STAT_SETTINGS, normalizeStatSettings, type StatSettings } from "@/lib/landing-stats-shared";
 
 export const DEFAULT_HERO_SUBHEAD =
-  "A face, palm or fingerprint device at your door checks every member in by name. WorshipHQ handles the rest: the texts, the giving, the follow-up and Monday's numbers.";
+  "Members, giving, attendance, events, messaging - one calm headquarters for everything your church runs.";
 
 export interface MarketingContent {
   heroSubhead: string;
@@ -29,11 +29,8 @@ export async function getMarketingContent(): Promise<MarketingContent> {
     const row = await db.siteContent.findUnique({ where: { key: "marketing" } });
     if (!row) return FALLBACK;
     const v = (row.value ?? {}) as Partial<MarketingContent>;
-    // The old default subheading is replaced by the new one unless someone wrote their own.
-    const OLD_DEFAULT = "Members, giving, attendance, events, messaging - one calm headquarters for everything your church runs.";
-    const sub = v.heroSubhead?.trim();
     return {
-      heroSubhead: sub && sub !== OLD_DEFAULT ? sub : FALLBACK.heroSubhead,
+      heroSubhead: v.heroSubhead?.trim() || FALLBACK.heroSubhead,
       stats: normalizeStatSettings(v.stats),
       testimonials:
         Array.isArray(v.testimonials) && v.testimonials.length > 0

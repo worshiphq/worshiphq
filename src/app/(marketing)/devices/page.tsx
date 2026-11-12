@@ -25,14 +25,14 @@ const WORKS = [
 ];
 
 const STEPS = [
-  ["Buy a device", "Hardware is bought separately. Choose face, palm, fingerprint, or a mix. Not sure which? Ask us first."],
-  ["Add it in WorshipHQ", "Enter its serial number. WorshipHQ shows you exactly what to type into the device."],
-  ["Put your members on it", "WorshipHQ sends every member's name to the device. Then each person enrols their face, palm or finger on the device itself."],
+  ["Tell us about your church", "How many people come in, how many doors, and whether you want face, palm or fingerprint. We recommend the right device."],
+  ["We supply and install it", "We bring the device, mount it at your entrance and connect it to WorshipHQ, for a one-off fee. Already have a device? We can connect that too."],
+  ["Your members enrol", "WorshipHQ sends every member's name to the device. Each person then enrols their face, palm or finger on the device, and we show your team how."],
   ["People scan, attendance records itself", "Each scan checks that member in to the service that is on, and shows up live in WorshipHQ."],
 ];
 
 const FAQ = [
-  ["Which plan do I need?", "Check-in devices are part of the Max plan. The devices themselves are bought separately."],
+  ["Which plan do I need?", "Check-in devices are part of the Max plan. The device itself is a one-off purchase: we supply and install it for a fee."],
   ["Do I need a computer at the door?", "Not for most terminals, which connect to WorshipHQ over the internet by themselves. A terminal that can only send to an IP address uses a small bridge program on any computer in your building. A USB fingerprint reader needs the computer it is plugged into."],
   ["What if someone scans twice?", "Their first scan at a service checks them in. Scanning again at the same service changes nothing."],
   ["Will a cleaner or a visitor passing in the week be counted?", "No. You choose when scans count: during your service times, or only on the days and hours you set. Scans outside are ignored."],
@@ -53,7 +53,7 @@ export default async function DevicesPage() {
             <span className="text-primary">a palm or a fingerprint.</span>
           </>
         }
-        subtitle="Put a device at your door and attendance records itself. WorshipHQ works with the face, palm and fingerprint devices churches already buy."
+        subtitle="Put a device at your door and attendance records itself. We supply, install and connect it for you, for a one-off fee."
       />
 
       <section className="relative py-12 sm:py-16">
@@ -86,8 +86,9 @@ export default async function DevicesPage() {
                 </div>
               ))}
             </div>
-            <div className="mt-6 border-l-2 border-brass/60 bg-paper-2/60 p-5 text-sm leading-[1.7] text-ink-muted">
-              <strong className="text-ink">Before you buy a terminal, ask the seller:</strong> does it have a cloud server, ADMS or push setting, and can it send to a web address over HTTPS? If it can, it connects straight to WorshipHQ. If it can only send to an IP address, it still works through a small program on a computer in your building.
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-4 border-l-2 border-brass/60 bg-parchment p-5 text-sm leading-[1.7] text-ink-muted">
+              <span><strong className="text-ink">We supply, install and set up the devices for you, for a one-off fee.</strong> No hunting for the right model or the right settings. Tell us your church size and we give you a price.</span>
+              <Link href="/contact" className="inline-flex items-center gap-2 rounded-full bg-evergreen px-5 py-2.5 text-sm font-semibold text-parchment hover:opacity-90">Get a price <ArrowRight className="size-4" /></Link>
             </div>
           </Reveal>
         </div>

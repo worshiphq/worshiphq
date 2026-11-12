@@ -28,17 +28,17 @@ export function DevicesCallout() {
                 </h2>
                 <p className="mt-5 max-w-md text-[15px] leading-[1.8] text-parchment/75">
                   Members check in with a face, palm or fingerprint as they arrive, and attendance fills in by name before the first song.
-                  We can supply the devices and set them up at your church, or connect the ones you already have.
+                  We supply the devices, install them at your entrance and set everything up, for a one-off fee.
                 </p>
                 <div className="mt-8 flex flex-wrap gap-4">
                   <Link href="/devices" className="group inline-flex items-center gap-2 rounded-full bg-parchment px-6 py-3 text-sm font-semibold text-evergreen-deep hover:bg-white">
                     How the devices work <ArrowRight className="size-4 transition-transform group-hover:translate-x-1" />
                   </Link>
                   <Link href="/contact" className="inline-flex items-center gap-2 rounded-full border border-parchment/30 px-6 py-3 text-sm font-semibold hover:border-parchment/60">
-                    <Wrench className="size-4 text-brass" /> Ask us to set one up
+                    <Wrench className="size-4 text-brass" /> Get a price for your church
                   </Link>
                 </div>
-                <p className="mt-4 text-xs text-parchment/50">Part of the Max plan. Devices are bought separately.</p>
+                <p className="mt-4 text-xs text-parchment/50">Part of the Max plan. We supply and install the device for a one-off fee.</p>
               </div>
               <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1 xl:grid-cols-3">
                 {ways.map((w) => (

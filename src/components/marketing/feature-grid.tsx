@@ -87,7 +87,7 @@ export function FeatureGrid({ tiers, members }: { tiers: Record<string, Tier>; m
             ))}
           </div>
           <p className="mt-5 text-center text-sm text-ink-muted">
-            Door devices and scanners are hardware, bought separately. <Link href="#pricing" className="font-medium text-evergreen underline underline-offset-4">See prices</Link>
+            Door devices and scanners are a one-off purchase. We supply and install them for a fee. <Link href="#pricing" className="font-medium text-evergreen underline underline-offset-4">See prices</Link>
           </p>
         </Reveal>
       </div>
