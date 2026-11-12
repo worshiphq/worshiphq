@@ -1,5 +1,6 @@
 import { Hero } from "@/components/marketing/hero";
 import { TrustBar } from "@/components/marketing/trust-bar";
+import { Marquee } from "@/components/marketing/marquee";
 import { SundayStory } from "@/components/marketing/sunday-story";
 import { DevicesCallout } from "@/components/marketing/devices-callout";
 import { FeatureGrid } from "@/components/marketing/feature-grid";
@@ -23,11 +24,13 @@ export default async function HomePage() {
   const freeMembers = lowerFirst(platformConfig.planDefs.free.membersLabel);
 
   const { tiers, members } = marketingTiers(platformConfig.planTable);
+  const stats = landingStats(real, content.stats);
 
   return (
     <>
-      <Hero subhead={content.heroSubhead} freeMembers={freeMembers} />
-      <TrustBar stats={landingStats(real, content.stats)} />
+      <Hero subhead={content.heroSubhead} freeMembers={freeMembers} stats={stats} />
+      <Marquee />
+      <TrustBar stats={stats} />
       <SundayStory tiers={tiers} />
       <DevicesCallout />
       <FeatureGrid tiers={tiers} members={members} />

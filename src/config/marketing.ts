@@ -34,7 +34,10 @@ export interface Spotlight {
   title: string;
   body: string;
   points: string[];
-  image: string;
+  /** A real screenshot of the app (browser frame included), an optional phone screenshot, and a short floating note. */
+  shot: string;
+  phone?: string;
+  chip: string;
 }
 
 export const spotlights: Spotlight[] = [
@@ -43,28 +46,35 @@ export const spotlights: Spotlight[] = [
     title: "Know every member by name",
     body: "Profiles with photos, departments, households and attendance history. Share a link and members fill in their own details, or import a spreadsheet.",
     points: ["Profiles, households & departments", "Members register themselves by link", "Visitor and prayer request forms", "Member ID cards & spreadsheet import (Starter)"],
-    image: "/marketing/spotlight-people.webp",
+    shot: "/marketing/app/people.webp",
+    phone: "/marketing/app/m-join.webp",
+    chip: "Members fill in their own details",
   },
   {
     eyebrow: "Giving",
     title: "Giving made simple",
     body: "Record tithes, offerings and Day Born on every plan. On Starter, givers get a receipt by text. On Pro, members can give online by Mobile Money and card, straight into the church account.",
     points: ["Tithes, offerings and Day Born (every plan)", "Automatic receipts by text (Starter)", "Online giving by Mobile Money & card (Pro)", "Harvest, pledges and church accounts (Pro)"],
-    image: "/marketing/spotlight-giving.webp",
+    shot: "/marketing/app/giving.webp",
+    phone: "/marketing/app/m-give.webp",
+    chip: "Receipt texted in seconds",
   },
   {
     eyebrow: "Reminders & automations",
     title: "Care that never forgets",
     body: "Birthday wishes go out on the day, and the people who missed Sunday are on a list for a leader to call. No one slips through the cracks.",
     points: ["Automatic birthday texts (Starter and up)", "Absentee follow-up the same day", "Reminders you set up (Starter)", "Your church's own sender name (Max)"],
-    image: "/marketing/spotlight-care.webp",
+    shot: "/marketing/app/follow-ups.webp",
+    phone: "/marketing/app/m-visit.webp",
+    chip: "Every visitor gets a call back",
   },
   {
     eyebrow: "Communications",
     title: "One message, your whole church",
     body: "Send a Sunday reminder to everyone, a note to the choir, or a text to one member. It reaches every phone, even the ones without data.",
     points: ["Text the whole church in one tap", "Pick a department, group or person", "A record of every text sent (Pro)", "Your church's own sender name (Max)"],
-    image: "/marketing/spotlight-messages.webp",
+    shot: "/marketing/app/communications.webp",
+    chip: "One tap reaches every phone",
   },
 ];
 
