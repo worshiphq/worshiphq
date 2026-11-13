@@ -397,6 +397,12 @@ export function Hero({
         </AnimatePresence>
       </div>
 
+      {/* ── The business behind the product, on every slide ── */}
+      <div className="absolute right-6 top-20 z-20 hidden items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-parchment/75 sm:flex lg:right-10">
+        <span className="h-px w-6 bg-brass/60" aria-hidden />
+        A <span className="text-brass">WODONA</span> product
+      </div>
+
       {/* ── Controls: named tabs with a filling line (dots on small screens) ── */}
       <div className="absolute inset-x-0 bottom-0 z-20">
         <div className="mx-auto flex max-w-7xl items-end gap-4 px-6 pb-6 lg:px-10">

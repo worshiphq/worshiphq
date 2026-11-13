@@ -113,10 +113,10 @@ export function SiteFooter() {
         <div className="mt-16 flex flex-col items-center gap-3 border-t border-parchment/12 pt-8 text-center">
           <span className="text-lg text-brass" aria-hidden>✦</span>
           <p className="text-xs text-parchment/50">
-            © {new Date().getFullYear()} {brand.productName}.
-            {brand.parentCompany && <> {brand.parentCompany}</>} Set with care for the Church,
+            © {new Date().getFullYear()} {brand.parentCompany}. All rights reserved. Set with care for the Church,
             everywhere the doors are open.
           </p>
+          <p className="max-w-xl text-[11px] leading-relaxed text-parchment/40">{brand.parentCompanyLegal}</p>
         </div>
       </div>
     </footer>

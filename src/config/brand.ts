@@ -35,7 +35,9 @@ export const brand = {
   },
 
   /** Optional parent-company line for the footer. Leave empty to hide. */
-  parentCompany: "", // e.g. "WorshipHQ is a product of Acme Labs."
+  /** The registered business behind WorshipHQ, shown on the public site (payment providers check the site names it). */
+  parentCompany: "WODONA",
+  parentCompanyLegal: "WorshipHQ is a product of WODONA, a business registered in Ghana (Business Registration No. BN576961126), Kumasi.",
 
   region: {
     country: "Ghana",
