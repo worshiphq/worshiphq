@@ -112,19 +112,46 @@ export async function resolveAccountId(churchId: string, chosen?: string | null)
  */
 export async function postLedgerToAccount(
   churchId: string,
-  opts: { description: string; category: string; amount: number; accountId?: string | null; fund?: string | null },
+  opts: {
+    description: string; category: string; amount: number; accountId?: string | null; fund?: string | null;
+    /** Received but not banked yet (cash still in hand): counted as income, but in no account until it is banked. */
+    notBanked?: boolean;
+  },
 ): Promise<void> {
-  if (!opts.amount) return;
-  const accountId = await resolveAccountId(churchId, opts.accountId);
+  if (!opts.amount || !Number.isFinite(opts.amount)) return;
+  // "none" is the account picker's "Not banked yet" choice.
+  const notBanked = !!opts.notBanked || opts.accountId === "none";
+  const accountId = notBanked ? null : await resolveAccountId(churchId, opts.accountId);
   await db.transaction.create({
     data: {
       churchId,
       accountId,
+      pendingDeposit: notBanked,
       description: opts.description,
       category: opts.category,
       fund: opts.fund ?? undefined,
       amount: opts.amount,
     },
+  });
+}
+
+/**
+ * Keep the accounts right when money that was already posted is changed or deleted afterwards (a Day Born week,
+ * a harvest contribution, a budget entry, welfare dues). Posts the difference as a clearly labelled correction,
+ * so the balance matches again and the history shows what happened. `change` is signed: -50 takes 50 back out.
+ * It goes to the church's default account, because the original posting does not record which account it used.
+ */
+export async function postCorrection(
+  churchId: string,
+  opts: { what: string; category: string; change: number; fund?: string | null },
+): Promise<void> {
+  const change = Math.round(opts.change * 100) / 100;
+  if (!change) return;
+  await postLedgerToAccount(churchId, {
+    description: `Correction: ${opts.what} (${change > 0 ? "+" : ""}${change.toLocaleString("en-GB")})`,
+    category: opts.category,
+    fund: opts.fund ?? null,
+    amount: change,
   });
 }
 

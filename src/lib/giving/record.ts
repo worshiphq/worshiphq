@@ -74,11 +74,11 @@ export async function recordOnlineGift(
   }
 
   // Try to match an existing member by name.
-  const [first, ...rest] = donorName.split(" ");
-  const person = await db.person.findFirst({
-    where: { churchId, firstName: first, lastName: rest.join(" ") || undefined },
-    select: { id: true },
-  });
+  // A single name ("Kofi") is not enough to know which member gave, so it stays unmatched.
+  const [first, ...rest] = donorName.split(/\s+/);
+  const person = rest.length
+    ? await db.person.findFirst({ where: { churchId, firstName: first, lastName: rest.join(" ") }, select: { id: true } })
+    : null;
 
   // The unique (churchId, reference) index makes this the claim: a second delivery at the same moment fails here.
   let created;

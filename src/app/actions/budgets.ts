@@ -139,13 +139,17 @@ export async function deleteBudgetEntry(formData: FormData) {
   const id = String(formData.get("id"));
   const entry = await db.budgetEntry.findFirst({
     where: { id, churchId: session.churchId },
-    select: { id: true, budget: { select: { departmentId: true } } },
+    select: { id: true, type: true, amount: true, description: true, budget: { select: { departmentId: true } } },
   });
   if (!entry) return;
   if (isLeader(session) && entry.budget.departmentId !== session.budgetDepartmentId) return;
 
   await moveToBin(session, "budgetEntry", "BudgetEntry", id);
   await db.budgetEntry.deleteMany({ where: { id, churchId: session.churchId } });
+  // The entry was posted to Accounting (income in, expense out): undo that there too.
+  const { postCorrection } = await import("@/lib/data/accounts");
+  const posted = entry.type === "income" ? Number(entry.amount) : -Number(entry.amount);
+  await postCorrection(session.churchId, { what: `budget ${entry.type} "${entry.description}" deleted`, category: "Budget", fund: "Budget", change: -posted });
   revalidatePath("/app/budgets");
 }
 

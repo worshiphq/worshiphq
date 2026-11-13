@@ -55,16 +55,18 @@ export async function recordGift(formData: FormData) {
     fundId = fund.id;
   }
 
-  // Try to match an existing member by name.
-  const [first, ...rest] = donorName.split(" ");
-  const person = await db.person.findFirst({
-    where: { churchId: session.churchId, firstName: first, lastName: rest.join(" ") || undefined },
-    select: { id: true },
-  });
+  // Try to match an existing member by full name. A single name ("Kofi") is not enough to know which member it is,
+  // so it is left unmatched rather than attached to the first Kofi on the list.
+  const [first, ...rest] = donorName.split(/\s+/);
+  const person = rest.length
+    ? await db.person.findFirst({ where: { churchId: session.churchId, firstName: first, lastName: rest.join(" ") }, select: { id: true } })
+    : null;
 
-  // Bank the gift into the chosen account (or the church default).
+  // Bank the gift into the chosen account (or the church default), or leave it "not banked yet" (cash still in hand).
+  const chosenAccount = String(formData.get("accountId") ?? "").trim() || null;
+  const notBanked = chosenAccount === "none";
   const { resolveAccountId } = await import("@/lib/data/accounts");
-  const accountId = await resolveAccountId(session.churchId, String(formData.get("accountId") ?? "").trim() || null);
+  const accountId = notBanked ? null : await resolveAccountId(session.churchId, chosenAccount);
 
   const gift = await db.gift.create({
     data: {
@@ -78,6 +80,7 @@ export async function recordGift(formData: FormData) {
       currency: "GHS",
       date: formDate(formData.get("date")),
       ...(accountId ? { accountId } : {}),
+      pendingDeposit: notBanked,
     },
   });
 
@@ -155,6 +158,8 @@ export interface TitheEntry {
 export async function recordGivingBatch(fundName: string, entries: TitheEntry[]) {
   const session = await requireSession();
   assertCanWrite(session, "giving");
+  // Amounts come from the browser: keep only real, positive ones (a negative or blank amount must never be saved).
+  entries = entries.filter((e) => Number.isFinite(e.amount) && e.amount > 0);
   if (!entries.length) return { ok: false, error: "No entries to record." };
   if (!fundName.trim()) return { ok: false, error: "Fund name required." };
 
@@ -169,7 +174,8 @@ export async function recordGivingBatch(fundName: string, entries: TitheEntry[])
   const personMap = new Map(people.map((p) => [p.id, p]));
 
   const { resolveAccountId } = await import("@/lib/data/accounts");
-  const batchAccountId = await resolveAccountId(session.churchId, entries[0]?.accountId ?? null);
+  const batchNotBanked = entries[0]?.accountId === "none";
+  const batchAccountId = batchNotBanked ? null : await resolveAccountId(session.churchId, entries[0]?.accountId ?? null);
 
   let recorded = 0;
   for (const entry of entries) {
@@ -184,6 +190,7 @@ export async function recordGivingBatch(fundName: string, entries: TitheEntry[])
         donorName: `${person.firstName} ${person.lastName}`,
         fundId: fund.id,
         ...(batchAccountId ? { accountId: batchAccountId } : {}),
+        pendingDeposit: batchNotBanked,
         amount: entry.amount,
         method,
         currency: "GHS",
@@ -200,6 +207,8 @@ export async function recordGivingBatch(fundName: string, entries: TitheEntry[])
 export async function recordTitheBatch(entries: TitheEntry[]) {
   const session = await requireSession();
   assertCanWrite(session, "giving");
+  // Amounts come from the browser: keep only real, positive ones (a negative or blank amount must never be saved).
+  entries = entries.filter((e) => Number.isFinite(e.amount) && e.amount > 0);
   if (!entries.length) return { ok: false, error: "No entries to record." };
 
   const titheFund =
@@ -208,7 +217,8 @@ export async function recordTitheBatch(entries: TitheEntry[]) {
 
   // Bank this batch into the chosen account, or the church's default.
   const { resolveAccountId } = await import("@/lib/data/accounts");
-  const batchAccountId = await resolveAccountId(session.churchId, entries[0]?.accountId ?? null);
+  const batchNotBanked = entries[0]?.accountId === "none";
+  const batchAccountId = batchNotBanked ? null : await resolveAccountId(session.churchId, entries[0]?.accountId ?? null);
 
   const [people, church] = await Promise.all([
     db.person.findMany({
@@ -244,6 +254,7 @@ export async function recordTitheBatch(entries: TitheEntry[]) {
         donorName,
         fundId: titheFund.id,
         ...(batchAccountId ? { accountId: batchAccountId } : {}),
+        pendingDeposit: batchNotBanked,
         amount: entry.amount,
         method,
         currency: "GHS",

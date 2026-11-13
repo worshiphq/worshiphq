@@ -4,6 +4,9 @@ import { useState } from "react";
 import { Landmark } from "lucide-react";
 import { Label } from "@/components/ui/input";
 
+/** The picker value meaning "received but not banked yet" (cash still in hand). The server treats it the same everywhere. */
+export const NOT_BANKED = "none";
+
 export interface AccountOption {
   id: string;
   name: string;
@@ -32,6 +35,7 @@ export function AccountSelect({
   onChange,
   defaultValue,
   className = "",
+  allowNotBanked = true,
 }: {
   accounts: AccountOption[];
   name?: string;
@@ -40,6 +44,8 @@ export function AccountSelect({
   onChange?: (value: string) => void;
   defaultValue?: string;
   className?: string;
+  /** Offer "Not banked yet" (money received but still in hand). On by default: cash is often counted before it is banked. */
+  allowNotBanked?: boolean;
 }) {
   const fallback = accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "";
   const [internal, setInternal] = useState(defaultValue ?? fallback);
@@ -49,7 +55,7 @@ export function AccountSelect({
 
   if (accounts.length === 0) return null;
 
-  if (accounts.length === 1) {
+  if (accounts.length === 1 && !allowNotBanked) {
     return (
       <div className={`flex items-center gap-1.5 text-xs text-muted-fg ${className}`}>
         <Landmark className="h-3.5 w-3.5" />
@@ -68,6 +74,7 @@ export function AccountSelect({
         onChange={(e) => setCurrent(e.target.value)}
         className="w-full border border-separator rounded-md px-3 py-2 text-sm bg-surface"
       >
+        {allowNotBanked && <option value={NOT_BANKED}>Not banked yet (cash still in hand)</option>}
         {accounts.map((a) => (
           <option key={a.id} value={a.id}>
             {a.name}{a.isDefault ? " (default)" : ""}

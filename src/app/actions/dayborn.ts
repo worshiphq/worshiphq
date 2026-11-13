@@ -14,6 +14,16 @@ function getMonday(d: Date): Date {
   return date;
 }
 
+type DayCols = { monday: unknown; tuesday: unknown; wednesday: unknown; thursday: unknown; friday: unknown; saturday: unknown; sunday: unknown };
+const cashOf = (w: DayCols) => [w.monday, w.tuesday, w.wednesday, w.thursday, w.friday, w.saturday, w.sunday].reduce<number>((a, v) => a + Number(v ?? 0), 0);
+
+/** A week already posted to Accounting that changes afterwards: post the difference so the balance stays right. */
+async function correctPostedWeek(churchId: string, weekOf: Date, change: number) {
+  const { postCorrection } = await import("@/lib/data/accounts");
+  const label = weekOf.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  await postCorrection(churchId, { what: `Day Born week of ${label} changed after posting`, category: "Income", fund: "Day Born", change });
+}
+
 export async function saveDayBornAmounts(formData: FormData) {
   const session = await requireSession();
   assertCanWrite(session, "dayborn");
@@ -32,6 +42,8 @@ export async function saveDayBornAmounts(formData: FormData) {
 
   if (monday + tuesday + wednesday + thursday + friday + saturday + sunday === 0) return;
 
+  const before = await db.dayBornWeek.findUnique({ where: { churchId_weekOf: { churchId: session.churchId, weekOf } } });
+
   await db.dayBornWeek.upsert({
     where: { churchId_weekOf: { churchId: session.churchId, weekOf } },
     create: {
@@ -44,6 +56,9 @@ export async function saveDayBornAmounts(formData: FormData) {
       monday, tuesday, wednesday, thursday, friday, saturday, sunday,
     },
   });
+  if (before?.posted) {
+    await correctPostedWeek(session.churchId, weekOf, (monday + tuesday + wednesday + thursday + friday + saturday + sunday) - cashOf(before));
+  }
 
   revalidatePath("/app/dayborn");
   revalidatePath("/app/accounting");
@@ -85,6 +100,8 @@ export async function addDayBornEntry(formData: FormData) {
     },
   });
 
+  if (week.posted) await correctPostedWeek(session.churchId, weekOf, amount);
+
   // NOTE: individual MoMo/bank entries are NOT posted to the ledger here - the
   // whole week (cash + MoMo) is posted once, into a chosen account, when the
   // user hits "Post to Accounting". Posting here too would double-count MoMo.
@@ -101,12 +118,13 @@ export async function deleteDayBornEntry(entryId: string) {
 
   const entry = await db.dayBornEntry.findUnique({
     where: { id: entryId },
-    include: { week: { select: { churchId: true } } },
+    include: { week: { select: { churchId: true, posted: true, weekOf: true } } },
   });
   if (!entry || entry.week.churchId !== session.churchId) return;
 
   await moveToBin(session, "dayBornEntry", "DayBornEntry", entryId);
   await db.dayBornEntry.delete({ where: { id: entryId } });
+  if (entry.week.posted) await correctPostedWeek(session.churchId, entry.week.weekOf, -Number(entry.amount));
   revalidatePath("/app/dayborn");
 }
 
@@ -116,11 +134,14 @@ export async function deleteDayBornWeek(weekId: string) {
 
   const week = await db.dayBornWeek.findFirst({
     where: { id: weekId, churchId: session.churchId },
+    include: { entries: { select: { amount: true } } },
   });
   if (!week) return;
 
   await moveToBin(session, "dayBornWeek", "DayBornWeek", weekId);
   await db.dayBornWeek.delete({ where: { id: weekId } });
+  // A posted week's money comes back out of the accounts with it.
+  if (week.posted) await correctPostedWeek(session.churchId, week.weekOf, -(cashOf(week) + week.entries.reduce((a, e) => a + Number(e.amount), 0)));
   revalidatePath("/app/dayborn");
   revalidatePath("/app/accounting");
 }

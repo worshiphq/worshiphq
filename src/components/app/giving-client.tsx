@@ -310,7 +310,7 @@ function RecordGiftDialog({ funds, accounts, onClose }: { funds: { name: string 
               })}
             </div>
           </div>
-          {accounts.length > 0 && <AccountSelect accounts={accounts} name="accountId" />}
+          {accounts.length > 0 && <AccountSelect key={method} accounts={accounts} name="accountId" defaultValue={method === "Cash" ? "none" : undefined} />}
           <div className="flex gap-2 pt-1">
             <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
             <SubmitButton className="flex-1" pendingLabel="Recording…" successMessage="Gift recorded">Record gift</SubmitButton>

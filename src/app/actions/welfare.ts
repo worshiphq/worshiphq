@@ -147,6 +147,14 @@ export async function recordWelfareDues(formData: FormData) {
     if (missing.length) return { ok: false as const, error: `Set a monthly rate for ${missing.join(", ")} first, or enter an amount to use for all months.` };
   }
 
+  // What these months already held: re-recording a paid month only adds the difference to the accounts.
+  // (It used to post the full amount again, counting the same dues twice.)
+  const existing = await db.welfareDue.findMany({
+    where: { churchId: session.churchId, personId, OR: cells.map((c) => ({ year: c.year, month: c.month })) },
+    select: { amount: true },
+  });
+  const alreadyPosted = existing.reduce((s, d) => s + Number(d.amount), 0);
+
   await db.$transaction(
     cells.map((c) =>
       db.welfareDue.upsert({
@@ -175,7 +183,7 @@ export async function recordWelfareDues(formData: FormData) {
     description: `Welfare dues - ${member.firstName} ${member.lastName} (${rangeLabel})`,
     category: "Welfare Dues",
     fund: "Welfare",
-    amount: total,
+    amount: total - alreadyPosted,
     accountId: String(formData.get("accountId") ?? "").trim() || null,
   });
 
@@ -215,8 +223,13 @@ export async function deleteWelfareDue(formData: FormData) {
   const session = await requireManage("welfare");
   if (session.isDemo) return;
   const id = String(formData.get("id"));
+  const due = await db.welfareDue.findFirst({ where: { id, churchId: session.churchId }, select: { amount: true, year: true, month: true } });
+  if (!due) return;
   await moveToBin(session, "welfareDue", "WelfareDue", id);
   await db.welfareDue.deleteMany({ where: { id, churchId: session.churchId } });
+  // Recorded dues were posted to Accounting, so take them back out.
+  const { postCorrection } = await import("@/lib/data/accounts");
+  await postCorrection(session.churchId, { what: `welfare dues for ${due.month}/${due.year} deleted`, category: "Welfare Dues", fund: "Welfare", change: -Number(due.amount) });
   revalidatePath("/app/welfare");
 }
 

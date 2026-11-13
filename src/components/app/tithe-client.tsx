@@ -257,7 +257,8 @@ function BatchRecorder({ fundType, activeFundName, accounts }: { fundType: strin
   const [pending, startTransition] = useTransition();
   const { toast, showBusy, hideBusy } = useFeedback();
   const defaultAccountId = accounts.find((a) => a.isDefault)?.id ?? accounts[0]?.id ?? "";
-  const [accountId, setAccountId] = useState(defaultAccountId);
+  // Cash defaults to "Not banked yet": it is counted on the day and banked later.
+  const [accountId, setAccountId] = useState("none");
   // Offertory & other collective funds are usually banked as one total, not
   // per member. Tithes stay per-member (each person gets a receipt).
   const [lumpMode, setLumpMode] = useState(fundType !== "tithes");
@@ -378,7 +379,7 @@ function BatchRecorder({ fundType, activeFundName, accounts }: { fundType: strin
           {methods.map((m) => {
             const Icon = methodIcon[m];
             return (
-              <button key={m} type="button" onClick={() => setMethod(m)}
+              <button key={m} type="button" onClick={() => { setMethod(m); setAccountId(m === "Cash" ? "none" : defaultAccountId); }}
                 className={cn("flex items-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors",
                   method === m ? "border-primary/50 bg-primary/10 text-ink" : "border-line text-ink-muted hover:bg-surface-2")}>
                 <Icon className="size-3.5" /> {m}
@@ -477,7 +478,7 @@ function BatchRecorder({ fundType, activeFundName, accounts }: { fundType: strin
       )}
 
       {/* Account picker */}
-      {entries.length > 0 && accounts.length > 1 && (
+      {entries.length > 0 && accounts.length > 0 && (
         <div className="mb-4 max-w-xs">
           <AccountSelect
             accounts={accounts}
@@ -494,9 +495,7 @@ function BatchRecorder({ fundType, activeFundName, accounts }: { fundType: strin
           <div>
             <div className="text-sm text-ink-muted">{validEntries.length} of {entries.length} valid</div>
             <div className="font-display text-2xl font-bold">{formatCurrency(totalAmount, { decimals: true })}</div>
-            {accounts.length === 1 && (
-              <div className="mt-1"><AccountSelect accounts={accounts} value={accountId} onChange={setAccountId} /></div>
-            )}
+
           </div>
           <Button onClick={handleSubmit} disabled={pending || !validEntries.length} size="lg">
             {pending ? (

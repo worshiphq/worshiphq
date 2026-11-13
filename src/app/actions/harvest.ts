@@ -52,6 +52,8 @@ export interface HarvestEntry {
 export async function recordHarvestContributions(year: number, entries: HarvestEntry[], accountId?: string | null) {
   const session = await requireSession();
   assertCanWrite(session, "harvest");
+  // Amounts come from the browser: a negative one would lower the harvest total, a blank one would crash.
+  entries = entries.filter((e) => Number.isFinite(e.amount) && e.amount > 0);
   if (!entries.length) return { ok: false, error: "No entries." };
 
   const harvest = await db.harvest.findUnique({
@@ -262,6 +264,9 @@ export async function deleteHarvestContribution(id: string) {
     where: { id: contribution.harvestId },
     data: { raised: { decrement: Number(contribution.amount) } },
   });
+  // Every contribution is posted to Accounting when recorded, so take it back out there too.
+  const { postCorrection } = await import("@/lib/data/accounts");
+  await postCorrection(session.churchId, { what: `harvest contribution from ${contribution.donorName} deleted`, category: "Harvest", fund: "Harvest", change: -Number(contribution.amount) });
 
   revalidatePath("/app/harvest");
   return { ok: true };
@@ -296,12 +301,14 @@ export async function editHarvestContribution(id: string, formData: FormData) {
     data: { amount, donorName, envelopeCount },
   });
 
-  // Update harvest raised total by the difference
+  // Update harvest raised total by the difference, and the accounts with it.
   if (diff !== 0) {
     await db.harvest.update({
       where: { id: contribution.harvestId },
       data: { raised: { increment: diff } },
     });
+    const { postCorrection } = await import("@/lib/data/accounts");
+    await postCorrection(session.churchId, { what: `harvest contribution from ${donorName} edited`, category: "Harvest", fund: "Harvest", change: diff });
   }
 
   revalidatePath("/app/harvest");
@@ -317,10 +324,14 @@ export async function deleteHarvest(year: number) {
   });
   if (!harvest) return { ok: false, error: "Not found." };
 
+  const posted = await db.harvestContribution.aggregate({ where: { harvestId: harvest.id }, _sum: { amount: true } });
   await moveToBin(session, "harvest", "Harvest", harvest.id, { label: `Harvest ${year}` });
   // Delete all contributions first
   await db.harvestContribution.deleteMany({ where: { harvestId: harvest.id } });
   await db.harvest.delete({ where: { id: harvest.id } });
+  // The contributions were posted to Accounting as they came in: take them back out.
+  const { postCorrection } = await import("@/lib/data/accounts");
+  await postCorrection(session.churchId, { what: `Harvest ${year} deleted`, category: "Harvest", fund: "Harvest", change: -Number(posted._sum.amount ?? 0) });
 
   revalidatePath("/app/harvest");
   return { ok: true };
