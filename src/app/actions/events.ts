@@ -8,6 +8,7 @@ import { RecycleBin } from "@/lib/recycle-bin";
 
 export async function deleteEvent(id: string) {
   const session = await requireSession();
+  assertCanWrite(session, "events");
   assertCanDelete(session);
   const ev = await db.event.findFirst({ where: { id, churchId: session.churchId }, select: { title: true } });
   await RecycleBin.captureEvent(session, id);

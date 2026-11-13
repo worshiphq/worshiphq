@@ -7,6 +7,7 @@ import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 
 export async function deleteAssignment(id: string) {
   const session = await requireSession();
+  assertCanWrite(session, "volunteers");
   assertCanDelete(session);
   await moveToBin(session, "volunteerAssignment", "VolunteerAssignment", id);
   await db.volunteerAssignment.deleteMany({ where: { id, churchId: session.churchId } });

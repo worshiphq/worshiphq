@@ -203,6 +203,11 @@ export async function completeCheckIn(input: { sessionId: string; personId: stri
   let verifiedBy: string | null = null;
   if (ctx.church.qrVerify === "digits") {
     if (!person.phone) return { ok: false, error: "We do not have a phone number for you. Please ask an usher to check you in." };
+    // At most 5 tries per person per service and 30 per phone (IP) per hour.
+    const { rateLimit, HOUR } = await import("@/lib/rate-limit");
+    if (!(await allowCheckIn("complete", ctx, 30)) || !(await rateLimit(`qr:digits:${ctx.sess.id}:${person.id}`, 5, 6 * HOUR))) {
+      return { ok: false, error: "Too many tries. Please ask an usher to check you in." };
+    }
     const want = phoneKey(person.phone).slice(-3);
     if (clean(input.digits, 8).replace(/\D/g, "").slice(-3) !== want) return { ok: false, error: "Those digits do not match. Please try again." };
     verifiedBy = "digits";

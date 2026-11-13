@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getActiveSession } from "@/lib/auth";
+import { canManage } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { routeAutoSession } from "@/lib/attendance/service-times";
 import { categoryForPerson } from "@/lib/data/attendance";
@@ -10,6 +11,10 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   const session = await getActiveSession();
   if (!session || session.isDemo) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  // Checking people in needs Attendance, and the USB scanner is a plan feature (support may still act).
+  if (!canManage(session, "attendance") || (!session.impersonating && session.planLocked?.includes("fingerprint"))) {
+    return NextResponse.json({ error: "Not allowed" }, { status: 403 });
+  }
 
   const { personId, sessionId } = await req.json();
   if (!personId) return NextResponse.json({ error: "personId required" }, { status: 400 });

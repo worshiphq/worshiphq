@@ -449,6 +449,18 @@ export async function restoreItem(session: { churchId: string; userId: string; r
   try {
     if (snap?.v === 2) {
       if (snap.nodes?.[0]?.rows?.[0]?.churchId && snap.nodes[0].rows[0].churchId !== session.churchId) return { ok: false, error: "Church mismatch." };
+      // People coming back count against the plan's member limit, the same as adding them (Free counts visitors too).
+      const people = (snap as Snapshot).nodes.filter((n) => n.model === "Person").flatMap((n) => n.rows);
+      if (people.length) {
+        const { getChurchPlan } = await import("@/lib/plan-gate-server");
+        const free = (await getChurchPlan(session.churchId)) === "free";
+        const counted = people.filter((r) => free || r.status !== "visitor").length;
+        if (counted) {
+          const { memberLimitError } = await import("@/lib/member-limit");
+          const full = await memberLimitError(session.churchId, counted);
+          if (full) return { ok: false, error: full };
+        }
+      }
       await restoreSnapshot(snap as Snapshot);
       await AFTER_RESTORE[item.entityType]?.(session.churchId, snap as Snapshot);
     } else {

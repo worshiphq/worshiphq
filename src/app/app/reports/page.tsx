@@ -23,7 +23,8 @@ export default async function ReportsPage({
 }: {
   searchParams: Promise<{ months?: string }>;
 }) {
-  const session = await requireModule("dashboard");
+  // Reports show church-wide giving and expenses, so they need the Reports section (not just the dashboard).
+  const session = await requireModule("reports");
   // Reports uses the dashboard's permission, which is always on, so its own plan lock is checked here.
   if (planLockFor(session, "reports")) redirect("/app/settings?tab=billing");
   const { months: monthsParam } = await searchParams;

@@ -4,6 +4,7 @@ import crypto from "crypto";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite } from "@/lib/auth";
+import { hasSection } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { getBaseUrl } from "@/lib/url";
 import { deviceChurchAllowed } from "@/lib/devices/punch";
@@ -30,6 +31,8 @@ function guard(session: Awaited<ReturnType<typeof requireSession>>) {
 
 export async function getDevices(): Promise<DevicesData> {
   const session = await requireSession();
+  // Serials are the devices' only credential, and the scan log has member names and PINs.
+  if (!hasSection(session, "attendance")) throw new Error("Your role cannot see the check-in devices.");
   const [devices, events, baseUrl, planOk, church] = await Promise.all([
     db.biometricDevice.findMany({ where: { churchId: session.churchId }, orderBy: { createdAt: "asc" }, include: { _count: { select: { commands: { where: { sentAt: null } } } } } }),
     db.biometricDeviceEvent.findMany({ where: { churchId: session.churchId }, orderBy: { createdAt: "desc" }, take: 25, include: { device: { select: { name: true } } } }),

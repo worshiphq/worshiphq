@@ -1,5 +1,6 @@
 "use server";
 
+import { hasSection } from "@/lib/permissions";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite } from "@/lib/auth";
@@ -44,6 +45,8 @@ async function syncWedding(churchId: string, householdId: string, weddingDate: D
 /** The family a person belongs to, with everyone in it. */
 export async function getFamilyOf(personId: string): Promise<Family | null> {
   const session = await requireSession();
+  // Family details (names, phone numbers) are People data.
+  if (!hasSection(session, "people")) throw new Error("Your role cannot see member families.");
   const me = await db.person.findFirst({ where: { id: personId, churchId: session.churchId }, select: { householdId: true } });
   if (!me?.householdId) return null;
   const h = await db.household.findFirst({
@@ -166,6 +169,8 @@ export async function removeFamilyMember(personId: string): Promise<Result> {
 /** Find members to add to a family (by name or phone). */
 export async function searchFamilyCandidates(query: string, householdId: string | null): Promise<{ id: string; name: string; phone: string | null; family: string | null }[]> {
   const session = await requireSession();
+  // Family details (names, phone numbers) are People data.
+  if (!hasSection(session, "people")) throw new Error("Your role cannot see member families.");
   const q = query.trim();
   if (q.length < 2) return [];
   const rows = await db.person.findMany({
