@@ -625,7 +625,8 @@ export async function saveMarketing(formData: FormData) {
     if (before[k].override != null && typed === shownValue(k, real, before[k])) return [k, { ...before[k], show }];
     return [k, { show, override: typed, realAtSet: real[k] }];
   })));
-  const content: MarketingContent = { heroSubhead, testimonials, stats };
+  const contactPhone = String(formData.get("contactPhone") ?? "").replace(/[^0-9+ ]/g, "").trim().slice(0, 20);
+  const content: MarketingContent = { heroSubhead, testimonials, stats, contactPhone };
   await saveMarketingContent(content);
   revalidatePath("/admin/content");
   revalidatePath("/", "layout");

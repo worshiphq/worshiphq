@@ -16,7 +16,7 @@ export default async function AdminContentPage() {
           Edit the marketing homepage: the subheading, the numbers and the testimonials. Changes show on the site within the hour.
         </p>
       </div>
-      <MarketingEditor heroSubhead={content.heroSubhead} testimonials={content.testimonials} stats={content.stats} real={real} />
+      <MarketingEditor heroSubhead={content.heroSubhead} testimonials={content.testimonials} stats={content.stats} real={real} contactPhone={content.contactPhone} />
     </AdminShell>
   );
 }

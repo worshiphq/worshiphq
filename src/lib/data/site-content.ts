@@ -11,12 +11,18 @@ export interface MarketingContent {
   testimonials: Testimonial[];
   /** The numbers on the landing page: shown or not, and the SuperAdmin's own figure if they typed one. */
   stats: StatSettings;
+  /** The WhatsApp / call number on the public Contact page. Empty = the line is not shown. Edited in SuperAdmin, Content. */
+  contactPhone: string;
 }
+
+/** The number the owner asked to show on the Contact page (13 Nov 2026). SuperAdmin can change or clear it. */
+export const DEFAULT_CONTACT_PHONE = "055 239 9981";
 
 const FALLBACK: MarketingContent = {
   heroSubhead: DEFAULT_HERO_SUBHEAD,
   testimonials: defaultTestimonials,
   stats: DEFAULT_STAT_SETTINGS,
+  contactPhone: DEFAULT_CONTACT_PHONE,
 };
 
 /**
@@ -32,6 +38,8 @@ export async function getMarketingContent(): Promise<MarketingContent> {
     return {
       heroSubhead: v.heroSubhead?.trim() || FALLBACK.heroSubhead,
       stats: normalizeStatSettings(v.stats),
+      // Saved empty on purpose = hidden. Never saved = the default number.
+      contactPhone: typeof v.contactPhone === "string" ? v.contactPhone.trim() : FALLBACK.contactPhone,
       testimonials:
         Array.isArray(v.testimonials) && v.testimonials.length > 0
           ? v.testimonials

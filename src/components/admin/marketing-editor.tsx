@@ -12,11 +12,13 @@ export function MarketingEditor({
   testimonials,
   stats,
   real,
+  contactPhone,
 }: {
   heroSubhead: string;
   testimonials: Testimonial[];
   stats: StatSettings;
   real: RealStats;
+  contactPhone: string;
 }) {
   const [rows, setRows] = useState<Testimonial[]>(
     testimonials.length ? testimonials : [{ quote: "", name: "", role: "", church: "" }],
@@ -37,6 +39,13 @@ export function MarketingEditor({
           className={field}
           placeholder="One calm headquarters for everything your church runs."
         />
+      </section>
+
+      {/* Contact page number */}
+      <section className="rounded-2xl border border-white/10 bg-white/[0.03] p-5">
+        <h2 className="text-sm font-semibold text-slate-200">Phone on the Contact page</h2>
+        <p className="mb-3 mt-1 text-xs text-slate-500">Shown on worshiphq.app/contact as a WhatsApp and call link. Clear the box and save to hide it.</p>
+        <input name="contactPhone" defaultValue={contactPhone} inputMode="tel" placeholder="No number shown" className={`${field} max-w-xs`} />
       </section>
 
       {/* Numbers */}
