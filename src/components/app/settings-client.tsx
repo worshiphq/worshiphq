@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import {
   Building, Palette, Users2, CreditCard, Plug, Check, Pencil, CircleDot,
   Sparkles, Link2, Layers, Trash2, ChevronDown, MessageSquare, MessageSquareText,
-  ExternalLink, Rocket, Wallet, Loader2 as Spinner, Clock, CheckCircle2, Receipt, DatabaseBackup, Tags, Baby, GitBranch, Lock,
+  ExternalLink, Rocket, Wallet, Loader2 as Spinner, Clock, CheckCircle2, Receipt, DatabaseBackup, Tags, Baby, GitBranch, Lock, X as XIcon,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -973,9 +973,14 @@ function BillingTab({ trial, subscription, features, ro, platformPricing, paymen
         )}
       </Card>
 
+      {/* The plans open in a window over the page: people who never scroll still see them. */}
       {showPlans && !isGrace && (
-        <Card className="p-6">
-          <div className="flex items-center justify-between">
+        <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center" onClick={() => setShowPlans(false)} role="dialog" aria-modal="true" aria-label="Choose a plan">
+        <Card className="relative my-8 w-full max-w-5xl p-6" onClick={(e) => e.stopPropagation()}>
+          <button type="button" onClick={() => setShowPlans(false)} aria-label="Close" className="absolute right-3 top-3 grid size-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-2 hover:text-ink">
+            <XIcon className="size-5" />
+          </button>
+          <div className="flex flex-wrap items-center justify-between gap-3 pr-10">
             <h3 className="font-display text-lg font-semibold">Choose a plan</h3>
             <div className="flex items-center gap-1 rounded-full border border-line bg-surface-2 p-1">
               <button
@@ -1072,6 +1077,7 @@ function BillingTab({ trial, subscription, features, ro, platformPricing, paymen
             })}
           </div>
         </Card>
+        </div>
       )}
 
       {/* Upgrade confirmation dialog */}
