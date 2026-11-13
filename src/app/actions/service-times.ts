@@ -8,10 +8,12 @@ import { canManage } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { describeCurrentService } from "@/lib/attendance/service-times";
 
-async function requireAttendanceManager() {
+/** `undo` = switching off or deleting: allowed even when the plan no longer includes service times, so a church
+ *  that set them up before the lock can still turn them off. Adding or changing needs the plan. */
+async function requireAttendanceManager(undo = false) {
   const session = await requireSession();
   assertCanWrite(session);
-  assertPlanFeature(session, "service-times");
+  if (!undo) assertPlanFeature(session, "service-times");
   if (!canManage(session, "attendance")) throw new Error("Only people who manage attendance can change service times.");
   return session;
 }
@@ -57,7 +59,7 @@ export async function getServiceTimes(): Promise<ServiceTimesData> {
 }
 
 export async function setServiceTimesOptions(input: { on: boolean; grace: number }) {
-  const session = await requireAttendanceManager();
+  const session = await requireAttendanceManager(!input.on);
   const grace = Math.min(Math.max(Math.round(Number(input.grace) || 0), 0), 240);
   if (input.on) {
     const count = await db.serviceSlot.count({ where: { churchId: session.churchId, active: true } });
@@ -114,7 +116,7 @@ export async function saveServiceSlot(input: { id?: string; name: string; weekda
 }
 
 export async function deleteServiceSlot(id: string) {
-  const session = await requireAttendanceManager();
+  const session = await requireAttendanceManager(true);
   const [others, church] = await Promise.all([
     db.serviceSlot.count({ where: { churchId: session.churchId, active: true, id: { not: id } } }),
     db.church.findUnique({ where: { id: session.churchId }, select: { serviceTimesOn: true } }),

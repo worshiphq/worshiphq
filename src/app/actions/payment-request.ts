@@ -12,10 +12,12 @@ import { onlineGivingApplicationsOpen, GIVING_CLOSED_MESSAGE } from "@/lib/givin
 import { Prisma } from "@prisma/client";
 
 /** Only the church's Owner or Admin may touch where its giving pays out. */
-async function requireGivingAdmin() {
+/** `undo` = cancelling or removing: allowed even when the plan no longer includes online payments, so a church
+ *  that set it up before the lock can still cancel a request or take its payout account off. */
+async function requireGivingAdmin(undo = false) {
   const session = await requireSession();
   assertCanWrite(session);
-  assertPlanFeature(session, "online-payments");
+  if (!undo) assertPlanFeature(session, "online-payments");
   if (session.role !== "Owner" && session.role !== "Admin") throw new Error("Only the Main Admin or an Admin can manage online giving.");
   return session;
 }
@@ -177,7 +179,7 @@ export async function requestAccountChange(formData: FormData) {
 }
 
 export async function cancelAccountChange() {
-  const session = await requireGivingAdmin();
+  const session = await requireGivingAdmin(true);
   await db.paymentRequest.updateMany({
     where: { churchId: session.churchId, status: "completed" },
     data: { pendingSettlementType: null, pendingBankCode: null, pendingBankName: null, pendingAccountNumber: null, pendingAccountName: null, pendingAt: null },
@@ -188,7 +190,7 @@ export async function cancelAccountChange() {
 
 /** Withdraw a request that hasn't been approved yet (e.g. to fix a typo and resubmit). */
 export async function cancelPaymentRequest() {
-  const session = await requireGivingAdmin();
+  const session = await requireGivingAdmin(true);
   const res = await db.paymentRequest.updateMany({
     where: { churchId: session.churchId, status: { in: ["pending", "scheduled", "in_progress"] } },
     data: { status: "cancelled" },
@@ -201,7 +203,7 @@ export async function cancelPaymentRequest() {
 /** Disconnect the church's payout account. Deactivates the subaccount on Paystack first,
  *  so it can never receive another gift; if Paystack refuses, nothing is changed. */
 export async function removePaymentAccount() {
-  const session = await requireGivingAdmin();
+  const session = await requireGivingAdmin(true);
   const [church, req] = await Promise.all([
     db.church.findUnique({ where: { id: session.churchId }, select: { paystackSubaccountCode: true, givingBlocked: true } }),
     db.paymentRequest.findFirst({ where: { churchId: session.churchId, status: "completed" }, orderBy: { createdAt: "desc" }, select: { id: true } }),

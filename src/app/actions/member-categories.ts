@@ -10,10 +10,12 @@ import { getFormDefinition, GROUPS_FIELD_ID } from "@/lib/forms/registration";
 
 type Result = { ok: true; warning?: string } | { ok: false; error: string };
 
-async function requirePeopleManager() {
+/** `undo` = deleting, or converting to groups: allowed even when the plan no longer includes zones & fellowships,
+ *  so a church that set them up before the lock is never stuck with them. Adding or changing needs the plan. */
+async function requirePeopleManager(undo = false) {
   const session = await requireSession();
   assertCanWrite(session);
-  assertPlanFeature(session, "member-categories");
+  if (!undo) assertPlanFeature(session, "member-categories");
   if (!canManage(session, "people")) throw new Error("Only people who manage members can change categories.");
   return session;
 }
@@ -110,7 +112,7 @@ export async function updateMemberCategory(id: string, input: { name: string; al
 }
 
 export async function deleteMemberCategory(id: string): Promise<Result> {
-  const session = await requirePeopleManager();
+  const session = await requirePeopleManager(true);
   const cat = await db.memberCategory.findFirst({ where: { id, churchId: session.churchId }, select: { name: true } });
   if (!cat) return { ok: false, error: "Category not found." };
   await moveToBin(session, "memberCategory", "MemberCategory", id);
@@ -157,7 +159,7 @@ export async function renameCategoryOption(id: string, rawName: string): Promise
 }
 
 export async function deleteCategoryOption(id: string): Promise<Result> {
-  const session = await requirePeopleManager();
+  const session = await requirePeopleManager(true);
   const opt = await db.memberCategoryOption.findFirst({ where: { id, churchId: session.churchId }, select: { name: true } });
   if (!opt) return { ok: false, error: "Not found." };
   await moveToBin(session, "categoryOption", "MemberCategoryOption", id);
@@ -180,7 +182,7 @@ export type ConvertResult =
  * category used to be asked there.
  */
 export async function convertCategoriesToGroups(opts: { removeOld: boolean }): Promise<ConvertResult> {
-  const session = await requirePeopleManager();
+  const session = await requirePeopleManager(true);
   if (!canManage(session, "groups")) return { ok: false, error: "You also need permission to manage Groups to do this." };
   if (session.isDemo) return { ok: false, error: "Read-only demo." };
 

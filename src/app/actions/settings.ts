@@ -783,37 +783,37 @@ export async function previewPlanChangeAction(plan: string, interval: "monthly" 
 export async function previewCoupon(code: string, plan: string, interval: "monthly" | "yearly") {
   const session = await requireSession();
 
-  const { plans } = await import("@/config/pricing");
-  const planConfig = plans.find((p) => p.id === plan);
-  if (!planConfig) return { ok: false as const, error: "Invalid plan." };
-
-  const { getPlatformConfig } = await import("@/lib/data/platform-config");
-  const platformConfig = await getPlatformConfig();
-  const dbPrice = platformConfig.prices[plan];
-  const listAmount = interval === "yearly" ? (dbPrice?.yearly ?? planConfig.yearly) : (dbPrice?.monthly ?? planConfig.monthly);
+  // Priced by the SAME calculation changePlan charges with: an upgrade inside a paid period discounts the
+  // prorated difference on the church's own interval, a new purchase or renewal discounts the full price.
+  // (This used to discount the full list price, so the Pay button could show one amount and charge another.)
+  const { loadPlanChange } = await import("@/lib/billing/context");
+  const ctx = await loadPlanChange(session.churchId, plan, interval);
+  if (!ctx.planConfig) return { ok: false as const, error: "Invalid plan." };
+  const { platformConfig, preview } = ctx;
+  if (preview.direction === "same" || preview.direction === "downgrade") return { ok: false as const, error: "A coupon applies to a payment, and this change has nothing to pay." };
+  const listAmount = preview.direction === "upgrade" ? preview.amountDueUsd : ctx.listPrice;
 
   const { checkCoupon } = await import("@/lib/billing/coupons");
   const check = await checkCoupon({
     code,
     churchId: session.churchId,
     plan,
-    interval,
+    interval: ctx.interval,
     amount: listAmount,
   });
   if (!check.ok) return { ok: false as const, error: check.error ?? "Invalid coupon." };
 
   const { chargeRate, churchIsGhana } = await import("@/lib/billing/local-price");
-  if (await churchIsGhana(session.churchId)) {
-    const r = chargeRate(platformConfig, plan, interval, true);
-    const list = Math.round(listAmount * r);
-    const now = Math.round(check.newAmount! * r);
-    return { ok: true as const, label: check.label!, listAmount: list, newAmount: now, saved: list - now, symbol: "GHS " };
-  }
+  const ghana = await churchIsGhana(session.churchId);
+  const r = chargeRate(platformConfig, plan, ctx.interval, ghana);
+  const list = Math.round(listAmount * r);
+  const now = Math.max(0, Math.round(check.newAmount! * r));
+  if (ghana) return { ok: true as const, label: check.label!, listAmount: list, newAmount: now, saved: list - now, symbol: "GHS " };
   return {
     ok: true as const,
     label: check.label!,
     listAmount,
-    newAmount: check.newAmount!,
+    newAmount: Math.max(0, check.newAmount!),
     saved: check.saved!,
     symbol: platformConfig.currencySymbol,
   };

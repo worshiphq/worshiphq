@@ -38,15 +38,20 @@ export async function runBillingCycle(opts: { dryRun?: boolean; /** Pretend it i
 
   const { getPlatformConfig } = await import("@/lib/data/platform-config");
   const cfg = await getPlatformConfig();
-  const priceGhs = (plan: string, interval: string) => {
-    const p = cfg.prices[plan];
-    return Math.round((interval === "yearly" ? (p?.yearly ?? 0) : (p?.monthly ?? 0)) * cfg.usdToGhsRate);
-  };
-
   const subs = await db.subscription.findMany({
     where: { status: { not: "grace" } },
-    include: { church: { select: { id: true, name: true, isDemo: true } } },
+    include: { church: { select: { id: true, name: true, isDemo: true, country: true } } },
   });
+  // What the church will actually be charged: its fixed cedi price in Ghana, the converted dollar price elsewhere
+  // (the same chargeRate the card charge uses, so the notice and the charge agree).
+  const { chargeRate, isGhana } = await import("@/lib/billing/local-price");
+  const ghanaChurch = new Set(subs.filter((x) => isGhana(x.church?.country)).map((x) => x.churchId));
+  const priceGhs = (plan: string, interval: string, churchId?: string) => {
+    const p = cfg.prices[plan];
+    const iv = interval === "yearly" ? "yearly" : "monthly";
+    const usd = iv === "yearly" ? (p?.yearly ?? 0) : (p?.monthly ?? 0);
+    return Math.round(usd * chargeRate(cfg, plan, iv, !!churchId && ghanaChurch.has(churchId)));
+  };
 
   for (const sub of subs) {
     if (sub.church.isDemo) continue;
@@ -96,7 +101,7 @@ export async function runBillingCycle(opts: { dryRun?: boolean; /** Pretend it i
 
       // ── 2. Automatic renewal: charge on the renewal day, and retry through the grace days ──
       if (auto && !sub.scheduledPlan && !sub.cancelAtPeriodEnd && periodEnd.getTime() - now.getTime() <= DAY_MS && daysOver < GRACE_DAYS) {
-        would.push(`${name}: charge saved card for ${sub.plan} ${interval} (about ₵${priceGhs(sub.plan, interval)})`);
+        would.push(`${name}: charge saved card for ${sub.plan} ${interval} (about ₵${priceGhs(sub.plan, interval, sub.churchId)})`);
         if (!dry) {
           const renewed = await runAutoCharge(sub.churchId, name, sub.plan, interval, counts, digest, priceGhs);
           if (renewed === "renewed" || renewed === "pending") continue;
@@ -118,7 +123,7 @@ export async function runBillingCycle(opts: { dryRun?: boolean; /** Pretend it i
             let notice;
             if (autoReady) {
               const card = sub.cardId ? await db.savedCard.findFirst({ where: { id: sub.cardId }, select: { last4: true } }) : null;
-              notice = notices.willAutoRenew(titleCase(sub.plan), periodEnd, card?.last4 ?? "----", `₵${priceGhs(sub.plan, interval).toLocaleString()}`);
+              notice = notices.willAutoRenew(titleCase(sub.plan), periodEnd, card?.last4 ?? "----", `₵${priceGhs(sub.plan, interval, sub.churchId).toLocaleString()}`);
             } else {
               notice = notices.renewSoon(titleCase(sub.plan), daysLeft, periodEnd);
             }
@@ -181,7 +186,7 @@ export async function runBillingCycle(opts: { dryRun?: boolean; /** Pretend it i
     const interval = s.interval === "yearly" ? "yearly" : "monthly";
     digest.upcoming.push({
       churchId: s.churchId, name: s.church.name, plan: s.plan, interval, renewsAt: s.renewsAt, daysLeft,
-      auto: s.autoRenew && !!s.cardId, priceGhs: priceGhs(s.plan, interval),
+      auto: s.autoRenew && !!s.cardId, priceGhs: priceGhs(s.plan, interval, s.churchId),
       isNew: s.ownerAlertedFor?.getTime() !== s.renewsAt.getTime(),
     });
   }

@@ -139,8 +139,11 @@ export async function runAutomationNow(id: string) {
 /** Save the built-in birthday automation settings (toggles, send hour, tz, digest day). */
 export async function saveBirthdaySettings(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session, "reminders");
+  // The Birthdays screen's own permission. Birthday texts need SMS: Starter and up, or a Free church in its free
+  // SMS trial. (This used to need "reminders", a Starter feature, so a Free church in the trial could not save.)
+  assertCanWrite(session, "birthdays");
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  if (!session.impersonating && session.planLocked?.includes("sms")) return { ok: false as const, error: "Birthday texts come with the Starter plan or the free SMS trial." };
 
   const hour = Math.min(23, Math.max(0, parseInt(String(formData.get("sendHour") ?? "8"), 10) || 8));
   const digestDay = Math.min(6, Math.max(0, parseInt(String(formData.get("digestDay") ?? "1"), 10) || 0));

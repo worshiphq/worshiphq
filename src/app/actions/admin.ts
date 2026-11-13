@@ -86,7 +86,7 @@ export async function runAutomationsNow() {
   await requireSuperAdmin();
   await logAdminAction("runAutomationsNow", {});
   const { runDailyAutomations } = await import("@/lib/automations/dispatch");
-  const summary = await runDailyAutomations(new Date(), false);
+  const summary = await runDailyAutomations(new Date(), false, true);
   return { ok: true as const, summary };
 }
 

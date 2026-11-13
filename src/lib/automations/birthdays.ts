@@ -78,6 +78,8 @@ export async function runBirthdays(now = new Date(), ignoreHour = false, deadlin
       });
       await notifyChurchAdmins(church.id, {
         subject: "Today's birthdays",
+        // The church chose this in its birthday settings, so it goes even if form-submission alerts are off.
+        force: true,
         sms,
         emailHtml: `<h2>Birthdays today - ${escapeHtml(church.name)}</h2><ul>${names.map((n) => `<li>${escapeHtml(n)}</li>`).join("")}</ul>`,
       });
@@ -106,6 +108,7 @@ export async function runBirthdays(now = new Date(), ignoreHour = false, deadlin
         });
         await notifyChurchAdmins(church.id, {
           subject: "This week's birthdays",
+          force: true,
           sms,
           emailHtml: `<h2>Birthdays this week - ${escapeHtml(church.name)}</h2><ul>${people.map((p) => `<li>${escapeHtml(`${p.firstName} ${p.lastName}`)} - ${escapeHtml(labelByKey.get(p.birthday!) ?? "")}</li>`).join("")}</ul>`,
         });

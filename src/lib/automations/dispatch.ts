@@ -38,15 +38,18 @@ const SMS_DEADLINE_MS = 36_000;
 const BACKUP_DEADLINE_MS = 50_000;
 
 /**
- * Runs every scheduled automation. `precise` = called by an hourly trigger that
- * should honour each church's exact send-hour; otherwise (the once-daily Vercel
- * cron, or a manual "run now") every timezone-gated task fires regardless of
- * hour via ignoreHour. Each task is isolated so one error can't stop the rest.
+ * Runs every scheduled automation. `precise` = the hourly trigger (no billing); otherwise the once-daily cron.
+ * `sendNow` = SuperAdmin's manual "Run now": every timezone-gated task fires regardless of the hour.
+ * Each task is isolated so one error can't stop the rest.
  */
-export async function runDailyAutomations(now = new Date(), precise = false) {
+export async function runDailyAutomations(now = new Date(), precise = false, sendNow = false) {
   const t0 = Date.now();
   const smsDeadline = t0 + SMS_DEADLINE_MS;
-  const ignoreHour = !precise;
+  // Each church's chosen send time is always respected. timeReached means "at or after", so the daily run only
+  // catches up churches whose time has already passed today; the rest are sent by the hourly run at their hour.
+  // (The daily 07:00 UTC run used to skip the check, sending a church set to 6pm its birthday texts at 7am.)
+  // Only SuperAdmin's "Run now" sends everything regardless of the hour.
+  const ignoreHour = sendNow;
   const summary: Record<string, unknown> = { precise };
 
   // 1) Money first (daily only). Cheap, and must never be crowded out.
