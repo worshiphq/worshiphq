@@ -258,11 +258,14 @@ export function Hero({
     setIndex(((next % SLIDES.length) + SLIDES.length) % SLIDES.length);
   }, []);
 
+  // Always moves on by itself. It used to pause while the mouse was over it, but the slider fills the screen, so the
+  // mouse almost always was and it never moved. Choosing a slide restarts the count. Only a keyboard user focused
+  // inside it pauses it (so it does not jump while they read or tab through the links).
   useEffect(() => {
-    if (paused || reduce) return;
+    if (paused) return;
     timer.current = setInterval(() => setIndex((i) => (i + 1) % SLIDES.length), SLIDE_MS);
     return () => { if (timer.current) clearInterval(timer.current); };
-  }, [paused, reduce, index]);
+  }, [paused, index]);
 
   const h = "font-display text-[2.6rem] font-bold leading-[1.02] tracking-tight text-parchment sm:text-5xl lg:text-[3.4rem] xl:text-[4rem]";
   const lead = "mt-6 max-w-lg text-base leading-relaxed text-parchment/80 sm:text-lg xl:text-xl";
@@ -272,8 +275,8 @@ export function Hero({
   return (
     <section
       className="relative h-[100dvh] min-h-[640px] w-full overflow-hidden bg-evergreen-deep"
-      onMouseEnter={() => setPaused(true)}
-      onMouseLeave={() => setPaused(false)}
+      onFocus={(e) => { if (e.target instanceof HTMLElement && e.target.matches(":focus-visible")) setPaused(true); }}
+      onBlur={(e) => { if (!e.currentTarget.contains(e.relatedTarget as Node | null)) setPaused(false); }}
       aria-roledescription="carousel"
       aria-label="WorshipHQ highlights"
     >
@@ -410,10 +413,10 @@ export function Hero({
             {SLIDES.map((s, i) => (
               <button key={s.id} role="tab" aria-selected={i === index} onClick={() => go(i)} className="group text-left">
                 <span className="relative block h-px w-full overflow-hidden bg-parchment/20">
-                  {i === index && !paused && !reduce && (
+                  {i === index && !paused && (
                     <motion.span key={`p-${index}`} className="absolute inset-0 origin-left bg-brass" initial={{ scaleX: 0 }} animate={{ scaleX: 1 }} transition={{ duration: SLIDE_MS / 1000, ease: "linear" }} />
                   )}
-                  {i === index && (paused || reduce) && <span className="absolute inset-0 bg-brass" />}
+                  {i === index && paused && <span className="absolute inset-0 bg-brass" />}
                 </span>
                 <span className="mt-3 flex items-baseline gap-2.5">
                   <span className={`font-mono text-[11px] ${i === index ? "text-brass" : "text-parchment/35"}`}>{String(i + 1).padStart(2, "0")}</span>
