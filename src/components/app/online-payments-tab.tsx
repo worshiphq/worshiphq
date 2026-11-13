@@ -1,5 +1,6 @@
 "use client";
 
+import { GivingLetterCard } from "@/components/app/giving-letter-card";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useState } from "react";
 import { CheckCircle2, Clock, ShieldAlert, Loader2, Pencil, Trash2, Wallet } from "lucide-react";
@@ -314,6 +315,7 @@ export function OnlinePaymentsTab({ canManage }: { canManage: boolean }) {
           </p>
           <Details type={status.settlementType} bank={status.bankName} number={status.accountNumber} name={status.accountName} />
           {status.adminNotes && <p className="mt-3 text-sm text-ink-muted">{status.adminNotes}</p>}
+          <GivingLetterCard uploadedAt={status.authLetterAt ? new Date(status.authLetterAt).toISOString() : null} canManage={canManage} onUploaded={load} />
           <details className="mt-4 rounded-xl border border-line bg-surface p-4">
             <summary className="cursor-pointer text-sm font-semibold text-ink">See the fees and how online giving works again</summary>
             <div className="mt-3"><FeeExplainer info={feeInfo} mode={feeMode} /></div>
@@ -334,6 +336,7 @@ export function OnlinePaymentsTab({ canManage }: { canManage: boolean }) {
         <Banner tone="success" icon={<CheckCircle2 className="size-5" />} title="Approved - online giving is on">
           <p className="mt-1.5 text-sm text-ink-muted">Gifts your members give online are paid into this account.</p>
           <Details type={status.settlementType} bank={status.bankName} number={status.accountNumber} name={status.accountName} />
+          <GivingLetterCard uploadedAt={status.authLetterAt ? new Date(status.authLetterAt).toISOString() : null} canManage={canManage} onUploaded={load} />
 
           {status.pendingAt && (
             <div className="mt-4 rounded-xl border border-warning/30 bg-warning/10 p-4">

@@ -111,7 +111,11 @@ export function SiteFooter() {
 
         {/* Colophon */}
         <div className="mt-16 flex flex-col items-center gap-3 border-t border-parchment/12 pt-8 text-center">
-          <span className="text-lg text-brass" aria-hidden>✦</span>
+          <a href="/about" className="group flex flex-col items-center gap-2" aria-label="WorshipHQ is a product of WODONA">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-parchment/45">A product of</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/brand/wodona-white.png" alt="WODONA" width={1309} height={220} className="h-6 w-auto opacity-85 transition-opacity group-hover:opacity-100" />
+          </a>
           <p className="text-xs text-parchment/50">
             © {new Date().getFullYear()} {brand.parentCompany}. All rights reserved. Set with care for the Church,
             everywhere the doors are open.

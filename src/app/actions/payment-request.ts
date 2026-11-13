@@ -110,6 +110,7 @@ export async function getPaymentRequestStatus() {
         adminNotes: true, ussdCode: true, portalUrl: true, createdAt: true,
         settlementType: true, bankName: true, accountNumber: true, accountName: true,
         pendingSettlementType: true, pendingBankName: true, pendingAccountNumber: true, pendingAccountName: true, pendingAt: true,
+        authLetterAt: true,
       },
     }),
     db.church.findUnique({ where: { id: session.churchId }, select: { givingBlocked: true } }),

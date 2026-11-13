@@ -297,6 +297,12 @@ function PayoutPanel({ req }: { req: any }) {
         <>
           <PayoutDetails type={req.settlementType} bank={req.bankName} number={req.accountNumber} name={req.accountName} />
           {code && <p className="text-[11px] text-slate-500">Paystack subaccount: {code}</p>}
+          {/* The church's signed authorisation letter, kept for Paystack */}
+          <p className="text-xs">
+            {req.authLetterAt
+              ? <><span className="text-emerald-300">Authorisation letter uploaded {new Date(req.authLetterAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" })}</span>{" · "}<a href={`/api/giving-letter?id=${req.id}`} target="_blank" rel="noopener" className="text-teal-300 underline hover:text-white">View letter</a></>
+              : <span className="text-amber-300">No authorisation letter uploaded yet</span>}
+          </p>
         </>
       )}
 

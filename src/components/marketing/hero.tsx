@@ -403,7 +403,9 @@ export function Hero({
       {/* ── The business behind the product, on every slide ── */}
       <div className="absolute right-6 top-20 z-20 hidden items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.24em] text-parchment/75 sm:flex lg:right-10">
         <span className="h-px w-6 bg-brass/60" aria-hidden />
-        A <span className="text-brass">WODONA</span> product
+        A product of
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/brand/wodona-white.png" alt="WODONA" width={1309} height={220} className="h-3.5 w-auto opacity-90" />
       </div>
 
       {/* ── Controls: named tabs with a filling line (dots on small screens) ── */}
