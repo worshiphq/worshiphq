@@ -17,6 +17,7 @@ import { getChurchPlan, getChurchSub } from "@/lib/plan-gate-server";
 import { commsTrialOf, paidPlan } from "@/lib/plan-gate";
 import { BillingBanner } from "@/components/app/billing-banner";
 import { TrialBanner } from "@/components/app/trial-banner";
+import { OverLimitBanner } from "@/components/app/over-limit-banner";
 import { TrialProvider, TrialWelcome } from "@/components/app/trial-context";
 import { getTrialAccess } from "@/lib/trials";
 import { NavProgress } from "@/components/app/nav-progress";
@@ -102,6 +103,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               {/* Only the Main Admin can renew, so only they are nagged. */}
               {session.role === "Owner" && !session.isDemo && !session.impersonating && <BillingBanner churchId={session.churchId} />}
               {session.role === "Owner" && !session.isDemo && !session.impersonating && <TrialBanner churchId={session.churchId} />}
+              {session.role === "Owner" && !session.isDemo && !session.impersonating && <OverLimitBanner churchId={session.churchId} />}
               {children}
             </AmountPrivacy>
           </PhoneDefaults>

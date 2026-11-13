@@ -333,16 +333,23 @@ export async function convertVisitorToMember(id: string) {
 
   const visitor = await db.visitor.findFirst({ where: { id, churchId: session.churchId } });
   if (!visitor) return;
+  // A visitor who is already in People takes no new place on Free (Free counts visitors already), so only a
+  // genuinely new person, or a paid plan where visitors don't count, is checked against the limit.
   const { memberLimitError } = await import("@/lib/member-limit");
-  const full = await memberLimitError(session.churchId);
+  const { getChurchPlan } = await import("@/lib/plan-gate-server");
+  const alreadyCounted = !!visitor.personId && (await getChurchPlan(session.churchId)) === "free";
+  const full = alreadyCounted ? null : await memberLimitError(session.churchId);
   if (full) return { ok: false as const, error: full };
 
   let personId = visitor.personId;
+  // Every member gets a member ID (the other ways of adding a member already did this).
+  const { nextMemberId } = await import("@/lib/members/helpers");
 
   if (personId) {
+    const current = await db.person.findUnique({ where: { id: personId }, select: { memberId: true } });
     await db.person.update({
       where: { id: personId },
-      data: { status: "active" },
+      data: { status: "active", ...(current?.memberId ? {} : { memberId: await nextMemberId(session.churchId) }) },
     });
   } else {
     const person = await db.person.create({
@@ -354,6 +361,7 @@ export async function convertVisitorToMember(id: string) {
         email: visitor.email,
         photoUrl: visitor.photoUrl,
         status: "active",
+        memberId: await nextMemberId(session.churchId),
       },
     });
     personId = person.id;
