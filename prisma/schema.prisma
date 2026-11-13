@@ -2147,6 +2147,11 @@ model PaymentRequest {
   pendingAt             DateTime?
   // SuperAdmin's verification checklist: { checks: { key: true }, note, by, at }. Approving needs every required check ticked.
   verification          Json?
+  // The church's signed and stamped letter authorising WODONA to collect gifts for it through Paystack.
+  // A private R2 object key (never a public URL), its file type, and when it was uploaded.
+  authLetterKey         String?
+  authLetterType        String?
+  authLetterAt          DateTime?
   createdAt             DateTime  @default(now())
   updatedAt             DateTime  @updatedAt
 
