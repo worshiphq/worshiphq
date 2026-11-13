@@ -316,7 +316,12 @@ export function SettingsClient({
                 <div><Label>Church name</Label><Input name="name" defaultValue={church?.name ?? ""} required disabled={ro} /></div>
                 <div><Label>Denomination</Label><Input name="denomination" defaultValue={church?.denomination ?? ""} disabled={ro} /></div>
                 <div><Label>City</Label><Input name="city" defaultValue={church?.city ?? ""} disabled={ro} /></div>
-                <div><Label>Country</Label><Input name="country" defaultValue={church?.country ?? "Ghana"} disabled={ro} /></div>
+                <div>
+                  <Label>Country</Label>
+                  <Input name="country" defaultValue={church?.country ?? "Ghana"} disabled={ro || session.role !== "Owner"} />
+                  {/* The country sets the billing price, so only the Main Admin changes it, and moving into or out of Ghana goes through support. */}
+                  <p className="mt-1 text-xs text-ink-faint">{session.role === "Owner" ? "Moving your church into or out of Ghana? Contact WorshipHQ support, as it changes your plan price." : "Only the Main Admin can change the country."}</p>
+                </div>
                 <div className="sm:col-span-2"><Label>Address</Label><Input name="address" defaultValue={church?.address ?? ""} disabled={ro} /></div>
               </div>
               <label className="mt-4 flex items-start gap-2 rounded-xl border border-line bg-surface-2/40 p-3 text-sm text-ink-muted">

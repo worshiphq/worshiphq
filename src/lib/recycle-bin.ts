@@ -435,10 +435,16 @@ const LEGACY_RESTORERS: Record<string, (churchId: string, snapshot: any) => Prom
 
 
 
-export async function restoreItem(session: { churchId: string; userId: string }, id: string): Promise<RestoreResult> {
+export async function restoreItem(session: { churchId: string; userId: string; role?: string }, id: string): Promise<RestoreResult> {
   const item = await db.deletedItem.findFirst({ where: { id, churchId: session.churchId } });
   if (!item) return { ok: false, error: "Already gone." };
   const snap = item.snapshot as any;
+
+  // Bringing a team member back is bringing back a sign-in: it must respect who may manage Admins and the plan's seats.
+  if (item.entityType === "teamMember") {
+    const blocked = await teamRestoreBlocked(session, item.detail);
+    if (blocked) return { ok: false, error: blocked };
+  }
 
   try {
     if (snap?.v === 2) {
@@ -467,6 +473,18 @@ export async function purgeItem(session: { churchId: string; userId: string }, i
   await db.deletedItem.delete({ where: { id } });
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: item.entityType, entityId: item.entityId, detail: `Permanently deleted "${item.label}" from the recycle bin` });
   return { ok: true };
+}
+
+/** Why a removed team member cannot be restored right now, or null when they can. `role` is the stored role (the item's detail). */
+async function teamRestoreBlocked(session: { churchId: string; role?: string }, role: string | null): Promise<string | null> {
+  if (role === "Owner") return "The Main Admin cannot be restored from the bin.";
+  if (role === "Admin" && session.role !== "Owner") return "Only the Main Admin can bring back an Admin.";
+  const { getChurchPlan } = await import("@/lib/plan-gate-server");
+  const { getPlatformConfig } = await import("@/lib/data/platform-config");
+  const [plan, cfg, count] = await Promise.all([getChurchPlan(session.churchId), getPlatformConfig(), db.user.count({ where: { churchId: session.churchId } })]);
+  const limit = cfg.planTable[plan]?.teamUsers ?? Infinity;
+  if (Number.isFinite(limit) && count >= limit) return `Your plan's team is full (${count} of ${limit}). Remove someone or upgrade in Billing first.`;
+  return null;
 }
 
 /** The moment before which anything in the bin is due to be removed. */

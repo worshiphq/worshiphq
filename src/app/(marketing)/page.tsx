@@ -7,7 +7,6 @@ import { FeatureGrid } from "@/components/marketing/feature-grid";
 import { Spotlights } from "@/components/marketing/spotlights";
 import { HowItWorks } from "@/components/marketing/how-it-works";
 import { Testimonials } from "@/components/marketing/testimonials";
-import { PricingSection } from "@/components/marketing/pricing-section";
 import { FAQ } from "@/components/marketing/faq";
 import { FinalCTA } from "@/components/marketing/final-cta";
 import { getMarketingContent } from "@/lib/data/site-content";
@@ -37,7 +36,6 @@ export default async function HomePage() {
       <Spotlights />
       <HowItWorks freeMemberLimit={platformConfig.planDefs.free.memberLimit} />
       <Testimonials items={content.testimonials} />
-      <PricingSection platformPricing={platformConfig} />
       <FAQ
         starterPrice={`${platformConfig.currencySymbol}${platformConfig.prices.starter?.monthly ?? 10}`}
         freeMembers={freeMembers}

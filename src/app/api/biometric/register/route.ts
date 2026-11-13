@@ -95,7 +95,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const session = await getActiveSession();
   if (!session || session.isDemo) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!canManage(session, "attendance") || session.planLocked?.includes("fingerprint")) {
+  if (!canManage(session, "attendance") || (!session.impersonating && session.planLocked?.includes("fingerprint"))) {
     return NextResponse.json({ error: "Not allowed" }, { status: 403 });
   }
 

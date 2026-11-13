@@ -110,7 +110,7 @@ export function FeatureGrid({ tiers, members }: { tiers: Record<string, Tier>; m
         </div>
         <Reveal delay={0.1}>
           <p className="mt-8 text-center text-sm text-ink-muted">
-            Door devices and scanners are a one-off purchase. We supply and install them for a fee. <Link href="#pricing" className="font-medium text-evergreen underline underline-offset-4">See prices</Link>
+            Door devices and scanners are a one-off purchase. We supply and install them for a fee. <Link href="/pricing" className="font-medium text-evergreen underline underline-offset-4">See prices</Link>
           </p>
         </Reveal>
       </div>

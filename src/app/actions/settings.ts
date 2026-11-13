@@ -192,10 +192,17 @@ export async function confirmEmailChange(formData: FormData) {
 
 export async function updateChurch(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "settings");
 
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
+
+  // The country decides whether the church pays the fixed Ghana cedi price, so it cannot be used to pick a price.
+  // Only the Main Admin may change it, and a move into or out of Ghana is left to WorshipHQ support.
+  const current = await db.church.findUnique({ where: { id: session.churchId }, select: { country: true } });
+  const askedCountry = String(formData.get("country") ?? "").trim() || current?.country || "Ghana";
+  const { isGhana } = await import("@/lib/billing/local-price");
+  const country = session.role === "Owner" && (session.impersonating || isGhana(askedCountry) === isGhana(current?.country)) ? askedCountry : (current?.country ?? "Ghana");
 
   await db.church.update({
     where: { id: session.churchId },
@@ -203,7 +210,7 @@ export async function updateChurch(formData: FormData) {
       name,
       denomination: String(formData.get("denomination") ?? "").trim() || null,
       city: String(formData.get("city") ?? "").trim() || null,
-      country: String(formData.get("country") ?? "Ghana").trim() || "Ghana",
+      country,
       address: String(formData.get("address") ?? "").trim() || null,
       // Admins get SMS+email when a member submits a prayer/testimony/counselling.
       notifySubmissions: formData.get("notifySubmissions") === "on",
@@ -260,7 +267,7 @@ Requested ID: ${senderId}`,
 }
 export async function updateBranding(formData: FormData) {
   const session = await requireSession();
-  assertCanWrite(session);
+  assertCanWrite(session, "settings");
 
   const accentColor = String(formData.get("accentColor") ?? "#0d7377");
   // logoUrl is a data URL (base64) or empty to clear. Cap size (~1.5MB base64).
@@ -330,6 +337,7 @@ export async function inviteTeammate(formData: FormData): Promise<ActionResult> 
   if (parsedRole.customRoleId && !customRoleId) return { ok: false, error: "That role no longer exists. Pick another." };
   // The Main Admin role is only ever handed over with "Transfer Main Admin", never by an invite.
   if (role === "Owner") return { ok: false, error: "The Main Admin role is handed over in Settings, not by invite." };
+  if (role === "Admin" && session.role !== "Owner") return { ok: false, error: "Only the Main Admin can make someone an Admin." };
 
   // Email is the login identifier but optional to type - synthesize a stable
   // placeholder from the phone when the admin doesn't provide one.
@@ -345,7 +353,7 @@ export async function inviteTeammate(formData: FormData): Promise<ActionResult> 
 
   // Optional temp password lets them also sign in immediately; otherwise they
   // set their own password when accepting the invite.
-  const tempPassword = String(formData.get("password") ?? "").trim();
+  const tempPassword = emailRaw ? String(formData.get("password") ?? "").trim() : "";
   const inviteToken = crypto.randomBytes(24).toString("base64url");
 
   await db.user.create({
@@ -366,10 +374,14 @@ export async function inviteTeammate(formData: FormData): Promise<ActionResult> 
   const appUrl = await getBaseUrl();
   const acceptUrl = `${appUrl}/invite/${inviteToken}`;
 
+  // The role as the church calls it: a custom role's own name, not the "Volunteer" it is stored on.
+  const roleName = customRoleId
+    ? (await db.customRole.findFirst({ where: { id: customRoleId, churchId: session.churchId }, select: { name: true } }))?.name ?? role
+    : role;
   // SMS is the reliable delivery channel. Keep it short (1 credit where possible).
-  await sendSms(
+  const sent = await sendSms(
     phone,
-    `You've been invited to join ${churchName} on WorshipHQ${role ? ` as ${role}` : ""}. Accept & set up your account: ${acceptUrl}`,
+    `You've been invited to join ${churchName} on WorshipHQ as ${roleName}. Accept & set up your account: ${acceptUrl}`,
     { heading: null },
   );
 
@@ -381,7 +393,7 @@ export async function inviteTeammate(formData: FormData): Promise<ActionResult> 
       subject: `You've been invited to ${churchName}`,
       html: `
         <h2>Welcome to ${escapeHtml(churchName)}</h2>
-        <p>You've been invited to join the team on WorshipHQ${role ? ` as <strong>${role}</strong>` : ""}.</p>
+        <p>You've been invited to join the team on WorshipHQ as <strong>${escapeHtml(roleName)}</strong>.</p>
         <p><a href="${acceptUrl}">Accept your invite & set up your account →</a></p>
         ${tempPassword ? `<p>Or sign in with <strong>${escapeHtml(email)}</strong> and the temporary password you were given.</p>` : ""}
       `,
@@ -390,6 +402,7 @@ export async function inviteTeammate(formData: FormData): Promise<ActionResult> 
   }
 
   revalidatePath("/app/settings");
+  if (!sent.ok && !sent.stubbed) return { ok: false, error: `${name} was added, but the invite text did not go (${sent.error ?? "the number was refused"}). Check the number, then use "Text the invite again".` };
   return { ok: true };
 }
 
@@ -477,6 +490,7 @@ export async function changeUserRole(formData: FormData): Promise<ActionResult> 
   if (parsedRole.customRoleId && !customRoleId) return { ok: false, error: "That role no longer exists." };
   // The Main Admin role is only ever handed over with "Transfer Main Admin".
   if (role === "Owner") return { ok: false, error: "Use \"Hand over the Main Admin role\" for that." };
+  if (role === "Admin" && session.role !== "Owner") return { ok: false, error: "Only the Main Admin can make someone an Admin." };
   const current = await db.user.findFirst({ where: { id: userId, churchId: session.churchId }, select: { role: true } });
   // Nobody changes the Main Admin's role, and only the Main Admin changes another Admin's role.
   if (!current) return { ok: false, error: "That person is not on your team." };
@@ -513,6 +527,9 @@ export async function createCustomRole(formData: FormData): Promise<ActionResult
   const manageSections = formData.getAll("manageSections").map(String).filter((s) => sections.includes(s));
   const canDelete = formData.get("canDelete") === "on" || formData.get("canDelete") === "yes";
 
+  if (await db.customRole.findFirst({ where: { churchId: session.churchId, name: { equals: name, mode: "insensitive" } }, select: { id: true } })) {
+    return { ok: false, error: `You already have a role called "${name}". Choose another name, or adjust that role.` };
+  }
   await db.customRole.upsert({
     where: { churchId_name: { churchId: session.churchId, name } },
     create: { churchId: session.churchId, name, sections, manageSections, canDelete, manageSplit: true },
@@ -572,6 +589,10 @@ export async function updateCustomRole(formData: FormData): Promise<ActionResult
     select: { id: true },
   });
   if (!role) return { ok: false, error: "That role was not found." };
+  if (BUILT_IN_ROLES.some((r) => r.toLowerCase() === name.toLowerCase()) || /^main admin$/i.test(name)) return { ok: false, error: "That name belongs to a built-in role. Choose another." };
+  if (await db.customRole.findFirst({ where: { churchId: session.churchId, id: { not: id }, name: { equals: name, mode: "insensitive" } }, select: { id: true } })) {
+    return { ok: false, error: `You already have a role called "${name}".` };
+  }
 
   const sections = formData.getAll("sections").map(String);
   const manageSections = formData.getAll("manageSections").map(String).filter((s) => sections.includes(s));

@@ -23,7 +23,7 @@ export async function saveFormDefinition(kind: string, definition: string): Prom
   // The form builder is a Starter feature. It had no plan check at all - not even a hidden button -
   // so any Free church could edit its forms. Checked here because "settings" is a permission
   // section, not a feature key, so the usual assertCanWrite(module) route cannot gate it.
-  if (session.planLocked?.includes("form-builder")) {
+  if (!session.impersonating && session.planLocked?.includes("form-builder")) {
     return { ok: false, error: new PlanLockedError("form-builder").message };
   }
   if (!isFormKind(kind)) return { ok: false, error: "Unknown form." };

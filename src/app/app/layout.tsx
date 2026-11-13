@@ -40,7 +40,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     getRecentNotifications(session.churchId),
     getChurchPlan(session.churchId),
     getPlatformConfig(),
-    session.canDelete ? countRecycleBin(session.churchId) : Promise.resolve(0),
+    // Admins see the whole bin; anyone else only the items from sections they manage.
+    !session.canDelete ? Promise.resolve(0)
+      : session.role === "Owner" || session.role === "Admin" ? countRecycleBin(session.churchId)
+      : import("@/app/actions/recycle-bin").then((m) => m.getRecycleBinCount()),
     session.isDemo || session.impersonating ? Promise.resolve(null) : getTrialAccess(session.churchId),
     getChurchSub(session.churchId),
   ]);

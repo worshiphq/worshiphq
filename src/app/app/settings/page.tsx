@@ -22,7 +22,7 @@ export default async function SettingsPage() {
     db.user.findMany({
       where: { churchId: session.churchId },
       orderBy: { createdAt: "asc" },
-      select: { id: true, name: true, email: true, phone: true, photoUrl: true, role: true, createdAt: true, inviteToken: true, inviteAcceptedAt: true, passwordHash: true, customRole: { select: { id: true, name: true } }, budgetDepartment: { select: { id: true, name: true } } },
+      select: { id: true, name: true, email: true, phone: true, photoUrl: true, role: true, createdAt: true, inviteToken: true, inviteAcceptedAt: true, customRole: { select: { id: true, name: true } }, budgetDepartment: { select: { id: true, name: true } } },
     }),
     db.department.findMany({
       where: { churchId: session.churchId },
@@ -131,8 +131,8 @@ export default async function SettingsPage() {
         users={users.map((u) => ({
           id: u.id, name: u.name, email: u.email, phone: u.phone, photoUrl: u.photoUrl, role: u.role,
           customRole: u.customRole, budgetDepartment: u.budgetDepartment,
-          // Waiting = invited, never accepted and no password set. The token and hash themselves never leave the server.
-          pending: !!u.inviteToken && !u.inviteAcceptedAt && !u.passwordHash,
+          // Waiting = invited and never accepted (a temporary password does not count as joining). Tokens never leave the server.
+          pending: !!u.inviteToken && !u.inviteAcceptedAt,
           joinedAt: u.createdAt.toISOString(),
         }))}
         departments={departmentsWithCounts}
