@@ -6,11 +6,20 @@ import { moveToBin } from "@/lib/recycle-bin";
 import { requireSession, assertCanWrite, assertCanDelete } from "@/lib/auth";
 import { audit } from "@/lib/audit";
 import { ownedId } from "@/lib/tenant";
+import { hasSection } from "@/lib/permissions";
+
+/** Reading account history needs Accounting. The pages were gated but these actions were not, so any signed-in
+ *  person (a department budget leader included) could read every account's entries by calling them directly. */
+async function requireAccountingReader() {
+  const session = await requireSession();
+  if (!hasSection(session, "accounting")) throw new Error("Your role cannot see the church's accounts.");
+  return session;
+}
 
 /** Every ledger entry (all-time) with NO bank account attached, so the admin can
  *  assign each one. Newest first. */
 export async function loadUnassignedEntries() {
-  const session = await requireSession();
+  const session = await requireAccountingReader();
   const [txns, gifts, expenses] = await Promise.all([
     db.transaction.findMany({ where: { churchId: session.churchId, accountId: null }, select: { id: true, description: true, category: true, fund: true, amount: true, date: true, pendingDeposit: true } }),
     db.gift.findMany({ where: { churchId: session.churchId, accountId: null }, select: { id: true, donorName: true, amount: true, date: true, pendingDeposit: true, fund: { select: { name: true } } } }),
@@ -26,7 +35,7 @@ export async function loadUnassignedEntries() {
 
 /** Running-balance history for one account (for the accounting History tab). */
 export async function loadAccountHistory(accountId: string) {
-  const session = await requireSession();
+  const session = await requireAccountingReader();
   const { getAccountHistory } = await import("@/lib/data/accounts");
   const history = await getAccountHistory(session.churchId, accountId);
   if (!history) return { ok: false as const, error: "Account not found." };
@@ -35,7 +44,7 @@ export async function loadAccountHistory(accountId: string) {
 
 /** One account's statement for a date range (the accounting Statements tab). */
 export async function loadAccountStatement(accountId: string, from: string | null, to: string | null, page: number) {
-  const session = await requireSession();
+  const session = await requireAccountingReader();
   const { getAccountStatement } = await import("@/lib/data/accounts");
   const statement = await getAccountStatement(session.churchId, accountId, { from, to, page });
   if (!statement) return { ok: false as const, error: "Account not found." };
