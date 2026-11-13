@@ -15,7 +15,7 @@ export const metadata: Metadata = {
 const values = [
   { icon: Heart, title: "Ministry first", body: "Technology should serve the mission, never complicate it. Every feature earns its place by helping you shepherd people." },
   { icon: Globe2, title: "Built for every church", body: "Mobile Money, SMS broadcasts, online giving and a light app that loads fast on mobile data - built around how churches actually operate, wherever they are." },
-  { icon: ShieldCheck, title: "Trust & stewardship", body: "Your data and your offerings are sacred. Bank-grade security, full audit trails and strict tenant isolation." },
+  { icon: ShieldCheck, title: "Trust & stewardship", body: "Your records and your offerings are sacred. Each church's data is kept separate from every other church, and roles decide who on your team sees what." },
   { icon: Zap, title: "Delightfully simple", body: "Powerful doesn't have to mean complicated. WorshipHQ is fast, beautiful and a joy to use on any device." },
 ];
 
@@ -32,7 +32,7 @@ export default async function AboutPage() {
             <span className="text-primary">your church.</span>
           </>
         }
-        subtitle="We're on a mission to give every church - from the smallest fellowship to the largest ministry - the tools to manage, connect and grow."
+        subtitle="We are building the tools every church deserves, from the smallest fellowship to a church with many branches."
       />
 
       {/* ── Manifesto ── */}

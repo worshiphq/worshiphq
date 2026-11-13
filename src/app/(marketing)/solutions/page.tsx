@@ -21,15 +21,15 @@ export const metadata: Metadata = {
 function audiencesFor(freeMembers: string) {
   return [
     { icon: Sprout, title: "Small fellowships", body: `Just getting started? Manage your first members, take offerings and check people in - free, forever, ${freeMembers}.` },
-    { icon: Building2, title: "Growing churches", body: "Scale your operations with SMS broadcasts, automations, recurring giving and reports as your congregation grows." },
-    { icon: Network, title: "Large ministries", body: "Unlimited members, advanced analytics, API access and a dedicated success manager for your leadership team." },
+    { icon: Building2, title: "Growing churches", body: "Text the whole church in one tap, follow up everyone who misses Sunday, and keep the church's accounts, harvest and pledges in order as you grow." },
+    { icon: Network, title: "Large churches and branches", body: "Unlimited members, face, palm and fingerprint check-in at the door, every branch on one screen, and Sunday's numbers on the pastor's phone by Monday morning." },
   ];
 }
 
 const roles = [
   { icon: UserCog, title: "For Pastors", body: "See the health of your church at a glance - attendance, giving and the people who need a shepherd's care this week." },
-  { icon: Wallet, title: "For Finance Officers", body: "Fund accounting, automated receipts and an audit trail you can trust. Reports in minutes, not days." },
-  { icon: HeartHandshake, title: "For Ministry Leaders", body: "Schedule volunteers, message your team and track engagement - without waiting on the church office." },
+  { icon: Wallet, title: "For Treasurers", body: "Every tithe, offering and expense recorded once, a receipt texted to each giver, and accounts your board can read in minutes." },
+  { icon: HeartHandshake, title: "For Ministry Leaders", body: "See your own department, text your team, build the roster and follow up your people, without waiting on the church office." },
 ];
 
 function PressCardRow({ heading, items }: { heading: string; items: ReturnType<typeof audiencesFor> | typeof roles }) {
@@ -73,7 +73,7 @@ export default async function SolutionsPage() {
             <span className="text-primary">every calling.</span>
           </>
         }
-        subtitle="Whether you're a small fellowship or a thousand-member ministry, WorshipHQ adapts to how you serve."
+        subtitle="A fellowship of thirty or a church with branches: start with what you need today and add the rest when you are ready."
       />
 
       <section className="space-y-24 py-16 pb-24">

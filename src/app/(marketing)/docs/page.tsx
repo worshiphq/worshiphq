@@ -26,7 +26,7 @@ export default function DocsHome() {
         subtitle={`The complete WorshipHQ manual: ${DOC_ARTICLES.length} guides, free for every church.`}
       />
 
-      <section className="mx-auto max-w-5xl px-4 pb-24 sm:px-6">
+      <section className="mx-auto max-w-5xl px-4 pb-24 pt-14 sm:px-6">
         <div className="mx-auto max-w-2xl">
           <DocsSearch entries={searchEntries()} />
         </div>

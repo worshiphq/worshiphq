@@ -243,7 +243,7 @@ export default async function HelpPage() {
         subtitle="A complete guide to every feature in WorshipHQ."
       />
 
-      <section className="mx-auto max-w-5xl px-4 pt-2 sm:px-6">
+      <section className="mx-auto max-w-5xl px-4 pt-12 sm:px-6">
         <a href="/docs" className="group flex flex-wrap items-center justify-between gap-3 border-2 border-evergreen bg-evergreen/5 px-5 py-4 hover:bg-evergreen/10">
           <span>
             <span className="block font-display text-lg font-bold text-evergreen-deep">Looking for step-by-step instructions?</span>

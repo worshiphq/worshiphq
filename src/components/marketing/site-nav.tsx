@@ -15,6 +15,9 @@ const links = [
   { label: "About", href: "/about" },
 ];
 
+/** Pages that open on a dark band (the homepage slider, or PageHero): the nav uses light text there until scrolled. */
+const DARK_HERO_PATHS = new Set(["/", "/features", "/solutions", "/devices", "/pricing", "/about", "/contact", "/help", "/docs", "/privacy", "/terms", "/refund-policy"]);
+
 export function SiteNav() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
@@ -27,8 +30,7 @@ export function SiteNav() {
     return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  // The homepage opens on a dark full-screen slider - use light text until scrolled.
-  const overDark = pathname === "/" && !scrolled && !open;
+  const overDark = DARK_HERO_PATHS.has(pathname) && !scrolled && !open;
 
   return (
     <header
@@ -48,12 +50,16 @@ export function SiteNav() {
               {i > 0 && <span className={cn("mx-1 text-[8px]", overDark ? "text-brass" : "text-brass/60")}>✦</span>}
               <Link
                 href={l.href}
+                aria-current={pathname === l.href ? "page" : undefined}
                 className={cn(
-                  "px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] transition-colors",
+                  "relative px-3 py-2 text-[11px] font-semibold uppercase tracking-[0.18em] transition-colors",
                   overDark ? "text-parchment/85 hover:text-white" : "text-ink-muted hover:text-evergreen",
+                  pathname === l.href && (overDark ? "text-white" : "text-evergreen"),
                 )}
               >
                 {l.label}
+                {/* The page you are on is underlined in brass */}
+                {pathname === l.href && <span className="absolute inset-x-3 -bottom-0.5 h-px bg-brass" aria-hidden />}
               </Link>
             </span>
           ))}
