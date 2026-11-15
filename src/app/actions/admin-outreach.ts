@@ -23,7 +23,7 @@ export type OutreachChurch = {
   /** Where the church stands with free trials. nextPlan is what it could try now (null if it cannot). */
   trial: { phase: "none" | "active" | "ended" | "converted"; nextPlan: string | null; trialPlan: string | null; daysLeft: number; features: string; featuresShort: string };
 };
-export type OutreachData = { trialDays: number; platformCarrier: string; churches: OutreachChurch[]; emailLive: boolean; smsLive: boolean; contact: string; contactLine: string; smsProvider: string; alert: { phone: string; from: "saved" | "company" | "none"; saved: string } };
+export type OutreachData = { emailSenders: string[]; brevoLeft: number | null; trialDays: number; platformCarrier: string; churches: OutreachChurch[]; emailLive: boolean; smsLive: boolean; contact: string; contactLine: string; smsProvider: string; alert: { phone: string; from: "saved" | "company" | "none"; saved: string } };
 export type OutreachHistoryRow = { id: string; channel: string; template: string; to: string; toName: string | null; subject: string | null; body: string; status: string; error: string | null; auto: boolean; at: string };
 
 /** Every real church with its owner and admins, and what we have already sent them. */
@@ -49,7 +49,11 @@ export async function getOutreachData(): Promise<OutreachData> {
   const savedAlert = (await db.platformConfig.findUnique({ where: { id: "default" }, select: { alertPhone: true } }))?.alertPhone ?? "";
   const w = new Map(welcomes.map((x) => [x.churchId, x._min.createdAt]));
   const l = new Map(last.map((x) => [x.churchId, { at: x._max.createdAt, n: x._count._all }]));
+  const { emailChain, brevoEmailsLeft } = await import("@/lib/integrations/email");
+  const emailSenders = emailChain();
   return {
+    emailSenders,
+    brevoLeft: emailSenders.includes("brevo") ? await brevoEmailsLeft() : null,
     trialDays: trialCfg.days,
     platformCarrier: (await getPlatformCarrier()) ?? "hubtel", emailLive: features.email, smsLive: features.sms, contact: outreachContact(), contactLine: await outreachContactLine(), smsProvider: env.SMS_PROVIDER, alert: { ...alert, saved: savedAlert },
     churches: churches.map((c) => ({

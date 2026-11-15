@@ -92,7 +92,15 @@ export function OutreachClient({ data }: { data: OutreachData }) {
 
       {/* Are messages really going out? */}
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
-        <Status ok={data.emailLive} title="Email" good="Connected. Emails are delivered." bad="Not connected. The same email settings that send your other emails (EMAIL_PROVIDER and its keys) are not set where this is running, so messages are only logged." />
+        <div>
+          <Status ok={data.emailLive} title="Email" good="Connected. Emails are delivered." bad="Not connected. No email sender (Brevo, Resend or Gmail) is set up where this is running, so messages are only logged." />
+          {data.emailLive && (
+            <p className="mt-1.5 px-1 text-[11px] text-slate-500">
+              Sends through {data.emailSenders.join(", then ")}{data.emailSenders.length > 1 ? " (the next one takes over if one is full or refuses)" : ""}.
+              {data.brevoLeft !== null && <> Brevo has <b className="text-slate-300">{data.brevoLeft.toLocaleString()}</b> emails left today.</>}
+            </p>
+          )}
+        </div>
         <Status ok={data.smsLive} title="SMS" good="Connected. Texts are delivered." bad="Not connected. Texts are only logged, not delivered." />
         <AdminCard className="p-4 text-sm">
           <div className="font-semibold text-slate-200">Replies go to</div>

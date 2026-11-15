@@ -77,6 +77,15 @@ const schema = z.object({
   SMTP_PORT: z.coerce.number().default(587),
   SMTP_USER: str,
   SMTP_PASSWORD: str,
+  // Brevo's own API (more than SMTP: it can report how many emails the plan has left today, so a full Brevo is
+  // skipped before it refuses). Create it in Brevo: SMTP & API, then API keys. Different from the SMTP password.
+  BREVO_API_KEY: str,
+  // Last-resort sender: a Gmail account with 2-step verification and an App Password (Google Account, Security,
+  // App passwords). Gmail sends as this address, so replies still go to the usual reply-to.
+  GMAIL_USER: str,
+  GMAIL_APP_PASSWORD: str,
+  // Optional order of providers to try, comma separated: brevo, smtp, resend, gmail. Default: brevo,smtp,resend,gmail.
+  EMAIL_CHAIN: str,
 
   // ── PUSH (Web Push / VAPID) ──────────────────────────
   NEXT_PUBLIC_VAPID_PUBLIC_KEY: str,
@@ -158,10 +167,12 @@ export const features = {
     (env.SMS_PROVIDER === "nalo" && !!(env.NALO_AUTH_KEY || (env.NALO_USERNAME && env.NALO_PASSWORD))) ||
     (env.SMS_PROVIDER === "mnotify" && !!env.MNOTIFY_API_KEY) ||
     (env.SMS_PROVIDER === "twilio" && !!(env.TWILIO_ACCOUNT_SID && env.TWILIO_AUTH_TOKEN)),
+  // Email is live when ANY sender in the chain is set up (see lib/integrations/email.ts).
   email:
-    (env.EMAIL_PROVIDER === "resend" && !!env.RESEND_API_KEY) ||
-    (env.EMAIL_PROVIDER === "sendgrid" && !!env.SENDGRID_API_KEY) ||
-    (env.EMAIL_PROVIDER === "smtp" && !!(env.SMTP_HOST && env.SMTP_USER)),
+    !!env.BREVO_API_KEY ||
+    !!(env.SMTP_HOST && env.SMTP_USER) ||
+    !!env.RESEND_API_KEY ||
+    !!(env.GMAIL_USER && env.GMAIL_APP_PASSWORD),
   push: !!(env.NEXT_PUBLIC_VAPID_PUBLIC_KEY && env.VAPID_PRIVATE_KEY),
   storage:
     (env.STORAGE_PROVIDER === "cloudinary" && !!env.CLOUDINARY_CLOUD_NAME) ||
