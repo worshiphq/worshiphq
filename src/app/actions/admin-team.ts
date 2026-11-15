@@ -25,6 +25,7 @@ async function sendInvite(admin: { id: string; email: string; name: string; epoc
   const r = await sendEmail({
     to: admin.email,
     subject: resend ? "Reset your WorshipHQ admin password" : "You have been added as a WorshipHQ admin",
+    private: true,
     html: `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px">
       <h2 style="margin:0 0 8px">Hello ${first},</h2>
       <p style="color:#444">${resend ? "Here is a link to choose a new password for the WorshipHQ admin area." : "You have been added as an admin of the WorshipHQ platform. Choose your password to get started."} The link works for ${INVITE_DAYS} days, and only once.</p>

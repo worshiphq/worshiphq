@@ -478,3 +478,23 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Pop-ups always stay on the screen, however far the browser is zoomed in.
+   A full-screen overlay that centres its pop-up can scroll, and "safe" centring means a pop-up taller than
+   the screen starts at the top instead of being cut off above it (where the Pay button used to vanish).
+   A pop-up placed in the middle with left/top 50% can never be taller than the screen; it scrolls inside. */
+.fixed.inset-0:is(.place-items-center, .items-center) {
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.fixed.inset-0.place-items-center {
+  place-items: safe center;
+}
+.fixed.inset-0.items-center {
+  align-items: safe center;
+}
+.fixed.left-1\/2.top-1\/2.-translate-y-1\/2 {
+  max-height: calc(100dvh - 1rem);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}

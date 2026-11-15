@@ -6,6 +6,8 @@ import { expireStalePaymentIntents } from "@/lib/billing/collection-provider";
 import { checkFxStaleness } from "@/lib/integrations/fx";
 import { alertOwnerStaleFx } from "@/lib/billing/owner-alert";
 import { safeEqual } from "@/lib/auth/tokens";
+import { retryFailedEmails } from "@/lib/integrations/email";
+import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
 // Allow longer execution for churches with many members.
@@ -47,8 +49,12 @@ export async function GET(request: NextRequest) {
       /* never let an FX check break the rest of the cron */
     }
   }
+  // Emails that failed (every sender full or down) go again every hour, for up to 3 days and 4 tries.
+  const emailRetry = await retryFailedEmails({ budgetMs: 15_000, limit: 60 }).catch(() => null);
+  // The email log keeps 90 days.
+  if (!precise) await db.emailLog.deleteMany({ where: { createdAt: { lt: new Date(Date.now() - 90 * 86_400_000) } } }).catch(() => {});
   console.info("[cron/automations] ran", JSON.stringify(summary));
-  return Response.json({ ok: true, ...summary, recycleBin, expiredIntents, fx });
+  return Response.json({ ok: true, ...summary, recycleBin, expiredIntents, fx, emailRetry });
 }
 
 function isAuthorized(request: NextRequest): boolean {

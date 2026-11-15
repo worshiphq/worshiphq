@@ -10,6 +10,7 @@ export type EmailResult = {
   error?: string;
   /** Every sender tried, in order, and why the ones before the winner were skipped or refused. */
   attempts?: { provider: string; ok: boolean; error?: string }[];
+  messageId?: string;
 };
 
 type Mail = {
@@ -79,7 +80,8 @@ export async function brevoEmailsLeft(): Promise<number | null> {
   return left;
 }
 
-async function sendVia(p: Provider, m: Mail): Promise<void> {
+/** Sends through one provider. Returns the message id the provider gave it, when it gives one. */
+async function sendVia(p: Provider, m: Mail): Promise<string | undefined> {
   if (p === "brevo") {
     const left = await brevoEmailsLeft();
     if (left !== null && left < m.to.length) throw new Error(`Brevo has ${left} emails left today`);
@@ -102,7 +104,8 @@ async function sendVia(p: Provider, m: Mail): Promise<void> {
       throw new Error(`Brevo refused it (${res.status}): ${(await res.text().catch(() => "")).slice(0, 200)}`);
     }
     if (brevoQuota?.left != null) brevoQuota.left = Math.max(0, brevoQuota.left - m.to.length);
-    return;
+    const out = (await res.json().catch(() => ({}))) as { messageId?: string };
+    return out.messageId;
   }
 
   if (p === "resend") {
@@ -119,7 +122,8 @@ async function sendVia(p: Provider, m: Mail): Promise<void> {
       }),
     });
     if (!res.ok) throw new Error(`Resend refused it (${res.status}): ${(await res.text().catch(() => "")).slice(0, 200)}`);
-    return;
+    const out = (await res.json().catch(() => ({}))) as { id?: string };
+    return out.id ? `resend:${out.id}` : undefined;
   }
 
   // SMTP (Brevo relay or any server) and Gmail both go through nodemailer.
@@ -131,7 +135,7 @@ async function sendVia(p: Provider, m: Mail): Promise<void> {
   );
   // Gmail only sends as its own address: keep the WorshipHQ name, and make sure replies reach the usual address.
   const from = gmail ? `${parseFrom(m.from).name ?? "WorshipHQ"} <${env.GMAIL_USER}>` : m.from;
-  await transporter.sendMail({
+  const info = await transporter.sendMail({
     from,
     to: m.to.join(","),
     subject: m.subject,
@@ -139,6 +143,7 @@ async function sendVia(p: Provider, m: Mail): Promise<void> {
     replyTo: m.replyTo ?? (gmail ? parseFrom(m.from).email : undefined),
     attachments: m.attachments,
   });
+  return info.messageId;
 }
 
 export async function sendEmail(opts: {
@@ -157,6 +162,15 @@ export async function sendEmail(opts: {
    */
   log?: { churchId: string; name: string; segment?: string };
   attachments?: { filename: string; content: Buffer }[];
+  /**
+   * Sign-in codes, password links and the like: recorded in the email log without the body, and never sent
+   * again from there (an old code or link is useless, and should not sit in the database).
+   */
+  private?: boolean;
+  /** Which church the email is about, for the email log, when it is not written to the church's history. */
+  churchId?: string;
+  /** Internal: sending an EmailLog row again updates that row instead of writing a new one. */
+  logId?: string;
 }): Promise<EmailResult> {
   const from = opts.from ?? env.EMAIL_FROM;
   const to = Array.isArray(opts.to) ? opts.to : [opts.to];
@@ -171,9 +185,9 @@ export async function sendEmail(opts: {
     result = { ok: false, provider: chain[chain.length - 1]!, stubbed: false };
     for (const p of chain) {
       try {
-        await sendVia(p, { to, subject: opts.subject, html: opts.html, from, replyTo: opts.replyTo, attachments: opts.attachments });
+        const messageId = await sendVia(p, { to, subject: opts.subject, html: opts.html, from, replyTo: opts.replyTo, attachments: opts.attachments });
         attempts.push({ provider: p, ok: true });
-        result = { ok: true, provider: p, stubbed: false, attempts };
+        result = { ok: true, provider: p, stubbed: false, attempts, messageId };
         break;
       } catch (e) {
         const error = (e as Error).message;
@@ -186,7 +200,9 @@ export async function sendEmail(opts: {
     if (!result.ok) console.error(`[Email] every sender failed for "${opts.subject}": ${attempts.map((a) => `${a.provider}: ${a.error}`).join(" | ")}`);
   }
 
-  if (opts.log) await logSend(opts.log, to, opts.subject, opts.html, result.ok);
+  // A resend from the email log already has its line in the church's history.
+  if (opts.log && !opts.logId) await logSend(opts.log, to, opts.subject, opts.html, result.ok);
+  await recordEmail(opts, from, to, result);
   return result;
 }
 
@@ -221,4 +237,137 @@ async function logSend(
   } catch {
     /* logging must never block the actual send */
   }
+}
+
+/* ── The email log (SuperAdmin, Emails): every send, so failures can be seen and sent again ── */
+
+/** Attachments bigger than this are not kept (a church backup, say): such an email can't be sent again from the log. */
+const KEEP_ATTACHMENTS_BYTES = 3 * 1024 * 1024;
+
+async function recordEmail(
+  opts: { subject: string; html: string; replyTo?: string; log?: { churchId: string }; churchId?: string; attachments?: { filename: string; content: Buffer }[]; private?: boolean; logId?: string },
+  from: string,
+  to: string[],
+  r: EmailResult,
+) {
+  try {
+    const { db } = await import("@/lib/db");
+    const status = r.stubbed ? "stubbed" : r.ok ? "sent" : "failed";
+    const common = { status, provider: r.provider, error: r.ok ? null : r.error ?? null, attempts: (r.attempts ?? []) as object, messageId: r.messageId ?? null };
+    if (opts.logId) {
+      await db.emailLog.update({
+        where: { id: opts.logId },
+        data: { ...common, toAddrs: to.join(","), tries: { increment: 1 }, resentAt: new Date(), delivery: null, deliveryNote: null, deliveryCheckedAt: null },
+      });
+      return;
+    }
+    const size = (opts.attachments ?? []).reduce((n, a) => n + a.content.length, 0);
+    const keepFiles = !opts.private && size > 0 && size <= KEEP_ATTACHMENTS_BYTES;
+    await db.emailLog.create({
+      data: {
+        ...common,
+        churchId: opts.log?.churchId ?? opts.churchId ?? null,
+        toAddrs: to.join(","),
+        // A sign-in code is in the subject itself: keep only the words around it.
+        subject: opts.private ? opts.subject.replace(/\d{4,}/g, "••••••") : opts.subject,
+        fromAddr: from,
+        replyTo: opts.replyTo ?? null,
+        html: opts.private ? null : opts.html,
+        attachments: keepFiles ? opts.attachments!.map((a) => ({ filename: a.filename, b64: a.content.toString("base64") })) : undefined,
+        retryable: !opts.private && (size === 0 || keepFiles),
+      },
+    });
+  } catch {
+    /* the log must never block an email (and the table may not exist until sql/email-log.sql is run) */
+  }
+}
+
+/** Send one logged email again, through the whole chain, optionally to a corrected address. */
+export async function resendLoggedEmail(id: string, toOverride?: string): Promise<EmailResult> {
+  const { db } = await import("@/lib/db");
+  const row = await db.emailLog.findUnique({ where: { id } });
+  if (!row) return { ok: false, provider: "none", stubbed: false, error: "That email is not in the log." };
+  if (row.html == null || (!row.retryable && !toOverride)) {
+    return { ok: false, provider: "none", stubbed: false, error: row.html == null ? "This email can't be sent again (a sign-in code, a password link, or too big to keep)." : "This address bounced or is blocked. Send it to a corrected address instead." };
+  }
+  const files = Array.isArray(row.attachments) ? (row.attachments as { filename: string; b64: string }[]) : [];
+  if (toOverride) await db.emailLog.update({ where: { id }, data: { retryable: true } });
+  return sendEmail({
+    to: toOverride ? toOverride.split(",").map((s) => s.trim()).filter(Boolean) : row.toAddrs.split(","),
+    subject: row.subject,
+    html: row.html,
+    from: row.fromAddr,
+    replyTo: row.replyTo ?? undefined,
+    attachments: files.map((f) => ({ filename: f.filename, content: Buffer.from(f.b64, "base64") })),
+    logId: row.id,
+  });
+}
+
+/**
+ * Send again every failed email from the last few days that can be sent again, oldest first, until the time
+ * budget runs out. Used by the hourly job and by "Send all failed" in SuperAdmin.
+ */
+export async function retryFailedEmails(opts: { maxTries?: number; days?: number; budgetMs?: number; limit?: number } = {}) {
+  const { db } = await import("@/lib/db");
+  const started = Date.now();
+  const rows = await db.emailLog.findMany({
+    where: {
+      status: "failed",
+      retryable: true,
+      tries: { lt: opts.maxTries ?? 4 },
+      createdAt: { gte: new Date(Date.now() - (opts.days ?? 3) * 86_400_000) },
+    },
+    orderBy: { createdAt: "asc" },
+    take: opts.limit ?? 100,
+    select: { id: true },
+  });
+  let sent = 0;
+  let failed = 0;
+  for (const r of rows) {
+    if (Date.now() - started > (opts.budgetMs ?? 40_000)) break;
+    const res = await resendLoggedEmail(r.id).catch(() => null);
+    if (res?.ok) sent++;
+    else failed++;
+    // Every sender keeps failing: they are all full or down, so stop instead of failing the rest one by one.
+    if (failed >= 3 && sent === 0) break;
+  }
+  return { waiting: rows.length, sent, failed };
+}
+
+/* ── Brevo delivery check: what happened after Brevo accepted an email ── */
+
+type BrevoEvent = { event?: string; reason?: string };
+const BAD = ["hardBounces", "bounces", "invalid", "blocked", "error", "spam"];
+
+/** Ask Brevo what happened to each email (by its message id). Needs BREVO_API_KEY. */
+export async function checkBrevoDelivery(ids: string[]): Promise<{ checked: number; error?: string }> {
+  if (!env.BREVO_API_KEY) return { checked: 0, error: "Add BREVO_API_KEY first: delivery checks ask Brevo's API." };
+  const { db } = await import("@/lib/db");
+  const rows = await db.emailLog.findMany({ where: { id: { in: ids }, messageId: { not: null }, status: "sent", provider: { in: ["brevo", "smtp"] } }, select: { id: true, messageId: true } });
+  let checked = 0;
+  for (const r of rows) {
+    try {
+      const url = `https://api.brevo.com/v3/smtp/statistics/events?limit=50&days=30&messageId=${encodeURIComponent(r.messageId!)}`;
+      const res = await fetch(url, { headers: { "api-key": env.BREVO_API_KEY, accept: "application/json" } });
+      if (!res.ok) continue;
+      const events = ((await res.json()) as { events?: BrevoEvent[] }).events ?? [];
+      const has = (names: string[]) => events.find((e) => e.event && names.includes(e.event));
+      const bad = has(BAD);
+      const soft = has(["softBounces", "deferred"]);
+      const delivery = bad ? (bad.event === "blocked" ? "blocked" : bad.event === "spam" ? "spam" : "bounced")
+        : has(["opened", "clicks", "uniqueOpened", "loadedByProxy"]) ? "opened"
+        : has(["delivered"]) ? "delivered"
+        : soft ? "deferred"
+        : events.length ? "waiting" : "unknown";
+      await db.emailLog.update({
+        where: { id: r.id },
+        // A bounced or blocked address will fail the same way again: only a corrected address helps.
+        data: { delivery, deliveryNote: (bad ?? soft)?.reason ?? null, deliveryCheckedAt: new Date(), ...(bad ? { retryable: false } : {}) },
+      });
+      checked++;
+    } catch {
+      /* try the next one */
+    }
+  }
+  return { checked };
 }

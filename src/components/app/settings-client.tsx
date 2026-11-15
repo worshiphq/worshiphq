@@ -975,8 +975,8 @@ function BillingTab({ trial, subscription, features, ro, platformPricing, paymen
 
       {/* The plans open in a window over the page: people who never scroll still see them. */}
       {showPlans && !isGrace && (
-        <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto bg-black/60 p-4 sm:items-center" onClick={() => setShowPlans(false)} role="dialog" aria-modal="true" aria-label="Choose a plan">
-        <Card className="relative my-8 w-full max-w-5xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="fixed inset-0 z-40 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/60 p-4" onClick={() => setShowPlans(false)} role="dialog" aria-modal="true" aria-label="Choose a plan">
+        <Card className="relative my-auto w-full max-w-5xl p-6" onClick={(e) => e.stopPropagation()}>
           <button type="button" onClick={() => setShowPlans(false)} aria-label="Close" className="absolute right-3 top-3 grid size-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-2 hover:text-ink">
             <XIcon className="size-5" />
           </button>
@@ -1106,9 +1106,9 @@ function BillingTab({ trial, subscription, features, ro, platformPricing, paymen
       />
 
       {upgradePlan && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={() => setUpgradePlan(null)}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/60 p-4" onClick={() => setUpgradePlan(null)}>
           <div
-            className="w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-2xl"
+            className="my-auto w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center gap-3">

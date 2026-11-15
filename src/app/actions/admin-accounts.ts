@@ -36,6 +36,7 @@ export async function sendAccountResetLink(userId: string): Promise<Result> {
       const r = await sendEmail({
         to: user.email,
         subject: "Reset your WorshipHQ password",
+        private: true,
         html: `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px">
           <h2 style="margin:0 0 8px">Hello ${first},</h2>
           <p style="color:#444">Here is the link to choose a new password for your ${user.church.name} account on WorshipHQ. It works for ${LINK_HOURS} hours, and only once.</p>

@@ -2485,3 +2485,36 @@ model PlatformSmsLog {
 
   @@index([createdAt])
 }
+
+/// Every email WorshipHQ sends (sql/email-log.sql). Private ones (sign-in codes, password links) keep no body and
+/// are never sent again. Failed ones are retried by the hourly job and from SuperAdmin, Emails.
+model EmailLog {
+  id                String    @id @default(cuid())
+  churchId          String?
+  /// Comma-separated recipients.
+  toAddrs           String
+  subject           String
+  fromAddr          String
+  replyTo           String?
+  /// Null for private emails.
+  html              String?
+  /// [{ filename, b64 }] so a failed receipt can go again with its PDF.
+  attachments       Json?
+  /// sent | failed | stubbed
+  status            String
+  provider          String?
+  error             String?
+  attempts          Json?
+  messageId         String?
+  /// What Brevo says happened after it accepted it: delivered, opened, bounced, blocked, deferred, waiting.
+  delivery          String?
+  deliveryNote      String?
+  deliveryCheckedAt DateTime?
+  tries             Int       @default(1)
+  resentAt          DateTime?
+  retryable         Boolean   @default(true)
+  createdAt         DateTime  @default(now())
+
+  @@index([createdAt])
+  @@index([status, createdAt])
+}

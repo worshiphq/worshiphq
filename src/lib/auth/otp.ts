@@ -134,6 +134,7 @@ export async function sendOtp(opts: {
     const res = await sendEmail({
       to: destination,
       subject: `Your WorshipHQ code is ${code}`,
+      private: true,
       html: otpEmailHtml(code),
     });
     ok = res.ok;

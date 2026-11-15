@@ -44,6 +44,7 @@ export async function alertOwnerPayment(a: PaymentAlert): Promise<void> {
 
     await sendEmail({
       to,
+      churchId: a.churchId,
       subject: `💰 ${name} paid ${amount} - ${a.what}`,
       html: `
         <div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto">
