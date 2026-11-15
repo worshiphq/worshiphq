@@ -130,7 +130,7 @@ async function sendVia(p: Provider, m: Mail): Promise<string | undefined> {
   const gmail = p === "gmail";
   const transporter = nodemailer.createTransport(
     gmail
-      ? { host: "smtp.gmail.com", port: 465, secure: true, auth: { user: env.GMAIL_USER, pass: env.GMAIL_APP_PASSWORD } }
+      ? { host: "smtp.gmail.com", port: 465, secure: true, auth: { user: env.GMAIL_USER, pass: env.GMAIL_APP_PASSWORD?.replace(/\s+/g, "") } }
       : { host: env.SMTP_HOST, port: env.SMTP_PORT, secure: false, auth: { user: env.SMTP_USER, pass: env.SMTP_PASSWORD } },
   );
   // Gmail only sends as its own address: keep the WorshipHQ name, and make sure replies reach the usual address.
