@@ -10,12 +10,12 @@ type Result = { ok: true; message: string } | { ok: false; error: string };
 const EMAIL_RE = /^[^\s@,]+@[^\s@,]+\.[a-z]{2,}$/i;
 
 /** Send one email from the log again, to the same address or a corrected one. */
-export async function resendEmail(id: string, to?: string): Promise<Result> {
+export async function resendEmail(id: string, to?: string, via?: "resend" | "gmail"): Promise<Result> {
   await requireSuperAdmin();
   const fixed = to?.trim();
   if (fixed && !fixed.split(",").every((a) => EMAIL_RE.test(a.trim()))) return { ok: false, error: "That email address doesn't look right." };
-  const r = await resendLoggedEmail(id, fixed || undefined);
-  await logAdminAction("Sent an email again", { id, to: fixed || undefined, ok: r.ok });
+  const r = await resendLoggedEmail(id, fixed || undefined, via);
+  await logAdminAction("Sent an email again", { id, to: fixed || undefined, via, ok: r.ok });
   return r.ok ? { ok: true, message: `Sent through ${r.provider}.` } : { ok: false, error: r.error ?? "Every sender refused it." };
 }
 

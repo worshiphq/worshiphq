@@ -60,6 +60,30 @@ function parseFrom(from: string): { name?: string; email: string } {
   return m ? { name: m[1]?.trim() || undefined, email: m[2]!.trim() } : { email: from.trim() };
 }
 
+/* ── Brevo's daily limit, counted by us ──
+   Over SMTP, Brevo says "accepted" even after the plan's daily limit, then holds the email back without a word
+   (15 Nov 2026: 313 sent by 18:11, then receipts accepted and never delivered). So we count what went through
+   Brevo today (UTC day, as Brevo's limit resets) from the email log, and skip Brevo once the limit is reached. */
+const isBrevo = (p: Provider) => p === "brevo" || (p === "smtp" && /brevo|sendinblue/i.test(env.SMTP_HOST ?? ""));
+let brevoCount: { day: string; at: number; sent: number } | null = null;
+export async function brevoSentToday(): Promise<number> {
+  const day = new Date().toISOString().slice(0, 10);
+  if (brevoCount && brevoCount.day === day && Date.now() - brevoCount.at < 60_000) return brevoCount.sent;
+  let sent = brevoCount?.day === day ? brevoCount.sent : 0;
+  try {
+    const { db } = await import("@/lib/db");
+    const rows = await db.$queryRaw<{ n: bigint | null }[]>`
+      SELECT COALESCE(SUM(array_length(string_to_array("toAddrs", ','), 1)), 0) AS n
+      FROM "EmailLog"
+      WHERE status = 'sent' AND provider IN ('brevo', 'smtp') AND "createdAt" >= ${new Date(`${day}T00:00:00Z`)}`;
+    sent = Number(rows[0]?.n ?? 0);
+  } catch {
+    /* no log table: rely on Brevo refusing */
+  }
+  brevoCount = { day, at: Date.now(), sent };
+  return sent;
+}
+
 /* ── Brevo: how many emails are left today, checked at most every 2 minutes ── */
 let brevoQuota: { at: number; left: number | null } | null = null;
 export async function brevoEmailsLeft(): Promise<number | null> {
@@ -82,6 +106,16 @@ export async function brevoEmailsLeft(): Promise<number | null> {
 
 /** Sends through one provider. Returns the message id the provider gave it, when it gives one. */
 async function sendVia(p: Provider, m: Mail): Promise<string | undefined> {
+  if (isBrevo(p)) {
+    const used = await brevoSentToday();
+    if (used + m.to.length > env.BREVO_DAILY_LIMIT) throw new Error(`Brevo's ${env.BREVO_DAILY_LIMIT} emails for today are used up (${used} sent)`);
+  }
+  const id = await sendOne(p, m);
+  if (isBrevo(p) && brevoCount) brevoCount.sent += m.to.length;
+  return id;
+}
+
+async function sendOne(p: Provider, m: Mail): Promise<string | undefined> {
   if (p === "brevo") {
     const left = await brevoEmailsLeft();
     if (left !== null && left < m.to.length) throw new Error(`Brevo has ${left} emails left today`);
@@ -171,10 +205,14 @@ export async function sendEmail(opts: {
   churchId?: string;
   /** Internal: sending an EmailLog row again updates that row instead of writing a new one. */
   logId?: string;
+  /** Start the chain at this sender, skipping the ones before it (SuperAdmin's "Send through Resend"). */
+  startAt?: string;
 }): Promise<EmailResult> {
   const from = opts.from ?? env.EMAIL_FROM;
   const to = Array.isArray(opts.to) ? opts.to : [opts.to];
-  const chain = emailChain();
+  const full = emailChain();
+  const start = opts.startAt ? full.indexOf(opts.startAt as Provider) : -1;
+  const chain = start >= 0 ? full.slice(start) : full;
 
   let result: EmailResult;
   if (!features.email || chain.length === 0) {
@@ -283,7 +321,7 @@ async function recordEmail(
 }
 
 /** Send one logged email again, through the whole chain, optionally to a corrected address. */
-export async function resendLoggedEmail(id: string, toOverride?: string): Promise<EmailResult> {
+export async function resendLoggedEmail(id: string, toOverride?: string, startAt?: string): Promise<EmailResult> {
   const { db } = await import("@/lib/db");
   const row = await db.emailLog.findUnique({ where: { id } });
   if (!row) return { ok: false, provider: "none", stubbed: false, error: "That email is not in the log." };
@@ -300,6 +338,7 @@ export async function resendLoggedEmail(id: string, toOverride?: string): Promis
     replyTo: row.replyTo ?? undefined,
     attachments: files.map((f) => ({ filename: f.filename, content: Buffer.from(f.b64, "base64") })),
     logId: row.id,
+    startAt,
   });
 }
 

@@ -4,7 +4,7 @@ import { LiveSearch, UrlFilter } from "@/components/admin/list-tools";
 import { Pager } from "@/components/admin/pager";
 import { paging, readPage } from "@/lib/admin-paging";
 import { db } from "@/lib/db";
-import { emailChain, brevoEmailsLeft } from "@/lib/integrations/email";
+import { emailChain, brevoEmailsLeft, brevoSentToday } from "@/lib/integrations/email";
 import { env } from "@/lib/env";
 import { EmailsToolbar, EmailRows, type EmailRow } from "@/components/admin/emails-client";
 import type { Prisma } from "@prisma/client";
@@ -81,7 +81,7 @@ export default async function AdminEmailsPage({ searchParams }: { searchParams: 
   }
 
   const chain = emailChain();
-  const brevoLeft = env.BREVO_API_KEY ? await brevoEmailsLeft() : null;
+  const [brevoLeft, brevoToday] = await Promise.all([env.BREVO_API_KEY ? brevoEmailsLeft() : null, brevoSentToday()]);
 
   return (
     <AdminShell email={sa.email} isOwner={sa.role === "owner"}>
@@ -120,6 +120,8 @@ export default async function AdminEmailsPage({ searchParams }: { searchParams: 
             brevoLeft={brevoLeft}
             brevoApi={!!env.BREVO_API_KEY}
             waiting={stats.waiting}
+            brevoToday={brevoToday}
+            brevoLimit={env.BREVO_DAILY_LIMIT}
           />
 
           <div className="mb-3 flex flex-wrap items-center gap-2">
@@ -127,7 +129,7 @@ export default async function AdminEmailsPage({ searchParams }: { searchParams: 
             <UrlFilter param="filter" label="Show" options={FILTERS} />
           </div>
 
-          <EmailRows rows={rows} />
+          <EmailRows rows={rows} chain={chain} />
           <Pager page={pg.page} pages={pg.pages} total={pg.total} path="/admin/emails" params={{ filter: sp.filter, q }} />
         </>
       )}

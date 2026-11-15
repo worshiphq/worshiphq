@@ -20,7 +20,7 @@ const input = "w-full rounded-lg border border-white/10 bg-white/5 px-3 py-2 tex
 const when = (iso: string) => new Date(iso).toLocaleString("en-GB", { timeZone: "Africa/Accra", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
 
 /** The sender chain, Brevo's emails left today, and the two big buttons. */
-export function EmailsToolbar({ chain, brevoLeft, brevoApi, waiting }: { chain: string[]; brevoLeft: number | null; brevoApi: boolean; waiting: number }) {
+export function EmailsToolbar({ chain, brevoLeft, brevoApi, waiting, brevoToday, brevoLimit }: { chain: string[]; brevoLeft: number | null; brevoApi: boolean; waiting: number; brevoToday: number; brevoLimit: number }) {
   const router = useRouter();
   const { toast } = useFeedback();
   const [busy, setBusy] = useState<"" | "all" | "check">("");
@@ -41,7 +41,10 @@ export function EmailsToolbar({ chain, brevoLeft, brevoApi, waiting }: { chain: 
         ) : (
           <span className="text-amber-300">No email sender is set up here, so emails are only logged.</span>
         )}
-        {brevoLeft != null && <> Brevo has <b className="text-white">{brevoLeft.toLocaleString()}</b> emails left.</>}
+        {chain.some((c) => c === "brevo" || c === "smtp") && (
+          <> Brevo today: <b className={brevoToday >= brevoLimit ? "text-amber-300" : "text-white"}>{brevoToday.toLocaleString()} of {brevoLimit.toLocaleString()}</b>{brevoToday >= brevoLimit ? ", so new emails go through the next sender" : ""}.</>
+        )}
+        {brevoLeft != null && <> Brevo&rsquo;s own count: <b className="text-white">{brevoLeft.toLocaleString()}</b> left.</>}
         {!brevoApi && <span className="block text-xs text-slate-500">Add BREVO_API_KEY to see Brevo&rsquo;s emails left and check delivery.</span>}
       </div>
       <div className="flex flex-wrap gap-2">
@@ -72,15 +75,15 @@ function StatusCell({ r }: { r: EmailRow }) {
 }
 
 /** The list, with Send again (to the same or a corrected address) on each row. */
-export function EmailRows({ rows }: { rows: EmailRow[] }) {
+export function EmailRows({ rows, chain }: { rows: EmailRow[]; chain: string[] }) {
   const router = useRouter();
   const { toast } = useFeedback();
   const [edit, setEdit] = useState<{ id: string; to: string } | null>(null);
   const [busy, setBusy] = useState("");
 
-  const send = async (id: string, to?: string) => {
+  const send = async (id: string, to?: string, via?: "resend" | "gmail") => {
     setBusy(id);
-    const r = await resendEmail(id, to).catch(() => ({ ok: false as const, error: "Something went wrong." }));
+    const r = await resendEmail(id, to, via).catch(() => ({ ok: false as const, error: "Something went wrong." }));
     setBusy("");
     toast(r.ok ? r.message : r.error, r.ok ? "success" : "error");
     if (r.ok) setEdit(null);
@@ -131,6 +134,11 @@ export function EmailRows({ rows }: { rows: EmailRow[] }) {
                     {r.retryable && (
                       <button type="button" className={`${ghost} px-2 py-1 text-xs`} disabled={busy === r.id} onClick={() => send(r.id)}>
                         {busy === r.id ? <><Loader2 className="size-3.5 animate-spin" /> Sending…</> : <><Send className="size-3.5" /> Send again</>}
+                      </button>
+                    )}
+                    {chain.includes("resend") && (
+                      <button type="button" className={`${ghost} px-2 py-1 text-xs`} disabled={busy === r.id} onClick={() => send(r.id, undefined, "resend")} title="Skip Brevo and send through Resend (Gmail if Resend fails)">
+                        <Send className="size-3.5" /> Through Resend
                       </button>
                     )}
                     <button type="button" className={`${ghost} px-2 py-1 text-xs`} disabled={busy === r.id} onClick={() => setEdit({ id: r.id, to: r.to })} title="Send to a corrected address">
