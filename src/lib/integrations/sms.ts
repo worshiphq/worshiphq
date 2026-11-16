@@ -6,7 +6,7 @@ import { getPlatformCarrier } from "@/lib/sms/platform-carrier";
 import { logPlatformSms } from "@/lib/admin-audit";
 import { segmentsFor } from "@/config/sms";
 import { getSmsRates, rateFor } from "@/lib/sms/cost";
-import { providerForNumber, routingForChurch, type SmsProvider } from "@/lib/sms/routing";
+import { providerForNumber, routingForChurch, isGhanaNumber, type SmsProvider } from "@/lib/sms/routing";
 
 export type SmsResult = {
   ok: boolean;
@@ -182,6 +182,9 @@ export async function sendSms(
     logged?: boolean;
     /** The text is on behalf of this church but not charged to its credits, such as a donor's gift receipt. */
     churchId?: string | null;
+    /** Allow numbers outside Ghana on a text WorshipHQ pays for. Off by default: each costs about GHS 2, so only
+     *  sends the owner chooses (outreach, a SuperAdmin test) set it. Church sends (`logged`) are paid by credits. */
+    international?: boolean;
   },
 ): Promise<SmsResult> {
   // Normalise to the digits-only format providers require (Hubtel rejects "024…"). Keep this in the SAME
@@ -189,13 +192,20 @@ export async function sendSms(
   const rawList = Array.isArray(to) ? to : [to];
   // Call it explicitly: handing normalisePhone straight to map() would pass each position in as its country.
   const normalised = rawList.map((p) => normalisePhone(p));
+  // A text WorshipHQ pays for (not billed to a church's credits) never goes to a number outside Ghana unless the
+  // caller asks: each costs about GHS 2, and a sign-in code or notice there goes by email instead.
+  const blockForeign = !opts?.logged && !opts?.international;
+  const blocked = (p: string) => blockForeign && p.length >= 11 && !isGhanaNumber(p);
   const validIdx: number[] = [];
   const recipients: string[] = [];
   normalised.forEach((p, i) => {
-    if (p.length >= 11) { validIdx.push(i); recipients.push(p); }
+    if (p.length >= 11 && !blocked(p)) { validIdx.push(i); recipients.push(p); }
   });
   const toFullResults = (perValidOk: boolean[], ids?: (string | undefined)[], errs?: (string | undefined)[]): SmsRecipientResult[] => {
-    const out: SmsRecipientResult[] = normalised.map((p) => ({ to: p, ok: false, ...(p.length >= 11 ? {} : { error: "Not a valid phone number" }) }));
+    const out: SmsRecipientResult[] = normalised.map((p) => ({
+      to: p, ok: false,
+      ...(p.length < 11 ? { error: "Not a valid phone number" } : blocked(p) ? { error: "Not sent: this message is not texted to numbers outside Ghana" } : {}),
+    }));
     validIdx.forEach((origIdx, i) => {
       out[origIdx].ok = perValidOk[i];
       if (ids?.[i]) out[origIdx].id = ids[i];
@@ -208,7 +218,8 @@ export async function sendSms(
   const routing = routingForChurch(opts?.carrier === undefined ? platformCarrier : opts.carrier);
 
   if (recipients.length === 0) {
-    return { ok: false, provider: routing.primary, stubbed: false, error: "No valid phone numbers", sentCount: 0, results: toFullResults([]) };
+    const onlyForeign = normalised.some((p) => blocked(p));
+    return { ok: false, provider: routing.primary, stubbed: false, error: onlyForeign ? "Texts to numbers outside Ghana are not sent for this message" : "No valid phone numbers", sentCount: 0, results: toFullResults([]) };
   }
 
   if (!features.sms) {
@@ -217,11 +228,13 @@ export async function sendSms(
   }
 
   // Group the valid recipients by the carrier that will handle each one.
-  const groups = new Map<SmsProvider, number[]>();
+  // US and Canada (+1) don't show sender names: the text arrives from a plain number. Those numbers never use the
+  // church's own sender, so they always carry the church name line instead.
+  const groups = new Map<string, number[]>();
   recipients.forEach((num, i) => {
-    const p = providerForNumber(num, routing);
-    const bucket = groups.get(p);
-    if (bucket) bucket.push(i); else groups.set(p, [i]);
+    const key = `${providerForNumber(num, routing)}|${num.startsWith("1") ? "nanp" : ""}`;
+    const bucket = groups.get(key);
+    if (bucket) bucket.push(i); else groups.set(key, [i]);
   });
 
   const perValidOk = new Array<boolean>(recipients.length).fill(false);
@@ -230,15 +243,18 @@ export async function sendSms(
   let id: string | undefined;
   let firstError: string | undefined;
   const used: SmsProvider[] = [];
-  const rates = await getSmsRates().catch(() => ({ hubtel: 0.03, nalo: 0.032 }));
+  const rates = await getSmsRates().catch(() => ({ hubtel: 0.03, nalo: 0.032, intl: 2 }));
   const groupLogs: { provider: SmsProvider; sender: string; to: string[]; sent: number; segments: number; cost: number; error?: string }[] = [];
   let costGhs = 0;
   let billedSegments = 0;
 
-  for (const [provider, idxs] of groups) {
+  for (const [key, idxs] of groups) {
+    const [providerKey, nanp] = key.split("|");
+    const provider = providerKey as SmsProvider;
     const nums = idxs.map((i) => recipients[i]!);
-    // A church's own sender name only works on the carrier that approved it. Anywhere else, the platform sender.
-    const custom = provider === (opts?.senderCarrier ?? routing.primary) ? (opts?.senderId ?? null) : null;
+    // A church's own sender name only works on the carrier that approved it, and never in the US or Canada.
+    // Anywhere else, the platform sender.
+    const custom = !nanp && provider === (opts?.senderCarrier ?? routing.primary) ? (opts?.senderId ?? null) : null;
     const sender = (custom ?? platformSenderFor(provider)).trim();
     // No heading when the church's own sender is used; otherwise the church name line (platformHeading) if we
     // have it, then the caller's heading, then brand with "WorshipHQ" unless the sender already is that.
@@ -265,7 +281,9 @@ export async function sendSms(
     // never rewrites what an old text cost.
     const reached = r.perOk.filter(Boolean).length;
     const segments = segmentsFor(message);
-    const cost = Math.round(reached * segments * rateFor(rates, provider) * 10000) / 10000;
+    // Numbers outside Ghana are billed at the international price, whichever carrier sent them.
+    const priced = nums.reduce((a, n, k) => a + (r.perOk[k] ? (isGhanaNumber(n) ? rateFor(rates, provider) : rates.intl) : 0), 0);
+    const cost = Math.round(priced * segments * 10000) / 10000;
     costGhs += cost;
     billedSegments += reached * segments;
     groupLogs.push({ provider, sender, to: nums, sent: reached, segments, cost, error: r.error });

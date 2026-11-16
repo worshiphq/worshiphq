@@ -3,11 +3,11 @@
 import { segmentsFor } from "@/config/sms";
 import { useEffect, useState } from "react";
 import Link from "@/components/ui/app-link";
-import { Send, Sparkles, X } from "lucide-react";
+import { Globe2, Loader2, Send, Sparkles, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Textarea } from "@/components/ui/input";
-import { sendBroadcast } from "@/app/actions/communications";
+import { sendBroadcast, previewBroadcastCost } from "@/app/actions/communications";
 
 export function Composer({
   departments,
@@ -44,6 +44,25 @@ export function Composer({
   const [message, setMessage] = useState(
     "Shalom! Join us this Sunday at 8am for our Celebration Service. God bless you!",
   );
+  const [contacts, setContacts] = useState("");
+
+  // What this send will cost, worked out on the server with the same rules the send uses. Numbers outside Ghana cost
+  // more, so the church sees them before pressing Send rather than finding the balance gone afterwards.
+  type Cost = Awaited<ReturnType<typeof previewBroadcastCost>>;
+  const [cost, setCost] = useState<Cost | null>(null);
+  const [costing, setCosting] = useState(false);
+  useEffect(() => {
+    if (!canWrite || !message.trim()) { setCost(null); return; }
+    let live = true;
+    setCosting(true);
+    const t = setTimeout(() => {
+      previewBroadcastCost({ target, contacts, message })
+        .then((c) => { if (live) setCost(c); })
+        .catch(() => { if (live) setCost(null); })
+        .finally(() => { if (live) setCosting(false); });
+    }, 600);
+    return () => { live = false; clearTimeout(t); };
+  }, [target, contacts, message, canWrite]);
 
   const selectCls =
     "flex h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30";
@@ -90,6 +109,8 @@ export function Composer({
             <label className="mb-1.5 block text-sm font-medium text-ink-muted">Phone numbers</label>
             <Textarea
               name="contacts"
+              value={contacts}
+              onChange={(e) => setContacts(e.target.value)}
               placeholder="024 000 0000, 020 111 2222"
               className="min-h-16"
             />
@@ -127,6 +148,35 @@ export function Composer({
               <Link href="/app/settings?tab=billing" className="font-medium text-primary hover:underline">See plans</Link>
             </p>
             <button type="button" onClick={dismissTeaser} aria-label="Hide this hint" className="rounded p-0.5 text-ink-faint hover:text-ink"><X className="size-3.5" /></button>
+          </div>
+        )}
+
+        {canWrite && (costing || cost) && (
+          <div className={`rounded-xl border px-3.5 py-3 text-xs ${cost && cost.credits > cost.balance ? "border-danger/30 bg-danger/10 text-danger" : "border-line bg-surface-2/60 text-ink-muted"}`}>
+            {costing && !cost ? (
+              <span className="inline-flex items-center gap-1.5"><Loader2 className="size-3.5 animate-spin" /> Working out the cost…</span>
+            ) : cost ? (
+              <>
+                <div className="flex items-center gap-1.5">
+                  {costing && <Loader2 className="size-3 animate-spin" />}
+                  <span>
+                    {cost.people.toLocaleString()} {cost.people === 1 ? "person" : "people"} · about <b className="text-ink">{cost.credits.toLocaleString()} credits</b> (you have {cost.balance.toLocaleString()})
+                  </span>
+                </div>
+                {cost.foreign > 0 && (
+                  <div className="mt-1.5 flex items-start gap-1.5">
+                    <Globe2 className="mt-0.5 size-3.5 shrink-0" />
+                    <span>
+                      {cost.foreign.toLocaleString()} {cost.foreign === 1 ? "number is" : "numbers are"} outside Ghana: {cost.foreignPerSegment} credits per SMS each
+                      {" "}({(cost.foreign * cost.foreignPerSegment * cost.segments).toLocaleString()} credits of the total).
+                    </span>
+                  </div>
+                )}
+                {cost.credits > cost.balance && (
+                  <div className="mt-1.5 font-medium">Not enough credits: nothing will be sent. <Link href="/app/communications/credits" className="underline">Top up</Link></div>
+                )}
+              </>
+            ) : null}
           </div>
         )}
 

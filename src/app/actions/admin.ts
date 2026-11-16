@@ -218,7 +218,7 @@ export async function sendSenderIdTest(churchId: string, carrier: string, target
     ? `This is a test from WorshipHQ. Your sender name ${church.smsSenderId} is being set up for ${church.name}. No action is needed.`
     : `WorshipHQ test: ${church.name}, sender name ${church.smsSenderId}, sent through ${carrierName}.`;
 
-  const r = await sendSms(phone, message, { heading: null, senderId: church.smsSenderId, carrier, senderCarrier: carrier });
+  const r = await sendSms(phone, message, { heading: null, senderId: church.smsSenderId, carrier, senderCarrier: carrier, international: true });
   if (!r.ok) return { ok: false, error: r.error ?? `${carrierName} did not accept it.` };
   if (r.stubbed) return { ok: false, error: "Nothing was sent: SMS is not connected where this is running." };
   // A number outside Ghana always goes through Nalo, so a Hubtel test to one would prove nothing about the sender.

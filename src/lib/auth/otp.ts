@@ -66,6 +66,8 @@ export interface SendOtpResult {
   error?: string;
   /** True when the send was refused because too many codes were requested. */
   limited?: boolean;
+  /** True when an SMS code was asked for a number outside Ghana. The caller should use email instead. */
+  foreign?: boolean;
 }
 
 function maskEmail(email: string): string {
@@ -104,6 +106,10 @@ export async function sendOtp(opts: {
   } else {
     destination = normalisePhone(opts.phone ?? "");
     if (destination.length < 10) return { ok: false, error: "Enter a valid phone number." };
+    // Codes are only texted inside Ghana (a text abroad costs about GHS 2). Elsewhere the code goes by email.
+    if (!destination.startsWith("233")) {
+      return { ok: false, foreign: true, error: "We can't text codes to numbers outside Ghana. Use your email address instead." };
+    }
   }
 
   if (!(await allowSend(destination))) {

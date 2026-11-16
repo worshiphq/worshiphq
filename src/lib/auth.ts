@@ -1,4 +1,5 @@
 import "server-only";
+import { normalisePhone } from "@/lib/phone";
 import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
@@ -143,7 +144,8 @@ export async function getLoginChoices(): Promise<{ email: string; phone: string 
   if (!user) return null;
   return {
     email: maskEmail(user.email),
-    phone: user.phoneVerified && user.phone ? maskPhone(user.phone) : null,
+    // Codes are only texted inside Ghana, so a phone elsewhere is not offered.
+    phone: user.phoneVerified && user.phone && normalisePhone(user.phone).startsWith("233") ? maskPhone(user.phone) : null,
   };
 }
 

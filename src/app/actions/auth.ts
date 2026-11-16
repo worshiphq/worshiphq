@@ -85,15 +85,18 @@ export async function signUp(formData: FormData) {
   }
 
   const passwordHash = await hashPassword(password);
+  // A phone outside Ghana can't receive the code by text, so it goes to the email they typed (and the phone is
+  // then saved unverified, as with any email sign-up).
+  const viaEmail = channel === "email" || !normalisePhone(phone).startsWith("233");
   const payload = {
     churchName, city, country, name, email, passwordHash,
     phone: phone ? normalisePhone(phone) : "",
     plan: chosenPlan,
-    channel,
+    channel: viaEmail ? ("email" as const) : channel,
     heardFrom,
     heardDetail,
   };
-  const result = channel === "email"
+  const result = viaEmail
     ? await sendOtp({ channel: "email", email, purpose: "signup", payload })
     : await sendOtp({ channel: "sms", phone, purpose: "signup", payload });
 
@@ -111,7 +114,7 @@ export async function signUp(formData: FormData) {
   });
 
   // In stub mode (no provider keys) surface the code so testing can proceed.
-  const via = channel === "email" ? "&via=email" : "";
+  const via = viaEmail ? "&via=email" : "";
   redirect(result.devCode ? `/sign-up/verify?dev=${result.devCode}${via}` : `/sign-up/verify?1=1${via}`);
 }
 
@@ -154,6 +157,8 @@ export async function completeSignup(formData: FormData) {
       name: p.churchName,
       city: p.city || null,
       country: p.country || "Ghana",
+      // Outside Ghana the free credits are international ones, worth the same as Ghana's 30.
+      smsCredits: await (await import("@/lib/sms/intl")).signupCreditsFor(p.country || "Ghana"),
       termsAcceptedAt: new Date(),
       heardFrom: p.heardFrom || null,
       heardFromDetail: p.heardDetail || null,
@@ -264,8 +269,8 @@ export async function startPasswordReset(formData: FormData) {
     redirect("/sign-in?reset=1&error=not-found");
   }
 
-  // If user has a verified phone, send OTP via SMS (from the platform sender).
-  if (user.phone && user.phoneVerified) {
+  // If user has a verified Ghana phone, send OTP via SMS (from the platform sender). Outside Ghana, by email.
+  if (user.phone && user.phoneVerified && normalisePhone(user.phone).startsWith("233")) {
     const result = await sendOtp({
       phone: user.phone,
       purpose: "reset-password",
@@ -430,7 +435,9 @@ export async function sendLoginCode(formData: FormData) {
     redirect("/sign-in?login=choose&error=no-phone");
   }
 
-  const result = channel === "email"
+  // A phone outside Ghana can't get a text code: send it to their email instead.
+  const useEmail = channel === "email" || !normalisePhone(user.phone ?? "").startsWith("233");
+  const result = useEmail
     ? await sendOtp({ channel: "email", email: user.email, purpose: "login", userId: user.id })
     : await sendOtp({ channel: "sms", phone: user.phone!, purpose: "login", userId: user.id });
 
@@ -444,7 +451,7 @@ export async function sendLoginCode(formData: FormData) {
     secure: process.env.NODE_ENV === "production",
     path: "/", maxAge: 60 * 15,
   });
-  const via = channel === "email" ? "email" : "phone";
+  const via = useEmail ? "email" : "phone";
   const dev = result.devCode ? `&dev=${result.devCode}` : "";
   redirect(`/sign-in?login=verify&via=${via}${dev}`);
 }

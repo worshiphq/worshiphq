@@ -130,7 +130,7 @@ export async function sendTestSms(input: { to: string; message: string; carrier?
   if (raw.replace(/[\s\-()]/g, "").startsWith("0") && !raw.startsWith("00")) return { ok: false, error: "Start with the country code, like +234 or +44. A number starting with 0 is read as Ghana." };
   if (digits.length < 8 || digits.length > 15) return { ok: false, error: "That phone number does not look right." };
   const ghana = digits.startsWith("233");
-  const r = await sendSms(digits, message, { heading: null, carrier: input.carrier === "nalo" || input.carrier === "hubtel" ? input.carrier : null });
+  const r = await sendSms(digits, message, { heading: null, international: true, carrier: input.carrier === "nalo" || input.carrier === "hubtel" ? input.carrier : null });
   if (!r.ok) return { ok: false, error: r.error ?? "The SMS provider refused it.", provider: r.provider, dialled: digits, ghana };
   return { ok: true, stubbed: r.stubbed, provider: r.provider, dialled: digits, ghana, id: r.id ?? null };
 }

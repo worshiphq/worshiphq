@@ -8,8 +8,8 @@ import { initializePayment, newPaymentReference, SETTLEMENT_CURRENCY } from "@/l
 import { addCredits } from "@/lib/sms/credits";
 import { getCollectionProvider, hubtelConfig } from "@/lib/billing/collection-provider";
 import { initHubtelCheckout } from "@/lib/integrations/hubtel-pay";
-import { getBundle, priceForCredits, creditsForAmount, MIN_CUSTOM_CREDITS, MAX_CUSTOM_CREDITS } from "@/config/sms";
-import { resolveSmsTier } from "@/lib/sms/tier";
+import { pricingPrice, pricingCredits } from "@/config/sms";
+import { resolveSmsPricing } from "@/lib/sms/intl";
 
 /**
  * Buy an SMS credit bundle via Paystack. In stub mode (no keys) the credits are
@@ -19,9 +19,9 @@ import { resolveSmsTier } from "@/lib/sms/tier";
 export async function buySmsCredits(bundleId: string) {
   const session = await requireSession();
   assertCanWrite(session);
-  // Price the bundle at THIS church's effective SMS tier (never trust the client).
-  const tier = await resolveSmsTier(session.churchId);
-  const bundle = getBundle(bundleId, tier);
+  // Price the bundle at THIS church's own pricing (Ghana tier, or international), never trusting the client.
+  const pricing = await resolveSmsPricing(session.churchId);
+  const bundle = pricing.bundles.find((b) => b.id === bundleId);
   if (!bundle) return { ok: false, stubbed: false, reference: "", error: "Unknown bundle." };
 
   return startSmsTopup(session, { credits: bundle.credits, priceGhs: bundle.priceGhs, bundleId: bundle.id });
@@ -91,11 +91,11 @@ async function startSmsTopup(
 /** What a custom purchase would cost (or buy), priced at this church's own rate. The server decides; the form only previews. */
 export async function quoteSmsCredits(input: { credits?: number; amountGhs?: number }) {
   const session = await requireSession();
-  const tier = await resolveSmsTier(session.churchId);
+  const pricing = await resolveSmsPricing(session.churchId);
   let credits = Math.floor(Number(input.credits) || 0);
-  if (!credits && input.amountGhs) credits = creditsForAmount(Number(input.amountGhs), tier);
-  credits = Math.min(MAX_CUSTOM_CREDITS, Math.max(0, credits));
-  return { credits, priceGhs: priceForCredits(credits, tier), ok: credits >= MIN_CUSTOM_CREDITS };
+  if (!credits && input.amountGhs) credits = pricingCredits(Number(input.amountGhs), pricing);
+  credits = Math.min(pricing.max, Math.max(0, credits));
+  return { credits, priceGhs: pricingPrice(credits, pricing), ok: credits >= pricing.min, min: pricing.min };
 }
 
 /**
@@ -106,7 +106,7 @@ export async function buyCustomSmsCredits(input: { credits?: number; amountGhs?:
   const session = await requireSession();
   assertCanWrite(session);
   const q = await quoteSmsCredits(input);
-  if (q.credits < MIN_CUSTOM_CREDITS) return { ok: false, stubbed: false, reference: "", error: `The smallest purchase is ${MIN_CUSTOM_CREDITS} credits.` };
+  if (!q.ok) return { ok: false, stubbed: false, reference: "", error: `The smallest purchase is ${q.min} credits.` };
 
   return startSmsTopup(session, { credits: q.credits, priceGhs: q.priceGhs, bundleId: "custom" });
 }

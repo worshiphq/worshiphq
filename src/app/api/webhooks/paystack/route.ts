@@ -77,9 +77,9 @@ export async function POST(request: NextRequest) {
       let credits = sealed ? Number(meta.credits ?? 0) : 0;
       if (!sealed && paid > 0) {
         // Unsealed: give exactly what the money paid buys at this church's rate.
-        const { creditsForAmount } = await import("@/config/sms");
-        const { resolveSmsTier } = await import("@/lib/sms/tier");
-        credits = creditsForAmount(paid, await resolveSmsTier(meta.churchId));
+        const { pricingCredits } = await import("@/config/sms");
+        const { resolveSmsPricing } = await import("@/lib/sms/intl");
+        credits = pricingCredits(paid, await resolveSmsPricing(meta.churchId));
       }
       if (credits > 0) {
         await addCredits(meta.churchId, credits, "topup", {

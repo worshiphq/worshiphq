@@ -29,6 +29,20 @@ export async function saveNaloCost(cost: number) {
   return { ok: true as const };
 }
 
+/** International SMS: what churches pay per segment abroad, and what Nalo charges. The 45 / 50 / 57 follow from these. */
+export async function saveIntlSmsPricing(input: { priceGhs: number; costGhs: number }) {
+  await requireSuperAdminOwner();
+  await logAdminAction("saveIntlSmsPricing", { input });
+  const priceGhs = Math.round(Number(input.priceGhs) * 100) / 100;
+  const costGhs = Math.round(Number(input.costGhs) * 100) / 100;
+  if (!(priceGhs > 0) || !(costGhs > 0) || priceGhs > 100 || costGhs > 100) return { ok: false as const, error: "Enter both prices in cedis, like 3 and 2." };
+  if (priceGhs <= costGhs) return { ok: false as const, error: "The price churches pay must be more than what Nalo charges, or every text abroad loses money." };
+  const { saveIntlSmsPrices } = await import("@/lib/sms/intl");
+  await saveIntlSmsPrices({ priceGhs, costGhs });
+  revalidatePath("/admin/revenue");
+  return { ok: true as const };
+}
+
 export async function addSmsPurchase(input: { amountGhs: number; kind?: "topup" | "balance"; provider?: string; note?: string; date?: string }) {
   await requireSuperAdminOwner();
   await logAdminAction("addSmsPurchase", { input });

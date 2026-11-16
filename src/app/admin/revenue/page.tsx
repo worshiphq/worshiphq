@@ -6,6 +6,8 @@ import { db } from "@/lib/db";
 import { getRevenueOverview } from "@/lib/data/revenue";
 import { getSmsStock } from "@/lib/data/sms-stock";
 import { SmsStockCard } from "@/components/admin/sms-stock-card";
+import { IntlSmsCard } from "@/components/admin/intl-sms-card";
+import { getIntlSmsPrices } from "@/lib/sms/intl";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { AdminShell, AdminCard } from "@/components/admin/admin-shell";
 import { RecordPlanForm, SmsCostForm } from "@/components/admin/record-plan-form";
@@ -17,13 +19,14 @@ const money = (n: number) => `₵${n.toLocaleString("en-GH", { minimumFractionDi
 
 export default async function AdminRevenuePage({ searchParams }: { searchParams: Promise<{ rpage?: string }> }) {
   const sa = await requireSuperAdmin();
-  const [rev, stock, naloStock, churches, config, team] = await Promise.all([
+  const [rev, stock, naloStock, churches, config, team, intlPrices] = await Promise.all([
     getRevenueOverview(),
     getSmsStock("hubtel"),
     getSmsStock("nalo"),
     db.church.findMany({ where: { isDemo: false }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     getPlatformConfig(),
     db.user.findMany({ where: { church: { isDemo: false } }, orderBy: { createdAt: "asc" }, select: { churchId: true, name: true, role: true, email: true } }),
+    getIntlSmsPrices(),
   ]);
   const rp = paging(rev.recent.length, readPage((await searchParams).rpage), 10);
   const shownRecent = rev.recent.slice(rp.skip, rp.skip + rp.size);
@@ -124,6 +127,12 @@ export default async function AdminRevenuePage({ searchParams }: { searchParams:
             }}
             isOwner={sa.role === "owner"}
           />
+        </AdminCard>
+      </div>
+
+      <div className="mb-4">
+        <AdminCard className="p-5">
+          <IntlSmsCard initial={intlPrices} usdRate={config.usdToGhsRate} isOwner={sa.role === "owner"} />
         </AdminCard>
       </div>
 

@@ -114,3 +114,65 @@ export function segmentsFor(message: string): number {
   const len = text.length;
   return len <= 70 ? 1 : Math.ceil(len / 67);
 }
+
+/* ---------------------------------------------------------------- international SMS
+ *
+ * Texts to numbers outside Ghana cost WorshipHQ much more (Nalo: GHS 2 a segment, flat, every country), so they are
+ * sold at the international price (default GHS 3 a segment). Two cases, one rule underneath: every segment to a
+ * number outside Ghana brings in the international price, whichever kind of church sends it.
+ *
+ *   A church IN Ghana keeps its ordinary credits. A segment to a +233 number costs 1 credit; a segment to any other
+ *   number costs enough credits to equal the international price at that church's own tier (Standard 45, Reduced 50,
+ *   Lowest 57 at GHS 3).
+ *
+ *   A church OUTSIDE Ghana buys international credits at the international price each (shown in dollars). Every
+ *   segment costs 1 credit, to any number.
+ *
+ * Neither kind of church gains by changing its country: a move converts the balance at the same value.
+ */
+export const INTL_SMS_DEFAULTS = { priceGhs: 3, costGhs: 2 } as const;
+/** Bundles for churches outside Ghana, in international credits. */
+const INTL_BUNDLE_CREDITS = [10, 25, 50, 100];
+const INTL_BUNDLE_IDS = ["intl-10", "intl-25", "intl-50", "intl-100"];
+export const MIN_INTL_CREDITS = 10;
+export const MAX_INTL_CREDITS = 20_000;
+
+/** Credits a Ghana church pays for one segment to a number outside Ghana, so it brings in at least `priceGhs`. */
+export function foreignCreditsPerSegment(tier: string | null | undefined, priceGhs: number): number {
+  const rate = SMS_RATE[isSmsTier(tier) ? tier : DEFAULT_SMS_TIER];
+  return Math.max(1, Math.ceil(priceGhs / rate - 1e-9));
+}
+
+export function intlBundles(priceGhs: number): SmsBundle[] {
+  return INTL_BUNDLE_CREDITS.map((credits, i) => ({ id: INTL_BUNDLE_IDS[i], credits, priceGhs: round2(credits * priceGhs), popular: credits === 25 }));
+}
+
+/**
+ * How a church buys credits. `rate` is GHS per credit; `usdRate` (outside Ghana only) turns cedis into the dollars the
+ * church sees. Paystack still charges cedis.
+ */
+export type SmsPricing =
+  | { kind: "ghana"; tier: SmsTier; rate: number; bundles: SmsBundle[]; min: number; max: number; foreignPerSegment: number; intlPriceGhs: number }
+  | { kind: "intl"; rate: number; bundles: SmsBundle[]; min: number; max: number; usdRate: number };
+
+export function pricingPrice(credits: number, p: Pick<SmsPricing, "rate">): number {
+  return round2(Math.max(0, Math.floor(credits)) * p.rate);
+}
+
+export function pricingCredits(amountGhs: number, p: Pick<SmsPricing, "rate">): number {
+  return Math.max(0, Math.floor((amountGhs + 1e-9) / p.rate));
+}
+
+/** Dollars, for showing a cedi price to a church outside Ghana. */
+export function ghsToUsd(ghs: number, usdRate: number): number {
+  return usdRate > 0 ? Math.round((ghs / usdRate) * 100) / 100 : ghs;
+}
+
+/**
+ * Converting a balance when a church moves into or out of Ghana, at the same value. `foreignPerSegment` is the
+ * Ghana-side figure (45 at Standard): 45 Ghana credits buy what 1 international credit buys.
+ */
+export function convertCreditsForCountry(credits: number, toGhana: boolean, foreignPerSegment: number): number {
+  if (credits <= 0) return credits;
+  return toGhana ? credits * foreignPerSegment : Math.floor(credits / foreignPerSegment);
+}

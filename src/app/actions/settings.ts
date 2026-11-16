@@ -223,6 +223,12 @@ export async function updateChurch(formData: FormData) {
     },
   });
 
+  // Support moved the church into or out of Ghana: its credits change kind, at the same value.
+  if (isGhana(country) !== isGhana(current?.country)) {
+    const { convertCreditsForCountryMove } = await import("@/lib/sms/intl");
+    await convertCreditsForCountryMove(session.churchId, isGhana(country));
+  }
+
   revalidatePath("/app/settings");
   revalidatePath("/app", "layout");
 }

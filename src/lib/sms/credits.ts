@@ -5,6 +5,9 @@ import { sendSms, type SmsRecipientResult } from "@/lib/integrations/sms";
 import { toLogNumber, countStatuses, type LogNumber } from "@/lib/sms/delivery-status";
 import { segmentsFor, smsNormalize } from "@/config/sms";
 import { currentNameLine } from "@/lib/sms/message-name";
+import { chargeRuleForChurch } from "@/lib/sms/intl";
+import { normalisePhone } from "@/lib/phone";
+import { isGhanaNumber } from "@/lib/sms/routing";
 
 /** Recipients sent per provider call; credits are reserved per chunk. */
 const SEND_CHUNK = 50;
@@ -171,6 +174,8 @@ export interface ChurchSmsResult {
   results?: SmsRecipientResult[];
   /** The SMS record this send was written to, for linking it to a campaign. */
   logId?: string | null;
+  /** Ghana churches only: recipients outside Ghana in this send, and the credits they cost (worst case). */
+  foreign?: { count: number; credits: number; perSegment: number };
 }
 
 /**
@@ -229,7 +234,14 @@ export async function sendChurchSms(
   const segments = segmentsFor(smsText);
   // Each recipient's own part count: a personal text can be longer for a long name.
   const segAt = (i: number) => (textFor ? segmentsFor(heading ? `${heading}\n${messageAt(i)}` : messageAt(i)) : segments);
-  const segList = recipients.map((_, i) => segAt(i));
+  // Credits per recipient: segments x what one segment to that number costs this church. A Ghana church pays the
+  // international price (45 credits a segment at Standard) for numbers outside Ghana; a church outside Ghana pays 1.
+  const rule = await chargeRuleForChurch(churchId);
+  const normalised = recipients.map((r) => normalisePhone(r));
+  // An invalid number is never sent (and never charged), so it must not inflate the estimate either.
+  const segList = recipients.map((_, i) => segAt(i) * (normalised[i]!.length >= 11 ? rule.perSegment(normalised[i]!) : 1));
+  const foreignIdx = rule.ghanaChurch ? normalised.map((n, i) => (n.length >= 11 && !isGhanaNumber(n) ? i : -1)).filter((i) => i >= 0) : [];
+  const foreign = foreignIdx.length ? { count: foreignIdx.length, credits: foreignIdx.reduce((a, i) => a + segList[i]!, 0), perSegment: rule.foreignPerSegment } : undefined;
   const maxSegments = Math.max(segments, ...segList);
   // Worst-case cost, used to gate whether we attempt the send at all.
   const estimatedCost = segList.reduce((a, b) => a + b, 0);
@@ -246,7 +258,7 @@ export async function sendChurchSms(
       results: recipients.map((r) => ({ to: r, ok: false, error: "Not enough SMS credits" })),
       communicationId: opts?.communicationId,
     });
-    return { ok: false, sent: 0, cost: estimatedCost, balance, insufficient: true, logId };
+    return { ok: false, sent: 0, cost: estimatedCost, balance, insufficient: true, logId, foreign };
   }
 
   // Credits are taken BEFORE each chunk is sent (only if the balance still covers it), and the unsent
@@ -351,7 +363,7 @@ export async function sendChurchSms(
   });
 
   if (sent === 0) {
-    return { ok: false, sent: 0, cost: estimatedCost, balance: balanceAfter, insufficient: ranOut || undefined, results, logId };
+    return { ok: false, sent: 0, cost: estimatedCost, balance: balanceAfter, insufficient: ranOut || undefined, results, logId, foreign };
   }
-  return { ok: true, sent, cost, balance: balanceAfter, results, logId };
+  return { ok: true, sent, cost, balance: balanceAfter, results, logId, foreign };
 }

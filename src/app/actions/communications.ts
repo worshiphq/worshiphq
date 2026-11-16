@@ -26,20 +26,12 @@ const MISSING_NATIONAL_ID_ADULTS = {
   ],
 };
 
-/** Send (or stub-send) a broadcast and log it as a campaign. */
-export async function sendBroadcast(formData: FormData) {
-  const session = await requireSession();
-  assertCanWrite(session, "communications");
 
-  const name = String(formData.get("name") ?? "Broadcast").trim() || "Broadcast";
-  const channel = (String(formData.get("channel") ?? "SMS") as Channel) || "SMS";
-  const message = String(formData.get("message") ?? "").trim();
-  if (!message) return;
-
+/** Who a broadcast goes to, by target. Shared by the send and by the cost preview, so both always count the same people. */
+async function resolveBroadcastRecipients(churchId: string, target: string, contacts: string, channel: Channel) {
   // ── Resolve recipients by target ──
   // target: "all" | "active" | "visitor" | "leaders" | "group-leaders" |
   //         "missing-national-id" | "dept:<id>" | "custom"
-  const target = String(formData.get("target") ?? "all");
   let recipientObjs: Recipient[] = [];
   let segmentLabel = "All members";
   let groupLabel: string | null = null;
@@ -59,7 +51,7 @@ export async function sendBroadcast(formData: FormData) {
 
   if (target === "custom") {
     // Free-typed numbers/emails, separated by comma / space / newline.
-    recipientObjs = String(formData.get("contacts") ?? "")
+    recipientObjs = contacts
       .split(/[\s,;]+/)
       .map((s) => s.trim())
       .filter(Boolean)
@@ -68,7 +60,7 @@ export async function sendBroadcast(formData: FormData) {
   } else if (target === "leaders") {
     // Church leadership team: anyone with a leadership title.
     const people = await db.person.findMany({
-      where: { churchId: session.churchId, leaderTitle: { not: null } },
+      where: { churchId: churchId, leaderTitle: { not: null } },
       select: PERSON_SELECT,
     });
     recipientObjs = pick(people);
@@ -76,7 +68,7 @@ export async function sendBroadcast(formData: FormData) {
   } else if (target === "group-leaders") {
     // The leader of every group/ministry (deduped - one person may lead several).
     const groups = await db.group.findMany({
-      where: { churchId: session.churchId, leaderId: { not: null } },
+      where: { churchId: churchId, leaderId: { not: null } },
       select: { leader: { select: PERSON_SELECT } },
     });
     const seen = new Set<string>();
@@ -92,7 +84,7 @@ export async function sendBroadcast(formData: FormData) {
   } else if (target === "missing-national-id") {
     // Adults with no Ghana Card on file - a data-completeness drive.
     const people = await db.person.findMany({
-      where: { churchId: session.churchId, ...MISSING_NATIONAL_ID_ADULTS },
+      where: { churchId: churchId, ...MISSING_NATIONAL_ID_ADULTS },
       select: PERSON_SELECT,
     });
     recipientObjs = pick(people);
@@ -104,7 +96,7 @@ export async function sendBroadcast(formData: FormData) {
     const [listed, people] = await Promise.all([
       db.visitor.findMany({
         where: {
-          churchId: session.churchId,
+          churchId: churchId,
           AND: [
             { OR: [{ personId: null }, { person: { status: "visitor" } }] },
             ...(since ? [{ OR: [{ visitDate: { gte: since } }, { lastVisit: { gte: since } }] }] : []),
@@ -112,7 +104,7 @@ export async function sendBroadcast(formData: FormData) {
         },
         select: PERSON_SELECT,
       }),
-      since ? Promise.resolve([]) : db.person.findMany({ where: { churchId: session.churchId, status: "visitor" }, select: PERSON_SELECT }),
+      since ? Promise.resolve([]) : db.person.findMany({ where: { churchId: churchId, status: "visitor" }, select: PERSON_SELECT }),
     ]);
     const seen = new Set<string>();
     recipientObjs = [...pick(people), ...pick(listed).map((r) => ({ ...r, id: null }))].filter((r) => {
@@ -124,18 +116,18 @@ export async function sendBroadcast(formData: FormData) {
     segmentLabel = since ? "Visitors (last 30 days)" : "Visitors";
   } else {
     const where: { churchId: string; status?: "active" | "visitor"; departments?: { some: { id: string } }; groups?: { some: { id: string } } } = {
-      churchId: session.churchId,
+      churchId: churchId,
     };
     if (target === "active") { where.status = "active"; segmentLabel = "Active members"; }
     else if (target.startsWith("dept:")) {
       const id = target.slice(5);
       where.departments = { some: { id } };
-      const dept = await db.department.findFirst({ where: { id, churchId: session.churchId }, select: { name: true } });
+      const dept = await db.department.findFirst({ where: { id, churchId: churchId }, select: { name: true } });
       segmentLabel = dept ? `${dept.name} department` : "Department";
     } else if (target.startsWith("group:")) {
       const id = target.slice(6);
       where.groups = { some: { id } };
-      const group = await db.group.findFirst({ where: { id, churchId: session.churchId }, select: { name: true } });
+      const group = await db.group.findFirst({ where: { id, churchId: churchId }, select: { name: true } });
       segmentLabel = group ? `${group.name} group` : "Group";
       // One sender ID for the whole church, so a group's message says which group is calling.
       if (group) groupLabel = group.name;
@@ -143,6 +135,64 @@ export async function sendBroadcast(formData: FormData) {
     const people = await db.person.findMany({ where, select: PERSON_SELECT });
     recipientObjs = pick(people);
   }
+
+  return { recipientObjs, segmentLabel, groupLabel };
+}
+
+/**
+ * What an SMS broadcast will cost before it is sent: how many people, how many of them have numbers outside Ghana,
+ * and the credits in total. A Ghana church pays the international price for numbers outside Ghana, so it sees that
+ * count here instead of being surprised by the balance afterwards.
+ */
+export async function previewBroadcastCost(input: { target: string; contacts?: string; message: string }) {
+  const session = await requireSession();
+  const { recipientObjs, groupLabel } = await resolveBroadcastRecipients(session.churchId, String(input.target || "all"), String(input.contacts ?? ""), "SMS");
+  const { segmentsFor } = await import("@/config/sms");
+  const { chargeRuleForChurch } = await import("@/lib/sms/intl");
+  const { currentNameLine } = await import("@/lib/sms/message-name");
+  const { normalisePhone } = await import("@/lib/phone");
+  const { isGhanaNumber } = await import("@/lib/sms/routing");
+  const church = await db.church.findUnique({ where: { id: session.churchId }, select: { name: true, smsPrefix: true, smsCredits: true, smsSenderIdStatus: true } });
+  const body = groupLabel ? `${groupLabel}: ${input.message}` : input.message;
+  // Same estimate the send uses: the name line counts unless the church has its own sender name.
+  const nameLine = church?.smsSenderIdStatus === "approved" ? null : currentNameLine(church?.smsPrefix, church?.name ?? "WorshipHQ");
+  const segments = segmentsFor(nameLine ? `${nameLine}\n${body}` : body);
+  const rule = await chargeRuleForChurch(session.churchId);
+  let credits = 0;
+  let foreign = 0;
+  for (const r of recipientObjs) {
+    const n = normalisePhone(r.contact);
+    const valid = n.length >= 11;
+    if (valid && rule.ghanaChurch && !isGhanaNumber(n)) foreign++;
+    credits += segments * (valid ? rule.perSegment(n) : 1);
+  }
+  return {
+    people: recipientObjs.length,
+    foreign,
+    foreignPerSegment: rule.ghanaChurch ? rule.foreignPerSegment : 1,
+    segments,
+    credits,
+    balance: church?.smsCredits ?? 0,
+  };
+}
+
+/** Send (or stub-send) a broadcast and log it as a campaign. */
+export async function sendBroadcast(formData: FormData) {
+  const session = await requireSession();
+  assertCanWrite(session, "communications");
+
+  const name = String(formData.get("name") ?? "Broadcast").trim() || "Broadcast";
+  const channel = (String(formData.get("channel") ?? "SMS") as Channel) || "SMS";
+  const message = String(formData.get("message") ?? "").trim();
+  if (!message) return;
+
+  // ── Resolve recipients by target ──
+  // target: "all" | "active" | "visitor" | "leaders" | "group-leaders" |
+  //         "missing-national-id" | "dept:<id>" | "custom"
+  const target = String(formData.get("target") ?? "all");
+  const { recipientObjs, segmentLabel, groupLabel } = await resolveBroadcastRecipients(
+    session.churchId, target, String(formData.get("contacts") ?? ""), channel,
+  );
 
   const recipients = recipientObjs.map((r) => r.contact);
   let sent = recipients.length;

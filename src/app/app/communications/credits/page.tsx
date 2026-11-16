@@ -6,7 +6,7 @@ import { Card } from "@/components/ui/card";
 import { requireModule } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { SmsCreditsPanel } from "@/components/app/sms-credits-panel";
-import { smsBundlesForChurch } from "@/lib/sms/tier";
+import { resolveSmsPricing } from "@/lib/sms/intl";
 import { formatDate, cn } from "@/lib/utils";
 
 export const metadata = { title: "SMS credits" };
@@ -19,7 +19,7 @@ const KINDS = [
   { key: "usage", label: "Messages sent" },
 ] as const;
 
-const KIND_LABEL: Record<string, string> = { topup: "Top-up", bonus: "Gift from WorshipHQ", usage: "Messages sent", refund: "Refund" };
+const KIND_LABEL: Record<string, string> = { topup: "Top-up", bonus: "Gift from WorshipHQ", usage: "Messages sent", refund: "Refund", convert: "Country changed" };
 
 export default async function SmsCreditsPage({ searchParams }: { searchParams: Promise<{ page?: string; kind?: string }> }) {
   const sp = await searchParams;
@@ -36,7 +36,7 @@ export default async function SmsCreditsPage({ searchParams }: { searchParams: P
       select: { smsCredits: true, smsWelcomeMember: true, smsWelcomeVisitor: true, leaderMessagingOn: true },
     }),
     db.smsTransaction.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
-    smsBundlesForChurch(session.churchId),
+    resolveSmsPricing(session.churchId),
   ]);
 
   const href = (p: number, k = kind) => `/app/communications/credits?${new URLSearchParams({ ...(k !== "all" ? { kind: k } : {}), ...(p > 1 ? { page: String(p) } : {}) }).toString()}`;
@@ -53,8 +53,7 @@ export default async function SmsCreditsPage({ searchParams }: { searchParams: P
         welcomeOn={church?.smsWelcomeMember ?? true}
         welcomeVisitorOn={church?.smsWelcomeVisitor ?? true}
         canWrite={canEdit(session, "communications")}
-        bundles={sms.bundles}
-        tier={sms.tier}
+        pricing={sms}
         leaderMessagingOn={church?.leaderMessagingOn ?? false}
       />
 

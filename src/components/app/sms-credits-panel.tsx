@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import { MessageSquare, Check, Loader2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { SMS_RATE, MIN_CUSTOM_CREDITS, MAX_CUSTOM_CREDITS, creditsForAmount, priceForCredits, type SmsBundle, type SmsTier } from "@/config/sms";
+import { pricingCredits, pricingPrice, ghsToUsd, type SmsPricing } from "@/config/sms";
 import { buySmsCredits, buyCustomSmsCredits, setWelcomeSms, setWelcomeVisitorSms } from "@/app/actions/sms-credits";
 import { setLeaderMessaging } from "@/app/actions/leader-messages";
 import { Input } from "@/components/ui/input";
@@ -18,29 +18,33 @@ export function SmsCreditsPanel({
   welcomeOn,
   welcomeVisitorOn,
   canWrite,
-  bundles,
-  tier,
+  pricing,
   leaderMessagingOn = false,
 }: {
   balance: number;
   welcomeOn: boolean;
   welcomeVisitorOn: boolean;
   canWrite: boolean;
-  bundles: SmsBundle[];
-  tier: SmsTier;
+  /** How this church buys credits: Ghana credits in cedis, or international credits shown in dollars. */
+  pricing: SmsPricing;
   leaderMessagingOn?: boolean;
 }) {
   const { run, toast } = useFeedback();
   const { start } = usePaystack();
   const router = useRouter();
   const [busyBundle, setBusyBundle] = useState<string | null>(null);
-  const rate = SMS_RATE[tier];
+  const intl = pricing.kind === "intl";
+  const bundles = pricing.bundles;
+  const rate = pricing.rate;
+  // Churches outside Ghana see dollars (Paystack still charges the cedi amount); Ghana churches see cedis.
+  const money = (ghs: number) =>
+    pricing.kind === "intl" ? `$${ghsToUsd(ghs, pricing.usdRate).toFixed(2)}` : `₵${ghs.toFixed(2)}`;
   // The two boxes stay in step: type credits to see the price, or type a price to see the credits.
   const [creditsText, setCreditsText] = useState("");
   const [amountText, setAmountText] = useState("");
   const customCredits = Math.floor(Number(creditsText) || 0);
-  const customPrice = priceForCredits(customCredits, tier);
-  const customOk = customCredits >= MIN_CUSTOM_CREDITS && customCredits <= MAX_CUSTOM_CREDITS;
+  const customPrice = pricingPrice(customCredits, pricing);
+  const customOk = customCredits >= pricing.min && customCredits <= pricing.max;
 
   async function buyCustom() {
     setBusyBundle("custom");
@@ -87,11 +91,21 @@ export function SmsCreditsPanel({
         </div>
         <div className="text-right text-xs text-ink-faint">
           1 credit = 1 SMS<br />(per 160 characters, per recipient)<br />
-          <span className="font-medium text-ink-muted">₵100 buys {creditsForAmount(100, tier).toLocaleString()} credits</span>
+          {pricing.kind === "intl"
+            ? <span className="font-medium text-ink-muted">{money(rate)} per credit, to any number</span>
+            : <span className="font-medium text-ink-muted">₵100 buys {pricingCredits(100, pricing).toLocaleString()} credits</span>}
         </div>
       </Card>
 
-      {balance <= 20 && (
+      {pricing.kind === "ghana" && (
+        <div className="rounded-xl border border-line bg-surface-2/60 px-4 py-3 text-xs text-ink-muted">
+          <b className="text-ink">Members with numbers outside Ghana:</b> a text to a number outside Ghana uses{" "}
+          <b className="text-ink">{pricing.foreignPerSegment} credits</b> per SMS (₵{pricing.intlPriceGhs.toFixed(2)}), because the network charges much more to send abroad.
+          You see the exact count before anything is sent.
+        </div>
+      )}
+
+      {balance <= (intl ? 3 : 20) && (
         <div className="rounded-xl border border-warning/30 bg-warning/10 px-4 py-3 text-sm text-warning">
           Your SMS credits are running low. Top up below so your messages keep sending.
         </div>
@@ -110,8 +124,8 @@ export function SmsCreditsPanel({
               )}
               <div className="font-display text-2xl font-bold">{b.credits.toLocaleString()}</div>
               <div className="text-xs text-ink-faint">credits</div>
-              <div className="mt-3 text-lg font-semibold text-ink">₵{b.priceGhs}</div>
-              <div className="text-xs text-ink-faint">≈ ₵{(b.priceGhs / b.credits).toFixed(3)} / SMS</div>
+              <div className="mt-3 text-lg font-semibold text-ink">{money(b.priceGhs)}</div>
+              <div className="text-xs text-ink-faint">{intl ? `${money(b.priceGhs / b.credits)} / SMS · charged as ₵${b.priceGhs.toFixed(2)}` : `≈ ₵${(b.priceGhs / b.credits).toFixed(3)} / SMS`}</div>
               <Button
                 onClick={() => buy(b.id)}
                 disabled={!canWrite || busyBundle !== null}
@@ -123,42 +137,47 @@ export function SmsCreditsPanel({
             </Card>
           ))}
         </div>
-        <p className="mt-2 text-xs text-ink-faint">Secure payment via Paystack (Mobile Money or card). Credits never expire.</p>
+        <p className="mt-2 text-xs text-ink-faint">
+          Secure payment via Paystack (Mobile Money or card). Credits never expire.
+          {intl && " Prices are shown in dollars; Paystack charges the amount in Ghana cedis, and your bank converts it."}
+        </p>
       </div>
 
       {/* Any amount */}
       <Card className="p-5">
         <h3 className="font-display text-[1rem] font-semibold">Buy any amount</h3>
-        <p className="mt-0.5 text-xs text-ink-muted">Type how many credits you want, or how much you want to spend. Every credit costs ₵{rate.toFixed(2)}.</p>
-        <div className="mt-3 grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+        <p className="mt-0.5 text-xs text-ink-muted">
+          {intl ? `Type how many credits you want. Every credit costs ${money(rate)}.` : `Type how many credits you want, or how much you want to spend. Every credit costs ₵${rate.toFixed(2)}.`}
+        </p>
+        <div className={cn("mt-3 grid gap-3 sm:items-end", intl ? "sm:grid-cols-[1fr_auto]" : "sm:grid-cols-[1fr_1fr_auto]")}>
           <label className="text-xs font-medium text-ink-muted">Credits
             <Input
-              inputMode="numeric" placeholder={`e.g. 3000 (minimum ${MIN_CUSTOM_CREDITS})`} value={creditsText} disabled={!canWrite}
+              inputMode="numeric" placeholder={`e.g. ${intl ? 40 : 3000} (minimum ${pricing.min})`} value={creditsText} disabled={!canWrite}
               onChange={(e) => {
                 const v = e.target.value.replace(/[^\d]/g, "");
                 setCreditsText(v);
-                setAmountText(v ? priceForCredits(Number(v), tier).toFixed(2) : "");
+                setAmountText(v ? pricingPrice(Number(v), pricing).toFixed(2) : "");
               }}
               className="mt-1"
             />
           </label>
-          <label className="text-xs font-medium text-ink-muted">You pay (₵)
+          {!intl && <label className="text-xs font-medium text-ink-muted">You pay (₵)
             <Input
               inputMode="decimal" placeholder="e.g. 300" value={amountText} disabled={!canWrite}
               onChange={(e) => {
                 const v = e.target.value.replace(/[^\d.]/g, "");
                 setAmountText(v);
-                setCreditsText(v ? String(creditsForAmount(Number(v), tier)) : "");
+                setCreditsText(v ? String(pricingCredits(Number(v), pricing)) : "");
               }}
               className="mt-1"
             />
-          </label>
+          </label>}
           <Button onClick={buyCustom} disabled={!canWrite || !customOk || busyBundle !== null}>
-            {busyBundle === "custom" ? <><Loader2 className="mr-1.5 size-4 animate-spin" /> Starting…</> : customOk ? `Buy ${customCredits.toLocaleString()} for ₵${customPrice.toFixed(2)}` : "Buy"}
+            {busyBundle === "custom" ? <><Loader2 className="mr-1.5 size-4 animate-spin" /> Starting…</> : customOk ? `Buy ${customCredits.toLocaleString()} for ${money(customPrice)}` : "Buy"}
           </Button>
         </div>
         {customCredits > 0 && !customOk && (
-          <p className="mt-2 text-xs text-warning">{customCredits < MIN_CUSTOM_CREDITS ? `The smallest purchase is ${MIN_CUSTOM_CREDITS} credits (₵${(MIN_CUSTOM_CREDITS * rate).toFixed(2)}).` : `The largest single purchase is ${MAX_CUSTOM_CREDITS.toLocaleString()} credits.`}</p>
+          <p className="mt-2 text-xs text-warning">{customCredits < pricing.min ? `The smallest purchase is ${pricing.min} credits (${money(pricing.min * rate)}).` : `The largest single purchase is ${pricing.max.toLocaleString()} credits.`}</p>
         )}
       </Card>
 
