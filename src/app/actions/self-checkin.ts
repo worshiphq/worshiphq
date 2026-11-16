@@ -159,10 +159,13 @@ export async function findForCheckIn(input: { sessionId: string; query: string }
     take: 6,
   });
   // "Evans O." twice (Evans Obeng, Evans Oteng) can't be told apart, so names that clash show the whole surname.
+  // Clash on first name + surname initial, ignoring middle names, so "Kelvin A." and "Kelvin Atsu A." also show in full.
+  const clashKey = (p: { firstName: string; lastName: string }) =>
+    `${p.firstName.trim().split(/\s+/)[0] ?? ""}|${p.lastName.trim().charAt(0)}`.toLowerCase();
   const seen = new Map<string, number>();
-  for (const p of rows) { const k = shortName(p.firstName, p.lastName).toLowerCase(); seen.set(k, (seen.get(k) ?? 0) + 1); }
+  for (const p of rows) seen.set(clashKey(p), (seen.get(clashKey(p)) ?? 0) + 1);
   const label = (p: { firstName: string; lastName: string }) =>
-    (seen.get(shortName(p.firstName, p.lastName).toLowerCase()) ?? 0) > 1 ? `${p.firstName} ${p.lastName}`.trim() : shortName(p.firstName, p.lastName);
+    (seen.get(clashKey(p)) ?? 0) > 1 ? `${p.firstName} ${p.lastName}`.trim() : shortName(p.firstName, p.lastName);
   return {
     ok: true,
     people: rows.map((p) => ({ id: pickToken(p.id, ctx.church.id), name: label(p), hint: showHint && p.phone ? `phone ends ${phoneKey(p.phone).slice(-3)}` : null, visitor: p.status === "visitor" })),
