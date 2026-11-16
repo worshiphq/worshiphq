@@ -75,7 +75,7 @@ export async function brevoSentToday(): Promise<number> {
     const rows = await db.$queryRaw<{ n: bigint | null }[]>`
       SELECT COALESCE(SUM(array_length(string_to_array("toAddrs", ','), 1)), 0) AS n
       FROM "EmailLog"
-      WHERE status = 'sent' AND provider IN ('brevo', 'smtp') AND "createdAt" >= ${new Date(`${day}T00:00:00Z`)}`;
+      WHERE status = 'sent' AND provider IN ('brevo', 'smtp') AND COALESCE("resentAt", "createdAt") >= ${new Date(`${day}T00:00:00Z`)}`;
     sent = Number(rows[0]?.n ?? 0);
   } catch {
     /* no log table: rely on Brevo refusing */
