@@ -124,7 +124,11 @@ export function GivingClient({ year, month, kind, entries, pageInfo, funds, stat
           </div>
           {entries.length === 0 ? (
             <div className="p-10 text-center text-sm text-ink-muted">
-              Nothing recorded {kind !== "all" ? "for this" : "in"} {kind !== "all" ? "kind of giving" : "this month"}.{canWrite && " Use “Record offertory” or “Record a gift” to add some."}
+              Nothing recorded {kind !== "all" ? "for this" : "in"} {kind !== "all" ? "kind of giving" : "this month"}.
+              {canWrite && (kind === "tithes"
+                ? <> Tithes are recorded in <b className="text-ink">Tithes &amp; records</b> further down this page.
+                    <span className="mt-3 block"><Button size="sm" onClick={() => window.dispatchEvent(new Event("whq:record-tithes"))}><Plus /> Record tithes</Button></span></>
+                : " Use “Record offertory” or “Record a gift” to add some.")}
             </div>
           ) : (
             <div className="divide-y divide-line-soft">

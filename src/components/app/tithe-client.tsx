@@ -77,6 +77,17 @@ export function TitheClient({
   const [savingTemplate, startTemplateSave] = useTransition();
   const { toast } = useFeedback();
 
+  // "Record tithes" from the Giving list above opens the recorder and scrolls to it.
+  useEffect(() => {
+    const open = () => {
+      setTab("record");
+      setFundType("tithes");
+      requestAnimationFrame(() => document.getElementById("tithes-records")?.scrollIntoView({ behavior: "smooth", block: "start" }));
+    };
+    window.addEventListener("whq:record-tithes", open);
+    return () => window.removeEventListener("whq:record-tithes", open);
+  }, []);
+
   const activeFundName = fundType === "tithes" ? "Tithes"
     : fundType === "offertory" ? "Offertory"
     : customFund || "Custom";
@@ -96,7 +107,7 @@ export function TitheClient({
   };
 
   return (
-    <div className="space-y-5">
+    <div id="tithes-records" className="scroll-mt-20 space-y-5">
       {/* The month follows the month picked at the top of the page. */}
       <div>
         <h2 className="font-display text-xl font-bold">Tithes &amp; records</h2>
@@ -135,11 +146,11 @@ export function TitheClient({
             key={t.id}
             onClick={() => setTab(t.id)}
             className={cn(
-              "flex flex-1 items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-colors",
+              "flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-lg px-2 py-2.5 text-xs font-medium transition-colors sm:gap-2 sm:px-4 sm:text-sm",
               tab === t.id ? "bg-surface text-ink shadow-sm" : "text-ink-muted hover:text-ink",
             )}
           >
-            <t.icon className="size-4" /> {t.label}
+            <t.icon className="hidden size-4 shrink-0 sm:block" /> <span className="truncate">{t.label}</span>
           </button>
         ))}
       </div>
@@ -351,8 +362,8 @@ function BatchRecorder({ fundType, activeFundName, accounts }: { fundType: strin
   }
 
   return (
-    <Card className="p-6">
-      <div className="mb-5 flex items-center justify-between">
+    <Card className="p-4 sm:p-6">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h3 className="font-display text-lg font-semibold">Record {activeFundName}</h3>
           <p className="text-sm text-ink-muted">
@@ -441,14 +452,14 @@ function BatchRecorder({ fundType, activeFundName, accounts }: { fundType: strin
           {entries.map((entry, idx) => {
             const Icon = methodIcon[entry.method] ?? Banknote;
             return (
-              <div key={entry.personId} className="flex items-center gap-3 rounded-xl border border-line bg-surface-2/50 px-4 py-3">
+              <div key={entry.personId} className="flex flex-wrap items-center gap-3 rounded-xl border border-line bg-surface-2/50 px-3 py-3 sm:flex-nowrap sm:px-4">
                 <Avatar name={entry.name} src={entry.photoUrl ?? undefined} size="sm" />
                 <div className="min-w-0 flex-1">
                   <div className="text-sm font-medium">{entry.name}</div>
                   {entry.phone && <div className="text-xs text-ink-faint">{entry.phone}</div>}
                 </div>
-                <div className="flex items-center gap-2">
-                  <div className="relative">
+                <div className="flex w-full items-center gap-2 sm:w-auto">
+                  <div className="relative min-w-0 flex-1 sm:flex-none">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-ink-faint">₵</span>
                     <input
                       type="number"
@@ -457,7 +468,9 @@ function BatchRecorder({ fundType, activeFundName, accounts }: { fundType: strin
                       value={entry.amount}
                       onChange={(e) => updateAmount(idx, e.target.value)}
                       placeholder="0.00"
-                      className="w-28 rounded-lg border border-line bg-surface py-2 pl-7 pr-3 text-right text-sm font-medium outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/25"
+                      inputMode="decimal"
+                      aria-label={`Amount for ${entry.name}`}
+                      className="w-full rounded-lg border border-line bg-surface py-2 pl-7 pr-3 text-right sm:w-28 text-sm font-medium outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/25"
                     />
                   </div>
                   <select
@@ -467,7 +480,7 @@ function BatchRecorder({ fundType, activeFundName, accounts }: { fundType: strin
                   >
                     {methods.map((m) => <option key={m} value={m}>{m}</option>)}
                   </select>
-                  <button onClick={() => removeEntry(idx)} className="grid size-8 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
+                  <button onClick={() => removeEntry(idx)} aria-label={`Remove ${entry.name}`} className="grid size-8 shrink-0 place-items-center rounded-lg text-ink-faint hover:bg-danger/10 hover:text-danger">
                     <Trash2 className="size-4" />
                   </button>
                 </div>
@@ -491,7 +504,7 @@ function BatchRecorder({ fundType, activeFundName, accounts }: { fundType: strin
 
       {/* Summary + submit */}
       {entries.length > 0 && (
-        <div className="flex items-center justify-between rounded-xl border border-primary/20 bg-primary/5 px-5 py-4">
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-primary/20 bg-primary/5 px-4 py-4 sm:px-5">
           <div>
             <div className="text-sm text-ink-muted">{validEntries.length} of {entries.length} valid</div>
             <div className="font-display text-2xl font-bold">{formatCurrency(totalAmount, { decimals: true })}</div>
