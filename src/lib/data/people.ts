@@ -235,7 +235,7 @@ async function idsByPhone(churchId: string, key: string): Promise<string[]> {
   return rows.map((r) => r.id);
 }
 
-export async function queryPeople(churchId: string, q: PeopleQuery): Promise<{ rows: PersonListRow[]; total: number; page: number; pages: number }> {
+async function peopleWhere(churchId: string, q: PeopleQuery) {
   const tab = q.tab ?? "adult";
   const and: Prisma.PersonWhereInput[] = [];
   and.push(tab === "adult" ? { OR: [{ ageGroup: null }, { ageGroup: "adult" }] } : tab === "kids" ? { ageGroup: { in: ["child", "teen"] } } : { ageGroup: tab });
@@ -280,7 +280,18 @@ export async function queryPeople(churchId: string, q: PeopleQuery): Promise<{ r
       : q.sort === "newest" ? [{ joinedAt: "desc" }, { id: "asc" }]
         : q.sort === "oldest" ? [{ joinedAt: "asc" }, { id: "asc" }]
           : [{ firstName: "asc" }, { lastName: "asc" }, { id: "asc" }];
+  return { where, orderBy };
+}
 
+/** Ids of everyone matching a People search and filters, for "Select all that match" (capped). */
+export async function queryPeopleIds(churchId: string, q: PeopleQuery, max = 2000): Promise<{ ids: string[]; total: number }> {
+  const { where, orderBy } = await peopleWhere(churchId, q);
+  const [total, rows] = await Promise.all([db.person.count({ where }), db.person.findMany({ where, orderBy, take: max, select: { id: true } })]);
+  return { ids: rows.map((r) => r.id), total };
+}
+
+export async function queryPeople(churchId: string, q: PeopleQuery): Promise<{ rows: PersonListRow[]; total: number; page: number; pages: number }> {
+  const { where, orderBy } = await peopleWhere(churchId, q);
   const total = await db.person.count({ where });
   const pages = Math.max(1, Math.ceil(total / PEOPLE_PAGE_SIZE));
   const page = Math.min(Math.max(1, Math.floor(q.page ?? 1)), pages);

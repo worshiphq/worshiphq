@@ -4,7 +4,7 @@ import { useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import {
   Plus, Download, Smartphone, CreditCard, Banknote, X, HandCoins, Repeat, ChevronLeft, ChevronRight,
-  ChevronDown, Landmark, Sparkles, Wallet,
+  ChevronDown, Landmark, Sparkles, Wallet, Gift,
 } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { FundDonut } from "@/components/app/charts-lazy";
@@ -54,7 +54,9 @@ const KINDS: { id: GivingKind; label: string }[] = [
 ];
 
 export function GivingClient({ year, month, kind, entries, pageInfo, funds, stats, fundBreakdown, accounts = [], canWrite, canDelete = false }: Props) {
-  const [recording, setRecording] = useState<"gift" | "collection" | null>(null);
+  const [recording, setRecording] = useState<"gift" | "collection" | "menu" | null>(null);
+  // Tithes are recorded in the tithe recorder (several members at once, with SMS receipts); it opens as a pop-up.
+  const recordTithes = () => { setRecording(null); window.dispatchEvent(new Event("whq:record-tithes")); };
   const router = useRouter();
   const pathname = usePathname();
   const [pending, start] = useTransition();
@@ -79,10 +81,42 @@ export function GivingClient({ year, month, kind, entries, pageInfo, funds, stat
   return (
     <div>
       <PageHeader title="Giving & donations" description="Tithes, offertory and Mobile Money giving, all in ₵. Offertory is counted together, so it shows as one total.">
+        {canWrite && <Button size="sm" onClick={recordTithes}><Sparkles /> Record tithes</Button>}
+        <Button variant={canWrite ? "secondary" : "primary"} size="sm" onClick={() => setRecording("collection")} disabled={!canWrite}><HandCoins /> Record offertory</Button>
+        <Button variant="secondary" size="sm" onClick={() => setRecording("gift")} disabled={!canWrite}><Gift /> Record a gift</Button>
         <a href="/api/export/giving"><Button variant="secondary" size="sm"><Download /> Export Excel</Button></a>
-        <Button variant="secondary" size="sm" onClick={() => setRecording("gift")} disabled={!canWrite}><Plus /> Record a gift</Button>
-        <Button size="sm" onClick={() => setRecording("collection")} disabled={!canWrite}><HandCoins /> Record offertory</Button>
       </PageHeader>
+
+      {/* Phones: one button that stays in reach while scrolling, opening the three ways to record. */}
+      {canWrite && (
+        <button
+          type="button"
+          onClick={() => setRecording("menu")}
+          className="fixed bottom-5 left-4 z-40 inline-flex items-center gap-2 rounded-full bg-gradient-to-b from-primary-bright to-primary px-5 py-3.5 text-sm font-semibold text-white shadow-[0_10px_30px_-8px_rgba(13,148,136,0.7)] active:scale-95 lg:hidden"
+        >
+          <Plus className="size-5" /> Record giving
+        </button>
+      )}
+      {recording === "menu" && (
+        <Modal open onClose={() => setRecording(null)} title="Record giving" description="What are you recording?">
+          <div className="grid gap-2.5">
+            {[
+              { icon: Sparkles, title: "Tithes", body: "Several members at once. Each gets an SMS receipt.", go: recordTithes },
+              { icon: HandCoins, title: "Offertory", body: "The service total, counted together. No names needed.", go: () => setRecording("collection") },
+              { icon: Gift, title: "A gift from one person", body: "A donation, pledge payment or special offering.", go: () => setRecording("gift") },
+            ].map((o) => (
+              <button key={o.title} type="button" onClick={o.go} className="flex items-center gap-3.5 rounded-xl border border-line p-4 text-left transition-colors hover:border-primary/40 hover:bg-surface-2 active:scale-[0.99]">
+                <span className="grid size-11 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary-bright"><o.icon className="size-5" /></span>
+                <span className="min-w-0 flex-1">
+                  <span className="block font-semibold text-ink">{o.title}</span>
+                  <span className="block text-xs text-ink-muted">{o.body}</span>
+                </span>
+                <ChevronRight className="size-4 shrink-0 text-ink-faint" />
+              </button>
+            ))}
+          </div>
+        </Modal>
+      )}
 
       {/* Period + kind */}
       <Card className="mb-4 p-3.5">
@@ -126,8 +160,7 @@ export function GivingClient({ year, month, kind, entries, pageInfo, funds, stat
             <div className="p-10 text-center text-sm text-ink-muted">
               Nothing recorded {kind !== "all" ? "for this" : "in"} {kind !== "all" ? "kind of giving" : "this month"}.
               {canWrite && (kind === "tithes"
-                ? <> Tithes are recorded in <b className="text-ink">Tithes &amp; records</b> further down this page.
-                    <span className="mt-3 block"><Button size="sm" onClick={() => window.dispatchEvent(new Event("whq:record-tithes"))}><Plus /> Record tithes</Button></span></>
+                ? <span className="mt-3 block"><Button size="sm" onClick={recordTithes}><Plus /> Record tithes</Button></span>
                 : " Use “Record offertory” or “Record a gift” to add some.")}
             </div>
           ) : (

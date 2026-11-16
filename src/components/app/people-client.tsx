@@ -18,7 +18,10 @@ import { OnFormComplete } from "@/components/ui/form-effects";
 import { Badge } from "@/components/ui/badge";
 import { ClickableAvatar } from "@/components/ui/photo-lightbox";
 import { Label, Textarea } from "@/components/ui/input";
-import { updatePerson, deletePerson, createPersonState, loadPerson, searchPeople } from "@/app/actions/people";
+import { updatePerson, deletePerson, createPersonState, loadPerson, searchPeople, deletePeople, peopleIdsMatching, afterDeletePeople } from "@/app/actions/people";
+import { useRangeSelect } from "@/hooks/use-range-select";
+import { useFeedback } from "@/components/ui/feedback";
+import { notifyRecycleBinChanged } from "@/lib/recycle-bin-events";
 import { ParentSelect } from "@/components/app/parent-select";
 import { ListPager } from "@/components/ui/list-pager";
 import { Spinner } from "@/components/ui/spinner";
@@ -63,9 +66,9 @@ type Dept = { id: string; name: string };
 type Adult = { id: string; firstName: string; lastName: string };
 
 export function PeopleClient({
-  people, total: initialTotal, stats, canWrite, departments, groups = [], formFields, adults, categories = [], leaderTitles = [], initialQuery = "", youth = null, idCardsLocked = false,
+  people, total: initialTotal, stats, canWrite, canDelete = false, departments, groups = [], formFields, adults, categories = [], leaderTitles = [], initialQuery = "", youth = null, idCardsLocked = false,
 }: {
-  people: PersonListRow[]; total: number; stats: AllStats; canWrite: boolean; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults?: Adult[]; categories?: FormCategory[]; leaderTitles?: string[]; initialQuery?: string; youth?: { label: string; min: number; max: number } | null; idCardsLocked?: boolean;
+  people: PersonListRow[]; total: number; stats: AllStats; canWrite: boolean; canDelete?: boolean; departments: Dept[]; groups?: { id: string; name: string }[]; formFields: FormField[]; adults?: Adult[]; categories?: FormCategory[]; leaderTitles?: string[]; initialQuery?: string; youth?: { label: string; min: number; max: number } | null; idCardsLocked?: boolean;
 }) {
   const [ageTab, setAgeTab] = useState<AgeTab>("adult");
   const [query, setQuery] = useState(initialQuery);
@@ -97,6 +100,50 @@ export function PeopleClient({
   }, [query]);
 
   const filterKey = `${ageTab}|${debounced}|${segment}|${deptFilter}|${groupFilter}|${engFilter}|${catFilter}|${sortBy}|${youthOnly}`;
+
+  // Ticking people to delete several at once. Ticks are kept across pages; a new search or filter clears them.
+  const rowIds = useMemo(() => rows.map((r) => r.id), [rows]);
+  const pick = useRangeSelect(rowIds);
+  const { toast } = useFeedback();
+  const [bulk, setBulk] = useState<{ done: number; of: number } | null>(null);
+  const [selectingAll, setSelectingAll] = useState(false);
+  const currentQuery = () => ({
+    tab: ageTab, q: debounced, status: segment, department: deptFilter, groupId: groupFilter, engagement: engFilter,
+    categoryOptionId: catFilter, youth: isAdultTab && youth && youthOnly ? { min: youth.min, max: youth.max } : null, sort: sortBy,
+  });
+  async function selectAllMatching() {
+    setSelectingAll(true);
+    try {
+      const r = await peopleIdsMatching(currentQuery());
+      pick.setSel(new Set(r.ids));
+      if (r.total > r.ids.length) toast(`Selected the first ${r.ids.length.toLocaleString()} of ${r.total.toLocaleString()}. Delete them, then select again for the rest.`, "info");
+    } catch {
+      toast("Couldn't select everyone. Check your connection and try again.", "error");
+    } finally {
+      setSelectingAll(false);
+    }
+  }
+  async function deleteSelected() {
+    const ids = [...pick.sel];
+    if (!ids.length) return;
+    const n = ids.length;
+    if (!window.confirm(`Delete ${n.toLocaleString()} ${n === 1 ? "person" : "people"}?\n\nThey go to the Recycle Bin, so you can restore them from there if this was a mistake.`)) return;
+    setBulk({ done: 0, of: n });
+    let done = 0;
+    let error = "";
+    for (let i = 0; i < ids.length; i += 20) {
+      const r = await deletePeople(ids.slice(i, i + 20)).catch(() => ({ ok: false as const, error: "The connection dropped." }));
+      if (!r.ok) { error = r.error; break; }
+      done += r.deleted;
+      setBulk({ done: Math.min(i + 20, n), of: n });
+    }
+    await afterDeletePeople().catch(() => {});
+    notifyRecycleBinChanged();
+    setBulk(null);
+    pick.clear();
+    if (error) toast(`${done.toLocaleString()} deleted, then it stopped: ${error}`, "error");
+    else toast(`${done.toLocaleString()} ${done === 1 ? "person" : "people"} moved to the Recycle Bin.`, "success");
+  }
   const lastKey = useRef(filterKey);
   const reqId = useRef(0);
   const mounted = useRef(false);
@@ -132,6 +179,7 @@ export function PeopleClient({
   useEffect(() => {
     if (!mounted.current) { mounted.current = true; return; }
     lastKey.current = filterKey;
+    pick.clear();
     runSearch(1);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [filterKey]);
@@ -372,9 +420,14 @@ export function PeopleClient({
                 onClick={() => openPerson(p)}
                 role="button"
                 {...pressable(() => openPerson(p))}
-                className="group cursor-pointer rounded-2xl border border-line bg-surface p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/20 hover:shadow-md"
+                className={cn("group relative cursor-pointer rounded-2xl border bg-surface p-5 shadow-sm transition-all duration-200 hover:-translate-y-1 hover:border-primary/20 hover:shadow-md", pick.sel.has(p.id) ? "border-primary/50 ring-2 ring-primary/20" : "border-line")}
                 style={{ animationDelay: `${i * 30}ms` }}
               >
+                {canDelete && (
+                  <span className="absolute left-2 top-2 grid size-9 place-items-center" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                    <input type="checkbox" aria-label={`Select ${p.fullName}`} checked={pick.sel.has(p.id)} readOnly onClick={(e) => pick.tick(p.id, e.shiftKey)} className="size-4 cursor-pointer accent-[var(--color-primary)]" />
+                  </span>
+                )}
                 <div className="flex flex-col items-center text-center">
                   <ClickableAvatar name={p.fullName} photoUrl={p.photoUrl} gender={p.gender} size="lg" />
                   <h3 className="mt-3 font-display text-sm font-semibold">{p.fullName}</h3>
@@ -402,9 +455,14 @@ export function PeopleClient({
         </div>
       ) : (
         <div className="overflow-x-auto rounded-2xl border border-line bg-surface shadow-sm">
-          <table className="w-full min-w-[44rem] text-sm">
+          <table className={cn("w-full min-w-[44rem] text-sm", canDelete && "select-none")}>
             <thead className="border-b border-line bg-surface-2/50 text-left text-xs uppercase tracking-wide text-ink-faint">
               <tr>
+                {canDelete && (
+                  <th className="w-10 py-4 pl-4 pr-0">
+                    <input type="checkbox" aria-label="Select everyone on this page" checked={pick.allOn} onChange={pick.toggleAll} className="size-4 cursor-pointer accent-[var(--color-primary)]" />
+                  </th>
+                )}
                 <th className="p-4 font-medium">Name</th>
                 {isAdultTab ? (
                   <>
@@ -429,8 +487,13 @@ export function PeopleClient({
                     key={p.id}
                     onClick={() => openPerson(p)}
                     {...pressable(() => openPerson(p))}
-                    className="group cursor-pointer border-b border-line-soft transition-colors last:border-0 hover:bg-surface-2/50"
+                    className={cn("group cursor-pointer border-b border-line-soft transition-colors last:border-0 hover:bg-surface-2/50", pick.sel.has(p.id) && "bg-primary/[0.06]")}
                   >
+                    {canDelete && (
+                      <td className="py-4 pl-4 pr-0" onClick={(e) => e.stopPropagation()} onKeyDown={(e) => e.stopPropagation()}>
+                        <input type="checkbox" aria-label={`Select ${p.fullName}`} checked={pick.sel.has(p.id)} readOnly onClick={(e) => pick.tick(p.id, e.shiftKey)} className="size-4 cursor-pointer accent-[var(--color-primary)]" />
+                      </td>
+                    )}
                     <td className="p-4">
                       <div className="flex items-center gap-3">
                         <ClickableAvatar name={p.fullName} photoUrl={p.photoUrl} gender={p.gender} size="sm" />
@@ -477,6 +540,26 @@ export function PeopleClient({
       )}
 
       {total > pageSize && <ListPager page={pageNo} pages={pages} total={total} size={pageSize} onPage={(p) => runSearch(p)} />}
+      {canDelete && rows.length > 0 && pick.sel.size === 0 && (
+        <p className="mt-3 hidden text-xs text-ink-faint sm:block">Tip: tick one person, hold Shift and tick another to select everyone in between.</p>
+      )}
+
+      {canDelete && pick.sel.size > 0 && (
+        <div className="fixed inset-x-3 bottom-3 z-[45] mx-auto flex max-w-2xl flex-wrap items-center gap-2 rounded-2xl border border-line bg-surface p-3 shadow-2xl sm:bottom-5">
+          <span className="text-sm font-semibold text-ink">{pick.sel.size.toLocaleString()} selected</span>
+          {pick.sel.size < total && (
+            <button type="button" onClick={selectAllMatching} disabled={selectingAll || !!bulk} className="inline-flex items-center gap-1.5 text-sm font-medium text-primary-bright underline-offset-2 hover:underline disabled:opacity-50">
+              {selectingAll ? <><Spinner className="size-3.5" /> Selecting…</> : `Select all ${total.toLocaleString()}`}
+            </button>
+          )}
+          <div className="ml-auto flex items-center gap-2">
+            <Button size="sm" variant="ghost" onClick={pick.clear} disabled={!!bulk}>Clear</Button>
+            <Button size="sm" variant="danger" onClick={deleteSelected} disabled={!!bulk}>
+              {bulk ? <><Spinner className="size-4" /> Deleting {bulk.done.toLocaleString()} of {bulk.of.toLocaleString()}…</> : <><Trash2 className="size-4" /> Delete selected</>}
+            </Button>
+          </div>
+        </div>
+      )}
       {opening && (
         <div className="fixed inset-0 z-50 grid place-items-center bg-black/20" role="status" aria-live="polite">
           <div className="flex items-center gap-2 rounded-xl border border-line bg-surface px-4 py-3 text-sm text-ink shadow-lg"><Spinner className="size-4" /> Opening profile...</div>

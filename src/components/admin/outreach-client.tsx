@@ -1,5 +1,7 @@
 "use client";
 
+import { useRangeSelect } from "@/hooks/use-range-select";
+
 import { SortTh, type SortDir } from "@/components/admin/list-tools";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useMemo, useState } from "react";
@@ -46,7 +48,6 @@ export function OutreachClient({ data }: { data: OutreachData }) {
   const [filter, setFilter] = useState<"all" | "new" | "free" | "paid" | "trialEligible" | "trialActive" | "trialEnded">("all");
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<{ k: string; dir: SortDir }>({ k: "joined", dir: "desc" });
-  const [sel, setSel] = useState<Set<string>>(new Set());
   const [composer, setComposer] = useState<Composer>(null);
   const [history, setHistory] = useState<OutreachChurch | null>(null);
 
@@ -74,14 +75,15 @@ export function OutreachClient({ data }: { data: OutreachData }) {
     return (x < y ? -1 : x > y ? 1 : 0) * m;
   }), [data.churches, q, filter, sort]);
   const onSort = (k: string, dir: SortDir) => { setSort({ k, dir }); setPage(1); };
-  const chosen = data.churches.filter((c) => sel.has(c.id));
   // A page at a time. What is ticked is kept across pages, so a church ticked on page 1 is still chosen on page 3.
   const pages = Math.max(1, Math.ceil(rows.length / ADMIN_PAGE_SIZE));
   const cur = Math.min(page, pages);
   const pageRows = rows.slice((cur - 1) * ADMIN_PAGE_SIZE, cur * ADMIN_PAGE_SIZE);
+  const pageIds = useMemo(() => pageRows.map((r) => r.id), [pageRows]);
+  const { sel, setSel, tick } = useRangeSelect(pageIds);
+  const chosen = data.churches.filter((c) => sel.has(c.id));
   const allOn = pageRows.length > 0 && pageRows.every((r) => sel.has(r.id));
   const moreMatching = rows.some((r) => !sel.has(r.id));
-  const toggle = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
   return (
     <div>
@@ -172,7 +174,7 @@ export function OutreachClient({ data }: { data: OutreachData }) {
 
       <AdminCard className="overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full text-sm">
+          <table className="w-full select-none text-sm">
             <thead>
               <tr className="border-b border-white/10 text-left text-[11px] uppercase tracking-wide text-slate-500">
                 <th className="w-10 px-4 py-3"><input type="checkbox" checked={allOn} onChange={() => setSel((s) => { const n = new Set(s); for (const r of pageRows) { if (allOn) n.delete(r.id); else n.add(r.id); } return n; })} className="size-4 accent-teal-500" /></th>
@@ -188,7 +190,7 @@ export function OutreachClient({ data }: { data: OutreachData }) {
                 const o = c.contacts[0];
                 return (
                   <tr key={c.id} className="align-top hover:bg-white/[0.02]">
-                    <td className="px-4 py-3"><input type="checkbox" checked={sel.has(c.id)} onChange={() => toggle(c.id)} className="mt-1 size-4 accent-teal-500" /></td>
+                    <td className="px-4 py-3"><input type="checkbox" aria-label={`Select ${c.name}`} checked={sel.has(c.id)} readOnly onClick={(e) => tick(c.id, e.shiftKey)} className="mt-1 size-4 accent-teal-500" /></td>
                     <td className="px-2 py-3">
                       <div className="font-medium text-slate-100">{c.name}</div>
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-slate-500">

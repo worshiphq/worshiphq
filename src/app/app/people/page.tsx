@@ -58,6 +58,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
           total={first.total}
           stats={stats}
           canWrite={canEdit(session, "people")}
+          canDelete={!session.isDemo && session.canDelete && canEdit(session, "people")}
           departments={departments}
           groups={groups}
           formFields={formFields}

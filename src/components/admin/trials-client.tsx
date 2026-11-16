@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
+import { useRangeSelect } from "@/hooks/use-range-select";
 import { useRouter, usePathname } from "next/navigation";
 import Link from "@/components/ui/app-link";
 import { Loader2, Search, Sparkles } from "lucide-react";
@@ -45,8 +46,6 @@ export function TrialsClient({ settings, rows, counts, conversionPct, filter, q,
   const [busy, setBusy] = useState<string | null>(null);
   const [draft, setDraft] = useState<TrialSettings>(settings);
   const [search, setSearch] = useState(q);
-  const [sel, setSel] = useState<Set<string>>(new Set());
-  const lastIdx = useRef<number | null>(null);
   const dirty = JSON.stringify(draft) !== JSON.stringify(settings);
 
   const go = (next: { filter?: TrialFilter; q?: string; sort?: TrialSort }) => {
@@ -78,23 +77,9 @@ export function TrialsClient({ settings, rows, counts, conversionPct, filter, q,
     });
   };
 
-  // Ticking: a click ticks one church; shift-click ticks everything between this one and the last one clicked.
-  const tick = (idx: number, shift: boolean) => {
-    setSel((prev) => {
-      const next = new Set(prev);
-      const id = rows[idx].churchId;
-      if (shift && lastIdx.current !== null) {
-        const [a, b] = [Math.min(lastIdx.current, idx), Math.max(lastIdx.current, idx)];
-        const turnOn = !prev.has(id);
-        for (let i = a; i <= b; i++) { if (turnOn) next.add(rows[i].churchId); else next.delete(rows[i].churchId); }
-      } else if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
-    });
-    lastIdx.current = idx;
-  };
-  const pageAllOn = rows.length > 0 && rows.every((r) => sel.has(r.churchId));
-  const togglePage = () => setSel((prev) => { const n = new Set(prev); for (const r of rows) { if (pageAllOn) n.delete(r.churchId); else n.add(r.churchId); } return n; });
+  // Ticking: a click ticks one church; Shift-click ticks everything between this one and the last one clicked.
+  const rowIds = useMemo(() => rows.map((r) => r.churchId), [rows]);
+  const { sel, setSel, tick, allOn: pageAllOn, toggleAll: togglePage, clear } = useRangeSelect(rowIds);
   const chosen = [...sel];
   const bulk = (key: string, fn: (ids: string[]) => Promise<Result>) => run(key, () => fn(chosen), () => setSel(new Set()));
 
@@ -237,7 +222,7 @@ export function TrialsClient({ settings, rows, counts, conversionPct, filter, q,
           <button className={ghost} title="Switch on the free Communications trial for these churches" disabled={pending || !settings.comms.enabled} onClick={() => { if (window.confirm(`Switch on ${settings.comms.days} days of free Communications for ${chosen.length} church${chosen.length === 1 ? "" : "es"}? Paid churches are skipped.`)) bulk("b-comms", (ids) => grantCommsBulk(ids, settings.comms.days)); }}>{busy === "b-comms" ? <><Loader2 className="size-3.5 animate-spin" /> Switching on…</> : `Give ${settings.comms.days}-day Communications`}</button>
           <button className={ghost} disabled={pending} onClick={() => bulk("b-commsend", (ids) => endCommsBulk(ids))}>{busy === "b-commsend" ? <Loader2 className="size-3.5 animate-spin" /> : "End Communications"}</button>
           <button className={ghost} title="Cancel the trial and let the church start it itself again" disabled={pending} onClick={() => { if (window.confirm(`Reset the trial for ${chosen.length} church${chosen.length === 1 ? "" : "es"}? The trial and its notice go away, and they can start it themselves again.`)) bulk("b-reset", (ids) => resetTrialBulk(ids)); }}>{busy === "b-reset" ? <Loader2 className="size-3.5 animate-spin" /> : "Reset trial"}</button>
-          <button className="ml-auto text-xs text-slate-400 hover:text-white" onClick={() => { setSel(new Set()); lastIdx.current = null; }}>Clear</button>
+          <button className="ml-auto text-xs text-slate-400 hover:text-white" onClick={clear}>Clear</button>
         </div>
       )}
 
@@ -257,7 +242,7 @@ export function TrialsClient({ settings, rows, counts, conversionPct, filter, q,
                 return (
                   <tr key={r.churchId} className={cn("align-top hover:bg-white/[0.02]", on && "bg-teal-500/[0.06]")}>
                     <td className="px-4 py-3">
-                      <input type="checkbox" aria-label={`Select ${r.name}`} checked={on} readOnly onClick={(e) => tick(idx, e.shiftKey)} className="mt-0.5 size-4 accent-teal-500" />
+                      <input type="checkbox" aria-label={`Select ${r.name}`} checked={on} readOnly onClick={(e) => tick(r.churchId, e.shiftKey)} className="mt-0.5 size-4 accent-teal-500" />
                     </td>
                     <td className="px-2 py-3 font-medium text-slate-100">{r.name}</td>
                     <td className="px-2 py-3 text-right tabular-nums text-slate-200">{r.members.toLocaleString()}</td>

@@ -9,6 +9,7 @@ import {
   CheckCircle2, AlertCircle, Users, Receipt, Landmark,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
+import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar } from "@/components/ui/avatar";
@@ -77,13 +78,11 @@ export function TitheClient({
   const [savingTemplate, startTemplateSave] = useTransition();
   const { toast } = useFeedback();
 
-  // "Record tithes" from the Giving list above opens the recorder and scrolls to it.
+  // "Record tithes" at the top of the Giving page (or the phone's Record giving button) opens the recorder as a pop-up,
+  // so nobody has to scroll down to find it.
+  const [tithePopup, setTithePopup] = useState(false);
   useEffect(() => {
-    const open = () => {
-      setTab("record");
-      setFundType("tithes");
-      requestAnimationFrame(() => document.getElementById("tithes-records")?.scrollIntoView({ behavior: "smooth", block: "start" }));
-    };
+    const open = () => setTithePopup(true);
     window.addEventListener("whq:record-tithes", open);
     return () => window.removeEventListener("whq:record-tithes", open);
   }, []);
@@ -251,6 +250,11 @@ export function TitheClient({
       )}
 
       {tab === "record" && canWrite && <BatchRecorder fundType={fundType} activeFundName={activeFundName} accounts={accounts} />}
+      {tithePopup && canWrite && (
+        <Modal open wide onClose={() => setTithePopup(false)} title="Record tithes" description={`Pick members, enter each amount, and they get an SMS receipt. Recorded for ${monthLabel}.`}>
+          <BatchRecorder fundType="tithes" activeFundName="Tithes" accounts={accounts} bare onDone={() => setTithePopup(false)} />
+        </Modal>
+      )}
       {tab === "records" && <WeeklyRecords weeks={weeks} />}
       {tab === "report" && <MonthlyReport weeks={weeks} monthLabel={monthLabel} monthTotal={monthTotal} year={year} month={month} />}
     </div>
@@ -259,7 +263,7 @@ export function TitheClient({
 
 /* ────── Batch Recorder ────── */
 
-function BatchRecorder({ fundType, activeFundName, accounts }: { fundType: string; activeFundName: string; accounts: AccountOption[] }) {
+function BatchRecorder({ fundType, activeFundName, accounts, bare = false, onDone }: { fundType: string; activeFundName: string; accounts: AccountOption[]; bare?: boolean; onDone?: () => void }) {
   const router = useRouter();
   const [entries, setEntries] = useState<LocalEntry[]>([]);
   const [search, setSearch] = useState("");
@@ -344,6 +348,7 @@ function BatchRecorder({ fundType, activeFundName, accounts }: { fundType: strin
         toast(msg, ("insufficientCredits" in result && result.insufficientCredits) ? "error" : "success");
         setEntries([]);
         router.refresh();
+        onDone?.();
       } else {
         toast(result.error ?? "Failed to record", "error");
       }
@@ -362,8 +367,8 @@ function BatchRecorder({ fundType, activeFundName, accounts }: { fundType: strin
   }
 
   return (
-    <Card className="p-4 sm:p-6">
-      <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+    <Card className={bare ? "border-0 bg-transparent p-0 shadow-none" : "p-4 sm:p-6"}>
+      <div className={cn("mb-5 flex flex-wrap items-center justify-between gap-3", bare && "hidden")}>
         <div>
           <h3 className="font-display text-lg font-semibold">Record {activeFundName}</h3>
           <p className="text-sm text-ink-muted">

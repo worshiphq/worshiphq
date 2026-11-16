@@ -9,7 +9,7 @@ import { getFormDefinition, questionFields } from "@/lib/forms/registration";
 import { buildPersonData } from "@/lib/forms/person-data";
 import { nextMemberId, resolveDepartmentIds, resolveGroupIds } from "@/lib/members/helpers";
 import { logAudit } from "@/lib/audit";
-import { getPersonFull, queryPeople, type PeopleQuery } from "@/lib/data/people";
+import { getPersonFull, queryPeople, queryPeopleIds, type PeopleQuery } from "@/lib/data/people";
 import { RecycleBin } from "@/lib/recycle-bin";
 import { saveMemberCategoryChoices } from "@/lib/members/categories";
 import { cleanLeaderTitle, leaderTitleList } from "@/lib/leader-titles";
@@ -211,4 +211,45 @@ export async function searchPeople(query: PeopleQuery) {
   const session = await requireSession();
   if (!session.isDemo && !session.impersonating && session.sections && !session.sections.includes("people")) throw new Error("Not allowed.");
   return queryPeople(session.churchId, query);
+}
+
+/** Every id matching the People search and filters, for "Select all that match". */
+export async function peopleIdsMatching(query: PeopleQuery) {
+  const session = await requireSession();
+  if (!session.isDemo && !session.impersonating && session.sections && !session.sections.includes("people")) throw new Error("Not allowed.");
+  return queryPeopleIds(session.churchId, query);
+}
+
+/**
+ * Delete several people at once. Each one goes to the Recycle Bin first, exactly like deleting one, so a mistake
+ * can be restored. Called in small batches by the People page so it can show progress.
+ */
+export async function deletePeople(ids: string[]): Promise<{ ok: true; deleted: number } | { ok: false; error: string }> {
+  const session = await requireSession();
+  try {
+    assertCanDelete(session);
+  } catch {
+    return { ok: false, error: "You don't have permission to delete people." };
+  }
+  if (!session.isDemo && !session.impersonating && session.sections && !session.sections.includes("people")) return { ok: false, error: "Not allowed." };
+  const unique = [...new Set(ids.filter((x) => typeof x === "string"))].slice(0, 50);
+  if (!unique.length) return { ok: true, deleted: 0 };
+  const people = await db.person.findMany({ where: { id: { in: unique }, churchId: session.churchId }, select: { id: true, firstName: true, lastName: true } });
+  let deleted = 0;
+  for (const p of people) {
+    await RecycleBin.capturePerson(session, p.id);
+    const r = await db.person.deleteMany({ where: { id: p.id, churchId: session.churchId } });
+    if (r.count) {
+      deleted++;
+      await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: "person", entityId: p.id, detail: `Deleted ${p.firstName} ${p.lastName} (bulk)` });
+    }
+  }
+  return { ok: true, deleted };
+}
+
+/** After a bulk delete finishes: refresh the People page and the dashboard once. */
+export async function afterDeletePeople() {
+  await requireSession();
+  revalidatePath("/app/people");
+  revalidatePath("/app");
 }
