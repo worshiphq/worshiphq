@@ -733,6 +733,7 @@ function BillingTab({ trial, subscription, features, ro, platformPricing, paymen
     return dbPrice ? { ...merged, monthly: dbPrice.monthly, yearly: dbPrice.yearly } : merged;
   });
   const sym = platformPricing?.currencySymbol ?? "₵";
+  const payInGhs = platformPricing?.currency === "GHS";
   // Round before formatting: a yearly price shown per-month (100/12) is 8.3333..., and toLocaleString
   // would print "8.333". Never show a price with stray decimals.
   const fmtPrice = (amount: number) =>
@@ -1091,9 +1092,9 @@ function BillingTab({ trial, subscription, features, ro, platformPricing, paymen
             return {
               id: p.id, kind: "plan", at: p.paidAt, title: `${p.plan} plan · ${term}`,
               detail: p.note || (src === "paystack" ? p.reference : ""),
-              amountDisplay: src === "granted" ? 0 : p.amountUsd, amountGhs: p.amountGhs, discountDisplay: p.discountUsd,
+              // Ghana churches pay in cedis: show the cedis they paid, not the dollar list price under a GHS label.
+              amountDisplay: src === "granted" ? 0 : payInGhs ? null : p.amountUsd, amountGhs: p.amountGhs, discountDisplay: payInGhs ? 0 : p.discountUsd,
               source: src, status: p.status === "refunded" ? "refunded" : "paid",
-              canRefund: src === "paystack" && p.amountUsd > 0,
             };
           }),
           ...smsTopups.map((t): PaymentItem => ({

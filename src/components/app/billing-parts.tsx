@@ -6,7 +6,6 @@ import { ArrowUpRight, ChevronLeft, ChevronRight, Gift, Landmark, MessageSquare,
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
-import { brand } from "@/config/brand";
 
 export type PaymentItem = {
   id: string;
@@ -21,7 +20,6 @@ export type PaymentItem = {
   discountDisplay?: number;
   source: "paystack" | "offline" | "granted";
   status: "paid" | "refunded";
-  canRefund?: boolean;
 };
 
 const fmtDate = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
@@ -200,15 +198,6 @@ export function PaymentHistory({ items, sym }: { items: PaymentItem[]; sym: stri
                     </>
                   )}
                 </div>
-                {p.canRefund && p.status !== "refunded" && (
-                  // Refunds are asked for by email, so there is always a written record. See the Refund Policy.
-                  <a
-                    href={`mailto:${brand.email.support}?subject=${encodeURIComponent(`Refund request - ${p.detail || p.title}`)}&body=${encodeURIComponent(`Church name:\nPayment reference: ${p.detail || ""}\nReason for the request:\n`)}`}
-                    className="shrink-0 text-xs font-medium text-ink-faint hover:text-primary hover:underline"
-                  >
-                    Refund? Email us
-                  </a>
-                )}
               </li>
             );
           })}
