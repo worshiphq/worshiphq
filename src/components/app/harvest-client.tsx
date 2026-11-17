@@ -170,7 +170,7 @@ function HarvestSetup({ year }: { year: number }) {
         </div>
         <div>
           <Label htmlFor="goal">Goal amount (optional)</Label>
-          <Input id="goal" name="goal" type="number" min="0" step="0.01" placeholder="e.g. 50000" />
+          <Input id="goal" name="goal" type="number" inputMode="decimal" min="0" step="0.01" placeholder="e.g. 50000" />
         </div>
         <SubmitButton successMessage="Harvest created">Create harvest</SubmitButton>
       </form>
@@ -604,7 +604,7 @@ function ContributionRecorder({ year, accounts }: { year: number; accounts: Acco
               <div className="flex items-center gap-2">
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-ink-faint">₵</span>
-                  <input type="number" min="1" step="0.01" value={entry.amount} onChange={(e) => updateAmount(idx, e.target.value)} placeholder="0.00"
+                  <input type="number" inputMode="decimal" min="1" step="0.01" value={entry.amount} onChange={(e) => updateAmount(idx, e.target.value)} placeholder="0.00"
                     className="w-28 rounded-lg border border-line bg-surface py-2 pl-7 pr-3 text-right text-sm font-medium outline-none focus:border-primary/50 focus:ring-2 focus:ring-primary/25" />
                 </div>
                 <select value={entry.method} onChange={(e) => updateMethod(idx, e.target.value)} className="rounded-lg border border-line bg-surface px-2 py-2 text-xs outline-none">
@@ -734,7 +734,7 @@ function ContributionsList({ contributions, canWrite }: { contributions: Harvest
                   />
                   {c.donorType === "anonymous" && (
                     <input
-                      type="number"
+                      type="number" inputMode="numeric"
                       min="1"
                       step="1"
                       value={editEnvelopes}
@@ -748,7 +748,7 @@ function ContributionsList({ contributions, canWrite }: { contributions: Harvest
                   <div className="relative">
                     <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-faint">GHS</span>
                     <input
-                      type="number"
+                      type="number" inputMode="decimal"
                       min="0.01"
                       step="0.01"
                       value={editAmount}

@@ -57,12 +57,12 @@ export default async function BudgetsPage() {
             disabled={!canEdit(session, "budgets")}
           >
             <Field label="Budget name" name="name" placeholder="e.g. 2026 Youth Ministry" required />
-            <Field label="Allocated amount (₵)" name="amount" type="number" placeholder="e.g. 5000" required hint="The funds this budget is given. Income & expenses are tracked live against it." />
+            <Field label="Allocated amount (₵)" name="amount" type="number" inputMode="decimal" step="0.01" placeholder="e.g. 5000" required hint="The funds this budget is given. Income & expenses are tracked live against it." />
             <Field label="Department / ministry" name="departmentId" type="select" options={[
               { label: "Whole church (no department)", value: "" },
               ...departments.map((d) => ({ label: d.name, value: d.id })),
             ]} />
-            <Field label="Year" name="year" type="number" placeholder={String(currentYear)} required />
+            <Field label="Year" name="year" type="number" inputMode="numeric" placeholder={String(currentYear)} required />
             <Field label="Quarter (optional)" name="quarter" type="select" options={[
               { label: "Annual (full year)", value: "" },
               { label: "Q1 (Jan-Mar)", value: "1" },

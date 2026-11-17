@@ -57,10 +57,10 @@ export default async function ManageEventPage({ params }: { params: Promise<{ id
               <Field label="Time" name="time" type="time" defaultValue={timeValue} />
             </div>
             <Field label="Location" name="location" defaultValue={ev.location ?? ""} placeholder="Main auditorium" />
-            <Field label="Capacity" name="capacity" type="number" defaultValue={ev.capacity ?? ""} placeholder="Leave empty for no limit" />
+            <Field label="Capacity" name="capacity" type="number" inputMode="numeric" defaultValue={ev.capacity ?? ""} placeholder="Leave empty for no limit" />
             <div className="grid grid-cols-2 gap-3">
               <Field label="Pricing" name="paid" options={["Free", "Paid"]} defaultValue={ev.paid ? "Paid" : "Free"} />
-              <Field label="Price (₵)" name="price" type="number" defaultValue={ev.price ? Number(ev.price) : ""} placeholder="0" />
+              <Field label="Price (₵)" name="price" type="number" inputMode="decimal" step="0.01" defaultValue={ev.price ? Number(ev.price) : ""} placeholder="0" />
             </div>
             <Field label="Notes" name="notes" rows={3} defaultValue={ev.notes ?? ""} />
           </ActionDialog>

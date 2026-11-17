@@ -41,10 +41,10 @@ export default async function EventsPage() {
             <Field label="Date" name="date" type="date" required />
             <Field label="Time" name="time" type="time" defaultValue="09:00" />
           </div>
-          <Field label="Capacity" name="capacity" type="number" placeholder="500" />
+          <Field label="Capacity" name="capacity" type="number" inputMode="numeric" placeholder="500" />
           <div className="grid grid-cols-2 gap-3">
             <Field label="Pricing" name="paid" options={["Free", "Paid"]} />
-            <Field label="Price (₵)" name="price" type="number" placeholder="0" />
+            <Field label="Price (₵)" name="price" type="number" inputMode="decimal" step="0.01" placeholder="0" />
           </div>
         </ActionDialog>
       </PageHeader>

@@ -9,6 +9,7 @@ import { Modal } from "@/components/ui/modal";
 import { OtherSelect } from "@/components/app/other-select";
 import { SearchSelect } from "@/components/app/search-select";
 import { searchPickerPeople } from "@/app/actions/lists";
+import { blurNumberOnWheel, keypadFor } from "@/components/ui/input";
 
 /**
  * A button that opens a modal with a form bound to a server action.
@@ -92,6 +93,7 @@ export function Field({
   options,
   suggestions,
   step,
+  inputMode,
   hint,
   rows,
   searchable,
@@ -107,6 +109,8 @@ export function Field({
   /** Free-text input with a dropdown of suggested values (type your own too). */
   suggestions?: string[];
   step?: string;
+  /** Override the phone keypad (number fields default to the number pad, tel to the phone pad). */
+  inputMode?: "decimal" | "numeric" | "tel";
   hint?: string;
   rows?: number;
   /** A select you can type into to narrow the list (use for members and other long lists). */
@@ -171,6 +175,8 @@ export function Field({
           name={name}
           type={type}
           step={step}
+          inputMode={keypadFor(type, step, inputMode)}
+          onWheel={type === "number" ? blurNumberOnWheel : undefined}
           placeholder={placeholder}
           defaultValue={defaultValue}
           required={required}

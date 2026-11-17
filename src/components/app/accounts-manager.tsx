@@ -167,7 +167,7 @@ export function AccountsManager({ accounts, canWrite, onStatement }: { accounts:
                 </div>
                 <div>
                   <Label>Amount (₵)</Label>
-                  <Input name="amount" type="number" step="0.01" min="0" placeholder="0.00" required />
+                  <Input name="amount" type="number" inputMode="decimal" step="0.01" min="0" placeholder="0.00" required />
                 </div>
                 <div>
                   <Label>Note (optional)</Label>
@@ -208,7 +208,7 @@ export function AccountsManager({ accounts, canWrite, onStatement }: { accounts:
                 </div>
                 <div>
                   <Label>Opening balance (₵)</Label>
-                  <Input name="openingBalance" type="number" step="0.01" min="0" placeholder="0.00" defaultValue={typeof drawer === "object" ? String(drawer.edit.openingBalance) : "0"} />
+                  <Input name="openingBalance" type="number" inputMode="decimal" step="0.01" min="0" placeholder="0.00" defaultValue={typeof drawer === "object" ? String(drawer.edit.openingBalance) : "0"} />
                   <p className="mt-1 text-xs text-ink-faint">What&rsquo;s already in the account today. Giving &amp; expenses adjust it from here.</p>
                 </div>
                 <SubmitButton className="w-full" pendingLabel="Saving…" successMessage={drawer === "new" ? "Account added" : "Account updated"}>

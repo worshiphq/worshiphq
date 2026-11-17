@@ -106,7 +106,7 @@ export function ServiceTimesTab({ canManage }: { canManage: boolean }) {
             <div>
               <Label htmlFor="grace">Early or late arrivals join the nearest service within</Label>
               <div className="flex items-center gap-2">
-                <Input id="grace" type="number" min={0} max={240} value={grace} onChange={(e) => setGrace(e.target.value)} className="w-24" />
+                <Input id="grace" type="number" inputMode="numeric" min={0} max={240} value={grace} onChange={(e) => setGrace(e.target.value)} className="w-24" />
                 <span className="text-sm text-ink-muted">minutes</span>
               </div>
             </div>

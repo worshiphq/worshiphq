@@ -459,7 +459,7 @@ function BookingDialog({ booking, facilities, onClose }: { booking: BookingRow |
         </div>
         <div>
           <Label htmlFor="b-amt">Charge (₵, optional)</Label>
-          <Input id="b-amt" name="amount" type="number" min="0" step="0.01" value={shownAmount} onChange={(e) => { setAmount(e.target.value); setAmountTouched(true); }} placeholder="Leave empty if free" />
+          <Input id="b-amt" name="amount" type="number" inputMode="decimal" min="0" step="0.01" value={shownAmount} onChange={(e) => { setAmount(e.target.value); setAmountTouched(true); }} placeholder="Leave empty if free" />
           <p className="mt-1 text-[11px] text-ink-faint">{!amountTouched && auto?.amount != null ? `Worked out from the price: ${auto.detail}. You can type a different amount.` : "Set a price to track what has been paid and what is still owed."}</p>
         </div>
         <div><Label htmlFor="b-n">Notes (optional)</Label><Input id="b-n" name="notes" defaultValue={booking?.notes ?? ""} placeholder="Setup, sound system, number of guests…" /></div>
@@ -553,8 +553,8 @@ function FacilityDialog({ facility, onClose }: { facility: FacilityRow | null; o
         </div>
         <div><Label htmlFor="f-name">Name</Label><Input id="f-name" name="name" defaultValue={facility?.name} placeholder="e.g. Main hall" required /></div>
         <div className="grid gap-3 sm:grid-cols-2">
-          <div><Label htmlFor="f-cap">Capacity</Label><Input id="f-cap" name="capacity" type="number" min="0" defaultValue={facility?.capacity ?? ""} placeholder="People it holds" /></div>
-          <div><Label htmlFor="f-rate">Price (₵)</Label><Input id="f-rate" name="rate" type="number" min="0" step="0.01" defaultValue={facility?.rate ?? ""} placeholder="Optional" /></div>
+          <div><Label htmlFor="f-cap">Capacity</Label><Input id="f-cap" name="capacity" type="number" inputMode="numeric" min="0" defaultValue={facility?.capacity ?? ""} placeholder="People it holds" /></div>
+          <div><Label htmlFor="f-rate">Price (₵)</Label><Input id="f-rate" name="rate" type="number" inputMode="decimal" min="0" step="0.01" defaultValue={facility?.rate ?? ""} placeholder="Optional" /></div>
         </div>
         <div>
           <Label htmlFor="f-unit">The price is</Label>
@@ -651,7 +651,7 @@ function PaymentDialog({ booking, accounts, onClose }: { booking: BookingRow; ac
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
               <Label htmlFor="p-amt">Amount (₵)</Label>
-              <Input id="p-amt" name="amount" type="number" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required />
+              <Input id="p-amt" name="amount" type="number" inputMode="decimal" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required />
             </div>
             <div>
               <Label htmlFor="p-m">Paid by</Label>

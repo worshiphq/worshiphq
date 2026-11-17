@@ -319,7 +319,7 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
               <div><label className={labelCls} htmlFor="rc-name">Name *</label><input id="rc-name" className={input} value={form.toName} onChange={(e) => set("toName", e.target.value)} placeholder="Full name" /></div>
               <div><label className={labelCls} htmlFor="rc-org">Church or company</label><input id="rc-org" className={input} value={form.toOrg} onChange={(e) => set("toOrg", e.target.value)} placeholder="Church or company name" /></div>
               <div><label className={labelCls} htmlFor="rc-email">Their email</label><input id="rc-email" type="email" className={input} value={form.toEmail} onChange={(e) => set("toEmail", e.target.value)} placeholder="name@church.org" /></div>
-              <div><label className={labelCls} htmlFor="rc-phone">Phone</label><input id="rc-phone" className={input} value={form.toPhone} onChange={(e) => set("toPhone", e.target.value)} placeholder="024 000 0000" /></div>
+              <div><label className={labelCls} htmlFor="rc-phone">Phone</label><input id="rc-phone" type="tel" inputMode="tel" className={input} value={form.toPhone} onChange={(e) => set("toPhone", e.target.value)} placeholder="024 000 0000" /></div>
               <div className="sm:col-span-2"><label className={labelCls} htmlFor="rc-addr">Address (optional)</label><input id="rc-addr" className={input} value={form.toAddress} onChange={(e) => set("toAddress", e.target.value)} placeholder="Town or street address" /></div>
             </div>
           </div>
@@ -510,7 +510,7 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
                         <div><label className={labelCls} htmlFor="re-org">Church or company</label><input id="re-org" className={input} value={edit.toOrg} maxLength={160} onChange={(e) => setEdit({ ...edit, toOrg: e.target.value })} /></div>
                         <div><label className={labelCls} htmlFor="re-date">Date paid (the date on the receipt)</label><input id="re-date" type="date" className={input} value={edit.issuedOn} onChange={(e) => setEdit({ ...edit, issuedOn: e.target.value })} /></div>
                         <div><label className={labelCls} htmlFor="re-email">Email</label><input id="re-email" type="email" className={input} value={edit.toEmail} onChange={(e) => setEdit({ ...edit, toEmail: e.target.value })} /></div>
-                        <div><label className={labelCls} htmlFor="re-phone">Phone</label><input id="re-phone" className={input} value={edit.toPhone} maxLength={40} onChange={(e) => setEdit({ ...edit, toPhone: e.target.value })} /></div>
+                        <div><label className={labelCls} htmlFor="re-phone">Phone</label><input id="re-phone" type="tel" inputMode="tel" className={input} value={edit.toPhone} maxLength={40} onChange={(e) => setEdit({ ...edit, toPhone: e.target.value })} /></div>
                         <div><label className={labelCls} htmlFor="re-addr">Address</label><input id="re-addr" className={input} value={edit.toAddress} maxLength={240} onChange={(e) => setEdit({ ...edit, toAddress: e.target.value })} /></div>
                         <div><label className={labelCls} htmlFor="re-method">Paid by</label><input id="re-method" className={input} value={edit.method} maxLength={60} onChange={(e) => setEdit({ ...edit, method: e.target.value })} placeholder="Cash, Mobile Money..." /></div>
                         <div><label className={labelCls} htmlFor="re-ref">Reference{edit.kind !== "manual" ? " (fixed, it links to the billing record)" : ""}</label><input id="re-ref" className={input} value={edit.reference} maxLength={120} disabled={edit.kind !== "manual"} onChange={(e) => setEdit({ ...edit, reference: e.target.value })} /></div>
@@ -527,16 +527,16 @@ export function ReceiptsClient({ data }: { data: ReceiptsPageData }) {
                             {edit.items.map((it, i) => (
                               <div key={i} className="grid grid-cols-[1fr_5rem_7rem_auto] gap-2">
                                 <input aria-label={`Line ${i + 1} description`} className={input} value={it.description} maxLength={160} onChange={(e) => setEdit({ ...edit, items: edit.items.map((x, idx) => idx === i ? { ...x, description: e.target.value } : x) })} placeholder="Description" />
-                                <input aria-label={`Line ${i + 1} quantity`} className={input} type="number" min="0" value={it.qty} onChange={(e) => setEdit({ ...edit, items: edit.items.map((x, idx) => idx === i ? { ...x, qty: e.target.value } : x) })} />
-                                <input aria-label={`Line ${i + 1} price of one`} className={input} type="number" min="0" step="0.01" value={it.unit} onChange={(e) => setEdit({ ...edit, items: edit.items.map((x, idx) => idx === i ? { ...x, unit: e.target.value } : x) })} />
+                                <input aria-label={`Line ${i + 1} quantity`} className={input} type="number" inputMode="numeric" min="0" value={it.qty} onChange={(e) => setEdit({ ...edit, items: edit.items.map((x, idx) => idx === i ? { ...x, qty: e.target.value } : x) })} />
+                                <input aria-label={`Line ${i + 1} price of one`} className={input} type="number" inputMode="decimal" min="0" step="0.01" value={it.unit} onChange={(e) => setEdit({ ...edit, items: edit.items.map((x, idx) => idx === i ? { ...x, unit: e.target.value } : x) })} />
                                 <button type="button" aria-label={`Remove line ${i + 1}`} disabled={edit.items.length === 1} onClick={() => setEdit({ ...edit, items: edit.items.filter((_, idx) => idx !== i) })} className="rounded-md p-1.5 text-slate-500 hover:bg-red-500/10 hover:text-red-300 disabled:opacity-30"><Trash2 className="size-4" /></button>
                               </div>
                             ))}
                           </div>
                           <button type="button" className={`${ghost} mt-2`} onClick={() => setEdit({ ...edit, items: [...edit.items, blankItem()] })} disabled={edit.items.length >= 30}><Plus className="size-4" /> Add a line</button>
                           <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                            <div><label className={labelCls} htmlFor="re-disc">Discount ({CURRENCIES[edit.currency] ?? edit.currency})</label><input id="re-disc" className={input} type="number" min="0" step="0.01" value={edit.discount} onChange={(e) => setEdit({ ...edit, discount: e.target.value })} /></div>
-                            <div><label className={labelCls} htmlFor="re-paid">Amount paid ({CURRENCIES[edit.currency] ?? edit.currency})</label><input id="re-paid" className={input} type="number" min="0" step="0.01" value={edit.paid} onChange={(e) => setEdit({ ...edit, paid: e.target.value })} /></div>
+                            <div><label className={labelCls} htmlFor="re-disc">Discount ({CURRENCIES[edit.currency] ?? edit.currency})</label><input id="re-disc" className={input} type="number" inputMode="decimal" min="0" step="0.01" value={edit.discount} onChange={(e) => setEdit({ ...edit, discount: e.target.value })} /></div>
+                            <div><label className={labelCls} htmlFor="re-paid">Amount paid ({CURRENCIES[edit.currency] ?? edit.currency})</label><input id="re-paid" className={input} type="number" inputMode="decimal" min="0" step="0.01" value={edit.paid} onChange={(e) => setEdit({ ...edit, paid: e.target.value })} /></div>
                           </div>
                         </div>
                       ) : (

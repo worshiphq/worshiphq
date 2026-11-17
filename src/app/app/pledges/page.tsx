@@ -50,7 +50,7 @@ export default async function PledgesPage() {
             disabled={!canEdit(session, "pledges")}
           >
             <Field label="Campaign name" name="name" placeholder="e.g. Building fund" required />
-            <Field label="Goal (GHS)" name="goal" type="number" placeholder="10000" required />
+            <Field label="Goal (GHS)" name="goal" type="number" inputMode="decimal" step="0.01" placeholder="10000" required />
             <Field label="End date" name="endsAt" type="date" />
           </ActionDialog>
 

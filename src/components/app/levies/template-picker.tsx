@@ -78,13 +78,13 @@ export function TemplatePicker({ open, onClose, streams, todayYmd, parent }: {
                   <div className="mt-3 grid gap-2 pl-6 sm:grid-cols-[140px_1fr]">
                     {d.kind === "percent" ? (
                       <div className="relative">
-                        <input type="number" min="0" max="100" step="0.01" value={d.rate ?? ""} onChange={(e) => update(it, { rate: e.target.value === "" ? null : Number(e.target.value) })} className={`${inputCls} pr-8 text-right`} aria-label="Percentage" />
+                        <input type="number" inputMode="decimal" min="0" max="100" step="0.01" value={d.rate ?? ""} onChange={(e) => update(it, { rate: e.target.value === "" ? null : Number(e.target.value) })} className={`${inputCls} pr-8 text-right`} aria-label="Percentage" />
                         <span className="absolute right-3 top-1/2 -translate-y-1/2 text-sm text-ink-faint">%</span>
                       </div>
                     ) : (
                       <div className="relative">
                         <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-ink-faint">₵</span>
-                        <input type="number" min="0" step="0.01" value={d.fixedAmount ?? ""} placeholder={it.placeholder ?? "Amount"} onChange={(e) => update(it, { fixedAmount: e.target.value === "" ? null : Number(e.target.value) })} className={`${inputCls} pl-7 text-right`} aria-label="Amount" />
+                        <input type="number" inputMode="decimal" min="0" step="0.01" value={d.fixedAmount ?? ""} placeholder={it.placeholder ?? "Amount"} onChange={(e) => update(it, { fixedAmount: e.target.value === "" ? null : Number(e.target.value) })} className={`${inputCls} pl-7 text-right`} aria-label="Amount" />
                       </div>
                     )}
                     {d.kind === "percent" ? (

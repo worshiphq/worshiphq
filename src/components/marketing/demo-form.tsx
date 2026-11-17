@@ -60,7 +60,7 @@ export function DemoForm() {
               </div>
               <div>
                 <Label htmlFor="phone">Phone / WhatsApp</Label>
-                <Input id="phone" placeholder="+233 20 000 0000" />
+                <Input id="phone" type="tel" inputMode="tel" autoComplete="tel" placeholder="+233 20 000 0000" />
               </div>
             </div>
             <div>

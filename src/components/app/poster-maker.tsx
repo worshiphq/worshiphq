@@ -346,11 +346,11 @@ export function PosterMaker({
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <Label htmlFor="pm-w">Width (cm)</Label>
-                    <Input id="pm-w" type="number" min={5} max={100} step="0.1" value={customW} onChange={(e) => setCustomW(e.target.value)} />
+                    <Input id="pm-w" type="number" inputMode="decimal" min={5} max={100} step="0.1" value={customW} onChange={(e) => setCustomW(e.target.value)} />
                   </div>
                   <div>
                     <Label htmlFor="pm-h">Height (cm)</Label>
-                    <Input id="pm-h" type="number" min={5} max={100} step="0.1" value={customH} onChange={(e) => setCustomH(e.target.value)} />
+                    <Input id="pm-h" type="number" inputMode="decimal" min={5} max={100} step="0.1" value={customH} onChange={(e) => setCustomH(e.target.value)} />
                   </div>
                 </div>
               )}

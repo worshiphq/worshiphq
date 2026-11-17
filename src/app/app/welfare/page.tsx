@@ -71,7 +71,7 @@ export default async function WelfarePage({
           <input type="hidden" name="kind" value="aid" />
           <Field label="Recipient name" name="recipientName" placeholder="Full name" required />
           <Field label="Type" name="type" options={WELFARE_TYPES} />
-          <Field label="Amount (GHS)" name="amount" type="number" placeholder="0" />
+          <Field label="Amount (GHS)" name="amount" type="number" inputMode="decimal" step="0.01" placeholder="0" />
           {accountField && (
             <Field label="Pay from account" name="accountId"
               options={accounts.map((a) => ({ label: `${a.name}${a.isDefault ? " (default)" : ""}`, value: a.id }))} />

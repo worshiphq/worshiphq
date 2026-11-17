@@ -36,7 +36,7 @@ export function FeaturedLeaderCountSetting({ current }: { current: number }) {
     <div className="flex items-center gap-1.5">
       <label className="text-xs text-ink-faint">Show</label>
       <input
-        type="number"
+        type="number" inputMode="numeric"
         min={1}
         max={50}
         value={count}

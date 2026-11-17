@@ -292,7 +292,7 @@ export function PledgesClient({
                             router.refresh();
                           })}
                         >
-                          <Input name="payment" type="number" step="0.01" min="0" placeholder="Amount" required autoFocus className="h-9" />
+                          <Input name="payment" type="number" inputMode="decimal" step="0.01" min="0" placeholder="Amount" required autoFocus className="h-9" />
                           <select name="method" defaultValue="Cash" className="h-9 rounded-lg border border-line bg-base px-2 text-sm">
                             {METHODS.map((m) => <option key={m} value={m}>{m}</option>)}
                           </select>

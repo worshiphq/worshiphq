@@ -90,7 +90,7 @@ export function StaffFormModal({ open, onClose, initial, departments, team }: {
           </div>
           <div className="grid gap-4 sm:grid-cols-3">
             <div><Label htmlFor="sf-start">Start date</Label><Input id="sf-start" name="startDate" type="date" defaultValue={v.startDate?.slice(0, 10) ?? ""} /></div>
-            <div><Label htmlFor="sf-phone">Mobile number</Label><Input id="sf-phone" name="phone" inputMode="tel" defaultValue={v.phone ?? ""} /></div>
+            <div><Label htmlFor="sf-phone">Mobile number</Label><Input id="sf-phone" name="phone" type="tel" inputMode="tel" defaultValue={v.phone ?? ""} /></div>
             <div><Label htmlFor="sf-email">Email</Label><Input id="sf-email" name="email" type="email" defaultValue={v.email ?? ""} /></div>
           </div>
           <div>
@@ -104,7 +104,7 @@ export function StaffFormModal({ open, onClose, initial, departments, team }: {
             <legend className="px-1 text-sm font-semibold">Emergency contact</legend>
             <div className="grid gap-4 sm:grid-cols-3">
               <div><Label htmlFor="sf-en">Name</Label><Input id="sf-en" name="emergencyName" defaultValue={v.emergencyName ?? ""} /></div>
-              <div><Label htmlFor="sf-ep">Phone</Label><Input id="sf-ep" name="emergencyPhone" inputMode="tel" defaultValue={v.emergencyPhone ?? ""} /></div>
+              <div><Label htmlFor="sf-ep">Phone</Label><Input id="sf-ep" name="emergencyPhone" type="tel" inputMode="tel" defaultValue={v.emergencyPhone ?? ""} /></div>
               <div><Label htmlFor="sf-er">Relationship</Label><Input id="sf-er" name="emergencyRelation" placeholder="e.g. Husband" defaultValue={v.emergencyRelation ?? ""} /></div>
             </div>
           </fieldset>

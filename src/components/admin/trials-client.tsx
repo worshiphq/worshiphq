@@ -106,7 +106,7 @@ export function TrialsClient({ settings, rows, counts, conversionPct, filter, q,
           </label>
           <label className="block text-sm">
             <span className="font-medium text-slate-200">Days per trial</span>
-            <input type="number" min={1} max={MAX_TRIAL_DAYS} value={draft.days} onChange={(e) => setDraft({ ...draft, days: Math.max(1, Math.min(MAX_TRIAL_DAYS, Number(e.target.value) || 1)) })} className={`${input} mt-1 w-24`} />
+            <input type="number" inputMode="numeric" min={1} max={MAX_TRIAL_DAYS} value={draft.days} onChange={(e) => setDraft({ ...draft, days: Math.max(1, Math.min(MAX_TRIAL_DAYS, Number(e.target.value) || 1)) })} className={`${input} mt-1 w-24`} />
           </label>
           <div className="text-sm">
             <span className="font-medium text-slate-200">Which upgrades can be tried</span>
@@ -129,8 +129,8 @@ export function TrialsClient({ settings, rows, counts, conversionPct, filter, q,
               Offer it automatically when a church has
             </label>
             <div className="mt-2 flex flex-wrap items-center gap-2 text-slate-300">
-              <input type="number" min={0} value={draft.auto.minMembers} disabled={!draft.auto.enabled} onChange={(e) => setDraft({ ...draft, auto: { ...draft.auto, minMembers: Math.max(0, Number(e.target.value) || 0) } })} className={`${input} w-20`} /> or more members, and has been on the site
-              <input type="number" min={0} value={draft.auto.minDays} disabled={!draft.auto.enabled} onChange={(e) => setDraft({ ...draft, auto: { ...draft.auto, minDays: Math.max(0, Number(e.target.value) || 0) } })} className={`${input} w-20`} /> or more days
+              <input type="number" inputMode="numeric" min={0} value={draft.auto.minMembers} disabled={!draft.auto.enabled} onChange={(e) => setDraft({ ...draft, auto: { ...draft.auto, minMembers: Math.max(0, Number(e.target.value) || 0) } })} className={`${input} w-20`} /> or more members, and has been on the site
+              <input type="number" inputMode="numeric" min={0} value={draft.auto.minDays} disabled={!draft.auto.enabled} onChange={(e) => setDraft({ ...draft, auto: { ...draft.auto, minDays: Math.max(0, Number(e.target.value) || 0) } })} className={`${input} w-20`} /> or more days
             </div>
           </div>
           <div className="text-sm">
@@ -142,7 +142,7 @@ export function TrialsClient({ settings, rows, counts, conversionPct, filter, q,
             </label>
             <div className="mt-2 flex items-center gap-2 text-slate-300">
               Usual length
-              <input type="number" min={1} max={COMMS_TRIAL_MAX_DAYS} value={draft.comms.days} onChange={(e) => setDraft({ ...draft, comms: { ...draft.comms, days: Math.max(1, Math.min(COMMS_TRIAL_MAX_DAYS, Number(e.target.value) || 1)) } })} className={`${input} w-20`} /> days
+              <input type="number" inputMode="numeric" min={1} max={COMMS_TRIAL_MAX_DAYS} value={draft.comms.days} onChange={(e) => setDraft({ ...draft, comms: { ...draft.comms, days: Math.max(1, Math.min(COMMS_TRIAL_MAX_DAYS, Number(e.target.value) || 1)) } })} className={`${input} w-20`} /> days
             </div>
           </div>
         </div>

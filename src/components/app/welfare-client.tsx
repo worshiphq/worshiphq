@@ -398,11 +398,11 @@ function RatesPanel({ rates, currentYear, defaultOpen = false }: { rates: { year
           <div className="flex flex-wrap items-end gap-2">
             <div>
               <label className="mb-1 block text-xs text-ink-faint">Year</label>
-              <input type="number" value={year} onChange={(e) => setYear(e.target.value)} className="h-9 w-24 rounded-lg border border-line bg-surface px-2.5 text-sm" />
+              <input type="number" inputMode="numeric" value={year} onChange={(e) => setYear(e.target.value)} className="h-9 w-24 rounded-lg border border-line bg-surface px-2.5 text-sm" />
             </div>
             <div>
               <label className="mb-1 block text-xs text-ink-faint">Amount / month (GHS)</label>
-              <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 20" className="h-9 w-40 rounded-lg border border-line bg-surface px-2.5 text-sm" />
+              <input type="number" inputMode="decimal" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g. 20" className="h-9 w-40 rounded-lg border border-line bg-surface px-2.5 text-sm" />
             </div>
             <Button size="sm" onClick={save} disabled={pending || !amount}>{pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} Save rate</Button>
           </div>
@@ -487,7 +487,7 @@ function RecordDuesForm({ accounts, rates, currentYear }: {
           options={[]}
           search={(q) => searchPickerPeople("welfare", q, { who: "notInactive" })}
         />
-        <input type="number" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)}
+        <input type="number" inputMode="decimal" min="0" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)}
           placeholder="Amount / month (optional - else uses each year's rate)" className={inputCls} />
       </div>
       <div className="mt-2 flex flex-wrap items-center gap-2 text-sm">
@@ -694,7 +694,7 @@ function MemberDetailDialog({ member, rates, canWrite, onClose }: {
                         <span className="w-24 text-ink-muted">{MONTHS_FULL[r.month - 1]}</span>
                         {editId === r.id ? (
                           <>
-                            <input type="number" min="0" step="0.01" value={editAmt} onChange={(e) => setEditAmt(e.target.value)}
+                            <input type="number" inputMode="decimal" min="0" step="0.01" value={editAmt} onChange={(e) => setEditAmt(e.target.value)}
                               className="h-8 w-24 rounded-lg border border-line bg-surface px-2 text-sm" autoFocus />
                             <button onClick={() => saveEdit(r.id)} className="grid size-7 place-items-center rounded-lg text-success hover:bg-success/10"><Check className="size-4" /></button>
                             <button onClick={() => setEditId(null)} className="grid size-7 place-items-center rounded-lg text-ink-faint hover:bg-surface-2"><X className="size-4" /></button>

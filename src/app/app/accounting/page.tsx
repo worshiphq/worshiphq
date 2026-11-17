@@ -78,7 +78,7 @@ export default async function AccountingPage({
           <Field label="Description" name="description" placeholder="e.g. Hall rental, bank interest" required />
           <div className="grid grid-cols-2 gap-3">
             <Field label="Type" name="type" options={["Income", "Expense"]} />
-            <Field label="Amount (₵)" name="amount" type="number" step="0.01" placeholder="0.00" required />
+            <Field label="Amount (₵)" name="amount" type="number" inputMode="decimal" step="0.01" placeholder="0.00" required />
           </div>
           <div className="grid grid-cols-2 gap-3">
             <Field label="Date" name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />

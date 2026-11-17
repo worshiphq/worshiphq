@@ -90,7 +90,7 @@ function ScheduleEditor({ initial, canPublish }: { initial: ScheduleItem[]; canP
             <select value={it.kind} onChange={(e) => set(i, { kind: e.target.value as ScheduleItem["kind"] })} className={selectCls} disabled={!canPublish} aria-label="Kind">
               <option value="percent">Percent</option><option value="fixed">Fixed</option>
             </select>
-            <input type="number" min="0" step="0.01" value={(it.kind === "percent" ? it.rate : it.fixedAmount) ?? ""} onChange={(e) => set(i, it.kind === "percent" ? { rate: e.target.value === "" ? null : Number(e.target.value) } : { fixedAmount: e.target.value === "" ? null : Number(e.target.value) })} placeholder={it.kind === "percent" ? "%" : "GH₵"} className={inputCls} disabled={!canPublish} aria-label="Amount" />
+            <input type="number" inputMode="decimal" min="0" step="0.01" value={(it.kind === "percent" ? it.rate : it.fixedAmount) ?? ""} onChange={(e) => set(i, it.kind === "percent" ? { rate: e.target.value === "" ? null : Number(e.target.value) } : { fixedAmount: e.target.value === "" ? null : Number(e.target.value) })} placeholder={it.kind === "percent" ? "%" : "GH₵"} className={inputCls} disabled={!canPublish} aria-label="Amount" />
             {it.kind === "percent" ? (
               <select value={it.sourceHint ?? "tithes"} onChange={(e) => set(i, { sourceHint: e.target.value as ScheduleItem["sourceHint"] })} className={selectCls} disabled={!canPublish} aria-label="Of">
                 <option value="tithes">of tithes</option><option value="offertory">of offerings</option><option value="tithes_offertory">of both</option><option value="all">of all income</option>

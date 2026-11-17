@@ -1021,7 +1021,7 @@ function BillingTab({ trial, subscription, features, ro, platformPricing, paymen
                 });
               }}
             >
-              <Input name="code" placeholder="Enter 6-digit code" maxLength={6} className="w-40 font-mono tracking-widest" required />
+              <Input name="code" inputMode="numeric" autoComplete="one-time-code" placeholder="Enter 6-digit code" maxLength={6} className="w-40 font-mono tracking-widest" required />
               <Button type="submit" size="sm" disabled={switching}>
                 {switching ? "Activating..." : "Activate"}
               </Button>

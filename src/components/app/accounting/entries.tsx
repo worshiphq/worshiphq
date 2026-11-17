@@ -183,7 +183,7 @@ function EntryRow({ row, canWrite, canDelete, onHide }: { row: LedgerRow; canWri
         <input value={fund} onChange={(e) => setFund(e.target.value)} placeholder="Fund" className={cn(inp, "w-28")} />
         <div className="relative">
           <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-xs text-ink-faint">GHS</span>
-          <input type="number" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className={cn(inp, "w-28 pl-10 text-right font-medium")} />
+          <input type="number" inputMode="decimal" min="0.01" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} className={cn(inp, "w-28 pl-10 text-right font-medium")} />
         </div>
         <button onClick={save} disabled={pending} className="grid size-8 place-items-center rounded-lg text-success hover:bg-success/10" title="Save">
           {pending ? <div className="size-3.5 animate-spin rounded-full border-2 border-success border-t-transparent" /> : <Check className="size-4" />}

@@ -1,6 +1,7 @@
 "use client";
 
 import { PhoneInput } from "@/components/ui/phone-input";
+import { blurNumberOnWheel, keypadFor } from "@/components/ui/input";
 import { useRef, useState } from "react";
 import { Camera, Check, UploadCloud, X } from "lucide-react";
 import { type FormField, DEPARTMENT_FIELD_ID, GROUPS_FIELD_ID, splitSteps, questionFields } from "@/lib/forms/registration";
@@ -151,7 +152,7 @@ export function MemberFormFields({
         ) : f.type === "tel" ? (
           <PhoneInput name={f.id} required={f.required} value={values[f.id] ?? ""} onChange={(v) => setValue(f.id, v)} />
         ) : (
-          <input name={f.id} type={f.type} required={f.required} placeholder={f.placeholder} value={values[f.id] ?? ""} onChange={(e) => setValue(f.id, e.target.value)} className={input} />
+          <input name={f.id} type={f.type} inputMode={keypadFor(f.type)} onWheel={f.type === "number" ? blurNumberOnWheel : undefined} required={f.required} placeholder={f.placeholder} value={values[f.id] ?? ""} onChange={(e) => setValue(f.id, e.target.value)} className={input} />
         )}
         {f.help && <p className="mt-1 text-xs text-ink-faint">{f.help}</p>}
       </div>

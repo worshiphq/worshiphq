@@ -288,7 +288,7 @@ export function DayBornClient({
                     </Label>
                     <Input
                       name={day}
-                      type="number"
+                      type="number" inputMode="decimal"
                       min="0"
                       step="0.01"
                       placeholder="0.00"
@@ -483,7 +483,7 @@ function MomoForm({
           <Label className="text-xs">Amount</Label>
           <Input
             name="amount"
-            type="number"
+            type="number" inputMode="decimal"
             min="0.01"
             step="0.01"
             required

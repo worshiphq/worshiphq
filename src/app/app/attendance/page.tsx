@@ -60,10 +60,10 @@ export default async function AttendancePage() {
             <Field label="Service" name="serviceName" placeholder="Sunday 1st Service" defaultValue="Sunday Service" required />
             <Field label="Date" name="date" type="date" required />
             <div className="grid grid-cols-2 gap-3">
-              <Field label="Adults" name="adults" type="number" placeholder="0" defaultValue={0} />
-              <Field label="Teens" name="teens" type="number" placeholder="0" defaultValue={0} />
-              <Field label="Children" name="children" type="number" placeholder="0" defaultValue={0} />
-              <Field label="Visitors" name="visitors" type="number" placeholder="0" defaultValue={0} />
+              <Field label="Adults" name="adults" type="number" inputMode="numeric" placeholder="0" defaultValue={0} />
+              <Field label="Teens" name="teens" type="number" inputMode="numeric" placeholder="0" defaultValue={0} />
+              <Field label="Children" name="children" type="number" inputMode="numeric" placeholder="0" defaultValue={0} />
+              <Field label="Visitors" name="visitors" type="number" inputMode="numeric" placeholder="0" defaultValue={0} />
             </div>
           </ActionDialog>
         </span>

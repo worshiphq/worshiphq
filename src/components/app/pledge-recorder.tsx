@@ -172,7 +172,7 @@ export function PledgeRecorder({
 
               <div>
                 <Label>Amount pledged (GHS)</Label>
-                <Input name="amount" type="number" step="0.01" min="0" placeholder="500" required />
+                <Input name="amount" type="number" inputMode="decimal" step="0.01" min="0" placeholder="500" required />
               </div>
 
               <div className="grid grid-cols-2 gap-3">

@@ -264,7 +264,7 @@ export function BudgetsClient({
                             "Office supplies", "Transport", "Welfare", "Construction", "Other",
                           ]} required />
                           <Field label="Description" name="description" placeholder="e.g. Monthly electricity bill" required />
-                          <Field label="Amount (GHS)" name="amount" type="number" placeholder="0.00" required />
+                          <Field label="Amount (GHS)" name="amount" type="number" inputMode="decimal" step="0.01" placeholder="0.00" required />
                         </ActionDialog>
                       </div>
                     )}
@@ -315,7 +315,7 @@ function AddEntryForm({ budgetId, action, accounts }: { budgetId: string; action
       </div>
       <input id={`entry-desc-${budgetId}`} name="description" placeholder="What was it for?" required
         className="h-9 rounded-lg border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none" />
-      <input name="amount" type="number" step="0.01" min="0" placeholder="Amount (₵)" required
+      <input name="amount" type="number" inputMode="decimal" step="0.01" min="0" placeholder="Amount (₵)" required
         className="h-9 w-28 rounded-lg border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none" />
       <button type="submit" disabled={pending} className="inline-flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary px-3 text-sm font-medium text-white disabled:opacity-60">
         {pending ? <Loader2 className="size-4 animate-spin" /> : <Plus className="size-4" />} Add

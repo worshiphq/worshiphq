@@ -326,7 +326,7 @@ function RecordGiftDialog({ funds, accounts, onClose }: { funds: { name: string 
           <input type="hidden" name="method" value={method} />
           <div><Label htmlFor="donor">Donor</Label><Input id="donor" name="donor" placeholder="Member name (or leave as Anonymous)" /></div>
           <div className="grid grid-cols-2 gap-3">
-            <div><Label htmlFor="amount">Amount (₵)</Label><Input id="amount" name="amount" type="number" min="1" step="0.01" placeholder="100" required /></div>
+            <div><Label htmlFor="amount">Amount (₵)</Label><Input id="amount" name="amount" type="number" inputMode="decimal" min="1" step="0.01" placeholder="100" required /></div>
             <div>
               <Label htmlFor="fund">Fund</Label>
               <select id="fund" name="fund" className="flex h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30">

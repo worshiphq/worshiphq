@@ -98,7 +98,7 @@ export function CouponManager({
           <span className={label}>{discountType === "percent" ? "Percent (%)" : `Amount (${currencySymbol})`}</span>
           <input
             name="discountValue"
-            type="number"
+            type="number" inputMode="decimal"
             step="0.01"
             min="0"
             required

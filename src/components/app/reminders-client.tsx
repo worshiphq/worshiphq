@@ -87,7 +87,7 @@ export function RemindersClient({
             <>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-ink-muted">Follow up how many days after the visit?</label>
-                <input name="delayDays" type="number" min={0} max={30} defaultValue={3} className={SELECT} />
+                <input name="delayDays" type="number" inputMode="numeric" min={0} max={30} defaultValue={3} className={SELECT} />
               </div>
               <div>
                 <label className="mb-1.5 block text-sm font-medium text-ink-muted">Send at a specific time? (optional)</label>
@@ -324,7 +324,7 @@ function AutomationCard({ automation: a, canWrite, canDelete }: { automation: Au
               <div>
                 <Label className="text-sm font-medium">Days after the visit</Label>
                 <input
-                  type="number" min={0} max={30} value={delayDays}
+                  type="number" inputMode="numeric" min={0} max={30} value={delayDays}
                   onChange={(e) => setDelayDays(Math.min(30, Math.max(0, parseInt(e.target.value, 10) || 0)))}
                   className="mt-1 h-10 w-full rounded-xl border border-line bg-surface px-3 text-sm outline-none focus:border-primary/50"
                 />

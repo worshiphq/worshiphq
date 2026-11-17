@@ -166,11 +166,11 @@ export function RuleWizard({ open, onClose, initial, editing, streams, rules, pa
                 <div className="mt-3 grid grid-cols-2 gap-3">
                   <div>
                     <label className={labelCls} htmlFor="lw-min">Never less than</label>
-                    <input id="lw-min" type="number" min="0" step="0.01" value={d.minAmount ?? ""} onChange={(e) => set({ minAmount: e.target.value === "" ? null : Number(e.target.value) })} placeholder="No minimum" className={inputCls} />
+                    <input id="lw-min" type="number" inputMode="decimal" min="0" step="0.01" value={d.minAmount ?? ""} onChange={(e) => set({ minAmount: e.target.value === "" ? null : Number(e.target.value) })} placeholder="No minimum" className={inputCls} />
                   </div>
                   <div>
                     <label className={labelCls} htmlFor="lw-max">Never more than</label>
-                    <input id="lw-max" type="number" min="0" step="0.01" value={d.maxAmount ?? ""} onChange={(e) => set({ maxAmount: e.target.value === "" ? null : Number(e.target.value) })} placeholder="No maximum" className={inputCls} />
+                    <input id="lw-max" type="number" inputMode="decimal" min="0" step="0.01" value={d.maxAmount ?? ""} onChange={(e) => set({ maxAmount: e.target.value === "" ? null : Number(e.target.value) })} placeholder="No maximum" className={inputCls} />
                   </div>
                 </div>
               </details>
@@ -237,7 +237,7 @@ export function RuleWizard({ open, onClose, initial, editing, streams, rules, pa
                 )}
                 <div>
                   <label className={labelCls} htmlFor="lw-due">Due how many days after each period ends</label>
-                  <input id="lw-due" type="number" min="0" max="120" value={d.dueDays} onChange={(e) => set({ dueDays: Math.max(0, Math.min(120, Number(e.target.value) || 0)) })} className={inputCls} />
+                  <input id="lw-due" type="number" inputMode="numeric" min="0" max="120" value={d.dueDays} onChange={(e) => set({ dueDays: Math.max(0, Math.min(120, Number(e.target.value) || 0)) })} className={inputCls} />
                 </div>
                 <div>
                   <label className={labelCls} htmlFor="lw-start">Starts counting from</label>

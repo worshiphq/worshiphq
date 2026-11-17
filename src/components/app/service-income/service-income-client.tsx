@@ -80,7 +80,7 @@ function HeaderDialog({ s, onClose }: { s: ServiceCard; onClose: () => void }) {
         {s.attendanceFrom === "session" ? (
           <p className="flex items-center gap-2 rounded-xl bg-surface-2 px-4 py-3 text-sm"><Users className="size-4 text-primary" /> From attendance: <b>{s.attendance} people</b></p>
         ) : (
-          <div><label className={labelCls} htmlFor="sh-count">How many came?</label><input id="sh-count" type="number" min="0" value={headcount} onChange={(e) => setHeadcount(e.target.value)} placeholder="Headcount" className={inputCls} /></div>
+          <div><label className={labelCls} htmlFor="sh-count">How many came?</label><input id="sh-count" type="number" inputMode="numeric" min="0" value={headcount} onChange={(e) => setHeadcount(e.target.value)} placeholder="Headcount" className={inputCls} /></div>
         )}
         <div className="grid gap-3 sm:grid-cols-2">
           <div><label className={labelCls} htmlFor="sh-by">Counted by</label><input id="sh-by" value={countedBy} onChange={(e) => setCountedBy(e.target.value)} placeholder="e.g. Ama and Kojo" maxLength={120} className={inputCls} /></div>

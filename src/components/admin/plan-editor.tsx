@@ -231,7 +231,7 @@ export function PlanEditor({
           <span className="text-slate-500">Paystack rate</span>
           <span>1 {currency} =</span>
           <input
-            type="number" min={0} step="0.01" value={rate}
+            type="number" inputMode="decimal" min={0} step="0.01" value={rate}
             onChange={(e) => setRate(e.target.value)}
             className="h-9 w-20 rounded-lg border border-white/10 bg-white/5 px-2 text-sm text-slate-100 focus:border-teal-400/60 focus:outline-none"
           />
@@ -272,7 +272,7 @@ export function PlanEditor({
               <div className="relative">
                 <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">{symbol}</span>
                 <input
-                  type="number" min={0} step="0.01" value={p.monthly}
+                  type="number" inputMode="decimal" min={0} step="0.01" value={p.monthly}
                   onChange={(e) => patch(p.id, { monthly: Number(e.target.value) || 0 })}
                   className={cell + " pl-7"}
                 />
@@ -284,7 +284,7 @@ export function PlanEditor({
                   <div className="relative">
                     <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">₵</span>
                     <input
-                      type="number" min={0} step="1" value={p.ghsMonthly || ""}
+                      type="number" inputMode="numeric" min={0} step="1" value={p.ghsMonthly || ""}
                       placeholder={String(Math.round(p.monthly * (Number(rate) || 0)))}
                       onChange={(e) => patch(p.id, { ghsMonthly: Math.round(Number(e.target.value) || 0) })}
                       className={cell + " pl-7"}
@@ -299,7 +299,7 @@ export function PlanEditor({
                   <div className="relative">
                     <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">{symbol}</span>
                     <input
-                      type="number" min={0} step="0.01" value={p.yearly}
+                      type="number" inputMode="decimal" min={0} step="0.01" value={p.yearly}
                       onChange={(e) => patch(p.id, { yearly: Number(e.target.value) || 0 })}
                       className={cell + " pl-7"}
                     />
@@ -310,7 +310,7 @@ export function PlanEditor({
                       <div className="relative">
                         <span className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-sm text-slate-500">₵</span>
                         <input
-                          type="number" min={0} step="1" value={p.ghsYearly || ""}
+                          type="number" inputMode="numeric" min={0} step="1" value={p.ghsYearly || ""}
                           placeholder={String(Math.round(p.yearly * (Number(rate) || 0)))}
                           onChange={(e) => patch(p.id, { ghsYearly: Math.round(Number(e.target.value) || 0) })}
                           className={cell + " pl-7"}
@@ -331,7 +331,7 @@ export function PlanEditor({
                   ) : (
                     <div className="flex items-center gap-1">
                       <input
-                        type="number" min={0} value={p.memberLimit}
+                        type="number" inputMode="numeric" min={0} value={p.memberLimit}
                         onChange={(e) => patch(p.id, { memberLimit: Number(e.target.value) || 0 })}
                         className={cell}
                       />
@@ -350,7 +350,7 @@ export function PlanEditor({
                   ) : (
                     <div className="flex items-center gap-1">
                       <input
-                        type="number" min={0} value={p.teamUsers}
+                        type="number" inputMode="numeric" min={0} value={p.teamUsers}
                         onChange={(e) => patch(p.id, { teamUsers: Number(e.target.value) || 0 })}
                         className={cell}
                       />
@@ -364,13 +364,13 @@ export function PlanEditor({
 
               <FieldLabel className="mt-3">Online giving fee (% WorshipHQ takes per gift)</FieldLabel>
               <input
-                type="number" min={0} max={100} step="0.01" value={p.givingPercent ?? 0}
+                type="number" inputMode="decimal" min={0} max={100} step="0.01" value={p.givingPercent ?? 0}
                 onChange={(e) => patch(p.id, { givingPercent: Math.max(0, Number(e.target.value) || 0) })}
                 className={cell} placeholder="1.5"
               />
               <FieldLabel className="mt-3">Most WorshipHQ takes from one gift (GH₵, 0 = no cap)</FieldLabel>
               <input
-                type="number" min={0} step="1" value={p.givingCap ?? 0}
+                type="number" inputMode="numeric" min={0} step="1" value={p.givingCap ?? 0}
                 onChange={(e) => patch(p.id, { givingCap: Math.max(0, Number(e.target.value) || 0) })}
                 className={cell} placeholder="0"
               />
