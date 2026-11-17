@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { db } from "@/lib/db";
 import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import { sendChurchSms } from "@/lib/sms/credits";
@@ -78,7 +79,7 @@ export async function runAutomations(now = new Date(), opts: { only?: string[]; 
   outcomes: AutomationOutcome[];
 }> {
   const churches = await onlyWithFeature(await db.church.findMany({
-    where: { isDemo: false },
+    where: LIVE_CHURCH,
     select: { id: true, name: true, timezone: true, absenceOn: true, messageTemplates: true },
   }), "automations");
 

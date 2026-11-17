@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { db } from "@/lib/db";
 
 /**
@@ -91,13 +92,13 @@ export async function getSmsStock(carrier: "hubtel" | "nalo" = "hubtel"): Promis
 
   const [usageSince, ledgerByChurch, trimsByChurch, churches] = await Promise.all([
     db.smsTransaction.aggregate({
-      where: { kind: "usage", church: { isDemo: false, ...onCarrier }, ...(since ? { createdAt: { gt: since } } : {}) },
+      where: { kind: "usage", church: { ...LIVE_CHURCH, ...onCarrier }, ...(since ? { createdAt: { gt: since } } : {}) },
       _sum: { credits: true },
     }),
-    db.smsTransaction.groupBy({ by: ["churchId"], where: { church: { isDemo: false } }, _sum: { credits: true } }),
+    db.smsTransaction.groupBy({ by: ["churchId"], where: { church: LIVE_CHURCH }, _sum: { credits: true } }),
     // Free-credit trims are adjustments to FREE credits, not to bought or gifted ones, so they are added back.
-    db.smsTransaction.groupBy({ by: ["churchId"], where: { church: { isDemo: false }, adminNote: { startsWith: "Free credits trimmed" } }, _sum: { credits: true } }),
-    db.church.findMany({ where: { isDemo: false, smsCredits: { gt: 0 }, ...onCarrier }, select: { id: true, smsCredits: true } }),
+    db.smsTransaction.groupBy({ by: ["churchId"], where: { church: LIVE_CHURCH, adminNote: { startsWith: "Free credits trimmed" } }, _sum: { credits: true } }),
+    db.church.findMany({ where: { ...LIVE_CHURCH, smsCredits: { gt: 0 }, ...onCarrier }, select: { id: true, smsCredits: true } }),
   ]);
 
   const sentSince = Math.abs(usageSince._sum.credits ?? 0);

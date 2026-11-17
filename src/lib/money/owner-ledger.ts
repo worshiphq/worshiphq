@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { db } from "@/lib/db";
 
 /**
@@ -52,13 +53,13 @@ async function earnedIncome(since?: Date): Promise<EarnedRow[]> {
     db.planPayment.findMany({
       // amountGhs > 0 keeps out ₵0 rows: gift grants, bypass redemptions and 100% coupons are not
       // money received, and counting them would quietly inflate every total on this page.
-      where: { amountGhs: { gt: 0 }, ...(since ? { createdAt: { gte: since } } : {}) },
+      where: { amountGhs: { gt: 0 }, church: LIVE_CHURCH, ...(since ? { createdAt: { gte: since } } : {}) },
       select: { id: true, createdAt: true, amountGhs: true, plan: true, interval: true, church: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       take: 500,
     }),
     db.smsTransaction.findMany({
-      where: { kind: "topup", amountGhs: { gt: 0 }, ...(since ? { createdAt: { gte: since } } : {}) },
+      where: { kind: "topup", amountGhs: { gt: 0 }, church: LIVE_CHURCH, ...(since ? { createdAt: { gte: since } } : {}) },
       select: { id: true, createdAt: true, amountGhs: true, credits: true, church: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
       take: 500,

@@ -1,3 +1,4 @@
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { paging } from "@/lib/admin-paging";
 import "server-only";
 import type { Prisma } from "@prisma/client";
@@ -13,6 +14,8 @@ export interface ChurchRow {
   heardFrom: string | null;
   suspended: boolean;
   isDemo: boolean;
+  /** Hidden internal QA church (only listed with ?internal=1). */
+  isInternal: boolean;
   plan: string;
   members: number;
   users: number;
@@ -32,7 +35,7 @@ export type ChurchesPage = { rows: ChurchRow[]; total: number; page: number; pag
  * One page of the platform's churches (newest first), with headline stats. The search runs across EVERY church, not just
  * the page on screen, and giving is added up for this page's churches only, not for the whole platform.
  */
-export async function getChurchesPage(opts: { page?: number; q?: string; size?: number; sort?: string; dir?: string; plan?: string; status?: string } = {}): Promise<ChurchesPage> {
+export async function getChurchesPage(opts: { page?: number; q?: string; size?: number; sort?: string; dir?: string; plan?: string; status?: string; internal?: boolean } = {}): Promise<ChurchesPage> {
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1);
   const q = opts.q?.trim();
   const digits = q?.replace(/\D/g, "") ?? "";
@@ -53,6 +56,8 @@ export async function getChurchesPage(opts: { page?: number; q?: string; size?: 
   else if (opts.plan && ["starter", "pro", "max"].includes(opts.plan)) and.push({ subscription: { plan: opts.plan } });
   if (opts.status === "suspended") and.push({ suspended: true });
   else if (opts.status === "active") and.push({ suspended: false });
+  // The internal QA church stays out of the list unless asked for with ?internal=1.
+  if (!opts.internal) and.push({ isInternal: false });
   const where: Prisma.ChurchWhereInput = and.length ? { AND: and } : {};
   const dir: Prisma.SortOrder = opts.dir === "asc" ? "asc" : "desc";
   const orderBy: Prisma.ChurchOrderByWithRelationInput[] =
@@ -77,6 +82,7 @@ export async function getChurchesPage(opts: { page?: number; q?: string; size?: 
       city: true,
       suspended: true,
       isDemo: true,
+      isInternal: true,
       smsCredits: true,
       smsTier: true,
       smsSenderId: true,
@@ -108,6 +114,7 @@ export async function getChurchesPage(opts: { page?: number; q?: string; size?: 
     heardFrom: c.heardFrom ? `${c.heardFrom}${c.heardFromDetail ? `: ${c.heardFromDetail}` : ""}` : null,
     suspended: c.suspended,
     isDemo: c.isDemo,
+    isInternal: c.isInternal,
 
     smsSenderId: c.smsSenderId,
     smsSenderIdStatus: c.smsSenderIdStatus,
@@ -145,14 +152,14 @@ export async function getPlatformStats(): Promise<PlatformStats> {
 
   const [churches, activeChurches, members, users, givingAgg, signups, churchDates] =
     await Promise.all([
-      db.church.count({ where: { isDemo: false } }),
-      db.church.count({ where: { isDemo: false, suspended: false } }),
-      db.person.count(),
-      db.user.count(),
-      db.gift.aggregate({ _sum: { amount: true }, where: { date: { gte: startOfMonth } } }),
-      db.church.count({ where: { isDemo: false, createdAt: { gte: startOfMonth } } }),
+      db.church.count({ where: LIVE_CHURCH }),
+      db.church.count({ where: { ...LIVE_CHURCH, suspended: false } }),
+      db.person.count({ where: { church: LIVE_CHURCH } }),
+      db.user.count({ where: { church: LIVE_CHURCH } }),
+      db.gift.aggregate({ _sum: { amount: true }, where: { date: { gte: startOfMonth }, church: LIVE_CHURCH } }),
+      db.church.count({ where: { ...LIVE_CHURCH, createdAt: { gte: startOfMonth } } }),
       db.church.findMany({
-        where: { isDemo: false, createdAt: { gte: sixMonthsAgo } },
+        where: { ...LIVE_CHURCH, createdAt: { gte: sixMonthsAgo } },
         select: { createdAt: true },
       }),
     ]);

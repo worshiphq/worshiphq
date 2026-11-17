@@ -411,7 +411,7 @@ async function _loadSession(): Promise<Session | null> {
       churchName: church.name,
       branch: "All branches",
       avatarName: "WorshipHQ Support",
-      isDemo: false,
+      isDemo: false, // live-church-ok: a session flag, not a church filter
       impersonating: true,
       sections: [...ALL_MODULES],
       manageSections: [...ALL_MODULES],

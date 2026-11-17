@@ -1,3 +1,4 @@
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { requireSuperAdmin } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { BackupsAdmin } from "@/components/admin/backups-admin";
@@ -13,7 +14,7 @@ export default async function AdminBackupsPage() {
   const [platform, churches, totals, recent] = await Promise.all([
     db.platformConfig.findUnique({ where: { id: "default" }, select: { backupsEnabled: true, backupKeep: true } }),
     db.church.findMany({
-      where: { isDemo: false },
+      where: LIVE_CHURCH,
       orderBy: { name: "asc" },
       select: { id: true, name: true, slug: true, autoBackup: true, lastBackupAt: true, lastBackupAttemptAt: true },
     }),

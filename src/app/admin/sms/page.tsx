@@ -1,3 +1,4 @@
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { LiveSearch } from "@/components/admin/list-tools";
 import { Pager } from "@/components/admin/pager";
 import { paging, readPage } from "@/lib/admin-paging";
@@ -39,8 +40,8 @@ export default async function AdminSmsPage({
     getSmsLogTotals(),
     getSmsLogTotals(undefined, new Date(Date.now() - 30 * DAY)),
     getCreditAdjustments(),
-    db.church.count({ where: { isDemo: false, smsProvider: "nalo" } }),
-    db.church.count({ where: { isDemo: false } }),
+    db.church.count({ where: { ...LIVE_CHURCH, smsProvider: "nalo" } }),
+    db.church.count({ where: LIVE_CHURCH }),
   ]);
 
   const ap = paging(adjustments.length, readPage(sp.apage), 10);

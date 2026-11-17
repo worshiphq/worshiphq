@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { db } from "@/lib/db";
 import { LEGACY_SMS_RATE } from "@/config/sms";
 
@@ -34,18 +35,18 @@ export async function getRevenueOverview(): Promise<RevenueOverview> {
   const [config, plans, topups, usageAgg, granted, churches] = await Promise.all([
     db.platformConfig.findUnique({ where: { id: "default" }, select: { smsCostPerCredit: true, usdToGhsRate: true } }),
     db.planPayment.findMany({
-      where: { church: { isDemo: false } },
+      where: { church: LIVE_CHURCH },
       select: { id: true, churchId: true, plan: true, interval: true, amountGhs: true, amountUsd: true, status: true, source: true, paidAt: true, termMonths: true, church: { select: { name: true } } },
       orderBy: { paidAt: "desc" },
     }),
     db.smsTransaction.findMany({
-      where: { kind: "topup", church: { isDemo: false } },
+      where: { kind: "topup", church: LIVE_CHURCH },
       select: { id: true, credits: true, amountGhs: true, createdAt: true, church: { select: { name: true } } },
       orderBy: { createdAt: "desc" },
     }),
-    db.smsTransaction.aggregate({ where: { kind: "usage", church: { isDemo: false } }, _sum: { credits: true } }),
-    db.smsTransaction.aggregate({ where: { kind: "bonus", church: { isDemo: false } }, _sum: { credits: true } }),
-    db.church.count({ where: { isDemo: false } }),
+    db.smsTransaction.aggregate({ where: { kind: "usage", church: LIVE_CHURCH }, _sum: { credits: true } }),
+    db.smsTransaction.aggregate({ where: { kind: "bonus", church: LIVE_CHURCH }, _sum: { credits: true } }),
+    db.church.count({ where: LIVE_CHURCH }),
   ]);
   void churches;
 

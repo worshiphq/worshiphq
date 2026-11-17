@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import crypto from "crypto";
 import { db } from "@/lib/db";
 import { r2Ready, putObject, getObject, deleteObject } from "@/lib/storage";
@@ -74,7 +75,7 @@ export async function runScheduledBackups(now = new Date(), budgetMs = 20000) {
 
   const due = await db.church.findMany({
     where: {
-      isDemo: false,
+      ...LIVE_CHURCH,
       autoBackup: true,
       AND: [
         { OR: [{ lastBackupAt: null }, { lastBackupAt: { lt: new Date(now.getTime() - 23 * 3600000) } }] },

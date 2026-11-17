@@ -86,6 +86,8 @@ model Church {
   id                     String                @id @default(cuid())
   slug                   String                @unique
   isDemo                 Boolean               @default(false)
+  // Hidden internal QA church (sql/internal-churches.sql): excluded from stats, crons and outreach.
+  isInternal             Boolean               @default(false)
   suspended              Boolean               @default(false)
   // When the owner checked "I agree to Terms/Privacy" at signup - proof of
   // click-wrap acceptance, not just a UI gate. Null for churches created

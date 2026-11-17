@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { db } from "@/lib/db";
 import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import { localParts } from "@/lib/time/tz";
@@ -16,7 +17,7 @@ const DAY = 86400000;
 export async function runCounselingReminders(now = new Date(), ignoreHour = false, deadline?: Deadline) {
   const churches = await onlyWithFeature(await db.church.findMany({
     where: {
-      isDemo: false,
+      ...LIVE_CHURCH,
       counselingSessions: { some: { textUpdates: true, reminderSentAt: null, status: { not: "closed" }, scheduledAt: { gt: now, lte: new Date(now.getTime() + DAY) } } },
     },
     select: { id: true, timezone: true },

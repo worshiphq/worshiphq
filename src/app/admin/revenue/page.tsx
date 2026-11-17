@@ -1,3 +1,4 @@
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { Pager } from "@/components/admin/pager";
 import { paging, readPage } from "@/lib/admin-paging";
 import { Wallet, MessageSquareText, TrendingUp, Gift } from "lucide-react";
@@ -23,9 +24,9 @@ export default async function AdminRevenuePage({ searchParams }: { searchParams:
     getRevenueOverview(),
     getSmsStock("hubtel"),
     getSmsStock("nalo"),
-    db.church.findMany({ where: { isDemo: false }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
+    db.church.findMany({ where: LIVE_CHURCH, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     getPlatformConfig(),
-    db.user.findMany({ where: { church: { isDemo: false } }, orderBy: { createdAt: "asc" }, select: { churchId: true, name: true, role: true, email: true } }),
+    db.user.findMany({ where: { church: LIVE_CHURCH }, orderBy: { createdAt: "asc" }, select: { churchId: true, name: true, role: true, email: true } }),
     getIntlSmsPrices(),
   ]);
   const rp = paging(rev.recent.length, readPage((await searchParams).rpage), 10);

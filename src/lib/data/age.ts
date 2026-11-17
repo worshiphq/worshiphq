@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { db } from "@/lib/db";
 import { DEFAULT_AGE_CONFIG, ageOf, groupForAge, type AgeConfig, type StoredAgeGroup } from "@/lib/age";
 
@@ -44,7 +45,7 @@ export async function applyAgeMoves(churchId: string, cfg?: AgeConfig) {
 
 /** Daily: for churches that switched on automatic age groups, move people up when they pass an age. */
 export async function runAgeGroupSync() {
-  const churches = await db.church.findMany({ where: { isDemo: false, ageAutoOn: true }, select: { id: true } });
+  const churches = await db.church.findMany({ where: { ...LIVE_CHURCH, ageAutoOn: true }, select: { id: true } });
   let moved = 0;
   for (const c of churches) moved += (await applyAgeMoves(c.id)).length;
   return { churches: churches.length, moved };

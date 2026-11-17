@@ -135,15 +135,17 @@ export async function acceptLinkCode(rawCode: string) {
   const session = await requireSession();
   requireOwnerOrAdmin(session);
   const code = String(rawCode ?? "").trim().toUpperCase();
-  const me = await db.church.findUnique({ where: { id: session.churchId }, select: { id: true, name: true, parentChurchId: true } });
+  const me = await db.church.findUnique({ where: { id: session.churchId }, select: { id: true, name: true, parentChurchId: true, isInternal: true } });
   if (!me) return { ok: false as const, error: "Church not found." };
   if (me.parentChurchId) return { ok: false as const, error: "This church is already linked to another church. Unlink it first." };
   const invite = await db.churchLinkInvite.findUnique({ where: { code } });
   if (!invite || invite.usedByChurchId || invite.expiresAt < new Date()) return { ok: false as const, error: "That code is not valid, or it has expired. Ask the main church for a new one." };
   if (invite.parentChurchId === me.id) return { ok: false as const, error: "You cannot link a church to itself." };
   // A church can never be above itself: refuse a link that would make a loop.
-  const above = await db.church.findUnique({ where: { id: invite.parentChurchId }, select: { parentChurchId: true, name: true } });
+  const above = await db.church.findUnique({ where: { id: invite.parentChurchId }, select: { parentChurchId: true, name: true, isInternal: true } });
   if (!above) return { ok: false as const, error: "The main church could not be found." };
+  // The hidden internal QA church never links with a real church, in either direction.
+  if (!!above.isInternal !== !!me.isInternal) return { ok: false as const, error: "That code is not valid, or it has expired. Ask the main church for a new one." };
   if (above.parentChurchId === me.id) return { ok: false as const, error: "That church is already linked underneath yours." };
 
   await db.$transaction([

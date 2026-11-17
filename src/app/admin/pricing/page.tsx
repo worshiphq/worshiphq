@@ -1,3 +1,4 @@
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { requireSuperAdmin } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { PlanEditor } from "@/components/admin/plan-editor";
@@ -16,11 +17,11 @@ export default async function AdminPricingPage() {
       take: 200,
     }),
     db.church.findMany({
-      where: { isDemo: false },
+      where: LIVE_CHURCH,
       select: { id: true, name: true },
       orderBy: { name: "asc" },
     }),
-    db.subscription.groupBy({ by: ["plan"], where: { church: { isDemo: false } }, _count: { _all: true } }),
+    db.subscription.groupBy({ by: ["plan"], where: { church: LIVE_CHURCH }, _count: { _all: true } }),
   ]);
   // Churches with no subscription row count as Free, which is what they get.
   const planCounts: Record<string, number> = {};

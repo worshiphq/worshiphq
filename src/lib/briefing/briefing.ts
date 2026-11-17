@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
@@ -232,7 +233,7 @@ export async function deliverBriefing(churchId: string, b: Briefing, to: { email
 /** Hourly: each Max church with the briefing on gets it once, on its chosen day, from its chosen hour. */
 export async function runWeeklyBriefing(now = new Date(), ignoreHour = false, deadline?: Deadline) {
   const all = await db.church.findMany({
-    where: { isDemo: false, briefing: { not: Prisma.DbNull } },
+    where: { ...LIVE_CHURCH, briefing: { not: Prisma.DbNull } },
     select: { id: true, timezone: true, briefing: true },
   });
   // Max churches, plus any church the platform owner sent a one-time sample to.

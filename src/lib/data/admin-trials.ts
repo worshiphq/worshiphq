@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { db } from "@/lib/db";
 import { paidPlan } from "@/lib/plan-gate";
 import { trialInfo, trialOffered, type TrialPhase, type TrialSettings, type TrialStep } from "@/lib/trial-settings";
@@ -44,7 +45,7 @@ export type TrialSort = "status" | "members-desc" | "members-asc" | "name";
 
 export async function getTrialOverview(settings: TrialSettings, filter: TrialFilter, q: string, sort: TrialSort = "status"): Promise<TrialOverview> {
   const churches = await db.church.findMany({
-    where: { isDemo: false },
+    where: LIVE_CHURCH,
     select: {
       id: true, name: true, createdAt: true,
       subscription: { select: { plan: true, status: true, renewsAt: true, trialPlan: true, trialStartedAt: true, trialEndsAt: true, trialsUsed: true, trialInvitedAt: true, commsTrialEndsAt: true } },

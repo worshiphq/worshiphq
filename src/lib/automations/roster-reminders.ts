@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { db } from "@/lib/db";
 import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import { localParts, ymdInTz, timeReached } from "@/lib/time/tz";
@@ -23,7 +24,7 @@ export async function runRosterReminders(now = new Date(), ignoreHour = false, d
   // may carry its own timing even when the church-wide reminder is off).
   const churches = await onlyWithFeature(await db.church.findMany({
     where: {
-      isDemo: false,
+      ...LIVE_CHURCH,
       OR: [
         { rosterRemindOn: true },
         { volunteerSlots: { some: { remindedAt: null, personId: { not: null }, date: { gte: horizon } } } },

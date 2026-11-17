@@ -1,3 +1,4 @@
+import { isHiddenChurch } from "@/lib/live-church";
 import { invalidatePlatformConfig } from "@/lib/data/platform-config";
 import "server-only";
 import type { Receipt } from "@prisma/client";
@@ -224,9 +225,9 @@ export async function emailReceipt(row: Receipt, to: string, opts: { pdf?: Buffe
 export async function issueRegistrationReceipt(churchId: string): Promise<{ row: Receipt; pdf: Buffer } | null> {
   const church = await db.church.findUnique({
     where: { id: churchId },
-    select: { id: true, name: true, isDemo: true, createdAt: true, subscription: { select: { plan: true } } },
+    select: { id: true, name: true, isDemo: true, isInternal: true, createdAt: true, subscription: { select: { plan: true } } },
   });
-  if (!church || church.isDemo) return null;
+  if (!church || isHiddenChurch(church)) return null;
   // A church that is already on a paid plan gets a payment receipt, not a "free forever" one.
   if ((church.subscription?.plan ?? "free") !== "free") return null;
   const owner =
@@ -265,8 +266,8 @@ export async function issueUpgradeReceipt(a: {
   toName?: string;
   toEmail?: string | null;
 }): Promise<{ row: Receipt; pdf: Buffer } | null> {
-  const church = await db.church.findUnique({ where: { id: a.churchId }, select: { id: true, name: true, isDemo: true } });
-  if (!church || church.isDemo) return null;
+  const church = await db.church.findUnique({ where: { id: a.churchId }, select: { id: true, name: true, isDemo: true, isInternal: true } });
+  if (!church || isHiddenChurch(church)) return null;
   const owner =
     (await db.user.findFirst({ where: { churchId: a.churchId, role: "Owner" }, orderBy: { createdAt: "asc" }, select: { name: true, email: true, phone: true } })) ??
     (await db.user.findFirst({ where: { churchId: a.churchId, role: "Admin" }, orderBy: { createdAt: "asc" }, select: { name: true, email: true, phone: true } }));

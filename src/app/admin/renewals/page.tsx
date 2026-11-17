@@ -1,3 +1,4 @@
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { Pager } from "@/components/admin/pager";
 import { paging, readPage } from "@/lib/admin-paging";
 import { requireSuperAdmin } from "@/lib/auth";
@@ -32,7 +33,7 @@ export default async function AdminRenewalsPage({ searchParams }: { searchParams
   };
 
   const subs = await db.subscription.findMany({
-    where: { plan: { not: "free" }, church: { isDemo: false } },
+    where: { plan: { not: "free" }, church: LIVE_CHURCH },
     include: { church: { select: { id: true, name: true, suspended: true, country: true } } },
   });
 

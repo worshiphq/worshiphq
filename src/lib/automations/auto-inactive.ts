@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { db } from "@/lib/db";
 import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import { forEachChurch, type Deadline } from "@/lib/automations/pool";
@@ -56,7 +57,7 @@ export async function planAutoInactive(churchId: string, weeks: number, timezone
 export async function runAutoInactive(now = new Date(), deadline?: Deadline) {
   const churches = await onlyWithFeature(
     await db.church.findMany({
-      where: { isDemo: false, autoInactiveOn: true },
+      where: { ...LIVE_CHURCH, autoInactiveOn: true },
       select: { id: true, name: true, timezone: true, autoInactiveWeeks: true },
     }),
     "auto-inactive",

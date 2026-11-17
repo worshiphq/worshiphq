@@ -1,5 +1,6 @@
 "use server";
 
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { logAdminAction } from "@/lib/admin-audit";
 import { invalidatePlatformConfig } from "@/lib/data/platform-config";
 import { redirect } from "next/navigation";
@@ -175,7 +176,7 @@ export async function setAllChurchesSmsCarrier(carrier: string): Promise<{ ok: t
   await requireSuperAdminOwner();
   await logAdminAction("setAllChurchesSmsCarrier", { carrier });
   if (!isCarrier(carrier)) return { ok: false, error: "Choose Hubtel or Nalo." };
-  const res = await db.church.updateMany({ where: { isDemo: false }, data: { smsProvider: carrier } });
+  const res = await db.church.updateMany({ where: LIVE_CHURCH, data: { smsProvider: carrier } });
   revalidatePath("/admin/churches");
   revalidatePath("/admin/sms");
   return { ok: true, count: res.count };

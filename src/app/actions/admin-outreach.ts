@@ -1,5 +1,6 @@
 "use server";
 
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { logAdminAction } from "@/lib/admin-audit";
 import { invalidatePlatformConfig, getPlatformConfig } from "@/lib/data/platform-config";
 import { paidPlan } from "@/lib/plan-gate";
@@ -31,7 +32,7 @@ export async function getOutreachData(): Promise<OutreachData> {
   await requireSuperAdmin();
   const [churches, welcomes, last] = await Promise.all([
     db.church.findMany({
-      where: { isDemo: false },
+      where: LIVE_CHURCH,
       orderBy: { createdAt: "desc" },
       select: {
         id: true, name: true, smsSenderId: true, suspended: true, createdAt: true, country: true, city: true,

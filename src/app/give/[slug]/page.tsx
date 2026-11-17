@@ -1,3 +1,4 @@
+import { hiddenChurchRobots } from "@/lib/live-church";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { features } from "@/lib/env";
@@ -13,9 +14,10 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const church = await db.church.findUnique({ where: { slug }, select: { name: true } });
+  const church = await db.church.findUnique({ where: { slug }, select: { name: true, isInternal: true } });
   if (!church) return { title: "Give" };
   return {
+    ...hiddenChurchRobots(church),
     title: `Give to ${church.name}`,
     description: `Give your tithes and offerings to ${church.name} securely via Mobile Money or card.`,
   };

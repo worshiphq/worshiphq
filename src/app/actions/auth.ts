@@ -1,5 +1,6 @@
 "use server";
 
+import { INTERNAL_SLUG_PREFIX } from "@/lib/live-church";
 import { redirect } from "next/navigation";
 import { after } from "next/server";
 import { revalidatePath } from "next/cache";
@@ -42,6 +43,8 @@ function slugify(name: string) {
 }
 
 async function uniqueSlug(base: string) {
+  // The zz-qa- prefix is reserved for the hidden internal QA church.
+  if (base.startsWith(INTERNAL_SLUG_PREFIX)) base = base.replace(/^zz-qa-/, "zz-qa");
   let slug = base;
   let n = 1;
   while (await db.church.findUnique({ where: { slug } })) slug = `${base}-${++n}`;

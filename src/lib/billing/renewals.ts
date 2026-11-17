@@ -1,4 +1,5 @@
 import "server-only";
+import { isHiddenChurch } from "@/lib/live-church";
 import { db } from "@/lib/db";
 import { BILLING_GRACE_DAYS } from "@/lib/plan-gate";
 import { logBillingEvent } from "@/lib/billing/events";
@@ -40,7 +41,7 @@ export async function runBillingCycle(opts: { dryRun?: boolean; /** Pretend it i
   const cfg = await getPlatformConfig();
   const subs = await db.subscription.findMany({
     where: { status: { not: "grace" } },
-    include: { church: { select: { id: true, name: true, isDemo: true, country: true } } },
+    include: { church: { select: { id: true, name: true, isDemo: true, isInternal: true, country: true } } },
   });
   // What the church will actually be charged: its fixed cedi price in Ghana, the converted dollar price elsewhere
   // (the same chargeRate the card charge uses, so the notice and the charge agree).
@@ -54,7 +55,7 @@ export async function runBillingCycle(opts: { dryRun?: boolean; /** Pretend it i
   };
 
   for (const sub of subs) {
-    if (sub.church.isDemo) continue;
+    if (isHiddenChurch(sub.church)) continue;
     const periodEnd = sub.renewsAt;
     if (!periodEnd || sub.plan === "free") continue;
     const name = sub.church.name;
@@ -177,10 +178,10 @@ export async function runBillingCycle(opts: { dryRun?: boolean; /** Pretend it i
   // Re-read the dates so churches renewed or changed above are not announced from stale data.
   const fresh = dry ? subs : await db.subscription.findMany({
     where: { status: { not: "grace" }, plan: { not: "free" }, renewsAt: { not: null } },
-    include: { church: { select: { id: true, name: true, isDemo: true } } },
+    include: { church: { select: { id: true, name: true, isDemo: true, isInternal: true } } },
   });
   for (const s of fresh) {
-    if (s.church.isDemo || !s.renewsAt || s.plan === "free") continue;
+    if (isHiddenChurch(s.church) || !s.renewsAt || s.plan === "free") continue;
     const daysLeft = Math.ceil((s.renewsAt.getTime() - now.getTime()) / DAY_MS);
     if (daysLeft <= 0 || daysLeft > OWNER_GROUP_DAYS) continue;
     const interval = s.interval === "yearly" ? "yearly" : "monthly";

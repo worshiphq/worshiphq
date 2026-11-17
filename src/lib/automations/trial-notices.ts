@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { db } from "@/lib/db";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { paidPlan } from "@/lib/plan-gate";
@@ -12,7 +13,7 @@ export async function runTrialNotices(now = new Date()): Promise<{ checked: numb
   const cfg = await getPlatformConfig();
   // Only churches whose trial ends soon or ended very recently: a handful of rows, never the whole list.
   const subs = await db.subscription.findMany({
-    where: { trialPlan: { not: null }, trialEndsAt: { gte: new Date(now.getTime() - 3 * DAY), lte: new Date(now.getTime() + 2 * DAY) }, church: { isDemo: false } },
+    where: { trialPlan: { not: null }, trialEndsAt: { gte: new Date(now.getTime() - 3 * DAY), lte: new Date(now.getTime() + 2 * DAY) }, church: LIVE_CHURCH },
     select: { churchId: true, plan: true, status: true, renewsAt: true, trialPlan: true, trialStartedAt: true, trialEndsAt: true, trialsUsed: true, trialNotified: true },
   });
   let ending = 0, ended = 0;

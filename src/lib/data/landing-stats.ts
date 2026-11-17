@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { db } from "@/lib/db";
 import type { RealStats } from "@/lib/landing-stats-shared";
 
@@ -6,7 +7,7 @@ export * from "@/lib/landing-stats-shared";
 
 export async function getRealStats(): Promise<RealStats> {
   try {
-    const live = { isDemo: false };
+    const live = LIVE_CHURCH;
     const [churches, countries, members, giving, checkIns] = await Promise.all([
       db.church.count({ where: live }),
       db.church.groupBy({ by: ["country"], where: live }),

@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { db } from "@/lib/db";
 import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import type { Prisma } from "@prisma/client";
@@ -21,7 +22,7 @@ import { forEachChurch, type Deadline } from "@/lib/automations/pool";
  */
 export async function runGroupMeetingReminders(now = new Date(), ignoreHour = false, deadline?: Deadline) {
   const churches = await onlyWithFeature(await db.church.findMany({
-    where: { isDemo: false, groups: { some: { meetingReminderOn: true, meetingReminderAuto: true } } },
+    where: { ...LIVE_CHURCH, groups: { some: { meetingReminderOn: true, meetingReminderAuto: true } } },
     select: { id: true, name: true, timezone: true },
   }), "sms");
 

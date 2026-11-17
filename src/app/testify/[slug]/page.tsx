@@ -1,3 +1,4 @@
+import { hiddenChurchRobots } from "@/lib/live-church";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
 import { DynamicJoinForm } from "@/app/join/[slug]/dynamic-join-form";
@@ -8,9 +9,9 @@ import type { Metadata } from "next";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const church = await db.church.findUnique({ where: { slug }, select: { name: true } });
+  const church = await db.church.findUnique({ where: { slug }, select: { name: true, isInternal: true } });
   if (!church) return { title: "Church not found" };
-  return { title: `Share a Testimony - ${church.name}`, description: `Share what God has done, with ${church.name}.` };
+  return { ...hiddenChurchRobots(church), title: `Share a Testimony - ${church.name}`, description: `Share what God has done, with ${church.name}.` };
 }
 
 export default async function TestifyPage({ params }: { params: Promise<{ slug: string }> }) {

@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { db } from "@/lib/db";
 import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import { sendChurchSms } from "@/lib/sms/credits";
@@ -15,7 +16,7 @@ const DAY_MS = 86_400_000;
  */
 export async function runPledgeReminders(deadline?: Deadline) {
   const churches = await onlyWithFeature(await db.church.findMany({
-    where: { isDemo: false },
+    where: LIVE_CHURCH,
     select: { id: true, name: true, pledgeReminderDays: true, pledgeReminderTemplate: true },
   }), "pledges");
 

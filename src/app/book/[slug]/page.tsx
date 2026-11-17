@@ -1,3 +1,4 @@
+import { hiddenChurchRobots } from "@/lib/live-church";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { db } from "@/lib/db";
@@ -8,9 +9,9 @@ import { ymdInTz } from "@/lib/time/tz";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
-  const church = await db.church.findUnique({ where: { slug }, select: { name: true } });
+  const church = await db.church.findUnique({ where: { slug }, select: { name: true, isInternal: true } });
   if (!church) return { title: "Church not found" };
-  return { title: `Book a facility - ${church.name}`, description: `Request to book a hall or room at ${church.name}.` };
+  return { ...hiddenChurchRobots(church), title: `Book a facility - ${church.name}`, description: `Request to book a hall or room at ${church.name}.` };
 }
 
 export default async function BookFacilityPage({ params }: { params: Promise<{ slug: string }> }) {

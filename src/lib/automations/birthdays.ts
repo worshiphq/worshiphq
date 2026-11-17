@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { db } from "@/lib/db";
 import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import { notifyChurchAdmins } from "@/lib/notify/admins";
@@ -19,7 +20,7 @@ import { escapeHtml } from "@/lib/html";
 export async function runBirthdays(now = new Date(), ignoreHour = false, deadline?: Deadline) {
   const churches = await onlyWithFeature(await db.church.findMany({
     where: {
-      isDemo: false,
+      ...LIVE_CHURCH,
       OR: [{ birthdayWishOn: true }, { birthdayAdminAlertOn: true }, { birthdayDigestOn: true }],
     },
     select: {

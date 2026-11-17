@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { db } from "@/lib/db";
 import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import { localParts, ymdInTz, timeReached } from "@/lib/time/tz";
@@ -17,7 +18,7 @@ const fmtServiceDate = (d: Date) => d.toLocaleDateString("en-GB", { weekday: "lo
  */
 export async function runRosterAnnouncements(now = new Date(), ignoreHour = false, deadline?: Deadline) {
   const churches = await onlyWithFeature(await db.church.findMany({
-    where: { isDemo: false, rosterAnnounceOn: true },
+    where: { ...LIVE_CHURCH, rosterAnnounceOn: true },
     select: {
       id: true, name: true, timezone: true, messageTemplates: true,
       rosterAnnounceHour: true, rosterAnnounceMinute: true, rosterAnnounceLeadDays: true, rosterAnnounceWeekday: true,

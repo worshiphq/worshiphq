@@ -106,7 +106,7 @@ const PROTECTED_FIELDS: Record<string, string[]> = {
   // Billing, payouts, sender approval, church links and permissions are set by WorshipHQ or through
   // the web screens that check them, never by a sync.
   church: [
-    "smsCredits", "isDemo", "suspended", "slug", "termsAcceptedAt", "givingBlocked",
+    "smsCredits", "isDemo", "isInternal", "suspended", "slug", "termsAcceptedAt", "givingBlocked",
     "paystackSubaccountCode", "smsTier", "smsSenderId", "smsSenderIdStatus", "smsSenderIdRequestedAt",
     "smsSenderIdApprovedAt", "smsSenderIdApprovedBy", "parentChurchId", "linkKind", "linkShare",
     "autoAcceptTransfers", "rolePermissions", "logoUrl", "createdAt", "updatedAt", "lastBackupAt",

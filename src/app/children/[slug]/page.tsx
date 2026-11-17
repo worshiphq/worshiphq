@@ -1,3 +1,4 @@
+import { hiddenChurchRobots } from "@/lib/live-church";
 import { churchHasFeature } from "@/lib/plan-gate-server";
 import { MembershipFull } from "@/components/public/membership-full";
 import { memberRoom } from "@/lib/member-limit";
@@ -14,9 +15,10 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const church = await db.church.findUnique({ where: { slug }, select: { name: true } });
+  const church = await db.church.findUnique({ where: { slug }, select: { name: true, isInternal: true } });
   if (!church) return { title: "Church not found" };
   return {
+    ...hiddenChurchRobots(church),
     title: `Children's Registration - ${church.name}`,
     description: `Register your child at ${church.name}.`,
   };

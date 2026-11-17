@@ -1,4 +1,5 @@
 import "server-only";
+import { isHiddenChurch } from "@/lib/live-church";
 import { db } from "@/lib/db";
 import { brand } from "@/config/brand";
 import { env } from "@/lib/env";
@@ -96,8 +97,8 @@ export async function hasWelcome(churchId: string): Promise<boolean> {
 
 /** The welcome email to a church's owner. Sent once only, and never to the demo church. */
 export async function sendWelcome(churchId: string, auto: boolean): Promise<OutreachResult> {
-  const church = await db.church.findUnique({ where: { id: churchId }, select: { isDemo: true } });
-  if (!church || church.isDemo) return { ok: true, status: "stubbed", skipped: true };
+  const church = await db.church.findUnique({ where: { id: churchId }, select: { isDemo: true, isInternal: true } });
+  if (!church || isHiddenChurch(church)) return { ok: true, status: "stubbed", skipped: true };
   if (await hasWelcome(churchId)) return { ok: true, status: "sent", skipped: true };
   const owner = await db.user.findFirst({ where: { churchId, role: "Owner" }, orderBy: { createdAt: "asc" }, select: { id: true } })
     ?? await db.user.findFirst({ where: { churchId, role: "Admin" }, orderBy: { createdAt: "asc" }, select: { id: true } });

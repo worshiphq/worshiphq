@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { db } from "@/lib/db";
 import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import { ymdInTz, localParts } from "@/lib/time/tz";
@@ -87,7 +88,7 @@ export function textDue(m: Pick<AbsentMember, "textCount" | "lastTextAt" | "stal
  */
 export async function runAbsenceCheck(now = new Date(), ignoreHour = false, deadline?: Deadline) {
   const churches = await onlyWithFeature(await db.church.findMany({
-    where: { isDemo: false, absenceOn: true },
+    where: { ...LIVE_CHURCH, absenceOn: true },
     select: {
       id: true, name: true, timezone: true, absenceWeeks: true, absenceTextMember: true, absenceAlertAdmins: true,
       absenceMaxTexts: true, absenceRepeatWeeks: true, absenceCreateFollowUp: true, absenceNotifyUserIds: true,

@@ -180,6 +180,12 @@ async function sendOne(p: Provider, m: Mail): Promise<string | undefined> {
   return info.messageId;
 }
 
+/** Reserved test domains (RFC 2606/6761): mail to them can never be delivered, so it is never handed to a provider. */
+export function isReservedEmail(address: string): boolean {
+  const domain = address.trim().toLowerCase().replace(/>$/, "").split("@").pop() ?? "";
+  return /(^|\.)(test|example|invalid|localhost)$/.test(domain) || /(^|\.)example\.(com|net|org)$/.test(domain);
+}
+
 export async function sendEmail(opts: {
   to: string | string[];
   subject: string;
@@ -214,8 +220,13 @@ export async function sendEmail(opts: {
   const start = opts.startAt ? full.indexOf(opts.startAt as Provider) : -1;
   const chain = start >= 0 ? full.slice(start) : full;
 
+  // Test addresses (the internal QA church's owner, fixtures) are dropped before any provider sees them.
+  const deliverable = to.filter((a) => !isReservedEmail(a));
   let result: EmailResult;
-  if (!features.email || chain.length === 0) {
+  if (deliverable.length === 0) {
+    console.info(`[Email:stub] reserved test address(es) ${to.join(", ")} · "${opts.subject}"`);
+    result = { ok: true, provider: "stub", stubbed: true };
+  } else if (!features.email || chain.length === 0) {
     console.info(`[Email:stub] ${from} → ${to.join(", ")} · "${opts.subject}"`);
     result = { ok: true, provider: "stub", stubbed: true };
   } else {
@@ -223,7 +234,7 @@ export async function sendEmail(opts: {
     result = { ok: false, provider: chain[chain.length - 1]!, stubbed: false };
     for (const p of chain) {
       try {
-        const messageId = await sendVia(p, { to, subject: opts.subject, html: opts.html, from, replyTo: opts.replyTo, attachments: opts.attachments });
+        const messageId = await sendVia(p, { to: deliverable, subject: opts.subject, html: opts.html, from, replyTo: opts.replyTo, attachments: opts.attachments });
         attempts.push({ provider: p, ok: true });
         result = { ok: true, provider: p, stubbed: false, attempts, messageId };
         break;

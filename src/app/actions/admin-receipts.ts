@@ -1,5 +1,6 @@
 "use server";
 
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { logAdminAction } from "@/lib/admin-audit";
 import { revalidatePath } from "next/cache";
 import type { Prisma, Receipt } from "@prisma/client";
@@ -117,7 +118,7 @@ export async function getReceiptsPage(): Promise<ReceiptsPageData> {
   const [settings, churches, list, groups] = await Promise.all([
     getReceiptSettings(),
     db.church.findMany({
-      where: { isDemo: false },
+      where: LIVE_CHURCH,
       orderBy: { name: "asc" },
       take: 600,
       select: { id: true, name: true, users: { orderBy: { createdAt: "asc" }, take: 40, select: { name: true, role: true, email: true, phone: true } } },

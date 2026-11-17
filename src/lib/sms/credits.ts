@@ -213,8 +213,23 @@ export async function sendChurchSms(
       smsPrefix: true,
       smsProvider: true,
       smsSenderIdProvider: true,
+      isInternal: true,
     },
   });
+
+  // The hidden internal QA church never texts anyone and never spends credits: the send is logged as a stub so
+  // the test can still see it in the church's SMS history.
+  if (church?.isInternal) {
+    const results = recipients.map((r) => ({ to: normalisePhone(r) || r, ok: true }));
+    console.info(`[SMS:qa-stub] ${churchId} -> ${recipients.length} recipient(s)
+  "${message}"`);
+    const logId = await logSmsSend({
+      churchId, label: opts?.note, body: message, segments: segmentsFor(message), recipients: recipients.length,
+      sent: recipients.length, credits: 0, senderName: church.name, results, carrier: "stub", costGhs: 0,
+      communicationId: opts?.communicationId,
+    });
+    return { ok: true, sent: recipients.length, cost: 0, balance: await getSmsBalance(churchId), results, logId };
+  }
 
   // Its own sender name only counts on the carrier that approved it. Empty means Hubtel: everything approved
   // before carriers could be chosen was approved there.

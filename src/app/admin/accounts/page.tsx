@@ -1,3 +1,5 @@
+import { QaChurchButton } from "@/components/admin/qa-church-button";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { LiveSearch } from "@/components/admin/list-tools";
 import Link from "@/components/ui/app-link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
@@ -13,14 +15,16 @@ export const metadata = { title: "Accounts" };
 
 const PAGE = 20;
 
-export default async function AdminAccountsPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string }> }) {
+export default async function AdminAccountsPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string; internal?: string }> }) {
   const sa = await requireSuperAdmin();
-  const { q: rawQ, page: rawPage } = await searchParams;
+  const { q: rawQ, page: rawPage, internal } = await searchParams;
+  // ?internal=1 also lists the hidden internal QA church.
+  const showInternal = internal === "1";
   const q = (rawQ ?? "").trim();
   const page = Math.max(1, Number(rawPage) || 1);
 
   const where = {
-    isDemo: false,
+    ...(showInternal ? { NOT: { isDemo: true } } : LIVE_CHURCH),
     ...(q
       ? {
           OR: [
@@ -53,13 +57,17 @@ export default async function AdminAccountsPage({ searchParams }: { searchParams
     lockedKeys.has(`lock:${codeKey(u.id)}`) || lockedKeys.has(`lock:${userPasswordKey(u.id)}`) || lockedKeys.has(`lock:${passwordKey(u.email)}`) || (!!u.phone && lockedKeys.has(`lock:${passwordKey(normalisePhone(u.phone))}`));
 
   const pages = Math.max(1, Math.ceil(total / PAGE));
-  const link = (p: number) => `/admin/accounts?${new URLSearchParams({ ...(q ? { q } : {}), page: String(p) }).toString()}`;
+  const link = (p: number) => `/admin/accounts?${new URLSearchParams({ ...(q ? { q } : {}), page: String(p), ...(showInternal ? { internal: "1" } : {}) }).toString()}`;
 
   return (
     <AdminShell isOwner={sa.role === "owner"}>
       <div className="mb-6">
         <h1 className="text-xl font-bold tracking-tight">Accounts</h1>
         <p className="mt-1 text-sm text-slate-400">Every person who signs in, grouped by church. Send someone a password reset link, or unlock an account that was locked for 24 hours. You are signed in as {sa.role === "owner" ? "the owner" : sa.name}.</p>
+      </div>
+
+      <div className="mb-5">
+        <QaChurchButton />
       </div>
 
       <div className="mb-5 max-w-lg">

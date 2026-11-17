@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH, isHiddenChurch } from "@/lib/live-church";
 import { db } from "@/lib/db";
 import { sendSms, type SmsResult } from "@/lib/integrations/sms";
 import { getReceiptSettings } from "@/lib/receipts/service";
@@ -14,13 +15,13 @@ export async function getAlertPhone(): Promise<{ phone: string; from: "saved" | 
 /** Text the platform owner when a new church signs up. Never throws, and never touches the demo church. */
 export async function alertOwnerOfSignup(churchId: string): Promise<SmsResult | null> {
   try {
-    const church = await db.church.findUnique({ where: { id: churchId }, select: { name: true, isDemo: true, city: true, country: true } });
-    if (!church || church.isDemo) return null;
+    const church = await db.church.findUnique({ where: { id: churchId }, select: { name: true, isDemo: true, isInternal: true, city: true, country: true } });
+    if (!church || isHiddenChurch(church)) return null;
     const { phone } = await getAlertPhone();
     if (!phone) return null;
     const [owner, total] = await Promise.all([
       db.user.findFirst({ where: { churchId, role: "Owner" }, orderBy: { createdAt: "asc" }, select: { name: true, phone: true, email: true } }),
-      db.church.count({ where: { isDemo: false } }),
+      db.church.count({ where: LIVE_CHURCH }),
     ]);
     const where = [church.city, church.country].filter(Boolean).join(", ");
     const who = owner ? `${owner.name}${owner.phone ? ` ${owner.phone}` : owner.email ? ` ${owner.email}` : ""}` : "no owner yet";

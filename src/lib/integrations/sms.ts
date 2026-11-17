@@ -222,6 +222,16 @@ export async function sendSms(
     return { ok: false, provider: routing.primary, stubbed: false, error: onlyForeign ? "Texts to numbers outside Ghana are not sent for this message" : "No valid phone numbers", sentCount: 0, results: toFullResults([]) };
   }
 
+  // A text on behalf of the hidden internal QA church is never really sent.
+  if (opts?.churchId) {
+    const { isInternalChurchId } = await import("@/lib/internal-church");
+    if (await isInternalChurchId(opts.churchId)) {
+      console.info(`[SMS:qa-stub] ${opts.churchId} -> ${recipients.join(", ")}
+  "${rawMessage}"`);
+      return { ok: true, provider: "stub", stubbed: true, id: `stub_${Date.now()}`, sentCount: recipients.length, results: toFullResults(recipients.map(() => true)) };
+    }
+  }
+
   if (!features.sms) {
     console.info(`[SMS:stub] (${routing.primary}${routing.international ? ` +${routing.international} intl` : ""}) → ${recipients.join(", ")}\n  "${rawMessage}"\n  (set the provider key in .env.local to send for real)`);
     return { ok: true, provider: routing.primary, stubbed: true, id: `stub_${Date.now()}`, sentCount: recipients.length, results: toFullResults(recipients.map(() => true)) };

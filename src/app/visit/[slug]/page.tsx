@@ -1,3 +1,4 @@
+import { hiddenChurchRobots } from "@/lib/live-church";
 import { churchHasFeature } from "@/lib/plan-gate-server";
 import { notFound } from "next/navigation";
 import { db } from "@/lib/db";
@@ -12,9 +13,10 @@ export async function generateMetadata({
   params: Promise<{ slug: string }>;
 }): Promise<Metadata> {
   const { slug } = await params;
-  const church = await db.church.findUnique({ where: { slug }, select: { name: true } });
+  const church = await db.church.findUnique({ where: { slug }, select: { name: true, isInternal: true } });
   if (!church) return { title: "Church not found" };
   return {
+    ...hiddenChurchRobots(church),
     title: `Visit ${church.name}`,
     description: `Record your visit to ${church.name}.`,
   };

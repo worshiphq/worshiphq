@@ -1,4 +1,5 @@
 import "server-only";
+import { LIVE_CHURCH } from "@/lib/live-church";
 import { db } from "@/lib/db";
 import { onlyWithFeature } from "@/lib/plan-gate-batch";
 import { sendChurchSms } from "@/lib/sms/credits";
@@ -93,7 +94,7 @@ export async function sendServiceThanks(sessionId: string, opts: { budgetMs?: nu
 export async function runServiceThanks(now = new Date(), ignoreHour = false, deadline?: Deadline) {
   const since = new Date(now.getTime() - 3 * 86400_000);
   const sessions = await db.attendanceSession.findMany({
-    where: { thankRequested: true, endedAt: { gte: since }, church: { isDemo: false } },
+    where: { thankRequested: true, endedAt: { gte: since }, church: LIVE_CHURCH },
     select: { id: true, churchId: true, church: { select: { timezone: true } } },
     orderBy: { endedAt: "asc" },
     take: 40,
