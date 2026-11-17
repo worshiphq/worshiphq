@@ -100,7 +100,7 @@ export async function saveAsset(ctx: Ctx, input: AssetInput): Promise<Result> {
       const tagCode = await nextTag(ctx.churchId, tx);
       const status = input.status && STATUS_KEYS.includes(input.status) && !["checked-out", "disposed"].includes(input.status) ? input.status : "in-service";
       return tx.asset.create({ data: { churchId: ctx.churchId, ...data, status, tagCode }, select: { id: true, tagCode: true } });
-    });
+    }, { maxWait: 15_000, timeout: 20_000 }); // several people adding items at once queue for the tag number instead of failing
     id = created.id;
     await logAudit({ churchId: ctx.churchId, userId: ctx.userId, action: "create", entity: "asset", entityId: id, detail: `Added asset "${name}" (${created.tagCode})` });
   }
