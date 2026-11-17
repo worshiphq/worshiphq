@@ -13,7 +13,7 @@ import { PAYMENT_METHODS } from "@/lib/assets/categories";
 export type Account = { id: string; name: string; isDefault: boolean };
 
 /** The "Record as a church expense" box. Its wording changes when the person cannot post expenses themselves. */
-export function PostCostBox({ canPostExpenses, accounts, checked, onChange }: { canPostExpenses: boolean; accounts: Account[]; checked: boolean; onChange: (v: boolean) => void }) {
+export function PostCostBox({ canPostExpenses, accounts, checked, onChange, hideMethod }: { canPostExpenses: boolean; accounts: Account[]; checked: boolean; onChange: (v: boolean) => void; hideMethod?: boolean }) {
   return (
     <div className="rounded-xl border border-line bg-surface-2/50 p-3">
       <label className="flex items-start gap-2.5 text-sm">
@@ -26,7 +26,7 @@ export function PostCostBox({ canPostExpenses, accounts, checked, onChange }: { 
       {checked && canPostExpenses && (
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
           <F label="Paid from" htmlFor="pc-acc"><Select id="pc-acc" name="accountId" defaultValue={accounts.find((a) => a.isDefault)?.id ?? ""} options={[{ value: "", label: "Default account" }, ...accounts.map((a) => ({ value: a.id, label: a.name }))]} /></F>
-          <F label="Paid how" htmlFor="pc-pm"><Select id="pc-pm" name="paymentMethod" defaultValue="cash" options={PAYMENT_METHODS.map((m) => ({ value: m.key, label: m.label }))} /></F>
+          {!hideMethod && <F label="Paid how" htmlFor="pc-pm"><Select id="pc-pm" name="paymentMethod" defaultValue="cash" options={PAYMENT_METHODS.map((m) => ({ value: m.key, label: m.label }))} /></F>}
         </div>
       )}
     </div>

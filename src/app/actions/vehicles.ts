@@ -40,6 +40,29 @@ export async function saveVehicle(fd: FormData): Promise<ActionResult> {
   }
 }
 
+/** Only the papers: insurance, roadworthy and DVLA dates and the insurer (the Renew button). */
+export async function saveVehiclePapers(fd: FormData): Promise<ActionResult> {
+  try {
+    const session = await writer();
+    const v = await db.vehicle.findFirst({ where: { id: str(fd, "id"), churchId: session.churchId }, select: { id: true, regNumber: true } });
+    if (!v) return { ok: false, error: "That vehicle was not found." };
+    const cover = str(fd, "insuranceType");
+    await db.vehicle.update({
+      where: { id: v.id },
+      data: {
+        insuranceExpires: dateOf(fd, "insuranceExpires"), roadworthyExpires: dateOf(fd, "roadworthyExpires"), registrationExpires: dateOf(fd, "registrationExpires"),
+        insurer: strOrNull(fd, "insurer"), insurancePolicyNo: strOrNull(fd, "insurancePolicyNo"), insuranceType: cover === "comprehensive" || cover === "third-party" ? cover : null,
+      },
+    });
+    await logAudit({ churchId: session.churchId, userId: session.userId, action: "update", entity: "vehicle", entityId: v.id, detail: `Updated papers for ${v.regNumber}` });
+    revalidatePath("/app/vehicles");
+    revalidatePath(`/app/vehicles/${v.id}`);
+    return { ok: true, id: v.id };
+  } catch (e) {
+    return { ok: false, error: errorText(e) };
+  }
+}
+
 /** Remove a vehicle: deletes its asset row, which takes its trips, fuel, drivers and papers with it (all kept in the bin). */
 export async function deleteVehicle(fd: FormData): Promise<ActionResult> {
   try {

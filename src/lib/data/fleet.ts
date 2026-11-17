@@ -26,6 +26,9 @@ export type VehicleCard = {
   nextService: NextService;
   openTrip: { id: string; driverName: string | null; purpose: string; startAt: string; odometerStart: number | null } | null;
   drivers: { id: string; name: string; isPrimary: boolean }[];
+  insurer: string | null;
+  insurancePolicyNo: string | null;
+  insuranceType: string | null;
 };
 
 const STATE_RANK: Record<DueState, number> = { overdue: 0, soon: 1, ok: 2, unset: 3 };
@@ -63,6 +66,9 @@ export async function listVehicles(churchId: string, now = new Date()): Promise<
     nextService: soonestService(v.asset.schedules, v.odometerKm, now),
     openTrip: v.trips[0] ? { ...v.trips[0], startAt: v.trips[0].startAt.toISOString() } : null,
     drivers: v.drivers,
+    insurer: v.insurer,
+    insurancePolicyNo: v.insurancePolicyNo,
+    insuranceType: v.insuranceType,
   }));
 }
 
