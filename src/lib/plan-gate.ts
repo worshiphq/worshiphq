@@ -112,6 +112,8 @@ const PRO_ADDS = [
   "accounting", "expenses", "automations", "engagement-scoring", "fingerprint",
   "sms-audit", "member-categories", "service-times", "online-payments",
   "levies", "service-income",
+  // Report a fault, assign it, fix it, and record what it cost.
+  "maintenance",
 ];
 
 /** Max adds - run the whole church: wall-mounted face / palm / fingerprint terminals (`biometric-devices`),
@@ -121,6 +123,8 @@ const MAX_ADDS = [
   "auto-inactive", "linked-churches", "advanced-reports", "api-access", "white-label-posters",
   "weekly-briefing",
   "payroll",
+  // Church vehicles (buses, trips, fuel, papers). Built on top of assets, so it sits on the same plan.
+  "vehicles",
 ];
 
 const STARTER_FEATURES = [...FREE_FEATURES, ...STARTER_ADDS];
@@ -189,6 +193,7 @@ export const FEATURE_LABELS: Record<string, string> = {
   "biometric-devices": "Check-in devices (face, palm and fingerprint terminals)",
   levies: "Levies and remittances", "service-income": "Service income records",
   payroll: "Staff, leave and payroll",
+  vehicles: "Vehicles and transport", maintenance: "Maintenance requests",
   baptisms: "Baptisms & certificates", "linked-churches": "Linked churches (branches, partner churches, teens chapel)",
 };
 
@@ -196,7 +201,7 @@ export const FEATURE_LABELS: Record<string, string> = {
  * Features added after plans were first saved in the editor. A saved plan that has never seen one of these follows the
  * built-in tier for it, so a new feature never silently lands on no plan at all. Add a feature here when it is added to a tier.
  */
-export const FEATURES_ADDED_LATER = ["baptisms", "linked-churches", "biometric-devices", "poster-maker", "white-label-posters", "sms-audit", "birthday-automations", "custom-messages", "member-categories", "service-times", "online-payments", "levies", "service-income", "payroll"];
+export const FEATURES_ADDED_LATER = ["baptisms", "linked-churches", "biometric-devices", "poster-maker", "white-label-posters", "sms-audit", "birthday-automations", "custom-messages", "member-categories", "service-times", "online-payments", "levies", "service-income", "payroll", "vehicles", "maintenance"];
 
 /** Permission section keys whose plan feature has a different name. */
 const SECTION_FEATURE_MAP: Record<string, string> = {
@@ -239,6 +244,8 @@ const ROUTE_FEATURE_MAP: Record<string, string> = {
   "/app/budgets": "budgets",
   "/app/expenses": "expenses",
   "/app/assets": "assets",
+  "/app/vehicles": "vehicles",
+  "/app/maintenance": "maintenance",
   "/app/audit-log": "audit-log",
   "/app/follow-ups": "follow-ups",
   "/app/devices": "biometric-devices",

@@ -42,6 +42,8 @@ import {
   WalletMinimal,
   BriefcaseBusiness,
   Banknote,
+  Bus,
+  Wrench,
 } from "lucide-react";
 
 export interface NavItem {
@@ -128,6 +130,9 @@ export const nav: NavSection[] = [
       { key: "settings", label: "Assets", href: "/app/assets", icon: Package },
       { key: "settings", label: "Staff", href: "/app/staff", icon: BriefcaseBusiness, section: "staff" },
       { key: "settings", label: "Payroll", href: "/app/payroll", icon: Banknote, section: "payroll" },
+      { key: "settings", label: "Vehicles", href: "/app/vehicles", icon: Bus },
+      // Every team member can report a fault, so the item shows for all (the plan lock still applies by route).
+      { key: "settings", label: "Maintenance", href: "/app/maintenance", icon: Wrench, section: "dashboard" },
       { key: "settings", label: "Download data", href: "/app/export", icon: Download },
       { key: "settings", label: "Audit log", href: "/app/audit-log", icon: ScrollText },
       { key: "settings", label: "Settings", href: "/app/settings", icon: Settings },

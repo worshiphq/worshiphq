@@ -370,6 +370,23 @@ model Church {
   leaveTypes       LeaveType[]
   leaveRequests    LeaveRequest[]
   leaveAdjustments LeaveAdjustment[]
+  // ── Assets, vehicles, maintenance and expense approvals (sql/assets-fleet-expenses.sql) ──
+  assetTagSeq          Int                   @default(0)
+  assetAlerts          Json? // { on, userIds: string[], sms: boolean, days: number[] }
+  assetAlertsSent      String? // local YYYY-MM-DD the daily vehicles and equipment alert last went out
+  expenseApprovalOver  Float? // expenses above this need approval (null = off)
+  vendors              Vendor[]
+  vehicles             Vehicle[]
+  vehicleDrivers       VehicleDriver[]
+  vehicleTrips         VehicleTrip[]
+  vehicleFuel          VehicleFuel[]
+  assetCheckouts       AssetCheckout[]
+  assetDocuments       AssetDocument[]
+  maintenanceSchedules MaintenanceSchedule[]
+  maintenanceRequests  MaintenanceRequest[]
+  maintenanceRecords   MaintenanceRecord[]
+  expenseRequests      ExpenseRequest[]
+  recurringExpenses    RecurringExpense[]
 }
 
 /// One encrypted snapshot of a church's data, stored in R2 (objectKey). Rows
@@ -437,6 +454,7 @@ model Department {
   budgets       Budget[]             @relation("DepartmentBudgets")
   staff         StaffMember[]
 
+  assets        Asset[]              @relation("DepartmentAssets")
   @@unique([churchId, name])
   @@index([churchId])
 }
@@ -519,6 +537,7 @@ model User {
   staffRecord         StaffMember?        @relation("StaffLogin")
   staffReports        StaffMember[]       @relation("StaffReportsTo")
 
+  maintenanceAssigned MaintenanceRequest[]
   @@index([churchId])
 }
 
@@ -640,6 +659,9 @@ model Person {
   invitedVisitors         Visitor[]                @relation("VisitorInvitedBy")
   staff                   StaffMember?
 
+  assetsHeld              Asset[]                  @relation("AssetCustodian")
+  assetCheckouts          AssetCheckout[]
+  vehicleDrivers          VehicleDriver[]
   @@unique([churchId, memberId])
   @@index([churchId])
   @@index([churchId, status])
@@ -844,6 +866,8 @@ model ChurchAccount {
   payrollRuns    PayrollRun[]
   staffLoans     StaffLoan[]
 
+  expenseRequests   ExpenseRequest[]
+  recurringExpenses RecurringExpense[]
   @@index([churchId])
 }
 
@@ -863,6 +887,8 @@ model Fund {
   expenses  Expense[]
   inServiceSheet Boolean   @default(false) // shown as a row on the service income sheet
 
+  expenseRequests   ExpenseRequest[]
+  recurringExpenses RecurringExpense[]
   @@index([churchId])
 }
 
@@ -990,6 +1016,7 @@ model Event {
   price         Decimal?       @db.Decimal(12, 2)
   registrations Registration[]
 
+  vehicleTrips  VehicleTrip[]
   @@index([churchId])
 }
 
@@ -1844,7 +1871,40 @@ model Asset {
   notes         String?
   createdAt     DateTime  @default(now())
 
+  photoUrl        String?     @db.Text
+  tagCode         String?
+  status          String      @default("in-service") // in-service | checked-out | in-repair | in-storage | disposed | lost
+  quantity        Int         @default(1)
+  custodianId     String?
+  custodian       Person?     @relation("AssetCustodian", fields: [custodianId], references: [id], onDelete: SetNull)
+  departmentId    String?
+  department      Department? @relation("DepartmentAssets", fields: [departmentId], references: [id], onDelete: SetNull)
+  facilityId      String?
+  facility        Facility?   @relation(fields: [facilityId], references: [id], onDelete: SetNull)
+  supplier        String?
+  warrantyExpires DateTime?
+  depreciation    String      @default("none") // none | straight-line
+  usefulLifeYears Int?
+  salvageValue    Float?
+  inServiceDate   DateTime?
+  disposedAt      DateTime?
+  disposalMethod  String? // sold | donated | scrapped | lost | stolen
+  disposalAmount  Float?
+  disposalNote    String?
+  disposalTxnId   String?
+  updatedAt       DateTime    @default(now()) @updatedAt
+  vehicle         Vehicle?
+  checkouts       AssetCheckout[]
+  documents       AssetDocument[]
+  schedules       MaintenanceSchedule[]
+  maintenance     MaintenanceRecord[]
+  requests        MaintenanceRequest[]
+  expenses        Expense[]
+  expenseRequests ExpenseRequest[]
   @@index([churchId, category])
+  @@unique([churchId, tagCode])
+  @@index([churchId, status])
+  @@index([custodianId])
 }
 
 // ── Expenses ──────────────────────────────────────────────
@@ -1871,10 +1931,33 @@ model Expense {
   staffLoanId  String?
   staffLoan    StaffLoan?     @relation(fields: [staffLoanId], references: [id], onDelete: SetNull)
 
+  receiptUrl        String?     @db.Text
+  paymentMethod     String? // cash | momo | bank | cheque | card
+  vendorId          String?
+  vendorRef         Vendor?     @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  budgetId          String?
+  budget            Budget?     @relation(fields: [budgetId], references: [id], onDelete: SetNull)
+  budgetItemId      String?
+  budgetItem        BudgetItem? @relation(fields: [budgetItemId], references: [id], onDelete: SetNull)
+  assetId           String?
+  asset             Asset?      @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  source            String? // fuel | maintenance | request | recurring | asset
+  sourceId          String?
+  notes             String?     @db.Text
+  createdById       String?
+  createdByName     String?
+  updatedAt         DateTime    @default(now()) @updatedAt
+  fuel              VehicleFuel?
+  maintenanceRecord MaintenanceRecord?
+  maintenanceReq    MaintenanceRequest?
+  request           ExpenseRequest?
   @@index([churchId, date])
   @@index([fundId])
   @@index([payrollRunId])
   @@index([staffLoanId])
+  @@index([budgetId])
+  @@index([assetId])
+  @@index([vendorId])
 }
 
 // ── Facilities & Bookings ─────────────────────────────────
@@ -1894,6 +1977,8 @@ model Facility {
   createdAt      DateTime  @default(now())
   bookings       Booking[]
 
+  assets              Asset[]
+  maintenanceRequests MaintenanceRequest[]
   @@index([churchId])
 }
 
@@ -2044,6 +2129,9 @@ model Budget {
   entries      BudgetEntry[]
   createdAt    DateTime      @default(now())
 
+  expenses          Expense[]
+  expenseRequests   ExpenseRequest[]
+  recurringExpenses RecurringExpense[]
   @@index([churchId, year])
   @@index([departmentId])
 }
@@ -2080,6 +2168,9 @@ model BudgetItem {
   spent       Float    @default(0)
   createdAt   DateTime @default(now())
 
+  expenses          Expense[]
+  expenseRequests   ExpenseRequest[]
+  recurringExpenses RecurringExpense[]
   @@index([budgetId])
 }
 
@@ -3230,4 +3321,319 @@ model LeaveAdjustment {
   createdAt   DateTime    @default(now())
 
   @@index([staffId, year])
+}
+
+// ── Assets, vehicles, maintenance and expense upgrades (sql/assets-fleet-expenses.sql) ──
+
+model Vendor {
+  id                  String   @id @default(cuid())
+  churchId            String
+  church              Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name                String
+  phone               String?
+  momoNumber          String?
+  category            String?
+  notes               String?
+  active              Boolean  @default(true)
+  createdAt           DateTime @default(now())
+  expenses            Expense[]
+  expenseRequests     ExpenseRequest[]
+  recurringExpenses   RecurringExpense[]
+  maintenanceRequests MaintenanceRequest[]
+  maintenanceRecords  MaintenanceRecord[]
+  @@unique([churchId, name])
+}
+
+model Vehicle {
+  id                  String    @id @default(cuid())
+  churchId            String
+  church              Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  assetId             String    @unique
+  asset               Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  regNumber           String
+  make                String?
+  model               String?
+  year                Int?
+  colour              String?
+  kind                String    @default("bus") // bus | minibus | car | pickup | van | motorbike | other
+  seats               Int?
+  fuelType            String    @default("diesel") // diesel | petrol | lpg | electric | hybrid
+  chassisNo           String?
+  odometerKm          Int       @default(0)
+  odometerAt          DateTime?
+  insurer             String?
+  insurancePolicyNo   String?
+  insuranceType       String?   // comprehensive | third-party
+  insuranceExpires    DateTime?
+  roadworthyExpires   DateTime?
+  registrationExpires DateTime? // DVLA annual licence renewal
+  active              Boolean   @default(true)
+  notes               String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @default(now()) @updatedAt
+  drivers             VehicleDriver[]
+  trips               VehicleTrip[]
+  fuel                VehicleFuel[]
+  @@unique([churchId, regNumber])
+  @@index([churchId])
+}
+
+model VehicleDriver {
+  id             String    @id @default(cuid())
+  churchId       String
+  church         Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  vehicleId      String
+  vehicle        Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  personId       String?
+  person         Person?   @relation(fields: [personId], references: [id], onDelete: SetNull)
+  name           String
+  phone          String?
+  licenceNo      String?
+  licenceClass   String?
+  licenceExpires DateTime?
+  isPrimary      Boolean   @default(false)
+  createdAt      DateTime  @default(now())
+  trips          VehicleTrip[]
+  @@index([vehicleId])
+  @@index([churchId])
+}
+
+model VehicleTrip {
+  id            String         @id @default(cuid())
+  churchId      String
+  church        Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  vehicleId     String
+  vehicle       Vehicle        @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  driverId      String?
+  driver        VehicleDriver? @relation(fields: [driverId], references: [id], onDelete: SetNull)
+  driverName    String?
+  purpose       String         @default("service-pickup") // service-pickup | event | errand | outreach | funeral | other
+  destination   String?
+  startAt       DateTime       @default(now())
+  endAt         DateTime?      // null = on the road now
+  odometerStart Int?
+  odometerEnd   Int?
+  passengers    Int?
+  eventId       String?
+  event         Event?         @relation(fields: [eventId], references: [id], onDelete: SetNull)
+  note          String?
+  createdById   String?
+  createdAt     DateTime       @default(now())
+  @@index([churchId, startAt])
+  @@index([vehicleId, startAt])
+}
+
+model VehicleFuel {
+  id            String   @id @default(cuid())
+  churchId      String
+  church        Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  vehicleId     String
+  vehicle       Vehicle  @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  date          DateTime @default(now())
+  litres        Float
+  cost          Float
+  odometer      Int?
+  station       String?
+  fullTank      Boolean  @default(true)
+  paymentMethod String?
+  receiptUrl    String?  @db.Text
+  expenseId     String?  @unique
+  expense       Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  createdById   String?
+  createdAt     DateTime @default(now())
+  @@index([vehicleId, date])
+  @@index([churchId, date])
+}
+
+model AssetCheckout {
+  id            String    @id @default(cuid())
+  churchId      String
+  church        Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  assetId       String
+  asset         Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  personId      String?
+  person        Person?   @relation(fields: [personId], references: [id], onDelete: SetNull)
+  borrowerName  String
+  borrowerPhone String?
+  purpose       String?
+  outAt         DateTime  @default(now())
+  dueAt         DateTime?
+  returnedAt    DateTime?
+  conditionOut  String?
+  conditionIn   String?
+  note          String?
+  outById       String?
+  inById        String?
+  createdAt     DateTime  @default(now())
+  @@index([assetId, outAt])
+  @@index([churchId, returnedAt])
+}
+
+model AssetDocument {
+  id           String    @id @default(cuid())
+  churchId     String
+  church       Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  assetId      String
+  asset        Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  kind         String    @default("other") // insurance | roadworthy | registration | receipt | warranty | manual | photo | other
+  name         String
+  url          String    @db.Text
+  contentType  String?
+  sizeBytes    Int?
+  expiresAt    DateTime?
+  uploadedById String?
+  createdAt    DateTime  @default(now())
+  @@index([assetId])
+}
+
+model MaintenanceSchedule {
+  id         String    @id @default(cuid())
+  churchId   String
+  church     Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  assetId    String
+  asset      Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  title      String
+  everyDays  Int?
+  everyKm    Int?
+  lastDoneAt DateTime?
+  lastDoneKm Int?
+  nextDueAt  DateTime?
+  nextDueKm  Int?
+  active     Boolean   @default(true)
+  notes      String?
+  alertedFor String?   // the due key last alerted, so each due is only announced once
+  createdAt  DateTime  @default(now())
+  records    MaintenanceRecord[]
+  @@index([churchId])
+  @@index([assetId])
+}
+
+model MaintenanceRequest {
+  id             String    @id @default(cuid())
+  churchId       String
+  church         Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  title          String
+  description    String?   @db.Text
+  location       String?
+  facilityId     String?
+  facility       Facility? @relation(fields: [facilityId], references: [id], onDelete: SetNull)
+  assetId        String?
+  asset          Asset?    @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  priority       String    @default("normal") // low | normal | urgent
+  status         String    @default("open")   // open | assigned | in-progress | done | cancelled
+  photoUrl       String?   @db.Text
+  reportedById   String?
+  reportedByName String?
+  assigneeUserId String?
+  assignee       User?     @relation(fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  assigneeName   String?   // artisan or vendor when not a team member
+  vendorId       String?
+  vendor         Vendor?   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  dueDate        DateTime?
+  estimatedCost  Float?
+  actualCost     Float?
+  resolvedAt     DateTime?
+  resolution     String?   @db.Text
+  expenseId      String?   @unique
+  expense        Expense?  @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @default(now()) @updatedAt
+  records        MaintenanceRecord[]
+  @@index([churchId, status])
+}
+
+model MaintenanceRecord {
+  id          String               @id @default(cuid())
+  churchId    String
+  church      Church               @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  assetId     String?
+  asset       Asset?               @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  scheduleId  String?
+  schedule    MaintenanceSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  requestId   String?
+  request     MaintenanceRequest?  @relation(fields: [requestId], references: [id], onDelete: SetNull)
+  kind        String               @default("service") // service | repair | inspection
+  title       String
+  date        DateTime             @default(now())
+  odometerKm  Int?
+  vendorName  String?
+  vendorId    String?
+  vendor      Vendor?              @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  cost        Float?
+  notes       String?              @db.Text
+  expenseId   String?              @unique
+  expense     Expense?             @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  createdById String?
+  createdAt   DateTime             @default(now())
+  @@index([assetId, date])
+  @@index([churchId, date])
+}
+
+model ExpenseRequest {
+  id              String         @id @default(cuid())
+  churchId        String
+  church          Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  description     String
+  amount          Float
+  category        String         @default("General")
+  vendorName      String?
+  vendorId        String?
+  vendor          Vendor?        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  budgetId        String?
+  budget          Budget?        @relation(fields: [budgetId], references: [id], onDelete: SetNull)
+  budgetItemId    String?
+  budgetItem      BudgetItem?    @relation(fields: [budgetItemId], references: [id], onDelete: SetNull)
+  accountId       String?
+  account         ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  fundId          String?
+  fund            Fund?          @relation(fields: [fundId], references: [id], onDelete: SetNull)
+  assetId         String?
+  asset           Asset?         @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  neededBy        DateTime?
+  attachmentUrl   String?        @db.Text
+  note            String?        @db.Text
+  source          String?        // fuel | maintenance
+  sourceId        String?
+  status          String         @default("pending") // pending | approved | rejected | paid | cancelled
+  requestedById   String?
+  requestedByName String?
+  decidedById     String?
+  decidedByName   String?
+  decidedAt       DateTime?
+  decisionNote    String?
+  expenseId       String?        @unique
+  expense         Expense?       @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @default(now()) @updatedAt
+  @@index([churchId, status])
+}
+
+model RecurringExpense {
+  id             String         @id @default(cuid())
+  churchId       String
+  church         Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  description    String
+  amount         Float
+  category       String         @default("General")
+  vendorName     String?
+  vendorId       String?
+  vendor         Vendor?        @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  accountId      String?
+  account        ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  fundId         String?
+  fund           Fund?          @relation(fields: [fundId], references: [id], onDelete: SetNull)
+  budgetId       String?
+  budget         Budget?        @relation(fields: [budgetId], references: [id], onDelete: SetNull)
+  budgetItemId   String?
+  budgetItem     BudgetItem?    @relation(fields: [budgetItemId], references: [id], onDelete: SetNull)
+  paymentMethod  String?
+  frequency      String         @default("monthly") // weekly | monthly | quarterly | yearly
+  anchorDay      Int?           // day of month to return to (31 stays the month end)
+  nextDue        DateTime
+  endsAt         DateTime?
+  active         Boolean        @default(true)
+  lastRecordedAt DateTime?
+  createdById    String?
+  createdAt      DateTime       @default(now())
+  @@index([churchId, nextDue])
 }

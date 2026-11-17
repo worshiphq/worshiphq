@@ -29,6 +29,11 @@ export interface LedgerFilters {
   sort: "newest" | "oldest" | "largest";
   group: boolean; // summarise giving by day
   page: number;
+  /** Expense-only filters (the Expenses page). Ignored elsewhere when empty. */
+  method?: string; // a payment method key, or "none" for not recorded
+  receipt?: "" | "with" | "without";
+  budget?: string; // a budget id, or "none"
+  payee?: string; // the payee name
 }
 
 export interface LedgerRow {
@@ -46,6 +51,8 @@ export interface LedgerRow {
   pending?: boolean;
   /** A summarised day of giving: the gifts inside it. */
   group?: LedgerRow[];
+  /** Expense rows only: the details the Expenses page filters and shows. */
+  meta?: { paymentMethod: string | null; hasReceipt: boolean; receiptRef: string | null; budgetId: string | null; vendor: string | null; vendorId: string | null; origin: string | null };
 }
 
 export interface Bucket {
@@ -120,6 +127,10 @@ export function parseLedgerParams(params: Record<string, string | string[] | und
     sort: pick(first(params.sort), ["newest", "oldest", "largest"] as const, "newest"),
     group: first(params.grp) !== "0",
     page: Math.max(1, parseInt(first(params.page), 10) || 1),
+    method: first(params.pm).slice(0, 20),
+    receipt: pick(first(params.rc), ["", "with", "without"] as const, ""),
+    budget: first(params.bud).slice(0, 40),
+    payee: first(params.pay).trim().slice(0, 120),
   };
   return { period, filters };
 }
@@ -153,12 +164,15 @@ async function loadRows(churchId: string, from: Date | null, to: Date | null): P
   const [txns, gifts, expenses] = await Promise.all([
     db.transaction.findMany({ where, select: { id: true, description: true, category: true, fund: true, amount: true, date: true, accountId: true, pendingDeposit: true } }),
     db.gift.findMany({ where, select: { id: true, donorName: true, amount: true, date: true, accountId: true, pendingDeposit: true, method: true, fund: { select: { name: true } }, person: { select: { firstName: true, lastName: true } } } }),
-    db.expense.findMany({ where, select: { id: true, description: true, category: true, amount: true, date: true, vendor: true, accountId: true } }),
+    db.expense.findMany({ where, select: { id: true, description: true, category: true, amount: true, date: true, vendor: true, accountId: true, paymentMethod: true, receiptUrl: true, receiptRef: true, budgetId: true, vendorId: true, source: true } }),
   ]);
   return [
     ...txns.map((t): LedgerRow => ({ id: t.id, description: t.description, category: t.category, fund: t.fund ?? "General", amount: Number(t.amount), date: t.date.toISOString(), source: "manual", accountId: t.accountId, pending: t.pendingDeposit })),
     // Expenses live in their own table (the single source of truth), shown here as outgoing rows.
-    ...expenses.map((e): LedgerRow => ({ id: e.id, description: `${e.description}${e.vendor ? ` (${e.vendor})` : ""}`, category: e.category, fund: "General", amount: -Number(e.amount), date: e.date.toISOString(), source: "expense", accountId: e.accountId })),
+    ...expenses.map((e): LedgerRow => ({
+      id: e.id, description: `${e.description}${e.vendor ? ` (${e.vendor})` : ""}`, category: e.category, fund: "General", amount: -Number(e.amount), date: e.date.toISOString(), source: "expense", accountId: e.accountId,
+      meta: { paymentMethod: e.paymentMethod, hasReceipt: !!(e.receiptUrl || e.receiptRef), receiptRef: e.receiptRef, budgetId: e.budgetId, vendor: e.vendor, vendorId: e.vendorId, origin: e.source },
+    })),
     ...gifts.map((g): LedgerRow => ({
       id: g.id,
       description: `${g.person ? `${g.person.firstName} ${g.person.lastName}` : g.donorName ?? "Anonymous"} - ${g.fund?.name ?? "Gift"}`,
@@ -188,6 +202,16 @@ function filterRows(rows: LedgerRow[], f: LedgerFilters, defaultId: string | nul
       else if (r.pending || (eff ?? defaultId) !== f.account) return false; // money with no account counts under the default one (unless it's not banked yet)
     }
     if (q && !`${r.description} ${r.category} ${r.fund}`.toLowerCase().includes(q)) return false;
+    // Expense-only filters: a row that is not an expense never matches them.
+    if (f.method || f.receipt || f.budget || f.payee) {
+      const m = r.meta;
+      if (r.source !== "expense" || !m) return false;
+      if (f.method && (f.method === "none" ? m.paymentMethod : m.paymentMethod !== f.method)) return false;
+      if (f.receipt === "with" && !m.hasReceipt) return false;
+      if (f.receipt === "without" && m.hasReceipt) return false;
+      if (f.budget && (f.budget === "none" ? m.budgetId : m.budgetId !== f.budget)) return false;
+      if (f.payee && (m.vendor ?? "").toLowerCase() !== f.payee.toLowerCase()) return false;
+    }
     return true;
   });
 }
@@ -332,7 +356,7 @@ export async function getLedger(churchId: string, period: Period, filters: Ledge
     acct.set(k, e);
   }
 
-  const activeFilters = [filters.type, filters.source, filters.account, filters.fund, filters.category, filters.q].filter(Boolean).length;
+  const activeFilters = [filters.type, filters.source, filters.account, filters.fund, filters.category, filters.q, filters.method, filters.receipt, filters.budget, filters.payee].filter(Boolean).length;
   return {
     period,
     label,

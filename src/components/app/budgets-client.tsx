@@ -25,6 +25,8 @@ interface BudgetEntry {
   category: string | null;
   amount: number;
   date: string;
+  /** A church expense linked to this budget from Expenses: shown and counted here, edited there. */
+  linked?: boolean;
 }
 interface Budget {
   id: string;
@@ -196,11 +198,11 @@ export function BudgetsClient({
                                     {e.type === "income" ? "+" : "−"}{fmt(e.amount)}
                                   </td>
                                   <td className="py-2 text-right w-8">
-                                    <form action={(fd) => { if (!confirmBinDelete("Remove this entry?")) return; start(async () => { fd.set("id", e.id); await deleteEntryAction(fd); toast(BIN_TOAST, "success"); }); }}>
+                                    {e.linked ? <a href="/app/expenses" className="text-[10px] font-medium text-primary hover:underline" title="Recorded in Expenses">Expenses</a> : <form action={(fd) => { if (!confirmBinDelete("Remove this entry?")) return; start(async () => { fd.set("id", e.id); await deleteEntryAction(fd); toast(BIN_TOAST, "success"); }); }}>
                                       <button type="submit" disabled={pending} className="grid size-6 place-items-center rounded text-ink-faint hover:text-danger disabled:pointer-events-none">
                                         {pending ? <Loader2 className="size-3.5 animate-spin" /> : <Trash2 className="size-3.5" />}
                                       </button>
-                                    </form>
+                                    </form>}
                                   </td>
                                 </tr>
                               ))}

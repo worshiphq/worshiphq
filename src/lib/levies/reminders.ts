@@ -1,3 +1,4 @@
+import { LIVE_CHURCH } from "@/lib/live-church";
 import "server-only";
 import { db } from "@/lib/db";
 import { ymdInTz } from "@/lib/time/tz";
@@ -25,7 +26,7 @@ const asFreq = (f: string): Frequency => (f === "quarterly" || f === "yearly" ? 
 export async function runLevyReminders(now = new Date(), deadline?: Deadline) {
   const churches = await onlyWithFeature(
     await db.church.findMany({
-      where: { isDemo: false, suspended: false, levyRules: { some: {} } },
+      where: { ...LIVE_CHURCH, suspended: false, levyRules: { some: {} } },
       select: { id: true, name: true, timezone: true, levyRemindOn: true, levyRemindDays: true, levyRemindSms: true, levyRemindUserIds: true, levyAutoClose: true },
     }),
     "levies",

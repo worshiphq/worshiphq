@@ -17,5 +17,9 @@ export function ledgerQuery(period: Period, f: LedgerFilters): URLSearchParams {
   if (f.sort !== "newest") sp.set("sort", f.sort);
   if (!f.group) sp.set("grp", "0");
   if (f.page > 1) sp.set("page", String(f.page));
+  if (f.method) sp.set("pm", f.method);
+  if (f.receipt) sp.set("rc", f.receipt);
+  if (f.budget) sp.set("bud", f.budget);
+  if (f.payee) sp.set("pay", f.payee);
   return sp;
 }

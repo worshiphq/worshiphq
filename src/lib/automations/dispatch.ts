@@ -16,6 +16,7 @@ import { runServiceThanks } from "@/lib/attendance/thanks";
 import { runAgeGroupSync } from "@/lib/data/age";
 import { runScheduledBackups } from "@/lib/backups/run";
 import { runFollowUpDigest } from "@/lib/follow-ups/digest";
+import { runAssetAlerts } from "@/lib/automations/asset-alerts";
 
 /** Run one task, but never let its failure abort the whole batch. */
 async function safe<T>(label: string, fn: () => Promise<T>): Promise<T | { error: string }> {
@@ -69,6 +70,7 @@ export async function runDailyAutomations(now = new Date(), precise = false, sen
   summary.absence = await safe("absence", () => runAbsenceCheck(now, ignoreHour, smsDeadline));
   summary.serviceThanks = await safe("serviceThanks", () => runServiceThanks(now, ignoreHour, smsDeadline));
   summary.followUpDigest = await safe("followUpDigest", () => runFollowUpDigest(now, ignoreHour, smsDeadline));
+  summary.assetAlerts = await safe("assetAlerts", () => runAssetAlerts(now, ignoreHour, smsDeadline));
   summary.weeklyBriefing = await safe("weeklyBriefing", () => runWeeklyBriefing(now, ignoreHour, smsDeadline));
 
   // 3) Welcome / we-miss-you / thank-you / anniversary / visitor follow-up texts.

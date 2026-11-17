@@ -45,34 +45,8 @@ export async function groupMemberIds(groupId: string): Promise<string[]> {
 }
 
 // ---------------- Assets ----------------
-export const ASSET_PAGE = 20;
-export async function queryAssets(churchId: string, search: string, category: string, pageWanted: number) {
-  const words = search.trim().slice(0, 80).split(/\s+/).filter(Boolean).slice(0, 6);
-  const and: Prisma.AssetWhereInput[] = words.map((w) => {
-    const has = { contains: w, mode: "insensitive" as const };
-    return { OR: [{ name: has }, { location: has }, { serialNo: has }] };
-  });
-  const where: Prisma.AssetWhereInput = { churchId, ...(category ? { category } : {}), AND: and };
-  const total = await db.asset.count({ where });
-  const page = clampPage(total, ASSET_PAGE, pageWanted);
-  const assets = await db.asset.findMany({ where, orderBy: [{ createdAt: "desc" }, { id: "asc" }], skip: (page - 1) * ASSET_PAGE, take: ASSET_PAGE });
-  return {
-    rows: assets.map((a) => ({
-      id: a.id, name: a.name, category: a.category, condition: a.condition, location: a.location, serialNo: a.serialNo,
-      purchasePrice: a.purchasePrice, purchaseDate: a.purchaseDate?.toISOString() ?? null, notes: a.notes,
-    })),
-    total,
-    page,
-  };
-}
-export async function assetTotals(churchId: string) {
-  const [agg, count, cats] = await Promise.all([
-    db.asset.aggregate({ where: { churchId }, _sum: { purchasePrice: true } }),
-    db.asset.count({ where: { churchId } }),
-    db.asset.findMany({ where: { churchId }, distinct: ["category"], select: { category: true } }),
-  ]);
-  return { totalValue: Number(agg._sum.purchasePrice ?? 0), totalCount: count, categories: cats.map((c) => c.category).sort() };
-}
+// Moved to src/lib/data/assets.ts (book value, status, custodian). Re-exported for older imports.
+export { ASSET_PAGE, queryAssets, assetTotals } from "@/lib/data/assets";
 
 export async function departmentMemberIds(churchId: string, departmentId: string): Promise<string[]> {
   const rows = await db.person.findMany({

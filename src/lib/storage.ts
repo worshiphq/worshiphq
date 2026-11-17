@@ -161,3 +161,33 @@ export async function getObject(key: string): Promise<Buffer> {
 export async function deleteObject(key: string): Promise<void> {
   await getR2Client().send(new DeleteObjectCommand({ Bucket: env.R2_BUCKET, Key: key }));
 }
+
+/* ── Documents (asset papers, receipts): PDFs and raster images ── */
+
+const DOCUMENT_TYPES: Record<string, string> = {
+  "application/pdf": "pdf", "image/png": "png", "image/jpeg": "jpg", "image/jpg": "jpg", "image/webp": "webp",
+};
+
+/**
+ * Store a document file in R2 under a random, unguessable key and return its public URL. PDFs are served as
+ * downloads. Returns null when R2 is not configured, so a PDF is never kept as base64 in Postgres.
+ */
+export async function storeDocument(buf: Buffer, contentType: string, folder: string): Promise<string | null> {
+  const type = contentType.toLowerCase().split(";")[0].trim();
+  const ext = DOCUMENT_TYPES[type];
+  if (!ext || !R2_CONFIGURED) return null;
+  const name = `${folder}/${Date.now()}-${crypto.randomBytes(12).toString("hex")}.${ext}`;
+  try {
+    await getR2Client().send(new PutObjectCommand({
+      Bucket: env.R2_BUCKET,
+      Key: name,
+      Body: buf,
+      ContentType: type,
+      CacheControl: "public, max-age=31536000, immutable",
+      ...(type === "application/pdf" ? { ContentDisposition: "attachment" } : {}),
+    }));
+    return `${env.R2_PUBLIC_URL!.replace(/\/$/, "")}/${name}`;
+  } catch {
+    return null;
+  }
+}

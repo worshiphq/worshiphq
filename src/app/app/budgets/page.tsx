@@ -25,6 +25,8 @@ export default async function BudgetsPage() {
         items: { orderBy: { category: "asc" } },
         entries: { orderBy: { date: "desc" } },
         department: { select: { name: true } },
+        // Church expenses linked to this budget (from the Expenses page). They count as spent; they never create a BudgetEntry.
+        expenses: { orderBy: { date: "desc" }, select: { id: true, description: true, amount: true, date: true, category: true, budgetItemId: true } },
       },
     }),
     isLeader ? Promise.resolve([]) : db.department.findMany({ where: { churchId: session.churchId }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
@@ -88,7 +90,8 @@ export default async function BudgetsPage() {
             category: i.category,
             description: i.description,
             amount: i.amount,
-            spent: i.spent,
+            // A line's spent is what has been linked to it from Expenses, plus the older stored figure.
+            spent: i.spent + b.expenses.filter((e) => e.budgetItemId === i.id).reduce((s, e) => s + e.amount, 0),
           })),
           entries: b.entries.map((e) => ({
             id: e.id,
@@ -97,7 +100,15 @@ export default async function BudgetsPage() {
             category: e.category,
             amount: e.amount,
             date: e.date.toISOString(),
-          })),
+          })).concat(b.expenses.map((e) => ({
+            id: e.id,
+            type: "expense" as const,
+            description: e.description,
+            category: e.category,
+            amount: e.amount,
+            date: e.date.toISOString(),
+            linked: true,
+          }))).sort((x, y) => y.date.localeCompare(x.date)),
         }))}
         isLeader={isLeader}
         accounts={accounts}

@@ -80,6 +80,8 @@ export const SECTION_GROUPS: { category: string; sections: SectionDef[] }[] = [
     sections: [
       { key: "assets", label: "Assets", parent: "settings", manageable: true },
       { key: "staff", label: "Staff & leave", parent: "settings", manageable: true },
+      { key: "vehicles", label: "Vehicles", parent: "settings", manageable: true },
+      { key: "maintenance", label: "Maintenance", parent: "settings", manageable: true },
       { key: "export", label: "Download data", parent: "settings" },
       { key: "audit-log", label: "Audit log", parent: "settings" },
       { key: "settings", label: "Settings", parent: "settings", manageable: true },

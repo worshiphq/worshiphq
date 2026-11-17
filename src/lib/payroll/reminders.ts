@@ -1,3 +1,4 @@
+import { LIVE_CHURCH } from "@/lib/live-church";
 import "server-only";
 import { db } from "@/lib/db";
 import { onlyWithFeature } from "@/lib/plan-gate-batch";
@@ -14,7 +15,7 @@ const DAY = 86_400_000;
 export async function runPayrollReminders(now = new Date(), deadline?: Deadline) {
   const soon = new Date(now.getTime() + 3 * DAY);
   const churches = await onlyWithFeature(await db.church.findMany({
-    where: { isDemo: false, payrollPostings: { some: { status: "pending", remindedAt: null, dueDate: { lte: soon } } }, payrollSettings: { is: { remindersOn: true } } },
+    where: { ...LIVE_CHURCH, payrollPostings: { some: { status: "pending", remindedAt: null, dueDate: { lte: soon } } }, payrollSettings: { is: { remindersOn: true } } },
     select: { id: true, name: true },
   }), "payroll");
   let sent = 0;

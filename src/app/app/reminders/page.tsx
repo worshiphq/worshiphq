@@ -6,6 +6,8 @@ import { RemindersClient } from "@/components/app/reminders-client";
 import { absentMembers } from "@/lib/automations/absence";
 import { BriefingCard } from "@/components/app/briefing-card";
 import { normalizeBriefing } from "@/lib/briefing/settings";
+import { AssetAlertsCard } from "@/components/app/asset-alerts-card";
+import { readAlertSettings } from "@/lib/data/asset-alerts";
 
 export const metadata = { title: "Reminders" };
 
@@ -14,7 +16,7 @@ export default async function RemindersPage() {
   const [data, departments, church, team] = await Promise.all([
     getReminders(session.churchId),
     db.department.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
-    db.church.findUnique({ where: { id: session.churchId }, select: { timezone: true, absenceOn: true, absenceWeeks: true, absenceTextMember: true, absenceAlertAdmins: true, absenceMaxTexts: true, absenceRepeatWeeks: true, absenceCreateFollowUp: true, absenceNotifyUserIds: true, briefing: true } }),
+    db.church.findUnique({ where: { id: session.churchId }, select: { timezone: true, absenceOn: true, absenceWeeks: true, absenceTextMember: true, absenceAlertAdmins: true, absenceMaxTexts: true, absenceRepeatWeeks: true, absenceCreateFollowUp: true, absenceNotifyUserIds: true, briefing: true, assetAlerts: true } }),
     db.user.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true, role: true, phone: true }, orderBy: { name: "asc" } }),
   ]);
   const away = await absentMembers(session.churchId, church?.absenceWeeks ?? 3, church?.timezone ?? "Africa/Accra");
@@ -36,6 +38,9 @@ export default async function RemindersPage() {
   // refuses automation changes below Pro, so this only lets the screen say so instead of failing.
   const automationsLocked = !session.isDemo && !!session.planLocked?.includes("automations");
   const briefingLocked = !session.isDemo && !!session.planLocked?.includes("weekly-briefing");
+  // The vehicles and equipment alert is shown when the church has any of the screens it watches.
+  const assetAlertsShown = session.isDemo || ["vehicles", "assets", "maintenance"].some((f) => !session.planLocked?.includes(f));
+  const alerts = readAlertSettings(church?.assetAlerts);
   return (
     <>
       <BriefingCard
@@ -44,6 +49,13 @@ export default async function RemindersPage() {
         locked={briefingLocked}
         canWrite={!session.isDemo && canEdit(session, "reminders")}
       />
+      {assetAlertsShown && (
+        <AssetAlertsCard
+          initial={{ on: alerts.on, userIds: alerts.userIds, sms: alerts.sms, days: alerts.days.filter((d) => d > 0) }}
+          team={team.map((u) => ({ id: u.id, name: u.name, role: String(u.role), hasPhone: !!u.phone }))}
+          canWrite={!session.isDemo && (session.role === "Owner" || session.role === "Admin")}
+        />
+      )}
       <RemindersClient {...shown} absence={absence} canWrite={canEdit(session, "reminders")} canDelete={session.canDelete && canEdit(session, "reminders")} departments={departments} automationsLocked={automationsLocked} />
     </>
   );
