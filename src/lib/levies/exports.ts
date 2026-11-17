@@ -122,7 +122,7 @@ export async function statementData(churchId: string, opts: { fromYm: string; to
     g.due += due; g.paid += paid; g.left += left;
     groups.set(r.rule.id, g);
   }
-  const list = [...groups.values()].sort((a, b) => a.sort - b.sort).map(({ sort: _s, ...g }) => ({ ...g, due: Math.round(g.due * 100) / 100, paid: Math.round(g.paid * 100) / 100, left: Math.round(g.left * 100) / 100 }));
+  const list = [...groups.values()].sort((a, b) => a.sort - b.sort).map((x) => { const g: Partial<typeof x> = { ...x }; delete g.sort; return g as StatementData["groups"][number]; }).map((g) => ({ ...g, due: Math.round(g.due * 100) / 100, paid: Math.round(g.paid * 100) / 100, left: Math.round(g.left * 100) / 100 }));
   const r2 = (x: number) => Math.round(x * 100) / 100;
   return {
     churchName: church?.name ?? "Church", logoUrl: church?.logoUrl ?? null, payee: opts.payee ?? null,

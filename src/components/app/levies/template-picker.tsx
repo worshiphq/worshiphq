@@ -44,7 +44,7 @@ export function TemplatePicker({ open, onClose, streams, todayYmd, parent }: {
   const update = (it: Item, patch: Partial<RuleDraft & { on: boolean }>) => setDrafts((p) => ({ ...p, [it.key]: { ...draftFor(it), ...patch } }));
 
   const chosen = items.map(draftFor).filter((d) => d.on);
-  const save = () => run(() => applyLevyTemplates(chosen.map(({ on: _on, ...d }) => d), fromParent ? "parent" : "template"), (r) => `${r.created} levy${r.created === 1 ? "" : "ies"} added. Change any of them in Rules.`, onClose);
+  const save = () => run(() => applyLevyTemplates(chosen.map((x) => { const r: RuleDraft & { on?: boolean } = { ...x }; delete r.on; return r as RuleDraft; }), fromParent ? "parent" : "template"), (r) => `${r.created} levy${r.created === 1 ? "" : "ies"} added. Change any of them in Rules.`, onClose);
 
   return (
     <Modal open={open} onClose={onClose} wide title={fromParent ? `Suggested by ${parent!.name}` : "Start from a template"} description={fromParent ? "Your main church suggests these levies. Review each one, then add it as your own." : TEMPLATE_NOTE}>

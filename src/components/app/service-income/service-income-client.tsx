@@ -2,10 +2,11 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Download, Pencil, Plus, Settings2, Trash2, TrendingDown, TrendingUp, Users, Search, Link2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Pencil, Plus, Settings2, Trash2, TrendingDown, TrendingUp, Users, Search, Link2 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { Spinner } from "@/components/ui/spinner";
+import { DownloadButton } from "@/components/ui/download-button";
 import { useServerList } from "@/components/ui/use-server-list";
 import { addSheetFund, deleteServiceSheet, loadServiceMonth, searchServiceSheets, setServiceSheetFunds } from "@/app/actions/service-income";
 import { WEEKDAY_NAMES, shiftYmd, weekdayOf, type ServiceCard, type ServiceMonthData, type ServiceWeekData } from "@/lib/service-income/types";
@@ -85,12 +86,13 @@ function FundsSheet({ open, onClose, week }: { open: boolean; onClose: () => voi
 
 function MonthView({ initialYear, initialMonth }: { initialYear: number; initialMonth: number }) {
   const [ym, setYm] = useState({ y: initialYear, m: initialMonth });
-  const [data, setData] = useState<ServiceMonthData | null>(null);
+  const k = `${ym.y}-${ym.m}`;
+  const [got, setGot] = useState<{ k: string; d: ServiceMonthData } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const data = got?.k === k ? got.d : null;
   useEffect(() => {
     let live = true;
-    setData(null);
-    loadServiceMonth(ym.y, ym.m).then((d) => { if (live) setData(d); }).catch((e: Error) => { if (live) setError(e.message); });
+    loadServiceMonth(ym.y, ym.m).then((d) => { if (live) { setGot({ k: `${ym.y}-${ym.m}`, d }); setError(null); } }).catch((e: Error) => { if (live) setError(e.message); });
     return () => { live = false; };
   }, [ym]);
   const step = (d: number) => setYm((p) => { const i = p.y * 12 + p.m + d; return { y: Math.floor(i / 12), m: i % 12 }; });
@@ -151,11 +153,11 @@ function MonthView({ initialYear, initialMonth }: { initialYear: number; initial
 
 /** Loads the first page, then hands over to the searchable list. */
 function History({ year }: { year: number }) {
-  const [first, setFirst] = useState<{ rows: ServiceCard[]; total: number; page: number } | null>(null);
+  const [got, setGot] = useState<{ year: number; first: { rows: ServiceCard[]; total: number; page: number } } | null>(null);
+  const first = got?.year === year ? got.first : null;
   useEffect(() => {
     let live = true;
-    setFirst(null);
-    searchServiceSheets("", { year }, 1).then((r) => { if (live) setFirst(r); }).catch(() => { if (live) setFirst({ rows: [], total: 0, page: 1 }); });
+    searchServiceSheets("", { year }, 1).then((r) => { if (live) setGot({ year, first: r }); }).catch(() => { if (live) setGot({ year, first: { rows: [], total: 0, page: 1 } }); });
     return () => { live = false; };
   }, [year]);
   if (!first) return <p className="flex items-center gap-2 text-sm text-ink-muted"><Spinner size="sm" /> Loading service records...</p>;
@@ -213,7 +215,7 @@ export function ServiceIncomeClient({ week }: { week: ServiceWeekData }) {
           <div className="inline-flex gap-1 rounded-xl bg-surface-2 p-1">
             {(["week", "month"] as const).map((v) => <button key={v} type="button" onClick={() => setView(v)} className={cn("rounded-lg px-3 py-1.5 text-sm font-medium", view === v ? "bg-surface text-ink shadow-sm" : "text-ink-muted")}>{v === "week" ? "Week" : "Month"}</button>)}
           </div>
-          <a href="/api/export/service-income" className="inline-flex h-10 items-center gap-2 rounded-xl border border-line bg-elevated px-3.5 text-sm font-semibold hover:bg-surface-2"><Download className="size-4" /> Download</a>
+          <DownloadButton url="/api/export/service-income" variant="secondary">Download</DownloadButton>
           {week.access.manage && <button type="button" onClick={() => setFunds(true)} className="grid size-10 place-items-center rounded-xl border border-line hover:bg-surface-2" aria-label="Kinds of income on the sheet"><Settings2 className="size-4" /></button>}
           {week.access.manage && <button type="button" onClick={() => setSheet({ key: Date.now(), existing: null, date: defaultDate })} className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white"><Plus className="size-4" /> Add service record</button>}
         </div>

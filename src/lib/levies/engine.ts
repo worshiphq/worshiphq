@@ -472,17 +472,22 @@ export async function carryCredit(client: PrismaClient, input: { churchId: strin
 
 /* ───────── Rule validation shared with the action ───────── */
 
-/** Refuse a new version that would start inside a closed period of this levy. */
-export async function effectiveFromProblem(client: Client, churchId: string, ruleId: string, fromYmd: string, tz: string): Promise<string | null> {
-  const closed = await client.levyRecord.findMany({
-    where: { churchId, ruleId, state: "closed" },
-    select: { periodKey: true, periodEnd: true, rule: { select: { frequency: true, yearStartMonth: true } } },
+/**
+ * Refuse a new version that would start inside a closed period of this levy, or inside an ended period that is already
+ * fully paid (paid history is never rewritten, even when the church closes periods by hand).
+ */
+export async function effectiveFromProblem(client: Client, churchId: string, ruleId: string, fromYmd: string, tz: string, now = new Date()): Promise<string | null> {
+  const recs = await client.levyRecord.findMany({
+    where: { churchId, ruleId, OR: [{ state: "closed" }, { state: "open", periodEnd: { lte: now }, amountPaid: { gt: 0 } }] },
+    select: { periodKey: true, periodEnd: true, state: true, amountDue: true, amountPaid: true, rule: { select: { frequency: true, yearStartMonth: true } } },
   });
-  return checkEffectiveFrom(fromYmd, closed.map((c) => {
+  const frozen = recs.filter((c) => c.state === "closed" || toCents(c.amountPaid.toString()) >= toCents(c.amountDue.toString()));
+  const problem = checkEffectiveFrom(fromYmd, frozen.map((c) => {
     const endYmd = ymdInTz(c.periodEnd, tz);
     const last = addDays(endYmd, -1);
     return { endYmd, label: periodLabel(c.periodKey, asFreq(c.rule.frequency), c.rule.yearStartMonth), lastDayLabel: longDate(last).replace(/ \d{4}$/, "") };
   }));
+  return problem ? problem.replace("which is closed", "which is closed or fully paid") : null;
 }
 
 /** The last full period before today, for previews ("Last month this would have been..."). */

@@ -60,14 +60,13 @@ export function ServiceSheetDialog({ open, onClose, week, existing, defaultDate 
   const [removed, setRemoved] = useState<Set<string>>(new Set());
 
   // Gifts already in Giving that day, not tied to a service.
-  const [untagged, setUntagged] = useState<UntaggedGift[] | null>(null);
+  const [got, setGot] = useState<{ date: string; gifts: UntaggedGift[] } | null>(null);
+  const untagged = got?.date === date ? got.gifts : null;
   const [tags, setTags] = useState<Set<string>>(new Set());
   const [showUntagged, setShowUntagged] = useState(false);
   useEffect(() => {
     let live = true;
-    setUntagged(null);
-    setTags(new Set());
-    getUntaggedGifts(date).then((g) => { if (live) setUntagged(g); }).catch(() => { if (live) setUntagged([]); });
+    getUntaggedGifts(date).then((g) => { if (live) setGot({ date, gifts: g }); }).catch(() => { if (live) setGot({ date, gifts: [] }); });
     return () => { live = false; };
   }, [date]);
 
@@ -103,7 +102,7 @@ export function ServiceSheetDialog({ open, onClose, week, existing, defaultDate 
         <div className="grid gap-3 sm:grid-cols-[180px_1fr]">
           <div>
             <label className={labelCls} htmlFor="ss-date">Date</label>
-            <input id="ss-date" type="date" max={week.todayYmd} value={date} onChange={(e) => setDate(e.target.value)} className={inputCls} />
+            <input id="ss-date" type="date" max={week.todayYmd} value={date} onChange={(e) => { setDate(e.target.value); setTags(new Set()); }} className={inputCls} />
             <p className="mt-1 text-xs text-ink-faint">{WEEKDAY_NAMES[weekday]}</p>
           </div>
           <div>

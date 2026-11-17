@@ -45,16 +45,16 @@ export function RuleWizard({ open, onClose, initial, editing, streams, rules, pa
   const set = (patch: Partial<RuleDraft>) => setD((p) => ({ ...p, ...patch }));
 
   // Live preview, a short pause after each change.
-  const [preview, setPreview] = useState<{ label: string; total: number; lines: string[]; cap: string | null; warnings: string[] } | null>(null);
+  const [rawPreview, setPreview] = useState<{ label: string; total: number; lines: string[]; cap: string | null; warnings: string[] } | null>(null);
   const [previewing, setPreviewing] = useState(false);
   const seq = useRef(0);
   const ready = d.kind === "percent" ? Number(d.rate) > 0 && (d.allIncome || d.sources.length > 0) : Number(d.fixedAmount) > 0;
   const key = JSON.stringify([d.kind, d.rate, d.fixedAmount, d.allIncome, d.sources, d.minAmount, d.maxAmount, d.afterRuleId, d.frequency, d.yearStartMonth]);
   useEffect(() => {
-    if (!ready) { setPreview(null); return; }
+    if (!ready) return;
     const id = ++seq.current;
-    setPreviewing(true);
     const t = setTimeout(async () => {
+      setPreviewing(true);
       const r = await previewLevy(d).catch(() => null);
       if (id !== seq.current) return;
       setPreviewing(false);
@@ -64,6 +64,7 @@ export function RuleWizard({ open, onClose, initial, editing, streams, rules, pa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, ready]);
 
+  const preview = ready ? rawPreview : null;
   const scheduleLocked = !!editing?.scheduleLocked;
   const afterOptions = rules.filter((r) => r.id !== editing?.id && r.active && !r.afterRuleId && r.current?.kind === "percent" && r.frequency === d.frequency);
   const fixedNote = d.kind === "fixed" && d.startsYmd.slice(8) !== "01" ? "A fixed amount is charged for whole periods, so it will start on the first day of the next period." : null;
