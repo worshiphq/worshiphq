@@ -2,21 +2,25 @@
 
 import { useEffect, useState, useTransition } from "react";
 import { usePathname, useRouter } from "next/navigation";
-import { ChevronLeft, ChevronRight, Pencil, Plus, Settings2, Trash2, TrendingDown, TrendingUp, Users, Search, Link2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, HandCoins, Link2, Pencil, Plus, Search, Trash2, TrendingDown, TrendingUp, Unlink, Users } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Modal } from "@/components/ui/modal";
 import { Spinner } from "@/components/ui/spinner";
 import { DownloadButton } from "@/components/ui/download-button";
 import { useServerList } from "@/components/ui/use-server-list";
-import { addSheetFund, deleteServiceSheet, loadServiceMonth, searchServiceSheets, setServiceSheetFunds } from "@/app/actions/service-income";
-import { WEEKDAY_NAMES, shiftYmd, weekdayOf, type ServiceCard, type ServiceMonthData, type ServiceWeekData } from "@/lib/service-income/types";
+import { CollectionForm } from "@/components/app/collection-form";
+import { useServicePicker } from "@/components/app/service-picker";
+import { deleteServiceSheet, linkGiftsToService, loadServiceMonth, saveServiceHeader, searchServiceSheets, untagGiftFromService } from "@/app/actions/service-income";
+import { GIFT_METHOD_LABEL, WEEKDAY_NAMES, shiftYmd, weekdayOf, type ServiceCard, type ServiceMonthData, type ServiceWeekData, type UntaggedGift } from "@/lib/service-income/types";
 import { cn } from "@/lib/utils";
-import { BusyButton, Empty, dayMonth, dayMonthYear, ghs, ghs0, inputCls, useLevyAction } from "@/components/app/levies/shared";
-import { ServiceSheetDialog } from "./service-sheet-dialog";
+import { BusyButton, Empty, dayMonth, dayMonthYear, ghs, ghs0, inputCls, labelCls, useLevyAction } from "@/components/app/levies/shared";
 
 const MONTHS = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
+const methodLabel = (m: string) => GIFT_METHOD_LABEL[m] ?? m;
 
-function ServiceCardView({ s, access, onEdit }: { s: ServiceCard; access: ServiceWeekData["access"]; onEdit: () => void }) {
+type Recording = { key: number; date: string; service: string | null };
+
+function ServiceCardView({ s, access, onRecord, onEdit }: { s: ServiceCard; access: ServiceWeekData["access"]; onRecord: () => void; onEdit: () => void }) {
   const { pending, run } = useLevyAction();
   return (
     <Card className="p-5">
@@ -30,22 +34,29 @@ function ServiceCardView({ s, access, onEdit }: { s: ServiceCard; access: Servic
           {s.perPerson !== null && <div className="text-xs text-ink-muted">{ghs(s.perPerson)} per person</div>}
         </div>
       </div>
-      <div className="mt-3 flex flex-wrap gap-1.5">
-        {s.byFund.map((f) => <span key={f.name} className="rounded-full bg-surface-2 px-2.5 py-1 text-xs"><span className="font-medium">{f.name}</span> <span className="tabular-nums text-ink-muted">{ghs0(f.total)}</span></span>)}
-        {s.byFund.length === 0 && <span className="text-xs text-ink-faint">Nothing counted yet.</span>}
+      <div className="mt-3 space-y-1.5">
+        <div className="flex flex-wrap gap-1.5">
+          {s.byFund.map((f) => <span key={f.name} className="rounded-full bg-surface-2 px-2.5 py-1 text-xs"><span className="font-medium">{f.name}</span> <span className="tabular-nums text-ink-muted">{ghs0(f.total)}</span></span>)}
+          {s.byFund.length === 0 && <span className="text-xs text-ink-faint">No giving linked yet.</span>}
+        </div>
+        {s.byMethod.length > 0 && (
+          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-ink-muted">
+            {s.byMethod.map((m) => <span key={m.method}>{methodLabel(m.method)} <span className="tabular-nums">{ghs0(m.total)}</span></span>)}
+          </div>
+        )}
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-ink-muted">
         <span className="flex items-center gap-1"><Users className="size-3.5" />{s.attendance ? `${s.attendance} people${s.attendanceFrom === "session" ? " (from attendance)" : ""}` : "No headcount"}</span>
-        {s.attendanceFrom === "session" && <span className="flex items-center gap-1 text-primary"><Link2 className="size-3.5" /> Linked to attendance</span>}
         {s.countedBy && <span>Counted by {s.countedBy}</span>}
         {s.note && <span>{s.note}</span>}
       </div>
-      {access.manage && (
-        <div className="mt-3 flex gap-2 border-t border-line-soft pt-3">
-          <button type="button" onClick={onEdit} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-line px-3 text-sm font-medium hover:bg-surface-2"><Pencil className="size-4" /> Edit</button>
+      {(access.manage || access.recordGiving) && (
+        <div className="mt-3 flex flex-wrap gap-2 border-t border-line-soft pt-3">
+          {access.recordGiving && <button type="button" onClick={onRecord} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-line px-3 text-sm font-medium hover:bg-surface-2"><Plus className="size-4" /> Add giving</button>}
+          {access.manage && <button type="button" onClick={onEdit} className="inline-flex h-9 items-center gap-1.5 rounded-xl border border-line px-3 text-sm font-medium hover:bg-surface-2"><Pencil className="size-4" /> Headcount and notes</button>}
           {access.del && (
             <BusyButton size="sm" variant="ghost" className="ml-auto text-ink-muted" busy={pending} busyLabel="Removing..."
-              onClick={() => { if (window.confirm("Remove this service record? The money stays in Giving. Only this service record is removed.")) run(() => deleteServiceSheet(s.id), "Service record removed. The money stays in Giving."); }}>
+              onClick={() => { if (window.confirm("Remove this service record? The money stays in Giving, as not linked to a service.")) run(() => deleteServiceSheet(s.id), "Service record removed. The money stays in Giving."); }}>
               <Trash2 /> Remove
             </BusyButton>
           )}
@@ -55,32 +66,82 @@ function ServiceCardView({ s, access, onEdit }: { s: ServiceCard; access: Servic
   );
 }
 
-function FundsSheet({ open, onClose, week }: { open: boolean; onClose: () => void; week: ServiceWeekData }) {
-  const flagged = week.funds.filter((f) => f.inServiceSheet).map((f) => f.id);
-  const [ids, setIds] = useState<string[]>(flagged.length ? flagged : week.funds.filter((f) => f.kind !== "other").map((f) => f.id));
-  const [name, setName] = useState("");
+/** Headcount, who counted and a note. The money itself is changed in Giving; a gift can be taken out of the service here. */
+function HeaderDialog({ s, onClose }: { s: ServiceCard; onClose: () => void }) {
   const { pending, run } = useLevyAction();
-  const [adding, startAdd] = useTransition();
+  const [headcount, setHeadcount] = useState(s.headcount ? String(s.headcount) : "");
+  const [countedBy, setCountedBy] = useState(s.countedBy ?? "");
+  const [note, setNote] = useState(s.note ?? "");
+  const [unlinking, setUnlinking] = useState<string | null>(null);
+  const unlink = useLevyAction();
   return (
-    <Modal open={open} onClose={onClose} title="Kinds of income on the sheet" description="These appear as rows when you add a service record. Others can still be added on the sheet.">
-      <div className="space-y-1">
-        {week.funds.map((f) => (
-          <label key={f.id} className="flex cursor-pointer items-center gap-2.5 rounded-lg px-2 py-2 text-sm hover:bg-surface-2">
-            <input type="checkbox" checked={ids.includes(f.id)} onChange={() => setIds((p) => (p.includes(f.id) ? p.filter((x) => x !== f.id) : [...p, f.id]))} className="size-4 accent-[var(--color-primary)]" />
-            {f.name}
-          </label>
-        ))}
-      </div>
-      <div className="mt-3 flex gap-2">
-        <input value={name} onChange={(e) => setName(e.target.value)} placeholder="Add a kind, e.g. Thanksgiving" className={`${inputCls} h-10`} />
-        <button type="button" disabled={!name.trim() || adding} onClick={() => startAdd(async () => { const r = await addSheetFund(name); if (r.ok) { setIds((p) => [...p, r.id]); setName(""); } })} className="inline-flex h-10 shrink-0 items-center gap-1.5 rounded-xl border border-line px-3 text-sm font-medium hover:bg-surface-2 disabled:opacity-50">
-          {adding ? <><Spinner size="sm" /> Adding...</> : <><Plus className="size-4" /> Add</>}
-        </button>
-      </div>
-      <div className="mt-5 flex justify-end">
-        <BusyButton busy={pending} busyLabel="Saving..." onClick={() => run(() => setServiceSheetFunds(ids), "Service sheet updated.", onClose)}>Save</BusyButton>
+    <Modal open onClose={onClose} title={s.serviceName} description={`${WEEKDAY_NAMES[weekdayOf(s.dateYmd)]}, ${dayMonthYear(s.dateYmd)}. Amounts are recorded and changed in Giving.`}>
+      <div className="space-y-4">
+        {s.attendanceFrom === "session" ? (
+          <p className="flex items-center gap-2 rounded-xl bg-surface-2 px-4 py-3 text-sm"><Users className="size-4 text-primary" /> From attendance: <b>{s.attendance} people</b></p>
+        ) : (
+          <div><label className={labelCls} htmlFor="sh-count">How many came?</label><input id="sh-count" type="number" min="0" value={headcount} onChange={(e) => setHeadcount(e.target.value)} placeholder="Headcount" className={inputCls} /></div>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div><label className={labelCls} htmlFor="sh-by">Counted by</label><input id="sh-by" value={countedBy} onChange={(e) => setCountedBy(e.target.value)} placeholder="e.g. Ama and Kojo" maxLength={120} className={inputCls} /></div>
+          <div><label className={labelCls} htmlFor="sh-note">Note</label><input id="sh-note" value={note} onChange={(e) => setNote(e.target.value)} maxLength={300} className={inputCls} /></div>
+        </div>
+        {s.gifts.length > 0 && (
+          <div>
+            <div className="mb-1.5 text-sm font-semibold">Giving linked to this service</div>
+            <ul className="max-h-56 divide-y divide-line-soft overflow-y-auto rounded-xl border border-line text-sm">
+              {s.gifts.map((g) => (
+                <li key={g.id} className="flex items-center gap-2 px-3 py-2">
+                  <span className="min-w-0 flex-1 truncate">{g.fund} <span className="text-xs text-ink-faint">{methodLabel(g.method)}{g.counted ? "" : `, ${g.donorName ?? "named gift"}`}</span></span>
+                  <span className="tabular-nums">{ghs(g.amount)}</span>
+                  <button type="button" disabled={unlink.pending} onClick={() => { setUnlinking(g.id); unlink.run(() => untagGiftFromService(g.id), "Taken out of this service. It stays in Giving.", onClose); }}
+                    className="inline-flex h-8 items-center gap-1 rounded-lg px-2 text-xs text-ink-muted hover:bg-surface-2 hover:text-ink disabled:opacity-50" aria-label="Take out of this service">
+                    {unlink.pending && unlinking === g.id ? <><Spinner size="sm" /> Taking out...</> : <><Unlink className="size-3.5" /> Take out</>}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+        <div className="flex justify-end">
+          <BusyButton busy={pending} busyLabel="Saving..." onClick={() => run(() => saveServiceHeader({ id: s.id, headcount: Number(headcount) || null, countedBy, note }), "Saved.", onClose)}>Save</BusyButton>
+        </div>
       </div>
     </Modal>
+  );
+}
+
+/** Giving on one day that is not linked to a service, with a one-tap link. */
+function UnlinkedRow({ day, gifts, canLink }: { day: string; gifts: UntaggedGift[]; canLink: boolean }) {
+  const { pending, run } = useLevyAction();
+  const service = useServicePicker(day, { id: `link-${day}`, label: "Link to service", hint: false });
+  const total = gifts.reduce((t, g) => t + g.amount, 0);
+  const byFund = gifts.reduce<Record<string, number>>((m, g) => ({ ...m, [g.fund]: (m[g.fund] ?? 0) + g.amount }), {});
+  return (
+    <Card className="border-dashed p-5">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="text-xs font-medium uppercase tracking-wide text-ink-faint">{WEEKDAY_NAMES[weekdayOf(day)]}, {dayMonth(day)}</div>
+          <h3 className="font-display text-[1rem] font-semibold">Not linked to a service</h3>
+        </div>
+        <div className="shrink-0 text-right">
+          <div className="font-display text-xl font-bold tabular-nums">{ghs(total)}</div>
+          <div className="text-xs text-ink-muted">{gifts.length} gift{gifts.length === 1 ? "" : "s"}</div>
+        </div>
+      </div>
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {Object.entries(byFund).sort((a, b) => b[1] - a[1]).map(([name, t]) => <span key={name} className="rounded-full bg-surface-2 px-2.5 py-1 text-xs"><span className="font-medium">{name}</span> <span className="tabular-nums text-ink-muted">{ghs0(t)}</span></span>)}
+      </div>
+      {canLink && (
+        <div className="mt-3 flex flex-col gap-2 border-t border-line-soft pt-3 sm:flex-row sm:items-end">
+          <div className="min-w-0 flex-1">{service.field}</div>
+          <BusyButton busy={pending} busyLabel="Linking..." disabled={!service.pick || service.loading} className="sm:mb-0"
+            onClick={() => service.pick && run(() => linkGiftsToService({ dateYmd: day, giftIds: gifts.map((g) => g.id), service: service.pick! }), (r) => String(r.message))}>
+            <Link2 /> Link to service
+          </BusyButton>
+        </div>
+      )}
+    </Card>
   );
 }
 
@@ -196,28 +257,31 @@ export function ServiceIncomeClient({ week }: { week: ServiceWeekData }) {
   const pathname = usePathname();
   const [nav, startNav] = useTransition();
   const [view, setView] = useState<"week" | "month">("week");
-  const [sheet, setSheet] = useState<{ key: number; existing: ServiceCard | null; date: string } | null>(null);
-  const [funds, setFunds] = useState(false);
+  const [recording, setRecording] = useState<Recording | null>(null);
+  const [editing, setEditing] = useState<ServiceCard | null>(null);
   const go = (ymd: string) => startNav(() => router.replace(`${pathname}?w=${ymd}`, { scroll: false }));
   const change = week.lastWeekTotal > 0 ? Math.round(((week.weekTotal - week.lastWeekTotal) / week.lastWeekTotal) * 100) : null;
   const isThisWeek = week.todayYmd >= week.weekStartYmd && week.todayYmd <= week.weekEndYmd;
   const defaultDate = isThisWeek ? week.todayYmd : week.weekStartYmd;
-  const untaggedByDay = week.untagged.reduce<Record<string, typeof week.untagged>>((m, g) => ({ ...m, [g.dateYmd]: [...(m[g.dateYmd] ?? []), g] }), {});
+  const untaggedByDay = week.untagged.reduce<Record<string, UntaggedGift[]>>((m, g) => ({ ...m, [g.dateYmd]: [...(m[g.dateYmd] ?? []), g] }), {});
+  const days = [...new Set([...week.services.map((s) => s.dateYmd), ...Object.keys(untaggedByDay)])].sort();
+  const offertory = week.funds.filter((f) => f.kind === "offertory").map((f) => f.name);
+  const collectionFunds = [...(offertory.length ? offertory : ["Offertory"]), ...week.funds.filter((f) => f.kind !== "offertory").map((f) => f.name)];
+  const record = (date: string, service: string | null = null) => setRecording({ key: Date.now(), date, service });
 
   return (
     <div className="space-y-5">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
         <div>
           <h1 className="font-display text-2xl font-bold tracking-tight sm:text-3xl">Service income</h1>
-          <p className="mt-1.5 max-w-xl text-sm text-ink-muted">What each service brought in, by kind of income, next to how many came. Saved as ordinary giving, so nothing is entered twice.</p>
+          <p className="mt-1.5 max-w-xl text-sm text-ink-muted">Record your giving like you always do. This page shows what each service brought in, next to how many came.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <div className="inline-flex gap-1 rounded-xl bg-surface-2 p-1">
             {(["week", "month"] as const).map((v) => <button key={v} type="button" onClick={() => setView(v)} className={cn("rounded-lg px-3 py-1.5 text-sm font-medium", view === v ? "bg-surface text-ink shadow-sm" : "text-ink-muted")}>{v === "week" ? "Week" : "Month"}</button>)}
           </div>
           <DownloadButton url="/api/export/service-income" variant="secondary">Download</DownloadButton>
-          {week.access.manage && <button type="button" onClick={() => setFunds(true)} className="grid size-10 place-items-center rounded-xl border border-line hover:bg-surface-2" aria-label="Kinds of income on the sheet"><Settings2 className="size-4" /></button>}
-          {week.access.manage && <button type="button" onClick={() => setSheet({ key: Date.now(), existing: null, date: defaultDate })} className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white"><Plus className="size-4" /> Add service record</button>}
+          {week.access.recordGiving && <button type="button" onClick={() => record(defaultDate)} className="inline-flex h-10 items-center gap-2 rounded-xl bg-primary px-4 text-sm font-semibold text-white"><Plus className="size-4" /> Add service record</button>}
         </div>
       </div>
 
@@ -238,39 +302,29 @@ export function ServiceIncomeClient({ week }: { week: ServiceWeekData }) {
             </div>
           </div>
 
-          {week.services.length === 0 ? (
-            <Empty title="No services recorded this week" text="Add each service's count: tithes, offering and anything else, split by cash, Mobile Money and bank. It goes into Giving as well.">
-              {week.access.manage && <button type="button" onClick={() => setSheet({ key: Date.now(), existing: null, date: defaultDate })} className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-white"><Plus className="size-4" /> Add service record</button>}
+          {days.length === 0 ? (
+            <Empty title="No giving this week yet" text="Record giving in Giving as usual and choose which service it came in at. Each service then shows here with its total, next to how many came.">
+              {week.access.recordGiving && <button type="button" onClick={() => record(defaultDate)} className="inline-flex h-11 items-center gap-2 rounded-xl bg-primary px-5 text-sm font-semibold text-white"><HandCoins className="size-4" /> Record giving</button>}
             </Empty>
           ) : (
-            <div className="grid gap-3 lg:grid-cols-2">
-              {week.services.map((s) => <ServiceCardView key={s.id} s={s} access={week.access} onEdit={() => setSheet({ key: Date.now(), existing: s, date: s.dateYmd })} />)}
-            </div>
-          )}
-
-          {week.untagged.length > 0 && (
-            <Card className="p-5">
-              <h3 className="font-display text-[1rem] font-semibold">Recorded in Giving but not tied to a service</h3>
-              <p className="text-xs text-ink-muted">Open a service on that day and tick these under &quot;Already recorded in Giving that day&quot; to count them there.</p>
-              <div className="mt-3 space-y-3">
-                {Object.entries(untaggedByDay).map(([day, gifts]) => (
-                  <div key={day}>
-                    <div className="flex items-center justify-between gap-2 text-sm">
-                      <span className="font-medium">{WEEKDAY_NAMES[weekdayOf(day)]}, {dayMonth(day)}</span>
-                      <span className="flex items-center gap-3"><span className="tabular-nums text-ink-muted">{gifts.length} gift{gifts.length === 1 ? "" : "s"}, {ghs(gifts.reduce((t, g) => t + g.amount, 0))}</span>
-                        {week.access.manage && <button type="button" onClick={() => { const existing = week.services.find((s) => s.dateYmd === day) ?? null; setSheet({ key: Date.now(), existing, date: day }); }} className="text-xs font-semibold text-primary-bright hover:underline">Add to a service</button>}
-                      </span>
-                    </div>
-                  </div>
+            days.map((day) => (
+              <div key={day} className="grid gap-3 lg:grid-cols-2">
+                {week.services.filter((s) => s.dateYmd === day).map((s) => (
+                  <ServiceCardView key={s.id} s={s} access={week.access} onRecord={() => record(s.dateYmd, s.serviceName)} onEdit={() => setEditing(s)} />
                 ))}
+                {untaggedByDay[day] && <UnlinkedRow key={`u-${day}`} day={day} gifts={untaggedByDay[day]} canLink={week.access.manage} />}
               </div>
-            </Card>
+            ))
           )}
         </div>
       )}
 
-      {sheet && <ServiceSheetDialog key={sheet.key} open onClose={() => setSheet(null)} week={week} existing={sheet.existing} defaultDate={sheet.date} />}
-      {funds && <FundsSheet open onClose={() => setFunds(false)} week={week} />}
+      {recording && (
+        <Modal open wide onClose={() => setRecording(null)} title="Add service record" description="This is the same form as Giving, so the money is recorded once. Choose the service it came in at.">
+          <CollectionForm key={recording.key} funds={collectionFunds} accounts={week.accounts} initialDate={recording.date} serviceHint={recording.service ?? undefined} onDone={() => setRecording(null)} />
+        </Modal>
+      )}
+      {editing && <HeaderDialog key={editing.id} s={editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }

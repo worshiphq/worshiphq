@@ -26,7 +26,10 @@ type SheetRow = {
   session: { adults: number; teens: number; children: number; visitors: number } | null;
 };
 
-function toCard(s: SheetRow, tz: string): ServiceCard {
+/** Attendance taken that day at a service of the same name, for records made before the link existed. */
+type SessionLookup = (dateYmd: string, serviceName: string) => number | null;
+
+function toCard(s: SheetRow, tz: string, sessionFor?: SessionLookup): ServiceCard {
   const gifts = s.gifts.map((g) => ({
     id: g.id, fundId: g.fundId, fund: g.fund?.name ?? "General giving", amount: Number(g.amount), method: g.method, accountId: g.accountId,
     pending: g.pendingDeposit, donorName: g.donorName, counted: isCollectionGift(g),
@@ -38,18 +41,26 @@ function toCard(s: SheetRow, tz: string): ServiceCard {
     e.total = r2(e.total + g.amount);
     byFundMap.set(k, e);
   }
+  const byMethodMap = new Map<string, number>();
+  for (const g of gifts) byMethodMap.set(g.method, r2((byMethodMap.get(g.method) ?? 0) + g.amount));
   const total = r2(gifts.reduce((t, g) => t + g.amount, 0));
-  const sessionCount = s.session ? s.session.adults + s.session.teens + s.session.children + s.session.visitors : null;
+  const dateYmd = ymdInTz(s.date, tz);
+  const sessionCount = s.session ? s.session.adults + s.session.teens + s.session.children + s.session.visitors : sessionFor?.(dateYmd, s.serviceName) ?? null;
   const attendance = sessionCount && sessionCount > 0 ? sessionCount : s.headcount ?? null;
   return {
-    id: s.id, dateYmd: ymdInTz(s.date, tz), serviceName: s.serviceName, sessionId: s.sessionId, slotId: s.slotId, headcount: s.headcount,
+    id: s.id, dateYmd, serviceName: s.serviceName, sessionId: s.sessionId, slotId: s.slotId, headcount: s.headcount,
     attendance, attendanceFrom: sessionCount && sessionCount > 0 ? "session" : s.headcount ? "headcount" : null,
     countedBy: s.countedBy, note: s.note, total, perPerson: attendance ? r2(total / attendance) : null,
-    byFund: [...byFundMap.values()].sort((a, b) => b.total - a.total), gifts,
+    byFund: [...byFundMap.values()].sort((a, b) => b.total - a.total),
+    byMethod: [...byMethodMap.entries()].map(([method, total]) => ({ method, total })).sort((a, b) => b.total - a.total),
+    gifts,
   };
 }
 
-/** One week (Sunday to Saturday) of service records, with the giving that day not yet tied to a service. */
+/**
+ * One week (Sunday to Saturday) of services, built only from giving linked to each service, plus the giving each day
+ * that is not linked to any service. Nothing here creates money: it is all recorded in Giving.
+ */
 export async function getServiceWeek(churchId: string, anyDayYmd: string | null, access: ServiceWeekData["access"]): Promise<ServiceWeekData> {
   const tz = await churchTzFor(churchId);
   const today = ymdInTz(new Date(), tz);
@@ -57,23 +68,22 @@ export async function getServiceWeek(churchId: string, anyDayYmd: string | null,
   const end = shiftYmd(start, 7);
   const from = dayStart(start, tz);
   const to = dayStart(end, tz);
-  const [sheets, lastWeek, untagged, funds, slots, sessions, accounts] = await Promise.all([
+  const [sheets, lastWeek, untagged, funds, sessions, accounts] = await Promise.all([
     db.serviceIncome.findMany({ where: { churchId, date: { gte: from, lt: to } }, orderBy: [{ date: "asc" }, { createdAt: "asc" }], include: SHEET_INCLUDE }),
     db.gift.aggregate({ where: { churchId, serviceIncomeId: { not: null }, date: { gte: dayStart(shiftYmd(start, -7), tz), lt: from } }, _sum: { amount: true } }),
-    db.gift.findMany({ where: { churchId, serviceIncomeId: null, date: { gte: from, lt: to } }, orderBy: { date: "asc" }, take: 300, select: { id: true, date: true, amount: true, method: true, donorName: true, fund: { select: { name: true } } } }),
-    db.fund.findMany({ where: { churchId }, select: { id: true, name: true, inServiceSheet: true }, orderBy: { name: "asc" } }),
-    db.serviceSlot.findMany({ where: { churchId, active: true }, select: { id: true, name: true, weekday: true, startMinute: true }, orderBy: [{ weekday: "asc" }, { startMinute: "asc" }] }),
+    db.gift.findMany({ where: { churchId, serviceIncomeId: null, date: { gte: from, lt: to } }, orderBy: { date: "asc" }, take: 500, select: { id: true, date: true, amount: true, method: true, donorName: true, fund: { select: { name: true } } } }),
+    db.fund.findMany({ where: { churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     db.attendanceSession.findMany({ where: { churchId, date: { gte: from, lt: to } }, select: { id: true, serviceName: true, date: true, adults: true, teens: true, children: true, visitors: true }, orderBy: { date: "asc" } }),
     getAccountOptions(churchId),
   ]);
-  const services = sheets.map((s) => toCard(s, tz));
+  const counted = sessions.map((s) => ({ ymd: ymdInTz(s.date, tz), name: s.serviceName.trim().toLowerCase(), total: s.adults + s.teens + s.children + s.visitors }));
+  const sessionFor: SessionLookup = (ymd, name) => counted.find((c) => c.ymd === ymd && c.name === name.trim().toLowerCase() && c.total > 0)?.total ?? null;
+  const services = sheets.map((s) => toCard(s, tz, sessionFor));
   return {
     weekStartYmd: start, weekEndYmd: shiftYmd(end, -1), todayYmd: today, services,
     weekTotal: r2(services.reduce((t, s) => t + s.total, 0)), lastWeekTotal: Number(lastWeek._sum.amount ?? 0),
     untagged: untagged.map((g): UntaggedGift => ({ id: g.id, dateYmd: ymdInTz(g.date, tz), fund: g.fund?.name ?? "General giving", amount: Number(g.amount), method: g.method, donorName: g.donorName })),
     funds: funds.map((f) => ({ ...f, kind: fundKind(f.name) })),
-    slots,
-    sessions: sessions.map((s) => ({ id: s.id, serviceName: s.serviceName, dateYmd: ymdInTz(s.date, tz), total: s.adults + s.teens + s.children + s.visitors })),
     accounts, access,
   };
 }
@@ -120,17 +130,6 @@ export async function queryServiceSheets(churchId: string, search: string, filte
     db.serviceIncome.count({ where }),
   ]);
   return { rows: rows.map((r) => toCard(r, tz)), total, page: p };
-}
-
-/** Gifts recorded on a local day that are not tied to any service yet. */
-export async function untaggedGiftsOn(churchId: string, ymd: string): Promise<UntaggedGift[]> {
-  const tz = await churchTzFor(churchId);
-  const gifts = await db.gift.findMany({
-    where: { churchId, serviceIncomeId: null, date: { gte: dayStart(ymd, tz), lt: dayStart(shiftYmd(ymd, 1), tz) } },
-    orderBy: { date: "asc" }, take: 200,
-    select: { id: true, date: true, amount: true, method: true, donorName: true, fund: { select: { name: true } } },
-  });
-  return gifts.map((g) => ({ id: g.id, dateYmd: ymdInTz(g.date, tz), fund: g.fund?.name ?? "General giving", amount: Number(g.amount), method: g.method, donorName: g.donorName }));
 }
 
 export async function getServiceSheet(churchId: string, id: string): Promise<ServiceCard | null> {

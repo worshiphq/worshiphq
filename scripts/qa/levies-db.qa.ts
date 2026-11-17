@@ -200,24 +200,38 @@ async function main() {
   });
 
   // 9
-  await step("service sheet gifts count once in an offertory levy and in the sheet total", async () => {
+  // Service income is a view of Giving: money is recorded once in Giving (linked to a service, or linked later).
+  await step("giving linked to a service counts once in an offertory levy, before and after linking", async () => {
     await assertQa(churchId);
     const off = await db.levyRule.create({
       data: { churchId, name: "District offering share", payee: "District", startsOn: at("2026-12-01", "00:00"),
         versions: { create: [{ churchId, effectiveFrom: at("2026-12-01", "00:00"), kind: "percent", rate: "5.0000", sources: [`fund:${offertory.id}`] }] } },
     });
     const sheet = await db.serviceIncome.create({ data: { churchId, date: at("2026-12-06"), serviceName: "Sunday 1st service" } });
+    // Recorded in Giving with "Which service?" = Sunday 1st service.
     await createCollectionGifts(db, churchId, {
       fundId: offertory.id, fundName: "Offertory", date: at("2026-12-06"), note: "Sunday 1st service", serviceIncomeId: sheet.id,
       lines: cleanCollectionLines([{ method: "Cash", amount: 600, notBanked: true }, { method: "MTN_MoMo", amount: 400, accountId: momo.id }]),
       resolveAccount: async (chosen) => chosen,
     });
+    // Recorded in Giving as "Not linked to a service".
+    const later = await createCollectionGifts(db, churchId, {
+      fundId: offertory.id, fundName: "Offertory", date: at("2026-12-06"), serviceIncomeId: null,
+      lines: cleanCollectionLines([{ method: "Cash", amount: 200, notBanked: true }]),
+      resolveAccount: async (chosen) => chosen,
+    });
     await ensureRecords(db, churchId, now);
     await recalcOpen(db, churchId, { now, ruleIds: [off.id] });
-    const dec = await db.levyRecord.findFirstOrThrow({ where: { ruleId: off.id, periodKey: "2026-12" } });
-    assert.equal(money(dec.calculated), "50.00");
+    const before = await db.levyRecord.findFirstOrThrow({ where: { ruleId: off.id, periodKey: "2026-12" } });
+    assert.equal(money(before.calculated), "60.00");
+    // "Link to service" on the Service income page only points the gifts at the service (as linkGiftsToService does).
+    await db.gift.updateMany({ where: { id: { in: later.ids }, churchId, serviceIncomeId: null }, data: { serviceIncomeId: sheet.id } });
+    await recalcOpen(db, churchId, { now, ruleIds: [off.id] });
+    const after = await db.levyRecord.findFirstOrThrow({ where: { ruleId: off.id, periodKey: "2026-12" } });
+    assert.equal(money(after.calculated), "60.00");
     const total = await db.gift.aggregate({ where: { churchId, serviceIncomeId: sheet.id }, _sum: { amount: true } });
-    assert.equal(money(total._sum.amount), "1000.00");
+    assert.equal(money(total._sum.amount), "1200.00");
+    assert.equal(await db.gift.count({ where: { churchId, fundId: offertory.id, date: { gte: at("2026-12-06", "00:00"), lt: at("2026-12-07", "00:00") } } }), 3);
   });
 
   // 10

@@ -18,6 +18,7 @@ import { recordGift, deleteGift } from "@/app/actions/giving";
 import { DeleteForm } from "@/components/app/delete-form";
 import { AccountSelect, type AccountOption } from "@/components/app/account-select";
 import { CollectionForm } from "@/components/app/collection-form";
+import { useServicePicker } from "@/components/app/service-picker";
 import { Modal } from "@/components/ui/modal";
 import type { GivingEntry, GivingKind, CollectionEntry } from "@/lib/data/giving";
 import { CHANNEL_LABEL, type Channel, type FundKind } from "@/lib/giving/channels";
@@ -308,6 +309,8 @@ function CollectionRow({ c, canDelete }: { c: CollectionEntry; canDelete: boolea
 /** One named gift (a person gave something). */
 function RecordGiftDialog({ funds, accounts, onClose }: { funds: { name: string }[]; accounts: AccountOption[]; onClose: () => void }) {
   const [method, setMethod] = useState<(typeof methods)[number]>("MTN MoMo");
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const service = useServicePicker(date, { id: "gservice" });
   const fundOptions = funds.length ? funds.map((f) => f.name) : ["Tithes", "Offertory", "Building Fund", "Missions", "Welfare"];
 
   return (
@@ -331,7 +334,13 @@ function RecordGiftDialog({ funds, accounts, onClose }: { funds: { name: string 
               </select>
             </div>
           </div>
-          <div><Label htmlFor="gdate">Date</Label><Input id="gdate" name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} /></div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <div><Label htmlFor="gdate">Date</Label><Input id="gdate" name="date" type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+            {service.field}
+          </div>
+          <input type="hidden" name="serviceName" value={service.pick?.name ?? ""} />
+          <input type="hidden" name="serviceSlotId" value={service.pick?.slotId ?? ""} />
+          <input type="hidden" name="serviceSessionId" value={service.pick?.sessionId ?? ""} />
           <div>
             <Label>Paid by</Label>
             <div className="grid grid-cols-3 gap-2">
@@ -352,7 +361,7 @@ function RecordGiftDialog({ funds, accounts, onClose }: { funds: { name: string 
             <Button type="button" variant="secondary" className="flex-1" onClick={onClose}>Cancel</Button>
             <SubmitButton className="flex-1" pendingLabel="Recording…" successMessage="Gift recorded">Record gift</SubmitButton>
           </div>
-          <OnFormComplete onComplete={onClose} />
+          <OnFormComplete onComplete={() => { service.remember(); onClose(); }} />
         </form>
       </div>
     </>

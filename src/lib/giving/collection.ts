@@ -1,5 +1,5 @@
-// Turning a counted collection into gifts, one per way it was received. Shared by Giving ("Record a collection") and the
-// service income sheet, so both write exactly the same rows. Takes the Prisma client, so it can be tested directly.
+// Turning a counted collection into gifts, one per way it was received. Used by Giving ("Record offertory"), which is
+// the only place money is typed: Service income opens the same form. Takes the Prisma client, so it can be tested directly.
 import type { GiftMethod, Prisma, PrismaClient } from "@prisma/client";
 
 export interface CollectionLineInput { method: string; amount: number; accountId?: string | null; notBanked?: boolean }

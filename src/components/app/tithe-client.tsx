@@ -18,6 +18,7 @@ import { useFeedback } from "@/components/ui/feedback";
 import { recordTitheBatch, recordGivingBatch, saveTitheTemplate, type TitheEntry } from "@/app/actions/giving";
 import { AccountSelect, type AccountOption } from "@/components/app/account-select";
 import { CollectionForm } from "@/components/app/collection-form";
+import { useServicePicker } from "@/components/app/service-picker";
 import { Pencil, MessageSquare, X } from "lucide-react";
 import { Input, Label } from "@/components/ui/input";
 import { formatCurrency } from "@/config/brand";
@@ -277,6 +278,9 @@ function BatchRecorder({ fundType, activeFundName, accounts, bare = false, onDon
   // Offertory & other collective funds are usually banked as one total, not
   // per member. Tithes stay per-member (each person gets a receipt).
   const [lumpMode, setLumpMode] = useState(fundType !== "tithes");
+  // When it was received and at which service, so Service income can show it next to that service.
+  const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const service = useServicePicker(date, { id: `batch-service-${fundType}` });
 
   // Members are looked up on the server as you type (after a 300ms pause), so none are loaded with the page.
   const [filtered, setFiltered] = useState<TitheMember[]>([]);
@@ -337,11 +341,13 @@ function BatchRecorder({ fundType, activeFundName, accounts, bare = false, onDon
         method: e.method,
         accountId: accountId || null,
       }));
+      const opts = { date, service: service.pick };
       const result = isTithe
-        ? await recordTitheBatch(batch)
-        : await recordGivingBatch(activeFundName, batch);
+        ? await recordTitheBatch(batch, opts)
+        : await recordGivingBatch(activeFundName, batch, opts);
       hideBusy();
       if (result.ok) {
+        service.remember();
         const msg = isTithe
           ? `${result.recorded} tithe(s) recorded, ${"smsSent" in result ? result.smsSent : 0} receipt(s) sent${"insufficientCredits" in result && result.insufficientCredits ? " (SMS credits ran out)" : ""}`
           : `${result.recorded} ${activeFundName} record(s) saved`;
@@ -386,6 +392,12 @@ function BatchRecorder({ fundType, activeFundName, accounts, bare = false, onDon
           )}
           <Badge variant="outline">{entries.length} {entries.length === 1 ? "entry" : "entries"}</Badge>
         </div>
+      </div>
+
+      {/* Date and service */}
+      <div className="mb-4 grid gap-3 sm:grid-cols-2">
+        <div><Label htmlFor={`batch-date-${fundType}`}>Date</Label><Input id={`batch-date-${fundType}`} type="date" value={date} onChange={(e) => setDate(e.target.value)} /></div>
+        {service.field}
       </div>
 
       {/* Default method */}

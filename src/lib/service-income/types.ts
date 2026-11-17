@@ -31,6 +31,8 @@ export interface ServiceCard {
   total: number;
   perPerson: number | null;
   byFund: { fundId: string | null; name: string; total: number }[];
+  /** Totals by how it was received (Gift method). */
+  byMethod: { method: string; total: number }[];
   gifts: SheetGift[];
 }
 
@@ -44,11 +46,10 @@ export interface ServiceWeekData {
   weekTotal: number;
   lastWeekTotal: number;
   untagged: UntaggedGift[];
-  funds: { id: string; name: string; inServiceSheet: boolean; kind: "tithes" | "offertory" | "other" }[];
-  slots: { id: string; name: string; weekday: number; startMinute: number }[];
-  sessions: { id: string; serviceName: string; dateYmd: string; total: number }[];
+  funds: { id: string; name: string; kind: "tithes" | "offertory" | "other" }[];
   accounts: { id: string; name: string; isDefault: boolean; type: string }[];
-  access: { manage: boolean; del: boolean };
+  /** manage: link gifts and edit headcount (Service income); del: remove a record; recordGiving: may record in Giving. */
+  access: { manage: boolean; del: boolean; recordGiving: boolean };
 }
 
 export interface ServiceMonthData {

@@ -1,5 +1,6 @@
 import { requireModule } from "@/lib/auth";
 import { serviceIncomeAccess } from "@/lib/levies/guards";
+import { canEdit } from "@/lib/permissions";
 import { getServiceWeek } from "@/lib/data/service-income";
 import { ServiceIncomeClient } from "@/components/app/service-income/service-income-client";
 
@@ -10,6 +11,6 @@ export default async function ServiceIncomePage({ searchParams }: { searchParams
   const params = await searchParams;
   const w = Array.isArray(params.w) ? params.w[0] : params.w;
   const a = serviceIncomeAccess(session);
-  const week = await getServiceWeek(session.churchId, w ?? null, { manage: a.manage, del: a.del });
+  const week = await getServiceWeek(session.churchId, w ?? null, { manage: a.manage, del: a.del, recordGiving: canEdit(session, "giving") });
   return <ServiceIncomeClient week={week} />;
 }
