@@ -12,7 +12,7 @@ import { ledgerQuery } from "@/lib/ledger-query";
 
 export const metadata = { title: "Expenses" };
 
-const CATEGORIES = ["General", "Utilities", "Rent", "Transport", "Maintenance", "Supplies", "Salaries", "Missions", "Welfare", "Events", "Instruments", "Honorarium"];
+const CATEGORIES = ["General", "Utilities", "Rent", "Transport", "Maintenance", "Supplies", "Salaries", "Missions", "Welfare", "Events", "Instruments", "Honorarium", "Levies & remittances"];
 
 export default async function ExpensesPage({
   searchParams,

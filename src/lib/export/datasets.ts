@@ -25,6 +25,8 @@ export interface Dataset {
   /** Section key the user must be able to see for this dataset. */
   section: string;
   fetch: (churchId: string, opts?: { age?: AgeFilter }) => Promise<{ headers: string[]; rows: unknown[][] }>;
+  /** Plan feature the church must have (the dataset is left out when its plan locks it). */
+  feature?: string;
 }
 
 const d = (v: Date | null | undefined) => (v ? v.toISOString().slice(0, 10) : "");
@@ -582,6 +584,36 @@ export const DATASETS: Dataset[] = [
     },
   },
   {
+    key: "levies",
+    label: "Levies",
+    section: "levies",
+    feature: "levies",
+    async fetch(churchId) {
+      const { levyRecordsTable } = await import("@/lib/levies/exports");
+      return levyRecordsTable(churchId);
+    },
+  },
+  {
+    key: "levy-payments",
+    label: "Levy payments",
+    section: "levies",
+    feature: "levies",
+    async fetch(churchId) {
+      const { levyPaymentsTable } = await import("@/lib/levies/exports");
+      return levyPaymentsTable(churchId);
+    },
+  },
+  {
+    key: "service-income",
+    label: "Service income",
+    section: "service-income",
+    feature: "service-income",
+    async fetch(churchId) {
+      const { serviceIncomeTable } = await import("@/lib/levies/exports");
+      return serviceIncomeTable(churchId);
+    },
+  },
+  {
     key: "audit-log",
     label: "Audit log",
     section: "audit-log",
@@ -600,7 +632,7 @@ export const DATASETS: Dataset[] = [
   },
 ];
 
-/** Datasets this session is allowed to export, given their visible sections. */
-export function allowedDatasets(hasSection: (key: string) => boolean): Dataset[] {
-  return DATASETS.filter((ds) => hasSection(ds.section));
+/** Datasets this session is allowed to export, given their visible sections (and, for newer ones, the plan). */
+export function allowedDatasets(hasSection: (key: string) => boolean, planLocked: string[] = []): Dataset[] {
+  return DATASETS.filter((ds) => hasSection(ds.section) && !(ds.feature && planLocked.includes(ds.feature)));
 }

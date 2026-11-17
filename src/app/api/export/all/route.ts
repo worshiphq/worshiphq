@@ -79,7 +79,7 @@ export async function GET(req: NextRequest) {
   const stamp = new Date().toISOString().slice(0, 10);
 
   const sets = await Promise.all(
-    allowedDatasets((key) => hasSection(session, key)).map(async (ds) => ({
+    allowedDatasets((key) => hasSection(session, key), session.planLocked ?? []).map(async (ds) => ({
       ds,
       data: await ds.fetch(session.churchId),
     })),

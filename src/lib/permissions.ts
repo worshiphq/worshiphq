@@ -51,10 +51,12 @@ export const SECTION_GROUPS: { category: string; sections: SectionDef[] }[] = [
     sections: [
       { key: "accounting", label: "Accounting", parent: "accounting", manageable: true },
       { key: "giving", label: "Giving", parent: "giving", manageable: true },
+      { key: "service-income", label: "Service income", parent: "giving", manageable: true },
       { key: "dayborn", label: "Day Born", parent: "giving", manageable: true },
       { key: "pledges", label: "Pledges", parent: "giving", manageable: true },
       { key: "harvest", label: "Harvest", parent: "harvest", manageable: true },
       { key: "expenses", label: "Expenses", parent: "accounting", manageable: true },
+      { key: "levies", label: "Levies", parent: "accounting", manageable: true },
       { key: "budgets", label: "Budgets", parent: "accounting", manageable: true },
       { key: "welfare", label: "Welfare", parent: "giving", manageable: true },
     ],

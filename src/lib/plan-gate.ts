@@ -111,6 +111,7 @@ const PRO_ADDS = [
   "sermons", "devotionals", "testimonies", "welfare",
   "accounting", "expenses", "automations", "engagement-scoring", "fingerprint",
   "sms-audit", "member-categories", "service-times", "online-payments",
+  "levies", "service-income",
 ];
 
 /** Max adds - run the whole church: wall-mounted face / palm / fingerprint terminals (`biometric-devices`),
@@ -185,6 +186,7 @@ export const FEATURE_LABELS: Record<string, string> = {
   "sms-audit": "SMS send records",
   fingerprint: "USB fingerprint scanner check-in",
   "biometric-devices": "Check-in devices (face, palm and fingerprint terminals)",
+  levies: "Levies and remittances", "service-income": "Service income records",
   baptisms: "Baptisms & certificates", "linked-churches": "Linked churches (branches, partner churches, teens chapel)",
 };
 
@@ -192,7 +194,7 @@ export const FEATURE_LABELS: Record<string, string> = {
  * Features added after plans were first saved in the editor. A saved plan that has never seen one of these follows the
  * built-in tier for it, so a new feature never silently lands on no plan at all. Add a feature here when it is added to a tier.
  */
-export const FEATURES_ADDED_LATER = ["baptisms", "linked-churches", "biometric-devices", "poster-maker", "white-label-posters", "sms-audit", "birthday-automations", "custom-messages", "member-categories", "service-times", "online-payments"];
+export const FEATURES_ADDED_LATER = ["baptisms", "linked-churches", "biometric-devices", "poster-maker", "white-label-posters", "sms-audit", "birthday-automations", "custom-messages", "member-categories", "service-times", "online-payments", "levies", "service-income"];
 
 /** Permission section keys whose plan feature has a different name. */
 const SECTION_FEATURE_MAP: Record<string, string> = {
@@ -240,6 +242,8 @@ const ROUTE_FEATURE_MAP: Record<string, string> = {
   "/app/devotionals": "devotionals",
   "/app/testimonies": "testimonies",
   "/app/baptisms": "baptisms",
+  "/app/levies": "levies",
+  "/app/service-income": "service-income",
 };
 
 export function getRouteFeature(href: string): string | null {

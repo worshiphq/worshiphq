@@ -58,6 +58,7 @@ export const ENTITY_LABELS: Record<string, string> = {
   serviceRole: "Service role",
   sermon: "Sermon",
   serviceSlot: "Service time",
+  serviceIncome: "Service record",
   customRole: "Custom role",
   teamMember: "Team member",
   testimony: "Testimony",
@@ -273,6 +274,15 @@ async function restoreSnapshot(snap: Snapshot) {
     async (tx) => {
       for (const model of creationOrder([...byModel.keys()])) {
         let rows = byModel.get(model)!.map((r) => revive(model, r));
+        // A gift whose service record has since been removed comes back on its own, still in Giving.
+        if (model === "Gift") {
+          const sids = [...new Set(rows.map((r) => r.serviceIncomeId).filter(Boolean))] as string[];
+          if (sids.length) {
+            const live = new Set((await tx.serviceIncome.findMany({ where: { id: { in: sids } }, select: { id: true } })).map((x: { id: string }) => x.id));
+            const snapIds = new Set((byModel.get("ServiceIncome") ?? []).map((r) => r.id));
+            rows = rows.map((r) => (r.serviceIncomeId && !live.has(r.serviceIncomeId) && !snapIds.has(r.serviceIncomeId) ? { ...r, serviceIncomeId: null } : r));
+          }
+        }
         // Self-links (e.g. a child under a parent in the same batch): create first, link after.
         const self = (INBOUND.get(model) ?? []).filter((rel) => rel.child === model);
         const pending: { id: string; field: string; value: unknown }[] = [];
