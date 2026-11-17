@@ -335,6 +335,21 @@ model Church {
   // SuperAdmin can block a church's online giving outright (e.g. suspected scam).
   givingBlocked      Boolean   @default(false)
   receipts           Receipt[]
+  // ── Levies (remittances to head office, district, etc.) and service income ──
+  levyRules         LevyRule[]        @relation("ChurchLevyRules")
+  levyRulesPaidToUs LevyRule[]        @relation("LevyPayee")
+  levyRuleVersions  LevyRuleVersion[]
+  levyRuleChanges   LevyRuleChange[]
+  levyRecords       LevyRecord[]
+  levyAdjustments   LevyAdjustment[]
+  levyPayments      LevyPayment[]
+  serviceIncomes    ServiceIncome[]
+  levyRemindOn      Boolean           @default(true)
+  levyRemindDays    Int[]             @default([7, 1])
+  levyRemindSms     Boolean           @default(false)
+  levyRemindUserIds String[]          @default([])
+  levyAutoClose     Boolean           @default(true)
+  levySchedule      Json? // suggested levies a main church publishes for its linked churches
 }
 
 /// One encrypted snapshot of a church's data, stored in R2 (objectKey). Rows
@@ -686,7 +701,8 @@ model AttendanceSession {
   slot           ServiceSlot? @relation(fields: [slotId], references: [id], onDelete: SetNull)
   autoKey        String?
 
-  records AttendanceRecord[]
+  records        AttendanceRecord[]
+  serviceIncomes ServiceIncome[]
 
   @@index([churchId])
   @@index([date])
@@ -731,7 +747,8 @@ model ServiceSlot {
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
 
-  sessions AttendanceSession[]
+  sessions       AttendanceSession[]
+  serviceIncomes ServiceIncome[]
 
   @@index([churchId, weekday])
 }
@@ -795,6 +812,7 @@ model ChurchAccount {
   transactions   Transaction[]
   gifts          Gift[]
   expenses       Expense[]
+  levyPayments   LevyPayment[]
 
   @@index([churchId])
 }
@@ -813,6 +831,7 @@ model Fund {
   // is spent can never exceed what the fund holds.
   restricted Boolean       @default(false)
   expenses  Expense[]
+  inServiceSheet Boolean   @default(false) // shown as a row on the service income sheet
 
   @@index([churchId])
 }
@@ -842,8 +861,11 @@ model Gift {
   // specifically (see src/lib/automations/run.ts) - distinct from receiptSent,
   // which is the immediate instant receipt sent at the time the gift is recorded.
   thanksSentAt   DateTime?
+  serviceIncomeId String?
+  serviceIncome  ServiceIncome? @relation(fields: [serviceIncomeId], references: [id], onDelete: SetNull)
   extra          Json? // answers to the church's own extra giving questions: [{ label, value }]
 
+  @@index([churchId, serviceIncomeId])
   @@unique([churchId, reference]) // an online gift is recorded once per Paystack reference
   @@index([churchId])
   @@index([churchId, date])
@@ -1809,6 +1831,7 @@ model Expense {
   fund        Fund?          @relation(fields: [fundId], references: [id], onDelete: SetNull)
   date        DateTime       @default(now())
   createdAt   DateTime       @default(now())
+  levyPayment LevyPayment?
 
   @@index([churchId, date])
   @@index([fundId])
@@ -2517,4 +2540,186 @@ model EmailLog {
 
   @@index([createdAt])
   @@index([status, createdAt])
+}
+
+// ── Levies and service income (sql/levies-and-service-income.sql) ──
+
+/// One service's counted income (a header over ordinary Gifts, so nothing is entered twice).
+model ServiceIncome {
+  id            String             @id @default(cuid())
+  churchId      String
+  church        Church             @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  date          DateTime // midday, like the giving forms
+  serviceName   String
+  sessionId     String?
+  session       AttendanceSession? @relation(fields: [sessionId], references: [id], onDelete: SetNull)
+  slotId        String?
+  slot          ServiceSlot?       @relation(fields: [slotId], references: [id], onDelete: SetNull)
+  headcount     Int? // when no attendance session is linked
+  countedBy     String?
+  note          String?
+  createdById   String?
+  createdByName String?
+  createdAt     DateTime           @default(now())
+  updatedAt     DateTime           @updatedAt
+  gifts         Gift[]
+
+  @@index([churchId, date])
+  @@index([sessionId])
+}
+
+/// A levy the church pays to someone above it (head office, district, area, denomination...).
+model LevyRule {
+  id             String            @id @default(cuid())
+  churchId       String
+  church         Church            @relation("ChurchLevyRules", fields: [churchId], references: [id], onDelete: Cascade)
+  name           String
+  payee          String
+  payeeKind      String            @default("hq") // hq | district | area | region | denomination | mission | other
+  payeeChurchId  String? // set when the payee is this church's linked main church
+  payeeChurch    Church?           @relation("LevyPayee", fields: [payeeChurchId], references: [id], onDelete: SetNull)
+  frequency      String            @default("monthly") // monthly | quarterly | yearly (fixed once records are paid or closed)
+  yearStartMonth Int               @default(1) // 1-12, for quarters and years
+  dueDays        Int               @default(15) // due this many days after the period ends
+  startsOn       DateTime // local midnight of the first day counted
+  endsOn         DateTime? // local midnight of the first day NOT counted (exclusive)
+  active         Boolean           @default(true)
+  afterRuleId    String? // optional: worked out on what is left after another levy (one level)
+  afterRule      LevyRule?         @relation("LevyAfter", fields: [afterRuleId], references: [id], onDelete: SetNull)
+  dependents     LevyRule[]        @relation("LevyAfter")
+  sortOrder      Int               @default(0)
+  templateKey    String?
+  notes          String?
+  createdById    String?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  versions       LevyRuleVersion[]
+  records        LevyRecord[]
+
+  @@index([churchId, active])
+  @@index([payeeChurchId])
+}
+
+/// How a levy is worked out from a date onward. Never edited: a change adds a new version.
+model LevyRuleVersion {
+  id            String   @id @default(cuid())
+  churchId      String
+  church        Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  ruleId        String
+  rule          LevyRule @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  effectiveFrom DateTime
+  kind          String // percent | fixed
+  rate          Decimal? @db.Decimal(7, 4)
+  fixedAmount   Decimal? @db.Decimal(12, 2)
+  allIncome     Boolean  @default(false)
+  sources       String[] @default([]) // fund:<id> | fund:none | ledger:<label>
+  minAmount     Decimal? @db.Decimal(12, 2)
+  maxAmount     Decimal? @db.Decimal(12, 2)
+  createdById   String?
+  createdByName String?
+  createdAt     DateTime @default(now())
+
+  @@index([ruleId, effectiveFrom])
+  @@index([churchId])
+}
+
+/// Permanent history of every levy setting change. No link to the rule or the user, so it outlives both.
+model LevyRuleChange {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  ruleId    String
+  ruleName  String
+  action    String
+  summary   String
+  before    Json?
+  after     Json?
+  byUserId  String?
+  byName    String?
+  createdAt DateTime @default(now())
+
+  @@index([churchId, createdAt])
+  @@index([ruleId])
+}
+
+/// One levy for one period (month, quarter or year): what is due and what has been paid.
+model LevyRecord {
+  id             String           @id @default(cuid())
+  churchId       String
+  church         Church           @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  ruleId         String
+  rule           LevyRule         @relation(fields: [ruleId], references: [id], onDelete: Cascade)
+  periodKey      String // 2026-11 | 2026-Q1 | 2026
+  periodStart    DateTime
+  periodEnd      DateTime // exclusive
+  dueDate        DateTime
+  state          String           @default("open") // open | closed
+  incomeBase     Decimal          @default(0) @db.Decimal(14, 2)
+  calculated     Decimal          @default(0) @db.Decimal(12, 2)
+  adjustments    Decimal          @default(0) @db.Decimal(12, 2)
+  amountDue      Decimal          @default(0) @db.Decimal(12, 2)
+  amountPaid     Decimal          @default(0) @db.Decimal(12, 2)
+  breakdown      Json? // lines with explanations, versions used, warnings
+  calculatedAt   DateTime?
+  closedAt       DateTime?
+  closedById     String?
+  closedByName   String?
+  driftAmount    Decimal          @default(0) @db.Decimal(12, 2)
+  driftAccepted  Decimal          @default(0) @db.Decimal(12, 2)
+  remindersSent  String[]         @default([])
+  note           String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  payments       LevyPayment[]
+  adjustmentRows LevyAdjustment[]
+
+  @@unique([ruleId, periodKey])
+  @@index([churchId, periodStart])
+  @@index([churchId, state, dueDate])
+}
+
+model LevyAdjustment {
+  id            String     @id @default(cuid())
+  churchId      String
+  church        Church     @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  recordId      String
+  record        LevyRecord @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  amount        Decimal    @db.Decimal(12, 2) // signed
+  kind          String // manual | income_change | carry_credit | waiver
+  reason        String
+  fromRecordId  String?
+  createdById   String?
+  createdByName String?
+  createdAt     DateTime   @default(now())
+
+  @@index([recordId])
+  @@index([churchId])
+}
+
+model LevyPayment {
+  id                    String         @id @default(cuid())
+  churchId              String
+  church                Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  recordId              String
+  record                LevyRecord     @relation(fields: [recordId], references: [id], onDelete: Cascade)
+  amount                Decimal        @db.Decimal(12, 2)
+  paidOn                DateTime
+  method                String         @default("bank") // cash | momo | bank | cheque | deducted
+  reference             String?
+  accountId             String?
+  account               ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  expenseId             String?        @unique
+  expense               Expense?       @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  proofKey              String? // private R2 key, served only through /api/levies/proof/[id]
+  proofName             String?
+  proofType             String?
+  note                  String?
+  recordedById          String?
+  recordedByName        String?
+  parentConfirmedAt     DateTime?
+  parentConfirmedByName String?
+  createdAt             DateTime       @default(now())
+
+  @@index([recordId])
+  @@index([churchId, paidOn])
 }
