@@ -9,6 +9,7 @@ import { SmsCreditsPanel } from "@/components/app/sms-credits-panel";
 import { resolveSmsPricing } from "@/lib/sms/intl";
 import { formatDate, cn } from "@/lib/utils";
 import { getCollectionProvider } from "@/lib/billing/collection-provider";
+import { isGhana } from "@/lib/billing/local-price";
 
 export const metadata = { title: "SMS credits" };
 
@@ -34,7 +35,7 @@ export default async function SmsCreditsPage({ searchParams }: { searchParams: P
   const [church, transactions, sms, provider, me] = await Promise.all([
     db.church.findUnique({
       where: { id: session.churchId },
-      select: { smsCredits: true, smsWelcomeMember: true, smsWelcomeVisitor: true, leaderMessagingOn: true },
+      select: { country: true, smsCredits: true, smsWelcomeMember: true, smsWelcomeVisitor: true, leaderMessagingOn: true },
     }),
     db.smsTransaction.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     resolveSmsPricing(session.churchId),
@@ -59,7 +60,8 @@ export default async function SmsCreditsPage({ searchParams }: { searchParams: P
         pricing={sms}
         leaderMessagingOn={church?.leaderMessagingOn ?? false}
         // Mobile Money in our own sheet needs Paystack; with Hubtel selected the hosted checkout stays as it is.
-        momoEnabled={provider === "paystack" && !session.impersonating}
+        // Only for a church in Ghana; elsewhere the card checkout opens directly.
+        momoEnabled={provider === "paystack" && !session.impersonating && isGhana(church?.country)}
         defaultPhone={me?.phone ?? null}
       />
 

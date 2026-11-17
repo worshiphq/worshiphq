@@ -1,7 +1,8 @@
 import "server-only";
 import { features } from "@/lib/env";
 import { rateLimitAll, clientIp, MINUTE } from "@/lib/rate-limit";
-import { isMomoNetworkId, toLocalGhanaMobile, type MomoNetworkId } from "@/lib/momo/networks";
+import { isMomoNetworkId, toLocalGhanaMobile, MOMO_NETWORKS, type MomoNetworkId } from "@/lib/momo/networks";
+import { explainMomoFailure } from "@/lib/momo/name-check";
 import type { MomoPay, MomoPrevious, MomoStartResult } from "@/lib/momo/types";
 import { signMomoToken, openMomoToken, type MomoKind } from "@/lib/billing/momo-token";
 import {
@@ -113,7 +114,11 @@ export async function startMomoCharge(opts: {
     metadata: opts.metadata, subaccount: opts.subaccount, transactionCharge: opts.transactionCharge,
   });
   if (res.status === "error" || res.status === "failed") {
-    return { ok: false, error: res.status === "failed" ? `The payment didn't go through. ${res.message ?? "Please try again."}` : res.message ?? "Could not start the payment. Please try again." };
+    if (res.status === "failed") {
+      // Say why in plain words; a refused number usually means it isn't on the chosen network.
+      return { ok: false, error: `The payment didn't go through. ${explainMomoFailure(res.message, MOMO_NETWORKS[opts.network].label).text}` };
+    }
+    return { ok: false, error: res.message ?? "Could not start the payment. Please try again." };
   }
   const token = signMomoToken({ reference, churchId: opts.churchId, kind: opts.kind });
   // An immediate success (rare) is applied right away, verified like any other.

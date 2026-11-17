@@ -1,14 +1,15 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { CheckCircle2, CreditCard, Smartphone, XCircle, Clock } from "lucide-react";
+import { CheckCircle2, CreditCard, Smartphone, XCircle, Clock, UserCheck, AlertTriangle } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { CometSpinner } from "@/components/ui/comet-spinner";
-import { MOMO_NETWORKS, MOMO_NETWORK_IDS, detectNetwork, toLocalGhanaMobile, type MomoNetworkId } from "@/lib/momo/networks";
+import { MOMO_NETWORKS, MOMO_NETWORK_IDS, prefixMismatch, toLocalGhanaMobile, type MomoNetworkId } from "@/lib/momo/networks";
+import { explainMomoFailure } from "@/lib/momo/name-check";
 import type { MomoPay, MomoStartResult } from "@/lib/momo/types";
-import { submitMomoOtp } from "@/app/actions/momo";
+import { submitMomoOtp, checkMomoName, type MomoNameContext, type MomoNameResult } from "@/app/actions/momo";
 import { useMomoCharge, type MomoWatch } from "@/components/payments/use-momo-charge";
 
 export type MomoStartOutcome = { ok: true; momo: MomoStartResult } | { ok: false; error: string } | { ok: true; redirected: true };
@@ -17,12 +18,22 @@ type Step = "choose" | "submitting" | "approve" | "otp" | "checking" | "success"
 
 const INVALID = "Enter a Ghana mobile number, for example 024 123 4567.";
 
+/** The name check for the number and network on screen. `for` ties a result to the exact number and network asked about. */
+type NameCheck =
+  | { state: "idle" }
+  | { state: "checking"; for: string }
+  | { state: "done"; for: string; result: MomoNameResult };
+
+const checkKey = (phone: string | null, network: MomoNetworkId | null) => `${phone ?? ""}|${network ?? ""}`;
+const APP_CONTEXT: MomoNameContext = { kind: "app" };
+
 /**
  * Render it only while it is open (each opening starts fresh).
  *
- * Mobile Money first: pick a network, confirm the number, approve on the phone, all without leaving the page.
- * "Card or other" keeps the usual Paystack popup. The server does the charging and the checking; this only shows
- * where it has got to.
+ * Mobile Money first: pick a network, enter the number, confirm the NAME the network has for it, then approve on the
+ * phone, all without leaving the page. The name check catches a wrong network (or a ported number) before any prompt
+ * is sent; when it can't run, the payer still goes on with their choice. "Card or other" keeps the usual Paystack
+ * popup. The server does the charging and the checking; this only shows where it has got to.
  */
 export function PaymentSheet({
   open,
@@ -35,6 +46,7 @@ export function PaymentSheet({
   onSuccess,
   successText = "Payment received.",
   saveCardNote,
+  nameContext = APP_CONTEXT,
 }: {
   open: boolean;
   onClose: () => void;
@@ -51,11 +63,17 @@ export function PaymentSheet({
   successText?: string;
   /** Plans: Mobile Money can't be kept for automatic renewal. */
   saveCardNote?: string;
+  /** Who is asking for the name check: a signed-in church (default) or a public give page. */
+  nameContext?: MomoNameContext;
 }) {
   const [step, setStep] = useState<Step>("choose"); // always set through go()
   const [phone, setPhone] = useState(defaultPhone ?? "");
-  const [network, setNetwork] = useState<MomoNetworkId | null>(() => detectNetwork(defaultPhone));
-  const [tapped, setTapped] = useState(false);
+  // No network until the payer taps one: the number field appears after that.
+  const [network, setNetwork] = useState<MomoNetworkId | null>(null);
+  const [nameCheck, setNameCheck] = useState<NameCheck>({ state: "idle" });
+  // Set when the name check moved the payer to the network the number is really on.
+  const [switchedFrom, setSwitchedFrom] = useState<MomoNetworkId | null>(null);
+  const checkSeq = useRef(0);
   const [error, setError] = useState<string | null>(null);
   const [otp, setOtp] = useState("");
   const [otpBusy, setOtpBusy] = useState(false);
@@ -97,15 +115,58 @@ export function PaymentSheet({
     }
   }
 
-  const detected = detectNetwork(phone);
   const local = toLocalGhanaMobile(phone);
   const net = network ? MOMO_NETWORKS[network] : null;
+  const mismatch = prefixMismatch(phone, network);
+  const check: NameCheck = nameCheck.state !== "idle" && nameCheck.for !== checkKey(local, network) ? { state: "idle" } : nameCheck;
+  const checked = check.state === "done" ? check.result : null;
+
+  /** Ask the server who owns this number (and on which network). Never blocks paying: any trouble lets them go on. */
+  async function runNameCheck(p: string | null, n: MomoNetworkId | null) {
+    if (!p || !n) return;
+    const seq = ++checkSeq.current;
+    const asked = checkKey(p, n);
+    setNameCheck({ state: "checking", for: asked });
+    let result: MomoNameResult;
+    try {
+      result = await checkMomoName({ phone: p, network: n, context: nameContext });
+    } catch {
+      result = { status: "unavailable" };
+    }
+    if (seq !== checkSeq.current) return;
+    if (result.status === "found" && result.network !== n) {
+      // The number is on another network: switch to it and say so.
+      setSwitchedFrom(n);
+      setNetwork(result.network);
+      setNameCheck({ state: "done", for: checkKey(p, result.network), result });
+      return;
+    }
+    setNameCheck({ state: "done", for: asked, result });
+  }
 
   function onPhoneChange(v: string) {
     setPhone(v);
     setError(null);
-    // Typing picks the network, until the payer taps one themselves (people keep their number when they switch).
-    if (!tapped) setNetwork(detectNetwork(v));
+    setSwitchedFrom(null);
+    const p = toLocalGhanaMobile(v);
+    // A complete number checks itself straight away.
+    if (p && p !== local) void runNameCheck(p, network);
+  }
+
+  function pickNetwork(id: MomoNetworkId) {
+    if (id === network) return;
+    setNetwork(id);
+    setError(null);
+    setSwitchedFrom(null);
+    if (local) void runNameCheck(local, id);
+  }
+
+  function changeNumber() {
+    checkSeq.current++;
+    setPhone("");
+    setSwitchedFrom(null);
+    setNameCheck({ state: "idle" });
+    setError(null);
   }
 
   async function payMomo(again = false) {
@@ -160,7 +221,7 @@ export function PaymentSheet({
     }
   }
 
-  function check() {
+  function checkAgain() {
     go("checking");
     checkNow();
   }
@@ -168,15 +229,16 @@ export function PaymentSheet({
   const busy = step === "submitting" || cardBusy || otpBusy || finishing;
   const close = () => { if (!busy) { stop(); onClose(); } };
   const display = watch.displayText ?? last.current?.displayText;
-  const failMessage = error ?? watch.message ?? last.current?.message;
+  // The start action already explains its own refusals; a failure heard while waiting is explained here.
+  const failMessage = error ?? explainMomoFailure(watch.message ?? last.current?.message, net?.label).text;
 
   return (
     <Modal open={open} onClose={close} title={title} description={`Amount: ${amountLabel}`}>
       {step === "choose" && (
         <div className="space-y-4">
           <div>
-            <p className="mb-2 text-sm font-semibold text-ink">Mobile Money</p>
-            <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="Mobile Money network">
+            <p className="mb-2 text-sm font-semibold text-ink">How would you like to pay?</p>
+            <div className={`grid gap-2 ${onCard ? "grid-cols-2 sm:grid-cols-4" : "grid-cols-3"}`} role="radiogroup" aria-label="Payment method">
               {MOMO_NETWORK_IDS.map((id) => {
                 const n = MOMO_NETWORKS[id];
                 const on = network === id;
@@ -186,7 +248,7 @@ export function PaymentSheet({
                     type="button"
                     role="radio"
                     aria-checked={on}
-                    onClick={() => { setNetwork(id); setTapped(true); setError(null); }}
+                    onClick={() => pickNetwork(id)}
                     className={`flex flex-col items-center gap-1.5 rounded-xl border p-3 text-xs font-semibold transition-colors ${on ? "border-primary bg-primary/10 text-ink ring-2 ring-primary/40" : "border-line bg-surface-2 text-ink-muted hover:border-primary/50"}`}
                   >
                     <span className="grid size-9 place-items-center rounded-full text-[0.8rem] font-bold" style={{ background: n.chipBg, color: n.chipFg }} aria-hidden>
@@ -196,44 +258,102 @@ export function PaymentSheet({
                   </button>
                 );
               })}
+              {onCard && (
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={false}
+                  disabled={cardBusy}
+                  onClick={payCard}
+                  className="flex flex-col items-center gap-1.5 rounded-xl border border-line bg-surface-2 p-3 text-xs font-semibold text-ink-muted transition-colors hover:border-primary/50 disabled:opacity-70"
+                >
+                  <span className="grid size-9 place-items-center rounded-full bg-ink/10 text-ink" aria-hidden>
+                    {cardBusy ? <Spinner size="sm" /> : <CreditCard className="size-4" />}
+                  </span>
+                  <span className="text-center leading-tight">{cardBusy ? "Opening card payment..." : "Card or other"}</span>
+                </button>
+              )}
             </div>
+            {onCard && saveCardNote && <p className="mt-2 text-xs text-ink-muted">{saveCardNote}</p>}
           </div>
 
-          <label className="block">
-            <span className="mb-1 block text-sm font-medium text-ink">Mobile Money number</span>
-            <input
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
-              value={phone}
-              onChange={(e) => onPhoneChange(e.target.value)}
-              placeholder="024 123 4567"
-              className="h-11 w-full rounded-xl border border-line bg-surface-2 px-3 text-[1rem] text-ink outline-none focus:border-primary"
-            />
-          </label>
-          {tapped && detected && network && detected !== network && (
-            <p className="text-xs text-ink-muted">
-              This number usually belongs to {MOMO_NETWORKS[detected].label}. If you moved your number to another network, keep your choice.
-            </p>
-          )}
-          {error && <p className="text-sm text-danger" role="alert">{error}</p>}
-
-          <Button type="button" className="w-full" size="lg" onClick={() => payMomo(false)}>
-            <Smartphone /> Pay {amountLabel} with Mobile Money
-          </Button>
-          {onCard && (
+          {network && net && (
             <>
-              <Button type="button" variant="secondary" className="w-full" disabled={cardBusy} onClick={payCard}>
-                {cardBusy ? <><Spinner size="sm" /> Opening card payment…</> : <><CreditCard /> Card or other</>}
-              </Button>
-              {saveCardNote && <p className="text-xs text-ink-muted">{saveCardNote}</p>}
+              <label className="block">
+                <span className="mb-1 block text-sm font-medium text-ink">{net.label} number</span>
+                <input
+                  type="tel"
+                  inputMode="tel"
+                  autoComplete="tel"
+                  autoFocus={!phone}
+                  value={phone}
+                  onChange={(e) => onPhoneChange(e.target.value)}
+                  placeholder="024 123 4567"
+                  className="h-11 w-full rounded-xl border border-line bg-surface-2 px-3 text-[1rem] text-ink outline-none focus:border-primary"
+                />
+              </label>
+
+              {checked?.status === "found" && (
+                <div className="space-y-2 rounded-xl border border-primary/30 bg-primary/5 p-4 text-sm text-ink">
+                  {switchedFrom && switchedFrom !== checked.network && (
+                    <p className="flex items-start gap-2 font-medium">
+                      <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+                      <span>This number is on {MOMO_NETWORKS[checked.network].label}, not {MOMO_NETWORKS[switchedFrom].label}. We switched it for you.</span>
+                    </p>
+                  )}
+                  <p className="flex items-start gap-2">
+                    <UserCheck className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden />
+                    <span>This number is registered to <b className="font-semibold">{checked.name}</b> on {MOMO_NETWORKS[checked.network].label}. Is this you?</span>
+                  </p>
+                </div>
+              )}
+
+              {checked?.status === "not_found" && (
+                <p className="flex items-start gap-2 rounded-xl border border-warning/40 bg-warning/10 p-3 text-xs text-ink">
+                  <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" aria-hidden />
+                  <span>We couldn&apos;t find a Mobile Money name for this number. Check the number and the network before you pay.</span>
+                </p>
+              )}
+              {checked?.status === "unavailable" && checked.message && <p className="text-xs text-ink-muted">{checked.message}</p>}
+              {checked?.status === "invalid" && <p className="text-sm text-danger" role="alert">{checked.message}</p>}
+
+              {checked?.status !== "found" && check.state !== "checking" && mismatch && (
+                <p className="text-xs text-ink-muted">
+                  This number usually belongs to {MOMO_NETWORKS[mismatch].label}. If you moved your number to {net.label}, keep your choice.
+                </p>
+              )}
+              {error && <p className="text-sm text-danger" role="alert">{error}</p>}
+
+              {checked?.status === "found" ? (
+                <div className="space-y-2">
+                  <Button type="button" className="w-full" size="lg" onClick={() => payMomo(false)}>
+                    <Smartphone /> Yes, pay {amountLabel}
+                  </Button>
+                  <Button type="button" variant="ghost" className="w-full" onClick={changeNumber}>Change number</Button>
+                </div>
+              ) : check.state === "checking" ? (
+                <Button type="button" className="w-full" size="lg" disabled>
+                  <Spinner size="sm" /> Checking the name on this number...
+                </Button>
+              ) : check.state === "idle" && local ? (
+                <Button type="button" className="w-full" size="lg" onClick={() => void runNameCheck(local, network)}>
+                  Continue
+                </Button>
+              ) : (
+                <div className="space-y-2">
+                  <Button type="button" className="w-full" size="lg" disabled={!local || checked?.status === "invalid"} onClick={() => payMomo(false)}>
+                    <Smartphone /> {checked?.status === "not_found" ? `Pay ${amountLabel} with ${net.label} anyway` : `Pay ${amountLabel} with ${net.label}`}
+                  </Button>
+                  {checked && <Button type="button" variant="ghost" className="w-full" onClick={changeNumber}>Change number</Button>}
+                </div>
+              )}
             </>
           )}
         </div>
       )}
 
       {step === "submitting" && (
-        <Waiting text="Sending the payment request to your phone…" />
+        <Waiting text="Sending the payment request to your phone..." />
       )}
 
       {(step === "approve" || step === "checking") && (
@@ -249,9 +369,9 @@ export function PaymentSheet({
             </div>
           </div>
           {step === "checking" || watch.checking ? (
-            <p className="flex items-center gap-2 text-sm text-ink-muted"><Spinner size="sm" /> Checking with your network…</p>
+            <p className="flex items-center gap-2 text-sm text-ink-muted"><Spinner size="sm" /> Checking with your network...</p>
           ) : (
-            <Button type="button" variant="secondary" className="w-full" onClick={check}>I have approved it</Button>
+            <Button type="button" variant="secondary" className="w-full" onClick={checkAgain}>I have approved it</Button>
           )}
         </div>
       )}
@@ -271,7 +391,7 @@ export function PaymentSheet({
           />
           {error && <p className="text-sm text-danger" role="alert">{error}</p>}
           <Button type="button" className="w-full" disabled={otpBusy || otp.length < 4} onClick={sendOtp}>
-            {otpBusy ? <><Spinner size="sm" /> Confirming…</> : "Confirm code"}
+            {otpBusy ? <><Spinner size="sm" /> Confirming...</> : "Confirm code"}
           </Button>
         </div>
       )}
@@ -284,18 +404,18 @@ export function PaymentSheet({
         </div>
       )}
 
-      {finishing && step !== "success" && <Waiting text="Payment received. Finishing up…" />}
+      {finishing && step !== "success" && <Waiting text="Payment received. Finishing up..." />}
 
       {step === "failed" && !finishing && (
         <div className="space-y-4">
           <div className="flex items-start gap-3 rounded-xl border border-danger/30 bg-danger/10 p-4 text-sm text-ink">
             <XCircle className="mt-0.5 size-5 shrink-0 text-danger" aria-hidden />
-            <p>The payment didn&apos;t go through. {failMessage || "Please try again."}</p>
+            <p>{failMessage.startsWith("The payment didn") ? failMessage : <>The payment didn&apos;t go through. {failMessage}</>}</p>
           </div>
           <Button type="button" className="w-full" onClick={() => payMomo(true)}>Try again</Button>
           {onCard && (
             <Button type="button" variant="secondary" className="w-full" disabled={cardBusy} onClick={payCard}>
-              {cardBusy ? <><Spinner size="sm" /> Opening card payment…</> : <><CreditCard /> Pay by card instead</>}
+              {cardBusy ? <><Spinner size="sm" /> Opening card payment...</> : <><CreditCard /> Pay by card instead</>}
             </Button>
           )}
           <Button type="button" variant="ghost" className="w-full" onClick={() => { setError(null); go("choose"); }}>Change number or network</Button>
@@ -309,11 +429,11 @@ export function PaymentSheet({
             <p>Still waiting? Check your phone for the prompt, or try again.</p>
           </div>
           {error && <p className="text-sm text-danger" role="alert">{error}</p>}
-          <Button type="button" className="w-full" onClick={check}>Check again</Button>
+          <Button type="button" className="w-full" onClick={checkAgain}>Check again</Button>
           <Button type="button" variant="secondary" className="w-full" onClick={() => payMomo(true)}>Try again</Button>
           {onCard && (
             <Button type="button" variant="ghost" className="w-full" disabled={cardBusy} onClick={payCard}>
-              {cardBusy ? <><Spinner size="sm" /> Opening card payment…</> : <><CreditCard /> Pay by card instead</>}
+              {cardBusy ? <><Spinner size="sm" /> Opening card payment...</> : <><CreditCard /> Pay by card instead</>}
             </Button>
           )}
         </div>

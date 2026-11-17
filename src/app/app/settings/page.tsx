@@ -146,7 +146,8 @@ export default async function SettingsPage() {
         autoInactive={{ on: church?.autoInactiveOn ?? false, weeks: church?.autoInactiveWeeks ?? 12, locked: !session.isDemo && !!session.planLocked?.includes("auto-inactive") }}
         messageCenter={messageCenter}
         // Mobile Money in our own sheet needs Paystack; with Hubtel selected the hosted checkout stays as it is.
-        momoEnabled={(await getCollectionProvider()) === "paystack"}
+        // Mobile Money first only for a church in Ghana; elsewhere the card checkout opens directly.
+        momoEnabled={isGhana(church?.country) && (await getCollectionProvider()) === "paystack"}
         ownerPhone={users.find((u) => u.id === session.userId)?.phone ?? null}
         platformPricing={{ ...platformConfig, ...(localPrices(platformConfig, isGhana(church?.country)) ?? {}) }}
         billingUsage={(() => {
