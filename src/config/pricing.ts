@@ -23,7 +23,7 @@ export const plans: Plan[] = [
     tagline: "For new & small fellowships",
     monthly: 0,
     yearly: 0,
-    members: "Up to 40 members",
+    members: "Up to 30 members",
     cta: "Start free",
     features: [
       "People & households",
