@@ -1,11 +1,16 @@
 "use server";
 
-import { requireModule } from "@/lib/auth";
+import { requireModule, requireSession } from "@/lib/auth";
 import { queryVisitors } from "@/lib/data/visitors";
 import { queryPeople } from "@/lib/data/people";
 import { queryDirectory } from "@/lib/data/directory";
 import { queryPickerPeople, pickerLabels, type PickerQuery } from "@/lib/data/picker";
-import { queryGroupMembers, queryDepartmentMembers, queryAssets, queryCounseling, type CounselFilters } from "@/lib/data/lists-b";
+import { queryGroupMembers, queryDepartmentMembers, queryCounseling, type CounselFilters } from "@/lib/data/lists-b";
+import { queryAssets, type AssetFilters } from "@/lib/data/assets";
+import { queryTrips, type TripFilters } from "@/lib/data/fleet";
+import { queryRequests, type RequestFilters } from "@/lib/data/maintenance";
+import { queryExpenseRequests, type ExpenseRequestFilters } from "@/lib/data/expenses";
+import { hasSection } from "@/lib/permissions";
 import { queryFollowUps, type FollowUpFilters } from "@/lib/data/follow-ups-list";
 import { queryNotices, queryTestimonies, queryPrayer, prayerActiveIds, querySermons, queryDevotionals, queryAudit, type AuditFilters, type PrayerFilters, type SermonFilters, type DevotionalFilters } from "@/lib/data/lists-a";
 
@@ -81,9 +86,28 @@ export async function searchDepartmentMembers(departmentId: string, search: stri
   return queryDepartmentMembers(session.churchId, departmentId, search, page);
 }
 
-export async function searchAssets(search: string, f: { category: string }, page: number) {
+export async function searchAssets(search: string, f: AssetFilters, page: number) {
   const session = await requireModule("assets");
-  return queryAssets(session.churchId, search, f.category, page);
+  return queryAssets(session.churchId, search, f, page);
+}
+
+export async function searchTrips(search: string, f: TripFilters, page: number) {
+  const session = await requireModule("vehicles");
+  return queryTrips(session.churchId, search, f, page);
+}
+
+/** Team members without the Maintenance section only ever see the faults they reported. */
+export async function searchMaintenanceRequests(search: string, f: RequestFilters, page: number) {
+  const session = await requireSession();
+  if (session.planLocked?.includes("maintenance") && !session.isDemo && !session.impersonating) return { rows: [], total: 0, page: 1 };
+  const mine = hasSection(session, "maintenance") ? undefined : session.userId;
+  return queryRequests(session.churchId, search, { ...f, reportedBy: mine }, page);
+}
+
+export async function searchExpenseRequests(search: string, f: ExpenseRequestFilters, page: number) {
+  const session = await requireSession();
+  const all = hasSection(session, "expenses") && !session.planLocked?.includes("expenses");
+  return queryExpenseRequests(session.churchId, search, { ...f, requestedBy: all ? undefined : session.userId }, page);
 }
 
 export async function searchCounseling(search: string, f: CounselFilters, page: number) {

@@ -64,6 +64,18 @@ export const ENTITY_LABELS: Record<string, string> = {
   volunteerAssignment: "Volunteer assignment",
   welfareDue: "Welfare dues",
   welfareRecord: "Welfare record",
+  vehicle: "Vehicle",
+  vehicleDriver: "Vehicle driver",
+  vehicleTrip: "Vehicle trip",
+  vehicleFuel: "Fuel record",
+  assetCheckout: "Asset loan",
+  assetDocument: "Asset document",
+  maintenanceSchedule: "Service schedule",
+  maintenanceRecord: "Maintenance record",
+  maintenanceRequest: "Maintenance request",
+  expenseRequest: "Expense request",
+  recurringExpense: "Recurring expense",
+  vendor: "Payee",
 };
 
 export type BinKind = keyof typeof ENTITY_LABELS;

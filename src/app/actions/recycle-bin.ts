@@ -23,6 +23,9 @@ const ENTITY_SECTION: Record<string, string> = {
   event: "events", attendanceSession: "attendance", serviceSlot: "attendance", facility: "bookings", booking: "bookings", bookingPayment: "bookings",
   volunteerSlot: "volunteers", serviceRole: "rosters", position: "volunteers", volunteerAssignment: "volunteers", volunteerRoster: "rosters",
   notice: "notices", campaign: "communications", devotional: "devotionals", sermon: "sermons", testimony: "testimonies", automation: "reminders",
+  vehicle: "vehicles", vehicleDriver: "vehicles", vehicleTrip: "vehicles", vehicleFuel: "vehicles", assetCheckout: "assets", assetDocument: "assets",
+  maintenanceSchedule: "maintenance", maintenanceRecord: "maintenance", maintenanceRequest: "maintenance",
+  expenseRequest: "expenses", recurringExpense: "expenses", vendor: "expenses",
 };
 /** Records only the Main Admin and Admins may see or bring back: the team itself, roles, departments and branches. */
 const ADMIN_ONLY = new Set(["teamMember", "customRole", "department", "branch"]);

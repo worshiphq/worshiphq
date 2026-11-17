@@ -1,7 +1,10 @@
 import "server-only";
 import { db } from "@/lib/db";
 
-type Owned = "person" | "visitor" | "campaign" | "harvest" | "budget" | "volunteerRoster" | "churchAccount" | "customRole" | "group";
+type Owned = "person" | "visitor" | "campaign" | "harvest" | "budget" | "volunteerRoster" | "churchAccount" | "customRole" | "group"
+  | "asset" | "vehicle" | "vehicleDriver" | "vehicleTrip" | "vehicleFuel" | "facility" | "fund" | "budgetItem" | "vendor"
+  | "department" | "event" | "user" | "expense" | "expenseRequest" | "recurringExpense" | "maintenanceSchedule"
+  | "maintenanceRequest" | "maintenanceRecord" | "assetCheckout" | "assetDocument";
 
 /**
  * The id back if that record belongs to this church, otherwise null. Use it on every id that arrives
