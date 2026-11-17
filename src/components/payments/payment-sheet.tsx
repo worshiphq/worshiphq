@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { CheckCircle2, CreditCard, Smartphone, XCircle, Clock } from "lucide-react";
 import { Modal } from "@/components/ui/modal";
 import { Button } from "@/components/ui/button";
@@ -9,7 +9,7 @@ import { CometSpinner } from "@/components/ui/comet-spinner";
 import { MOMO_NETWORKS, MOMO_NETWORK_IDS, detectNetwork, toLocalGhanaMobile, type MomoNetworkId } from "@/lib/momo/networks";
 import type { MomoPay, MomoStartResult } from "@/lib/momo/types";
 import { submitMomoOtp } from "@/app/actions/momo";
-import { useMomoCharge } from "@/components/payments/use-momo-charge";
+import { useMomoCharge, type MomoWatch } from "@/components/payments/use-momo-charge";
 
 export type MomoStartOutcome = { ok: true; momo: MomoStartResult } | { ok: false; error: string } | { ok: true; redirected: true };
 
@@ -18,6 +18,8 @@ type Step = "choose" | "submitting" | "approve" | "otp" | "checking" | "success"
 const INVALID = "Enter a Ghana mobile number, for example 024 123 4567.";
 
 /**
+ * Render it only while it is open (each opening starts fresh).
+ *
  * Mobile Money first: pick a network, confirm the number, approve on the phone, all without leaving the page.
  * "Card or other" keeps the usual Paystack popup. The server does the charging and the checking; this only shows
  * where it has got to.
@@ -50,7 +52,7 @@ export function PaymentSheet({
   /** Plans: Mobile Money can't be kept for automatic renewal. */
   saveCardNote?: string;
 }) {
-  const [step, setStep] = useState<Step>("choose");
+  const [step, setStep] = useState<Step>("choose"); // always set through go()
   const [phone, setPhone] = useState(defaultPhone ?? "");
   const [network, setNetwork] = useState<MomoNetworkId | null>(() => detectNetwork(defaultPhone));
   const [tapped, setTapped] = useState(false);
@@ -59,37 +61,28 @@ export function PaymentSheet({
   const [otpBusy, setOtpBusy] = useState(false);
   const [cardBusy, setCardBusy] = useState(false);
   const [finishing, setFinishing] = useState(false);
-  const [checkClicked, setCheckClicked] = useState(false);
   const last = useRef<MomoStartResult | null>(null);
   const succeeded = useRef(false);
-  const { watch, follow, checkNow, resume, stop } = useMomoCharge();
+  // The step as of now, for the charge updates that arrive between renders.
+  const stepRef = useRef<Step>("choose");
+  const go = (next: Step) => { stepRef.current = next; setStep(next); };
 
-  // A fresh sheet each time it opens.
-  useEffect(() => {
-    if (!open) return;
-    setStep("choose");
-    setPhone(defaultPhone ?? "");
-    setNetwork(detectNetwork(defaultPhone));
-    setTapped(false);
-    setError(null);
-    setOtp("");
-    last.current = null;
-    succeeded.current = false;
-    stop();
-  }, [open, defaultPhone, stop]);
-
-  // Follow the charge.
-  useEffect(() => {
-    if (step === "choose" || step === "submitting" || step === "success" || step === "card") return;
-    switch (watch.status) {
+  // Every change in the charge moves the sheet along (no effect needed: the hook calls this as it hears back).
+  const onUpdate = (w: MomoWatch) => {
+    const at = stepRef.current;
+    if (at === "choose" || at === "submitting" || at === "success" || at === "card") return;
+    switch (w.status) {
       case "success": void finish(); break;
-      case "failed": case "error": setStep("failed"); break;
-      case "timeout": setStep("timeout"); break;
-      case "send_otp": setStep("otp"); break;
-      case "pay_offline": case "pending": setStep((s) => (s === "otp" ? s : "approve")); break;
+      case "failed": case "error": go("failed"); break;
+      case "timeout": go("timeout"); break;
+      case "send_otp": go("otp"); break;
+      case "pay_offline": case "pending":
+        // A finished check after "I have approved it" goes back to waiting; a voucher step stays put.
+        if (at !== "otp" && !w.checking) go("approve");
+        break;
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [watch.status]);
+  };
+  const { watch, follow, checkNow, resume, stop } = useMomoCharge(onUpdate);
 
   async function finish() {
     if (succeeded.current) return;
@@ -100,7 +93,7 @@ export function PaymentSheet({
       if (m) await onSuccess?.(m.reference, { stubbed: m.stubbed });
     } finally {
       setFinishing(false);
-      setStep("success");
+      go("success");
     }
   }
 
@@ -116,25 +109,25 @@ export function PaymentSheet({
   }
 
   async function payMomo(again = false) {
-    if (!local) { setError(INVALID); setStep("choose"); return; }
-    if (!network) { setError("Choose your Mobile Money network."); setStep("choose"); return; }
+    if (!local) { setError(INVALID); go("choose"); return; }
+    if (!network) { setError("Choose your Mobile Money network."); go("choose"); return; }
     setError(null);
     const from = step;
-    setStep("submitting");
+    go("submitting");
     const prev = again && last.current ? { reference: last.current.reference, token: last.current.token } : undefined;
     try {
       const r = await onMomo({ method: "momo", phone: local, network, ...(prev ? { previous: prev } : {}) });
       // A refused retry (the last attempt may still go through) goes back to where the payer was.
-      if (!r.ok) { setError(r.error); setStep(again ? (from === "timeout" ? "timeout" : "failed") : "choose"); return; }
+      if (!r.ok) { setError(r.error); go(again ? (from === "timeout" ? "timeout" : "failed") : "choose"); return; }
       if ("redirected" in r) return;
       last.current = r.momo;
       succeeded.current = false;
       follow(r.momo);
       if (r.momo.status === "success") { void finish(); return; }
-      setStep(r.momo.status === "send_otp" ? "otp" : "approve");
+      go(r.momo.status === "send_otp" ? "otp" : "approve");
     } catch {
       setError("Something went wrong. Please try again.");
-      setStep(again ? (from === "timeout" ? "timeout" : "failed") : "choose");
+      go(again ? (from === "timeout" ? "timeout" : "failed") : "choose");
     }
   }
 
@@ -156,9 +149,9 @@ export function PaymentSheet({
     setError(null);
     try {
       const r = await submitMomoOtp(m.reference, m.token, otp);
-      if (r.status === "send_otp" || r.status === "error") { setError(r.message ?? "That code didn't work. Please check it and try again."); if (r.status === "error") setStep("failed"); return; }
+      if (r.status === "send_otp" || r.status === "error") { setError(r.message ?? "That code didn't work. Please check it and try again."); if (r.status === "error") go("failed"); return; }
       if (r.status === "success") { last.current = m; void finish(); return; }
-      setStep(r.status === "failed" ? "failed" : "approve");
+      go(r.status === "failed" ? "failed" : "approve");
       resume(r);
     } catch {
       setError("Something went wrong. Please try again.");
@@ -168,16 +161,9 @@ export function PaymentSheet({
   }
 
   function check() {
-    setCheckClicked(true);
-    setStep("checking");
+    go("checking");
     checkNow();
   }
-  useEffect(() => {
-    if (step === "checking" && !watch.checking && checkClicked && (watch.status === "pending" || watch.status === "pay_offline")) {
-      setCheckClicked(false);
-      setStep("approve");
-    }
-  }, [step, watch.checking, watch.status, checkClicked]);
 
   const busy = step === "submitting" || cardBusy || otpBusy || finishing;
   const close = () => { if (!busy) { stop(); onClose(); } };
@@ -312,7 +298,7 @@ export function PaymentSheet({
               {cardBusy ? <><Spinner size="sm" /> Opening card payment…</> : <><CreditCard /> Pay by card instead</>}
             </Button>
           )}
-          <Button type="button" variant="ghost" className="w-full" onClick={() => { setError(null); setStep("choose"); }}>Change number or network</Button>
+          <Button type="button" variant="ghost" className="w-full" onClick={() => { setError(null); go("choose"); }}>Change number or network</Button>
         </div>
       )}
 

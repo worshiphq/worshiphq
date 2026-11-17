@@ -1338,9 +1338,9 @@ function BillingTab({ trial, subscription, features, ro, platformPricing, paymen
           </div>
         </div>
       )}
-      {upgradePlan && (
+      {upgradePlan && paySheetOpen && (
         <PaymentSheet
-          open={paySheetOpen}
+          open
           onClose={() => setPaySheetOpen(false)}
           title={isRenewal ? `Renew ${upgradePlan.name}` : `Pay for ${upgradePlan.name}`}
           amountLabel={`${sym}${(couponInfo?.newAmount ?? changePreview?.amountDueUsd ?? 0).toLocaleString()}`}

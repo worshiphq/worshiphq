@@ -15,17 +15,32 @@ export type MomoWatch = {
   checking: boolean;
 };
 
+const IDLE: MomoWatch = { status: "idle", checking: false };
+
 /**
  * Follows one Mobile Money charge through /api/payments/momo/status: every 5 seconds, straight away when the payer
  * comes back to the tab (they approve on their phone, often switching apps), and gives up after 3 minutes
  * ("timeout", from which the sheet offers Check again). The server spaces real Paystack checks 10 seconds apart.
+ * `onUpdate` hears every change, so the sheet can move between its steps without an effect.
  */
-export function useMomoCharge() {
-  const [watch, setWatch] = useState<MomoWatch>({ status: "idle", checking: false });
+export function useMomoCharge(onUpdate?: (w: MomoWatch) => void) {
+  const [watch, setWatchState] = useState<MomoWatch>(IDLE);
+  const current = useRef<MomoWatch>(IDLE);
+  const listener = useRef(onUpdate);
   const charge = useRef<{ reference: string; token: string; startedAt: number } | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const abort = useRef<AbortController | null>(null);
   const finished = useRef(false);
+  const pollRef = useRef<() => Promise<void>>(async () => {});
+
+  useEffect(() => { listener.current = onUpdate; }, [onUpdate]);
+
+  const emit = useCallback((next: MomoWatch | ((w: MomoWatch) => MomoWatch)) => {
+    const value = typeof next === "function" ? next(current.current) : next;
+    current.current = value;
+    setWatchState(value);
+    listener.current?.(value);
+  }, []);
 
   const clear = useCallback(() => {
     if (timer.current) clearTimeout(timer.current);
@@ -34,17 +49,22 @@ export function useMomoCharge() {
     abort.current = null;
   }, []);
 
+  const schedule = useCallback(() => {
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => void pollRef.current(), POLL_MS);
+  }, []);
+
   const poll = useCallback(async (): Promise<void> => {
     const c = charge.current;
     if (!c || finished.current) return;
     clear();
     if (Date.now() - c.startedAt > GIVE_UP_MS) {
-      setWatch((w) => ({ ...w, status: "timeout", checking: false }));
+      emit((w) => ({ ...w, status: "timeout", checking: false }));
       return;
     }
     const ctl = new AbortController();
     abort.current = ctl;
-    setWatch((w) => ({ ...w, checking: true }));
+    emit((w) => ({ ...w, checking: true }));
     try {
       const res = await fetch(`/api/payments/momo/status?ref=${encodeURIComponent(c.reference)}&t=${encodeURIComponent(c.token)}`, {
         cache: "no-store",
@@ -54,73 +74,76 @@ export function useMomoCharge() {
       if (charge.current !== c) return;
       if (res.status === 403) {
         finished.current = true;
-        setWatch({ status: "error", message: body.message ?? "This payment has expired. Please start again.", checking: false });
+        emit({ status: "error", message: body.message ?? "This payment has expired. Please start again.", checking: false });
         return;
       }
       const status = body.status ?? "pending";
       if (status === "success" || status === "failed" || body.done) {
         finished.current = true;
-        setWatch({ status, message: body.message, checking: false });
+        emit({ status, message: body.message, checking: false });
         return;
       }
-      setWatch((w) => ({ status: status === "error" ? "pending" : status, displayText: body.displayText ?? w.displayText, message: body.message, checking: false }));
+      emit((w) => ({ status: status === "error" ? "pending" : status, displayText: body.displayText ?? w.displayText, message: body.message, checking: false }));
       // A voucher code is needed: wait for the payer instead of polling.
       if (status === "send_otp") return;
     } catch (e) {
       if ((e as Error).name === "AbortError") return;
-      setWatch((w) => ({ ...w, checking: false }));
+      emit((w) => ({ ...w, checking: false }));
     }
-    if (!finished.current && charge.current === c) timer.current = setTimeout(() => void poll(), POLL_MS);
-  }, [clear]);
+    if (!finished.current && charge.current === c) schedule();
+  }, [clear, emit, schedule]);
+
+  useEffect(() => { pollRef.current = poll; }, [poll]);
 
   /** Begin following a charge the server just started. */
   const follow = useCallback((m: MomoStartResult) => {
     clear();
     finished.current = m.status === "success";
     charge.current = { reference: m.reference, token: m.token, startedAt: Date.now() };
-    setWatch({ status: m.status, displayText: m.displayText, message: m.message, checking: false });
-    if (!finished.current && m.status !== "send_otp") timer.current = setTimeout(() => void poll(), POLL_MS);
-  }, [clear, poll]);
+    emit({ status: m.status, displayText: m.displayText, message: m.message, checking: false });
+    if (!finished.current && m.status !== "send_otp") schedule();
+  }, [clear, emit, schedule]);
 
-  /** "Check again" after a timeout, or "I've approved it": a fresh 3-minute window. */
+  /** "Check again" after a timeout, or "I have approved it": a fresh 3-minute window. */
   const checkNow = useCallback(() => {
     const c = charge.current;
     if (!c) return;
     finished.current = false;
     if (Date.now() - c.startedAt > GIVE_UP_MS) charge.current = { ...c, startedAt: Date.now() };
-    setWatch((w) => ({ ...w, status: w.status === "timeout" ? "pending" : w.status }));
     void poll();
   }, [poll]);
 
-  /** Resume polling after a voucher code was accepted. */
+  /** Carry on after a voucher code was sent. */
   const resume = useCallback((s: { status: MomoChargeStatus; displayText?: string; message?: string }) => {
+    clear();
     if (s.status === "success" || s.status === "failed") {
       finished.current = true;
-      clear();
-      setWatch({ status: s.status, message: s.message, checking: false });
+      emit({ status: s.status, message: s.message, checking: false });
       return;
     }
-    setWatch((w) => ({ status: s.status === "error" ? "pending" : s.status, displayText: s.displayText ?? w.displayText, message: s.message, checking: false }));
-    if (s.status !== "send_otp") { clear(); timer.current = setTimeout(() => void poll(), POLL_MS); }
-  }, [clear, poll]);
+    emit((w) => ({ status: s.status === "error" ? "pending" : s.status, displayText: s.displayText ?? w.displayText, message: s.message, checking: false }));
+    if (s.status !== "send_otp") schedule();
+  }, [clear, emit, schedule]);
 
   const stop = useCallback(() => {
     clear();
     charge.current = null;
     finished.current = false;
-    setWatch({ status: "idle", checking: false });
+    current.current = IDLE;
+    setWatchState(IDLE);
   }, [clear]);
 
   // Coming back to the page (after approving on the phone) checks at once.
   useEffect(() => {
     const onVisible = () => {
-      if (document.visibilityState === "visible" && charge.current && !finished.current && watch.status !== "timeout" && watch.status !== "send_otp") void poll();
+      const s = current.current.status;
+      if (document.visibilityState === "visible" && charge.current && !finished.current && s !== "timeout" && s !== "send_otp") void pollRef.current();
     };
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [poll, watch.status]);
+  }, []);
 
   useEffect(() => clear, [clear]);
 
-  return { watch, follow, checkNow, resume, stop, current: () => charge.current };
+  return { watch, follow, checkNow, resume, stop };
 }
