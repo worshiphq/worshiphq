@@ -88,7 +88,7 @@ export async function deleteTransaction(id: string) {
   const session = await requireSession();
   assertCanDelete(session);
   const tx = await db.transaction.findFirst({ where: { id, churchId: session.churchId }, select: { description: true, payrollRunId: true } });
-  if (tx?.payrollRunId) throw new Error("This came from Payroll. Reverse it from the payroll run instead.");
+  if (tx?.payrollRunId) return { ok: false as const, error: "This came from Payroll. Reverse it from the payroll run instead." };
   await moveToBin(session, "transaction", "Transaction", id);
   await db.transaction.deleteMany({ where: { id, churchId: session.churchId } });
   if (tx) await audit(session, "delete", "transaction", `Deleted transaction "${tx.description}"`, id);

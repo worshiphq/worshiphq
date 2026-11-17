@@ -44,6 +44,7 @@ export function StaffProfileClient(p: StaffProfileProps) {
   const [leaving, setLeaving] = useState(false);
   const [linking, setLinking] = useState(false);
   const manage = p.payroll === "manage";
+  const router = useRouter();
   const statusCls = s.status === "active" ? "bg-emerald-500/10 text-emerald-700 dark:text-emerald-300" : s.status === "suspended" ? "bg-amber-500/10 text-amber-700 dark:text-amber-300" : "bg-surface-2 text-ink-faint";
 
   return (
@@ -152,7 +153,7 @@ export function StaffProfileClient(p: StaffProfileProps) {
             </Card>
           )}
           {manage && (
-            <BusyButton variant="ghost" size="sm" className="text-danger" pendingLabel="Deleting…" confirm="Delete this staff record for good? Someone already paid through payroll can only be marked as left." run={() => deleteStaff(s.id)} onDone={(r) => { if (r.ok) window.location.assign("/app/staff"); }}>
+            <BusyButton variant="ghost" size="sm" className="text-danger" pendingLabel="Deleting…" confirm="Delete this staff record for good? Someone already paid through payroll can only be marked as left." run={() => deleteStaff(s.id)} refresh={false} onDone={(r) => { if (r.ok) router.push("/app/staff"); }}>
               <Trash2 className="size-4" /> Delete staff record
             </BusyButton>
           )}

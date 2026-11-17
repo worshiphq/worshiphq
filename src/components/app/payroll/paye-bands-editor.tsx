@@ -54,19 +54,18 @@ export function PayeBandsEditor({ sets, canManage }: { sets: BandSetView[]; canM
 }
 
 function BandTable({ bands }: { bands: Band[] }) {
-  let from = 0;
+  const starts = bands.map((_, i) => bands.slice(0, i).reduce((t, b) => t + (b.width ?? 0), 0));
   return (
     <table className="mt-3 w-full text-sm">
       <tbody>
         {bands.map((b, i) => {
-          const row = (
+          const from = starts[i];
+          return (
             <tr key={i} className="border-t border-line-soft">
               <td className="py-1.5 text-ink-muted">{b.width === null ? `Above GHS ${from.toLocaleString("en-GH", { maximumFractionDigits: 2 })}` : `${i === 0 ? "First" : "Next"} GHS ${b.width.toLocaleString("en-GH", { maximumFractionDigits: 2 })}`}</td>
               <td className="py-1.5 text-right font-semibold tabular-nums">{b.pct}%</td>
             </tr>
           );
-          from += b.width ?? 0;
-          return row;
         })}
       </tbody>
     </table>

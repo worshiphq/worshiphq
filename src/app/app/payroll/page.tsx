@@ -19,7 +19,7 @@ export default async function PayrollPage() {
     db.churchAccount.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     ensureSettings(db, session.churchId),
   ]);
-  const accra = new Date(Date.now()); // Ghana is UTC all year.
+  const accra = new Date(); // Ghana is UTC all year.
   return (
     <div>
       <PageHeader title="Payroll" description="Monthly pay, SSNIT and PAYE. Private: only people the Main Admin chooses can see it." />
