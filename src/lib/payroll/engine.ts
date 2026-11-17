@@ -50,7 +50,10 @@ export async function ensureSettings(tx: Tx, churchId: string) {
   // Churches outside Ghana start with no statutory deductions (decision 13).
   const church = await tx.church.findUnique({ where: { id: churchId }, select: { country: true } });
   const ghana = !church?.country || /ghana/i.test(church.country);
-  return tx.payrollSettings.upsert({ where: { churchId }, update: {}, create: { churchId, statutoryMode: ghana ? "ghana" : "none" } });
+  // ON CONFLICT DO NOTHING: two parts of one page can ask at the same moment on a church's first visit. An upsert
+  // would make the second one fail (and abort a surrounding transaction); this way both simply read the one row.
+  await tx.payrollSettings.createMany({ data: [{ churchId, statutoryMode: ghana ? "ghana" : "none" }], skipDuplicates: true });
+  return tx.payrollSettings.findUniqueOrThrow({ where: { churchId } });
 }
 
 export async function rulesFor(tx: Tx, churchId: string, year: number, month: number): Promise<PayrollRules> {
