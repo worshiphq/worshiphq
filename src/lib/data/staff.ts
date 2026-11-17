@@ -1,7 +1,7 @@
 import "server-only";
 import { db } from "@/lib/db";
 import type { Prisma } from "@prisma/client";
-import { entitlementFor, leaveBalance, yearOf } from "@/lib/payroll/leave";
+import { entitlementFor, leaveBalance } from "@/lib/payroll/leave";
 
 export const STAFF_PAGE = 24;
 
@@ -105,7 +105,7 @@ export async function staffLeaveBalances(churchId: string, staffId: string, year
     }),
   ]);
   return types.map((t) => {
-    const ent = entitlementFor(Number(t.daysPerYear), year, startDate && yearOf(startDate) === year ? startDate : startDate && yearOf(startDate) > year ? startDate : null);
+    const ent = entitlementFor(Number(t.daysPerYear), year, startDate);
     const adj = adjustments.filter((a) => a.leaveTypeId === t.id).map((a) => Number(a.days));
     const used = approved.filter((a) => a.leaveTypeId === t.id).map((a) => Number(a.days));
     return {

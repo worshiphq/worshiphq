@@ -1,0 +1,136 @@
+import type { DocArticle } from "../types";
+
+/** Staff, leave and payroll (Max). */
+export const payroll: DocArticle[] = [
+  {
+    slug: "staff-records",
+    section: "admin",
+    title: "Staff records",
+    summary: "Keep your employees' details, contracts and emergency contacts in one place.",
+    feature: "payroll",
+    who: "Admins, Pastors and the Main Admin (Staff & leave)",
+    appPath: "/app/staff",
+    body: [
+      { p: "**Staff** lists everyone the church employs or pays: pastors, administrators, cleaners, musicians and so on. A staff record is separate from a member record, but it can be linked to one so you do not type their details twice." },
+      { steps: [
+        "Go to **Staff** and choose **Add staff**.",
+        "If they are already in your church records, find them by name. Otherwise choose **No, enter their details**.",
+        "Add their job title, department, type of employment and start date, then save.",
+      ] },
+      { p: "Each person gets a staff number (ST-001, ST-002 ...). On their profile you can upload contracts and ID copies, mark them as suspended or as left, and see their leave." },
+      { note: "Salaries, ID numbers and bank or MoMo details never show on a staff profile unless you have payroll access. For everyone else those parts are not shown at all." },
+    ],
+  },
+  {
+    slug: "payroll-access",
+    section: "admin",
+    title: "Who can see payroll",
+    summary: "Salaries are private: only people the Main Admin chooses can see pay.",
+    feature: "payroll",
+    who: "The Main Admin",
+    appPath: "/app/settings",
+    body: [
+      { p: "Payroll is not part of any role, not even Admin. The Main Admin sees it, and chooses anyone else one person at a time." },
+      { steps: [
+        "Go to **Settings**, then **Team**, and open a team member.",
+        "Under **Payroll access**, choose **None**, **Can view** or **Can manage**.",
+      ] },
+      { list: [
+        "**Can view**: see payroll runs, payslips and reports, and show ID numbers (each look is recorded).",
+        "**Can manage**: also set up pay, run and approve payrolls, mark them as paid and download full ID and account numbers.",
+        "WorshipHQ support never sees payroll, even when helping your church.",
+      ] },
+    ],
+  },
+  {
+    slug: "pay-setup",
+    section: "admin",
+    title: "Setting up someone's pay",
+    summary: "Basic salary, allowances, deductions, SSNIT and PAYE switches, IDs and how they are paid.",
+    feature: "payroll",
+    who: "Payroll managers",
+    appPath: "/app/staff",
+    body: [
+      { steps: [
+        "Open the staff member and choose **Set up pay**.",
+        "Enter the basic salary per month and tick whether SSNIT, Tier 2 and PAYE apply.",
+        "Add their Ghana Card, SSNIT number and TIN, and their bank or MoMo details. These are stored encrypted and shown with only the last digits.",
+        "Add regular allowances (housing, transport ...) and deductions (welfare, union dues, Tier 3) with **Add**.",
+      ] },
+      { p: "Allowances count for PAYE but not SSNIT, unless you tick **Counts for SSNIT**. Tier 3 is taken before tax." },
+      { tip: "Ministers of religion: some are treated differently for SSNIT and tax. Turn these off only if your accountant confirms." },
+    ],
+  },
+  {
+    slug: "running-payroll",
+    section: "admin",
+    title: "Running the monthly payroll",
+    summary: "Draft, approval, approved, paid: how a payroll moves from start to payslips.",
+    feature: "payroll",
+    who: "Payroll managers",
+    appPath: "/app/payroll",
+    body: [
+      { steps: [
+        "Go to **Payroll** and choose **Start November 2026 payroll** (the month changes on its own).",
+        "Check the lines. Tap a person to add a one-off bonus or deduction, enter unpaid days, or leave them out this month.",
+        "Choose **Send for approval**.",
+        "Another payroll manager opens it and chooses **Approve**. If you are the only payroll manager you can approve it yourself, and it is marked **Self-approved**.",
+        "Pay the staff, then choose **Mark as paid** and the account the money came from.",
+        "Choose **Send payslips** to email or text everyone, or download them all as a zip.",
+      ] },
+      { p: "Marking as paid records the net pay as one expense under the payee **Payroll** (never a name). SSNIT and PAYE wait under **To pay over** until you pay them, then choose **Mark as paid over**." },
+      { note: "A payroll marked as paid by mistake can be reversed from the run. Choose whether it was never paid out, or the money came back. Everything is kept in the payroll activity." },
+    ],
+  },
+  {
+    slug: "ssnit-paye",
+    section: "admin",
+    title: "SSNIT, PAYE and the rates WorshipHQ uses",
+    summary: "The usual Ghana rates are filled in for you. Check them with your accountant.",
+    feature: "payroll",
+    who: "Payroll managers",
+    appPath: "/app/payroll/settings",
+    body: [
+      { table: { head: ["Item", "Starting value"], rows: [
+        ["SSNIT employee", "5.5% of basic salary"],
+        ["SSNIT employer", "13% of basic salary"],
+        ["Tier 1 (to SSNIT) / Tier 2 (to a trustee)", "13.5% / 5%"],
+        ["PAYE", "GRA resident monthly bands from January 2024"],
+      ] } },
+      { p: "Every value can be changed in **Payroll settings**. Each payroll keeps the rates it was made with, so changing them later never changes a paid month." },
+      { note: "WorshipHQ works out pay from the rates you set. It does not give tax advice. Please confirm the rates with your accountant, SSNIT and GRA before your first payroll." },
+    ],
+  },
+  {
+    slug: "leave",
+    section: "admin",
+    title: "Leave",
+    summary: "Leave types, requests, approvals, balances and the leave calendar.",
+    feature: "payroll",
+    who: "Staff managers, line managers and staff",
+    appPath: "/app/staff?tab=leave",
+    body: [
+      { p: "Go to **Staff**, then **Leave**. Annual, sick, maternity, compassionate and unpaid leave are set up for you; change the days or add your own under **Leave types and holidays**." },
+      { list: [
+        "Staff ask for leave in **My pay**. Their line manager or a staff manager approves or declines it.",
+        "Leave days skip weekends and public holidays.",
+        "Someone who started this year gets a share of the year's leave.",
+        "Approved unpaid leave is taken off that month's pay automatically.",
+        "At the end of the year, **Carry over unused leave** moves what is left into the new year, up to each type's limit.",
+      ] },
+    ],
+  },
+  {
+    slug: "my-pay",
+    section: "admin",
+    title: "My pay (for staff)",
+    summary: "Staff see their own payslips, leave and details, and ask for leave.",
+    feature: "payroll",
+    who: "Staff",
+    appPath: "/app/my-pay",
+    body: [
+      { p: "A payroll manager can give a staff member their own login from their staff profile (**Give portal access**). They get a text with a link to set it up. Staff logins do not count as team places on your plan." },
+      { p: "In **My pay** they see their payslips (amounts hidden until they tap), what they have earned this year, their leave balances and requests, and can clock in and out if your church allows it." },
+    ],
+  },
+];

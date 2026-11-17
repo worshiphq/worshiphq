@@ -156,3 +156,13 @@ export function Initials({ name, photoUrl, size = "md" }: { name: string; photoU
 }
 
 export const field = "flex h-11 w-full rounded-xl border border-line bg-surface px-3.5 text-sm text-ink shadow-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30";
+
+/** One tab in a link-based tab bar, with "Opening…" while the next tab loads. */
+export function TabLink({ href, label, active }: { href: string; label: string; active: boolean }) {
+  return (
+    <Link href={href} prefetch={false} aria-current={active ? "page" : undefined}
+      className={cn("inline-flex items-center gap-1.5 rounded-lg px-3.5 py-1.5 font-medium transition-colors", active ? "bg-primary text-white shadow-sm" : "text-ink-muted hover:text-ink")}>
+      <TabInner label={label} />
+    </Link>
+  );
+}
