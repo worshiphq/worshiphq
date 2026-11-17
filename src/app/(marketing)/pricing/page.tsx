@@ -1,4 +1,6 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/meta";
+import { JsonLd, breadcrumbLd, faqLd } from "@/lib/seo/json-ld";
 import { PageHero } from "@/components/marketing/page-hero";
 import { PricingSection } from "@/components/marketing/pricing-section";
 import { FAQ } from "@/components/marketing/faq";
@@ -6,18 +8,19 @@ import { FinalCTA } from "@/components/marketing/final-cta";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { lowerFirst } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: "Pricing",
-  // No member count here - it's SuperAdmin-editable and would drift out of sync
-  // with the real limit shown on the page itself (see FAQ below).
-  description: "Simple, fair pricing in Ghana Cedi. Free forever to get started.",
-};
+export const metadata: Metadata = pageMeta({
+  title: "Pricing in Ghana Cedi",
+  description: "Simple church software pricing in Ghana Cedi, paid by Mobile Money or card. Start free forever and upgrade when your church is ready.",
+  path: "/pricing",
+});
 
 export default async function PricingPage() {
   const platformConfig = await getPlatformConfig();
   const freeMembers = lowerFirst(platformConfig.planDefs.free.membersLabel);
+  const starterPrice = `${platformConfig.currencySymbol}${platformConfig.prices.starter?.monthly ?? 10}`;
   return (
     <>
+      <JsonLd data={[faqLd(starterPrice, freeMembers), breadcrumbLd([{ name: "Home", path: "/" }, { name: "Pricing", path: "/pricing" }])]} />
       <PageHero
         eyebrow="Pricing"
         title={
@@ -31,7 +34,7 @@ export default async function PricingPage() {
       />
       <PricingSection platformPricing={platformConfig} />
       <FAQ
-        starterPrice={`${platformConfig.currencySymbol}${platformConfig.prices.starter?.monthly ?? 10}`}
+        starterPrice={starterPrice}
         freeMembers={freeMembers}
       />
       <FinalCTA freeMembers={freeMembers} />

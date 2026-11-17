@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/meta";
 import { DemoForm } from "@/components/marketing/demo-form";
 import { PageHero } from "@/components/marketing/page-hero";
 import { Mail, MapPin, MessageCircle } from "lucide-react";
 import { getMarketingContent } from "@/lib/data/site-content";
 import { brand } from "@/config/brand";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMeta({
   title: "Request a demo",
-  description: "See WorshipHQ in action. Book a personalised demo for your church.",
-};
+  description: "Book a WorshipHQ demo for your church and see face, palm and fingerprint check-in, Mobile Money giving and SMS to members working.",
+  path: "/contact",
+});
 
 export default async function ContactPage() {
   const { contactPhone } = await getMarketingContent();

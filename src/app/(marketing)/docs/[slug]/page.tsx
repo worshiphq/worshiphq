@@ -8,6 +8,8 @@ import { DOC_ARTICLES, DOC_SECTIONS, articlesIn, getArticle, neighbours } from "
 import { searchEntries } from "@/lib/docs/search";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { getMinimumPlan } from "@/lib/plan-gate";
+import { pageMeta } from "@/lib/seo/meta";
+import { JsonLd, breadcrumbLd } from "@/lib/seo/json-ld";
 
 export function generateStaticParams() {
   return DOC_ARTICLES.map((a) => ({ slug: a.slug }));
@@ -17,7 +19,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const a = getArticle(slug);
   if (!a) return { title: "Guide not found" };
-  return { title: `${a.title} · User manual`, description: a.summary };
+  return pageMeta({ title: `${a.title} · User manual`, description: a.summary, path: `/docs/${a.slug}` });
 }
 
 export default async function DocArticlePage({ params }: { params: Promise<{ slug: string }> }) {
@@ -38,6 +40,12 @@ export default async function DocArticlePage({ params }: { params: Promise<{ slu
 
   return (
     <div className="paper-panel min-h-screen pb-24 pt-28 sm:pt-32">
+      <JsonLd
+        data={breadcrumbLd([
+          { name: "User manual", path: "/docs" },
+          { name: article.title, path: `/docs/${article.slug}` },
+        ])}
+      />
       <div className="mx-auto grid max-w-6xl gap-10 px-4 sm:px-6 lg:grid-cols-[250px_1fr]">
         {/* Sidebar: every section and guide */}
         <aside className="hidden lg:block">

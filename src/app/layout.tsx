@@ -43,10 +43,15 @@ export const metadata: Metadata = {
   },
   appleWebApp: { capable: true, statusBarStyle: "black-translucent", title: brand.name },
   keywords: [
-    "church management software",
-    "church management system Ghana",
-    "Mobile Money giving",
-    "church app Africa",
+    "church management software Ghana",
+    "church management system",
+    "church attendance app",
+    "biometric church attendance",
+    "face recognition church check-in",
+    "church tithe and offering records",
+    "church accounting software",
+    "Mobile Money church giving",
+    "church SMS",
     brand.name,
   ],
   openGraph: {
@@ -54,6 +59,7 @@ export const metadata: Metadata = {
     title: brand.productName,
     description: brand.supportingLine,
     siteName: brand.name,
+    locale: "en_GH",
     url: brand.url,
   },
   twitter: {

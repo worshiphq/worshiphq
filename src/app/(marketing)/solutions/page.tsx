@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/meta";
 import {
   Sprout,
   Building2,
@@ -13,10 +14,11 @@ import { Reveal, StaggerGroup, StaggerItem } from "@/components/ui/reveal";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { lowerFirst } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: "Solutions",
-  description: "WorshipHQ for small fellowships, growing churches and large ministries.",
-};
+export const metadata: Metadata = pageMeta({
+  title: "Church software for small, growing and large churches",
+  description: "WorshipHQ for small fellowships, growing churches and large ministries across Ghana, from one branch to many.",
+  path: "/solutions",
+});
 
 function audiencesFor(freeMembers: string) {
   return [

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/meta";
 import { PageHero } from "@/components/marketing/page-hero";
 import { FinalCTA } from "@/components/marketing/final-cta";
 import { getPlatformConfig } from "@/lib/data/platform-config";
@@ -9,10 +10,11 @@ import {
   Heart, UserPlus, Settings, CreditCard,
 } from "lucide-react";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMeta({
   title: "Help center",
-  description: "Learn how to use every feature in WorshipHQ - your church management headquarters.",
-};
+  description: "Answers and guides for every part of WorshipHQ, the church management system.",
+  path: "/help",
+});
 
 const sections = [
   {

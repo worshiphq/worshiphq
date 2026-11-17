@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/meta";
 import Link from "next/link";
 import { ArrowRight, Fingerprint, Hand, ScanFace, ShieldCheck, Usb, Webhook, Cpu } from "lucide-react";
 import { PageHero } from "@/components/marketing/page-hero";
@@ -7,10 +8,11 @@ import { Reveal } from "@/components/ui/reveal";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { lowerFirst } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: "Check-in devices",
-  description: "Check people in with a face, palm or fingerprint device. See which devices work with WorshipHQ and how to connect them.",
-};
+export const metadata: Metadata = pageMeta({
+  title: "Face, palm and fingerprint church attendance devices",
+  description: "Members check in at the church door with their face, palm or fingerprint, and attendance appears live in WorshipHQ. See how the devices work and how they connect.",
+  path: "/devices",
+});
 
 const WAYS = [
   { icon: ScanFace, title: "Face", text: "A member looks at the device at the door and is checked in. No sign-in table, no queue at a laptop." },

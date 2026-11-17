@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/meta";
 import { Heart, Globe2, ShieldCheck, Zap } from "lucide-react";
 import { PageHero } from "@/components/marketing/page-hero";
 import { FinalCTA } from "@/components/marketing/final-cta";
@@ -7,10 +8,11 @@ import { brand } from "@/config/brand";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { lowerFirst } from "@/lib/utils";
 
-export const metadata: Metadata = {
-  title: "About",
-  description: "Why we built WorshipHQ - a command center for your church.",
-};
+export const metadata: Metadata = pageMeta({
+  title: "About WorshipHQ, church software from Kumasi",
+  description: "WorshipHQ is church management software made in Kumasi, Ghana by WODONA, so pastors and church administrators can run members, attendance, giving and messages in one place.",
+  path: "/about",
+});
 
 const values = [
   { icon: Heart, title: "Ministry first", body: "Technology should serve the mission, never complicate it. Every feature earns its place by helping you shepherd people." },

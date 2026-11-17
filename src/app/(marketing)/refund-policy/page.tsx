@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/meta";
 import { LegalPage, LegalSection } from "@/components/marketing/legal-page";
 import { getRefundPolicy } from "@/lib/billing/refunds";
 import { brand } from "@/config/brand";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMeta({
   title: "Refund Policy",
   description: "When and how you can request a refund on your WorshipHQ subscription.",
-};
+  path: "/refund-policy",
+});
 
 export default async function RefundPolicyPage() {
   const policy = await getRefundPolicy();

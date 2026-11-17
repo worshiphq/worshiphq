@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/meta";
 import { PageHero } from "@/components/marketing/page-hero";
 import { FeatureGrid } from "@/components/marketing/feature-grid";
 import { Spotlights } from "@/components/marketing/spotlights";
@@ -7,10 +8,11 @@ import { getPlatformConfig } from "@/lib/data/platform-config";
 import { lowerFirst } from "@/lib/utils";
 import { marketingTiers } from "@/lib/marketing-tiers";
 
-export const metadata: Metadata = {
-  title: "Features",
-  description: "Every tool your church needs - people, giving, events, communications and more.",
-};
+export const metadata: Metadata = pageMeta({
+  title: "Features: church attendance, giving, SMS and accounting",
+  description: "Everything a church in Ghana needs: biometric check-in, member records, tithes and offerings, Mobile Money giving, SMS under your church's name, accounting, payroll and reports.",
+  path: "/features",
+});
 
 export default async function FeaturesPage() {
   const platformConfig = await getPlatformConfig();

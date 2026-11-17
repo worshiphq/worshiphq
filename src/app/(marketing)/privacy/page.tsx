@@ -1,11 +1,13 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/meta";
 import { LegalPage, LegalSection } from "@/components/marketing/legal-page";
 import { brand } from "@/config/brand";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMeta({
   title: "Privacy Policy",
   description: "How WorshipHQ collects, uses and protects your church's data.",
-};
+  path: "/privacy",
+});
 
 export default function PrivacyPage() {
   const support = brand.email.support;

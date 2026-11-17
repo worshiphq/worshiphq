@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { pageMeta } from "@/lib/seo/meta";
 import Link from "next/link";
 import { ArrowRight, BookOpen } from "lucide-react";
 import { PageHero } from "@/components/marketing/page-hero";
@@ -6,10 +7,11 @@ import { DocsSearch } from "@/components/docs/docs-search";
 import { DOC_SECTIONS, articlesIn, DOC_ARTICLES } from "@/lib/docs";
 import { searchEntries } from "@/lib/docs/search";
 
-export const metadata: Metadata = {
+export const metadata: Metadata = pageMeta({
   title: "User manual",
-  description: "The complete, free WorshipHQ user manual: step-by-step guides for every feature.",
-};
+  description: "The free WorshipHQ user manual: step-by-step guides for members, attendance, giving, SMS, accounting and every other feature.",
+  path: "/docs",
+});
 
 export default function DocsHome() {
   return (
