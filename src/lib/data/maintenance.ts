@@ -51,3 +51,18 @@ export async function requestCounts(churchId: string, reportedBy?: string) {
   ]);
   return { open, assigned, "in-progress": progress, done, urgent };
 }
+
+/** Everything for the board: open work and anything finished in the last 30 days (up to 200 cards). */
+export async function boardRequests(churchId: string, reportedBy?: string) {
+  const rows = await db.maintenanceRequest.findMany({
+    where: {
+      churchId,
+      ...(reportedBy ? { reportedById: reportedBy } : {}),
+      OR: [{ status: { in: ["open", "assigned", "in-progress"] } }, { status: "done", resolvedAt: { gte: new Date(Date.now() - 30 * 86400000) } }],
+    },
+    include: INCLUDE,
+    orderBy: [{ createdAt: "desc" }],
+    take: 200,
+  });
+  return rows.map(toRequestRow);
+}

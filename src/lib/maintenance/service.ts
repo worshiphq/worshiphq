@@ -194,7 +194,8 @@ export async function updateRequest(ctx: Ctx, id: string, input: RequestUpdate):
     } else vendorId = null;
   }
   let status = input.status && STATUS_KEYS.includes(input.status) && input.status !== "done" ? input.status : undefined;
-  if (!status && req.status === "open" && (assigneeUserId || input.assigneeName?.trim())) status = "assigned";
+  // Giving an open job to someone moves it to Assigned, unless a later status was chosen.
+  if ((!status || status === "open") && req.status === "open" && (assigneeUserId || input.assigneeName?.trim())) status = "assigned";
   await db.maintenanceRequest.update({
     where: { id: req.id },
     data: {
