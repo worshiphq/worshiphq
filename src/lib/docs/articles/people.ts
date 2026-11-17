@@ -46,7 +46,7 @@ export const people: DocArticle[] = [
       ] },
       { p: "After saving, you're offered fingerprint registration. Do it now, or choose **Skip for now** and do it later from their profile." },
       { tip: "Each member automatically gets a unique **member ID** (e.g. GBC-0001). It's used for QR code check-in." },
-      { note: "Your plan limits how many members you can have. If you reach it, you'll be asked to upgrade." },
+      { note: "Your plan limits how many members you can have. If you reach it, you'll be asked to upgrade. If your church drops to a smaller plan, the newest people past the limit are locked until you renew or upgrade (see **Member limits and locked members**)." },
     ],
   },
   {

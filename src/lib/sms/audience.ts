@@ -59,7 +59,13 @@ export async function resolveAudience(churchId: string, audience: AudienceKey, p
     where.status = { not: "inactive" };
   }
 
-  const people = await db.person.findMany({ where, select: { id: true, firstName: true, lastName: true, phone: true } });
+  const { dropLocked } = await import("@/lib/member-lock");
+  // People locked by the plan's member limit are never messaged.
+  const people = await dropLocked(
+    churchId,
+    await db.person.findMany({ where, select: { id: true, firstName: true, lastName: true, phone: true } }),
+    (p) => p.id,
+  );
   // One text per phone number (a family sharing a number should not be charged twice).
   const seen = new Set<string>();
   const recipients = people.filter((p) => {

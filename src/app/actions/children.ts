@@ -76,6 +76,9 @@ export async function updateChild(formData: FormData) {
 
   const existing = await db.person.findFirst({ where: { id, churchId: session.churchId }, select: { id: true } });
   if (!existing) return;
+  // Locked by the plan's member limit: the profile is read-only until the church renews, upgrades or removes people.
+  const { isPersonLocked } = await import("@/lib/member-lock");
+  if (await isPersonLocked(session.churchId, id)) return;
 
   const firstName = String(formData.get("firstName") ?? "").trim();
   const lastName = String(formData.get("lastName") ?? "").trim();
@@ -139,6 +142,8 @@ export async function assignParent(formData: FormData) {
 
   const child = await db.person.findFirst({ where: { id: childId, churchId: session.churchId }, select: { id: true, firstName: true, lastName: true } });
   if (!child) return;
+  const { isPersonLocked } = await import("@/lib/member-lock");
+  if (await isPersonLocked(session.churchId, childId)) return;
 
   if (parentId) {
     const parent = await db.person.findFirst({ where: { id: parentId, churchId: session.churchId }, select: { id: true } });

@@ -24,10 +24,13 @@ export async function memberRoom(churchId: string): Promise<{ limit: number | nu
  * free - they have their own list and never use up a member place.
  */
 export function countMembers(churchId: string, plan?: string): Promise<number> {
+  return db.person.count({ where: countedPeopleWhere(churchId, plan) });
+}
+
+/** The people who use up a member place on this plan (see countMembers). Shared with src/lib/member-lock.ts. */
+export function countedPeopleWhere(churchId: string, plan?: string) {
   const countsVisitors = (plan ?? "free") === "free";
-  return db.person.count({
-    where: { churchId, ...(countsVisitors ? {} : { status: { not: "visitor" } }) },
-  });
+  return { churchId, ...(countsVisitors ? {} : { status: { not: "visitor" as const } }) };
 }
 
 /** The sentence an admin sees when their plan is full. */

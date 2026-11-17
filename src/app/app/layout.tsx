@@ -103,7 +103,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
               {/* Only the Main Admin can renew, so only they are nagged. */}
               {session.role === "Owner" && !session.isDemo && !session.impersonating && <BillingBanner churchId={session.churchId} />}
               {session.role === "Owner" && !session.isDemo && !session.impersonating && <TrialBanner churchId={session.churchId} />}
-              {session.role === "Owner" && !session.isDemo && !session.impersonating && <OverLimitBanner churchId={session.churchId} />}
+              {/* Locked members affect everyone who runs the church day to day, so admins see it too. */}
+              {(session.role === "Owner" || session.role === "Admin") && !session.isDemo && !session.impersonating && <OverLimitBanner churchId={session.churchId} />}
               {children}
             </AmountPrivacy>
           </PhoneDefaults>

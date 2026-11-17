@@ -15,7 +15,8 @@ export const metadata = { title: "People" };
 export default async function PeoplePage({ searchParams }: { searchParams: Promise<{ q?: string }> }) {
   const { q } = await searchParams;
   const session = await requireModule("people");
-  const [first, stats, departments, church, categories, groups, waiting] = await Promise.all([
+  const { getMemberLock } = await import("@/lib/member-lock");
+  const [first, stats, departments, church, categories, groups, waiting, lock] = await Promise.all([
     queryPeople(session.churchId, { tab: "adult", q: q ?? "", page: 1 }),
     getAllPeopleStats(session.churchId),
     db.department.findMany({
@@ -30,6 +31,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
     getCategoriesForForm(session.churchId),
     db.group.findMany({ where: { churchId: session.churchId, isActive: true }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     db.personTransfer.count({ where: { toChurchId: session.churchId, status: "pending" } }),
+    getMemberLock(session.churchId),
   ]);
   const formFields = questionFields(getFormDefinition(church?.registrationFields ?? null));
   return (
@@ -56,7 +58,7 @@ export default async function PeoplePage({ searchParams }: { searchParams: Promi
         <PeopleClient
           people={first.rows}
           total={first.total}
-          stats={stats}
+          stats={{ ...stats, locked: lock.locked.size }}
           canWrite={canEdit(session, "people")}
           canDelete={!session.isDemo && session.canDelete && canEdit(session, "people")}
           departments={departments}

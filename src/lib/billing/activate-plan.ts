@@ -144,6 +144,9 @@ export async function activatePlanPayment(txn: PaystackTxn, expectChurchId?: str
     console.error("[billing] upgrade receipt failed:", (e as Error).message);
   }
 
+  // A bigger plan unlocks people locked by the old plan's member limit straight away on this server.
+  const { invalidateMemberLock } = await import("@/lib/member-lock");
+  invalidateMemberLock(churchId);
   return { ok: true, plan, interval, amountGhs };
 }
 
@@ -236,5 +239,7 @@ export async function activatePlanFromIntent(intent: {
     console.error("[billing] Hubtel upgrade receipt failed:", (e as Error).message);
   }
 
+  const { invalidateMemberLock } = await import("@/lib/member-lock");
+  invalidateMemberLock(intent.churchId);
   return { ok: true, plan, interval, amountGhs };
 }

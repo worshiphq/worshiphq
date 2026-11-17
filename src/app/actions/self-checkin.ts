@@ -13,6 +13,8 @@ import { phoneKey } from "@/lib/search";
 import { DEFAULT_TEMPLATES } from "@/lib/automations/run";
 import { authSecret, signToken, readToken } from "@/lib/auth/tokens";
 import { smsSafeName, firstWelcomeTo } from "@/lib/public-guard";
+import { isPersonLocked } from "@/lib/member-lock";
+import { LOCKED_SELF } from "@/lib/member-lock-core";
 
 const CATEGORY_FIELD: Record<AttendanceCategory, "adults" | "teens" | "children" | "visitors"> = {
   adult: "adults", teen: "teens", child: "children", visitor: "visitors",
@@ -172,6 +174,8 @@ export async function sendCheckInCode(input: { sessionId: string; personId: stri
   if (bad) return { ok: false, error: bad };
   const person = await db.person.findFirst({ where: { id: pickedPerson(input.personId, ctx.church.id), churchId: ctx.church.id, status: { in: ["active", "visitor"] } }, select: { id: true, phone: true } });
   if (!person?.phone) return { ok: false, error: "We do not have a phone number for you. Please ask an usher to check you in." };
+  // Locked by the plan's member limit: no code is texted (and no credits used).
+  if (await isPersonLocked(ctx.church.id, person.id)) return { ok: false, error: LOCKED_SELF };
 
   if (!(await allowCheckIn("code", ctx, 30))) return { ok: false, error: "Too many codes requested from this connection. Please ask an usher." };
   const recent = await db.selfCheckInCode.count({ where: { churchId: ctx.church.id, personId: person.id, createdAt: { gte: new Date(Date.now() - 3600_000) } } });
@@ -196,6 +200,7 @@ export async function completeCheckIn(input: { sessionId: string; personId: stri
 
   const dup = await db.attendanceRecord.findFirst({ where: { sessionId: ctx.sess.id, personId: person.id }, select: { id: true } });
   if (dup) return { ok: true, sessionId: ctx.sess.id, already: true };
+  if (await isPersonLocked(ctx.church.id, person.id)) return { ok: false, error: LOCKED_SELF };
 
   const bad = await guard(ctx, input);
   if (bad) return { ok: false, error: bad };
@@ -284,6 +289,7 @@ async function completeCheckInForNew(ctx: Ctx, personId: string, where: Where): 
   if (dup) return { ok: true, sessionId: ctx.sess.id };
   const person = await db.person.findUnique({ where: { id: personId }, select: { id: true, status: true, dateOfBirth: true, birthday: true, ageGroup: true } });
   if (!person) return { ok: false, error: "Please try again." };
+  if (await isPersonLocked(ctx.church.id, personId)) return { ok: false, error: LOCKED_SELF };
   const category = categoryForPerson(person, await getAgeConfig(ctx.church.id));
   await db.attendanceRecord.create({
     data: { churchId: ctx.church.id, branchId: ctx.sess.branchId ?? undefined, personId, sessionId: ctx.sess.id, category, serviceName: ctx.sess.serviceName, date: new Date(), method: "self", deviceId: clean(where.deviceId, 64) || null },

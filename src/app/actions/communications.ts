@@ -136,6 +136,10 @@ async function resolveBroadcastRecipients(churchId: string, target: string, cont
     recipientObjs = pick(people);
   }
 
+  // People locked by the plan's member limit are never messaged. Typed-in numbers and the Visitors list stay.
+  const { dropLocked } = await import("@/lib/member-lock");
+  recipientObjs = await dropLocked(churchId, recipientObjs, (r) => r.id);
+
   return { recipientObjs, segmentLabel, groupLabel };
 }
 
@@ -293,6 +297,10 @@ export async function sendSmsToPerson(formData: FormData) {
   });
   if (!person?.phone) {
     redirect("/app/people?sms=nophone");
+  }
+  const { isPersonLocked } = await import("@/lib/member-lock");
+  if (await isPersonLocked(session.churchId, personId)) {
+    redirect("/app/people?sms=locked");
   }
 
   const result = await sendChurchSms(session.churchId, person.phone, message, { note: `Direct: ${person.firstName}` });

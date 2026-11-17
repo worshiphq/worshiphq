@@ -109,6 +109,10 @@ export async function POST(req: NextRequest) {
     select: { id: true },
   });
   if (!person) return NextResponse.json({ error: "Member not found" }, { status: 404 });
+  // Locked by the plan's member limit: no new fingerprints until the church renews or upgrades.
+  const { lockedEditError } = await import("@/lib/member-lock");
+  const lockedMsg = await lockedEditError(session.churchId, person.id);
+  if (lockedMsg) return NextResponse.json({ error: lockedMsg }, { status: 403 });
 
   const fingerId = typeof finger === "string" && finger.trim() ? finger.trim() : null;
 

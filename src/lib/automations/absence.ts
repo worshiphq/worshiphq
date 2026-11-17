@@ -44,6 +44,11 @@ export async function absentMembers(churchId: string, weeks: number, timezone: s
   for (const r of lastByPerson) if (r.personId && r._max.date) last.set(r.personId, r._max.date);
   if (last.size === 0) return [];
 
+  // People locked by the plan's member limit are left out: they can't check in, so they are not "away".
+  const { lockedPersonIds } = await import("@/lib/member-lock");
+  const locked = await lockedPersonIds(churchId);
+  for (const id of locked) last.delete(id);
+  if (last.size === 0) return [];
   const people = await db.person.findMany({
     where: { churchId, status: "active", id: { in: [...last.keys()] }, OR: [{ ageGroup: null }, { ageGroup: { not: "child" } }] },
     select: { id: true, firstName: true, lastName: true, phone: true, lapsedAlertedAt: true, lapsedSmsSentAt: true, lapsedSmsCount: true },

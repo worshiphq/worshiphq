@@ -37,6 +37,10 @@ async function absenteeWhere(churchId: string, sessionId: string, f: AbsenteeFil
     { attendance: { none: { sessionId: sess.id } } },
     { followUps: { none: { status: { not: "done" } } } },
   ];
+  // People locked by the plan's member limit can't check in, so they are not listed as absent.
+  const { notLockedWhere } = await import("@/lib/member-lock");
+  const notLocked = await notLockedWhere(churchId);
+  if (Object.keys(notLocked).length) and.push(notLocked);
   if (sess.branchId) and.push({ OR: [{ branchId: sess.branchId }, { branchId: null }] });
   if (f.regularsOnly !== false) and.push({ attendance: { some: { date: { gte: since, lt: sess.date }, NOT: { sessionId: sess.id } } } });
   const q = f.q?.trim();

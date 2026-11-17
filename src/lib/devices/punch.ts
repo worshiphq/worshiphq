@@ -5,7 +5,7 @@ import { categoryForPerson } from "@/lib/data/attendance";
 import { getAgeConfig } from "@/lib/data/age";
 import { localParts, ymdInTz, zonedToUtc } from "@/lib/time/tz";
 
-export type PunchResult = "checked_in" | "already_in" | "unknown_id" | "too_old" | "outside_hours";
+export type PunchResult = "checked_in" | "already_in" | "unknown_id" | "too_old" | "outside_hours" | "locked";
 /** A device and the hours it should count scans (see "When should scans count?" on the Devices page). */
 type Device = { id: string; churchId: string; scanRule?: string; windowDays?: number[]; windowStart?: string | null; windowEnd?: string | null };
 
@@ -115,6 +115,10 @@ export async function recordPunch(device: Device, input: { pin: string; at: Date
 
   if (!person) { await log("unknown_id", null); return { result: "unknown_id", name: null }; }
   const name = `${person.firstName} ${person.lastName}`.trim();
+
+  // Over the plan's member limit: the scan is noted (so staff can see why) but nobody is checked in.
+  const { isPersonLocked } = await import("@/lib/member-lock");
+  if (await isPersonLocked(device.churchId, person.id)) { await logOnce("locked", name); return { result: "locked", name }; }
 
   const sess = await sessionForDevice(device.churchId, at);
   const dup = await db.attendanceRecord.findFirst({ where: { sessionId: sess.id, personId: person.id }, select: { id: true } });

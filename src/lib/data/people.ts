@@ -75,13 +75,15 @@ export interface PersonRow {
   guardianPhone: string | null;
   school: string | null;
   grade: string | null;
+  /** Over the plan's member limit (see src/lib/member-lock.ts): shown, but read-only and left out of messages and check-in. */
+  locked?: boolean;
 }
 
 /** What the People list, its search and its filters read. Everything else is loaded with getPersonFull when a profile is opened. */
 export type PersonListRow = Pick<PersonRow,
   "id" | "memberId" | "firstName" | "lastName" | "fullName" | "email" | "phone" | "photoUrl" | "status" | "engagement" |
   "ministries" | "departments" | "groupIds" | "categoryOptionIds" | "joined" | "leaderTitle" | "gender" | "dateOfBirth" |
-  "positions" | "ageGroup" | "parentName" | "guardianName" | "school" | "grade">;
+  "positions" | "ageGroup" | "parentName" | "guardianName" | "school" | "grade" | "locked">;
 
 function engagementFor(status: PersonStatus): PersonRow["engagement"] {
   if (status === "visitor") return "new";
@@ -137,15 +139,21 @@ export async function getPeople(churchId: string, ageFilter?: "adults" | "childr
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
     include: FULL_INCLUDE,
   });
-  const onDevice = await deviceCheckinIds(churchId, people);
-  return people.map((p) => fullRow(p, onDevice));
+  const [onDevice, locked] = await Promise.all([deviceCheckinIds(churchId, people), lockedSet(churchId)]);
+  return people.map((p) => ({ ...fullRow(p, onDevice), locked: locked.has(p.id) }));
+}
+
+async function lockedSet(churchId: string): Promise<ReadonlySet<string>> {
+  const { lockedPersonIds } = await import("@/lib/member-lock");
+  return lockedPersonIds(churchId);
 }
 
 /** One person with every field, for when their profile or edit form is opened. Null if they are not in this church. */
 export async function getPersonFull(churchId: string, id: string): Promise<PersonRow | null> {
   const p = await db.person.findFirst({ where: { id, churchId }, include: FULL_INCLUDE });
   if (!p) return null;
-  return fullRow(p, await deviceCheckinIds(churchId, [p]));
+  const [onDevice, locked] = await Promise.all([deviceCheckinIds(churchId, [p]), lockedSet(churchId)]);
+  return { ...fullRow(p, onDevice), locked: locked.has(p.id) };
 }
 
 /**
@@ -211,6 +219,8 @@ export interface PeopleQuery {
   /** Only people whose age falls in this range. Adults tab only. */
   youth?: { min: number; max: number } | null;
   sort?: "name-az" | "name-za" | "newest" | "oldest";
+  /** Only people locked by the plan's member limit. */
+  locked?: boolean;
   page?: number;
 }
 
@@ -254,6 +264,7 @@ async function peopleWhere(churchId: string, q: PeopleQuery) {
     }
   }
   if (q.groupId) and.push({ groups: { some: { id: q.groupId } } });
+  if (q.locked) and.push({ id: { in: [...(await lockedSet(churchId))] } });
   if (q.categoryOptionId) and.push({ categoryOptions: { some: { id: q.categoryOptionId } } });
 
   // Every word typed must match something, in any order (like the old in-browser search).
@@ -295,8 +306,11 @@ export async function queryPeople(churchId: string, q: PeopleQuery): Promise<{ r
   const total = await db.person.count({ where });
   const pages = Math.max(1, Math.ceil(total / PEOPLE_PAGE_SIZE));
   const page = Math.min(Math.max(1, Math.floor(q.page ?? 1)), pages);
-  const people = await db.person.findMany({ where, orderBy, skip: (page - 1) * PEOPLE_PAGE_SIZE, take: PEOPLE_PAGE_SIZE, select: SLIM_SELECT });
-  return { rows: people.map(listRow), total, page, pages };
+  const [people, locked] = await Promise.all([
+    db.person.findMany({ where, orderBy, skip: (page - 1) * PEOPLE_PAGE_SIZE, take: PEOPLE_PAGE_SIZE, select: SLIM_SELECT }),
+    lockedSet(churchId),
+  ]);
+  return { rows: people.map((p) => ({ ...listRow(p), locked: locked.has(p.id) })), total, page, pages };
 }
 
 type FullPerson = Prisma.PersonGetPayload<{ include: typeof FULL_INCLUDE }>;

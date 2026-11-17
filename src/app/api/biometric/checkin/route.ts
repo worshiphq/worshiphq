@@ -34,6 +34,10 @@ export async function POST(req: NextRequest) {
 
   const opened = await db.attendanceSession.findFirst({ where: { id: sessionId, churchId: session.churchId } });
   if (!opened) return NextResponse.json({ ok: false, message: "Session not found" }, { status: 404 });
+  // Over the plan's member limit: recognised, but not checked in. Staff see why.
+  const { lockedDoorError } = await import("@/lib/member-lock");
+  const lockedMsg = await lockedDoorError(session.churchId, person.id);
+  if (lockedMsg) return NextResponse.json({ ok: false, ...who, locked: true, message: lockedMsg });
   // A scanner left running across services follows the service times.
   const sess = await routeAutoSession(opened);
   const moved = sess.id !== opened.id;

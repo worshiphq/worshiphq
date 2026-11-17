@@ -22,6 +22,9 @@ export async function addPosition(formData: FormData) {
 
   const person = await db.person.findFirst({ where: { id: personId, churchId: session.churchId } });
   if (!person) return;
+  // A person locked by the plan's member limit can't be given a new position.
+  const { isPersonLocked } = await import("@/lib/member-lock");
+  if (await isPersonLocked(session.churchId, personId)) return;
 
   const dept = await db.department.findFirst({ where: { id: departmentId, churchId: session.churchId } });
   if (!dept) return;

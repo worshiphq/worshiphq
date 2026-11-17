@@ -313,6 +313,8 @@ export async function importMembersChunk(formData: FormData): Promise<ImportChun
       }
     }
     if (res.created > 0) await db.church.update({ where: { id: churchId }, data: { memberSeq: seq, memberPrefix: prefix } });
+    const { invalidateMemberLock } = await import("@/lib/member-lock");
+    invalidateMemberLock(churchId);
     revalidatePath("/app/people");
     revalidatePath("/app");
   }

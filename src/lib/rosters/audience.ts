@@ -18,10 +18,13 @@ export async function rosterRecipientPhones(church: ChurchDefault, sheet: SheetO
   const targetId = sheet.announceAudience ? sheet.announceGroupId : church.rosterAnnounceGroupId;
 
   const unique = (phones: (string | null)[]) => [...new Set(phones.filter((p): p is string => !!p))];
+  // People locked by the plan's member limit are never messaged.
+  const { notLockedWhere } = await import("@/lib/member-lock");
+  const notLocked = await notLockedWhere(church.id);
 
   if (audience === "church") {
     const people = await db.person.findMany({
-      where: { churchId: church.id, status: { not: "inactive" }, phone: { not: null } },
+      where: { churchId: church.id, status: { not: "inactive" }, phone: { not: null }, ...notLocked },
       select: { phone: true },
     });
     return unique(people.map((p) => p.phone));
@@ -36,6 +39,7 @@ export async function rosterRecipientPhones(church: ChurchDefault, sheet: SheetO
       where: {
         churchId: church.id, status: { not: "inactive" }, phone: { not: null },
         OR: [{ departmentId: dept.id }, { departments: { some: { id: dept.id } } }],
+        ...notLocked,
       },
       select: { phone: true },
     });
@@ -44,7 +48,7 @@ export async function rosterRecipientPhones(church: ChurchDefault, sheet: SheetO
 
   const group = await db.group.findFirst({
     where: { id: targetId, churchId: church.id },
-    select: { members: { where: { phone: { not: null } }, select: { phone: true } } },
+    select: { members: { where: { phone: { not: null }, ...notLocked }, select: { phone: true } } },
   });
   return unique((group?.members ?? []).map((m) => m.phone));
 }

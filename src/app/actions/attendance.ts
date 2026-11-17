@@ -12,6 +12,7 @@ import { sendChurchSms } from "@/lib/sms/credits";
 import { can, granted } from "@/lib/permissions";
 import { DEFAULT_ATTENDANCE_REPORT, renderAttendanceReport } from "@/lib/attendance/report";
 import { resolveServiceSession } from "@/lib/attendance/service-times";
+import { lockedDoorError } from "@/lib/member-lock";
 
 const CATEGORY_FIELD: Record<AttendanceCategory, "adults" | "teens" | "children" | "visitors"> = {
   adult: "adults",
@@ -94,6 +95,8 @@ export async function checkInMember(sessionId: string, personId: string) {
   ]);
   if (!sess || !person) return { ok: false as const, reason: "not-found" as const };
   if (existing) return { ok: false as const, reason: "already" as const, recordId: existing.id };
+  const lockedMsg = await lockedDoorError(session.churchId, personId);
+  if (lockedMsg) return { ok: false as const, reason: "locked" as const, message: lockedMsg };
 
   const category = categoryForPerson(person, await getAgeConfig(session.churchId));
   const record = await db.attendanceRecord.create({
@@ -134,6 +137,8 @@ export async function checkInVisitorNow(personId: string) {
     select: { id: true, status: true, dateOfBirth: true, birthday: true, ageGroup: true },
   });
   if (!person) return { ok: false as const, reason: "not-found" as const };
+  const lockedMsg = await lockedDoorError(session.churchId, personId);
+  if (lockedMsg) return { ok: false as const, reason: "locked" as const, message: lockedMsg };
 
   let sess =
     (await resolveServiceSession(session.churchId, session.branchId ?? null)) ??
@@ -199,6 +204,8 @@ export async function checkInByMemberId(
     select: { id: true, firstName: true, lastName: true, status: true, dateOfBirth: true, birthday: true, ageGroup: true },
   });
   if (!person) return { ok: false, message: `No member with ID ${memberId}` };
+  const lockedMsg = await lockedDoorError(session.churchId, person.id);
+  if (lockedMsg) return { ok: false, name: `${person.firstName} ${person.lastName}`, message: lockedMsg };
 
   const sess = await db.attendanceSession.findFirst({ where: { id: sessionId, churchId: session.churchId } });
   if (!sess) return { ok: false, message: "Session not found" };

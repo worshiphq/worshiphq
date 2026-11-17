@@ -8,6 +8,8 @@ import { logAudit } from "@/lib/audit";
 import type { Prisma } from "@prisma/client";
 import { parseRemindOverride } from "@/lib/rosters/remind";
 import { ownedId } from "@/lib/tenant";
+import { isPersonLocked, lockedAmong, lockedPersonIds } from "@/lib/member-lock";
+import { LOCKED_ADD } from "@/lib/member-lock-core";
 
 /** "" / invalid → null (relative mode); "0".."6" → that weekday (absolute mode). */
 function parseWeekday(v: FormDataEntryValue | null): number | null {
@@ -64,6 +66,8 @@ export async function addSlot(formData: FormData) {
     if (member) personName = `${member.firstName} ${member.lastName}`.trim();
     else personId = null; // not one of this church's people
   }
+  // People locked by the plan's member limit can't be put on a roster.
+  if (await isPersonLocked(session.churchId, personId)) return;
 
   await db.volunteerSlot.create({
     data: {
@@ -165,6 +169,18 @@ export async function saveServiceSheet(formData: FormData) {
     ? await db.person.findMany({ where: { id: { in: ids }, churchId: session.churchId }, select: { id: true, firstName: true, lastName: true } })
     : [];
   const nameById = new Map(members.map((m) => [m.id, `${m.firstName} ${m.lastName}`.trim()]));
+
+  // People locked by the plan's member limit can't be newly put on a roster. Anyone already on this sheet stays.
+  const lockedIds = await lockedAmong(session.churchId, members.map((m) => m.id));
+  if (lockedIds.length) {
+    const already = sheetId
+      ? new Set((await db.volunteerSlot.findMany({ where: { rosterId: sheetId, churchId: session.churchId, personId: { in: lockedIds } }, select: { personId: true } })).map((s) => s.personId))
+      : new Set<string | null>();
+    const newlyLocked = lockedIds.filter((id) => !already.has(id));
+    if (newlyLocked.length) {
+      return { ok: false as const, error: `${newlyLocked.map((id) => nameById.get(id)).filter(Boolean).join(", ")}: ${LOCKED_ADD}` };
+    }
+  }
 
   const toDate = (d: string, t?: string) => new Date(`${d}T${t && /^\d{1,2}:\d{2}$/.test(t) ? t : "00:00"}:00`);
   const dates = services.map((s) => toDate(s.date, s.time));
@@ -313,11 +329,13 @@ async function buildRosterMessages(churchId: string, rosterId: string) {
   const churchName = church?.name ?? "your church";
   const { templateFor, renderTemplate } = await import("@/lib/messages/registry");
   const tpl = templateFor(church?.messageTemplates, "roster_reminder");
+  // People locked by the plan's member limit are not texted.
+  const locked = await lockedPersonIds(churchId);
 
   // Group slots by person (a person may have several roles/dates). ASCII only.
   const byPerson = new Map<string, { phone: string; firstName: string; title: string; lines: string[] }>();
   for (const s of slots) {
-    if (!s.personId || !s.person?.phone) continue;
+    if (!s.personId || !s.person?.phone || locked.has(s.personId)) continue;
     const key = s.personId;
     const entry = byPerson.get(key) ?? { phone: s.person.phone, firstName: s.person.firstName, title: s.person.title ?? "", lines: [] };
     const d = s.date.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" });

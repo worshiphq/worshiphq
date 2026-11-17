@@ -223,7 +223,7 @@ export function VisitorsClient({
       const res = await checkInVisitorNow(v.personId!);
       setCheckingIn(false);
       if (!res.ok) {
-        setCheckinResult({ id: v.id, message: "Couldn't check them in - try again." });
+        setCheckinResult({ id: v.id, message: res.reason === "locked" ? res.message : "Couldn't check them in - try again." });
         return;
       }
       setCheckinResult({
