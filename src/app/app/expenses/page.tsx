@@ -2,129 +2,93 @@ import { requireModule } from "@/lib/auth";
 import { canEdit } from "@/lib/permissions";
 import { db } from "@/lib/db";
 import { ExpensesClient } from "@/components/app/expenses-client";
-import { createExpense } from "@/app/actions/expenses";
-import { PageHeader } from "@/components/app/page-header";
-import { ActionDialog, Field } from "@/components/app/action-dialog";
-import { Button } from "@/components/ui/button";
-import { Plus, Download, AlertTriangle } from "lucide-react";
 import { getLedger, parseLedgerParams, periodBounds } from "@/lib/data/ledger";
 import { ledgerQuery } from "@/lib/ledger-query";
+import { ctxFrom } from "@/lib/expenses/post";
+import { fundBalances, pendingRequests, recurringList, vendorList, missingReceiptsCount, budgetUsage, queryExpenseRequests } from "@/lib/data/expenses";
+import { EXPENSE_CATEGORIES } from "@/lib/assets/categories";
 
 export const metadata = { title: "Expenses" };
 
-const CATEGORIES = ["General", "Utilities", "Rent", "Transport", "Maintenance", "Supplies", "Salaries", "Missions", "Welfare", "Events", "Instruments", "Honorarium"];
-
-export default async function ExpensesPage({
-  searchParams,
-}: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
-}) {
+export default async function ExpensesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
   const session = await requireModule("expenses");
   const params = await searchParams;
   const parsed = parseLedgerParams(params);
   // This page is only ever the expense records, whatever is in the address bar.
   const filters = { ...parsed.filters, source: "expense" as const, type: "" as const, fund: "", group: false };
+  const ctx = ctxFrom(session);
+  const canWrite = canEdit(session, "expenses");
+  const { from, to } = periodBounds(parsed.period);
+  const now = new Date();
 
-  // Fund accounting is Max. Below it the fund picker is not offered and a fund's restriction is not applied.
-  const fundAccounting = session.isDemo || !session.planLocked?.includes("fund-accounting");
-  const fundRows = fundAccounting
-    ? await db.fund.findMany({
-        where: { churchId: session.churchId },
-        orderBy: { name: "asc" },
-        select: { id: true, name: true, restricted: true, gifts: { select: { amount: true } }, expenses: { select: { amount: true } } },
+  const mineOnly = !canWrite;
+  const [ledger, accounts, allUsed, funds, pending, recurring, vendors, missing, budgets, church, payees, usedRecent, decided, byMethod] = await Promise.all([
+    getLedger(session.churchId, parsed.period, filters),
+    db.churchAccount.findMany({ where: { churchId: session.churchId }, orderBy: [{ isDefault: "desc" }, { name: "asc" }], select: { id: true, name: true, isDefault: true } }),
+    db.expense.findMany({ where: { churchId: session.churchId }, select: { category: true }, distinct: ["category"], take: 200 }),
+    // Bug fix: balances by groupBy instead of loading every gift and expense of every fund.
+    ctx.fundAccounting ? fundBalances(session.churchId) : Promise.resolve([]),
+    pendingRequests(session.churchId),
+    recurringList(session.churchId),
+    vendorList(session.churchId),
+    missingReceiptsCount(session.churchId, from, to),
+    ctx.budgetsOn ? budgetUsage(session.churchId, now.getUTCFullYear()) : Promise.resolve([]),
+    db.church.findUnique({ where: { id: session.churchId }, select: { expenseApprovalOver: true } }),
+    db.expense.groupBy({
+      by: ["vendor"],
+      where: { churchId: session.churchId, vendor: { not: null }, ...(from && to ? { date: { gte: from, lte: to } } : {}) },
+      _sum: { amount: true }, _count: true, orderBy: { _sum: { amount: "desc" } }, take: 8,
+    }),
+    db.expense.groupBy({ by: ["category"], where: { churchId: session.churchId, date: { gte: new Date(now.getTime() - 180 * 86400000) } }, _count: true, orderBy: { _count: { category: "desc" } }, take: 6 }),
+    queryExpenseRequests(session.churchId, "", { requestedBy: mineOnly ? session.userId : undefined }, 1),
+    db.expense.groupBy({ by: ["paymentMethod"], where: { churchId: session.churchId, ...(from && to ? { date: { gte: from, lte: to } } : {}) }, _sum: { amount: true }, _count: true, orderBy: { _sum: { amount: "desc" } } }),
+  ]);
+
+  // Details for the rows on this page (the drawer and the table).
+  const ids = ledger.rows.map((r) => r.id);
+  const details = ids.length
+    ? await db.expense.findMany({
+        where: { churchId: session.churchId, id: { in: ids } },
+        select: {
+          id: true, description: true, vendor: true, receiptRef: true, receiptUrl: true, approvedBy: true, paymentMethod: true, notes: true, accountId: true, fundId: true,
+          budgetId: true, budgetItemId: true, vendorId: true, source: true, sourceId: true, createdByName: true, createdAt: true, date: true, amount: true, category: true,
+          budget: { select: { name: true } }, budgetItem: { select: { description: true } }, asset: { select: { id: true, name: true, vehicle: { select: { id: true, regNumber: true } } } },
+        },
       })
     : [];
 
-  const [ledger, accounts, allUsed] = await Promise.all([
-    getLedger(session.churchId, parsed.period, filters),
-    db.churchAccount.findMany({
-      where: { churchId: session.churchId },
-      orderBy: [{ isDefault: "desc" }, { name: "asc" }],
-      select: { id: true, name: true, isDefault: true },
-    }),
-    db.expense.findMany({ where: { churchId: session.churchId }, select: { category: true }, distinct: ["category"], take: 200 }),
-  ]);
-  ledger.activeFilters = [filters.account, filters.category, filters.q].filter(Boolean).length;
-
-  // Details the ledger doesn't carry (payee, receipt, approver) for the rows on this page.
-  const ids = ledger.rows.map((r) => r.id);
-  const { from, to } = periodBounds(parsed.period);
-  const [details, payees] = await Promise.all([
-    ids.length ? db.expense.findMany({ where: { churchId: session.churchId, id: { in: ids } }, select: { id: true, description: true, vendor: true, receiptRef: true, approvedBy: true } }) : Promise.resolve([]),
-    db.expense.groupBy({
-      by: ["vendor"],
-      where: {
-        churchId: session.churchId, vendor: { not: null },
-        ...(from && to ? { date: { gte: from, lte: to } } : {}),
-        ...(filters.category ? { category: filters.category } : {}),
-        ...(filters.account && filters.account !== "none" ? { accountId: filters.account } : {}),
-      },
-      _sum: { amount: true },
-      _count: true,
-      orderBy: { _sum: { amount: "desc" } },
-      take: 8,
-    }),
-  ]);
-
-  const accountOptions = [
-    { label: "- No account -", value: "" },
-    ...accounts.map((a) => ({ label: a.isDefault ? `${a.name} (default)` : a.name, value: a.id })),
-  ];
-  const fundOptions = [
-    { label: "- No fund -", value: "" },
-    ...fundRows.map((f) => {
-      const left = f.gifts.reduce((t, g) => t + Number(g.amount), 0) - f.expenses.reduce((t, e) => t + e.amount, 0);
-      return { label: f.restricted ? `${f.name} (restricted, ₵${left.toLocaleString()} left)` : f.name, value: f.id };
-    }),
-  ];
-  const fundError = params.error === "fund" ? { name: String(params.fund ?? "that fund"), left: Number(params.left ?? 0) } : null;
-  const categorySuggestions = [...new Set([...CATEGORIES, ...allUsed.map((e) => e.category).filter(Boolean)])];
   const exportQs = ledgerQuery(ledger.period, { ...filters, page: 1 }).toString();
+  const categories = [...new Set([...usedRecent.map((u) => u.category), ...EXPENSE_CATEGORIES, ...allUsed.map((e) => e.category).filter(Boolean)])];
 
   return (
-    <div>
-      {fundError && (
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
-          <AlertTriangle className="size-4 shrink-0" />
-          Not recorded: &ldquo;{fundError.name}&rdquo; is a restricted fund and only has ₵{fundError.left.toLocaleString()} left, which is less than that expense.
-          Record a smaller amount, or choose another fund.
-        </div>
-      )}
-      <PageHeader title="Expenses" description="Everything the church spent, by month and week, with reports.">
-        <a href={`/api/export/transactions?${exportQs}`}><Button variant="secondary" size="sm"><Download /> Export Excel</Button></a>
-        <ActionDialog
-          triggerLabel="Record expense"
-          triggerIcon={<Plus />}
-          title="Record expense"
-          description="Log a church expense or payment."
-          submitLabel="Record"
-          action={createExpense}
-          disabled={!canEdit(session, "expenses")}
-        >
-          <Field label="Description" name="description" placeholder="What was purchased or paid for" required />
-          <Field label="Amount (GHS)" name="amount" type="number" placeholder="0" required />
-          {accounts.length > 0 && (
-            <Field label="Deduct from account" name="accountId" type="select" options={accountOptions} hint="Which account this payment comes out of" />
-          )}
-          {fundRows.length > 0 && (
-            <Field label="Charge to fund" name="fundId" type="select" options={fundOptions} hint="A restricted fund can only be spent up to what has been given to it" />
-          )}
-          <Field label="Category" name="category" suggestions={categorySuggestions} placeholder="Pick one or type your own (e.g. Instruments)" hint="Type any category - it’s remembered for next time." />
-          <Field label="Vendor / payee" name="vendor" placeholder="Who was paid" />
-          <Field label="Receipt reference" name="receiptRef" placeholder="Receipt or invoice number" />
-          <Field label="Approved by" name="approvedBy" placeholder="Name of approving officer" />
-          <Field label="Date" name="date" type="date" defaultValue={new Date().toISOString().slice(0, 10)} />
-        </ActionDialog>
-      </PageHeader>
-
-      <ExpensesClient
-        ledger={ledger}
-        accounts={accounts.map((a) => ({ id: a.id, name: a.name, isDefault: a.isDefault }))}
-        details={Object.fromEntries(details.map((d) => [d.id, { description: d.description, vendor: d.vendor, receiptRef: d.receiptRef, approvedBy: d.approvedBy }]))}
-        payees={payees.map((p) => ({ name: p.vendor ?? "", total: Number(p._sum.amount ?? 0), count: p._count }))}
-        canWrite={canEdit(session, "expenses")}
-        canDelete={session.canDelete && canEdit(session, "expenses")}
-      />
-    </div>
+    <ExpensesClient
+      ledger={ledger}
+      accounts={accounts}
+      funds={funds}
+      details={Object.fromEntries(details.map((d) => [d.id, {
+        id: d.id, description: d.description, vendor: d.vendor, receiptRef: d.receiptRef, receiptUrl: d.receiptUrl, approvedBy: d.approvedBy, paymentMethod: d.paymentMethod,
+        notes: d.notes, accountId: d.accountId, fundId: d.fundId, budgetId: d.budgetId, budgetItemId: d.budgetItemId, vendorId: d.vendorId, source: d.source,
+        createdByName: d.createdByName, createdAt: d.createdAt.toISOString(), date: d.date.toISOString(), amount: d.amount, category: d.category,
+        budgetName: d.budget?.name ?? null, budgetItemName: d.budgetItem?.description ?? null,
+        assetLink: d.asset ? (d.asset.vehicle ? { href: `/app/vehicles/${d.asset.vehicle.id}`, label: d.asset.vehicle.regNumber } : { href: `/app/assets/${d.asset.id}`, label: d.asset.name }) : null,
+      }]))}
+      payees={payees.map((p) => ({ name: p.vendor ?? "", total: Number(p._sum.amount ?? 0), count: p._count }))}
+      pending={mineOnly ? pending.filter((r) => r.requestedById === session.userId) : pending}
+      decided={decided}
+      byMethod={byMethod.map((m) => ({ method: m.paymentMethod, total: Number(m._sum.amount ?? 0), count: m._count }))}
+      recurring={recurring.map((r) => ({ id: r.id, description: r.description, amount: r.amount, category: r.category, vendorName: r.vendorName, vendorId: r.vendorId, accountId: r.accountId, paymentMethod: r.paymentMethod, frequency: r.frequency, nextDue: r.nextDue.toISOString(), endsAt: r.endsAt?.toISOString() ?? null, active: r.active, budgetItemId: r.budgetItemId, fundId: r.fundId }))}
+      vendors={vendors}
+      missingReceipts={missing}
+      budgets={budgets}
+      categories={categories}
+      topCategories={usedRecent.map((u) => u.category)}
+      approvalOver={church?.expenseApprovalOver ?? null}
+      exportQs={exportQs}
+      me={{ id: session.userId, isOwner: session.role === "Owner", isAdmin: session.role === "Owner" || session.role === "Admin" }}
+      canWrite={canWrite}
+      canDelete={canWrite && session.canDelete}
+      fundAccounting={ctx.fundAccounting}
+      budgetsOn={ctx.budgetsOn}
+    />
   );
 }
