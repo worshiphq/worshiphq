@@ -7,8 +7,9 @@ import crypto from "node:crypto";
 import bcrypt from "bcryptjs";
 import { db } from "@/lib/db";
 import { env } from "@/lib/env";
-import { type Session, can, ROLE_PERMISSIONS, ALL_MODULES, modulesForRole, hasSection, canManage } from "@/lib/permissions";
+import { type Session, can, ROLE_PERMISSIONS, ALL_MODULES, hasSection, canManage } from "@/lib/permissions";
 import { authSecret, safeEqual, signToken, readToken } from "@/lib/auth/tokens";
+import { resolveAccess } from "@/lib/access-resolve";
 import { commsTrialOf, featureForSection, planHasFeature, ALL_FEATURES, ALWAYS_ON_FEATURES, FEATURE_LABELS, getMinimumPlan, type PlanId } from "@/lib/plan-gate";
 
 export type { Session };
@@ -356,6 +357,18 @@ async function _getSession(): Promise<Session | null> {
   // church sees (locks included). Support is still allowed to save on a locked screen: see assertPlanFeature.
   if (session && !session.isDemo) {
     session.planLocked = await lockedFeatures(session.churchId);
+    // Staff & Payroll: "My pay" for anyone linked to an active staff record (one cheap query, skipped when the plan
+    // does not include payroll). Support and the demo never get it.
+    if (!session.impersonating && !session.planLocked.includes("payroll")) {
+      const staff = await db.staffMember.findFirst({
+        where: { churchId: session.churchId, status: { not: "left" }, OR: [{ userId: session.userId }, { person: { is: { user: { is: { id: session.userId } } } } }] },
+        select: { id: true },
+      });
+      if (staff) {
+        session.staffId = staff.id;
+        if (!session.sections.includes("my-pay")) session.sections = [...session.sections, "my-pay"];
+      }
+    }
   }
   return session;
 }
@@ -433,6 +446,34 @@ async function _loadSession(): Promise<Session | null> {
   // A password change or reset bumps sessionVersion, which signs out every older cookie.
   if (user.sessionVersion !== payload.sv) return null;
 
+  // A staff self-service login (Staff & Payroll) only ever sees My pay.
+  if (user.staffPortalOnly) {
+    const access = resolveAccess({ role: user.role, staffPortalOnly: true });
+    return {
+      userId: user.id,
+      name: user.name,
+      email: user.email,
+      role: user.role,
+      customRole: "Staff",
+      sections: access.sections,
+      manageSections: access.manageSections,
+      exactSections: true,
+      canDelete: false,
+      churchId: user.churchId,
+      churchName: user.church.name,
+      branch: user.branch?.name ?? "All branches",
+      branchId: user.branchId,
+      avatarName: user.name,
+      avatarUrl: user.photoUrl,
+      isDemo: user.church.isDemo,
+      suspended: user.church.suspended,
+      phoneVerified: user.phoneVerified,
+      emailVerified: user.emailVerified,
+      payroll: null,
+      staffPortalOnly: true,
+    };
+  }
+
   // A scoped department-budget leader only ever sees their department's budget,
   // expenses and income - regardless of role.
   if (user.budgetDepartmentId) {
@@ -468,21 +509,22 @@ async function _loadSession(): Promise<Session | null> {
   // Church-level rolePermissions override the hardcoded defaults for built-in roles.
   // A built-in role adjusted on the Team screen is stored as { view, manage, canDelete } and means exactly that,
   // like a custom role. An older adjustment is a plain list of areas, each of which is viewed and managed.
-  const churchOverrides = (user.church.rolePermissions as Record<string, unknown> | null) ?? {};
-  const own = churchOverrides[user.role];
-  const precise = !user.customRole && own && typeof own === "object" && !Array.isArray(own) ? (own as { view?: string[]; manage?: string[]; canDelete?: boolean }) : null;
-  const sections = user.customRole
-    ? user.customRole.sections
-    : precise ? (precise.view ?? []) : (Array.isArray(own) ? (own as string[]) : modulesForRole(user.role));
   // Built-in roles manage everything they can see; custom roles manage only the
   // subset explicitly granted (falling back to all sections for legacy roles
   // saved before the View/Manage split existed).
   // An empty Manage list on a role saved with the View/Manage split means VIEW-ONLY. Only roles that
   // pre-date the split (manageSplit = false) keep managing everything they can see.
-  const manageSections = user.customRole
-    ? (user.customRole.manageSplit ? user.customRole.manageSections : user.customRole.sections)
-    : precise ? (precise.manage ?? []).filter((k) => sections.includes(k)) : sections;
-  const canDelete = user.customRole ? user.customRole.canDelete : precise ? precise.canDelete !== false : true;
+  // Payroll is private: resolveAccess strips it from every role and adds it only from the person's own payrollAccess
+  // (or for the Main Admin). See src/lib/access-resolve.ts.
+  const access = resolveAccess({
+    role: user.role,
+    customRole: user.customRole,
+    churchOverrides: (user.church.rolePermissions as Record<string, unknown> | null) ?? {},
+    payrollAccess: user.payrollAccess,
+    isOwner: user.role === "Owner",
+    ownerGetsPayroll: true,
+  });
+  const { sections, manageSections, canDelete } = access;
 
   return {
     userId: user.id,
@@ -493,7 +535,7 @@ async function _loadSession(): Promise<Session | null> {
     sections,
     manageSections,
     // Custom roles mean exactly what was ticked - no sibling expansion.
-    exactSections: !!user.customRole || !!precise,
+    exactSections: access.exactSections,
     canDelete,
     churchId: user.churchId,
     churchName: user.church.name,
@@ -505,6 +547,7 @@ async function _loadSession(): Promise<Session | null> {
     suspended: user.church.suspended,
     phoneVerified: user.phoneVerified,
     emailVerified: user.emailVerified,
+    payroll: access.payroll,
   };
 }
 export const getSession = cache(_getSession);

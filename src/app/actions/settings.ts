@@ -22,6 +22,10 @@ import { planRank, effectivePlan, type PlanId } from "@/lib/plan-gate";
 import { sendUpgradeReceipt } from "@/lib/billing/receipt";
 import { ownedId } from "@/lib/tenant";
 import { escapeHtml } from "@/lib/html";
+import { PRIVATE_SECTIONS } from "@/lib/permissions";
+
+/** Payroll and My pay are never granted through a role (see src/lib/access-resolve.ts). */
+const notPrivate = (k: string) => !PRIVATE_SECTIONS.includes(k);
 
 /** Update the signed-in user's own name and profile photo. The login email only changes through startEmailChange (password + code). */
 export async function updateProfile(formData: FormData) {
@@ -419,7 +423,7 @@ async function teamHasRoom(churchId: string): Promise<boolean> {
   const [plan, cfg, count] = await Promise.all([
     getChurchPlan(churchId),
     getPlatformConfig(),
-    db.user.count({ where: { churchId } }),
+    db.user.count({ where: { churchId, staffPortalOnly: false } }),
   ]);
   const limit = cfg.planTable[plan]?.teamUsers ?? Infinity;
   return !Number.isFinite(limit) || count < limit;
@@ -497,9 +501,10 @@ export async function changeUserRole(formData: FormData): Promise<ActionResult> 
   // The Main Admin role is only ever handed over with "Transfer Main Admin".
   if (role === "Owner") return { ok: false, error: "Use \"Hand over the Main Admin role\" for that." };
   if (role === "Admin" && session.role !== "Owner") return { ok: false, error: "Only the Main Admin can make someone an Admin." };
-  const current = await db.user.findFirst({ where: { id: userId, churchId: session.churchId }, select: { role: true } });
+  const current = await db.user.findFirst({ where: { id: userId, churchId: session.churchId }, select: { role: true, staffPortalOnly: true } });
   // Nobody changes the Main Admin's role, and only the Main Admin changes another Admin's role.
   if (!current) return { ok: false, error: "That person is not on your team." };
+  if (current.staffPortalOnly) return { ok: false, error: "This is a staff portal login. Manage it from the staff profile." };
   if (current.role === "Owner") return { ok: false, error: "The Main Admin's role cannot be changed here." };
   if (current.role === "Admin" && session.role !== "Owner") return { ok: false, error: "Only the Main Admin can change another Admin's role." };
 
@@ -528,7 +533,7 @@ export async function createCustomRole(formData: FormData): Promise<ActionResult
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return { ok: false, error: "Give the role a name." };
   if (BUILT_IN_ROLES.some((r) => r.toLowerCase() === name.toLowerCase()) || /^main admin$/i.test(name)) return { ok: false, error: "That name belongs to a built-in role. Choose another." };
-  const sections = formData.getAll("sections").map(String);
+  const sections = formData.getAll("sections").map(String).filter(notPrivate);
   // A section can only be managed if it's also viewable - keep them consistent.
   const manageSections = formData.getAll("manageSections").map(String).filter((s) => sections.includes(s));
   const canDelete = formData.get("canDelete") === "on" || formData.get("canDelete") === "yes";
@@ -557,7 +562,7 @@ export async function updateRolePermissions(formData: FormData): Promise<ActionR
   // Only the Main Admin decides what Admins can do.
   if (role === "Admin" && session.role !== "Owner") return { ok: false, error: "Only the Main Admin can change what Admins can do." };
 
-  const sections = formData.getAll("sections").map(String);
+  const sections = formData.getAll("sections").map(String).filter(notPrivate);
   const manage = formData.getAll("manageSections").map(String).filter((s) => sections.includes(s));
   const church = await db.church.findUnique({
     where: { id: session.churchId },
@@ -600,7 +605,7 @@ export async function updateCustomRole(formData: FormData): Promise<ActionResult
     return { ok: false, error: `You already have a role called "${name}".` };
   }
 
-  const sections = formData.getAll("sections").map(String);
+  const sections = formData.getAll("sections").map(String).filter(notPrivate);
   const manageSections = formData.getAll("manageSections").map(String).filter((s) => sections.includes(s));
   const canDelete = formData.get("canDelete") === "on" || formData.get("canDelete") === "yes";
 
@@ -643,6 +648,13 @@ export async function removeTeamMember(formData: FormData): Promise<ActionResult
   if (!target) return { ok: false, error: "That person is not on your team." };
   if (target.role === "Owner") return { ok: false, error: "The Main Admin cannot be removed." };
   if (target.role === "Admin" && session.role !== "Owner") return { ok: false, error: "Only the Main Admin can remove an Admin." };
+
+  // Staff & Payroll: payroll access never comes back with a restore, and the removal is kept in payroll's own trail.
+  if (target.payrollAccess) {
+    await db.user.updateMany({ where: { id: userId, churchId: session.churchId }, data: { payrollAccess: null } });
+    const { writeEvent } = await import("@/lib/payroll/engine");
+    await writeEvent(db, { churchId: session.churchId, action: "access.removed", actorId: session.userId, actorName: session.name, detail: `${target.name} was removed from the team and lost payroll access` });
+  }
 
   await moveToBin(session, "teamMember", "User", userId);
   await db.user.delete({ where: { id: userId } });
@@ -1147,4 +1159,33 @@ export async function redeemPlanBypass(code: string) {
   revalidatePath("/app/settings");
   revalidatePath("/app", "layout");
   return { ok: true, plan: sub.bypassPlan };
+}
+
+/**
+ * Staff & Payroll: give or take away one person's payroll access (none, view or manage). Only the Main Admin may do
+ * this, because salaries are private: a role can never carry payroll, so this is the only way in.
+ */
+export async function setPayrollAccess(userId: string, level: string): Promise<ActionResult> {
+  const session = await requireSession();
+  try {
+    assertCanWrite(session);
+    assertPlanFeature(session, "payroll");
+  } catch (e) {
+    return { ok: false, error: (e as Error).message };
+  }
+  if (session.role !== "Owner" || session.impersonating) return { ok: false, error: "Only the Main Admin can change who sees payroll." };
+  const next = level === "view" || level === "manage" ? level : null;
+  const target = await db.user.findFirst({ where: { id: String(userId), churchId: session.churchId }, select: { id: true, name: true, role: true, payrollAccess: true, staffPortalOnly: true } });
+  if (!target) return { ok: false, error: "That person is not on your team." };
+  if (target.role === "Owner") return { ok: false, error: "The Main Admin always has payroll access." };
+  if (target.staffPortalOnly) return { ok: false, error: "Staff portal logins only see their own pay." };
+  if ((target.payrollAccess ?? null) === next) return { ok: true };
+  await db.user.updateMany({ where: { id: target.id, churchId: session.churchId }, data: { payrollAccess: next } });
+  const label = next === "manage" ? "can manage payroll" : next === "view" ? "can view payroll" : "has no payroll access";
+  const { writeEvent } = await import("@/lib/payroll/engine");
+  await writeEvent(db, { churchId: session.churchId, action: "access.changed", actorId: session.userId, actorName: session.name, detail: `${target.name} now ${label}`, meta: { userId: target.id, from: target.payrollAccess, to: next } });
+  await audit(session, "update", "user", `Changed payroll access for ${target.name}`, target.id);
+  revalidatePath("/app/settings");
+  revalidatePath("/app", "layout");
+  return { ok: true };
 }

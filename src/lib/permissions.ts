@@ -77,6 +77,7 @@ export const SECTION_GROUPS: { category: string; sections: SectionDef[] }[] = [
     category: "Organisation",
     sections: [
       { key: "assets", label: "Assets", parent: "settings", manageable: true },
+      { key: "staff", label: "Staff & leave", parent: "settings", manageable: true },
       { key: "export", label: "Download data", parent: "settings" },
       { key: "audit-log", label: "Audit log", parent: "settings" },
       { key: "settings", label: "Settings", parent: "settings", manageable: true },
@@ -92,12 +93,20 @@ export const SECTION_PARENT: Record<string, string> = Object.fromEntries(
   ALL_SECTIONS.map((s) => [s.key, s.parent]),
 );
 
+/**
+ * Sections that are never granted through a role, a parent group or the Owner's "*": salaries are private. "payroll"
+ * comes only from User.payrollAccess (set by the Main Admin), "my-pay" only from being linked to a staff record.
+ * See src/lib/access-resolve.ts.
+ */
+export const PRIVATE_SECTIONS = ["payroll", "my-pay"];
+
 /** Human labels for both fine and coarse keys. */
 export const MODULE_LABELS: Record<string, string> = {
   ...Object.fromEntries(ALL_SECTIONS.map((s) => [s.key, s.label])),
   people: "People", attendance: "Attendance", events: "Events", volunteers: "Volunteers",
   giving: "Giving", accounting: "Accounting", harvest: "Harvest",
   communications: "Communications", reminders: "Reminders", settings: "Settings",
+  payroll: "Payroll", "my-pay": "My pay",
 };
 
 /** Session shape - client-safe (no server imports). Backed by a real DB user. */
@@ -140,6 +149,12 @@ export interface Session {
   emailVerified?: boolean;
   /** Plan features the church's plan does not include (enforced on the server, not just hidden). */
   planLocked?: string[];
+  /** Staff & Payroll: this person's payroll access (Main Admin grants it per person; never from a role). */
+  payroll?: "view" | "manage" | null;
+  /** The StaffMember this login belongs to, for My pay. */
+  staffId?: string | null;
+  /** A staff self-service login that only sees My pay. */
+  staffPortalOnly?: boolean;
 }
 
 export const ROLE_PERMISSIONS: Record<Role, string[]> = {
@@ -176,6 +191,8 @@ export function can(role: Role, module: string): boolean {
  * everything beneath them, which is what makes "Admin" broad by default.
  */
 export function granted(keys: string[], module: string, exact = false): boolean {
+  // Private sections match exactly: never through "*" or a parent group.
+  if (PRIVATE_SECTIONS.includes(module)) return keys.includes(module);
   if (keys.includes("*")) return true;
   if (keys.includes(module)) return true;
   if (exact) return false;

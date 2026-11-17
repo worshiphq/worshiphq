@@ -87,7 +87,8 @@ export async function createTransaction(formData: FormData) {
 export async function deleteTransaction(id: string) {
   const session = await requireSession();
   assertCanDelete(session);
-  const tx = await db.transaction.findFirst({ where: { id, churchId: session.churchId }, select: { description: true } });
+  const tx = await db.transaction.findFirst({ where: { id, churchId: session.churchId }, select: { description: true, payrollRunId: true } });
+  if (tx?.payrollRunId) throw new Error("This came from Payroll. Reverse it from the payroll run instead.");
   await moveToBin(session, "transaction", "Transaction", id);
   await db.transaction.deleteMany({ where: { id, churchId: session.churchId } });
   if (tx) await audit(session, "delete", "transaction", `Deleted transaction "${tx.description}"`, id);
@@ -112,13 +113,15 @@ export async function moveLedgerEntryAccount(source: "manual" | "giving" | "expe
   if (!account) return { ok: false, error: "Account not found." };
 
   if (source === "manual") {
-    const tx = await db.transaction.findFirst({ where: { id, churchId: session.churchId }, select: { id: true, description: true } });
+    const tx = await db.transaction.findFirst({ where: { id, churchId: session.churchId }, select: { id: true, description: true, payrollRunId: true } });
     if (!tx) return { ok: false, error: "Entry not found." };
+    if (tx.payrollRunId) return { ok: false, error: "This came from Payroll. Reverse it from the payroll run instead." };
     await db.transaction.update({ where: { id }, data: { accountId, pendingDeposit: false } });
     await audit(session, "update", "transaction", `Moved "${tx.description}" to ${account.name}`, id);
   } else if (source === "expense") {
-    const exp = await db.expense.findFirst({ where: { id, churchId: session.churchId }, select: { id: true, description: true } });
+    const exp = await db.expense.findFirst({ where: { id, churchId: session.churchId }, select: { id: true, description: true, payrollRunId: true, staffLoanId: true } });
     if (!exp) return { ok: false, error: "Entry not found." };
+    if (exp.payrollRunId || exp.staffLoanId) return { ok: false, error: "This came from Payroll. Reverse it from the payroll run instead." };
     await db.expense.update({ where: { id }, data: { accountId } });
     await audit(session, "update", "expense", `Moved "${exp.description}" to ${account.name}`, id);
   } else {
@@ -140,6 +143,7 @@ export async function editTransaction(id: string, formData: FormData) {
     where: { id, churchId: session.churchId },
   });
   if (!tx) return { ok: false, error: "Not found." };
+  if (tx.payrollRunId) return { ok: false, error: "This came from Payroll. Reverse it from the payroll run instead." };
 
   const description = String(formData.get("description") ?? "").trim();
   const amount = Number(formData.get("amount"));

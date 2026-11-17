@@ -382,6 +382,7 @@ export function SettingsClient({
               rolePermissions={church?.rolePermissions ?? null}
               seats={{ used: billingUsage?.teamUsers ?? users.length, limit: billingUsage?.teamLimit ?? null }}
               customRolesLocked={!ro && !!session.planLocked?.includes("custom-roles")}
+              payrollOn={session.role === "Owner" && !session.impersonating && !session.planLocked?.includes("payroll")}
             />
             {session.role === "Owner" && !session.isDemo && (
               <TransferMainAdmin admins={users.filter((u) => u.role === "Admin").map((u) => ({ id: u.id, name: u.name ?? u.email ?? "" }))} />

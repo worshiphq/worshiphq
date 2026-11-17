@@ -24,11 +24,14 @@ import {
   createCustomRole, updateCustomRole, deleteCustomRole, updateRolePermissions, setBudgetDepartment, type ActionResult,
 } from "@/app/actions/settings";
 import type { Role } from "@/lib/demo/data";
+import { PayrollAccessSelect } from "@/components/app/payroll/payroll-access-select";
 
 export type TeamMember = {
   id: string; name: string; email: string | null; phone: string | null; photoUrl: string | null;
   role: string; customRole: { id: string; name: string } | null; budgetDepartment: { id: string; name: string } | null;
   pending: boolean; joinedAt: string;
+  /** Staff & Payroll: only sent to the Main Admin. */
+  payrollAccess?: string | null;
 };
 export type TeamCustomRole = { id: string; name: string; sections: string[]; manageSections: string[]; canDelete: boolean };
 
@@ -42,6 +45,8 @@ type Props = {
   rolePermissions: RolePermissions | null;
   seats: { used: number; limit: number | null };
   customRolesLocked: boolean;
+  /** The Main Admin on a plan with payroll: show the per-person payroll access choice. */
+  payrollOn?: boolean;
 };
 
 /** The role a member holds, as a choice the access helpers understand. */
@@ -212,7 +217,7 @@ function AccessGrid({ view, manage, setView, setManage }: { view: Set<string>; m
   );
 }
 
-export function TeamTab({ me, members, customRoles, departments, rolePermissions, seats, customRolesLocked }: Props) {
+export function TeamTab({ me, members, customRoles, departments, rolePermissions, seats, customRolesLocked, payrollOn }: Props) {
   const router = useRouter();
   const { toast } = useFeedback();
   const [pending, start] = useTransition();
@@ -367,6 +372,7 @@ export function TeamTab({ me, members, customRoles, departments, rolePermissions
       {open && (
         <MemberDrawer key={open.id} m={open} me={me} isOwner={isOwner} canEdit={canEditMember(open)} customRoles={customRoles} departments={departments}
           rolePermissions={rolePermissions} customRolesLocked={customRolesLocked} busy={busy} pending={pending}
+          payrollOn={!!payrollOn && isOwner && !me.isDemo}
           onClose={() => setOpen(null)}
           onSaveRole={(c) => act("role", () => {
             if (c.kind === "budget") {
@@ -440,8 +446,8 @@ function RoleRow({ name, blurb, summary, count, onEdit, custom, changed, icon }:
   return onEdit ? <button type="button" onClick={onEdit} className="block w-full text-left hover:bg-surface-2/40">{body}</button> : body;
 }
 
-function MemberDrawer({ m, me, isOwner, canEdit, customRoles, departments, rolePermissions, customRolesLocked, busy, pending, onClose, onSaveRole, onResend, onRemove }: {
-  m: TeamMember; me: { id: string }; isOwner: boolean; canEdit: boolean; customRoles: TeamCustomRole[]; departments: { id: string; name: string }[];
+function MemberDrawer({ m, me, isOwner, canEdit, customRoles, departments, rolePermissions, customRolesLocked, busy, pending, payrollOn, onClose, onSaveRole, onResend, onRemove }: {
+  m: TeamMember; me: { id: string }; isOwner: boolean; canEdit: boolean; customRoles: TeamCustomRole[]; departments: { id: string; name: string }[]; payrollOn?: boolean;
   rolePermissions: RolePermissions | null; customRolesLocked: boolean; busy: string | null; pending: boolean;
   onClose: () => void; onSaveRole: (c: TeamRoleChoice) => void; onResend: () => void; onRemove: () => void;
 }) {
@@ -480,6 +486,7 @@ function MemberDrawer({ m, me, isOwner, canEdit, customRoles, departments, roleP
       {!changing ? (
         <>
           <div className="mt-5"><MenuPreview choice={start} rolePermissions={rolePermissions} /></div>
+          {payrollOn && m.role !== "Owner" && <div className="mt-5"><PayrollAccessSelect userId={m.id} name={m.name} initial={m.payrollAccess ?? null} /></div>}
           {canEdit && (
             <div className="mt-5 flex flex-wrap gap-2">
               <Button variant="secondary" onClick={() => setChanging(true)}><Shield className="size-4" /> Change role</Button>

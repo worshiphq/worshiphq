@@ -35,6 +35,7 @@ export default async function DashboardPage() {
   const session = await requireSession();
   // Scoped budget leaders have no dashboard - send them to their budget.
   if (session.budgetDepartmentId) redirect("/app/budgets");
+  if (session.staffPortalOnly) redirect("/app/my-pay");
   const { kpis, trend, todaysBirthdays, events, careTasks, recentMembers, departmentBreakdown, leaders, totalLeaders, featuredLeaderCount } = await getDashboard(session.churchId);
   // A core feature the plan editor has switched off for this plan disappears from the dashboard too, not just the menu.
   const coreLocked = (m: string) => (FEATURE_TIERS.core as readonly string[]).includes(m) && !!planLockFor(session, m);

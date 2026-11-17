@@ -37,6 +37,9 @@ import {
   Download,
   Droplets,
   ScanFace,
+  WalletMinimal,
+  BriefcaseBusiness,
+  Banknote,
 } from "lucide-react";
 
 export interface NavItem {
@@ -67,6 +70,7 @@ export const nav: NavSection[] = [
     items: [
       { key: "dashboard", label: "Dashboard", href: "/app", icon: LayoutDashboard },
       { key: "dashboard", label: "Reports", href: "/app/reports", icon: BarChart3 },
+      { key: "dashboard", label: "My pay", href: "/app/my-pay", icon: WalletMinimal, section: "my-pay" },
     ],
   },
   {
@@ -118,6 +122,8 @@ export const nav: NavSection[] = [
     title: "Organisation",
     items: [
       { key: "settings", label: "Assets", href: "/app/assets", icon: Package },
+      { key: "settings", label: "Staff", href: "/app/staff", icon: BriefcaseBusiness, section: "staff" },
+      { key: "settings", label: "Payroll", href: "/app/payroll", icon: Banknote, section: "payroll" },
       { key: "settings", label: "Download data", href: "/app/export", icon: Download },
       { key: "settings", label: "Audit log", href: "/app/audit-log", icon: ScrollText },
       { key: "settings", label: "Settings", href: "/app/settings", icon: Settings },

@@ -92,8 +92,10 @@ export async function deleteExpense(formData: FormData) {
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
-  const expense = await db.expense.findFirst({ where: { id, churchId: session.churchId }, select: { description: true, amount: true, vendor: true } });
+  const expense = await db.expense.findFirst({ where: { id, churchId: session.churchId }, select: { description: true, amount: true, vendor: true, payrollRunId: true, staffLoanId: true } });
   if (!expense) return;
+  // Staff & Payroll: payroll postings are reversed from the payroll run, never deleted here.
+  if (expense.payrollRunId || expense.staffLoanId) throw new Error("This came from Payroll. Reverse it from the payroll run instead.");
 
   await RecycleBin.captureExpense(session, id);
   await db.expense.deleteMany({ where: { id, churchId: session.churchId } });

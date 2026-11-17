@@ -15,7 +15,13 @@ const NEVER_RESTORE = new Set([
   "Church", "User", "Subscription", "PlanPayment", "PaymentIntent", "RefundRequest", "PaymentRequest", "Coupon",
   "SmsTransaction", "Transaction", "AuditLog", "DeletedItem", "Communication", "CommunicationRecipient",
   "ChurchBackup", "BiometricCredential", "PhoneVerification", "Receipt", "ReceiptRevision",
+  // Staff & Payroll: private, and a restore must never undo a payroll reversal or bring back ID numbers.
+  "StaffMember", "StaffPayProfile", "StaffLoan", "StaffPayItem", "StaffDocument", "StaffAttendance", "PayrollSettings", "PayeBandSet",
+  "PayrollHoliday", "PayrollRun", "PayrollLine", "PayrollLineItem", "PayrollPosting", "PayrollEvent", "LeaveType", "LeaveRequest", "LeaveAdjustment",
 ]);
+
+/** Expenses written by Payroll (or a staff loan) are left exactly as they are by a restore. */
+const payrollLinked = (r: Row) => !!r.payrollRunId || !!r.staffLoanId;
 
 const SUMMARY_LABELS: [string, string][] = [
   ["Person", "people"], ["Department", "departments"], ["Group", "groups"], ["Visitor", "visitors"],
@@ -91,8 +97,12 @@ async function diff(snap: Snap, churchId: string): Promise<TableDiff[]> {
   await pool(jobs, 6, async (model) => {
     const idField = model.fields.find((f) => f.isId)!.name;
     const where = whereFor(model, churchId)!;
-    const current = await readTable(model, where);
-    const snapRows = snap.tables[model.name] ?? [];
+    let current = await readTable(model, where);
+    let snapRows = snap.tables[model.name] ?? [];
+    if (model.name === "Expense") {
+      current = current.filter((r) => !payrollLinked(r));
+      snapRows = snapRows.filter((r) => !payrollLinked(r));
+    }
     const curById = new Map(current.map((r) => [String(r[idField]), r]));
     const snapIds = new Set(snapRows.map((r) => String(r[idField])));
 
