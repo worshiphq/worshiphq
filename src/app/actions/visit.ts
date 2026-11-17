@@ -375,6 +375,8 @@ export async function convertVisitorToMember(id: string) {
 
   const { audit } = await import("@/lib/audit");
   await audit(session, "update", "person", `Converted visitor ${visitor.firstName} ${visitor.lastName} to a member`.trim(), personId);
+  // Keep the church's face, palm and fingerprint devices in step (never throws).
+  await (await import("@/lib/devices/sync")).queueMemberSync(session.churchId, [personId]);
   const { revalidatePath } = await import("next/cache");
   revalidatePath("/app/visitors");
   revalidatePath("/app/people");

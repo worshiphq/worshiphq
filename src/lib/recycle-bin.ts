@@ -162,7 +162,11 @@ function revive(model: string, row: Row): Row {
 
 const MAX_DEPTH = 5;
 
+/** Never kept in the bin: device registrations (face, palm, fingerprint templates) go for good with the person. */
+const NOT_KEPT = new Set(["BiometricTemplate"]);
+
 async function collect(model: string, where: Row, depth: number, snap: Snapshot, seen: Set<string>) {
+  if (NOT_KEPT.has(model)) return;
   const found: Row[] = await delegate(db, model).findMany({ where });
   const rows = found.filter((r) => !seen.has(`${model}:${r.id}`));
   if (!rows.length) return;
@@ -497,6 +501,8 @@ export async function restoreItem(session: { churchId: string; userId: string; r
   }
 
   await db.deletedItem.delete({ where: { id } });
+  // A restored member goes back on the church's devices (their old registrations were not kept).
+  if (item.entityType === "person" || item.entityType === "visitor") await (await import("@/lib/devices/sync")).queueMemberSync(session.churchId, [item.entityId]);
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "update", entity: item.entityType, entityId: item.entityId, detail: `Restored "${item.label}" from the recycle bin` });
   return { ok: true };
 }

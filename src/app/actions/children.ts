@@ -56,6 +56,8 @@ export async function createChild(formData: FormData) {
   });
 
   await saveMemberCategoryChoices(session.churchId, person.id, formData);
+  // Keep the church's face, palm and fingerprint devices in step (never throws).
+  await (await import("@/lib/devices/sync")).queueMemberSync(session.churchId, [person.id]);
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "person", entityId: person.id, detail: `Added ${ageGroup} ${firstName} ${lastName}` });
   revalidatePath("/app/children");
   revalidatePath("/app/people");
@@ -126,6 +128,8 @@ export async function updateChild(formData: FormData) {
     },
   });
   await saveMemberCategoryChoices(session.churchId, id, formData);
+  // Keep the church's face, palm and fingerprint devices in step (never throws).
+  await (await import("@/lib/devices/sync")).queueMemberSync(session.churchId, [id]);
 
   revalidatePath("/app/children");
   revalidatePath("/app/people");

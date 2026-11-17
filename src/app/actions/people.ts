@@ -81,6 +81,8 @@ export async function createPerson(formData: FormData) {
 
   await saveMemberCategoryChoices(session.churchId, person.id, formData);
   invalidateMemberLock(session.churchId);
+  // Keep the church's face, palm and fingerprint devices in step (never throws).
+  await (await import("@/lib/devices/sync")).queueMemberSync(session.churchId, [person.id]);
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "person", entityId: person.id, detail: `Added ${data.firstName} ${data.lastName}` });
   revalidatePath("/app/people");
   revalidatePath("/app");
@@ -159,6 +161,8 @@ export async function updatePerson(formData: FormData) {
     });
   }
   await saveMemberCategoryChoices(session.churchId, id, formData);
+  // Keep the church's face, palm and fingerprint devices in step (never throws).
+  await (await import("@/lib/devices/sync")).queueMemberSync(session.churchId, [id]);
 
   revalidatePath("/app/people");
   revalidatePath("/app");
@@ -171,6 +175,8 @@ export async function deletePerson(id: string) {
   await RecycleBin.capturePerson(session, id);
   await db.person.deleteMany({ where: { id, churchId: session.churchId } });
   invalidateMemberLock(session.churchId);
+  // Keep the church's face, palm and fingerprint devices in step (never throws).
+  await (await import("@/lib/devices/sync")).queueMemberSync(session.churchId, [id]);
   if (person) await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: "person", entityId: id, detail: `Deleted ${person.firstName} ${person.lastName}` });
   revalidatePath("/app/people");
   revalidatePath("/app");
@@ -199,6 +205,8 @@ export async function issueMissingMemberIds() {
     const res = await db.person.updateMany({ where: { id: p.id, churchId: session.churchId, memberId: null }, data: { memberId } });
     issued += res.count;
   }
+  // Keep the church's face, palm and fingerprint devices in step (never throws).
+  await (await import("@/lib/devices/sync")).queueMemberSync(session.churchId, missing.map((p) => p.id));
   revalidatePath("/app/people");
   revalidatePath("/app/people/id-cards");
   return { issued };
@@ -250,6 +258,7 @@ export async function deletePeople(ids: string[]): Promise<{ ok: true; deleted: 
     }
   }
   if (deleted) invalidateMemberLock(session.churchId);
+  if (deleted) await (await import("@/lib/devices/sync")).queueMemberSync(session.churchId, people.map((p) => p.id));
   return { ok: true, deleted };
 }
 

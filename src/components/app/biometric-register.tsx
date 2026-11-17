@@ -308,6 +308,9 @@ type DeviceInfo = {
   modes: string[];
   last: { at: string; mode: string | null; deviceName: string | null } | null;
   sentTo: string[];
+  registered?: { device: string; kinds: string }[];
+  copied?: { device: string; kinds: string }[];
+  registerHere?: { device: string; kinds: string }[];
 };
 
 /**
@@ -357,10 +360,19 @@ export function DeviceCheckinCard({ personId }: { personId: string }) {
         </p>
       )}
       {d.pin && (d.modes.length > 0 || d.last) && (
-        <p className="mt-1.5 text-xs text-ink-faint">Device user number: <span className="font-mono">{d.pin}</span>. Their face or fingerprint is stored on the device, not in WorshipHQ.</p>
+        <p className="mt-1.5 text-xs text-ink-faint">Device user number: <span className="font-mono">{d.pin}</span>. Their face or fingerprint is stored on the device. WorshipHQ keeps a protected copy so your other devices can get it too.</p>
       )}
       {d.sentTo.length > 0 && (
         <p className="mt-1.5 flex items-center gap-1 text-xs text-ink-faint"><Send className="size-3" /> Name sent to {d.sentTo.join(", ")}</p>
+      )}
+      {!!d.registered?.length && (
+        <p className="mt-1.5 text-xs text-ink-muted">Registered on: {d.registered.map((r) => `${r.device} (${r.kinds})`).join(", ")}</p>
+      )}
+      {!!d.copied?.length && (
+        <p className="mt-1 text-xs text-ink-faint">Copied to: {d.copied.map((r) => `${r.device} (${r.kinds})`).join(", ")}</p>
+      )}
+      {!!d.registerHere?.length && (
+        <p className="mt-1 text-xs text-ink-faint">Register on this device: {d.registerHere.map((r) => `${r.device} (${r.kinds})`).join(", ")}. Its version is different or not known yet, so it cannot be copied there.</p>
       )}
     </div>
   );

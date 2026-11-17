@@ -208,6 +208,10 @@ model Church {
   bookingFormFields   Json?
   baptismFormFields   Json?
   biometricDevices    BiometricDevice[]
+  biometricTemplates  BiometricTemplate[]
+  deviceSyncedMembers BiometricSyncedMember[]
+  // Devices page: keep every ZKTeco terminal's member list and registrations in step automatically.
+  deviceAutoSync      Boolean         @default(true)
   outreach            OutreachMessage[]
 
   // Customizable SMS receipt templates (use {name}, {amount}, {church} placeholders)
@@ -649,6 +653,7 @@ model Person {
   welfareRecords          WelfareRecord[]
   welfareDues             WelfareDue[]
   biometrics              BiometricCredential[]
+  deviceTemplates         BiometricTemplate[]
   categoryOptions         MemberCategoryOption[]   @relation("PersonCategoryOptions")
   testimonies             Testimony[]
   counselingSessions      CounselingSession[]
@@ -2460,10 +2465,15 @@ model BiometricDevice {
   lastSeenAt  DateTime?
   lastScanAt  DateTime?
   info        String? // model and firmware as the device reports them
+  // What the device reported about itself: algorithm versions (fingerprint, face, palm), BIODATA support and counts.
+  reported     Json?
+  syncedAt     DateTime? // last time the device confirmed a command
+  reconciledAt DateTime? // last full check that the device's member list matches WorshipHQ
   createdAt   DateTime  @default(now())
 
-  events   BiometricDeviceEvent[]
-  commands BiometricDeviceCommand[]
+  events    BiometricDeviceEvent[]
+  commands  BiometricDeviceCommand[]
+  templates BiometricTemplate[]
 
   @@index([churchId])
 }
@@ -2495,11 +2505,62 @@ model BiometricDeviceCommand {
   deviceId  String
   device    BiometricDevice @relation(fields: [deviceId], references: [id], onDelete: Cascade)
   body      String
+  // What the command is about, so a newer change replaces an unsent one: u:PIN, d:PIN, t:PIN:type:no:index, info.
+  key       String?
   createdAt DateTime        @default(now())
   sentAt    DateTime?
   doneAt    DateTime?
+  result    Int? // the device's Return code (0 = done)
 
   @@index([deviceId, sentAt])
+  @@index([deviceId, key])
+}
+
+/**
+ * A face, palm or fingerprint registration a device uploaded (or a USB-scanner fingerprint shared with devices),
+ * kept so it can be copied to the church's other devices that use the same algorithm version.
+ * Sensitive: never exported, listed, logged or put in the recycle bin. Deleted with the person.
+ */
+model BiometricTemplate {
+  id             String           @id @default(cuid())
+  churchId       String
+  church         Church           @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  personId       String
+  person         Person           @relation(fields: [personId], references: [id], onDelete: Cascade)
+  pin            String // device user number when it was registered
+  type           String // fingerprint | face | palm | other
+  bioType        Int // BIODATA type: 1 fingerprint, 2 face, 8 palm, 9 visible-light face ...
+  no             Int              @default(0) // finger number 0-9 (FID) for fingerprints, else 0
+  index          Int              @default(0) // template index within the registration (face FID)
+  majorVer       Int? // algorithm major version (fingerprint 10, 12 ...); null = unknown, never copied
+  minorVer       Int?
+  format         Int              @default(0) // 0 = ZKTeco format
+  data           String           @db.Text // base64 template
+  size           Int?
+  sourceDeviceId String? // null = the USB scanner
+  sourceDevice   BiometricDevice? @relation(fields: [sourceDeviceId], references: [id], onDelete: SetNull)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+
+  @@unique([churchId, pin, bioType, no, index])
+  @@index([personId])
+  @@index([sourceDeviceId])
+}
+
+/**
+ * Who WorshipHQ last put on the church's devices, by device user number, so a change (new number, archived,
+ * deleted, locked) knows what to remove. No link to Person on purpose: it must outlive a deleted person.
+ */
+model BiometricSyncedMember {
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  personId  String
+  pin       String
+  name      String
+  updatedAt DateTime @updatedAt
+
+  @@id([churchId, personId])
+  @@index([churchId, pin])
 }
 
 // ── Receipts ─────────────────────────────────────────────

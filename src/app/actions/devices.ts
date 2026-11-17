@@ -8,20 +8,46 @@ import { hasSection } from "@/lib/permissions";
 import { audit } from "@/lib/audit";
 import { getBaseUrl } from "@/lib/url";
 import { deviceChurchAllowed } from "@/lib/devices/punch";
+import { asReported, enqueue, fullSyncDevice, resyncAllDevices, templatesReceivedByDevice } from "@/lib/devices/sync";
+import { BIO, deviceTakesUsbFingerprints, majorFor, queryBioCommand, supportsBiodata, type Reported } from "@/lib/devices/protocol";
 
 export type DeviceRow = {
   id: string; name: string; brand: "zkteco" | "webhook"; modes: string[]; serial: string; secret: string | null; enabled: boolean;
   online: boolean; lastSeenAt: string | null; lastScanAt: string | null; info: string | null; pending: number;
   scanRule: "service-times" | "custom" | "always"; windowDays: number[]; windowStart: string | null; windowEnd: string | null;
+  /** Sync status: what the device last reported about itself, and what WorshipHQ has received from it. */
+  sync: {
+    users: number | null; fingers: number | null; faces: number | null; lastSyncAt: string | null; templatesReceived: number; failed: number;
+    /** "Fingerprint 10, Face 7" as reported; empty when the device has not said. */
+    versions: string[];
+    /** Takes USB-scanner fingerprints (fingerprint version 10). */
+    usbShared: boolean;
+  };
 };
 export type DeviceEventRow = { id: string; device: string; at: string; mode: string | null; result: string; name: string | null; pin: string };
 export type DevicesData = {
   devices: DeviceRow[]; events: DeviceEventRow[]; host: string; baseUrl: string; canManage: boolean; planOk: boolean;
   /** Whether the church has set up service times (the scan-hours rule "during service times" needs them). */
   serviceTimesOn: boolean;
+  /** "Keep devices in sync automatically" (members and registrations). */
+  autoSync: boolean;
 };
 
 const MODES = ["fingerprint", "face", "palm"];
+
+function syncInfo(r: Reported, syncedAt: Date | null, templatesReceived: number, failed: number): DeviceRow["sync"] {
+  const versions: string[] = [];
+  const fp = majorFor(r, BIO.finger);
+  if (fp) versions.push(`Fingerprint ${fp}`);
+  const face = majorFor(r, BIO.face) ?? majorFor(r, BIO.vlFace);
+  if (face) versions.push(`Face ${face}`);
+  const palm = majorFor(r, BIO.palm) ?? majorFor(r, BIO.palmPrint);
+  if (palm) versions.push(`Palm ${palm}`);
+  return {
+    users: r.users ?? null, fingers: r.fingers ?? null, faces: r.faces ?? null, lastSyncAt: syncedAt?.toISOString() ?? null,
+    templatesReceived, failed, versions, usbShared: deviceTakesUsbFingerprints(r),
+  };
+}
 const clean = (v: unknown, max = 80) => String(v ?? "").trim().replace(/\s+/g, " ").slice(0, max);
 
 function guard(session: Awaited<ReturnType<typeof requireSession>>) {
@@ -33,13 +59,21 @@ export async function getDevices(): Promise<DevicesData> {
   const session = await requireSession();
   // Serials are the devices' only credential, and the scan log has member names and PINs.
   if (!hasSection(session, "attendance")) throw new Error("Your role cannot see the check-in devices.");
-  const [devices, events, baseUrl, planOk, church] = await Promise.all([
+  const [devices, events, baseUrl, planOk, church, received] = await Promise.all([
     db.biometricDevice.findMany({ where: { churchId: session.churchId }, orderBy: { createdAt: "asc" }, include: { _count: { select: { commands: { where: { sentAt: null } } } } } }),
     db.biometricDeviceEvent.findMany({ where: { churchId: session.churchId }, orderBy: { createdAt: "desc" }, take: 25, include: { device: { select: { name: true } } } }),
     getBaseUrl(),
     deviceChurchAllowed(session.churchId),
-    db.church.findUnique({ where: { id: session.churchId }, select: { serviceTimesOn: true } }),
+    db.church.findUnique({ where: { id: session.churchId }, select: { serviceTimesOn: true, deviceAutoSync: true } }),
+    templatesReceivedByDevice(session.churchId),
   ]);
+  // Commands a device answered with an error code, in the last week.
+  const failedRows = devices.length
+    ? await db.biometricDeviceCommand.groupBy({
+      by: ["deviceId"], where: { deviceId: { in: devices.map((d) => d.id) }, result: { lt: 0 }, doneAt: { gt: new Date(Date.now() - 7 * 86400000) } }, _count: { _all: true },
+    })
+    : [];
+  const failed = new Map(failedRows.map((r) => [r.deviceId, r._count._all]));
   const admin = session.role === "Owner" || session.role === "Admin";
   const soon = Date.now() - 6 * 60000; // devices check in about every 2 minutes
   return {
@@ -49,9 +83,11 @@ export async function getDevices(): Promise<DevicesData> {
       online: !!d.lastSeenAt && d.lastSeenAt.getTime() > soon, lastSeenAt: d.lastSeenAt?.toISOString() ?? null, lastScanAt: d.lastScanAt?.toISOString() ?? null,
       info: d.info, pending: d._count.commands,
       scanRule: d.scanRule === "custom" || d.scanRule === "always" ? d.scanRule : "service-times", windowDays: d.windowDays, windowStart: d.windowStart, windowEnd: d.windowEnd,
+      sync: syncInfo(asReported(d.reported), d.syncedAt, received.get(d.id) ?? 0, failed.get(d.id) ?? 0),
     })),
     events: events.map((e) => ({ id: e.id, device: e.device.name, at: e.at.toISOString(), mode: e.mode, result: e.result, name: e.personName, pin: e.pin })),
     host: new URL(baseUrl).host, baseUrl, canManage: !session.isDemo, planOk, serviceTimesOn: !!church?.serviceTimesOn,
+    autoSync: church?.deviceAutoSync ?? true,
   };
 }
 
@@ -114,33 +150,43 @@ export async function deleteDevice(id: string) {
   return { ok: true as const };
 }
 
-/** Plain letters only: many terminals cannot show anything else on a name. */
-const asciiName = (s: string) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(/[^A-Za-z0-9 .'-]/g, "").replace(/\s+/g, " ").trim().slice(0, 24);
-
-/** Queue every member to be added to a terminal, by name, so staff only have to enrol the face, palm or finger. */
+/** Every member (and every registration the device can read) queued for a terminal: a full resend. */
 export async function sendMembersToDevice(id: string) {
   const session = await requireSession();
   guard(session);
-  const device = await db.biometricDevice.findFirst({ where: { id, churchId: session.churchId } });
+  const device = await db.biometricDevice.findFirst({ where: { id, churchId: session.churchId }, select: { id: true, brand: true } });
   if (!device) return { ok: false as const, error: "Not found." };
   if (device.brand !== "zkteco") return { ok: false as const, error: "This only applies to terminals that connect to WorshipHQ themselves." };
   // People locked by the plan's member limit are not sent: their scans would not check them in anyway.
-  const { notLockedWhere } = await import("@/lib/member-lock");
-  const people = await db.person.findMany({ where: { churchId: session.churchId, status: "active", memberId: { not: null }, ...(await notLockedWhere(session.churchId)) }, select: { firstName: true, lastName: true, memberId: true }, take: 3000, orderBy: { memberId: "asc" } });
-  const seen = new Map<number, number>();
-  const rows: { pin: number; name: string }[] = [];
-  for (const p of people) {
-    const m = /(\d+)$/.exec(p.memberId ?? "");
-    if (!m) continue;
-    const pin = Number(m[1]);
-    seen.set(pin, (seen.get(pin) ?? 0) + 1);
-    rows.push({ pin, name: asciiName(`${p.firstName} ${p.lastName}`) || String(pin) });
-  }
-  const unique = rows.filter((r) => seen.get(r.pin) === 1);
-  await db.biometricDeviceCommand.deleteMany({ where: { deviceId: id, sentAt: null } });
-  await db.biometricDeviceCommand.createMany({
-    data: unique.map((r) => ({ deviceId: id, body: `DATA UPDATE USERINFO PIN=${r.pin}\tName=${r.name}\tPri=0\tPasswd=\tCard=\tGrp=1\tTZ=0000000100000000\tVerify=0\tViceCard=` })),
-  });
+  const r = await fullSyncDevice(id);
   revalidatePath("/app/devices");
-  return { ok: true as const, queued: unique.length, skipped: rows.length - unique.length };
+  return { ok: true as const, queued: r.queued, skipped: r.skipped, templates: r.templates };
+}
+
+/** "Keep devices in sync automatically". Turning it on catches every device up straight away. */
+export async function setDeviceAutoSync(on: boolean) {
+  const session = await requireSession();
+  guard(session);
+  if (session.role !== "Owner" && session.role !== "Admin") return { ok: false as const, error: "Only an Owner or Admin can change this." };
+  await db.church.update({ where: { id: session.churchId }, data: { deviceAutoSync: !!on } });
+  await audit(session, "update", "settings", on ? "Turned on automatic device sync" : "Turned off automatic device sync");
+  if (on) await resyncAllDevices(session.churchId);
+  revalidatePath("/app/devices");
+  return { ok: true as const };
+}
+
+/** Ask a terminal to upload the face, palm and fingerprint registrations it already holds, so they can be copied. */
+export async function fetchRegistrationsFromDevice(id: string) {
+  const session = await requireSession();
+  guard(session);
+  const device = await db.biometricDevice.findFirst({ where: { id, churchId: session.churchId, brand: "zkteco" }, select: { id: true, modes: true, reported: true } });
+  if (!device) return { ok: false as const, error: "Not found." };
+  const rep = asReported(device.reported);
+  const types = new Set<number>();
+  if (device.modes.includes("fingerprint")) types.add(BIO.finger);
+  if (device.modes.includes("face")) types.add(supportsBiodata(rep) && majorFor(rep, BIO.vlFace) ? BIO.vlFace : BIO.face);
+  if (device.modes.includes("palm")) types.add(BIO.palm);
+  await enqueue(id, [...types].map(queryBioCommand));
+  revalidatePath("/app/devices");
+  return { ok: true as const };
 }

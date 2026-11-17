@@ -4,14 +4,14 @@ import { usePagedList } from "@/components/ui/list-pager";
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "@/components/ui/app-link";
-import { ScanFace, Fingerprint, Hand, Plus, Wifi, WifiOff, Trash2, Copy, Check, Loader2, Users, Webhook, Usb, Radio, X, RefreshCw } from "lucide-react";
+import { ScanFace, Fingerprint, Hand, Plus, Wifi, WifiOff, Trash2, Copy, Check, Loader2, Users, Webhook, Usb, Radio, X, RefreshCw, ArrowLeftRight, Download } from "lucide-react";
 import { PageHeader } from "@/components/app/page-header";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input, Label } from "@/components/ui/input";
 import { Modal } from "@/components/ui/modal";
 import { useFeedback } from "@/components/ui/feedback";
-import { addDevice, updateDevice, deleteDevice, sendMembersToDevice, getDevices, type DevicesData, type DeviceRow } from "@/app/actions/devices";
+import { addDevice, updateDevice, deleteDevice, sendMembersToDevice, getDevices, setDeviceAutoSync, fetchRegistrationsFromDevice, type DevicesData, type DeviceRow } from "@/app/actions/devices";
 import { cn } from "@/lib/utils";
 
 const MODE_META: Record<string, { label: string; icon: typeof Fingerprint }> = {
@@ -128,6 +128,10 @@ export function DevicesClient({ data: initial }: { data: DevicesData }) {
 
       {/* Devices */}
       <h2 className="mb-2 font-display text-lg font-semibold">Your devices</h2>
+      {data.devices.some((d) => d.brand === "zkteco") && (
+        <AutoSyncCard on={data.autoSync} canEdit={can} busy={busy === "autosync"}
+          onToggle={(v) => run("autosync", () => setDeviceAutoSync(v), () => (v ? "Devices will be kept in sync. Catching them up now." : "Automatic sync is off. Use Send members to device when you need it."))} />
+      )}
       {data.devices.length === 0 ? (
         <Card className="p-10 text-center text-sm text-ink-muted">No devices added yet. Choose <b>Add a device</b> when yours arrives. We will show you exactly what to set on it.</Card>
       ) : (
@@ -146,13 +150,14 @@ export function DevicesClient({ data: initial }: { data: DevicesData }) {
               <div className="mt-3 flex flex-wrap gap-1.5">
                 {d.modes.map((m) => { const M = MODE_META[m]; return M ? <span key={m} className="inline-flex items-center gap-1 rounded-full border border-line px-2 py-0.5 text-xs"><M.icon className="size-3.5" /> {M.label}</span> : null; })}
               </div>
-              <p className="mt-3 text-xs text-ink-muted">Last contact: {ago(d.lastSeenAt)}. Last scan: {ago(d.lastScanAt)}.{d.pending > 0 ? ` ${d.pending} member${d.pending === 1 ? "" : "s"} waiting to be sent.` : ""}</p>
+              <p className="mt-3 text-xs text-ink-muted">Last contact: {ago(d.lastSeenAt)}. Last scan: {ago(d.lastScanAt)}.</p>
+              {d.brand === "zkteco" && <SyncStatus device={d} />}
               {d.enabled && !d.lastSeenAt && d.brand === "zkteco" && <p className="mt-2 rounded-lg bg-warning/10 px-3 py-2 text-xs text-ink">Waiting for the device to contact WorshipHQ. Open <b>Setup and details</b> for the steps.</p>}
               <div className="mt-3 flex flex-wrap gap-2">
                 <Button size="sm" variant="secondary" onClick={() => setOpen(d)}>Setup and details</Button>
                 {can && d.brand === "zkteco" && (
                   <Button size="sm" variant="secondary" disabled={busy === `send-${d.id}`}
-                    onClick={() => run(`send-${d.id}`, () => sendMembersToDevice(d.id), (r) => `${r.queued} member${r.queued === 1 ? "" : "s"} will appear on the device within a minute or two.${Number(r.skipped) ? ` ${r.skipped} skipped (no member number, or two members share one).` : ""}`)}>
+                    onClick={() => run(`send-${d.id}`, () => sendMembersToDevice(d.id), (r) => `${r.queued} member${r.queued === 1 ? "" : "s"} will appear on the device within a few minutes.${Number(r.templates) ? ` ${r.templates} registration${Number(r.templates) === 1 ? "" : "s"} copied from your other devices.` : ""}${Number(r.skipped) ? ` ${r.skipped} skipped (two members share a number).` : ""}`)}>
                     {busy === `send-${d.id}` ? <Loader2 className="size-4 animate-spin" /> : <Users className="size-4" />} Send members to device
                   </Button>
                 )}
@@ -194,6 +199,18 @@ export function DevicesClient({ data: initial }: { data: DevicesData }) {
           <Setup device={openDevice} data={data} />
           <ScanHours key={`${openDevice.id}-${openDevice.scanRule}-${openDevice.windowDays.join()}-${openDevice.windowStart}-${openDevice.windowEnd}`} device={openDevice} serviceTimesOn={data.serviceTimesOn} canEdit={can} busy={busy === `hours-${openDevice.id}`}
             onSave={(v) => run(`hours-${openDevice.id}`, () => updateDevice(openDevice.id, v), () => "Scan hours saved.")} />
+          {openDevice.brand === "zkteco" && (
+            <div className="mt-6 border-t border-line pt-5">
+              <h4 className="font-semibold">Registrations already on this device</h4>
+              <p className="mt-1 text-sm text-ink-muted">Faces, palms and fingers registered from now on are copied to your other devices on their own. For people registered on this device before it was added here, ask it to send them in. Not every model supports this.</p>
+              {can && (
+                <Button size="sm" variant="secondary" className="mt-3" disabled={busy === `fetch-${openDevice.id}`}
+                  onClick={() => run(`fetch-${openDevice.id}`, () => fetchRegistrationsFromDevice(openDevice.id), () => "Asked the device. Its registrations arrive the next time it checks in.")}>
+                  {busy === `fetch-${openDevice.id}` ? <><Loader2 className="size-4 animate-spin" /> Asking the device…</> : <><Download className="size-4" /> Copy registrations from this device</>}
+                </Button>
+              )}
+            </div>
+          )}
           {can && (
             <div className="mt-5 flex flex-wrap items-center gap-2 border-t border-line pt-4">
               <Button size="sm" variant="secondary" disabled={busy === `tog-${openDevice.id}`}
@@ -209,6 +226,51 @@ export function DevicesClient({ data: initial }: { data: DevicesData }) {
         </Modal>
       )}
       {pg_data_events.pager}
+    </div>
+  );
+}
+
+/** "Keep devices in sync automatically": members and registrations follow every change in WorshipHQ. */
+function AutoSyncCard({ on, canEdit, busy, onToggle }: { on: boolean; canEdit: boolean; busy: boolean; onToggle: (v: boolean) => void }) {
+  return (
+    <Card className="mb-3 flex flex-wrap items-start justify-between gap-3 p-4">
+      <div className="flex min-w-0 flex-1 gap-3">
+        <ArrowLeftRight className="mt-0.5 size-5 shrink-0 text-primary" />
+        <div className="min-w-0">
+          <div className="font-semibold">Keep devices in sync automatically</div>
+          <p className="mt-0.5 text-sm text-ink-muted">
+            New, renamed and renumbered members are added to every device, and people who are deleted, made inactive or locked by your plan are removed.
+            A face, palm or finger registered on one device is copied to your other devices that use the same version. Fingerprints are shared with the USB scanner when your device uses fingerprint version 10 (most ZKTeco models); this is confirmed per device below.
+          </p>
+        </div>
+      </div>
+      <Button size="sm" variant={on ? "secondary" : "primary"} disabled={!canEdit || busy} onClick={() => onToggle(!on)}>
+        {busy ? <><Loader2 className="size-4 animate-spin" /> Saving…</> : on ? <><Check className="size-4" /> On, turn off</> : "Turn on"}
+      </Button>
+    </Card>
+  );
+}
+
+/** What this device holds and what is still on its way, as far as WorshipHQ knows. */
+function SyncStatus({ device }: { device: DeviceRow }) {
+  const s = device.sync;
+  const parts: string[] = [];
+  if (s.users !== null) parts.push(`${s.users} member${s.users === 1 ? "" : "s"} on the device`);
+  if (s.faces !== null) parts.push(`${s.faces} face${s.faces === 1 ? "" : "s"}`);
+  if (s.fingers !== null) parts.push(`${s.fingers} finger${s.fingers === 1 ? "" : "s"}`);
+  return (
+    <div className="mt-2 space-y-1 rounded-lg bg-surface-2 px-3 py-2 text-xs text-ink-muted">
+      <p>
+        {parts.length ? `${parts.join(", ")} (as the device reports). ` : ""}
+        {device.pending > 0 ? <><b className="text-ink">{device.pending}</b> change{device.pending === 1 ? "" : "s"} waiting to be sent. </> : "Nothing waiting to be sent. "}
+        Last sync: {ago(s.lastSyncAt)}.
+      </p>
+      <p>Registrations received from this device: {s.templatesReceived}.</p>
+      <p>
+        {s.versions.length ? <>Versions: {s.versions.join(", ")}.{" "}</> : <>Versions: not reported yet. Until they are, registrations are not copied to this device, so register people on it directly. </>}
+        {s.versions.length > 0 && (s.usbShared ? "Fingerprints are shared with the USB scanner." : "Fingerprints stay on the device (not version 10).")}
+      </p>
+      {s.failed > 0 && <p className="text-danger">The device turned down {s.failed} change{s.failed === 1 ? "" : "s"} this week. Try Send members to device, or register those people on the device.</p>}
     </div>
   );
 }
@@ -339,7 +401,7 @@ function Setup({ device, data }: { device: DeviceRow; data: DevicesData }) {
       )}
 
       <ol className="space-y-4" start={5}>
-        <Step n={5}>Put members on the device. The easy way is <b>Send members to device</b> on this page: they appear by name within a couple of minutes. Then, on the device, pick each person and enrol their {reads}. Or add people on the device by hand, using the number at the end of their member ID as the User ID (42 for GBC-0042).</Step>
+        <Step n={5}>Put members on the device. With <b>Keep devices in sync automatically</b> on, members are sent the first time the device connects, and every change after that follows on its own. <b>Send members to device</b> sends everyone again. Then, on the device, pick each person and enrol their {reads}. People already registered on another of your devices with the same version are copied across, so they do not need to register again. Or add people on the device by hand, using the number at the end of their member ID as the User ID (42 for GBC-0042).</Step>
         <Step n={6}>Scan. The person is checked in to the service that is on, and the scan appears under Recent scans.</Step>
       </ol>
     </div>
@@ -384,7 +446,8 @@ function Guide({ startOpen }: { startOpen: boolean }) {
         <ul className="space-y-1.5">
           <li><b>The device never shows Online:</b> check the device has internet, the serial number here matches the device exactly, and the server address has no &ldquo;https://&rdquo;. Directly: port 443 with HTTPS on. Through the bridge: the bridge computer&apos;s address, port 8081, HTTPS off. Make sure the date and time are right. Then press Refresh, as devices check in about every 2 minutes.</li>
           <li><b>Online, but scans do not count:</b> look at Recent scans. &ldquo;ID not matched&rdquo; means the User ID on the device is not the number at the end of the member&apos;s ID. &ldquo;Outside scan hours&rdquo; means the scan was ignored because of the hours you set.</li>
-          <li><b>Members did not appear after &ldquo;Send members to device&rdquo;:</b> the device picks them up the next time it checks in, which can take a couple of minutes. If they still do not appear, add them on the device by hand.</li>
+          <li><b>Members did not appear after &ldquo;Send members to device&rdquo;:</b> the device picks them up the next time it checks in, which can take a couple of minutes (30 changes each time, so a long list takes longer). If they still do not appear, add them on the device by hand.</li>
+          <li><b>A registration was not copied to another device:</b> copying only works between devices that report the same version (shown on each device). Different models or firmware often use different versions. Register the person on that device directly.</li>
           <li><b>Scan times are wrong:</b> set the device&apos;s date, time and time zone. WorshipHQ uses the device&apos;s clock.</li>
           <li><b>Using the bridge:</b> its window must stay open and the computer on. If it was off, the device sends the missed scans when it reconnects (up to 36 hours later).</li>
           <li><b>Nothing at all after checking everything:</b> the device may not support this way of connecting. Tell us the model and we will help.</li>

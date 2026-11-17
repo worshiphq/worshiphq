@@ -252,6 +252,7 @@ export async function importCSV(formData: FormData): Promise<ImportResult> {
 
   const { invalidateMemberLock } = await import("@/lib/member-lock");
   invalidateMemberLock(session.churchId);
+  if (imported > 0) await (await import("@/lib/devices/sync")).queueMemberSync(session.churchId, "all");
   revalidatePath("/app/people");
   revalidatePath("/app");
 

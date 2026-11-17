@@ -43,7 +43,11 @@ export async function GET(req: NextRequest) {
     modes: string[];
     last: { at: string; mode: string | null; deviceName: string | null } | null;
     sentTo: string[];
-  } = { pin, hasDevices: devices.length > 0, modes: [], last: null, sentTo: [] };
+    /** Where their face, palm or fingers are registered, where copies were sent, and devices they must register on. */
+    registered: { device: string; kinds: string }[];
+    copied: { device: string; kinds: string }[];
+    registerHere: { device: string; kinds: string }[];
+  } = { pin, hasDevices: devices.length > 0, modes: [], last: null, sentTo: [], registered: [], copied: [], registerHere: [] };
 
   if (devices.length && pin) {
     const deviceIds = devices.map((d) => d.id);
@@ -82,6 +86,12 @@ export async function GET(req: NextRequest) {
         : null;
     const names = new Map(devices.map((d) => [d.id, d.name]));
     device = { ...device, modes: [...modes], last, sentTo: commands.map((c) => names.get(c.deviceId) ?? "a device") };
+  }
+  if (devices.length) {
+    // Device names and kinds only: the templates themselves never leave the server.
+    const { registeredOn } = await import("@/lib/devices/sync");
+    const on = await registeredOn(session.churchId, person.id).catch(() => null);
+    if (on) device = { ...device, ...on };
   }
 
   return NextResponse.json({
@@ -135,6 +145,11 @@ export async function POST(req: NextRequest) {
       deviceName: deviceName || "USB Scanner",
     },
   });
+  // A version 10 ZKTeco fingerprint also goes to the church's devices that read version 10 (never throws).
+  if (typeof templateData === "string") {
+    const { shareScannerFingerprint } = await import("@/lib/devices/sync");
+    await shareScannerFingerprint(session.churchId, person.id, fingerId, templateData, typeof format === "string" ? format : null);
+  }
 
   return NextResponse.json({ ok: true });
 }
@@ -159,6 +174,9 @@ export async function DELETE(req: NextRequest) {
   if (!cred) return NextResponse.json({ error: "Fingerprint not found" }, { status: 404 });
 
   await db.biometricCredential.deleteMany({ where: { id: cred.id, churchId: session.churchId } });
+  // Also off the devices it was shared with (never throws).
+  const { removeScannerFingerprint } = await import("@/lib/devices/sync");
+  await removeScannerFingerprint(session.churchId, personId, cred.finger);
   const who = `${cred.person.firstName} ${cred.person.lastName}`.trim();
   await audit(session, "delete", "fingerprint", `Removed ${cred.finger ? cred.finger.replace("_", " ") : "a"} fingerprint from ${who}`, personId).catch(() => {});
 

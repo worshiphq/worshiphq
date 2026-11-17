@@ -1,5 +1,7 @@
 import { deviceBySerial, text, touch } from "@/lib/devices/zk";
 import { deviceChurchAllowed } from "@/lib/devices/punch";
+import { parseInfoParam } from "@/lib/devices/protocol";
+import { reconcileIfDue, recordReported } from "@/lib/devices/sync";
 import { db } from "@/lib/db";
 
 export const dynamic = "force-dynamic";
@@ -8,10 +10,15 @@ export const dynamic = "force-dynamic";
 export async function GET(req: Request) {
   const device = await deviceBySerial(req);
   // A switched-off device, or a church whose plan no longer has devices, gets nothing: the queued commands carry
-  // member names and PINs, and anyone who knows the serial on the label can call this address.
+  // member names, PINs and registrations, and anyone who knows the serial on the label can call this address.
   if (!device || !device.enabled || !(await deviceChurchAllowed(device.churchId))) return text("OK");
   await touch(device.id);
-  const todo = await db.biometricDeviceCommand.findMany({ where: { deviceId: device.id, sentAt: null }, orderBy: { id: "asc" }, take: 30 });
+  // Some firmware adds INFO=firmware,users,fingers,records,IP,fingerprint version,face version,faces,... here.
+  const info = new URL(req.url).searchParams.get("INFO");
+  if (info) await recordReported(device, parseInfoParam(info));
+  // Catch any member change made where no hook runs (plan limits, automations), at most every 15 minutes.
+  await reconcileIfDue(device);
+  const todo = await db.biometricDeviceCommand.findMany({ where: { deviceId: device.id, sentAt: null }, orderBy: { id: "asc" }, take: 30, select: { id: true, body: true } });
   if (todo.length === 0) return text("OK");
   await db.biometricDeviceCommand.updateMany({ where: { id: { in: todo.map((c) => c.id) } }, data: { sentAt: new Date() } });
   return text(todo.map((c) => `C:${c.id}:${c.body}`).join("\n"));

@@ -260,6 +260,8 @@ export async function sendToParent(input: { personIds: string[]; note?: string }
     sent++;
     // They have moved up, so they leave this church's active list (their record stays here as history).
     await db.person.update({ where: { id }, data: { status: "inactive", notes: [`Sent to ${me.parentChurch.name} on ${new Date().toLocaleDateString("en-GB")}.`, built.payload.notes as string | null].filter(Boolean).join(" ") } });
+    // Keep the church's face, palm and fingerprint devices in step (never throws).
+    await (await import("@/lib/devices/sync")).queueMemberSync(session.churchId, [id]);
     if (me.parentChurch.autoAcceptTransfers) {
       const r = await acceptInternal(t.id, me.parentChurchId, { createMissing: true });
       if (r.ok) accepted++;
@@ -353,6 +355,8 @@ async function acceptInternal(transferId: string, toChurchId: string, opts: { cr
     await db.church.update({ where: { id: churchId }, data: { memberSeq: seq, memberPrefix: prefix } });
   }
   await db.personTransfer.update({ where: { id: t.id }, data: { status: "accepted", handledAt: new Date(), createdPersonId: personId } });
+  // Keep the church's face, palm and fingerprint devices in step (never throws).
+  await (await import("@/lib/devices/sync")).queueMemberSync(churchId, [personId]);
   return { ok: true, personId, merged };
 }
 

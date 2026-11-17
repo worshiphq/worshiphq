@@ -79,6 +79,8 @@ export async function runAutoInactive(now = new Date(), deadline?: Deadline) {
     const ids = plan.members.map((m) => m.id);
     const res = await db.person.updateMany({ where: { id: { in: ids }, churchId: church.id, status: "active" }, data: { status: "inactive" } });
     moved += res.count;
+    // Keep the church's face, palm and fingerprint devices in step (never throws).
+    await (await import("@/lib/devices/sync")).queueMemberSync(church.id, ids);
 
     const weeks = clampWeeks(church.autoInactiveWeeks);
     const names = plan.members.slice(0, 8).map((m) => m.name).join(", ");

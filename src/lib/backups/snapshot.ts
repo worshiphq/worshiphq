@@ -13,7 +13,7 @@ const MAGIC = Buffer.from("WHQB1");
 const PAGE = 2000;
 
 // Never exported: the backup of backups, plus anything that is a credential.
-const EXCLUDE_MODELS = new Set(["ChurchBackup", "BiometricCredential", "PhoneVerification"]);
+const EXCLUDE_MODELS = new Set(["ChurchBackup", "BiometricCredential", "BiometricTemplate", "PhoneVerification"]);
 const STRIP_FIELDS: Record<string, string[]> = { User: ["passwordHash", "inviteToken"] };
 
 export type DModel = (typeof Prisma.dmmf.datamodel.models)[number];

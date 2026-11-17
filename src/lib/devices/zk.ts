@@ -1,14 +1,17 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { deviceChurchAllowed, modeFromVerify, parseDeviceTime, recordPunch } from "@/lib/devices/punch";
+import { deviceOptions } from "@/lib/devices/protocol";
 
 /**
  * The ZKTeco "cloud server" (ADMS / push) protocol, which most face, palm and fingerprint terminals
  * speak: the device calls these three addresses on its own, so nothing is installed on a computer.
  *   GET  /iclock/cdata       the device says hello and asks for its settings
  *   POST /iclock/cdata       the device sends its scans (table=ATTLOG)
- *   GET  /iclock/getrequest  the device asks if there is anything to do (members to add)
- *   POST /iclock/devicecmd   the device reports that it did it
+ *   POST /iclock/cdata       also registrations (table=OPERLOG / BIODATA) and its settings (table=options)
+ *   GET  /iclock/getrequest  the device asks if there is anything to do (members, registrations to copy)
+ *   POST /iclock/devicecmd   the device reports that it did it (and answers INFO)
+ *   POST /iclock/querydata   answers to DATA QUERY (registrations already on the device)
  */
 
 export const text = (body: string, status = 200) => new Response(body, { status, headers: { "Content-Type": "text/plain", "Cache-Control": "no-store" } });
@@ -26,21 +29,9 @@ export async function touch(deviceId: string, info?: string | null) {
   await db.biometricDevice.update({ where: { id: deviceId }, data: { lastSeenAt: new Date(), ...(info ? { info: info.slice(0, 160) } : {}) } }).catch(() => {});
 }
 
-/** The settings we send back when a device says hello. */
+/** The settings we send back when a device says hello (see deviceOptions in ./protocol). */
 export function settingsFor(sn: string) {
-  return [
-    `GET OPTION FROM: ${sn}`,
-    "ErrorDelay=60",
-    // How often the device asks "anything for me?" (seconds). Scans are pushed the moment they happen (Realtime=1),
-    // so this only affects how fast "send members to device" arrives. Every 10 seconds would cost about 260,000
-    // function calls a month per device; every 2 minutes costs about 21,000.
-    "Delay=120",
-    "TransTimes=00:00;14:05",
-    "TransInterval=1",
-    "TransFlag=TransData AttLog\tOpLog",
-    "Realtime=1",
-    "Encrypt=0",
-  ].join("\n");
+  return deviceOptions(sn);
 }
 
 /** Read the scans a device posted: tab-separated lines of user ID, time, status, verify type. */

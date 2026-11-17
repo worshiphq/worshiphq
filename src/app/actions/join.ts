@@ -55,6 +55,8 @@ export async function selfRegister(formData: FormData) {
 
   // Zone / fellowship choices, limited to the categories shown on the join form.
   await saveMemberCategoryChoices(church.id, created.id, formData, { joinFormOnly: true });
+  // Keep the church's face, palm and fingerprint devices in step (never throws).
+  await (await import("@/lib/devices/sync")).queueMemberSync(church.id, [created.id]);
 
   // Optional: a follow-up task so someone personally welcomes them (church setting).
   const { createAutoFollowUp } = await import("@/lib/follow-ups/auto");
@@ -103,7 +105,7 @@ export async function registerChild(formData: FormData) {
 
   const memberId = await nextMemberId(church.id);
 
-  await db.person.create({
+  const child = await db.person.create({
     data: {
       ...(data as Prisma.PersonCreateInput),
       church: { connect: { id: church.id } },
@@ -113,6 +115,8 @@ export async function registerChild(formData: FormData) {
       ...(Object.keys(customFields).length ? { customFields } : {}),
     },
   });
+  // Keep the church's face, palm and fingerprint devices in step (never throws).
+  await (await import("@/lib/devices/sync")).queueMemberSync(church.id, [child.id]);
 
   redirect(`/children/${churchSlug}/thank-you`);
 }
@@ -141,7 +145,7 @@ export async function registerTeen(formData: FormData) {
   const pickedGroups = await resolveGroupIds(church.id, groupIds, { onlyOnForms: true });
   const memberId = await nextMemberId(church.id);
 
-  await db.person.create({
+  const teen = await db.person.create({
     data: {
       ...(data as Prisma.PersonCreateInput),
       church: { connect: { id: church.id } },
@@ -155,6 +159,8 @@ export async function registerTeen(formData: FormData) {
       ...(pickedGroups.length ? { groups: { connect: pickedGroups.map((id) => ({ id })) } } : {}),
     },
   });
+  // Keep the church's face, palm and fingerprint devices in step (never throws).
+  await (await import("@/lib/devices/sync")).queueMemberSync(church.id, [teen.id]);
 
   redirect(`/teens/${churchSlug}/thank-you`);
 }
