@@ -18,6 +18,7 @@ import {
   startPhoneChange, confirmPhoneChange,
   startEmailChange, confirmEmailChange,
 } from "@/app/actions/settings";
+import { setFirstPassword } from "@/app/actions/auth";
 
 export function AccountForm({
   name,
@@ -26,6 +27,7 @@ export function AccountForm({
   photoUrl,
   phone,
   phoneVerified,
+  hasPassword,
 }: {
   name: string;
   email: string;
@@ -33,7 +35,10 @@ export function AccountForm({
   photoUrl: string | null;
   phone: string | null;
   phoneVerified: boolean;
+  /** False for an account made with Google that has not added a password yet. */
+  hasPassword: boolean;
 }) {
+  const ghanaPhone = !!phone && phone.replace(/\D/g, "").startsWith("233");
   const [photo, setPhoto] = useState(photoUrl ?? "");
   const [editing, setEditing] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -81,6 +86,22 @@ export function AccountForm({
         setNewPw("");
       },
       { pending: "Updating password…", success: "Password updated" },
+    );
+  }
+
+  // An account made with Google: add a first password (no current one to type).
+  function submitFirstPassword() {
+    const form = pwRef.current;
+    if (!form) return;
+    const fd = new FormData(form);
+    run(
+      async () => {
+        const res = await setFirstPassword(fd);
+        if (!res?.ok) throw new Error(res?.error ?? "Couldn't add the password");
+        form.reset();
+        setNewPw("");
+      },
+      { pending: "Adding password…", success: "Password added. You can now also sign in with your email and password." },
     );
   }
 
@@ -245,10 +266,29 @@ export function AccountForm({
 
       {/* Password */}
       <Card className="p-6">
-        <h3 className="font-display text-lg font-semibold">Change password</h3>
-        <p className="text-sm text-ink-muted">Use a strong password with at least 8 characters.</p>
+        <h3 className="font-display text-lg font-semibold">{hasPassword ? "Change password" : "Add a password"}</h3>
+        <p className="text-sm text-ink-muted">
+          {hasPassword
+            ? "Use a strong password with at least 8 characters."
+            : "You sign in with Google. Add a password so you can also sign in with your email and password, for example on a shared computer."}
+        </p>
 
-        {forgotMode === "off" && (
+        {!hasPassword && (
+          <form ref={pwRef} className="mt-5 space-y-4" onSubmit={(e) => { e.preventDefault(); submitFirstPassword(); }}>
+            <div>
+              <Label htmlFor="next">New password</Label>
+              <PasswordInput id="next" name="next" required minLength={8} className={input} value={newPw} onChange={(e) => setNewPw(e.target.value)} />
+            </div>
+            <div>
+              <Label htmlFor="confirm">Confirm password</Label>
+              <PasswordInput id="confirm" name="confirm" required minLength={8} className={input} />
+            </div>
+            <PasswordStrength password={newPw} />
+            <Button type="submit">Add password</Button>
+          </form>
+        )}
+
+        {hasPassword && forgotMode === "off" && (
           <>
             <form ref={pwRef} className="mt-5 space-y-4" onSubmit={(e) => { e.preventDefault(); submitPassword(); }}>
               <div>
@@ -320,32 +360,41 @@ export function AccountForm({
       </Card>
 
       {/* Phone number */}
-      <Card className="p-6">
+      <Card className="scroll-mt-24 p-6" id="phone">
         <h3 className="font-display text-lg font-semibold flex items-center gap-2">
           <Phone className="size-5" /> Phone number
         </h3>
         <p className="text-sm text-ink-muted mt-1">
           {phone
-            ? <>Current: <span className="font-medium text-ink">{phone}</span> {phoneVerified && <span className="text-success">(verified)</span>}</>
+            ? <>Current: <span className="font-medium text-ink">{phone}</span> {phoneVerified ? <span className="text-success">(verified)</span> : <span className="text-warning">(not verified)</span>}</>
             : "No phone number on file."}
         </p>
 
         {phoneMode === "view" && (
-          <Button className="mt-4" variant="secondary" size="sm" onClick={() => setPhoneMode("password")}>
-            {phone ? "Change phone number" : "Add phone number"}
-          </Button>
+          <div className="mt-4 flex flex-wrap gap-2">
+            {phone && !phoneVerified && ghanaPhone && (
+              <Button size="sm" onClick={() => { setPhoneNewNumber(phone); setPhoneMode("password"); }}>
+                Verify this number
+              </Button>
+            )}
+            <Button variant="secondary" size="sm" onClick={() => setPhoneMode("password")}>
+              {phone ? "Change phone number" : "Add phone number"}
+            </Button>
+          </div>
         )}
 
         {phoneMode === "password" && (
           <form className="mt-4 space-y-3" onSubmit={submitPhonePassword}>
             <div>
-              <Label>New phone number</Label>
+              <Label>Phone number</Label>
               <PhoneInput value={phoneNewNumber} onChange={setPhoneNewNumber} required />
             </div>
-            <div>
-              <Label>Enter your password to confirm</Label>
-              <PasswordInput name="password" required className={input} />
-            </div>
+            {hasPassword && (
+              <div>
+                <Label>Enter your password to confirm</Label>
+                <PasswordInput name="password" required className={input} />
+              </div>
+            )}
             <div className="flex gap-2">
               <Button type="submit">Send verification code</Button>
               <Button type="button" variant="ghost" onClick={() => setPhoneMode("view")}>Cancel</Button>
@@ -374,11 +423,13 @@ export function AccountForm({
           Current: <span className="font-medium text-ink">{email}</span>
         </p>
 
-        {emailMode === "view" && (
+        {emailMode === "view" && (hasPassword ? (
           <Button className="mt-4" variant="secondary" size="sm" onClick={() => setEmailMode("password")}>
             Change email address
           </Button>
-        )}
+        ) : (
+          <p className="mt-3 text-xs text-ink-faint">This is the Google account you sign in with. To change it, add a password first.</p>
+        ))}
 
         {emailMode === "password" && (
           <form className="mt-4 space-y-3" onSubmit={submitEmailPassword}>

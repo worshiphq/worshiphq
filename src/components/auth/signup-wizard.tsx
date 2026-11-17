@@ -9,7 +9,8 @@ import {
   Church, User, AtSign, Lock, Sparkles, Check, ArrowLeft, ArrowRight,
   AlertCircle, Loader2, ClipboardCheck,
 } from "lucide-react";
-import { signUp } from "@/app/actions/auth";
+import { signUp, completeGoogleSignup } from "@/app/actions/auth";
+import { GoogleButton } from "@/components/auth/google-button";
 import { Input, Label } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { PASSWORD_RULES, passwordMeetsPolicy } from "@/lib/password-policy";
@@ -33,14 +34,25 @@ const COUNTRIES = [
   "Sierra Leone", "Liberia", "Togo", "Ivory Coast", "United Kingdom", "United States", "Canada", "Other",
 ];
 
-const STEPS = [
+type WizardStep = { key: string; label: string; icon: typeof Church; title: string; sub: string };
+
+const CODE_STEPS: readonly WizardStep[] = [
   { key: "church", label: "Church", icon: Church, title: "Tell us about your church", sub: "The name becomes your WorshipHQ workspace. The town helps us support you and connect you with churches near you." },
   { key: "you", label: "You", icon: User, title: "And what's your name?", sub: "You'll be the Main Admin of this church account." },
   { key: "contact", label: "Contact", icon: AtSign, title: "How do we reach you?", sub: "We'll send a one-time code to verify your phone." },
   { key: "password", label: "Security", icon: Lock, title: "Set a password", sub: "At least 8 characters, with a capital letter, a number and a symbol." },
   { key: "plan", label: "Plan", icon: Sparkles, title: "Choose your plan", sub: "Start free and upgrade any time - or jump straight in." },
   { key: "review", label: "Review", icon: ClipboardCheck, title: "Everything look right?", sub: "One tap and we'll send your verification code." },
-] as const;
+];
+
+/** Signing up with Google: Google has confirmed the email, so no password step and no code. */
+const GOOGLE_STEPS: readonly WizardStep[] = [
+  CODE_STEPS[0],
+  CODE_STEPS[1],
+  { key: "contact", label: "Contact", icon: AtSign, title: "Your phone number", sub: "So your church can reach you by text. You can verify it from your dashboard later." },
+  CODE_STEPS[4],
+  { key: "review", label: "Review", icon: ClipboardCheck, title: "Everything look right?", sub: "One tap and your church is ready." },
+];
 
 /** "How did you hear about us?" choices. `ask` shows a follow-up field with that placeholder. */
 const HEARD_FROM = [
@@ -60,12 +72,18 @@ export function SignupWizard({
   currencySymbol,
   initialPlan,
   errorMessage,
+  google = null,
+  showGoogleButton = false,
 }: {
   plans: WizardPlan[];
   currencySymbol: string;
   initialPlan: string;
   errorMessage: string | null;
+  /** Back from Google: the email is confirmed, so there is no password step and no code. */
+  google?: { email: string; name: string } | null;
+  showGoogleButton?: boolean;
 }) {
+  const STEPS: readonly WizardStep[] = google ? GOOGLE_STEPS : CODE_STEPS;
   const [step, setStep] = useState(0);
   const [dir, setDir] = useState(1);
   const [submitting, setSubmitting] = useState(false);
@@ -76,8 +94,8 @@ export function SignupWizard({
     church: "",
     city: "",
     country: "Ghana",
-    name: "",
-    email: "",
+    name: google?.name ?? "",
+    email: google?.email ?? "",
     phone: "",
     password: "",
     plan: initialPlan,
@@ -104,6 +122,11 @@ export function SignupWizard({
       case "you":
         return data.name.trim().length >= 2 ? null : "Please enter your name.";
       case "contact": {
+        if (google) {
+          if (!data.phone.trim()) return "Please enter your phone number.";
+          if (!isValidPhone(data.phone)) return "Please enter a valid phone number for the country you chose.";
+          return null;
+        }
         if (!/^\S+@\S+\.\S+$/.test(data.email.trim())) return "Please enter a valid email address.";
         if (data.channel === "phone" && !data.phone.trim()) return "Please enter a phone number to receive your code.";
         if (data.phone.trim() && !isValidPhone(data.phone))
@@ -146,7 +169,20 @@ export function SignupWizard({
   return (
     <div>
       <h1 className="font-display text-3xl font-bold">Start your church</h1>
-      <p className="mt-2 text-sm text-ink-muted">Create your WorshipHQ account in a minute.</p>
+      <p className="mt-2 text-sm text-ink-muted">
+        {google ? <>Signing up with Google as <span className="font-medium text-ink">{google.email}</span>.</> : "Create your WorshipHQ account in a minute."}
+      </p>
+
+      {showGoogleButton && step === 0 && (
+        <>
+          <div className="mt-6">
+            <GoogleButton mode="signup" plan={data.plan} />
+          </div>
+          <div className="mt-5 flex items-center gap-3 text-xs text-ink-faint">
+            <span className="h-px flex-1 bg-line" /> or sign up with your email <span className="h-px flex-1 bg-line" />
+          </div>
+        </>
+      )}
 
       {errorMessage && (
         <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
@@ -179,7 +215,7 @@ export function SignupWizard({
       {/* Real form so the server action + SMS verification flow stays intact */}
       <form
         ref={formRef}
-        action={signUp}
+        action={google ? completeGoogleSignup : signUp}
         onSubmit={() => setSubmitting(true)}
         onKeyDown={handleKeyDown}
         className="mt-6"
@@ -246,17 +282,25 @@ export function SignupWizard({
 
               {STEPS[step].key === "contact" && (
                 <div className="space-y-4">
+                  {google ? (
+                    <div>
+                      <Label htmlFor="w-email">Email</Label>
+                      <Input id="w-email" type="email" value={data.email} readOnly disabled />
+                      <p className="mt-1 text-xs text-ink-faint">Confirmed by Google. This is the email you sign in with.</p>
+                    </div>
+                  ) : (
+                    <div>
+                      <Label htmlFor="w-email">Email</Label>
+                      <Input id="w-email" type="email" value={data.email} onChange={set("email")} placeholder="you@church.org" autoFocus />
+                    </div>
+                  )}
                   <div>
-                    <Label htmlFor="w-email">Email</Label>
-                    <Input id="w-email" type="email" value={data.email} onChange={set("email")} placeholder="you@church.org" autoFocus />
-                  </div>
-                  <div>
-                    <Label htmlFor="w-phone">Phone {data.channel === "email" ? "(optional)" : "(for verification)"}</Label>
+                    <Label htmlFor="w-phone">Phone {google ? "" : data.channel === "email" ? "(optional)" : "(for verification)"}</Label>
                     <PhoneInput id="w-phone" value={data.phone} onChange={(v) => setData((d) => ({ ...d, phone: v }))} defaultCountry={countryFromName(data.country) ?? undefined} />
                   </div>
 
-                  {/* Where should the verification code go? */}
-                  <div>
+                  {/* Where should the verification code go? (Not asked with Google: there is no code.) */}
+                  {!google && <div>
                     <Label>Send my verification code by</Label>
                     <div className="mt-1.5 grid grid-cols-2 gap-2">
                       {([
@@ -283,7 +327,7 @@ export function SignupWizard({
                         );
                       })}
                     </div>
-                  </div>
+                  </div>}
                 </div>
               )}
 
@@ -395,7 +439,7 @@ export function SignupWizard({
                     { label: "Your name", value: data.name },
                     { label: "Email", value: data.email },
                     { label: "Phone", value: data.phone || "-" },
-                    { label: "Verify by", value: data.channel === "email" ? "Email code" : "SMS code" },
+                    ...(google ? [] : [{ label: "Verify by", value: data.channel === "email" ? "Email code" : "SMS code" }]),
                     {
                       label: "Plan",
                       value: `${selectedPlan.name}${selectedPlan.monthly > 0 ? ` · ${priceLabel(selectedPlan)}` : " · Free forever"}`,
@@ -491,7 +535,9 @@ export function SignupWizard({
               className="inline-flex h-12 flex-1 items-center justify-center gap-2 rounded-2xl bg-primary text-sm font-semibold text-white shadow-sm transition-colors hover:bg-primary-bright disabled:opacity-60"
             >
               {submitting && <Loader2 className="size-4 whq-spin" />}
-              {submitting ? "Sending code…" : `Create account - verify ${data.channel === "email" ? "email" : "phone"}`}
+              {google
+                ? submitting ? "Creating your church…" : "Create my church"
+                : submitting ? "Sending code…" : `Create account - verify ${data.channel === "email" ? "email" : "phone"}`}
             </button>
           )}
         </div>

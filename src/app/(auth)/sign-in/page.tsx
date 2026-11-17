@@ -19,6 +19,8 @@ import { Input, Label } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
 import { OtpInput } from "@/components/ui/otp-input";
 import { ResetPasswordForm } from "@/components/auth/reset-password-form";
+import { GoogleButton } from "@/components/auth/google-button";
+import { googleEnabled } from "@/lib/auth/google";
 
 export const metadata: Metadata = { title: "Log in" };
 
@@ -44,6 +46,7 @@ export default async function SignInPage({
     if (current?.userId && !current.isDemo) redirect("/app");
   }
   const support = supportEmail();
+  const google = googleEnabled();
   const triesLeft = Number(left);
   const warn = triesLeft >= 1 && triesLeft <= 4 ? ` You have ${triesLeft} ${triesLeft === 1 ? "try" : "tries"} left before this account is locked for 24 hours.` : "";
 
@@ -342,13 +345,28 @@ export default async function SignInPage({
                 ? "Too many wrong passwords, so this account is locked for 24 hours. Try again in 24 hours, or reset your password to get back in now."
                 : error === "locked-code"
                   ? `Too many wrong codes, so this account is locked for 24 hours. Try again in 24 hours, or contact support at ${support}.`
-                  : `Incorrect email/phone or password. Please try again.${warn}`}
+                  : error === "google"
+                    ? "Google sign-in didn't complete. Please try again."
+                    : error === "google-unverified"
+                      ? "That Google account's email isn't confirmed by Google yet. Use another account, or sign in with your password."
+                      : `Incorrect email/phone or password. Please try again.${warn}${google ? " If you signed up with Google, use Continue with Google." : ""}`}
         </div>
       )}
       {error === "expired" && (
         <div className="mt-5 flex items-center gap-2 rounded-xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
           <AlertCircle className="size-4 shrink-0" /> Your session expired. Please log in again.
         </div>
+      )}
+
+      {google && (
+        <>
+          <div className="mt-6">
+            <GoogleButton mode="signin" />
+          </div>
+          <div className="mt-5 flex items-center gap-3 text-xs text-ink-faint">
+            <span className="h-px flex-1 bg-line" /> or use your email or phone <span className="h-px flex-1 bg-line" />
+          </div>
+        </>
       )}
 
       <form action={signIn} className="mt-6 space-y-4">

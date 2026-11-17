@@ -1,8 +1,6 @@
 "use server";
 
-import { INTERNAL_SLUG_PREFIX } from "@/lib/live-church";
 import { redirect } from "next/navigation";
-import { after } from "next/server";
 import { revalidatePath } from "next/cache";
 import { cookies } from "next/headers";
 import { db } from "@/lib/db";
@@ -31,25 +29,6 @@ import { lockStatus, recordFailure, clearFailures, clearLock, passwordKey, userP
 
 const SIGNUP_VID = "whq_signup_vid";
 const RESET_VID = "whq_reset_vid";
-
-function slugify(name: string) {
-  return (
-    name
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, "-")
-      .replace(/^-+|-+$/g, "")
-      .slice(0, 40) || "church"
-  );
-}
-
-async function uniqueSlug(base: string) {
-  // The zz-qa- prefix is reserved for the hidden internal QA church.
-  if (base.startsWith(INTERNAL_SLUG_PREFIX)) base = base.replace(/^zz-qa-/, "zz-qa");
-  let slug = base;
-  let n = 1;
-  while (await db.church.findUnique({ where: { slug } })) slug = `${base}-${++n}`;
-  return slug;
-}
 
 /**
  * Step 1 of signup: validate details, send a phone verification code, and stash
@@ -153,76 +132,23 @@ export async function completeSignup(formData: FormData) {
     redirect("/sign-up?error=exists");
   }
 
-  const slug = await uniqueSlug(slugify(p.churchName));
-  const church = await db.church.create({
-    data: {
-      slug,
-      name: p.churchName,
-      city: p.city || null,
-      country: p.country || "Ghana",
-      // Outside Ghana the free credits are international ones, worth the same as Ghana's 30.
-      smsCredits: await (await import("@/lib/sms/intl")).signupCreditsFor(p.country || "Ghana"),
-      termsAcceptedAt: new Date(),
-      heardFrom: p.heardFrom || null,
-      heardFromDetail: p.heardDetail || null,
-      branches: { create: { name: "Main Branch", isHQ: true } },
-    },
-    include: { branches: true },
-  });
-
   // Every new church starts on Free. A paid plan picked at sign-up is only an intent: the Owner is
   // taken to checkout below and the plan switches on once Paystack confirms the payment.
-  // There is deliberately NO special case for any email address here. This used to hand a permanent free
-  // Max plan to whoever signed up as one particular address, but sign-up lets a person verify by phone while
-  // typing any email, so the address was never proven to be theirs. A gift of a plan is made by the
+  // There is deliberately NO special case for any email address here. A gift of a plan is made by the
   // SuperAdmin, to a church that exists, where it is recorded and can be seen.
   const intendedPlan = p.plan && ["starter", "pro", "max"].includes(p.plan) ? p.plan : null;
-  // Every new church gets the free Communications (SMS) trial straight away, with the 30 credits it starts with.
-  // Its length comes from SuperAdmin (Free trials), never more than 14 days. Switched off there = no trial.
-  const { getPlatformConfig } = await import("@/lib/data/platform-config");
-  const { COMMS_TRIAL_MAX_DAYS } = await import("@/lib/trial-settings");
-  const comms = (await getPlatformConfig()).trials.comms;
-  const commsStart = new Date();
-  const commsEnd = comms.enabled ? new Date(commsStart.getTime() + Math.min(COMMS_TRIAL_MAX_DAYS, comms.days) * 86_400_000) : null;
-  await db.subscription.create({
-    data: {
-      churchId: church.id, plan: "free", interval: "monthly", status: "active",
-      ...(commsEnd ? { commsTrialStartedAt: commsStart, commsTrialEndsAt: commsEnd } : {}),
-    },
-  });
-
-  const user = await db.user.create({
-    data: {
-      churchId: church.id,
-      email: p.email,
-      name: p.name,
-      passwordHash: p.passwordHash,
-      phone: p.phone || null,
-      // Mark exactly the channel that was verified.
-      phoneVerified: !verifiedByEmail && !!p.phone,
-      emailVerified: verifiedByEmail,
-      role: "Owner",
-    },
-  });
-
-  // Welcome email to the new owner. Runs after the response is sent, and can never break or slow signup.
-  after(async () => {
-    try {
-      const { alertOwnerOfSignup } = await import("@/lib/outreach/owner-alert");
-      await alertOwnerOfSignup(church.id);
-    } catch (e) {
-      console.error("[signup alert]", (e as Error).message);
-    }
-    try {
-      const { sendWelcome } = await import("@/lib/outreach/send");
-      await sendWelcome(church.id, true);
-    } catch (e) {
-      console.error("[welcome email]", (e as Error).message);
-    }
+  const { createChurchWithOwner } = await import("@/lib/signup/create-church");
+  const created = await createChurchWithOwner({
+    churchName: p.churchName, city: p.city, country: p.country, name: p.name, email: p.email,
+    passwordHash: p.passwordHash, phone: p.phone,
+    // Mark exactly the channel that was verified.
+    phoneVerified: !verifiedByEmail && !!p.phone,
+    emailVerified: verifiedByEmail,
+    heardFrom: p.heardFrom, heardDetail: p.heardDetail,
   });
 
   store.delete(SIGNUP_VID);
-  await startUserSession(user.id);
+  await startUserSession(created.userId);
   redirect(intendedPlan ? `/app/settings?tab=billing&upgrade=${intendedPlan}` : "/app");
 }
 
@@ -255,6 +181,64 @@ export async function resendSignupOtp() {
   if (result.limited) redirect(`/sign-up/verify?error=${encodeURIComponent(result.error ?? "Too many codes requested.")}${via}`);
   redirect(result.devCode ? `/sign-up/verify?dev=${result.devCode}${via}` : `/sign-up/verify?resent=1${via}`);
 }
+
+/**
+ * Sign-up with Google, last step: Google has already confirmed the email, so there is no code. The church questions
+ * are the same as the normal sign-up. The phone is saved unverified (the dashboard reminds them to verify it), and
+ * there is no password until they add one.
+ */
+export async function completeGoogleSignup(formData: FormData) {
+  const { GOOGLE_SIGNUP_COOKIE, readPendingSignup } = await import("@/lib/auth/google");
+  const store = await cookies();
+  const g = readPendingSignup(store.get(GOOGLE_SIGNUP_COOKIE)?.value);
+  if (!g) redirect("/sign-up?error=google-expired");
+
+  const churchName = String(formData.get("church") ?? "").trim().slice(0, 120);
+  const city = String(formData.get("city") ?? "").trim().slice(0, 80);
+  const country = String(formData.get("country") ?? "Ghana").trim().slice(0, 60) || "Ghana";
+  const name = String(formData.get("name") ?? "").trim().slice(0, 80);
+  const phone = String(formData.get("phone") ?? "").trim();
+  const plan = String(formData.get("plan") ?? "free").trim();
+  const acceptedTerms = formData.get("acceptedTerms") === "true";
+  const heardRaw = String(formData.get("heardFrom") ?? "").trim();
+  const heardFrom = ["tiktok", "facebook", "instagram", "youtube", "whatsapp", "google", "friend", "event", "other"].includes(heardRaw) ? heardRaw : "";
+  const heardDetail = heardFrom ? String(formData.get("heardDetail") ?? "").trim().slice(0, 120) : "";
+  const phoneOk = phone.replace(/\D/g, "").length >= 9;
+  if (churchName.length < 2 || city.length < 2 || name.length < 2 || !phoneOk || !acceptedTerms) {
+    redirect("/sign-up?google=1&error=invalid-google");
+  }
+  if (await db.user.findUnique({ where: { email: g.email } })) redirect("/sign-up?error=exists");
+
+  const { createChurchWithOwner } = await import("@/lib/signup/create-church");
+  const created = await createChurchWithOwner({
+    churchName, city, country, name, email: g.email,
+    passwordHash: null,
+    phone: normalisePhone(phone),
+    phoneVerified: false,
+    emailVerified: true,
+    heardFrom, heardDetail,
+  });
+
+  store.delete(GOOGLE_SIGNUP_COOKIE);
+  await startUserSession(created.userId);
+  const intendedPlan = ["starter", "pro", "max"].includes(plan) ? plan : null;
+  redirect(intendedPlan ? `/app/settings?tab=billing&upgrade=${intendedPlan}` : "/app");
+}
+
+/** First password for an account made with Google (it has none). Changing an existing password still needs the current one. */
+export async function setFirstPassword(formData: FormData): Promise<{ ok: boolean; error?: string }> {
+  const session = await getSession();
+  if (!session || session.isDemo || session.impersonating) return { ok: false, error: "Not available here." };
+  const next = String(formData.get("next") ?? "");
+  if (next !== String(formData.get("confirm") ?? "")) return { ok: false, error: "The two passwords don't match." };
+  if (!passwordMeetsPolicy(next)) return { ok: false, error: "Password needs 8+ characters with a capital letter, a number and a symbol." };
+  const user = await db.user.findUnique({ where: { id: session.userId }, select: { passwordHash: true } });
+  if (!user || user.passwordHash) return { ok: false, error: "You already have a password. Use Change password instead." };
+  await db.user.update({ where: { id: session.userId }, data: { passwordHash: await hashPassword(next) } });
+  revalidatePath("/app", "layout");
+  return { ok: true };
+}
+
 export async function startPasswordReset(formData: FormData) {
   const identifier = String(formData.get("identifier") ?? "").trim();
   const isEmail = identifier.includes("@");

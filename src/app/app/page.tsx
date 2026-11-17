@@ -23,6 +23,7 @@ import { PageTips } from "@/components/app/page-tips";
 import { FeaturedLeaderCountSetting } from "@/components/app/featured-leader-count";
 import { DidYouKnow } from "@/components/app/did-you-know";
 import { getTips } from "@/lib/tips";
+import { AccountTips } from "@/components/app/account-tips";
 
 const quickActions = [
   { icon: UserPlus, label: "Add member", href: "/app/people", section: "people", color: "bg-primary/10 text-primary-bright" },
@@ -47,6 +48,12 @@ export default async function DashboardPage() {
     ? await db.church.findUnique({ where: { id: session.churchId }, select: { smsPrefix: true, smsSenderIdStatus: true } })
     : null;
   const needsMessageName = !!nameRow && nameRow.smsPrefix == null && nameRow.smsSenderIdStatus !== "approved";
+  // Reminders for the person signed in: verify (or add) their phone, and add a password if they only use Google.
+  // A number outside Ghana cannot get a text code, so it is not nagged.
+  const me = session.isDemo || session.impersonating
+    ? null
+    : await db.user.findUnique({ where: { id: session.userId }, select: { phone: true, phoneVerified: true, passwordHash: true } });
+  const phoneTip = !me || me.phoneVerified ? null : !me.phone ? "add" : me.phone.replace(/\D/g, "").startsWith("233") ? "verify" : null;
   const h = new Date().getHours();
   const greeting = h < 12 ? "Good morning" : h < 17 ? "Good afternoon" : "Good evening";
   const today = new Date().toLocaleDateString("en-GH", { weekday: "long", day: "numeric", month: "long", year: "numeric" });
@@ -63,6 +70,8 @@ export default async function DashboardPage() {
       />
       <div className="space-y-6">
         {tips.length > 0 && <DidYouKnow tips={tips} />}
+        <AccountTips phone={phoneTip} noPassword={!!me && !me.passwordHash} />
+
         {needsMessageName && (
           <Link href="/app/communications" className="flex flex-wrap items-center gap-3 rounded-2xl border border-warning/50 bg-warning/10 px-4 py-3.5 text-sm transition-colors hover:bg-warning/15">
             <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-warning/20 text-warning"><AlertTriangle className="size-5" /></span>

@@ -1,15 +1,17 @@
 import type { Metadata } from "next";
 import { SignupWizard } from "@/components/auth/signup-wizard";
 import { getPlatformConfig } from "@/lib/data/platform-config";
+import { cookies } from "next/headers";
+import { GOOGLE_SIGNUP_COOKIE, googleEnabled, readPendingSignup } from "@/lib/auth/google";
 
 export const metadata: Metadata = { title: "Create your church" };
 
 export default async function SignUpPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; plan?: string }>;
+  searchParams: Promise<{ error?: string; plan?: string; google?: string }>;
 }) {
-  const [{ error, plan: planParam }, platformConfig] = await Promise.all([
+  const [{ error, plan: planParam, google: googleParam }, platformConfig] = await Promise.all([
     searchParams,
     getPlatformConfig(),
   ]);
@@ -36,14 +38,24 @@ export default async function SignUpPage({
             ? "Your verification session expired. Please sign up again."
             : error === "too-many"
               ? "Too many codes requested. Please wait a few minutes and try again."
-              : null;
+              : error === "google-expired"
+                ? "Your Google sign-up timed out. Please press Continue with Google again."
+                : error === "invalid-google"
+                  ? "Please fill in every field, including your phone number, and accept the terms."
+                  : null;
+
+  // Back from Google with a new email: the same questions, minus the email, password and code.
+  const pending = googleParam ? readPendingSignup((await cookies()).get(GOOGLE_SIGNUP_COOKIE)?.value) : null;
+  const expiredGoogle = !!googleParam && !pending;
 
   return (
     <SignupWizard
       plans={plans}
       currencySymbol={platformConfig.currencySymbol}
       initialPlan={selectedPlan}
-      errorMessage={message}
+      errorMessage={expiredGoogle && !message ? "Your Google sign-up timed out. Please press Continue with Google again." : message}
+      google={pending ? { email: pending.email, name: pending.name } : null}
+      showGoogleButton={googleEnabled() && !pending}
     />
   );
 }

@@ -119,7 +119,8 @@ export async function startPhoneChange(formData: FormData) {
   if (!newPhone) return { ok: false, error: "Phone number required." };
 
   const user = await db.user.findUnique({ where: { id: session.userId }, select: { passwordHash: true } });
-  if (!user?.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
+  // An account made with Google has no password yet; it is already signed in, so no password is asked for.
+  if (!user || (user.passwordHash && !(await verifyPassword(password, user.passwordHash)))) {
     return { ok: false, error: "Incorrect password." };
   }
 
@@ -161,7 +162,9 @@ export async function startEmailChange(formData: FormData) {
   if (!newEmail || !newEmail.includes("@")) return { ok: false, error: "Valid email required." };
 
   const user = await db.user.findUnique({ where: { id: session.userId }, select: { passwordHash: true } });
-  if (!user?.passwordHash || !(await verifyPassword(password, user.passwordHash))) {
+  // The login email is what Google sign-in matches on, so changing it always needs a password. Google accounts add one first.
+  if (!user?.passwordHash) return { ok: false, error: "Add a password first (in Change password), then change your email." };
+  if (!(await verifyPassword(password, user.passwordHash))) {
     return { ok: false, error: "Incorrect password." };
   }
 

@@ -22,7 +22,7 @@ export default async function AccountPage() {
 
   const user = await db.user.findUnique({
     where: { id: session.userId },
-    select: { phone: true, phoneVerified: true },
+    select: { phone: true, phoneVerified: true, passwordHash: true },
   });
 
   return (
@@ -35,6 +35,7 @@ export default async function AccountPage() {
         photoUrl={session.avatarUrl ?? null}
         phone={user?.phone ?? null}
         phoneVerified={user?.phoneVerified ?? false}
+        hasPassword={!!user?.passwordHash}
       />
     </div>
   );
