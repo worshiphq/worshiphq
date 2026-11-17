@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { GitBranch, Loader2, Check, Copy, Trash2, Users, Wallet, BarChart3, Send, ArrowRight, Link2Off, KeyRound } from "lucide-react";
+import { GitBranch, Landmark, Loader2, Check, Copy, Trash2, Users, Wallet, BarChart3, Send, ArrowRight, Link2Off, KeyRound } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +19,7 @@ const SHARE_OPTIONS: { key: ShareKey; title: string; text: string; icon: typeof 
   { key: "headcount", title: "How many members we have", text: "Just the number of active members.", icon: Users },
   { key: "attendance", title: "Our attendance", text: "The last service's total and the average of the last four.", icon: BarChart3 },
   { key: "finances", title: "Our finances (totals only)", text: "This month's giving and expenses as totals. Never names or individual gifts.", icon: Wallet },
+  { key: "levies", title: "Levies we owe you and what we have paid", text: "Only levies we pay to you: what is due, what we paid and our receipts. Never our giving.", icon: Landmark },
 ];
 
 const money = (n: number) => `₵${n.toLocaleString("en-GH", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -207,6 +208,10 @@ export function LinkedChurchesTab({ canManage }: { canManage: boolean }) {
                     {c.attendance?.lastService && <div className="text-xs text-ink-faint">{c.attendance.lastService}</div>}
                     {c.finances && <div className="flex justify-between"><dt className="text-ink-muted">Giving this month</dt><dd className="font-semibold">{money(c.finances.givingThisMonth)}</dd></div>}
                     {c.finances && <div className="flex justify-between"><dt className="text-ink-muted">Expenses this month</dt><dd className="font-semibold">{money(c.finances.expensesThisMonth)}</dd></div>}
+                    {c.levies && <div className="flex justify-between"><dt className="text-ink-muted">Levies owed this year</dt><dd className="font-semibold">{money(c.levies.owedThisYear)}</dd></div>}
+                    {c.levies && <div className="flex justify-between"><dt className="text-ink-muted">Paid to you this year</dt><dd className="font-semibold">{money(c.levies.paidThisYear)}</dd></div>}
+                    {c.levies && c.levies.overdue > 0 && <div className="flex justify-between"><dt className="text-ink-muted">Overdue</dt><dd className="font-semibold text-danger">{c.levies.overdue} period{c.levies.overdue === 1 ? "" : "s"}</dd></div>}
+                    {c.levies && <a href="/app/levies?tab=branches" className="block pt-1 text-xs font-semibold text-primary-bright hover:underline">See their levies</a>}
                   </dl>
                 )}
               </div>

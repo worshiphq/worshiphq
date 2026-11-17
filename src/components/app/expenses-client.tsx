@@ -10,6 +10,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { deleteExpense } from "@/app/actions/expenses";
+import { toastNow } from "@/components/ui/feedback";
 import { PeriodBar, FilterBar } from "@/components/app/accounting/accounting-client";
 import { Breakdown } from "@/components/app/accounting/overview";
 import { useLedgerNav, dayHeadings, type LedgerAccount } from "@/components/app/accounting/shared";
@@ -99,7 +100,15 @@ function Records({ ledger, details, accounts, canWrite, canDelete }: { ledger: L
     const fd = new FormData();
     fd.set("id", id);
     setHidden((p) => new Set(p).add(id));
-    start(async () => { await deleteExpense(fd); binDeleted(); router.refresh(); });
+    start(async () => {
+      const r = await deleteExpense(fd);
+      if (r && "error" in r) {
+        toastNow(r.error, "error");
+        setHidden((p) => { const n = new Set(p); n.delete(id); return n; });
+        return;
+      }
+      binDeleted(); router.refresh();
+    });
   };
 
   const heads = dayHeadings(shown, filters.sort !== "largest");

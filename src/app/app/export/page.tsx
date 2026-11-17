@@ -13,7 +13,7 @@ export default async function ExportPage() {
   const plan = await getChurchPlan(session.churchId);
   const canBundle = planRank(plan) >= planRank("pro");
 
-  const datasets = allowedDatasets((key) => hasSection(session, key)).map((d) => ({
+  const datasets = allowedDatasets((key) => hasSection(session, key), session.planLocked ?? []).map((d) => ({
     key: d.key,
     label: d.label,
   }));

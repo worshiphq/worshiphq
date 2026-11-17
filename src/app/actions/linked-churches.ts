@@ -13,8 +13,8 @@ import { ageOf, groupForAge } from "@/lib/age";
 import { getAgeConfig } from "@/lib/data/age";
 
 type Session = Awaited<ReturnType<typeof requireSession>>;
-export type ShareKey = "headcount" | "attendance" | "finances";
-const SHARE: ShareKey[] = ["headcount", "attendance", "finances"];
+export type ShareKey = "headcount" | "attendance" | "finances" | "levies";
+const SHARE: ShareKey[] = ["headcount", "attendance", "finances", "levies"];
 type Kind = keyof typeof LINK_KINDS;
 
 function requireOwnerOrAdmin(session: Session) {
@@ -30,6 +30,8 @@ export type LinkedChild = {
   members: number | null;
   attendance: { lastService: string | null; lastTotal: number; average4: number } | null;
   finances: { givingThisMonth: number; expensesThisMonth: number } | null;
+  /** Only levies this church set up as payable to us, and only while it shares them. */
+  levies: { owedThisYear: number; paidThisYear: number; overdue: number; lastPaidOn: string | null } | null;
 };
 export type TransferRow = { id: string; name: string; fromChurch: string; createdAt: string; note: string | null; departments: string[]; groups: string[]; zones: string[]; age: number | null; phone: string | null };
 export type LinkedData = {
@@ -59,10 +61,11 @@ export async function getLinkedChurches(): Promise<LinkedData> {
 
   const now = new Date();
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+  const yearStart = new Date(now.getFullYear(), 0, 1);
   const children: LinkedChild[] = [];
   for (const k of kids) {
     const share = k.linkShare.filter((s): s is ShareKey => (SHARE as string[]).includes(s));
-    const row: LinkedChild = { id: k.id, name: k.name, kind: k.linkKind ?? "partner", share, members: null, attendance: null, finances: null };
+    const row: LinkedChild = { id: k.id, name: k.name, kind: k.linkKind ?? "partner", share, members: null, attendance: null, finances: null, levies: null };
     if (share.includes("headcount")) row.members = await db.person.count({ where: { churchId: k.id, status: "active" } });
     if (share.includes("attendance")) {
       const recent = await db.attendanceSession.findMany({ where: { churchId: k.id }, orderBy: { date: "desc" }, take: 4, select: { serviceName: true, date: true, adults: true, teens: true, children: true, visitors: true } });
@@ -79,6 +82,19 @@ export async function getLinkedChurches(): Promise<LinkedData> {
         db.expense.aggregate({ where: { churchId: k.id, date: { gte: monthStart } }, _sum: { amount: true } }),
       ]);
       row.finances = { givingThisMonth: money(Number(g._sum.amount ?? 0)), expensesThisMonth: money(e._sum.amount ?? 0) };
+    }
+    if (share.includes("levies")) {
+      const [owed, paid, overdue, last] = await Promise.all([
+        db.levyRecord.aggregate({ where: { churchId: k.id, rule: { payeeChurchId: churchId }, periodStart: { gte: yearStart }, periodEnd: { lte: now } }, _sum: { amountDue: true } }),
+        db.levyPayment.aggregate({ where: { churchId: k.id, record: { rule: { payeeChurchId: churchId } }, paidOn: { gte: yearStart } }, _sum: { amount: true } }),
+        db.levyRecord.findMany({ where: { churchId: k.id, rule: { payeeChurchId: churchId }, dueDate: { lt: now } }, select: { amountDue: true, amountPaid: true } }),
+        db.levyPayment.findFirst({ where: { churchId: k.id, record: { rule: { payeeChurchId: churchId } } }, orderBy: { paidOn: "desc" }, select: { paidOn: true } }),
+      ]);
+      row.levies = {
+        owedThisYear: money(Number(owed._sum.amountDue ?? 0)), paidThisYear: money(Number(paid._sum.amount ?? 0)),
+        overdue: overdue.filter((r) => Number(r.amountPaid) + 0.005 < Number(r.amountDue)).length,
+        lastPaidOn: last?.paidOn.toISOString() ?? null,
+      };
     }
     children.push(row);
   }

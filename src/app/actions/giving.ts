@@ -97,39 +97,36 @@ export async function recordGift(formData: FormData) {
  */
 export interface CollectionLine { method: string; amount: number; accountId?: string | null; /** received but not banked yet */ notBanked?: boolean }
 
-export async function recordCollection(input: { fund: string; date: string; note?: string; lines: CollectionLine[] }) {
+export async function recordCollection(input: { fund: string; date: string; note?: string; lines: CollectionLine[]; serviceIncomeId?: string | null }) {
   const session = await requireSession();
   assertCanWrite(session, "giving");
   if (session.isDemo) return { ok: false as const, error: "This is the read-only demo." };
 
   const fundName = (input.fund ?? "").trim();
   if (!fundName) return { ok: false as const, error: "Choose which fund this is for." };
-  const lines = (input.lines ?? [])
-    .map((l) => ({ method: METHOD_FROM_LABEL[l.method] ?? (["Cash", "MTN_MoMo", "Telecel_Cash", "AirtelTigo", "Card", "Bank"].includes(l.method) ? (l.method as GiftMethod) : null), amount: Math.round(Number(l.amount) * 100) / 100, accountId: l.accountId ?? null, notBanked: !!l.notBanked }))
-    .filter((l): l is { method: GiftMethod; amount: number; accountId: string | null; notBanked: boolean } => !!l.method && l.amount > 0);
+  const { cleanCollectionLines, createCollectionGifts } = await import("@/lib/giving/collection");
+  const lines = cleanCollectionLines(input.lines);
   if (lines.length === 0) return { ok: false as const, error: "Enter how much was collected." };
+
+  // An optional service record (Service income) this collection belongs to. Only one of this church's.
+  const { ownedId } = await import("@/lib/tenant");
+  const serviceIncomeId = input.serviceIncomeId ? await ownedId("serviceIncome", input.serviceIncomeId, session.churchId) : null;
+  if (input.serviceIncomeId && !serviceIncomeId) return { ok: false as const, error: "That service record could not be found." };
 
   const fund =
     (await db.fund.findFirst({ where: { churchId: session.churchId, name: { equals: fundName, mode: "insensitive" } } })) ??
     (await db.fund.create({ data: { churchId: session.churchId, name: fundName } }));
 
   const { resolveAccountId } = await import("@/lib/data/accounts");
-  const date = formDate(input.date);
-  const note = (input.note ?? "").trim().slice(0, 60);
-  const donorName = `${fund.name} collection${note ? ` (${note})` : ""}`;
-
-  let total = 0;
-  for (const l of lines) {
-    const accountId = l.notBanked ? null : await resolveAccountId(session.churchId, l.accountId);
-    await db.gift.create({
-      data: { churchId: session.churchId, branchId: session.branchId ?? undefined, donorName, fundId: fund.id, accountId, pendingDeposit: l.notBanked, amount: l.amount, method: l.method, currency: "GHS", date },
-    });
-    total += l.amount;
-  }
+  const { total } = await createCollectionGifts(db, session.churchId, {
+    fundId: fund.id, fundName: fund.name, date: formDate(input.date), note: input.note, branchId: session.branchId, serviceIncomeId, lines,
+    resolveAccount: (chosen) => resolveAccountId(session.churchId, chosen),
+  });
 
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "gift", detail: `Recorded ${fund.name} collection of GHS ${total} (${lines.length} part${lines.length === 1 ? "" : "s"})` });
   revalidatePath("/app/giving");
   revalidatePath("/app/accounting");
+  if (serviceIncomeId) { revalidatePath("/app/service-income"); revalidatePath("/app/levies"); }
   revalidatePath("/app");
   return { ok: true as const, total };
 }
