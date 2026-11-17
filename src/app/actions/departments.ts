@@ -50,11 +50,18 @@ export async function addDepartmentMembers(departmentId: string, personIds: stri
   });
   if (!dept) return { ok: false as const, error: "Department not found." };
 
-  const valid = await db.person.findMany({
+  const found = await db.person.findMany({
     where: { churchId: session.churchId, id: { in: personIds.slice(0, 500) } },
     select: { id: true, departmentId: true },
   });
-  if (valid.length === 0) return { ok: false as const, error: "Pick at least one person." };
+  // People locked by the plan's member limit are skipped.
+  const { lockedAmong } = await import("@/lib/member-lock");
+  const locked = new Set(await lockedAmong(session.churchId, found.map((p) => p.id)));
+  const valid = found.filter((p) => !locked.has(p.id));
+  if (valid.length === 0) {
+    const { LOCKED_ADD } = await import("@/lib/member-lock-core");
+    return { ok: false as const, error: locked.size ? LOCKED_ADD : "Pick at least one person." };
+  }
 
   await db.department.update({
     where: { id: dept.id },
@@ -69,7 +76,7 @@ export async function addDepartmentMembers(departmentId: string, personIds: stri
   revalidatePath(`/app/departments/${dept.id}`);
   revalidatePath("/app/people");
   revalidatePath("/app/settings");
-  return { ok: true as const, added: valid.length };
+  return { ok: true as const, added: valid.length, skippedLocked: locked.size };
 }
 
 export async function removeDepartmentMember(formData: FormData) {

@@ -48,6 +48,9 @@ export async function createFollowUp(formData: FormData) {
   const assigneeIds = await validUserIds(session.churchId, wanted);
   const ownPersonId = await ownedId("person", personId, session.churchId);
   const ownVisitorId = await ownedId("visitor", visitorId, session.churchId);
+  // People locked by the plan's member limit can't be given new follow-ups.
+  const { isPersonLocked } = await import("@/lib/member-lock");
+  if (await isPersonLocked(session.churchId, ownPersonId)) return;
 
   const created = await db.followUp.create({
     data: {

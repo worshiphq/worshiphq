@@ -230,7 +230,22 @@ type Target = {
   giftIds?: string[];
 };
 
+/** Who an automation reaches, minus people locked by the plan's member limit (visitors are never locked). */
 async function targetsFor(
+  churchId: string,
+  trigger: string,
+  mmdd: string,
+  threeDaysAgo: Date,
+  sevenDaysAgo: Date,
+  now: Date,
+  automation?: Automation,
+): Promise<Target[]> {
+  const all = await allTargetsFor(churchId, trigger, mmdd, threeDaysAgo, sevenDaysAgo, now, automation);
+  const { dropLocked } = await import("@/lib/member-lock");
+  return dropLocked(churchId, all, (t) => t.personId);
+}
+
+async function allTargetsFor(
   churchId: string,
   trigger: string,
   mmdd: string,
@@ -242,9 +257,9 @@ async function targetsFor(
   const select = { firstName: true, lastName: true, phone: true };
   switch (trigger) {
     case "birthday":
-      return db.person.findMany({ where: { churchId, birthday: mmdd }, select });
+      return (await db.person.findMany({ where: { churchId, birthday: mmdd }, select: { id: true, ...select } })).map(({ id, ...p }) => ({ ...p, personId: id }));
     case "anniversary":
-      return db.person.findMany({ where: { churchId, anniversary: mmdd }, select });
+      return (await db.person.findMany({ where: { churchId, anniversary: mmdd }, select: { id: true, ...select } })).map(({ id, ...p }) => ({ ...p, personId: id }));
     case "visitor_followup": {
       // Queries Visitor directly (not Person) so the dedupe guard actually
       // sticks: welcomeSmsSentAt is set the moment this - or the instant send

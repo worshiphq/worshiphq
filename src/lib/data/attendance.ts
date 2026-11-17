@@ -203,7 +203,8 @@ export async function getAttendanceReportConfig(churchId: string) {
 
 /** Members not yet checked in to this session - for the staff check-in picker. */
 export async function getCheckInCandidates(churchId: string, sessionId: string) {
-  const [people, records] = await Promise.all([
+  const { lockedPersonIds } = await import("@/lib/member-lock");
+  const [people, records, locked] = await Promise.all([
     db.person.findMany({
       where: { churchId },
       orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
@@ -216,6 +217,7 @@ export async function getCheckInCandidates(churchId: string, sessionId: string) 
       },
     }),
     db.attendanceRecord.findMany({ where: { sessionId }, select: { personId: true } }),
+    lockedPersonIds(churchId),
   ]);
   const checkedIn = new Set(records.map((r) => r.personId).filter(Boolean));
   // Everyone stays searchable - already-checked-in people are flagged rather
@@ -230,6 +232,8 @@ export async function getCheckInCandidates(churchId: string, sessionId: string) 
     photoUrl: p.photoUrl,
     status: p.status,
     checkedIn: checkedIn.has(p.id),
+    // Over the plan's member limit: still findable, so staff see why, but cannot be checked in.
+    locked: locked.has(p.id),
     groups: personGroups(p),
   }));
 }

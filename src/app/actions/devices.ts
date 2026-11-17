@@ -124,7 +124,9 @@ export async function sendMembersToDevice(id: string) {
   const device = await db.biometricDevice.findFirst({ where: { id, churchId: session.churchId } });
   if (!device) return { ok: false as const, error: "Not found." };
   if (device.brand !== "zkteco") return { ok: false as const, error: "This only applies to terminals that connect to WorshipHQ themselves." };
-  const people = await db.person.findMany({ where: { churchId: session.churchId, status: "active", memberId: { not: null } }, select: { firstName: true, lastName: true, memberId: true }, take: 3000, orderBy: { memberId: "asc" } });
+  // People locked by the plan's member limit are not sent: their scans would not check them in anyway.
+  const { notLockedWhere } = await import("@/lib/member-lock");
+  const people = await db.person.findMany({ where: { churchId: session.churchId, status: "active", memberId: { not: null }, ...(await notLockedWhere(session.churchId)) }, select: { firstName: true, lastName: true, memberId: true }, take: 3000, orderBy: { memberId: "asc" } });
   const seen = new Map<number, number>();
   const rows: { pin: number; name: string }[] = [];
   for (const p of people) {

@@ -15,6 +15,8 @@ export interface DirectoryRow {
   occupation: string | null;
   departments: string[];
   groupIds: string[];
+  /** Over the plan's member limit: still listed, with a badge. */
+  locked?: boolean;
 }
 
 /** One page of active members for a search, a department and a group. The database does the matching and the paging. */
@@ -30,6 +32,8 @@ export async function queryDirectory(churchId: string, search: string, departmen
   const total = await db.person.count({ where });
   const pages = Math.max(1, Math.ceil(total / DIRECTORY_PAGE));
   const page = Math.min(Math.max(1, Math.floor(pageWanted || 1)), pages);
+  const { lockedPersonIds } = await import("@/lib/member-lock");
+  const locked = await lockedPersonIds(churchId);
   const people = await db.person.findMany({
     where,
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }, { id: "asc" }],
@@ -51,6 +55,7 @@ export async function queryDirectory(churchId: string, search: string, departmen
     occupation: p.occupation,
     departments: p.departments.map((d) => d.name),
     groupIds: p.groups.map((g) => g.id),
+    locked: locked.has(p.id),
   }));
   return { rows, total, page };
 }

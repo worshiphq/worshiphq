@@ -31,13 +31,16 @@ export async function runGroupMeetingReminders(now = new Date(), ignoreHour = fa
     const { weekday: todayWeekday } = localParts(now, church.timezone);
     const todayYmd = ymdInTz(now, church.timezone);
 
+    // People locked by the plan's member limit get no reminders.
+    const { notLockedWhere } = await import("@/lib/member-lock");
+    const notLocked = await notLockedWhere(church.id);
     const groups = await db.group.findMany({
       where: { churchId: church.id, meetingReminderOn: true, meetingReminderAuto: true },
       select: {
         id: true, name: true, meetingSchedule: true, meetingDays: true, meetingDay: true, meetingTime: true,
         meetingReminderText: true, meetingReminderLeadDays: true, meetingReminderHour: true, meetingReminderMinute: true, meetingReminderWeekday: true,
         meetingReminderLastSent: true, meetingReminderSent: true,
-        members: { where: { phone: { not: null } }, select: { phone: true } },
+        members: { where: { phone: { not: null }, ...notLocked }, select: { phone: true } },
       },
     });
 

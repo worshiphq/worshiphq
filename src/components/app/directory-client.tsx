@@ -8,7 +8,8 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { MemberAvatar } from "@/components/ui/member-avatar";
-import { Search, LayoutGrid, List, Phone, Mail, Briefcase } from "lucide-react";
+import { Search, LayoutGrid, List, Phone, Mail, Briefcase, Lock } from "lucide-react";
+import { LOCKED_BADGE, LOCKED_LINE } from "@/lib/member-lock-core";
 
 import { matchesPerson } from "@/lib/search";
 type MemberRow = {
@@ -21,6 +22,7 @@ type MemberRow = {
   occupation: string | null;
   departments: string[];
   groupIds: string[];
+  locked?: boolean;
 };
 
 type Dept = { id: string; name: string };
@@ -128,6 +130,7 @@ export function DirectoryClient({
                 {m.departments.map((d) => (
                   <Badge key={d} variant="default" className="text-[10px]">{d}</Badge>
                 ))}
+                {m.locked && <Badge variant="warning" className="gap-1 text-[10px]" title={LOCKED_LINE}><Lock className="size-3" /> {LOCKED_BADGE}</Badge>}
               </div>
               <div className="mt-2 flex justify-center gap-3 text-xs text-ink-muted">
                 {m.phone && (
@@ -145,7 +148,7 @@ export function DirectoryClient({
             <div key={m.id} className="flex items-center gap-3 rounded-xl px-3 py-2.5 hover:bg-surface-2">
               <MemberAvatar name={m.name} photoUrl={m.photoUrl} size="sm" />
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">{m.name}</p>
+                <p className="flex flex-wrap items-center gap-1.5 text-sm font-medium">{m.name}{m.locked && <Badge variant="warning" className="gap-1 text-[10px]" title={LOCKED_LINE}><Lock className="size-3" /> {LOCKED_BADGE}</Badge>}</p>
                 <div className="flex flex-wrap gap-x-3 text-xs text-ink-muted">
                   {m.memberId && <span>{m.memberId}</span>}
                   {m.occupation && <span className="flex items-center gap-1"><Briefcase className="size-3" /> {m.occupation}</span>}

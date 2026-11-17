@@ -250,6 +250,8 @@ export async function importCSV(formData: FormData): Promise<ImportResult> {
     errors.push(`Only the first 5,000 rows were imported. Your file had ${dataRows.length} rows.`);
   }
 
+  const { invalidateMemberLock } = await import("@/lib/member-lock");
+  invalidateMemberLock(session.churchId);
   revalidatePath("/app/people");
   revalidatePath("/app");
 

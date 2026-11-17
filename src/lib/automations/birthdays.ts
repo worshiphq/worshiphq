@@ -54,8 +54,11 @@ export async function runBirthdays(now = new Date(), ignoreHour = false, deadlin
     const todayKey = mmddInTz(now, church.timezone, 0);
 
     // Members celebrating today.
+    // People locked by the plan's member limit get no wishes and are left out of admin lists.
+    const { notLockedWhere } = await import("@/lib/member-lock");
+    const notLocked = await notLockedWhere(church.id);
     const todayPeople = await db.person.findMany({
-      where: { churchId: church.id, status: { not: "inactive" }, birthday: todayKey },
+      where: { churchId: church.id, status: { not: "inactive" }, birthday: todayKey, ...notLocked },
       select: { firstName: true, lastName: true, title: true, phone: true },
     });
 
@@ -98,7 +101,7 @@ export async function runBirthdays(now = new Date(), ignoreHour = false, deadlin
         labelByKey.set(key, d.toLocaleDateString("en-GB", { weekday: "short", day: "numeric", month: "short" }));
       }
       const people = await db.person.findMany({
-        where: { churchId: church.id, status: { not: "inactive" }, birthday: { in: keys } },
+        where: { churchId: church.id, status: { not: "inactive" }, birthday: { in: keys }, ...notLocked },
         select: { firstName: true, lastName: true, birthday: true },
       });
       if (people.length > 0) {

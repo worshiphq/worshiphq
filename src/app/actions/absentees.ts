@@ -45,7 +45,10 @@ export async function followUpAbsentees(input: AbsenteeAssign) {
 
   const found = await confirmAbsentees(session.churchId, input.sessionId, ids);
   if (!found) return { ok: false as const, error: "Service not found." };
-  const { sess, people } = found;
+  const { sess } = found;
+  // People locked by the plan's member limit get no follow-up and no text.
+  const { dropLocked } = await import("@/lib/member-lock");
+  const people = await dropLocked(session.churchId, found.people, (p) => p.id);
 
   const wanted = [...new Set([input.defaultUserId, ...Object.values(input.perPerson ?? {})].filter(Boolean) as string[])];
   const okUsers = new Set((await db.user.findMany({ where: { churchId: session.churchId, id: { in: wanted } }, select: { id: true } })).map((u) => u.id));

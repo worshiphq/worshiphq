@@ -50,8 +50,10 @@ export async function sendLeaderGroupMessage(input: { groupId: string; message: 
     if (today >= PER_DAY) return { ok: false, error: `You can send ${PER_DAY} messages a day to this group. Please try again tomorrow, or ask an admin.` };
   }
 
+  // People locked by the plan's member limit are not texted.
+  const { notLockedWhere } = await import("@/lib/member-lock");
   const people = await db.person.findMany({
-    where: { churchId: session.churchId, groups: { some: { id: group.id } }, status: { not: "inactive" }, phone: { not: null } },
+    where: { churchId: session.churchId, groups: { some: { id: group.id } }, status: { not: "inactive" }, phone: { not: null }, ...(await notLockedWhere(session.churchId)) },
     select: { id: true, firstName: true, lastName: true, phone: true },
     take: MAX_PEOPLE,
   });

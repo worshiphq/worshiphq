@@ -47,14 +47,16 @@ export async function runRosterReminders(now = new Date(), ignoreHour = false, d
 
     // Candidate slots - a window wide enough for every mode - not yet reminded.
     const to = new Date(now.getTime() + 25 * 86400000);
-    const slots = await db.volunteerSlot.findMany({
+    // People locked by the plan's member limit get no reminders.
+    const { dropLocked } = await import("@/lib/member-lock");
+    const slots = await dropLocked(church.id, await db.volunteerSlot.findMany({
       where: { churchId: church.id, remindedAt: null, personId: { not: null }, date: { gte: horizon, lte: to }, roster: { deletedAt: null } },
       include: {
         person: { select: { firstName: true, phone: true, title: true } },
         roster: { select: { remindOverride: true } },
       },
       orderBy: { date: "asc" },
-    });
+    }), (s) => s.personId);
 
     // Which slots are due right now? Each slot uses its own resolved timing.
     const due = slots.flatMap((s) => {

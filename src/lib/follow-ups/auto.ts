@@ -23,6 +23,11 @@ export async function createAutoFollowUp(input: {
 }): Promise<{ created: boolean }> {
   try {
     if (!input.visitorId && !input.personId) return { created: false };
+    // People locked by the plan's member limit are not given new follow-ups.
+    if (input.personId) {
+      const { isPersonLocked } = await import("@/lib/member-lock");
+      if (await isPersonLocked(input.churchId, input.personId)) return { created: false };
+    }
 
     const church = await db.church.findUnique({
       where: { id: input.churchId },

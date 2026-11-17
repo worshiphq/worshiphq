@@ -25,6 +25,7 @@ const RESULT_TEXT: Record<string, { text: string; tone: string }> = {
   unknown_id: { text: "ID not matched to a member", tone: "text-danger" },
   too_old: { text: "Too old, ignored", tone: "text-ink-faint" },
   outside_hours: { text: "Outside scan hours, ignored", tone: "text-ink-faint" },
+  locked: { text: "Locked on the current plan, not checked in", tone: "text-amber-600 dark:text-amber-400" },
 };
 
 const ago = (iso: string | null) => {

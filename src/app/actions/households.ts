@@ -5,6 +5,7 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { lockedEditError } from "@/lib/member-lock";
 
 export type FamilyRole = "head" | "spouse" | "child" | "other";
 const ROLES: FamilyRole[] = ["head", "spouse", "child", "other"];
@@ -77,6 +78,8 @@ export async function createFamily(input: { personId: string; name: string; kind
   const session = await requirePeopleWriter();
   const person = await db.person.findFirst({ where: { id: input.personId, churchId: session.churchId }, select: { id: true, householdId: true } });
   if (!person) return { ok: false, error: "Member not found." };
+  const locked = await lockedEditError(session.churchId, person.id);
+  if (locked) return { ok: false, error: locked };
   if (person.householdId) return { ok: false, error: "This member is already in a family." };
   const name = input.name.trim().replace(/\s+/g, " ").slice(0, 80);
   if (!name) return { ok: false, error: "Give the family a name, for example the Mensah family." };
@@ -118,6 +121,8 @@ export async function addFamilyMember(input: { householdId: string; personId: st
     db.person.findFirst({ where: { id: input.personId, churchId: session.churchId }, select: { id: true, householdId: true, firstName: true } }),
   ]);
   if (!h || !p) return { ok: false, error: "Not found." };
+  const locked = await lockedEditError(session.churchId, p.id);
+  if (locked) return { ok: false, error: locked };
   if (p.householdId && p.householdId !== h.id) return { ok: false, error: `${p.firstName} is already in another family. Remove them from it first.` };
   if (p.householdId === h.id) return setFamilyRole({ personId: p.id, role: input.role });
   const role = ROLES.includes(input.role) ? input.role : "other";
@@ -136,6 +141,8 @@ export async function setFamilyRole(input: { personId: string; role: FamilyRole 
   const session = await requirePeopleWriter();
   const p = await db.person.findFirst({ where: { id: input.personId, churchId: session.churchId }, select: { id: true, householdId: true } });
   if (!p?.householdId) return { ok: false, error: "Not found." };
+  const locked = await lockedEditError(session.churchId, p.id);
+  if (locked) return { ok: false, error: locked };
   const role = ROLES.includes(input.role) ? input.role : "other";
   await db.person.update({ where: { id: p.id }, data: { householdRole: role } });
   // Someone who is no longer a partner stops carrying the wedding date; a new partner picks it up.

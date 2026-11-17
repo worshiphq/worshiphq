@@ -5,7 +5,7 @@ import { useMemo, useState, useEffect, useRef, useActionState } from "react";
 import { ScanFace,
   Search, Plus, Phone, Mail, MapPin, X, Users, Pencil, Trash2,
   Briefcase, Heart, Shield, User, Grid3X3, List, ChevronRight, Download, MessageSquare, QrCode as QrIcon, Fingerprint,
-  ArrowDownAZ, Filter, Crown, Baby, GraduationCap, School, UserPlus,
+  ArrowDownAZ, Filter, Crown, Baby, GraduationCap, School, UserPlus, Lock,
 } from "lucide-react";
 import Link from "@/components/ui/app-link";
 import dynamic from "next/dynamic";
@@ -41,6 +41,7 @@ import { BIN_TOAST } from "@/lib/recycle-bin-config";
 import { matchesPerson } from "@/lib/search";
 import { ageOf } from "@/lib/age";
 import { pressable } from "@/lib/a11y";
+import { LOCKED_BADGE, LOCKED_LINE } from "@/lib/member-lock-core";
 const ageGroupTabs = [
   { key: "adult", label: "Adults", icon: Users },
   { key: "teen", label: "Teens", icon: GraduationCap },
@@ -61,7 +62,15 @@ const engagementStyle: Record<PersonRow["engagement"], { label: string; variant:
   new: { label: "Visitor", variant: "info" },
 };
 
-type AllStats = { totalAll: number; adults: number; teens: number; children: number; active: number; visitors: number; departments: number; visitorRecords: number };
+function LockedBadge({ className }: { className?: string }) {
+  return (
+    <Badge variant="warning" className={cn("gap-1", className)} title={LOCKED_LINE}>
+      <Lock className="size-3" /> {LOCKED_BADGE}
+    </Badge>
+  );
+}
+
+type AllStats = { totalAll: number; adults: number; teens: number; children: number; active: number; visitors: number; departments: number; visitorRecords: number; locked?: number };
 type Dept = { id: string; name: string };
 type Adult = { id: string; firstName: string; lastName: string };
 
@@ -82,6 +91,7 @@ export function PeopleClient({
   const [engFilter, setEngFilter] = useState("");
   const [catFilter, setCatFilter] = useState(""); // a category option id
   const [youthOnly, setYouthOnly] = useState(false);
+  const [lockedOnly, setLockedOnly] = useState(false);
   const filterableCategories = categories.filter((c) => c.options.length > 0);
   const [sortBy, setSortBy] = useState<"name-az" | "name-za" | "newest" | "oldest">("name-az");
 
@@ -99,7 +109,7 @@ export function PeopleClient({
     return () => clearTimeout(t);
   }, [query]);
 
-  const filterKey = `${ageTab}|${debounced}|${segment}|${deptFilter}|${groupFilter}|${engFilter}|${catFilter}|${sortBy}|${youthOnly}`;
+  const filterKey = `${ageTab}|${debounced}|${segment}|${deptFilter}|${groupFilter}|${engFilter}|${catFilter}|${sortBy}|${youthOnly}|${lockedOnly}`;
 
   // Ticking people to delete several at once. Ticks are kept across pages; a new search or filter clears them.
   const rowIds = useMemo(() => rows.map((r) => r.id), [rows]);
@@ -110,6 +120,7 @@ export function PeopleClient({
   const currentQuery = () => ({
     tab: ageTab, q: debounced, status: segment, department: deptFilter, groupId: groupFilter, engagement: engFilter,
     categoryOptionId: catFilter, youth: isAdultTab && youth && youthOnly ? { min: youth.min, max: youth.max } : null, sort: sortBy,
+    locked: lockedOnly,
   });
   async function selectAllMatching() {
     setSelectingAll(true);
@@ -163,6 +174,7 @@ export function PeopleClient({
       categoryOptionId: catFilter,
       youth: isAdultTab && youth && youthOnly ? { min: youth.min, max: youth.max } : null,
       sort: sortBy,
+      locked: lockedOnly,
       page,
     })
       .then((res) => {
@@ -316,6 +328,16 @@ export function PeopleClient({
               {youth.label} ({youth.min} to {youth.max})
             </button>
           )}
+          {(stats.locked ?? 0) > 0 && (
+            <button
+              onClick={() => setLockedOnly((v) => !v)}
+              aria-pressed={lockedOnly}
+              title={LOCKED_LINE}
+              className={cn("inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all duration-200", lockedOnly ? "bg-amber-500/15 text-amber-700 shadow-sm dark:text-amber-300" : "text-ink-muted hover:bg-surface-2")}
+            >
+              <Lock className="size-3.5" /> {LOCKED_BADGE} ({(stats.locked ?? 0).toLocaleString()})
+            </button>
+          )}
         </div>
         <div className="flex flex-wrap items-center gap-2">
           {isAdultTab && (
@@ -444,6 +466,7 @@ export function PeopleClient({
                       </Badge>
                     )}
                     {p.departments[0] && <Badge variant="default" className="text-[10px]">{p.departments[0]}</Badge>}
+                    {p.locked && <LockedBadge className="text-[10px]" />}
                   </div>
                   {!isAdultTab && p.parentName && (
                     <p className="mt-2 text-xs text-ink-faint">Parent: {p.parentName}</p>
@@ -498,7 +521,7 @@ export function PeopleClient({
                       <div className="flex items-center gap-3">
                         <ClickableAvatar name={p.fullName} photoUrl={p.photoUrl} gender={p.gender} size="sm" />
                         <div>
-                          <div className="font-medium text-ink">{p.fullName}</div>
+                          <div className="flex flex-wrap items-center gap-1.5 font-medium text-ink">{p.fullName}{p.locked && <LockedBadge className="text-[10px]" />}</div>
                           <div className="text-xs text-ink-faint">{p.memberId ?? p.email ?? p.phone ?? "---"}</div>
                         </div>
                       </div>
@@ -616,6 +639,8 @@ function PersonDrawer({ person, canWrite, adults, categories = [], onClose, onEd
   const [smsOpen, setSmsOpen] = useState(false);
   const [qrOpen, setQrOpen] = useState(false);
   const isYouth = person.ageGroup === "teen" || person.ageGroup === "child";
+  // Locked by the plan's member limit: read-only, but can still be removed.
+  const editable = canWrite && !person.locked;
 
   return (
     <>
@@ -654,9 +679,16 @@ function PersonDrawer({ person, canWrite, adults, categories = [], onClose, onEd
                 {!person.biometricRegistered && !person.deviceCheckin && (
                   <Badge variant="default" className="gap-1 bg-amber-100 text-amber-700"><Fingerprint className="size-3" /> No biometrics</Badge>
                 )}
+                {person.locked && <LockedBadge />}
               </div>
             </div>
           </div>
+          {person.locked && (
+            <p className="mt-3 flex items-start gap-2 rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-sm text-ink">
+              <Lock className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+              <span>{LOCKED_LINE}</span>
+            </p>
+          )}
         </div>
 
         <div className="px-6 pb-6">
@@ -691,7 +723,7 @@ function PersonDrawer({ person, canWrite, adults, categories = [], onClose, onEd
                 <p className="text-sm text-ink-faint">No parent assigned</p>
               )}
 
-              {canWrite && (
+              {editable && (
                 <form action={assignParent} className="mt-3 flex items-end gap-2">
                   <input type="hidden" name="childId" value={person.id} />
                   <div className="flex-1">
@@ -714,7 +746,7 @@ function PersonDrawer({ person, canWrite, adults, categories = [], onClose, onEd
             </Section>
           )}
 
-          <Section title="Family and marriage"><FamilySection key={person.id} personId={person.id} lastName={person.lastName} canWrite={canWrite} /></Section>
+          <Section title="Family and marriage"><FamilySection key={person.id} personId={person.id} lastName={person.lastName} canWrite={editable} /></Section>
 
           {person.departments.length > 0 && (
             <Section title="Departments">
@@ -777,7 +809,7 @@ function PersonDrawer({ person, canWrite, adults, categories = [], onClose, onEd
 
           <DeviceCheckinCard personId={person.id} />
 
-          {canWrite && (
+          {editable && (
             <div className="mt-4">
               <BiometricRegisterButton
                 personId={person.id}
@@ -789,8 +821,8 @@ function PersonDrawer({ person, canWrite, adults, categories = [], onClose, onEd
 
           {canWrite && (
             <div className="mt-4 flex gap-2">
-              <Button className="flex-1" onClick={onEdit}><Pencil className="size-4" /> Edit profile</Button>
-              {person.phone && (
+              {editable && <Button className="flex-1" onClick={onEdit}><Pencil className="size-4" /> Edit profile</Button>}
+              {editable && person.phone && (
                 <Button variant="secondary" onClick={() => setSmsOpen(true)}><MessageSquare className="size-4" /> SMS</Button>
               )}
               <form

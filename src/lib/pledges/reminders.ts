@@ -27,17 +27,19 @@ export async function runPledgeReminders(deadline?: Deadline) {
     const schedule = (church.pledgeReminderDays ?? []).filter((d) => d > 0).sort((a, b) => b - a);
     if (!schedule.length) return;
 
-    const pledges = await db.pledge.findMany({
+    // Pledges by people locked by the plan's member limit are not chased until the church renews or upgrades.
+    const { dropLocked } = await import("@/lib/member-lock");
+    const pledges = await dropLocked(church.id, await db.pledge.findMany({
       where: {
         churchId: church.id,
         dueAt: { not: null },
         donorPhone: { not: null },
       },
       select: {
-        id: true, donorName: true, donorPhone: true, amount: true,
+        id: true, personId: true, donorName: true, donorPhone: true, amount: true,
         fulfilled: true, dueAt: true, remindersSent: true,
       },
-    });
+    }), (p) => p.personId);
 
     for (const p of pledges) {
       if (!p.dueAt || !p.donorPhone) continue;

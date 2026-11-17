@@ -45,7 +45,7 @@ export function DepartmentDetailClient({
     start(async () => {
       const res = await addDepartmentMembers(department.id, chosen);
       if (res.ok) {
-        toast(`${res.added} added to ${department.name}`, "success");
+        toast(`${res.added} added to ${department.name}${res.skippedLocked ? `. ${res.skippedLocked} locked ${res.skippedLocked === 1 ? "person was" : "people were"} skipped` : ""}`, "success");
         setChosen([]);
         setAdding(false);
         router.refresh();

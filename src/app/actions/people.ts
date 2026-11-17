@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { memberLimitError } from "@/lib/member-limit";
+import { invalidateMemberLock, isPersonLocked } from "@/lib/member-lock";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite, assertCanDelete, assertPlanFeature } from "@/lib/auth";
 import { getFormDefinition, questionFields } from "@/lib/forms/registration";
@@ -79,6 +80,7 @@ export async function createPerson(formData: FormData) {
   });
 
   await saveMemberCategoryChoices(session.churchId, person.id, formData);
+  invalidateMemberLock(session.churchId);
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "person", entityId: person.id, detail: `Added ${data.firstName} ${data.lastName}` });
   revalidatePath("/app/people");
   revalidatePath("/app");
@@ -100,6 +102,8 @@ export async function updatePerson(formData: FormData) {
   // Ensure the record belongs to this church before touching relations.
   const existing = await db.person.findFirst({ where: { id, churchId: session.churchId }, select: { id: true, status: true } });
   if (!existing) return;
+  // Locked by the plan's member limit: the profile is read-only until the church renews, upgrades or removes people.
+  if (await isPersonLocked(session.churchId, id)) return;
 
   const fields = await formFields(session.churchId);
   const { data, customFields, departmentNames } = await buildPersonData(fields, formData);
@@ -166,6 +170,7 @@ export async function deletePerson(id: string) {
   const person = await db.person.findFirst({ where: { id, churchId: session.churchId }, select: { firstName: true, lastName: true } });
   await RecycleBin.capturePerson(session, id);
   await db.person.deleteMany({ where: { id, churchId: session.churchId } });
+  invalidateMemberLock(session.churchId);
   if (person) await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: "person", entityId: id, detail: `Deleted ${person.firstName} ${person.lastName}` });
   revalidatePath("/app/people");
   revalidatePath("/app");
@@ -244,6 +249,7 @@ export async function deletePeople(ids: string[]): Promise<{ ok: true; deleted: 
       await logAudit({ churchId: session.churchId, userId: session.userId, action: "delete", entity: "person", entityId: p.id, detail: `Deleted ${p.firstName} ${p.lastName} (bulk)` });
     }
   }
+  if (deleted) invalidateMemberLock(session.churchId);
   return { ok: true, deleted };
 }
 

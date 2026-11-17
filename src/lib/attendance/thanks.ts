@@ -40,8 +40,12 @@ async function eligible(sessionId: string, churchId: string) {
   const seen = new Set<string>();
   const out: typeof records = [];
   const skip: string[] = [];
+  // People locked by the plan's member limit are not texted.
+  const { lockedPersonIds } = await import("@/lib/member-lock");
+  const locked = await lockedPersonIds(churchId);
   for (const r of records) {
     if (!r.person?.phone || !r.personId) continue;
+    if (locked.has(r.personId)) { skip.push(r.id); continue; }
     if (r.person.status === "visitor" && !returning.has(r.personId)) { skip.push(r.id); continue; }
     if (seen.has(r.personId) || (r.person.lastThankedAt && r.person.lastThankedAt.getTime() > cutoff)) { skip.push(r.id); continue; }
     seen.add(r.personId);

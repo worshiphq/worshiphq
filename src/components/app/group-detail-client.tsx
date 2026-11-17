@@ -55,7 +55,7 @@ export function GroupDetailClient({
     if (chosen.length === 0) return;
     start(async () => {
       const res = await addGroupMembers(group.id, chosen);
-      if (res.ok) { toast(`${res.added} added to ${group.name}`, "success"); setChosen([]); setAdding(false); router.refresh(); }
+      if (res.ok) { toast(`${res.added} added to ${group.name}${res.skippedLocked ? `. ${res.skippedLocked} locked ${res.skippedLocked === 1 ? "person was" : "people were"} skipped` : ""}`, "success"); setChosen([]); setAdding(false); router.refresh(); }
       else toast(res.error, "error");
     });
   };

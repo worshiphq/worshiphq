@@ -8,6 +8,8 @@ import { audit } from "@/lib/audit";
 import { RecycleBin } from "@/lib/recycle-bin";
 import { DEFAULT_MEETING_REMINDER, renderMeetingReminder, parseSchedule } from "@/lib/groups/meeting-reminder";
 import { ownedId } from "@/lib/tenant";
+import { isPersonLocked, lockedAddError, lockedAmong, notLockedWhere } from "@/lib/member-lock";
+import { LOCKED_ADD } from "@/lib/member-lock-core";
 
 /** Parse the shared group fields (create + edit) from the form. */
 function readGroupFields(formData: FormData) {
@@ -46,6 +48,8 @@ export async function createGroup(formData: FormData) {
   const f = readGroupFields(formData);
   f.leaderId = await ownedId("person", f.leaderId, session.churchId);
   if (!f.name) return;
+  // A person locked by the plan's member limit can't be made a leader.
+  if (await isPersonLocked(session.churchId, f.leaderId)) f.leaderId = null;
 
   const group = await db.group.create({
     data: { churchId: session.churchId, ...f, meetingSchedule: f.meetingSchedule as unknown as Prisma.InputJsonValue },
@@ -83,6 +87,11 @@ export async function updateGroup(formData: FormData) {
   const f = readGroupFields(formData);
   f.leaderId = await ownedId("person", f.leaderId, session.churchId);
   if (!f.name) return;
+  // A person locked by the plan's member limit can't become the leader. A leader already in place stays.
+  if (f.leaderId && (await isPersonLocked(session.churchId, f.leaderId))) {
+    const cur = await db.group.findFirst({ where: { id, churchId: session.churchId }, select: { leaderId: true } });
+    if (cur?.leaderId !== f.leaderId) f.leaderId = cur?.leaderId ?? null;
+  }
 
   await db.group.updateMany({
     where: { id, churchId: session.churchId },
@@ -104,7 +113,8 @@ export async function sendGroupMeetingReminder(groupId: string) {
       where: { id: groupId, churchId: session.churchId },
       select: {
         name: true, meetingSchedule: true, meetingDay: true, meetingTime: true, meetingReminderText: true,
-        members: { where: { phone: { not: null } }, select: { phone: true } },
+        // People locked by the plan's member limit are not texted.
+        members: { where: { phone: { not: null }, ...(await notLockedWhere(session.churchId)) }, select: { phone: true } },
       },
     }),
     db.church.findUnique({ where: { id: session.churchId }, select: { name: true } }),
@@ -156,6 +166,7 @@ export async function addGroupMember(formData: FormData) {
 
   const person = await db.person.findFirst({ where: { id: personId, churchId: session.churchId }, select: { id: true } });
   if (!person) return;
+  if (await isPersonLocked(session.churchId, personId)) return;
   await db.group.update({
     where: { id: groupId, churchId: session.churchId },
     data: { members: { connect: { id: personId } } },
@@ -170,13 +181,16 @@ export async function addGroupMembers(groupId: string, personIds: string[]) {
   if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
   const group = await db.group.findFirst({ where: { id: groupId, churchId: session.churchId }, select: { id: true, name: true } });
   if (!group) return { ok: false as const, error: "Group not found." };
-  const valid = await db.person.findMany({ where: { churchId: session.churchId, id: { in: personIds.slice(0, 500) } }, select: { id: true } });
-  if (valid.length === 0) return { ok: false as const, error: "Pick at least one person." };
+  const found = await db.person.findMany({ where: { churchId: session.churchId, id: { in: personIds.slice(0, 500) } }, select: { id: true } });
+  // People locked by the plan's member limit are skipped.
+  const locked = new Set(await lockedAmong(session.churchId, found.map((p) => p.id)));
+  const valid = found.filter((p) => !locked.has(p.id));
+  if (valid.length === 0) return { ok: false as const, error: locked.size ? LOCKED_ADD : "Pick at least one person." };
   await db.group.update({ where: { id: groupId }, data: { members: { connect: valid.map((p) => ({ id: p.id })) } } });
   await audit(session, "update", "group", `Added ${valid.length} people to "${group.name}"`, groupId);
   revalidatePath(`/app/groups/${groupId}`);
   revalidatePath("/app/groups");
-  return { ok: true as const, added: valid.length };
+  return { ok: true as const, added: valid.length, skippedLocked: locked.size };
 }
 
 export async function removeGroupMember(formData: FormData) {
@@ -210,6 +224,8 @@ export async function setGroupLeader(groupId: string, personId: string | null) {
   if (personId) {
     const person = await db.person.findFirst({ where: { id: personId, churchId: session.churchId }, select: { id: true, firstName: true, lastName: true } });
     if (!person) return { ok: false as const, error: "Person not found." };
+    const lockedMsg = await lockedAddError(session.churchId, [person.id]);
+    if (lockedMsg) return { ok: false as const, error: lockedMsg };
     await db.group.update({ where: { id: group.id }, data: { leaderId: person.id, members: { connect: { id: person.id } } } });
     await audit(session, "update", "group", `Made ${person.firstName} ${person.lastName} leader of "${group.name}"`.trim(), group.id);
   } else {

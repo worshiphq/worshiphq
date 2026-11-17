@@ -82,6 +82,10 @@ export async function createPledge(formData: FormData) {
       select: { firstName: true, lastName: true, phone: true },
     });
     if (!person) return { ok: false, error: "Member not found." };
+    // People locked by the plan's member limit can't make new pledges until the church renews or upgrades.
+    const { lockedAddError } = await import("@/lib/member-lock");
+    const lockedMsg = await lockedAddError(session.churchId, [personId]);
+    if (lockedMsg) return { ok: false, error: lockedMsg };
     donorName = `${person.firstName} ${person.lastName}`.trim();
     donorPhone = person.phone ?? donorPhone;
   }
@@ -237,10 +241,14 @@ export async function sendPledgeReminder(formData: FormData) {
   const id = String(formData.get("id"));
   const pledge = await db.pledge.findFirst({
     where: { id, churchId: session.churchId },
-    select: { donorName: true, donorPhone: true, amount: true, fulfilled: true, dueAt: true },
+    select: { personId: true, donorName: true, donorPhone: true, amount: true, fulfilled: true, dueAt: true },
   });
   if (!pledge) return { ok: false, error: "Pledge not found." };
   if (!pledge.donorPhone) return { ok: false, error: "No phone number on this pledge." };
+  const { isPersonLocked } = await import("@/lib/member-lock");
+  if (await isPersonLocked(session.churchId, pledge.personId)) {
+    return { ok: false, error: "This person is locked because your church is over its plan's member limit, so reminders are paused. Renew or upgrade to unlock them." };
+  }
 
   const church = await db.church.findUnique({
     where: { id: session.churchId },

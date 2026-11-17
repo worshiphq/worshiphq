@@ -249,8 +249,10 @@ async function buildOwingMessages(churchId: string, onlyPersonId?: string) {
   ]);
   const churchName = church?.name ?? "your church";
   const tpl = church?.welfareDuesReminderTemplate || DEFAULT_DUES_REMINDER;
+  // People locked by the plan's member limit get no reminders.
+  const { notLockedWhere } = await import("@/lib/member-lock");
   const withPhone = await db.person.findMany({
-    where: { churchId, status: { not: "inactive" }, phone: { not: null } },
+    where: { churchId, status: { not: "inactive" }, phone: { not: null }, ...(await notLockedWhere(churchId)) },
     select: { id: true, firstName: true, title: true, phone: true },
   });
   const phoneMap = new Map(withPhone.map((p) => [p.id, { firstName: p.firstName, title: p.title ?? "", phone: p.phone! }]));

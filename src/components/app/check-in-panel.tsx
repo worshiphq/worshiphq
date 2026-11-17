@@ -13,6 +13,7 @@ import { checkInMember, checkInByMemberId, undoCheckIn } from "@/app/actions/att
 import { cn } from "@/lib/utils";
 
 import { matchesPerson } from "@/lib/search";
+import { LOCKED_BADGE, LOCKED_DOOR } from "@/lib/member-lock-core";
 interface Candidate {
   id: string;
   name: string;
@@ -22,6 +23,8 @@ interface Candidate {
   phone?: string | null;
   memberId?: string | null;
   checkedIn?: boolean;
+  /** Over the plan's member limit: shown, but cannot be checked in. */
+  locked?: boolean;
   groups?: Record<string, string[]>;
 }
 interface Attendee {
@@ -120,6 +123,10 @@ export function CheckInPanel({
    */
   async function check(c: Candidate) {
     if (isIn(c) || busyIds.has(c.id)) return;
+    if (c.locked) {
+      toast(`${c.name}: ${LOCKED_DOOR}`, "error");
+      return;
+    }
 
     addTo(setOptimisticIn, c.id);
     addTo(setBusyIds, c.id);
@@ -141,6 +148,10 @@ export function CheckInPanel({
         );
       } else if (res && res.reason === "already") {
         setExtraAttendees((prev) => prev.filter((a) => a.id !== tempId));
+      } else if (res && res.reason === "locked") {
+        removeFrom(setOptimisticIn, c.id);
+        setExtraAttendees((prev) => prev.filter((a) => a.id !== tempId));
+        toast(`${c.name}: ${res.message}`, "error");
       } else {
         throw new Error("check-in failed");
       }
@@ -249,6 +260,11 @@ export function CheckInPanel({
                       <MemberAvatar name={c.name} photoUrl={c.photoUrl} gender={c.gender} size="sm" />
                       <span className={cn("flex-1 font-medium", already && "text-ink-muted")}>{c.name}</span>
                       {c.status === "visitor" && !already && <span className="text-xs text-gold">visitor</span>}
+                      {c.locked && !already && (
+                        <span className="flex items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-xs font-semibold text-amber-700 dark:text-amber-300" title={LOCKED_DOOR}>
+                          <Lock className="size-3" /> {LOCKED_BADGE}
+                        </span>
+                      )}
                       {busy ? (
                         <Loader2 className="size-4 shrink-0 animate-spin text-success" />
                       ) : already ? (
