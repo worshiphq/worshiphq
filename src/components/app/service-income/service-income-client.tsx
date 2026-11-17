@@ -149,9 +149,22 @@ function MonthView({ initialYear, initialMonth }: { initialYear: number; initial
   );
 }
 
+/** Loads the first page, then hands over to the searchable list. */
 function History({ year }: { year: number }) {
+  const [first, setFirst] = useState<{ rows: ServiceCard[]; total: number; page: number } | null>(null);
+  useEffect(() => {
+    let live = true;
+    setFirst(null);
+    searchServiceSheets("", { year }, 1).then((r) => { if (live) setFirst(r); }).catch(() => { if (live) setFirst({ rows: [], total: 0, page: 1 }); });
+    return () => { live = false; };
+  }, [year]);
+  if (!first) return <p className="flex items-center gap-2 text-sm text-ink-muted"><Spinner size="sm" /> Loading service records...</p>;
+  return <HistoryList key={year} year={year} initial={first} />;
+}
+
+function HistoryList({ year, initial }: { year: number; initial: { rows: ServiceCard[]; total: number; page: number } }) {
   const [q, setQ] = useState("");
-  const list = useServerList<ServiceCard, { year?: number }>({ initial: { rows: [], total: 0, page: 1 }, query: q, filters: { year }, fetchPage: searchServiceSheets, pageSize: 20 });
+  const list = useServerList<ServiceCard, { year?: number }>({ initial, query: q, filters: { year }, fetchPage: searchServiceSheets, pageSize: 20 });
   return (
     <Card className="p-5">
       <h3 className="font-display text-[1rem] font-semibold">All service records in {year}</h3>
@@ -169,7 +182,7 @@ function History({ year }: { year: number }) {
             <span className="w-28 text-right font-semibold tabular-nums">{ghs(s.total)}</span>
           </li>
         ))}
-        {list.rows.length === 0 && !list.searching && <li className="py-3 text-ink-muted">{q ? "Nothing matches." : "Search or wait a moment while the list loads."}</li>}
+        {list.rows.length === 0 && !list.searching && <li className="py-3 text-ink-muted">{q ? "Nothing matches." : "No service records yet."}</li>}
       </ul>
       {list.pager}
     </Card>
