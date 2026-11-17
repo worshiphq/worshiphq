@@ -250,7 +250,7 @@ export function TitheClient({
         </div>
       )}
 
-      {tab === "record" && canWrite && <BatchRecorder fundType={fundType} activeFundName={activeFundName} accounts={accounts} />}
+      {tab === "record" && canWrite && <BatchRecorder key={fundType} fundType={fundType} activeFundName={activeFundName} accounts={accounts} />}
       {tithePopup && canWrite && (
         <Modal open wide onClose={() => setTithePopup(false)} title="Record tithes" description={`Pick members, enter each amount, and they get an SMS receipt. Recorded for ${monthLabel}.`}>
           <BatchRecorder fundType="tithes" activeFundName="Tithes" accounts={accounts} bare onDone={() => setTithePopup(false)} />
