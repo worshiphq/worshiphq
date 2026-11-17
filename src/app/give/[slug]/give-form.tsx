@@ -1,11 +1,14 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { startOnlineGift } from "@/app/actions/public-giving";
 import { usePaystack } from "@/components/payments/use-paystack";
+import { PaymentSheet, type MomoStartOutcome } from "@/components/payments/payment-sheet";
+import type { MomoPay } from "@/lib/momo/types";
 import { MemberFormFields, type SpecialRender } from "@/components/app/member-form-fields";
 import type { FormField } from "@/lib/forms/registration";
 import { splitGift, type FeeMode } from "@/lib/giving/fees";
+import { Spinner } from "@/components/ui/spinner";
 
 // Always offered, whether or not the church has set these up as Funds yet.
 const COMMON_FUNDS = ["Offertory", "Tithes", "Church Blessing", "Pledge", "Harvest"];
@@ -18,6 +21,7 @@ export function GiveForm({
   funds,
   fields,
   fee,
+  momoEnabled = false,
 }: {
   /** How the fee works for this church, so the giver sees the exact total before paying. */
   fee: { mode: FeeMode; feePercent: number; platformPercent: number; platformCap: number };
@@ -26,6 +30,8 @@ export function GiveForm({
   accentColor: string;
   funds: string[];
   fields: FormField[];
+  /** Mobile Money is paid in our own sheet, before the card popup. */
+  momoEnabled?: boolean;
 }) {
   const [amount, setAmount] = useState<string>("");
   const [submitting, setSubmitting] = useState(false);
@@ -51,15 +57,40 @@ export function GiveForm({
         ? `Pledge - ${pledgeFor.trim()}`
         : fundChoice;
 
+  // The filled-in form, kept while the payment sheet is open (the browser has already checked it).
+  const [pending, setPending] = useState<FormData | null>(null);
+  const thankYou = useRef<string | null>(null);
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    const fd = new FormData(e.currentTarget);
+    if (momoEnabled) { setPending(fd); return; }
+    await payByCard(fd);
+  }
+
+  /** Mobile Money: the server charges the donor's phone and the sheet follows it until it is approved. */
+  async function payByMomo(fd: FormData, pay: Extract<MomoPay, { method: "momo" }>): Promise<MomoStartOutcome> {
+    const body = new FormData();
+    fd.forEach((v, k) => body.append(k, v));
+    body.set("payMethod", "momo");
+    body.set("momoPhone", pay.phone);
+    body.set("momoNetwork", pay.network);
+    if (pay.previous) { body.set("momoPrevRef", pay.previous.reference); body.set("momoPrevToken", pay.previous.token); }
+    const init = await startOnlineGift(body);
+    if (!init.ok || !init.momo) return { ok: false, error: init.error ?? "Something went wrong starting your gift. Please try again." };
+    thankYou.current = init.thankYouUrl;
+    return { ok: true, momo: init.momo };
+  }
+
+  /** Card or other: Paystack's popup, as before. */
+  async function payByCard(fd: FormData) {
     setSubmitting(true);
     try {
-      const init = await startOnlineGift(new FormData(e.currentTarget));
+      const init = await startOnlineGift(fd);
       if (!init.ok) {
         // Live-mode failure still has a thank-you URL only in stub; show error.
-        if (init.error) { setError(init.error); return; }
+        if (init.error) { setError(init.error); setSubmitting(false); return; }
       }
       await start(init, {
         onSuccess: () => { window.location.href = init.thankYouUrl; },
@@ -110,6 +141,20 @@ export function GiveForm({
   };
 
   return (
+    <>
+    {pending && (
+      <PaymentSheet
+        open
+        onClose={() => setPending(null)}
+        title={`Give to ${churchName}`}
+        amountLabel={split ? money(split.charge) : money(typed || 0)}
+        defaultPhone={String(pending.get("phone") ?? "") || null}
+        onMomo={(pay) => payByMomo(pending, pay)}
+        onCard={async () => { const fd = pending; setPending(null); await payByCard(fd); }}
+        onSuccess={(ref) => { window.location.href = thankYou.current ?? `/give/${churchSlug}/thank-you?ref=${encodeURIComponent(ref)}`; }}
+        successText="Thank you. Your gift has been received."
+      />
+    )}
     <form onSubmit={handleSubmit} className="rounded-2xl border border-line bg-surface p-6 shadow-sm sm:p-8">
       <input type="hidden" name="churchSlug" value={churchSlug} />
       <MemberFormFields
@@ -127,7 +172,7 @@ export function GiveForm({
               className="w-full rounded-xl px-6 py-3 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:opacity-60"
               style={{ backgroundColor: accentColor }}
             >
-              {submitting ? "Opening secure checkout…" : `Give ${split ? money(split.charge) : "₵0"} now`}
+              {submitting ? <span className="inline-flex items-center justify-center gap-2"><Spinner size="sm" /> Opening secure checkout…</span> : `Give ${split ? money(split.charge) : "₵0"} now`}
             </button>
             {split && fee.mode === "giver" && split.addedToGiver > 0 && (
               <p className="mt-3 text-center text-sm text-ink-muted">
@@ -140,11 +185,12 @@ export function GiveForm({
               </p>
             )}
             <p className="mt-3 text-center text-xs text-ink-faint">
-              Secure giving to {churchName} via Paystack - choose Mobile Money or card at checkout. You&apos;ll receive a receipt by SMS and/or email.
+              Secure giving to {churchName} via Paystack - pay with Mobile Money or card. You&apos;ll receive a receipt by SMS and/or email.
             </p>
           </div>
         }
       />
     </form>
+    </>
   );
 }

@@ -11,6 +11,8 @@ import { setLeaderMessaging } from "@/app/actions/leader-messages";
 import { Input } from "@/components/ui/input";
 import { useFeedback } from "@/components/ui/feedback";
 import { usePaystack } from "@/components/payments/use-paystack";
+import { PaymentSheet, type MomoStartOutcome } from "@/components/payments/payment-sheet";
+import type { MomoPay } from "@/lib/momo/types";
 import { cn } from "@/lib/utils";
 
 export function SmsCreditsPanel({
@@ -20,6 +22,8 @@ export function SmsCreditsPanel({
   canWrite,
   pricing,
   leaderMessagingOn = false,
+  momoEnabled = false,
+  defaultPhone = null,
 }: {
   balance: number;
   welcomeOn: boolean;
@@ -28,6 +32,10 @@ export function SmsCreditsPanel({
   /** How this church buys credits: Ghana credits in cedis, or international credits shown in dollars. */
   pricing: SmsPricing;
   leaderMessagingOn?: boolean;
+  /** Paystack is the payment provider, so Mobile Money can be paid in our own sheet. */
+  momoEnabled?: boolean;
+  /** Prefills the Mobile Money number. */
+  defaultPhone?: string | null;
 }) {
   const { run, toast } = useFeedback();
   const { start } = usePaystack();
@@ -46,7 +54,25 @@ export function SmsCreditsPanel({
   const customPrice = pricingPrice(customCredits, pricing);
   const customOk = customCredits >= pricing.min && customCredits <= pricing.max;
 
+  // What the payment sheet is buying, while it is open.
+  const [sheet, setSheet] = useState<{ bundleId: string; credits: number; label: string } | null>(null);
+
+  /** Mobile Money: the server charges the phone and the sheet follows it until it is approved. */
+  async function momoFor(target: { bundleId: string; credits: number }, pay: Extract<MomoPay, { method: "momo" }>): Promise<MomoStartOutcome> {
+    const res = target.bundleId === "custom" ? await buyCustomSmsCredits({ credits: target.credits }, pay) : await buySmsCredits(target.bundleId, pay);
+    if (!res.ok) return { ok: false, error: res.error ?? "Could not start the payment. Please try again." };
+    if ("momo" in res && res.momo) return { ok: true, momo: res.momo };
+    // The server took another route (Hubtel's hosted page): follow it.
+    if (res.authorizationUrl) { window.location.href = res.authorizationUrl; return { ok: true, redirected: true }; }
+    return { ok: false, error: "Could not start the payment. Please try again." };
+  }
+
   async function buyCustom() {
+    if (momoEnabled) { setSheet({ bundleId: "custom", credits: customCredits, label: money(customPrice) }); return; }
+    await buyCustomByCard();
+  }
+
+  async function buyCustomByCard() {
     setBusyBundle("custom");
     try {
       const init = await buyCustomSmsCredits({ credits: customCredits });
@@ -61,6 +87,12 @@ export function SmsCreditsPanel({
   }
 
   async function buy(bundleId: string) {
+    const b = bundles.find((x) => x.id === bundleId);
+    if (momoEnabled && b) { setSheet({ bundleId, credits: b.credits, label: money(b.priceGhs) }); return; }
+    await buyByCard(bundleId);
+  }
+
+  async function buyByCard(bundleId: string) {
     setBusyBundle(bundleId);
     try {
       const init = await buySmsCredits(bundleId);
@@ -78,6 +110,27 @@ export function SmsCreditsPanel({
 
   return (
     <div className="space-y-4">
+      {sheet && (
+        <PaymentSheet
+          open
+          onClose={() => setSheet(null)}
+          title={`Buy ${sheet.credits.toLocaleString()} SMS credits`}
+          amountLabel={sheet.label}
+          defaultPhone={defaultPhone}
+          onMomo={(pay) => momoFor(sheet, pay)}
+          onCard={async () => {
+            const t = sheet;
+            setSheet(null);
+            if (t.bundleId === "custom") await buyCustomByCard();
+            else await buyByCard(t.bundleId);
+          }}
+          onSuccess={() => {
+            if (sheet.bundleId === "custom") { setCreditsText(""); setAmountText(""); }
+            router.refresh();
+          }}
+          successText="Payment received. Your credits are on the way."
+        />
+      )}
       {/* Balance */}
       <Card className="flex items-center justify-between p-6">
         <div className="flex items-center gap-3">

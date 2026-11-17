@@ -43,6 +43,8 @@ import { plans as defaultPlans } from "@/config/pricing";
 import type { EditablePlan, PlanPrices } from "@/lib/data/platform-config";
 import { getPlanLimits, planRank, syncMemberText, getMinimumPlan, FEATURE_LABELS as PLAN_FEATURE_LABELS, type PlanId } from "@/lib/plan-gate";
 import { usePaystack } from "@/components/payments/use-paystack";
+import { PaymentSheet, type MomoStartOutcome } from "@/components/payments/payment-sheet";
+import type { MomoPay } from "@/lib/momo/types";
 import { cn } from "@/lib/utils";
 import { confirmBinDelete } from "@/lib/recycle-bin-events";
 import { BIN_TOAST } from "@/lib/recycle-bin-config";
@@ -243,6 +245,8 @@ export function SettingsClient({
   cards = [],
   autoInactive,
   messageCenter,
+  momoEnabled = false,
+  ownerPhone = null,
 }: {
   session: Session;
   features: FeatureMap;
@@ -260,6 +264,10 @@ export function SettingsClient({
   cards?: CardRow[];
   autoInactive: AutoInactiveData;
   messageCenter: MessageCenterData;
+  /** Paystack is the payment provider, so Mobile Money can be paid in our own sheet. */
+  momoEnabled?: boolean;
+  /** Prefills the Mobile Money number. */
+  ownerPhone?: string | null;
 }) {
   // Links such as /app/settings?tab=billing open straight on that tab.
   const asked = useSearchParams().get("tab");
@@ -469,7 +477,7 @@ export function SettingsClient({
         )}
 
         {/* ── Billing ── */}
-        {tab === "billing" && <BillingTab trial={trial} subscription={subscription} features={features} ro={ro} platformPricing={platformPricing} payments={payments} usage={billingUsage} smsTopups={smsTopups} cards={cards} isOwner={session.role === "Owner"} />}
+        {tab === "billing" && <BillingTab trial={trial} subscription={subscription} features={features} ro={ro} platformPricing={platformPricing} payments={payments} usage={billingUsage} smsTopups={smsTopups} cards={cards} isOwner={session.role === "Owner"} momoEnabled={momoEnabled} ownerPhone={ownerPhone} />}
 
         {tabLock && <LockedTab feature={tabLock} isOwner={session.role === "Owner"} />}
 
@@ -721,7 +729,7 @@ function UpgradeCelebration({ planName, newFeatures, onDone }: { planName: strin
   );
 }
 
-function BillingTab({ trial, subscription, features, ro, platformPricing, payments = [], usage, smsTopups = [], cards = [], isOwner = false }: { trial?: TrialCardInfo; subscription: SubscriptionData; features: FeatureMap; ro: boolean; platformPricing?: PlatformPricing; payments?: PlanPaymentRow[]; usage?: BillingUsage; smsTopups?: SmsTopupRow[]; cards?: CardRow[]; isOwner?: boolean }) {
+function BillingTab({ trial, subscription, features, ro, platformPricing, payments = [], usage, smsTopups = [], cards = [], isOwner = false, momoEnabled = false, ownerPhone = null }: { trial?: TrialCardInfo; subscription: SubscriptionData; features: FeatureMap; ro: boolean; platformPricing?: PlatformPricing; payments?: PlanPaymentRow[]; usage?: BillingUsage; smsTopups?: SmsTopupRow[]; cards?: CardRow[]; isOwner?: boolean; momoEnabled?: boolean; ownerPhone?: string | null }) {
   const router = useRouter();
   // What the SuperAdmin saved (name, member limit, wording, price) wins over the built-in defaults.
   const plans = defaultPlans.map((p) => {
@@ -838,6 +846,59 @@ function BillingTab({ trial, subscription, features, ro, platformPricing, paymen
   const isDowngrade = changePreview?.direction === "downgrade";
   // Same plan, near or past its end: the church is renewing, not upgrading.
   const isRenewal = changePreview?.direction === "renew";
+
+  // ── Paying for a plan ──
+  const [paySheetOpen, setPaySheetOpen] = useState(false);
+  /** After a plan is paid for (any way): close the dialogs and celebrate, or thank them for a renewal. */
+  const planPaid = (planId: string, ref?: string) => {
+    setUpgradePlan(null);
+    setShowPlans(false);
+    if (ref) setJustPaidRef(ref);
+    // A renewal unlocks nothing new, so it gets a thank-you, not the upgrade fanfare.
+    if (isRenewal) { toastNow("Plan renewed. Thank you!", "success"); router.refresh(); }
+    else triggerCelebration(planId);
+  };
+  /** The card path: Paystack's popup, exactly as before. */
+  const payByCard = async () => {
+    if (!upgradePlan) return;
+    const res = await changePlan(upgradePlan.id, interval, couponCode.trim() || undefined, saveCard);
+    if (res && "error" in res) { alert(res.error); return; }
+    if (!res || !("plan" in res)) return;
+    // Downgrade: nothing was charged, it's queued for period end.
+    if ("scheduled" in res && res.scheduled) {
+      setUpgradePlan(null);
+      setShowPlans(false);
+      router.refresh();
+      return;
+    }
+    const planId = res.plan as string;
+    const usedCouponId = "couponId" in res ? res.couponId : null;
+    // Live mode returns payment init -> open the in-app popup and
+    // celebrate once the charge succeeds. Stub/free celebrates now.
+    if ("payment" in res && res.payment) {
+      await startPaystack(res.payment, {
+        onSuccess: async (ref) => {
+          await verifyPlanUpgrade(ref, planId, interval, usedCouponId);
+          planPaid(planId, ref);
+        },
+        onError: (m) => alert(m),
+      });
+    } else {
+      planPaid(planId);
+    }
+  };
+  /** The Mobile Money path: the server charges the Owner's phone and the sheet follows it. */
+  const payByMomo = async (pay: Extract<MomoPay, { method: "momo" }>): Promise<MomoStartOutcome> => {
+    if (!upgradePlan) return { ok: false, error: "Choose a plan first." };
+    const res = await changePlan(upgradePlan.id, interval, couponCode.trim() || undefined, false, pay);
+    if (!res || "error" in res) return { ok: false, error: (res && "error" in res && res.error) || "Could not start the payment. Please try again." };
+    if ("momo" in res && res.momo) return { ok: true, momo: res.momo };
+    // The server took another route (Hubtel's hosted page, or nothing left to pay): follow it.
+    if ("payment" in res && res.payment?.authorizationUrl) { window.location.href = res.payment.authorizationUrl; return { ok: true, redirected: true }; }
+    setPaySheetOpen(false);
+    if ("plan" in res) planPaid(res.plan as string);
+    return { ok: true, redirected: true };
+  };
 
   const currentPlan = plans.find((p) => p.id === currentPlanId) ?? plans[0];
   const isGrace = subscription?.status === "grace";
@@ -1107,7 +1168,7 @@ function BillingTab({ trial, subscription, features, ro, platformPricing, paymen
       />
 
       {upgradePlan && (
-        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/60 p-4" onClick={() => setUpgradePlan(null)}>
+        <div className="fixed inset-0 z-50 flex items-start justify-center overflow-y-auto overscroll-contain bg-black/60 p-4" onClick={() => { if (!paySheetOpen) setUpgradePlan(null); }}>
           <div
             className="my-auto w-full max-w-md rounded-2xl border border-line bg-surface p-6 shadow-2xl"
             onClick={(e) => e.stopPropagation()}
@@ -1258,45 +1319,15 @@ function BillingTab({ trial, subscription, features, ro, platformPricing, paymen
                 className="flex-1"
                 disabled={switching || loadingPreview || (!isDowngrade && !acceptedTerms)}
                 onClick={() => {
-                  startSwitch(async () => {
-                    const res = await changePlan(upgradePlan.id, interval, couponCode.trim() || undefined, saveCard);
-                    if (res && "error" in res) { alert(res.error); return; }
-                    if (!res || !("plan" in res)) return;
-                    // Downgrade: nothing was charged, it's queued for period end.
-                    if ("scheduled" in res && res.scheduled) {
-                      setUpgradePlan(null);
-                      setShowPlans(false);
-                      router.refresh();
-                      return;
-                    }
-                    const planId = res.plan as string;
-                    const usedCouponId = "couponId" in res ? res.couponId : null;
-                    // Live mode returns payment init → open the in-app popup and
-                    // celebrate once the charge succeeds. Stub/free celebrates now.
-                    if ("payment" in res && res.payment) {
-                      await startPaystack(res.payment, {
-                        onSuccess: async (ref) => {
-                          await verifyPlanUpgrade(ref, planId, interval, usedCouponId);
-                          setUpgradePlan(null);
-                          setShowPlans(false);
-                          setJustPaidRef(ref);
-                          // A renewal unlocks nothing new, so it gets a thank-you, not the upgrade fanfare.
-                          if (isRenewal) { toastNow("Plan renewed. Thank you!", "success"); router.refresh(); }
-                          else triggerCelebration(planId);
-                        },
-                        onError: (m) => alert(m),
-                      });
-                    } else {
-                      setUpgradePlan(null);
-                      setShowPlans(false);
-                      if (isRenewal) { toastNow("Plan renewed. Thank you!", "success"); router.refresh(); }
-                      else triggerCelebration(planId);
-                    }
-                  });
+                  // Paying something through Paystack: Mobile Money first, in our own sheet. A downgrade, a 100% coupon,
+                  // test mode, or Hubtel keep the flow they always had.
+                  const dueNow = couponInfo ? couponInfo.newAmount : (changePreview?.amountDueUsd ?? 0);
+                  if (momoEnabled && features.payments && !isDowngrade && dueNow > 0) { setPaySheetOpen(true); return; }
+                  startSwitch(async () => { await payByCard(); });
                 }}
               >
                 {switching
-                  ? (isDowngrade ? "Scheduling…" : features.payments ? "Opening checkout…" : isRenewal ? "Renewing…" : "Applying…")
+                  ? <><Spinner className="size-4 animate-spin" /> {isDowngrade ? "Scheduling…" : features.payments ? "Opening checkout…" : isRenewal ? "Renewing…" : "Applying…"}</>
                   : isDowngrade
                     ? `Schedule move to ${upgradePlan.name}`
                     : features.payments
@@ -1306,6 +1337,25 @@ function BillingTab({ trial, subscription, features, ro, platformPricing, paymen
             </div>
           </div>
         </div>
+      )}
+      {upgradePlan && (
+        <PaymentSheet
+          open={paySheetOpen}
+          onClose={() => setPaySheetOpen(false)}
+          title={isRenewal ? `Renew ${upgradePlan.name}` : `Pay for ${upgradePlan.name}`}
+          amountLabel={`${sym}${(couponInfo?.newAmount ?? changePreview?.amountDueUsd ?? 0).toLocaleString()}`}
+          defaultPhone={ownerPhone}
+          onMomo={payByMomo}
+          onCard={async () => { setPaySheetOpen(false); await payByCard(); }}
+          onSuccess={async (ref, m) => {
+            // Confirm on the server as well (idempotent); test mode has nothing to verify.
+            if (!m.stubbed) await verifyPlanUpgrade(ref, upgradePlan.id, interval, null).catch(() => {});
+            setPaySheetOpen(false);
+            planPaid(upgradePlan.id, ref);
+          }}
+          successText={isRenewal ? "Payment received. Your plan is renewed." : "Payment received. Your new plan is on."}
+          saveCardNote="Mobile Money can't be kept for automatic renewal. Choose Card to renew automatically."
+        />
       )}
     </div>
   );

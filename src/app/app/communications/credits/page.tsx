@@ -8,6 +8,7 @@ import { db } from "@/lib/db";
 import { SmsCreditsPanel } from "@/components/app/sms-credits-panel";
 import { resolveSmsPricing } from "@/lib/sms/intl";
 import { formatDate, cn } from "@/lib/utils";
+import { getCollectionProvider } from "@/lib/billing/collection-provider";
 
 export const metadata = { title: "SMS credits" };
 
@@ -30,13 +31,15 @@ export default async function SmsCreditsPage({ searchParams }: { searchParams: P
   const pages = Math.max(1, Math.ceil(total / PAGE_SIZE));
   const page = Math.min(pages, Math.max(1, parseInt(sp.page ?? "1", 10) || 1));
 
-  const [church, transactions, sms] = await Promise.all([
+  const [church, transactions, sms, provider, me] = await Promise.all([
     db.church.findUnique({
       where: { id: session.churchId },
       select: { smsCredits: true, smsWelcomeMember: true, smsWelcomeVisitor: true, leaderMessagingOn: true },
     }),
     db.smsTransaction.findMany({ where, orderBy: { createdAt: "desc" }, skip: (page - 1) * PAGE_SIZE, take: PAGE_SIZE }),
     resolveSmsPricing(session.churchId),
+    getCollectionProvider(),
+    db.user.findUnique({ where: { id: session.userId }, select: { phone: true } }),
   ]);
 
   const href = (p: number, k = kind) => `/app/communications/credits?${new URLSearchParams({ ...(k !== "all" ? { kind: k } : {}), ...(p > 1 ? { page: String(p) } : {}) }).toString()}`;
@@ -55,6 +58,9 @@ export default async function SmsCreditsPage({ searchParams }: { searchParams: P
         canWrite={canEdit(session, "communications")}
         pricing={sms}
         leaderMessagingOn={church?.leaderMessagingOn ?? false}
+        // Mobile Money in our own sheet needs Paystack; with Hubtel selected the hosted checkout stays as it is.
+        momoEnabled={provider === "paystack" && !session.impersonating}
+        defaultPhone={me?.phone ?? null}
       />
 
       {/* History */}

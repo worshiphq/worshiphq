@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { features } from "@/lib/env";
 import { GiveForm } from "./give-form";
 import { getGivingSettings } from "@/lib/giving/settings";
+import { getCollectionProvider } from "@/lib/billing/collection-provider";
 import { FORM_KINDS } from "@/lib/forms/kinds";
 import { HandCoins } from "lucide-react";
 import type { Metadata } from "next";
@@ -94,6 +95,7 @@ export default async function GivePage({
             funds={funds}
             fields={FORM_KINDS.give.resolve(church.giveFormFields)}
             fee={{ mode: gs.mode, feePercent: feeCfg?.paystackFeePercent ?? 1.95, platformPercent: gs.platformPercent, platformCap: gs.platformCap }}
+            momoEnabled={(await getCollectionProvider()) === "paystack"}
           />
         )}
       </div>

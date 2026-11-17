@@ -1,9 +1,7 @@
 import type { NextRequest } from "next/server";
 import { verifyPaystackSignature } from "@/lib/integrations/paystack";
-import { recordOnlineGift, methodFromPaystackChannel } from "@/lib/giving/record";
-import { addCredits } from "@/lib/sms/credits";
-import { activatePlanPayment } from "@/lib/billing/activate-plan";
-import { openSealedMetadata, rawMetadata } from "@/lib/billing/checkout-seal";
+import { fulfilPaystackCharge } from "@/lib/billing/fulfil-paystack";
+import type { PaystackTxn } from "@/lib/billing/checkout-seal";
 import { db } from "@/lib/db";
 
 // Webhooks must never be statically cached and always run on the server.
@@ -64,133 +62,19 @@ export async function POST(request: NextRequest) {
     return Response.json({ received: true });
   }
 
-  const data = event.data ?? {};
-  // Value-granting fields are only trusted when our seal matches this exact reference and amount.
-  const sealed = openSealedMetadata(data) as GiftMetadata | null;
-  const meta = (sealed ?? rawMetadata(data)) as GiftMetadata;
-
-  // SMS credit top-up → add credits to the church wallet (idempotent on reference).
-  if (meta.kind === "sms_topup" && meta.churchId && data.reference) {
-    try {
-      // Paystack reports the amount in the smallest unit (pesewas).
-      const paid = Number(data.amount ?? 0) / 100;
-      let credits = sealed ? Number(meta.credits ?? 0) : 0;
-      if (!sealed && paid > 0) {
-        // Unsealed: give exactly what the money paid buys at this church's rate.
-        const { pricingCredits } = await import("@/config/sms");
-        const { resolveSmsPricing } = await import("@/lib/sms/intl");
-        credits = pricingCredits(paid, await resolveSmsPricing(meta.churchId));
-      }
-      if (credits > 0) {
-        await addCredits(meta.churchId, credits, "topup", {
-          reference: data.reference,
-          note: `${credits.toLocaleString()} SMS credits`,
-          amountGhs: paid > 0 ? paid : undefined,
-          source: "paystack",
-        });
-      }
-      return Response.json({ received: true, kind: "sms_topup" });
-    } catch (e) {
-      console.error("[Paystack webhook] failed to add SMS credits:", e);
-      return new Response("Processing error", { status: 500 });
-    }
-  }
-
-  // Plan upgrade → activate the subscription (shared with verifyPlanUpgrade; once per reference).
-  if (meta.kind === "plan_upgrade" && data.reference) {
-    try {
-      const res = await activatePlanPayment({ ...data, status: "success" });
-      if (!res.ok) return Response.json({ received: true, ignored: true, reason: res.error });
-      return Response.json({ received: true, kind: "plan_upgrade", plan: res.plan });
-    } catch (e) {
-      console.error("[Paystack webhook] failed to activate plan:", e);
-      return new Response("Processing error", { status: 500 });
-    }
-  }
-
-  // Only handle our online-giving charges; ignore subscription/other charges.
-  if (meta.kind !== "online_gift" || !meta.churchId || !data.reference) {
-    return Response.json({ received: true, ignored: true });
-  }
-
-  // A gift is only recorded for a charge OUR server started. Every real gift carries our seal, because the
-  // give page initialises it through initializePayment. Paystack's public key is public, so without this
-  // anyone could start a charge naming any church and make a gift appear on its books, while the money
-  // landed in the platform's own account (no church subaccount) rather than the church's.
-  if (!sealed) {
-    console.warn(`[Paystack webhook] ignored an unsealed online_gift charge ${data.reference}`);
-    return Response.json({ received: true, ignored: true, reason: "unsealed" });
-  }
-
+  // Credits, plans and gifts: shared with the Mobile Money status check (idempotent on the reference).
   try {
-    // Prefer the phone the donor typed on our form; for a card payment (or if
-    // they left it blank) fall back to whatever Paystack captured itself -
-    // e.g. the Mobile Money number used to complete the charge.
-    const phone = meta.phone || data.customer?.phone || data.authorization?.mobile_money_number || null;
-    // Record the amount the donor meant to give. When the donor bears Paystack's
-    // fee we charge a grossed-up amount, so prefer the intended amount from
-    // metadata; fall back to the charged amount for older/plain charges.
-    // Only a sealed intended amount is trusted, and never more than what was actually charged.
-    const charged = (data.amount ?? 0) / 100;
-    const intended = sealed ? Number(meta.intendedAmount) : NaN;
-    const amountGhs = Number.isFinite(intended) && intended > 0 && intended <= charged ? intended : charged;
-    const result = await recordOnlineGift({
-      churchId: meta.churchId,
-      reference: data.reference,
-      amountGhs, // cedis
-      donorName: meta.donorName ?? "Anonymous",
-      email: data.customer?.email ?? meta.email ?? null,
-      phone,
-      fundName: meta.fundName ?? null,
-      method: methodFromPaystackChannel(data.channel, data.authorization?.bank),
-      extra: parseExtra(meta.extra),
-    });
-    return Response.json({ received: true, created: result.created });
+    const res = await fulfilPaystackCharge(event.data ?? {});
+    if (res.ignored) return Response.json({ received: true, ignored: true, ...(res.reason ? { reason: res.reason } : {}) });
+    return Response.json({ received: true, kind: res.kind, ...(res.plan ? { plan: res.plan } : {}), ...(res.created !== undefined ? { created: res.created } : {}) });
   } catch (e) {
-    console.error("[Paystack webhook] failed to record gift:", e);
-    // 500 → Paystack will retry, which is safe because recording is idempotent.
+    console.error("[Paystack webhook] failed to process charge:", e);
+    // 500 -> Paystack will retry, which is safe because fulfilment is idempotent.
     return new Response("Processing error", { status: 500 });
   }
 }
 
-function parseExtra(raw: unknown): { label: string; value: string }[] | undefined {
-  if (typeof raw !== "string" || !raw) return undefined;
-  try {
-    const v = JSON.parse(raw);
-    return Array.isArray(v) ? v.filter((x) => x && typeof x.label === "string" && typeof x.value === "string").slice(0, 40) : undefined;
-  } catch {
-    return undefined;
-  }
-}
-
-interface GiftMetadata {
-  kind?: string;
-  churchId?: string;
-  donorName?: string;
-  email?: string;
-  phone?: string;
-  fundName?: string;
-  extra?: string;
-  intendedAmount?: number | string;
-  credits?: number | string;
-  bundleId?: string;
-  plan?: string;
-  interval?: string;
-  displayAmountUsd?: number | string;
-  listAmountUsd?: number | string;
-  usdToGhsRate?: number | string;
-  couponId?: string | null;
-}
-
 interface PaystackEvent {
   event: string;
-  data?: {
-    reference?: string;
-    amount?: number;
-    currency?: string;
-    channel?: string;
-    customer?: { email?: string; phone?: string };
-    authorization?: { mobile_money_number?: string; bank?: string };
-    metadata?: GiftMetadata;
-  };
+  data?: PaystackTxn;
 }

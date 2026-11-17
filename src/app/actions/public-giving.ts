@@ -7,6 +7,7 @@ import { splitGift } from "@/lib/giving/fees";
 import { getGivingSettings } from "@/lib/giving/settings";
 import { recordOnlineGift } from "@/lib/giving/record";
 import { FORM_KINDS, collectExtraAnswers } from "@/lib/forms/kinds";
+import type { MomoStartResult } from "@/lib/momo/types";
 
 /**
  * Public online giving: a member/visitor gives via the church's shareable link.
@@ -27,6 +28,8 @@ export type GiftInit = {
   /** What the donor is actually charged (gift + Paystack fee when the donor bears it). */
   charged?: number;
   error?: string;
+  /** Mobile Money chosen in the payment sheet: the charge to follow until the donor approves it. */
+  momo?: MomoStartResult;
 };
 
 const giftError = (error: string): GiftInit => ({ ok: false, stubbed: false, reference: "", thankYouUrl: "", error });
@@ -37,9 +40,11 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
 
   const church = await db.church.findUnique({
     where: { slug: churchSlug },
-    select: { id: true, isDemo: true, paystackSubaccountCode: true, givingBlocked: true, giveFormFields: true },
+    select: { id: true, isDemo: true, isInternal: true, paystackSubaccountCode: true, givingBlocked: true, giveFormFields: true },
   });
   if (!church || church.isDemo) return giftError("This church can't receive gifts right now.");
+  // The internal QA church only ever takes test-mode payments: never real money.
+  if (church.isInternal && features.payments && !env.PAYSTACK_SECRET_KEY?.startsWith("sk_test_")) return giftError("This church can't receive gifts right now.");
   if (church.givingBlocked) return giftError("Online giving is temporarily unavailable for this church. Please contact the church directly.");
   // With no payout account, the money would land with WorshipHQ, not the church. So no gift is started until one is approved.
   if (features.payments && !church.paystackSubaccountCode) return giftError("Online giving is not set up for this church yet. Please contact the church directly.");
@@ -53,8 +58,9 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
   const fundName = String(formData.get("fund") ?? "").trim() || "General";
   // Answers to the church's own extra giving questions travel with the payment and land on the gift.
   const extra = collectExtraAnswers(FORM_KINDS.give.resolve(church.giveFormFields), (id) => formData.getAll(id).map(String));
-  // No payment-method picker on the form - Paystack's own checkout lets the
-  // donor choose Mobile Money or card.
+  // The payment sheet's choice: Mobile Money charges the donor's phone here; card (or nothing) keeps Paystack's popup,
+  // where the donor can still choose either.
+  const payMethod = String(formData.get("payMethod") ?? "") === "momo" ? "momo" : "card";
 
   const reference = newPaymentReference();
   const appUrl = env.NEXT_PUBLIC_APP_URL.replace(/\/$/, "");
@@ -79,6 +85,51 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
   });
   const chargeAmount = split.charge;
 
+  const giftMetadata = {
+    kind: "online_gift",
+    churchId: church.id,
+    donorName,
+    email,
+    phone,
+    fundName,
+    extra: extra.length ? JSON.stringify(extra) : undefined,
+    // The amount the donor meant to give (what the church receives + what the
+    // receipt shows) - distinct from the grossed-up amount actually charged.
+    intendedAmount: amount,
+  };
+  const transactionCharge = church.paystackSubaccountCode && split.platformCut > 0 ? split.transactionCharge : undefined;
+
+  // ── Mobile Money: charge the donor's phone directly; the sheet follows it until it is approved. ──
+  if (payMethod === "momo") {
+    const { readMomoPay, checkPreviousAttempt, allowMomoStart, startMomoCharge } = await import("@/lib/billing/momo-start");
+    const { newChargeReference } = await import("@/lib/integrations/paystack-charge");
+    const { allowPublicSubmission } = await import("@/lib/public-guard");
+    const mp = readMomoPay({ method: "momo", phone: String(formData.get("momoPhone") ?? ""), network: String(formData.get("momoNetwork") ?? "") });
+    if (!mp.ok) return giftError(mp.error);
+    const previous = { reference: String(formData.get("momoPrevRef") ?? ""), token: String(formData.get("momoPrevToken") ?? "") };
+    const prev = await checkPreviousAttempt(previous.reference && previous.token ? previous : undefined, church.id, "online_gift");
+    if (prev && "error" in prev) return giftError(prev.error);
+    const momoThanks = (ref: string) => `${appUrl}/give/${churchSlug}/thank-you?ref=${ref}`;
+    if (prev && "done" in prev) {
+      return { ok: true, stubbed: !!prev.done.stubbed, reference: prev.done.reference, thankYouUrl: momoThanks(prev.done.reference), charged: chargeAmount, momo: prev.done };
+    }
+    if (!(await allowPublicSubmission("give", church.id)) || !(await allowMomoStart({ churchId: church.id, phone: mp.phone, publicForm: true }))) {
+      return giftError("Too many payment attempts. Please wait a few minutes and try again.");
+    }
+    const momoRef = newChargeReference();
+    const started = await startMomoCharge({
+      kind: "online_gift", churchId: church.id, email: email ?? `giving+${momoRef}@worshiphq.org`,
+      amount: chargeAmount, currency: SETTLEMENT_CURRENCY, phone: mp.phone, network: mp.network,
+      metadata: giftMetadata, subaccount: church.paystackSubaccountCode, transactionCharge, reference: momoRef,
+    });
+    if (!started.ok) return giftError(started.error);
+    // Test mode (no Paystack key): no money moves, so the gift is recorded now, as the card path always did.
+    if (started.momo.stubbed) {
+      await recordOnlineGift({ churchId: church.id, reference: momoRef, amountGhs: amount, donorName, email, phone: phone ?? mp.phone, fundName, extra: extra.length ? extra : undefined });
+    }
+    return { ok: true, stubbed: !!started.momo.stubbed, reference: momoRef, thankYouUrl: momoThanks(momoRef), charged: chargeAmount, momo: started.momo };
+  }
+
   const init = await initializePayment({
     email: payerEmail,
     // Gifts are entered in local currency (₵) and charged in the merchant's
@@ -94,19 +145,8 @@ export async function startOnlineGift(formData: FormData): Promise<GiftInit> {
     subaccount: church.paystackSubaccountCode,
     // With no platform cut, the plain split already works exactly as intended (the giver's extra covers Paystack's fee, or the
     // fee comes out of the gift), so Paystack is left to do it. The flat amount is only sent when WorshipHQ keeps a cut.
-    transactionCharge: church.paystackSubaccountCode && split.platformCut > 0 ? split.transactionCharge : undefined,
-    metadata: {
-      kind: "online_gift",
-      churchId: church.id,
-      donorName,
-      email,
-      phone,
-      fundName,
-      extra: extra.length ? JSON.stringify(extra) : undefined,
-      // The amount the donor meant to give (what the church receives + what the
-      // receipt shows) - distinct from the grossed-up amount actually charged.
-      intendedAmount: amount,
-    },
+    transactionCharge,
+    metadata: giftMetadata,
   });
 
   // In stub mode there's no real payment, so record the gift now.

@@ -10,6 +10,7 @@ import { churchHasFeature } from "@/lib/plan-gate-server";
 import type { RolePermissions } from "@/lib/team-access";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { loadMessageCenter } from "@/lib/messages/load";
+import { getCollectionProvider } from "@/lib/billing/collection-provider";
 
 export const metadata = { title: "Settings" };
 export const maxDuration = 60; // restoring a backup runs inside this page's server action
@@ -142,6 +143,9 @@ export default async function SettingsPage() {
         cards={cards}
         autoInactive={{ on: church?.autoInactiveOn ?? false, weeks: church?.autoInactiveWeeks ?? 12, locked: !session.isDemo && !!session.planLocked?.includes("auto-inactive") }}
         messageCenter={messageCenter}
+        // Mobile Money in our own sheet needs Paystack; with Hubtel selected the hosted checkout stays as it is.
+        momoEnabled={(await getCollectionProvider()) === "paystack"}
+        ownerPhone={users.find((u) => u.id === session.userId)?.phone ?? null}
         platformPricing={{ ...platformConfig, ...(localPrices(platformConfig, isGhana(church?.country)) ?? {}) }}
         billingUsage={(() => {
           const limits = platformConfig.planTable[(sub?.plan ?? "free") as keyof typeof platformConfig.planTable];

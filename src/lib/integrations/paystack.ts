@@ -25,6 +25,35 @@ export function newPaymentReference(): string {
 }
 
 /**
+ * The fields every Paystack charge shares, whether it starts as a popup (/transaction/initialize) or as a direct
+ * Mobile Money charge (/charge). The metadata is sealed once here, over the exact pesewas sent, so the webhook and
+ * activatePlanPayment read both kinds the same way.
+ */
+export function buildPaystackBody(opts: {
+  email: string;
+  amount: number;
+  currency: string;
+  reference: string;
+  metadata?: Record<string, unknown>;
+  subaccount?: string | null;
+  transactionCharge?: number;
+}): { subunit: number; body: Record<string, unknown> } {
+  const subunit = Math.round(opts.amount * 100);
+  return {
+    subunit,
+    body: {
+      email: opts.email,
+      amount: subunit,
+      currency: opts.currency,
+      metadata: opts.metadata ? sealMetadata(opts.reference, subunit, opts.currency, opts.metadata) : undefined,
+      reference: opts.reference,
+      ...(opts.subaccount ? { subaccount: opts.subaccount } : {}),
+      ...(opts.subaccount && opts.transactionCharge !== undefined ? { transaction_charge: Math.round(opts.transactionCharge * 100) } : {}),
+    },
+  };
+}
+
+/**
  * Initialize a Paystack transaction. Supports Mobile Money (MTN MoMo,
  * Telecel Cash, AirtelTigo Money) and cards. Currency is dynamic - set by
  * the platform config (defaults to GHS). In stub mode it returns a fake
@@ -60,7 +89,6 @@ export async function initializePayment(opts: {
   const reference = opts.reference ?? newPaymentReference();
   const amount = opts.amount ?? opts.amountGhs ?? 0;
   const currency = opts.currency ?? "GHS";
-  const subunit = Math.round(amount * 100);
 
   if (!features.payments) {
     // Stub mode hands out credits, plans and gifts with no payment, so it must never run on the live site.
@@ -82,15 +110,9 @@ export async function initializePayment(opts: {
       method: "POST",
       headers: { authorization: `Bearer ${env.PAYSTACK_SECRET_KEY}`, "content-type": "application/json" },
       body: JSON.stringify({
-        email: opts.email,
-        amount: subunit,
-        currency,
+        ...buildPaystackBody({ email: opts.email, amount, currency, reference, metadata: opts.metadata, subaccount: opts.subaccount, transactionCharge: opts.transactionCharge }).body,
         channels: ["mobile_money", "card", "bank"],
         callback_url: opts.callbackUrl ?? env.PAYSTACK_CALLBACK_URL,
-        metadata: opts.metadata ? sealMetadata(reference, subunit, currency, opts.metadata) : undefined,
-        reference,
-        ...(opts.subaccount ? { subaccount: opts.subaccount } : {}),
-        ...(opts.subaccount && opts.transactionCharge !== undefined ? { transaction_charge: Math.round(opts.transactionCharge * 100) } : {}),
       }),
     });
     const data = await res.json();

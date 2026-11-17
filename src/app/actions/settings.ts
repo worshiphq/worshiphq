@@ -13,6 +13,7 @@ import { normalisePhone, phoneVariants } from "@/lib/phone";
 import { initializePayment, newPaymentReference, SETTLEMENT_CURRENCY } from "@/lib/integrations/paystack";
 import { getCollectionProvider, hubtelConfig } from "@/lib/billing/collection-provider";
 import { initHubtelCheckout } from "@/lib/integrations/hubtel-pay";
+import type { MomoPay } from "@/lib/momo/types";
 import { env } from "@/lib/env";
 import type { Role } from "@prisma/client";
 import { sendEmail } from "@/lib/integrations/email";
@@ -831,6 +832,8 @@ export async function changePlan(
   couponCode?: string,
   /** The church ticked "keep my card and renew automatically" (card payments only; see activatePlanPayment). */
   saveCard?: boolean,
+  /** Chosen in the payment sheet. Mobile Money charges the Owner's phone directly; card (or nothing) keeps the popup. */
+  pay?: MomoPay,
 ) {
   const session = await requireSession();
   assertCanWrite(session);
@@ -984,30 +987,24 @@ export async function changePlan(
     }
   }
 
-  const init = await initializePayment({
-    email: session.email || `billing+${session.churchId}@worshiphq.org`,
-    amount: chargeAmountGhs,
-    currency: SETTLEMENT_CURRENCY,
-    reference,
-    callbackUrl: returnUrl,
-    stubReturnUrl: returnUrl,
-    metadata: {
-      kind: "plan_upgrade",
-      churchId: session.churchId,
-      plan,
-      interval,
-      displayAmountUsd: amount,
-      listAmountUsd: listAmount,
-      couponId,
-      usdToGhsRate: rate,
-      prorated: isProratedUpgrade,
-      renewal: isRenewal,
-      // Sealed with the rest, so it cannot be switched on from outside. Honoured only for a real card payment.
-      saveCard: !!saveCard,
-    },
-  });
+  const planMetadata = {
+    kind: "plan_upgrade",
+    churchId: session.churchId,
+    plan,
+    interval,
+    displayAmountUsd: amount,
+    listAmountUsd: listAmount,
+    couponId,
+    usdToGhsRate: rate,
+    prorated: isProratedUpgrade,
+    renewal: isRenewal,
+    // Sealed with the rest, so it cannot be switched on from outside. Honoured only for a real card payment
+    // (Mobile Money can never be kept for automatic renewal).
+    saveCard: !!saveCard && pay?.method !== "momo",
+  };
 
-  if (init.stubbed) {
+  // Test mode (no Paystack key): no money moves, so the plan switches on straight away, as the card path always did.
+  const activateStub = async (ref: string) => {
     if (couponId) {
       const { redeemCoupon } = await import("@/lib/billing/coupons");
       await redeemCoupon(couponId, session.churchId);
@@ -1023,7 +1020,7 @@ export async function changePlan(
     const { recordPlanPayment } = await import("@/lib/billing/payments");
     await recordPlanPayment({
       churchId: session.churchId,
-      reference, plan, interval,
+      reference: ref, plan, interval,
       amountUsd: amount, amountGhs: chargeAmountGhs,
       usdToGhsRate: rate,
       couponId, discountUsd: listAmount - amount,
@@ -1032,11 +1029,50 @@ export async function changePlan(
       source: "paystack",
     });
     const sym = platformConfig.currencySymbol;
-    await sendUpgradeReceipt(session.churchId, planConfig.name, `${sym}${amount.toLocaleString()} (₵${chargeAmountGhs.toLocaleString()})`, interval, reference, {
+    await sendUpgradeReceipt(session.churchId, planConfig.name, `${sym}${amount.toLocaleString()} (₵${chargeAmountGhs.toLocaleString()})`, interval, ref, {
       amountGhs: chargeAmountGhs, discountGhs: Math.max(0, Math.round((listAmount - amount) * rate)), from: periodStart, to: renewsAt, prorated: isProratedUpgrade,
     });
     revalidatePath("/app/settings");
     revalidatePath("/app", "layout");
+  };
+
+  // ── Mobile Money: charge the Owner's phone directly; the sheet follows it until it is approved. ──
+  if (pay?.method === "momo") {
+    if (session.impersonating) return { error: "Support sessions can't make payments." };
+    const { readMomoPay, checkPreviousAttempt, allowMomoStart, startMomoCharge } = await import("@/lib/billing/momo-start");
+    const { newChargeReference } = await import("@/lib/integrations/paystack-charge");
+    const mp = readMomoPay(pay);
+    if (!mp.ok) return { error: mp.error };
+    const prev = await checkPreviousAttempt(pay.previous, session.churchId, "plan_upgrade");
+    if (prev && "error" in prev) return { error: prev.error };
+    if (prev && "done" in prev) return { ok: true as const, plan, momo: prev.done, couponId };
+    if (!(await allowMomoStart({ churchId: session.churchId, phone: mp.phone }))) {
+      return { error: "Too many payment attempts. Please wait a few minutes and try again." };
+    }
+    const momoRef = newChargeReference();
+    const started = await startMomoCharge({
+      kind: "plan_upgrade", churchId: session.churchId,
+      email: session.email || `billing+${session.churchId}@worshiphq.org`,
+      amount: chargeAmountGhs, currency: SETTLEMENT_CURRENCY, phone: mp.phone, network: mp.network,
+      metadata: planMetadata, reference: momoRef,
+    });
+    if (!started.ok) return { error: started.error };
+    if (started.momo.stubbed) await activateStub(momoRef);
+    return { ok: true as const, plan, momo: started.momo, couponId };
+  }
+
+  const init = await initializePayment({
+    email: session.email || `billing+${session.churchId}@worshiphq.org`,
+    amount: chargeAmountGhs,
+    currency: SETTLEMENT_CURRENCY,
+    reference,
+    callbackUrl: returnUrl,
+    stubReturnUrl: returnUrl,
+    metadata: planMetadata,
+  });
+
+  if (init.stubbed) {
+    await activateStub(reference);
     return { ok: true, plan };
   }
 
