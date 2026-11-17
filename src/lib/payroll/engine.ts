@@ -12,6 +12,11 @@ import { computeLine, fromP, toP, pToNumber, periodKey, periodLabel, inPeriod, t
 import { freezeRules, pickBandSet, rulesFromJson, canApprove } from "./rules";
 import { runWorkingDays, unpaidDaysInMonth, dayKey } from "./leave";
 import { maskLabel } from "./mask";
+import { NON_RESIDENT_BANDS } from "./defaults";
+
+/** Non-resident staff are taxed through the flat non-resident band, not the resident bands. */
+const rulesForStaff = (rules: PayrollRules, taxResident: boolean | null | undefined): PayrollRules =>
+  taxResident === false ? { ...rules, bands: NON_RESIDENT_BANDS } : rules;
 
 export type Tx = Prisma.TransactionClient | PrismaClient;
 export interface Actor { id: string; name: string }
@@ -174,7 +179,7 @@ export async function buildRunLines(tx: Tx, churchId: string, runId: string) {
       items, unpaidDays, workingDays: W,
       ssnitApplies, tier2Applies: pay?.tier2Applies ?? true, payeApplies,
       ytdSpecialBonus: rules.bonusTaxMode === "ghana" ? await ytdBonus(tx, churchId, s.id, run.year, run.month) : 0,
-    }, rules);
+    }, rulesForStaff(rules, pay?.taxResident));
     const leaveItem = result.items.find((i) => i.code === "unpaid_leave");
     if (leaveItem && leaveDays > 0) leaveItem.leaveRequestId = s.leaveRequests[0]?.id ?? null;
 
@@ -226,7 +231,7 @@ export async function recalcLine(tx: Tx, churchId: string, lineId: string) {
     basic: line.basic.toString(), items, unpaidDays: Number(line.unpaidDays.toString()), workingDays: line.workingDays,
     ssnitApplies: line.ssnitApplies, payeApplies: line.payeApplies, tier2Applies: line.staff?.pay?.tier2Applies ?? true,
     ytdSpecialBonus: rules.bonusTaxMode === "ghana" && line.staffId ? await ytdBonus(tx, churchId, line.staffId, line.run.year, line.run.month) : 0,
-  }, rules);
+  }, rulesForStaff(rules, line.staff?.pay?.taxResident));
   const leaveItem = result.items.find((i) => i.code === "unpaid_leave");
   if (leaveItem) leaveItem.leaveRequestId = leaveRequestId;
   await tx.payrollLineItem.deleteMany({ where: { lineId, churchId } });
