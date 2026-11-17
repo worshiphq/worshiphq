@@ -40,7 +40,7 @@ test("1 basic percent: 10% of 12,400.00 = 1,240.00 with exact text and no em das
   assert.equal(fromCents(r.calculatedCents), "1240.00");
   const text = explainLine(r.lines[0]);
   assert.equal(text, "10% of GH₵12,400.00 Tithes = GH₵1,240.00");
-  assert.ok(!text.includes("—"));
+  assert.ok(!text.includes(String.fromCharCode(0x2014)));
 });
 
 test("2 rounding half up, per line, total = sum of rounded lines", () => {
