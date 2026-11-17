@@ -326,7 +326,7 @@ function TripsTab({ vehicleId, initial, canDelete }: { vehicleId: string; initia
         <Select className="h-9 w-auto py-0 text-xs" value={purpose} onChange={setPurpose} options={[{ value: "", label: "Any purpose" }, ...PURPOSE_OPTIONS]} />
         {list.searching && <Spinner size="sm" className="text-primary" />}
         <span className="ml-auto text-sm text-ink-muted tabular-nums">{list.total} trip{list.total === 1 ? "" : "s"} · {(list.extra?.totalKm ?? 0).toLocaleString("en-GB")} km</span>
-        <a href="/api/export/vehicle-trips" className="text-xs font-medium text-primary"><Download className="inline size-3.5" /> Export</a>
+        <a href={`/api/export/vehicle-trips?format=xlsx`} className="text-xs font-medium text-primary"><Download className="inline size-3.5" /> Export</a>
       </div>
       {list.rows.length === 0 ? <p className="px-4 py-10 text-center text-sm text-ink-faint">No trips here.</p> : (
         <div className="overflow-x-auto">

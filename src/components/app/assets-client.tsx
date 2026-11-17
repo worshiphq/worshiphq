@@ -86,14 +86,14 @@ export function AssetsClient({ initial, initialQuery, summary, lists, canWrite, 
       <PageHeader title="Assets" description="What the church owns, where it is, who has it and what it is worth today.">
         <div className="hidden items-center gap-2 sm:flex">
           <PendingLink href="/app/assets/tags" icon={<Printer />} size="sm" pendingLabel="Opening…">Print tags</PendingLink>
-          <a href="/api/export/assets" className={buttonVariants({ variant: "secondary", size: "sm" })}><Download /> Export</a>
+          <a href={`/api/export/assets?format=xlsx`} className={buttonVariants({ variant: "secondary", size: "sm" })}><Download /> Export</a>
         </div>
         <div className="relative sm:hidden">
           <Button variant="secondary" size="sm" onClick={() => setMoreOpen((o) => !o)} aria-expanded={moreOpen}><MoreHorizontal /> More</Button>
           {moreOpen && (
             <div className="absolute right-0 z-30 mt-1 w-44 rounded-xl border border-line bg-surface p-1 shadow-xl">
               <Link href="/app/assets/tags" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-surface-2"><Printer className="size-4" /> Print tags</Link>
-              <a href="/api/export/assets" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-surface-2"><Download className="size-4" /> Export</a>
+              <a href={`/api/export/assets?format=xlsx`} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-surface-2"><Download className="size-4" /> Export</a>
             </div>
           )}
         </div>

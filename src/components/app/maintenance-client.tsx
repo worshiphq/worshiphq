@@ -40,7 +40,7 @@ export function MaintenanceClient({ rows, counts, facilities, team, accounts, se
   return (
     <div>
       <PageHeader title="Maintenance" description={seesAll ? `${counts.open + counts.assigned + counts["in-progress"]} open job${counts.open + counts.assigned + counts["in-progress"] === 1 ? "" : "s"}${counts.urgent ? `, ${counts.urgent} urgent` : ""}` : "Problems you reported and how they are going."}>
-        {seesAll && <a href="/api/export/maintenance" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "hidden sm:inline-flex")}><Download /> Export</a>}
+        {seesAll && <a href={`/api/export/maintenance?format=xlsx`} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "hidden sm:inline-flex")}><Download /> Export</a>}
         <Button size="sm" onClick={() => setReporting(true)}><Plus /> Report a problem</Button>
       </PageHeader>
 

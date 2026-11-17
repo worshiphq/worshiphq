@@ -33,7 +33,7 @@ export function FleetClient({ cards, due, accounts, canWrite, canPostExpenses }:
   return (
     <div>
       <PageHeader title="Vehicles" description={cards.length ? `${cards.length} vehicle${cards.length === 1 ? "" : "s"}${onRoad ? ` · ${onRoad} on the road now` : ""}` : "Church buses and cars: trips, fuel, papers and servicing."}>
-        {cards.length > 0 && <a href="/api/export/vehicle-trips" className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "hidden sm:inline-flex")}><Download /> Trips</a>}
+        {cards.length > 0 && <a href={`/api/export/vehicle-trips?format=xlsx`} className={cn(buttonVariants({ variant: "ghost", size: "sm" }), "hidden sm:inline-flex")}><Download /> Trips</a>}
         {canWrite && cards.length > 0 && (
           <>
             <Button variant="secondary" size="sm" onClick={() => setDialog({ kind: "trip" })}><Route /> Start a trip</Button>

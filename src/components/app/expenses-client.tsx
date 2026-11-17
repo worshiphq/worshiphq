@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   ChevronLeft, ChevronRight, Inbox, Paperclip, Plus, Download, HandCoins, Search, Check, Repeat, ReceiptText, MoreHorizontal, Settings2,
@@ -86,7 +86,7 @@ export function ExpensesClient(p: {
               <div className="absolute right-0 z-30 mt-1 w-56 rounded-xl border border-line bg-surface p-1 shadow-xl" onClick={() => setMenu(false)}>
                 {p.canWrite && <button onClick={() => setForm({ kind: "request" })} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-surface-2"><HandCoins className="size-4" /> Request money</button>}
                 <a href={`/api/export/transactions?${p.exportQs}`} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-surface-2"><Download className="size-4" /> Export these records</a>
-                <a href="/api/export/expenses" className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-surface-2"><Download className="size-4" /> Export all, with details</a>
+                <a href={`/api/export/expenses?format=xlsx`} className="flex items-center gap-2 rounded-lg px-3 py-2 text-sm hover:bg-surface-2"><Download className="size-4" /> Export all, with details</a>
                 {p.canWrite && p.me.isAdmin && <button onClick={() => setLimitOpen(true)} className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-sm hover:bg-surface-2"><Settings2 className="size-4" /> Approval limit{p.approvalOver ? ` (${money(p.approvalOver)})` : ""}</button>}
               </div>
             )}
@@ -275,7 +275,9 @@ function Records({ ledger, details, accounts, budgets, budgetsOn, payees, onOpen
   const f = ledger.filters;
   const [q, setQ] = useState(f.q);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => { setQ(f.q); }, [f.q]);
+  // Keep the box in step when the filters are cleared from elsewhere.
+  const [seenQ, setSeenQ] = useState(f.q);
+  if (seenQ !== f.q) { setSeenQ(f.q); setQ(f.q); }
   const onSearch = (v: string) => {
     setQ(v);
     if (timer.current) clearTimeout(timer.current);
