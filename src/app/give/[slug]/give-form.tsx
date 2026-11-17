@@ -112,6 +112,7 @@ export function GiveForm({
         <input
           name="amount"
           type="number"
+          inputMode="decimal"
           min="1"
           step="0.01"
           required
@@ -153,6 +154,7 @@ export function GiveForm({
         onCard={async () => { const fd = pending; setPending(null); await payByCard(fd); }}
         onSuccess={(ref) => { window.location.href = thankYou.current ?? `/give/${churchSlug}/thank-you?ref=${encodeURIComponent(ref)}`; }}
         successText="Thank you. Your gift has been received."
+        nameContext={{ kind: "give", churchSlug }}
       />
     )}
     <form onSubmit={handleSubmit} className="rounded-2xl border border-line bg-surface p-6 shadow-sm sm:p-8">

@@ -4,11 +4,14 @@ import { normalisePhone } from "@/lib/phone";
  * Ghana's Mobile Money networks, shared by the payment sheet (client) and the charge code (server).
  * `paystack` is the provider code sent to Paystack's /charge. Older Paystack docs call AirtelTigo "tgo";
  * current ones say "atl". Change it here only, if Paystack ever refuses it.
+ * `bankCode` is only the FALLBACK bank code for Paystack's account resolve (GET /bank/resolve). The live codes come
+ * from GET /bank?currency=GHS&type=mobile_money (see src/lib/momo/name-check.ts); these are used when that list
+ * can't be read.
  */
 export const MOMO_NETWORKS = {
-  mtn: { id: "mtn", label: "MTN MoMo", short: "MTN", paystack: "mtn", chipBg: "#FFCC00", chipFg: "#000000", prefixes: ["024", "054", "055", "059", "025", "053"] },
-  telecel: { id: "telecel", label: "Telecel Cash", short: "T", paystack: "vod", chipBg: "#E60000", chipFg: "#FFFFFF", prefixes: ["020", "050"] },
-  at: { id: "at", label: "AT Money (AirtelTigo)", short: "AT", paystack: "atl", chipBg: "#004F9F", chipFg: "#FFFFFF", prefixes: ["026", "056", "027", "057"] },
+  mtn: { id: "mtn", label: "MTN MoMo", short: "MTN", paystack: "mtn", bankCode: "MTN", chipBg: "#FFCC00", chipFg: "#000000", prefixes: ["024", "054", "055", "059", "025", "053"] },
+  telecel: { id: "telecel", label: "Telecel Cash", short: "T", paystack: "vod", bankCode: "VOD", chipBg: "#E60000", chipFg: "#FFFFFF", prefixes: ["020", "050"] },
+  at: { id: "at", label: "AT Money (AirtelTigo)", short: "AT", paystack: "atl", bankCode: "ATL", chipBg: "#004F9F", chipFg: "#FFFFFF", prefixes: ["026", "056", "027", "057"] },
 } as const;
 
 export type MomoNetworkId = keyof typeof MOMO_NETWORKS;
@@ -47,4 +50,10 @@ export function detectNetwork(raw: string | null | undefined): MomoNetworkId | n
     if ((MOMO_NETWORKS[id].prefixes as readonly string[]).includes(prefix)) return id;
   }
   return null;
+}
+
+/** The network the prefix suggests, when it differs from the one chosen (for the "this number usually belongs to" hint). */
+export function prefixMismatch(raw: string | null | undefined, chosen: MomoNetworkId | null): MomoNetworkId | null {
+  const d = detectNetwork(raw);
+  return d && chosen && d !== chosen ? d : null;
 }

@@ -1,11 +1,14 @@
 import type { NextRequest } from "next/server";
 import { openMomoToken } from "@/lib/billing/momo-token";
 import { rateLimit, ipFromRequest, MINUTE } from "@/lib/rate-limit";
-import { checkPendingCharge, CHARGE_REFERENCE_RE } from "@/lib/integrations/paystack-charge";
+import { checkPendingCharge, verifyTransaction, chargeReferenceTime, CHARGE_REFERENCE_RE } from "@/lib/integrations/paystack-charge";
 import { confirmAndFulfil } from "@/lib/billing/momo-start";
 
 // Every check must reach the server: never cached, never prerendered.
 export const dynamic = "force-dynamic";
+
+/** After this long still "waiting", also read the transaction itself: it can say failed while the charge still says pending. */
+const SECOND_LOOK_MS = 40_000;
 
 const json = (body: Record<string, unknown>, status = 200) =>
   Response.json(body, { status, headers: { "cache-control": "no-store" } });
@@ -39,6 +42,16 @@ export async function GET(request: NextRequest) {
   }
   // A reply we could not read is not a failed payment: keep waiting rather than tell the payer it failed.
   if (res.status === "error") return json({ status: "pending", done: false });
+  // Failed is final: tell the payer at once (the sheet stops waiting). A charge still "waiting" for a while gets a
+  // second look at the transaction, which often settles as failed first (a number that isn't on that network).
+  const startedAt = chargeReferenceTime(ref) ?? Date.now();
+  if ((res.status === "pending" || res.status === "pay_offline") && Date.now() - startedAt > SECOND_LOOK_MS) {
+    const txn = await verifyTransaction(ref);
+    if (txn?.reference === ref && String(txn.status ?? "").toLowerCase() === "failed") {
+      const why = (txn as { gateway_response?: unknown }).gateway_response;
+      return json({ status: "failed", ...(typeof why === "string" && why.trim() ? { message: why.trim().slice(0, 300) } : {}), done: true });
+    }
+  }
   return json({
     status: res.status,
     ...(res.displayText ? { displayText: res.displayText } : {}),

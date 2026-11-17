@@ -6,8 +6,14 @@ import assert from "node:assert/strict";
 import { toLocalGhanaMobile, detectNetwork, isValidGhanaMobile, MOMO_NETWORKS, MOMO_NETWORK_IDS } from "../../src/lib/momo/networks";
 import { signMomoToken, openMomoToken, MOMO_TOKEN_TTL_MS } from "../../src/lib/billing/momo-token";
 import { mapChargeResponse } from "../../src/lib/momo/charge-status";
+import { prefixMismatch } from "../../src/lib/momo/networks";
+import {
+  bankCodesFromList, networkForBankRow, resolveOrder, readResolveReply, resolveAcrossNetworks, explainMomoFailure, FALLBACK_BANK_CODES,
+  type ResolveAttempt,
+} from "../../src/lib/momo/name-check";
 
 let passed = 0;
+const pending: Promise<void>[] = [];
 const failures: string[] = [];
 function test(name: string, fn: () => void) {
   try {
@@ -132,8 +138,162 @@ test("empty or junk is error", () => {
 });
 test("uppercase status", () => assert.equal(mapChargeResponse({ status: true, data: { status: "SUCCESS" } }).status, "success"));
 
-console.log(`${passed} passed, ${failures.length} failed`);
-if (failures.length) {
-  for (const f of failures) console.error("  FAIL " + f);
-  process.exit(1);
+/* ── name check: bank codes ── */
+function atest(name: string, fn: () => Promise<void>) {
+  pending.push(fn().then(() => { passed++; }, (e) => { failures.push(`${name}: ${(e as Error).message}`); }));
 }
+
+test("fallback bank codes", () => assert.deepEqual(FALLBACK_BANK_CODES, { mtn: "MTN", telecel: "VOD", at: "ATL" }));
+test("bank list maps codes", () => assert.deepEqual(
+  bankCodesFromList({ status: true, data: [
+    { name: "MTN", code: "MTN", type: "mobile_money", currency: "GHS", active: true },
+    { name: "Vodafone", code: "VOD", type: "mobile_money", currency: "GHS" },
+    { name: "AirtelTigo", code: "ATL", type: "mobile_money", currency: "GHS" },
+  ] }),
+  { mtn: "MTN", telecel: "VOD", at: "ATL" },
+));
+test("bank list with new codes wins over fallback", () => assert.deepEqual(
+  bankCodesFromList({ data: [
+    { name: "MTN Mobile Money", code: "MTN-GH", type: "mobile_money", currency: "GHS" },
+    { name: "Telecel Cash", code: "TCL", type: "mobile_money", currency: "GHS" },
+    { name: "AT Money", slug: "at-money", code: "AT1", type: "mobile_money", currency: "GHS" },
+  ] }),
+  { mtn: "MTN-GH", telecel: "TCL", at: "AT1" },
+));
+test("bank list keeps fallback for missing networks", () => assert.deepEqual(
+  bankCodesFromList({ data: [{ name: "MTN", code: "MTN", type: "mobile_money", currency: "GHS" }] }),
+  { mtn: "MTN", telecel: "VOD", at: "ATL" },
+));
+test("bank list skips banks, other currencies, inactive and deleted rows", () => assert.deepEqual(
+  bankCodesFromList({ data: [
+    { name: "MTN Bank", code: "XX1", type: "ghipss", currency: "GHS" },
+    { name: "MTN", code: "MTN-KE", type: "mobile_money", currency: "KES" },
+    { name: "Vodafone", code: "OLD", type: "mobile_money", currency: "GHS", is_deleted: true },
+    { name: "AirtelTigo", code: "TGO", type: "mobile_money", currency: "GHS", active: false },
+  ] }),
+  FALLBACK_BANK_CODES,
+));
+test("first matching row wins", () => assert.equal(
+  bankCodesFromList({ data: [
+    { name: "AirtelTigo", code: "ATL", type: "mobile_money", currency: "GHS" },
+    { name: "Tigo", code: "TGO", type: "mobile_money", currency: "GHS" },
+  ] }).at,
+  "ATL",
+));
+test("junk bank list falls back", () => {
+  assert.deepEqual(bankCodesFromList(null), FALLBACK_BANK_CODES);
+  assert.deepEqual(bankCodesFromList({ data: "nope" }), FALLBACK_BANK_CODES);
+  assert.deepEqual(bankCodesFromList({ data: [null, 5, { code: "ZZZ", name: "Unknown" }] }), FALLBACK_BANK_CODES);
+});
+test("networkForBankRow", () => {
+  assert.equal(networkForBankRow({ code: "vod" }), "telecel");
+  assert.equal(networkForBankRow({ code: "TGO" }), "at");
+  assert.equal(networkForBankRow({ name: "GCB Bank", code: "040" }), null);
+});
+
+/* ── name check: order ── */
+test("order: chosen, detected, rest", () => assert.deepEqual(resolveOrder("telecel", "mtn"), ["telecel", "mtn", "at"]));
+test("order: chosen equals detected", () => assert.deepEqual(resolveOrder("mtn", "mtn"), ["mtn", "telecel", "at"]));
+test("order: nothing chosen", () => assert.deepEqual(resolveOrder(null, "at"), ["at", "mtn", "telecel"]));
+test("order: nothing known", () => assert.deepEqual(resolveOrder(null, null), ["mtn", "telecel", "at"]));
+test("prefix mismatch", () => {
+  assert.equal(prefixMismatch("0241234567", "telecel"), "mtn");
+  assert.equal(prefixMismatch("0241234567", "mtn"), null);
+  assert.equal(prefixMismatch("0281234567", "mtn"), null);
+  assert.equal(prefixMismatch("0241234567", null), null);
+});
+
+/* ── name check: resolve replies ── */
+test("resolve found", () => assert.deepEqual(
+  readResolveReply(200, { status: true, message: "Account number resolved", data: { account_number: "0241234567", account_name: "KOFI  MENSAH " } }),
+  { kind: "found", name: "KOFI MENSAH" },
+));
+test("resolve 422 is not found", () => assert.deepEqual(readResolveReply(422, { status: false, message: "Could not resolve account name" }), { kind: "not_found" }));
+test("resolve 400 is not found", () => assert.equal(readResolveReply(400, { status: false }).kind, "not_found"));
+test("resolve 500 / 429 / 401 is unavailable", () => {
+  assert.equal(readResolveReply(500, {}).kind, "unavailable");
+  assert.equal(readResolveReply(429, {}).kind, "unavailable");
+  assert.equal(readResolveReply(401, { status: false, message: "Invalid key" }).kind, "unavailable");
+});
+test("resolve 200 without a name is unavailable", () => assert.equal(readResolveReply(200, { status: true, data: {} }).kind, "unavailable"));
+
+const fake = (answers: Partial<Record<string, ResolveAttempt | "throw">>) => {
+  const asked: string[] = [];
+  const fn = async (id: string): Promise<ResolveAttempt> => {
+    asked.push(id);
+    const a = answers[id] ?? { kind: "not_found" };
+    if (a === "throw") throw new Error("boom");
+    return a;
+  };
+  return { asked, fn };
+};
+atest("resolve: chosen network found, no switch", async () => {
+  const f = fake({ mtn: { kind: "found", name: "KOFI MENSAH" } });
+  assert.deepEqual(await resolveAcrossNetworks("mtn", "mtn", f.fn), { status: "found", name: "KOFI MENSAH", network: "mtn", switched: false, chosen: "mtn" });
+  assert.deepEqual(f.asked, ["mtn"]);
+});
+atest("resolve: MTN number picked as Telecel switches to MTN", async () => {
+  const f = fake({ telecel: { kind: "not_found" }, mtn: { kind: "found", name: "KOFI MENSAH" } });
+  const r = await resolveAcrossNetworks("telecel", "mtn", f.fn);
+  assert.deepEqual(r, { status: "found", name: "KOFI MENSAH", network: "mtn", switched: true, chosen: "telecel" });
+  assert.deepEqual(f.asked, ["telecel", "mtn"]);
+});
+atest("resolve: ported number found on the last network", async () => {
+  const f = fake({ at: { kind: "found", name: "AMA" } });
+  const r = await resolveAcrossNetworks("mtn", "mtn", f.fn);
+  assert.equal(r.status === "found" && r.network, "at");
+  assert.deepEqual(f.asked, ["mtn", "telecel", "at"]);
+});
+atest("resolve: nowhere is not_found", async () => {
+  const f = fake({});
+  assert.deepEqual(await resolveAcrossNetworks("mtn", "mtn", f.fn), { status: "not_found" });
+  assert.deepEqual(f.asked, ["mtn", "telecel", "at"]);
+});
+atest("resolve: chosen unavailable stops and lets them go on", async () => {
+  const f = fake({ telecel: { kind: "unavailable" }, mtn: { kind: "found", name: "X" } });
+  assert.deepEqual(await resolveAcrossNetworks("telecel", "mtn", f.fn), { status: "unavailable" });
+  assert.deepEqual(f.asked, ["telecel"]);
+});
+atest("resolve: a throw counts as unavailable", async () => {
+  const f = fake({ mtn: "throw" });
+  assert.deepEqual(await resolveAcrossNetworks("mtn", null, f.fn), { status: "unavailable" });
+});
+atest("resolve: later network unavailable, none found, is unavailable", async () => {
+  const f = fake({ telecel: { kind: "unavailable" } });
+  assert.deepEqual(await resolveAcrossNetworks("mtn", "mtn", f.fn), { status: "unavailable" });
+  assert.deepEqual(f.asked, ["mtn", "telecel", "at"]);
+});
+
+/* ── failure messages ── */
+const wrong = (m: string) => explainMomoFailure(m, "Telecel Cash");
+for (const m of ["Invalid mobile number", "Invalid MoMo number", "Number not registered for mobile money", "Subscriber not found", "Account does not exist", "Wallet not found", "Could not resolve account", "Wrong network"]) {
+  test(`wrong network: ${m}`, () => assert.deepEqual(wrong(m), { text: "This number may not be on Telecel Cash. Check the network and try again.", wrongNetwork: true }));
+}
+test("insufficient funds", () => assert.match(explainMomoFailure("Insufficient funds", "MTN MoMo").text, /isn't enough money/));
+test("not enough balance", () => assert.match(explainMomoFailure("Not enough balance").text, /isn't enough money/));
+test("wrong PIN is not wrong network", () => {
+  const r = explainMomoFailure("Invalid PIN", "MTN MoMo");
+  assert.equal(r.wrongNetwork, false);
+  assert.match(r.text, /PIN/);
+});
+test("timeout", () => assert.match(explainMomoFailure("Transaction timed out").text, /approved in time/));
+test("declined by user", () => assert.match(explainMomoFailure("Transaction declined by customer").text, /declined/));
+test("limit", () => assert.match(explainMomoFailure("Daily limit exceeded").text, /limit/));
+test("blocked wallet", () => assert.match(explainMomoFailure("Account blocked").text, /can't make payments/));
+test("bare declined / failed / empty", () => {
+  assert.match(explainMomoFailure("Declined").text, /declined on the phone/);
+  assert.equal(explainMomoFailure(undefined).text, "Please try again.");
+});
+test("unknown message is quoted", () => assert.equal(explainMomoFailure("Something odd happened.").text, 'Your network said: "Something odd happened". Please try again.'));
+test("no network label", () => assert.match(explainMomoFailure("Invalid number").text, /this network/));
+test("no em dashes in messages", () => {
+  for (const m of ["Invalid number", "Insufficient funds", "Invalid PIN", "timeout", "declined", "limit", "blocked", "x"]) assert.ok(!explainMomoFailure(m, "MTN MoMo").text.includes("\u2014"));
+});
+
+void Promise.all(pending).then(() => {
+  console.log(`${passed} passed, ${failures.length} failed`);
+  if (failures.length) {
+    for (const f of failures) console.error("  FAIL " + f);
+    process.exit(1);
+  }
+});
