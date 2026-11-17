@@ -171,7 +171,7 @@ function EntryRow({ row, canWrite, canDelete, onHide }: { row: LedgerRow; canWri
     if (!confirmBinDelete("Delete this entry?")) return;
     onHide(row.id);
     toast(BIN_TOAST, "success");
-    deleteTransaction(row.id).then(() => router.refresh());
+    deleteTransaction(row.id).then((r) => { if (r && !r.ok) toast(r.error, "error"); router.refresh(); });
   };
 
   if (mode === "edit") {

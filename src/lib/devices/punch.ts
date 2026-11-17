@@ -103,9 +103,16 @@ export async function recordPunch(device: Device, input: { pin: string; at: Date
 
   if (now.getTime() - at.getTime() > 36 * 3600000) { await log("too_old", null); return { result: "too_old", name: null }; }
 
+  const person = await personForPin(device.churchId, input.pin);
+  // Staff & Payroll: a staff member's scan is also their clock-in (or clock-out) for the day, on any weekday,
+  // even outside service hours. It never blocks the normal check-in below.
+  if (person) {
+    const { recordStaffPunch } = await import("@/lib/payroll/staff-punch");
+    await recordStaffPunch(device.churchId, person.id, at, device.id).catch(() => {});
+  }
+
   if (!(await scanAllowed(device, at))) { await logOnce("outside_hours", null); return { result: "outside_hours", name: null }; }
 
-  const person = await personForPin(device.churchId, input.pin);
   if (!person) { await log("unknown_id", null); return { result: "unknown_id", name: null }; }
   const name = `${person.firstName} ${person.lastName}`.trim();
 

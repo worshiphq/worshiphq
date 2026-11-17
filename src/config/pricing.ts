@@ -105,6 +105,7 @@ export const plans: Plan[] = [
       "Engagement scoring & at-risk member alerts",
       "Advanced analytics & giving intelligence",
       "Restricted funds with enforced balances, budgets & assets",
+      "Staff records, leave and payroll with SSNIT and PAYE",
       "Members marked inactive automatically after weeks away",
       "Confidential counseling notes & audit log",
       "Unlimited members & priority support",
@@ -148,6 +149,7 @@ export const comparison: { group: string; rows: { label: string; values: (boolea
       { label: "Church accounts, income & expenses", values: [false, false, true, true] },
       { label: "Restricted funds with enforced balances", values: [false, false, false, true] },
       { label: "Budgets & asset register", values: [false, false, false, true] },
+      { label: "Staff, leave and payroll (payslips, SSNIT and PAYE schedules)", values: [false, false, false, true] },
     ],
   },
   {

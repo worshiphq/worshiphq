@@ -7,6 +7,7 @@ import { engagement } from "./articles/engagement";
 import { admin } from "./articles/admin";
 import { publicPages } from "./articles/public-pages";
 import { billing } from "./articles/billing";
+import { payroll } from "./articles/payroll";
 
 export const DOC_SECTIONS: DocSection[] = [
   { id: "getting-started", title: "Getting started", blurb: "Create your account, set up your church and find your way around." },
@@ -28,6 +29,7 @@ export const DOC_ARTICLES: DocArticle[] = [
   ...admin,
   ...publicPages,
   ...billing,
+  ...payroll,
 ];
 
 export function getArticle(slug: string) {

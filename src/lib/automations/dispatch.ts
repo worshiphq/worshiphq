@@ -89,6 +89,8 @@ export async function runDailyAutomations(now = new Date(), precise = false, sen
     summary.fxRate = await safe("fx", () => refreshUsdToGhsRate());
     summary.pledgeReminders = await safe("pledgeReminders", () => runPledgeReminders(smsDeadline));
     summary.levies = await safe("levies", async () => (await import("@/lib/levies/reminders")).runLevyReminders(now, smsDeadline));
+    // Max (Staff & Payroll): SSNIT and PAYE due dates, emailed to payroll managers.
+    summary.payrollReminders = await safe("payrollReminders", async () => (await import("@/lib/payroll/reminders")).runPayrollReminders(now, smsDeadline));
   }
 
   // 4b) Delivery reports for texts sent in the last few days (Delivered / Not delivered on the SMS records).

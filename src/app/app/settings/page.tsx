@@ -21,9 +21,9 @@ export default async function SettingsPage() {
   const [church, users, departments, customRoles, subscription, platformConfig, planPayments, messageCenter, memberCount, smsTopups] = await Promise.all([
     db.church.findUnique({ where: { id: session.churchId } }),
     db.user.findMany({
-      where: { churchId: session.churchId },
+      where: { churchId: session.churchId, staffPortalOnly: false },
       orderBy: { createdAt: "asc" },
-      select: { id: true, name: true, email: true, phone: true, photoUrl: true, role: true, createdAt: true, inviteToken: true, inviteAcceptedAt: true, customRole: { select: { id: true, name: true } }, budgetDepartment: { select: { id: true, name: true } } },
+      select: { id: true, name: true, email: true, phone: true, photoUrl: true, role: true, createdAt: true, inviteToken: true, inviteAcceptedAt: true, customRole: { select: { id: true, name: true } }, budgetDepartment: { select: { id: true, name: true } }, payrollAccess: true },
     }),
     db.department.findMany({
       where: { churchId: session.churchId },
@@ -135,6 +135,8 @@ export default async function SettingsPage() {
           // Waiting = invited and never accepted (a temporary password does not count as joining). Tokens never leave the server.
           pending: !!u.inviteToken && !u.inviteAcceptedAt,
           joinedAt: u.createdAt.toISOString(),
+          // Who can see payroll is only shown to the Main Admin, who is the only one who can change it.
+          payrollAccess: session.role === "Owner" ? u.payrollAccess : null,
         }))}
         departments={departmentsWithCounts}
         customRoles={customRoles.map(({ manageSplit, ...r }) => ({ ...r, manageSections: manageSplit ? r.manageSections : r.sections }))}

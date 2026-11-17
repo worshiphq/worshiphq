@@ -352,6 +352,24 @@ model Church {
   levyRemindUserIds String[]          @default([])
   levyAutoClose     Boolean           @default(true)
   levySchedule      Json? // suggested levies a main church publishes for its linked churches
+  // ── Staff & Payroll (Max) ──
+  staffMembers     StaffMember[]
+  staffPayProfiles StaffPayProfile[]
+  staffLoans       StaffLoan[]
+  staffPayItems    StaffPayItem[]
+  staffDocuments   StaffDocument[]
+  staffAttendance  StaffAttendance[]
+  payrollSettings  PayrollSettings?
+  payeBandSets     PayeBandSet[]
+  payrollHolidays  PayrollHoliday[]
+  payrollRuns      PayrollRun[]
+  payrollLines     PayrollLine[]
+  payrollLineItems PayrollLineItem[]
+  payrollPostings  PayrollPosting[]
+  payrollEvents    PayrollEvent[]
+  leaveTypes       LeaveType[]
+  leaveRequests    LeaveRequest[]
+  leaveAdjustments LeaveAdjustment[]
 }
 
 /// One encrypted snapshot of a church's data, stored in R2 (objectKey). Rows
@@ -417,6 +435,7 @@ model Department {
   positions     DepartmentPosition[]
   budgetLeaders User[]               @relation("DepartmentBudgetLeaders")
   budgets       Budget[]             @relation("DepartmentBudgets")
+  staff         StaffMember[]
 
   @@unique([churchId, name])
   @@index([churchId])
@@ -493,6 +512,12 @@ model User {
   followUpReports     FollowUpReport[]
   auditLogs           AuditLog[]
   counselingSessions  CounselingSession[]
+  // Staff & Payroll: per-user payroll access, set only by the Main Admin (null | view | manage)
+  payrollAccess       String?
+  // A staff self-service login: sees only "My pay". Not counted as a team seat.
+  staffPortalOnly     Boolean             @default(false)
+  staffRecord         StaffMember?        @relation("StaffLogin")
+  staffReports        StaffMember[]       @relation("StaffReportsTo")
 
   @@index([churchId])
 }
@@ -613,6 +638,7 @@ model Person {
   communicationRecipients CommunicationRecipient[]
   visitor                 Visitor?                 @relation("VisitorPerson")
   invitedVisitors         Visitor[]                @relation("VisitorInvitedBy")
+  staff                   StaffMember?
 
   @@unique([churchId, memberId])
   @@index([churchId])
@@ -815,6 +841,8 @@ model ChurchAccount {
   gifts          Gift[]
   expenses       Expense[]
   levyPayments   LevyPayment[]
+  payrollRuns    PayrollRun[]
+  staffLoans     StaffLoan[]
 
   @@index([churchId])
 }
@@ -1171,8 +1199,11 @@ model Transaction {
   // Received (e.g. cash in hand) but not put into an account yet. Counted as income, left out of every
   // account balance until it is assigned to one.
   pendingDeposit Boolean        @default(false)
+  payrollRunId   String?
+  payrollRun     PayrollRun?    @relation(fields: [payrollRunId], references: [id], onDelete: SetNull)
 
   @@index([churchId])
+  @@index([payrollRunId])
 }
 
 // ── SMS credits ───────────────────────────────────────────
@@ -1834,9 +1865,16 @@ model Expense {
   date        DateTime       @default(now())
   createdAt   DateTime       @default(now())
   levyPayment LevyPayment?
+  // Staff & Payroll: posted by a payroll run or a staff loan (locked: reverse from Payroll instead)
+  payrollRunId String?
+  payrollRun   PayrollRun?    @relation(fields: [payrollRunId], references: [id], onDelete: SetNull)
+  staffLoanId  String?
+  staffLoan    StaffLoan?     @relation(fields: [staffLoanId], references: [id], onDelete: SetNull)
 
   @@index([churchId, date])
   @@index([fundId])
+  @@index([payrollRunId])
+  @@index([staffLoanId])
 }
 
 // ── Facilities & Bookings ─────────────────────────────────
@@ -2724,4 +2762,472 @@ model LevyPayment {
 
   @@index([recordId])
   @@index([churchId, paidOn])
+}
+
+// ── Staff & Payroll (Max) ─────────────────────────────────
+model StaffMember {
+  id                String            @id @default(cuid())
+  churchId          String
+  church            Church            @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  personId          String?           @unique
+  person            Person?           @relation(fields: [personId], references: [id], onDelete: SetNull)
+  userId            String?           @unique
+  user              User?             @relation("StaffLogin", fields: [userId], references: [id], onDelete: SetNull)
+  staffNo           String?
+  firstName         String
+  lastName          String
+  otherNames        String?
+  phone             String?
+  email             String?
+  jobTitle          String?
+  departmentId      String?
+  department        Department?       @relation(fields: [departmentId], references: [id], onDelete: SetNull)
+  employmentType    String            @default("full_time") // full_time | part_time | contract | stipend
+  startDate         DateTime?
+  endDate           DateTime?
+  status            String            @default("active") // active | suspended | left
+  endReason         String?
+  reportsToUserId   String?
+  reportsTo         User?             @relation("StaffReportsTo", fields: [reportsToUserId], references: [id], onDelete: SetNull)
+  emergencyName     String?
+  emergencyPhone    String?
+  emergencyRelation String?
+  notes             String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+  pay               StaffPayProfile?
+  payItems          StaffPayItem[]
+  loans             StaffLoan[]
+  documents         StaffDocument[]
+  attendance        StaffAttendance[]
+  leaveRequests     LeaveRequest[]
+  leaveAdjustments  LeaveAdjustment[]
+  payrollLines      PayrollLine[]
+
+  @@unique([churchId, staffNo])
+  @@index([churchId, status])
+  @@index([departmentId])
+}
+
+/// Payroll-only: salary, statutory switches, sealed IDs and payout. Never selected by staff-directory queries.
+model StaffPayProfile {
+  staffId         String      @id
+  staff           StaffMember @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  churchId        String
+  church          Church      @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  basicSalary     Decimal     @default(0) @db.Decimal(12, 2)
+  currency        String      @default("GHS")
+  payFrequency    String      @default("monthly")
+  ssnitApplies    Boolean     @default(true)
+  tier2Applies    Boolean     @default(true)
+  payeApplies     Boolean     @default(true)
+  isClergy        Boolean     @default(false)
+  taxResident     Boolean     @default(true)
+  ssnitNoSealed   String?
+  ssnitNoLast4    String?
+  tinSealed       String?
+  tinLast4        String?
+  ghanaCardSealed String?
+  ghanaCardLast4  String?
+  payoutMethod    String      @default("bank") // bank | momo | cash | cheque
+  bankName        String?
+  bankBranch      String?
+  accountName     String?
+  accountNoSealed String?
+  accountNoLast4  String?
+  momoNetwork     String?
+  momoNoSealed    String?
+  momoNoLast4     String?
+  updatedById     String?
+  updatedAt       DateTime    @updatedAt
+
+  @@index([churchId])
+}
+
+model StaffLoan {
+  id            String            @id @default(cuid())
+  churchId      String
+  church        Church            @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  staffId       String
+  staff         StaffMember       @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  ref           String
+  kind          String            @default("loan") // loan | advance
+  label         String
+  principal     Decimal           @db.Decimal(12, 2)
+  installment   Decimal           @db.Decimal(12, 2)
+  balance       Decimal           @db.Decimal(12, 2)
+  issuedAt      DateTime          @default(now())
+  startPeriod   String
+  status        String            @default("active") // active | cleared | written_off
+  accountId     String?
+  account       ChurchAccount?    @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  note          String?
+  createdById   String?
+  createdByName String?
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+  lineItems     PayrollLineItem[]
+  expenses      Expense[]
+
+  @@unique([churchId, ref])
+  @@index([staffId, status])
+}
+
+model StaffPayItem {
+  id         String      @id @default(cuid())
+  churchId   String
+  church     Church      @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  staffId    String
+  staff      StaffMember @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  kind       String // earning | deduction
+  code       String
+  label      String
+  amount     Decimal     @db.Decimal(12, 2)
+  taxable    Boolean     @default(true)
+  ssnitable  Boolean     @default(false)
+  preTax     Boolean     @default(false)
+  remitted   Boolean     @default(false)
+  fromPeriod String?
+  toPeriod   String?
+  active     Boolean     @default(true)
+  sortOrder  Int         @default(0)
+  createdAt  DateTime    @default(now())
+
+  @@index([staffId])
+  @@index([churchId])
+}
+
+model StaffDocument {
+  id             String      @id @default(cuid())
+  churchId       String
+  church         Church      @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  staffId        String
+  staff          StaffMember @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  kind           String      @default("contract")
+  name           String
+  objectKey      String
+  contentType    String
+  sizeBytes      Int         @default(0)
+  payrollOnly    Boolean     @default(true)
+  uploadedById   String?
+  uploadedByName String?
+  createdAt      DateTime    @default(now())
+
+  @@index([staffId])
+  @@index([churchId])
+}
+
+model StaffAttendance {
+  id        String      @id @default(cuid())
+  churchId  String
+  church    Church      @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  staffId   String
+  staff     StaffMember @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  date      DateTime    @db.Date
+  clockIn   DateTime?
+  clockOut  DateTime?
+  status    String      @default("present")
+  source    String      @default("manual")
+  deviceId  String?
+  note      String?
+  createdAt DateTime    @default(now())
+
+  @@unique([staffId, date])
+  @@index([churchId, date])
+}
+
+model PayrollSettings {
+  churchId           String   @id
+  church             Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  ssnitEmployeePct   Decimal  @default(5.5) @db.Decimal(6, 3)
+  ssnitEmployerPct   Decimal  @default(13) @db.Decimal(6, 3)
+  tier1Pct           Decimal  @default(13.5) @db.Decimal(6, 3)
+  tier2Pct           Decimal  @default(5) @db.Decimal(6, 3)
+  ssnitMonthlyCap    Decimal? @db.Decimal(12, 2)
+  statutoryMode      String   @default("ghana")
+  workingDaysRule    String   @default("weekdays")
+  fixedWorkingDays   Int      @default(22)
+  postingMode        String   @default("split")
+  salaryCategory     String   @default("Salaries and wages")
+  ssnitCategory      String   @default("SSNIT and pension")
+  payeCategory       String   @default("PAYE income tax")
+  deductionsCategory String   @default("Staff deductions paid over")
+  loansCategory      String   @default("Staff loans and advances")
+  defaultAccountId   String?
+  employerSsnitNo    String?
+  employerTin        String?
+  makerChecker       String   @default("auto")
+  portalOn           Boolean  @default(true)
+  smsShowAmounts     Boolean  @default(false)
+  payslipNote        String?
+  staffNoPrefix      String   @default("ST")
+  staffSeq           Int      @default(0)
+  loanSeq            Int      @default(0)
+  selfClockOn        Boolean  @default(false) // staff may clock in and out themselves from My pay
+  remindersOn        Boolean  @default(true) // remind payroll managers about SSNIT and PAYE due dates
+  budgetLinkOn       Boolean  @default(false) // post payroll cost to department budgets (budget leaders then see department totals)
+  bonusTaxMode       String   @default("normal") // normal | ghana (flat rate up to a share of annual basic)
+  bonusRatePct       Decimal  @default(5) @db.Decimal(6, 3)
+  bonusCapPct        Decimal  @default(15) @db.Decimal(6, 3)
+  overtimeTaxMode    String   @default("normal") // normal | ghana (qualifying junior staff)
+  overtimeLowPct     Decimal  @default(5) @db.Decimal(6, 3)
+  overtimeHighPct    Decimal  @default(10) @db.Decimal(6, 3)
+  overtimeQualifyMax Decimal? @db.Decimal(12, 2) // monthly basic at or below which staff qualify
+  updatedAt          DateTime @updatedAt
+}
+
+model PayeBandSet {
+  id            String   @id @default(cuid())
+  churchId      String
+  church        Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name          String
+  effectiveFrom DateTime
+  bands         Json
+  note          String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([churchId, effectiveFrom])
+}
+
+model PayrollHoliday {
+  id       String   @id @default(cuid())
+  churchId String
+  church   Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  date     DateTime @db.Date
+  name     String
+
+  @@unique([churchId, date])
+}
+
+model PayrollRun {
+  id              String           @id @default(cuid())
+  churchId        String
+  church          Church           @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  year            Int
+  month           Int
+  kind            String           @default("regular")
+  regularKey      String?
+  title           String
+  status          String           @default("draft") // draft | review | approved | paid | reversed
+  payDate         DateTime?
+  accountId       String?
+  account         ChurchAccount?   @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  fundId          String?
+  rules           Json
+  headcount       Int              @default(0)
+  gross           Decimal          @default(0) @db.Decimal(12, 2)
+  ssnitEmployee   Decimal          @default(0) @db.Decimal(12, 2)
+  ssnitEmployer   Decimal          @default(0) @db.Decimal(12, 2)
+  paye            Decimal          @default(0) @db.Decimal(12, 2)
+  otherDeductions Decimal          @default(0) @db.Decimal(12, 2)
+  net             Decimal          @default(0) @db.Decimal(12, 2)
+  employerCost    Decimal          @default(0) @db.Decimal(12, 2)
+  preparedById    String?
+  preparedByName  String?
+  preparedAt      DateTime?
+  lastEditedById  String?
+  submittedById   String?
+  submittedByName String?
+  submittedAt     DateTime?
+  approvedById    String?
+  approvedByName  String?
+  approvedAt      DateTime?
+  selfApproved    Boolean          @default(false)
+  paidById        String?
+  paidByName      String?
+  paidAt          DateTime?
+  reversedById    String?
+  reversedByName  String?
+  reversedAt      DateTime?
+  reversalMode    String?
+  reversalReason  String?
+  version         Int              @default(0)
+  notes           String?
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+  lines           PayrollLine[]
+  postings        PayrollPosting[]
+  expenses        Expense[]
+  transactions    Transaction[]
+
+  @@unique([churchId, regularKey])
+  @@index([churchId, year, month])
+}
+
+model PayrollLine {
+  id               String            @id @default(cuid())
+  churchId         String
+  church           Church            @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  runId            String
+  run              PayrollRun        @relation(fields: [runId], references: [id], onDelete: Cascade)
+  staffId          String?
+  staff            StaffMember?      @relation(fields: [staffId], references: [id], onDelete: SetNull)
+  staffNo          String?
+  staffName        String
+  jobTitle         String?
+  departmentId     String?
+  departmentName   String?
+  employmentType   String?
+  payoutMethod     String?
+  payoutLabel      String?
+  basic            Decimal           @default(0) @db.Decimal(12, 2)
+  gross            Decimal           @default(0) @db.Decimal(12, 2)
+  ssnitBase        Decimal           @default(0) @db.Decimal(12, 2)
+  taxableIncome    Decimal           @default(0) @db.Decimal(12, 2)
+  ssnitEmployee    Decimal           @default(0) @db.Decimal(12, 2)
+  ssnitEmployer    Decimal           @default(0) @db.Decimal(12, 2)
+  tier1            Decimal           @default(0) @db.Decimal(12, 2)
+  tier2            Decimal           @default(0) @db.Decimal(12, 2)
+  paye             Decimal           @default(0) @db.Decimal(12, 2)
+  preTaxDeductions Decimal           @default(0) @db.Decimal(12, 2)
+  otherDeductions  Decimal           @default(0) @db.Decimal(12, 2)
+  net              Decimal           @default(0) @db.Decimal(12, 2)
+  employerCost     Decimal           @default(0) @db.Decimal(12, 2)
+  specialTax       Decimal           @default(0) @db.Decimal(12, 2) // bonus and overtime flat-rate tax, included in paye
+  ssnitApplies     Boolean           @default(true)
+  payeApplies      Boolean           @default(true)
+  unpaidDays       Decimal           @default(0) @db.Decimal(5, 2)
+  workingDays      Int               @default(22)
+  excluded         Boolean           @default(false)
+  note             String?
+  emailedAt        DateTime?
+  smsAt            DateTime?
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  items            PayrollLineItem[]
+
+  @@unique([runId, staffId])
+  @@index([churchId, staffId])
+}
+
+model PayrollLineItem {
+  id             String      @id @default(cuid())
+  churchId       String
+  church         Church      @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  lineId         String
+  line           PayrollLine @relation(fields: [lineId], references: [id], onDelete: Cascade)
+  kind           String
+  code           String
+  label          String
+  amount         Decimal     @db.Decimal(12, 2)
+  taxable        Boolean     @default(true)
+  ssnitable      Boolean     @default(false)
+  preTax         Boolean     @default(false)
+  remitted       Boolean     @default(false)
+  source         String      @default("recurring")
+  payItemId      String?
+  loanId         String?
+  loan           StaffLoan?  @relation(fields: [loanId], references: [id], onDelete: SetNull)
+  leaveRequestId String?
+  sortOrder      Int         @default(0)
+
+  @@index([lineId])
+  @@index([loanId])
+}
+
+model PayrollPosting {
+  id            String     @id @default(cuid())
+  churchId      String
+  church        Church     @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  runId         String
+  run           PayrollRun @relation(fields: [runId], references: [id], onDelete: Cascade)
+  kind          String // net_pay | ssnit | paye | deductions
+  label         String
+  amount        Decimal    @db.Decimal(12, 2)
+  status        String     @default("pending")
+  dueDate       DateTime?
+  accountId     String?
+  expenseId     String?
+  transactionId String?
+  reference     String?
+  postedAt      DateTime?
+  postedById    String?
+  reversedAt    DateTime?
+  budgetEntryId String?
+  remindedAt    DateTime?
+  createdAt     DateTime   @default(now())
+
+  @@index([runId])
+  @@index([churchId, status])
+}
+
+model PayrollEvent {
+  id        String   @id @default(cuid())
+  churchId  String
+  church    Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  runId     String?
+  staffId   String?
+  action    String
+  actorId   String?
+  actorName String?
+  detail    String?
+  meta      Json?
+  createdAt DateTime @default(now())
+
+  @@index([churchId, createdAt])
+  @@index([runId])
+}
+
+model LeaveType {
+  id           String            @id @default(cuid())
+  churchId     String
+  church       Church            @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name         String
+  daysPerYear  Decimal           @default(0) @db.Decimal(5, 2)
+  paid         Boolean           @default(true)
+  carryOverMax Decimal           @default(0) @db.Decimal(5, 2)
+  color        String            @default("#6D5EF8")
+  active       Boolean           @default(true)
+  sortOrder    Int               @default(0)
+  createdAt    DateTime          @default(now())
+  requests     LeaveRequest[]
+  adjustments  LeaveAdjustment[]
+
+  @@unique([churchId, name])
+}
+
+model LeaveRequest {
+  id              String      @id @default(cuid())
+  churchId        String
+  church          Church      @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  staffId         String
+  staff           StaffMember @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  leaveTypeId     String
+  leaveType       LeaveType   @relation(fields: [leaveTypeId], references: [id], onDelete: Restrict)
+  startDate       DateTime    @db.Date
+  endDate         DateTime    @db.Date
+  days            Decimal     @db.Decimal(5, 2)
+  halfDay         Boolean     @default(false)
+  reason          String?
+  status          String      @default("pending")
+  requestedById   String?
+  requestedByName String?
+  decidedById     String?
+  decidedByName   String?
+  decidedAt       DateTime?
+  decisionNote    String?
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([churchId, status])
+  @@index([staffId, startDate])
+}
+
+model LeaveAdjustment {
+  id          String      @id @default(cuid())
+  churchId    String
+  church      Church      @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  staffId     String
+  staff       StaffMember @relation(fields: [staffId], references: [id], onDelete: Cascade)
+  leaveTypeId String
+  leaveType   LeaveType   @relation(fields: [leaveTypeId], references: [id], onDelete: Cascade)
+  year        Int
+  days        Decimal     @db.Decimal(5, 2)
+  note        String?
+  byId        String?
+  byName      String?
+  createdAt   DateTime    @default(now())
+
+  @@index([staffId, year])
 }

@@ -92,12 +92,14 @@ export async function deleteExpense(formData: FormData) {
   if (session.isDemo) return;
 
   const id = String(formData.get("id"));
-  const expense = await db.expense.findFirst({ where: { id, churchId: session.churchId }, select: { description: true, amount: true, vendor: true } });
+  const expense = await db.expense.findFirst({ where: { id, churchId: session.churchId }, select: { description: true, amount: true, vendor: true, payrollRunId: true, staffLoanId: true } });
   if (!expense) return;
   // A levy payment's expense is removed with the payment, so Levies and Accounts never disagree.
   if (await db.levyPayment.findFirst({ where: { expenseId: id, churchId: session.churchId }, select: { id: true } })) {
     return { ok: false as const, error: "This expense is a levy payment. Remove the payment in Levies so both stay in step." };
   }
+  // Staff & Payroll: payroll postings are reversed from the payroll run, never deleted here.
+  if (expense.payrollRunId || expense.staffLoanId) return { ok: false as const, error: "This came from Payroll. Reverse it from the payroll run instead." };
 
   await RecycleBin.captureExpense(session, id);
   await db.expense.deleteMany({ where: { id, churchId: session.churchId } });

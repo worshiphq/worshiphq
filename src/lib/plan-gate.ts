@@ -120,6 +120,7 @@ const MAX_ADDS = [
   "biometric-devices", "counseling", "budgets", "fund-accounting", "assets", "audit-log",
   "auto-inactive", "linked-churches", "advanced-reports", "api-access", "white-label-posters",
   "weekly-briefing",
+  "payroll",
 ];
 
 const STARTER_FEATURES = [...FREE_FEATURES, ...STARTER_ADDS];
@@ -187,6 +188,7 @@ export const FEATURE_LABELS: Record<string, string> = {
   fingerprint: "USB fingerprint scanner check-in",
   "biometric-devices": "Check-in devices (face, palm and fingerprint terminals)",
   levies: "Levies and remittances", "service-income": "Service income records",
+  payroll: "Staff, leave and payroll",
   baptisms: "Baptisms & certificates", "linked-churches": "Linked churches (branches, partner churches, teens chapel)",
 };
 
@@ -194,11 +196,13 @@ export const FEATURE_LABELS: Record<string, string> = {
  * Features added after plans were first saved in the editor. A saved plan that has never seen one of these follows the
  * built-in tier for it, so a new feature never silently lands on no plan at all. Add a feature here when it is added to a tier.
  */
-export const FEATURES_ADDED_LATER = ["baptisms", "linked-churches", "biometric-devices", "poster-maker", "white-label-posters", "sms-audit", "birthday-automations", "custom-messages", "member-categories", "service-times", "online-payments", "levies", "service-income"];
+export const FEATURES_ADDED_LATER = ["baptisms", "linked-churches", "biometric-devices", "poster-maker", "white-label-posters", "sms-audit", "birthday-automations", "custom-messages", "member-categories", "service-times", "online-payments", "levies", "service-income", "payroll"];
 
 /** Permission section keys whose plan feature has a different name. */
 const SECTION_FEATURE_MAP: Record<string, string> = {
   communications: "sms",
+  staff: "payroll",
+  "my-pay": "payroll",
 };
 
 /** The plan feature a permission section needs, or null when every plan includes it. */
@@ -244,6 +248,9 @@ const ROUTE_FEATURE_MAP: Record<string, string> = {
   "/app/baptisms": "baptisms",
   "/app/levies": "levies",
   "/app/service-income": "service-income",
+  "/app/staff": "payroll",
+  "/app/payroll": "payroll",
+  "/app/my-pay": "payroll",
 };
 
 export function getRouteFeature(href: string): string | null {
