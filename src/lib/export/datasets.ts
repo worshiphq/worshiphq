@@ -2,6 +2,8 @@ import "server-only";
 import { db } from "@/lib/db";
 import { membersTable, type AgeFilter } from "@/lib/export/members";
 import { methodLabel, outcomeLabel } from "@/lib/follow-ups/outcomes";
+import { bookValueOf } from "@/lib/assets/depreciation";
+import { methodLabel as payMethodLabel, categoryLabel, statusMeta } from "@/lib/assets/categories";
 
 /** One spreadsheet column per member category (Zone, Fellowship, ...). */
 async function categoryColumns(churchId: string) {
@@ -196,10 +198,17 @@ export const DATASETS: Dataset[] = [
     label: "Expenses",
     section: "expenses",
     async fetch(churchId) {
-      const rows = await db.expense.findMany({ where: { churchId }, orderBy: { date: "desc" } });
+      const rows = await db.expense.findMany({
+        where: { churchId },
+        orderBy: { date: "desc" },
+        include: { account: { select: { name: true } }, fund: { select: { name: true } }, budget: { select: { name: true } }, budgetItem: { select: { description: true } } },
+      });
       return {
-        headers: ["Date", "Description", "Category", "Amount", "Vendor", "Approved by"],
-        rows: rows.map((e) => [d(e.date), e.description, e.category, n(e.amount), e.vendor ?? "", e.approvedBy ?? ""]),
+        headers: ["Date", "Description", "Category", "Amount", "Payee", "Paid from", "Fund", "Method", "Receipt ref", "Has receipt", "Budget", "Budget line", "Recorded by", "Approved by"],
+        rows: rows.map((e) => [
+          d(e.date), e.description, e.category, n(e.amount), e.vendor ?? "", e.account?.name ?? "", e.fund?.name ?? "", payMethodLabel(e.paymentMethod),
+          e.receiptRef ?? "", e.receiptUrl ? "Yes" : "No", e.budget?.name ?? "", e.budgetItem?.description ?? "", e.createdByName ?? "", e.approvedBy ?? "",
+        ]),
       };
     },
   },
@@ -211,13 +220,14 @@ export const DATASETS: Dataset[] = [
       const rows = await db.budget.findMany({
         where: { churchId },
         orderBy: [{ year: "desc" }],
-        include: { department: { select: { name: true } }, entries: true },
+        include: { department: { select: { name: true } }, entries: true, expenses: { select: { amount: true } } },
       });
       return {
         headers: ["Budget", "Department", "Year", "Quarter", "Status", "Allocated", "Income", "Spent", "Balance"],
         rows: rows.map((b) => {
           const income = b.entries.filter((e) => e.type === "income").reduce((s, e) => s + Number(e.amount), 0);
-          const spent = b.entries.filter((e) => e.type === "expense").reduce((s, e) => s + Number(e.amount), 0);
+          // Spent = the budget's own expense entries plus church expenses linked to it (those never create an entry).
+          const spent = b.entries.filter((e) => e.type === "expense").reduce((s, e) => s + Number(e.amount), 0) + b.expenses.reduce((s, e) => s + e.amount, 0);
           return [b.name, b.department?.name ?? "", b.year, b.quarter ?? "", b.status, n(b.total), income, spent, Number(b.total) + income - spent];
         }),
       };
@@ -498,10 +508,18 @@ export const DATASETS: Dataset[] = [
     label: "Assets",
     section: "assets",
     async fetch(churchId) {
-      const rows = await db.asset.findMany({ where: { churchId }, orderBy: { name: "asc" } });
+      const rows = await db.asset.findMany({
+        where: { churchId },
+        orderBy: { name: "asc" },
+        include: { facility: { select: { name: true } }, custodian: { select: { firstName: true, lastName: true } }, department: { select: { name: true } } },
+      });
       return {
-        headers: ["Name", "Category", "Location", "Condition", "Serial No", "Purchase date", "Purchase price"],
-        rows: rows.map((a) => [a.name, a.category, a.location ?? "", a.condition, a.serialNo ?? "", d(a.purchaseDate), a.purchasePrice ?? ""]),
+        headers: ["Tag", "Name", "Category", "Status", "Quantity", "Room", "Department", "Custodian", "Condition", "Serial No", "Supplier", "Purchase date", "Purchase price", "Warranty ends", "Book value"],
+        rows: rows.map((a) => [
+          a.tagCode ?? "", a.name, categoryLabel(a.category), statusMeta(a.status).label, a.quantity, a.facility?.name ?? a.location ?? "", a.department?.name ?? "",
+          a.custodian ? `${a.custodian.firstName} ${a.custodian.lastName}`.trim() : "", a.condition, a.serialNo ?? "", a.supplier ?? "",
+          d(a.purchaseDate), a.purchasePrice ?? "", d(a.warrantyExpires), bookValueOf(a).book,
+        ]),
       };
     },
   },
@@ -595,6 +613,54 @@ export const DATASETS: Dataset[] = [
       return {
         headers: ["Date", "User", "Action", "Entity", "Detail"],
         rows: rows.map((a) => [d(a.createdAt), a.user?.name ?? a.user?.email ?? "", a.action, a.entity, a.detail ?? ""]),
+      };
+    },
+  },
+  {
+    key: "vehicles",
+    label: "Vehicles",
+    section: "vehicles",
+    async fetch(churchId) {
+      const rows = await db.vehicle.findMany({ where: { churchId }, orderBy: { regNumber: "asc" }, include: { asset: { select: { name: true, tagCode: true } } } });
+      return {
+        headers: ["Number plate", "Name", "Tag", "Kind", "Make", "Model", "Year", "Seats", "Fuel", "Odometer (km)", "Insurer", "Insurance ends", "Roadworthy ends", "DVLA renewal", "Active"],
+        rows: rows.map((v) => [v.regNumber, v.asset.name, v.asset.tagCode ?? "", v.kind, v.make ?? "", v.model ?? "", v.year ?? "", v.seats ?? "", v.fuelType, v.odometerKm, v.insurer ?? "", d(v.insuranceExpires), d(v.roadworthyExpires), d(v.registrationExpires), v.active ? "Yes" : "No"]),
+      };
+    },
+  },
+  {
+    key: "vehicle-trips",
+    label: "Vehicle trips",
+    section: "vehicles",
+    async fetch(churchId) {
+      const rows = await db.vehicleTrip.findMany({ where: { churchId }, orderBy: { startAt: "desc" }, include: { vehicle: { select: { regNumber: true } } } });
+      return {
+        headers: ["Vehicle", "Started", "Ended", "Driver", "Purpose", "Destination", "Odometer start", "Odometer end", "Km", "Passengers", "Note"],
+        rows: rows.map((t) => [t.vehicle.regNumber, d(t.startAt), d(t.endAt), t.driverName ?? "", t.purpose, t.destination ?? "", t.odometerStart ?? "", t.odometerEnd ?? "", t.odometerStart != null && t.odometerEnd != null ? t.odometerEnd - t.odometerStart : "", t.passengers ?? "", t.note ?? ""]),
+      };
+    },
+  },
+  {
+    key: "vehicle-fuel",
+    label: "Vehicle fuel",
+    section: "vehicles",
+    async fetch(churchId) {
+      const rows = await db.vehicleFuel.findMany({ where: { churchId }, orderBy: { date: "desc" }, include: { vehicle: { select: { regNumber: true } } } });
+      return {
+        headers: ["Vehicle", "Date", "Litres", "Cost", "Price per litre", "Odometer", "Station", "Full tank", "Paid by", "Posted to expenses", "Has receipt"],
+        rows: rows.map((f) => [f.vehicle.regNumber, d(f.date), f.litres, n(f.cost), f.litres > 0 ? Math.round((f.cost / f.litres) * 100) / 100 : "", f.odometer ?? "", f.station ?? "", f.fullTank ? "Yes" : "No", payMethodLabel(f.paymentMethod), f.expenseId ? "Yes" : "No", f.receiptUrl ? "Yes" : "No"]),
+      };
+    },
+  },
+  {
+    key: "maintenance",
+    label: "Maintenance requests",
+    section: "maintenance",
+    async fetch(churchId) {
+      const rows = await db.maintenanceRequest.findMany({ where: { churchId }, orderBy: { createdAt: "desc" }, include: { facility: { select: { name: true } }, asset: { select: { name: true } }, assignee: { select: { name: true } } } });
+      return {
+        headers: ["Reported", "What", "Where", "Item", "Priority", "Status", "Reported by", "Assigned to", "Due", "Estimated cost", "Actual cost", "Resolved", "What was done"],
+        rows: rows.map((r) => [d(r.createdAt), r.title, r.facility?.name ?? r.location ?? "", r.asset?.name ?? "", r.priority, r.status, r.reportedByName ?? "", r.assignee?.name ?? r.assigneeName ?? "", d(r.dueDate), n(r.estimatedCost), n(r.actualCost), d(r.resolvedAt), r.resolution ?? ""]),
       };
     },
   },
