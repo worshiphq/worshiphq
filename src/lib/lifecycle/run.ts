@@ -2,7 +2,7 @@ import "server-only";
 import { db } from "@/lib/db";
 import { LIVE_CHURCH } from "@/lib/live-church";
 import { brand } from "@/config/brand";
-import { sendEmail, brevoSentToday } from "@/lib/integrations/email";
+import { sendEmail, emailRoomToday } from "@/lib/integrations/email";
 import { renderEmailHtml, firstName } from "@/lib/outreach/templates";
 import { outreachContact } from "@/lib/outreach/send";
 import { getPlatformConfig } from "@/lib/data/platform-config";
@@ -14,12 +14,14 @@ import { CHURCH_STEP_ORDER, STEPS, fill, stepApplies, stepById, type ChurchFacts
 /**
  * Runs the automatic email sequence. Called from the scheduled automations: it only sends between 07:00 and 10:59
  * Ghana time (UTC), never on a Sunday, at most `perRun` emails a run and `dailyCap` a day, and it stops early when
- * Brevo is close to its daily limit so sign-in codes and receipts always have room.
+ * the email senders together (Brevo + Resend) are close to their daily limits, so sign-in codes and receipts always have room.
  */
 
 const DAY = 86_400_000;
 const GAP_MS = 2 * DAY; // at most one sequence email per church every 2 days
-const BREVO_RESERVE = 200; // stop sending tips once this many emails went through Brevo today
+// Stop sending tips when only this many emails are left today across ALL senders (Brevo + Resend), so sign-in codes
+// and receipts always have room. It used to stop at 200 through Brevo alone and never used the Resend backup.
+const KEEP_FOR_ESSENTIALS = 60;
 
 export type SequenceSettings = { enabled: boolean; dailyCap: number; steps: Record<string, boolean> };
 export const DEFAULT_SETTINGS: SequenceSettings = { enabled: false, dailyCap: 80, steps: Object.fromEntries(STEPS.map((s) => [s.id, true])) };
@@ -29,7 +31,7 @@ export function readSettings(raw: unknown): SequenceSettings {
   const cap = Number(r.dailyCap);
   return {
     enabled: r.enabled === true,
-    dailyCap: Number.isFinite(cap) ? Math.max(0, Math.min(250, Math.round(cap))) : DEFAULT_SETTINGS.dailyCap,
+    dailyCap: Number.isFinite(cap) ? Math.max(0, Math.min(1000, Math.round(cap))) : DEFAULT_SETTINGS.dailyCap,
     steps: { ...DEFAULT_SETTINGS.steps, ...(r.steps && typeof r.steps === "object" ? r.steps : {}) },
   };
 }
@@ -250,7 +252,7 @@ export async function runEmailSequence(now = new Date(), opts: { force?: boolean
   for (const c of list) {
     if (room <= 0) break;
     if (Date.now() > deadline) { timedOut = true; break; }
-    if ((await brevoSentToday()) >= BREVO_RESERVE) return { stopped: "email provider near its daily limit", sent, failed, due: list.length };
+    if ((await emailRoomToday()).total <= KEEP_FOR_ESSENTIALS) return { stopped: "email senders near today's limit (room kept for sign-in codes and receipts)", sent, failed, due: list.length };
     const step: StepId = c.kind === "signup" ? "finish-signup" : c.step;
 
     // Claim first: the unique (email, step) row means a second run can never send it again.

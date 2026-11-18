@@ -57,9 +57,9 @@ export function SequenceSettingsForm({ initial, steps, isOwner }: { initial: { e
       <label className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-white/10 p-4 text-sm">
         <span>
           <b className="block text-slate-100">Most emails a day</b>
-          <span className="text-xs text-slate-400">Keeps room for sign-in codes and receipts. Sending also pauses for the day once 200 emails of any kind have gone out.</span>
+          <span className="text-xs text-slate-400">Uses Brevo and the Resend backup together (about 400 emails a day). Sending pauses for the day when only 60 are left, so sign-in codes and receipts always get through.</span>
         </span>
-        <input type="number" inputMode="numeric" min={0} max={250} value={cap} disabled={!isOwner} onChange={(e) => setCap(Number(e.target.value))} className="h-10 w-24 rounded-lg border border-white/15 bg-white/5 px-3 text-right" />
+        <input type="number" inputMode="numeric" min={0} max={1000} value={cap} disabled={!isOwner} onChange={(e) => setCap(Number(e.target.value))} className="h-10 w-24 rounded-lg border border-white/15 bg-white/5 px-3 text-right" />
       </label>
 
       <div className="rounded-xl border border-white/10 p-4">

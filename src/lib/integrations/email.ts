@@ -84,6 +84,40 @@ export async function brevoSentToday(): Promise<number> {
   return sent;
 }
 
+/* ── Resend's daily limit, counted the same way ── */
+let resendCount: { day: string; at: number; sent: number } | null = null;
+let resendFullDay: string | null = null; // Resend said "daily quota exceeded" today
+export async function resendSentToday(): Promise<number> {
+  const day = new Date().toISOString().slice(0, 10);
+  if (resendCount && resendCount.day === day && Date.now() - resendCount.at < 60_000) return resendCount.sent;
+  let sent = resendCount?.day === day ? resendCount.sent : 0;
+  try {
+    const { db } = await import("@/lib/db");
+    const rows = await db.$queryRaw<{ n: bigint | null }[]>`
+      SELECT COALESCE(SUM(array_length(string_to_array("toAddrs", ','), 1)), 0) AS n
+      FROM "EmailLog"
+      WHERE status = 'sent' AND provider = 'resend' AND COALESCE("resentAt", "createdAt") >= ${new Date(`${day}T00:00:00Z`)}`;
+    sent = Number(rows[0]?.n ?? 0);
+  } catch {
+    /* no log table: rely on Resend refusing */
+  }
+  resendCount = { day, at: Date.now(), sent };
+  return sent;
+}
+
+/**
+ * How many more emails can go out today across EVERY sender in the chain (Brevo + Resend), so bulk sends such as
+ * the email sequence use the backup too instead of stopping when Brevo alone is busy. Senders with no known daily
+ * limit (a plain SMTP server, Gmail) are not counted.
+ */
+export async function emailRoomToday(): Promise<{ total: number; brevo: number | null; resend: number | null }> {
+  const chain = emailChain();
+  const day = new Date().toISOString().slice(0, 10);
+  const brevo = chain.some(isBrevo) ? Math.max(0, env.BREVO_DAILY_LIMIT - (await brevoSentToday())) : null;
+  const resend = chain.includes("resend") ? (resendFullDay === day ? 0 : Math.max(0, env.RESEND_DAILY_LIMIT - (await resendSentToday()))) : null;
+  return { total: (brevo ?? 0) + (resend ?? 0), brevo, resend };
+}
+
 /* ── Brevo: how many emails are left today, checked at most every 2 minutes ── */
 let brevoQuota: { at: number; left: number | null } | null = null;
 export async function brevoEmailsLeft(): Promise<number | null> {
@@ -110,8 +144,14 @@ async function sendVia(p: Provider, m: Mail): Promise<string | undefined> {
     const used = await brevoSentToday();
     if (used + m.to.length > env.BREVO_DAILY_LIMIT) throw new Error(`Brevo's ${env.BREVO_DAILY_LIMIT} emails for today are used up (${used} sent)`);
   }
+  if (p === "resend") {
+    if (resendFullDay === new Date().toISOString().slice(0, 10)) throw new Error("Resend's emails for today are used up");
+    const used = await resendSentToday();
+    if (used + m.to.length > env.RESEND_DAILY_LIMIT) throw new Error(`Resend's ${env.RESEND_DAILY_LIMIT} emails for today are used up (${used} sent)`);
+  }
   const id = await sendOne(p, m);
   if (isBrevo(p) && brevoCount) brevoCount.sent += m.to.length;
+  if (p === "resend" && resendCount) resendCount.sent += m.to.length;
   return id;
 }
 
@@ -155,7 +195,11 @@ async function sendOne(p: Provider, m: Mail): Promise<string | undefined> {
         ...(m.attachments?.length ? { attachments: m.attachments.map((a) => ({ filename: a.filename, content: a.content.toString("base64") })) } : {}),
       }),
     });
-    if (!res.ok) throw new Error(`Resend refused it (${res.status}): ${(await res.text().catch(() => "")).slice(0, 200)}`);
+    if (!res.ok) {
+      // Over the daily or monthly quota: every other email today would be refused too, so stop trying Resend.
+      if (res.status === 429) resendFullDay = new Date().toISOString().slice(0, 10);
+      throw new Error(`Resend refused it (${res.status}): ${(await res.text().catch(() => "")).slice(0, 200)}`);
+    }
     const out = (await res.json().catch(() => ({}))) as { id?: string };
     return out.id ? `resend:${out.id}` : undefined;
   }

@@ -99,6 +99,8 @@ const schema = z.object({
   // Brevo's emails per day on our plan (free = 300). Over SMTP Brevo accepts emails past the limit and then quietly
   // holds them, so the app counts its own Brevo sends and moves on to the next sender once this many went today.
   BREVO_DAILY_LIMIT: z.coerce.number().default(300),
+  // Resend's daily limit on the plan in use (free plan: 100 a day). Counted by us like Brevo's.
+  RESEND_DAILY_LIMIT: z.coerce.number().default(100),
 
   // ── PUSH (Web Push / VAPID) ──────────────────────────
   NEXT_PUBLIC_VAPID_PUBLIC_KEY: str,
