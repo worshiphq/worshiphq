@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Pager } from "@/components/admin/pager";
 import { Ban, CheckCircle2, Trash2, Building2, Gift } from "lucide-react";
 import type { ChurchRow } from "@/lib/data/admin";
+import { isTeachingChurch } from "@/config/teaching-churches";
 import { SENDER_ID_UPDATE_OPTIONS, SENDER_ID_STATUS_LABEL } from "@/config/sender-id";
 import {
   setChurchSuspended,
@@ -210,6 +211,7 @@ export function ChurchTable({ churches, q, total, page, pages, size, params = {}
                     {c.name}
                     {c.isDemo && <span className="ml-2 text-xs text-amber-400">demo</span>}
                     {c.isInternal && <span className="ml-2 rounded bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-violet-300" title="Hidden internal QA church">QA</span>}
+                    {isTeachingChurch(c.id) && <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300" title="Your private teaching church: sample members, texts never really sent">DEMO</span>}
                   </div>
                   <div className="truncate text-xs text-slate-500">
                     {[c.city, c.country].filter(Boolean).join(", ") || "-"} · /{c.slug}
@@ -405,6 +407,7 @@ export function ChurchTable({ churches, q, total, page, pages, size, params = {}
                         {c.name}
                         {c.isDemo && <span className="ml-2 text-xs text-amber-400">demo</span>}
                         {c.isInternal && <span className="ml-2 rounded bg-violet-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-violet-300" title="Hidden internal QA church">QA</span>}
+                    {isTeachingChurch(c.id) && <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-[10px] font-semibold text-amber-300" title="Your private teaching church: sample members, texts never really sent">DEMO</span>}
                       </div>
                       <div className="truncate text-xs text-slate-500">
                         {[c.city, c.country].filter(Boolean).join(", ") || "-"} · /{c.slug}

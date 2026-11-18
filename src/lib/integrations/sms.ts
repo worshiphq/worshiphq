@@ -8,6 +8,14 @@ import { segmentsFor } from "@/config/sms";
 import { getSmsRates, rateFor } from "@/lib/sms/cost";
 import { providerForNumber, routingForChurch, isGhanaNumber, type SmsProvider } from "@/lib/sms/routing";
 
+/**
+ * Sample phone numbers used in teaching and demo churches: Ghana numbers starting 010 (233 10…). No real Ghana
+ * number starts with 01, so blocking them can never stop a real person's text.
+ */
+export function isSamplePhone(normalised: string): boolean {
+  return /^23310\d{7}$/.test(normalised);
+}
+
 export type SmsResult = {
   ok: boolean;
   provider: string;
@@ -198,14 +206,19 @@ export async function sendSms(
   const blocked = (p: string) => blockForeign && p.length >= 11 && !isGhanaNumber(p);
   const validIdx: number[] = [];
   const recipients: string[] = [];
+  // Sample numbers (teaching and demo churches) are never sent to anyone: they are reported as sent, so the
+  // screens behave normally, but no carrier ever sees them.
+  const sampleIdx: number[] = [];
   normalised.forEach((p, i) => {
-    if (p.length >= 11 && !blocked(p)) { validIdx.push(i); recipients.push(p); }
+    if (isSamplePhone(p)) sampleIdx.push(i);
+    else if (p.length >= 11 && !blocked(p)) { validIdx.push(i); recipients.push(p); }
   });
   const toFullResults = (perValidOk: boolean[], ids?: (string | undefined)[], errs?: (string | undefined)[]): SmsRecipientResult[] => {
     const out: SmsRecipientResult[] = normalised.map((p) => ({
       to: p, ok: false,
       ...(p.length < 11 ? { error: "Not a valid phone number" } : blocked(p) ? { error: "Not sent: this message is not texted to numbers outside Ghana" } : {}),
     }));
+    for (const i of sampleIdx) out[i] = { to: normalised[i]!, ok: true, id: "sample" };
     validIdx.forEach((origIdx, i) => {
       out[origIdx].ok = perValidOk[i];
       if (ids?.[i]) out[origIdx].id = ids[i];
@@ -217,6 +230,11 @@ export async function sendSms(
   const platformCarrier = opts?.carrier === undefined ? await getPlatformCarrier() : null;
   const routing = routingForChurch(opts?.carrier === undefined ? platformCarrier : opts.carrier);
 
+  if (recipients.length === 0 && sampleIdx.length > 0) {
+    console.info(`[SMS:sample] ${sampleIdx.length} sample number(s), not sent: "${rawMessage.slice(0, 60)}"`);
+    // Shown as a normal successful send (a dummy success), so a teaching church looks exactly like a real one.
+    return { ok: true, provider: "sample", stubbed: false, id: `sample_${Date.now()}`, sentCount: sampleIdx.length, results: toFullResults([]) };
+  }
   if (recipients.length === 0) {
     const onlyForeign = normalised.some((p) => blocked(p));
     return { ok: false, provider: routing.primary, stubbed: false, error: onlyForeign ? "Texts to numbers outside Ghana are not sent for this message" : "No valid phone numbers", sentCount: 0, results: toFullResults([]) };
