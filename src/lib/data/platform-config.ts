@@ -173,11 +173,13 @@ export const getPlatformConfig = cache(() => ttlCached("platform-config", CONFIG
 async function loadPlatformConfig() {
   // A plain read, so it never waits on a lock. The row is only written the first time, if it does not exist yet.
   const config = await withPoolRetry("platform-config", async () =>
-    (await db.platformConfig.findUnique({ where: { id: "default" } })) ??
+    // The email sequence settings are read on their own (lib/lifecycle), so this every-page read leaves them out.
+    (await db.platformConfig.findUnique({ where: { id: "default" }, omit: { lifecycleSettings: true } })) ??
     (await db.platformConfig.upsert({
       where: { id: "default" },
       update: {},
       create: { id: "default", currency: "USD", currencySymbol: "$", planPrices: DEFAULT_PRICES },
+      omit: { lifecycleSettings: true },
     })));
 
   const prices = (config.planPrices as PlanPrices) ?? DEFAULT_PRICES;

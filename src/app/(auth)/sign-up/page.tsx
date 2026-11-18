@@ -3,15 +3,17 @@ import { SignupWizard } from "@/components/auth/signup-wizard";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { cookies } from "next/headers";
 import { GOOGLE_SIGNUP_COOKIE, googleEnabled, readPendingSignup } from "@/lib/auth/google";
+import { readToken } from "@/lib/auth/tokens";
+import { db } from "@/lib/db";
 
 export const metadata: Metadata = { title: "Create your church" };
 
 export default async function SignUpPage({
   searchParams,
 }: {
-  searchParams: Promise<{ error?: string; plan?: string; google?: string }>;
+  searchParams: Promise<{ error?: string; plan?: string; google?: string; resume?: string }>;
 }) {
-  const [{ error, plan: planParam, google: googleParam }, platformConfig] = await Promise.all([
+  const [{ error, plan: planParam, google: googleParam, resume }, platformConfig] = await Promise.all([
     searchParams,
     getPlatformConfig(),
   ]);
@@ -48,6 +50,18 @@ export default async function SignUpPage({
   const pending = googleParam ? readPendingSignup((await cookies()).get(GOOGLE_SIGNUP_COOKIE)?.value) : null;
   const expiredGoogle = !!googleParam && !pending;
 
+  // From the "finish your sign-up" email: the details they typed last time, so they only need to confirm. Never the password.
+  let prefill: Record<string, string> | null = null;
+  const r = readToken<{ v: string }>("signup-resume", resume);
+  if (r?.v && !pending) {
+    const row = await db.phoneVerification.findUnique({ where: { id: r.v }, select: { purpose: true, payload: true } });
+    const p = row?.purpose === "signup" ? (row.payload ?? {}) as Record<string, unknown> : null;
+    if (p) {
+      const s = (k: string) => (typeof p[k] === "string" ? (p[k] as string) : "");
+      prefill = { church: s("churchName"), city: s("city"), country: s("country"), name: s("name"), email: s("email"), phone: s("phone"), plan: s("plan"), heardFrom: s("heardFrom"), heardDetail: s("heardDetail") };
+    }
+  }
+
   return (
     <SignupWizard
       plans={plans}
@@ -56,6 +70,7 @@ export default async function SignUpPage({
       errorMessage={expiredGoogle && !message ? "Your Google sign-up timed out. Please press Continue with Google again." : message}
       google={pending ? { email: pending.email, name: pending.name } : null}
       showGoogleButton={googleEnabled() && !pending}
+      prefill={prefill}
     />
   );
 }

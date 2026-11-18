@@ -38,10 +38,13 @@ model PlatformConfig {
   planDefs                Json?
   // Free trials of the next plan up: { enabled, days, steps: { starter, pro, max } }. Edited on SuperAdmin, Trials.
   trialSettings           Json?
+  // Automatic email sequence: on/off, per-step switches, daily cap. Edited on SuperAdmin, Sequence.
+  lifecycleSettings       Json?
   // WODONA / WorshipHQ details printed on receipts (address, phone, email, registration number, who issues them).
   receiptSettings         Json?
   // ── Refund policy (surfaced in the Refund Policy page and enforced in code) ──
   /**
+   * /**
    * /** Days a church may request a refund on their FIRST paid subscription.
    */
   refundWindowFirstDays   Int       @default(14)
@@ -64,6 +67,7 @@ model PlatformConfig {
   smsCostPerCredit        Float     @default(0.03)
   // ── Online giving fees ──
   /**
+   * /**
    * /** % of each gift that settles to WorshipHQ (subaccount percentage_charge). 0 = church keeps all (minus Paystack's fee).
    */
   givingPlatformPercent   Float     @default(0)
@@ -83,6 +87,7 @@ model PlatformConfig {
 
 // ── Tenancy ───────────────────────────────────────────────
 model Church {
+  lifecycleSends         LifecycleSend[]
   id                     String                @id @default(cuid())
   slug                   String                @unique
   isDemo                 Boolean               @default(false)
@@ -211,7 +216,7 @@ model Church {
   biometricTemplates  BiometricTemplate[]
   deviceSyncedMembers BiometricSyncedMember[]
   // Devices page: keep every ZKTeco terminal's member list and registrations in step automatically.
-  deviceAutoSync      Boolean         @default(true)
+  deviceAutoSync      Boolean                 @default(true)
   outreach            OutreachMessage[]
 
   // Customizable SMS receipt templates (use {name}, {amount}, {church} placeholders)
@@ -329,51 +334,51 @@ model Church {
   backups             ChurchBackup[]
 
   // ── Follow-ups (see src/lib/follow-ups) ──
-  followUpAssigneeId String? // who auto-created follow-ups are assigned to (a User id in this church); null = unassigned
-  followUpNewMembers Boolean   @default(false) // also create a follow-up for each self-registered new member
-  followUpDigestSent String? // local YYYY-MM-DD the daily due/overdue email last went out
+  followUpAssigneeId   String? // who auto-created follow-ups are assigned to (a User id in this church); null = unassigned
+  followUpNewMembers   Boolean               @default(false) // also create a follow-up for each self-registered new member
+  followUpDigestSent   String? // local YYYY-MM-DD the daily due/overdue email last went out
   // Max: the Monday briefing for the pastor/admins. { on, day, hour, userIds, email, sms } (see src/lib/briefing).
-  briefing     Json?
-  briefingSent String? // local YYYY-MM-DD it last went out (one per week)
+  briefing             Json?
+  briefingSent         String? // local YYYY-MM-DD it last went out (one per week)
   // Sign-up: "How did you hear about WorshipHQ?" (tiktok, facebook, friend, ...) and, for a referral, who.
-  heardFrom       String?
-  heardFromDetail String?
+  heardFrom            String?
+  heardFromDetail      String?
   // SuperAdmin can block a church's online giving outright (e.g. suspected scam).
-  givingBlocked      Boolean   @default(false)
-  receipts           Receipt[]
+  givingBlocked        Boolean               @default(false)
+  receipts             Receipt[]
   // ── Levies (remittances to head office, district, etc.) and service income ──
-  levyRules         LevyRule[]        @relation("ChurchLevyRules")
-  levyRulesPaidToUs LevyRule[]        @relation("LevyPayee")
-  levyRuleVersions  LevyRuleVersion[]
-  levyRuleChanges   LevyRuleChange[]
-  levyRecords       LevyRecord[]
-  levyAdjustments   LevyAdjustment[]
-  levyPayments      LevyPayment[]
-  serviceIncomes    ServiceIncome[]
-  levyRemindOn      Boolean           @default(true)
-  levyRemindDays    Int[]             @default([7, 1])
-  levyRemindSms     Boolean           @default(false)
-  levyRemindUserIds String[]          @default([])
-  levyAutoClose     Boolean           @default(true)
-  levySchedule      Json? // suggested levies a main church publishes for its linked churches
+  levyRules            LevyRule[]            @relation("ChurchLevyRules")
+  levyRulesPaidToUs    LevyRule[]            @relation("LevyPayee")
+  levyRuleVersions     LevyRuleVersion[]
+  levyRuleChanges      LevyRuleChange[]
+  levyRecords          LevyRecord[]
+  levyAdjustments      LevyAdjustment[]
+  levyPayments         LevyPayment[]
+  serviceIncomes       ServiceIncome[]
+  levyRemindOn         Boolean               @default(true)
+  levyRemindDays       Int[]                 @default([7, 1])
+  levyRemindSms        Boolean               @default(false)
+  levyRemindUserIds    String[]              @default([])
+  levyAutoClose        Boolean               @default(true)
+  levySchedule         Json? // suggested levies a main church publishes for its linked churches
   // ── Staff & Payroll (Max) ──
-  staffMembers     StaffMember[]
-  staffPayProfiles StaffPayProfile[]
-  staffLoans       StaffLoan[]
-  staffPayItems    StaffPayItem[]
-  staffDocuments   StaffDocument[]
-  staffAttendance  StaffAttendance[]
-  payrollSettings  PayrollSettings?
-  payeBandSets     PayeBandSet[]
-  payrollHolidays  PayrollHoliday[]
-  payrollRuns      PayrollRun[]
-  payrollLines     PayrollLine[]
-  payrollLineItems PayrollLineItem[]
-  payrollPostings  PayrollPosting[]
-  payrollEvents    PayrollEvent[]
-  leaveTypes       LeaveType[]
-  leaveRequests    LeaveRequest[]
-  leaveAdjustments LeaveAdjustment[]
+  staffMembers         StaffMember[]
+  staffPayProfiles     StaffPayProfile[]
+  staffLoans           StaffLoan[]
+  staffPayItems        StaffPayItem[]
+  staffDocuments       StaffDocument[]
+  staffAttendance      StaffAttendance[]
+  payrollSettings      PayrollSettings?
+  payeBandSets         PayeBandSet[]
+  payrollHolidays      PayrollHoliday[]
+  payrollRuns          PayrollRun[]
+  payrollLines         PayrollLine[]
+  payrollLineItems     PayrollLineItem[]
+  payrollPostings      PayrollPosting[]
+  payrollEvents        PayrollEvent[]
+  leaveTypes           LeaveType[]
+  leaveRequests        LeaveRequest[]
+  leaveAdjustments     LeaveAdjustment[]
   // ── Assets, vehicles, maintenance and expense approvals (sql/assets-fleet-expenses.sql) ──
   assetTagSeq          Int                   @default(0)
   assetAlerts          Json? // { on, userIds: string[], sms: boolean, days: number[] }
@@ -458,7 +463,8 @@ model Department {
   budgets       Budget[]             @relation("DepartmentBudgets")
   staff         StaffMember[]
 
-  assets        Asset[]              @relation("DepartmentAssets")
+  assets Asset[] @relation("DepartmentAssets")
+
   @@unique([churchId, name])
   @@index([churchId])
 }
@@ -542,6 +548,7 @@ model User {
   staffReports        StaffMember[]       @relation("StaffReportsTo")
 
   maintenanceAssigned MaintenanceRequest[]
+
   @@index([churchId])
 }
 
@@ -664,9 +671,10 @@ model Person {
   invitedVisitors         Visitor[]                @relation("VisitorInvitedBy")
   staff                   StaffMember?
 
-  assetsHeld              Asset[]                  @relation("AssetCustodian")
-  assetCheckouts          AssetCheckout[]
-  vehicleDrivers          VehicleDriver[]
+  assetsHeld     Asset[]         @relation("AssetCustodian")
+  assetCheckouts AssetCheckout[]
+  vehicleDrivers VehicleDriver[]
+
   @@unique([churchId, memberId])
   @@index([churchId])
   @@index([churchId, status])
@@ -873,61 +881,63 @@ model ChurchAccount {
 
   expenseRequests   ExpenseRequest[]
   recurringExpenses RecurringExpense[]
+
   @@index([churchId])
 }
 
 model Fund {
-  id        String         @id @default(cuid())
-  churchId  String
-  church    Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  name      String
-  color     String         @default("#6D5EF8")
-  accountId String?
-  account   ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  gifts     Gift[]
-  pledges   Pledge[]
+  id             String         @id @default(cuid())
+  churchId       String
+  church         Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name           String
+  color          String         @default("#6D5EF8")
+  accountId      String?
+  account        ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  gifts          Gift[]
+  pledges        Pledge[]
   // Max (fund accounting): money given to a restricted fund can only be spent on that fund, and what
   // is spent can never exceed what the fund holds.
-  restricted Boolean       @default(false)
-  expenses  Expense[]
-  inServiceSheet Boolean   @default(false) // shown as a row on the service income sheet
+  restricted     Boolean        @default(false)
+  expenses       Expense[]
+  inServiceSheet Boolean        @default(false) // shown as a row on the service income sheet
 
   expenseRequests   ExpenseRequest[]
   recurringExpenses RecurringExpense[]
+
   @@index([churchId])
 }
 
 model Gift {
-  id             String         @id @default(cuid())
-  churchId       String
-  church         Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  branchId       String?
-  branch         Branch?        @relation(fields: [branchId], references: [id])
-  personId       String?
-  person         Person?        @relation(fields: [personId], references: [id])
-  donorName      String? // for gifts from non-members / visitors
-  fundId         String?
-  fund           Fund?          @relation(fields: [fundId], references: [id])
-  accountId      String? // which account this gift is banked into
-  account        ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  amount         Decimal        @db.Decimal(12, 2)
-  currency       String         @default("GHS")
-  method         GiftMethod     @default(Cash)
-  recurring      Boolean        @default(false)
-  reference      String? // Paystack reference
-  receiptSent    Boolean        @default(false)
-  pendingDeposit Boolean        @default(false) // received but not banked into an account yet
-  date           DateTime       @default(now())
+  id              String         @id @default(cuid())
+  churchId        String
+  church          Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  branchId        String?
+  branch          Branch?        @relation(fields: [branchId], references: [id])
+  personId        String?
+  person          Person?        @relation(fields: [personId], references: [id])
+  donorName       String? // for gifts from non-members / visitors
+  fundId          String?
+  fund            Fund?          @relation(fields: [fundId], references: [id])
+  accountId       String? // which account this gift is banked into
+  account         ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  amount          Decimal        @db.Decimal(12, 2)
+  currency        String         @default("GHS")
+  method          GiftMethod     @default(Cash)
+  recurring       Boolean        @default(false)
+  reference       String? // Paystack reference
+  receiptSent     Boolean        @default(false)
+  pendingDeposit  Boolean        @default(false) // received but not banked into an account yet
+  date            DateTime       @default(now())
   // Set once the "giving thanks" automation has texted the donor for this gift
   // specifically (see src/lib/automations/run.ts) - distinct from receiptSent,
   // which is the immediate instant receipt sent at the time the gift is recorded.
-  thanksSentAt   DateTime?
+  thanksSentAt    DateTime?
   serviceIncomeId String?
-  serviceIncome  ServiceIncome? @relation(fields: [serviceIncomeId], references: [id], onDelete: SetNull)
-  extra          Json? // answers to the church's own extra giving questions: [{ label, value }]
+  serviceIncome   ServiceIncome? @relation(fields: [serviceIncomeId], references: [id], onDelete: SetNull)
+  extra           Json? // answers to the church's own extra giving questions: [{ label, value }]
 
-  @@index([churchId, serviceIncomeId])
   @@unique([churchId, reference]) // an online gift is recorded once per Paystack reference
+  @@index([churchId, serviceIncomeId])
   @@index([churchId])
   @@index([churchId, date])
   @@index([churchId, branchId])
@@ -1021,7 +1031,8 @@ model Event {
   price         Decimal?       @db.Decimal(12, 2)
   registrations Registration[]
 
-  vehicleTrips  VehicleTrip[]
+  vehicleTrips VehicleTrip[]
+
   @@index([churchId])
 }
 
@@ -1287,30 +1298,30 @@ model SmsPurchase {
 // ones (birthdays, receipts, roster announcements), so a church can always answer "did that go out?".
 // Churches read their own rows on a paid plan; the platform owner reads every church's.
 model SmsAuditLog {
-  id         String   @id @default(cuid())
-  churchId   String
-  church     Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  label      String? // what kind of send it was, e.g. "Birthday wish", "Tithe receipt"
-  body       String // the message text as composed (before the church-name heading)
-  segments   Int // SMS segments per recipient, so cost = segments x delivered
-  recipients Int // how many were asked for
-  sent       Int // how many the carrier accepted
-  credits    Int // credits actually charged
-  senderName String? // the approved sender ID used, or the church-name line
-  sentById   String? // the user who triggered it; null for cron and public forms
-  sentByName String? // kept as text so the row still reads after a user is removed
-  trigger    String   @default("manual") // manual | automatic
-  numbers    String? // JSON [{ to, ok }], capped - who got it and who did not
-  carrier    String? // which carrier took it: hubtel, nalo, or both for a mixed list
-  costGhs    Float? // what it cost us. Empty on sends from before cost tracking, which are estimated from credits.
+  id              String   @id @default(cuid())
+  churchId        String
+  church          Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  label           String? // what kind of send it was, e.g. "Birthday wish", "Tithe receipt"
+  body            String // the message text as composed (before the church-name heading)
+  segments        Int // SMS segments per recipient, so cost = segments x delivered
+  recipients      Int // how many were asked for
+  sent            Int // how many the carrier accepted
+  credits         Int // credits actually charged
+  senderName      String? // the approved sender ID used, or the church-name line
+  sentById        String? // the user who triggered it; null for cron and public forms
+  sentByName      String? // kept as text so the row still reads after a user is removed
+  trigger         String   @default("manual") // manual | automatic
+  numbers         String? // JSON [{ to, ok }], capped - who got it and who did not
+  carrier         String? // which carrier took it: hubtel, nalo, or both for a mixed list
+  costGhs         Float? // what it cost us. Empty on sends from before cost tracking, which are estimated from credits.
   // Delivery reports (src/lib/sms/delivery.ts): how many numbers the network confirmed, refused, or has not answered yet.
   // `sent` above only means the carrier took the message. statusDone = nothing left to ask the carrier about.
-  delivered       Int     @default(0)
-  failed          Int     @default(0)
-  pending         Int     @default(0)
-  statusDone      Boolean @default(true)
+  delivered       Int      @default(0)
+  failed          Int      @default(0)
+  pending         Int      @default(0)
+  statusDone      Boolean  @default(true)
   communicationId String? // the campaign (Communications history) this send belongs to
-  createdAt  DateTime @default(now())
+  createdAt       DateTime @default(now())
 
   @@index([churchId, createdAt])
   @@index([createdAt])
@@ -1507,18 +1518,18 @@ model Subscription {
 
   // A short free taste of the next plan up. While `trialEndsAt` is in the future the church gets `trialPlan`'s features
   // (if that is above what it pays for); when it passes, access falls back to `plan` by itself - no job has to run.
-  trialPlan            String?
-  trialStartedAt       DateTime?
-  trialEndsAt          DateTime?
+  trialPlan           String?
+  trialStartedAt      DateTime?
+  trialEndsAt         DateTime?
   // Plans this church has already trialled. One trial per plan per church (SuperAdmin can still grant another).
-  trialsUsed           String[]  @default([])
+  trialsUsed          String[]  @default([])
   // The trial notices already sent ("ending", "ended"), so each goes out once.
-  trialNotified        String[]  @default([])
+  trialNotified       String[]  @default([])
   // When SuperAdmin invited this church to start a plan trial (it may then start one itself). Null = not invited.
-  trialInvitedAt       DateTime?
+  trialInvitedAt      DateTime?
   // A free month of Communications (SMS) on the Free plan. Only churches SuperAdmin switches it on for have one.
-  commsTrialStartedAt  DateTime?
-  commsTrialEndsAt     DateTime?
+  commsTrialStartedAt DateTime?
+  commsTrialEndsAt    DateTime?
 
   @@index([trialEndsAt])
 }
@@ -1526,7 +1537,6 @@ model Subscription {
 /**
  * A card a church chose to keep for renewals. Only Paystack CARD payments can be kept: Mobile Money
  * has to be approved on the phone every time, so Paystack never marks it reusable.
- *
  * `authCode` is the token that lets us charge the card without the church present, so it is stored
  * encrypted and is never selected into anything a browser can see. The church only ever sees the
  * brand, the last four digits and the expiry.
@@ -1876,19 +1886,19 @@ model Asset {
   notes         String?
   createdAt     DateTime  @default(now())
 
-  photoUrl        String?     @db.Text
+  photoUrl        String?               @db.Text
   tagCode         String?
-  status          String      @default("in-service") // in-service | checked-out | in-repair | in-storage | disposed | lost
-  quantity        Int         @default(1)
+  status          String                @default("in-service") // in-service | checked-out | in-repair | in-storage | disposed | lost
+  quantity        Int                   @default(1)
   custodianId     String?
-  custodian       Person?     @relation("AssetCustodian", fields: [custodianId], references: [id], onDelete: SetNull)
+  custodian       Person?               @relation("AssetCustodian", fields: [custodianId], references: [id], onDelete: SetNull)
   departmentId    String?
-  department      Department? @relation("DepartmentAssets", fields: [departmentId], references: [id], onDelete: SetNull)
+  department      Department?           @relation("DepartmentAssets", fields: [departmentId], references: [id], onDelete: SetNull)
   facilityId      String?
-  facility        Facility?   @relation(fields: [facilityId], references: [id], onDelete: SetNull)
+  facility        Facility?             @relation(fields: [facilityId], references: [id], onDelete: SetNull)
   supplier        String?
   warrantyExpires DateTime?
-  depreciation    String      @default("none") // none | straight-line
+  depreciation    String                @default("none") // none | straight-line
   usefulLifeYears Int?
   salvageValue    Float?
   inServiceDate   DateTime?
@@ -1897,7 +1907,7 @@ model Asset {
   disposalAmount  Float?
   disposalNote    String?
   disposalTxnId   String?
-  updatedAt       DateTime    @default(now()) @updatedAt
+  updatedAt       DateTime              @default(now()) @updatedAt
   vehicle         Vehicle?
   checkouts       AssetCheckout[]
   documents       AssetDocument[]
@@ -1906,56 +1916,58 @@ model Asset {
   requests        MaintenanceRequest[]
   expenses        Expense[]
   expenseRequests ExpenseRequest[]
-  @@index([churchId, category])
+
   @@unique([churchId, tagCode])
+  @@index([churchId, category])
   @@index([churchId, status])
   @@index([custodianId])
 }
 
 // ── Expenses ──────────────────────────────────────────────
 model Expense {
-  id          String         @id @default(cuid())
-  churchId    String
-  church      Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  description String
-  category    String         @default("general")
-  amount      Float
-  vendor      String?
-  receiptRef  String?
-  approvedBy  String?
-  accountId   String? // which account the money came out of
-  account     ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
-  fundId      String? // which fund paid for it (fund accounting, Max)
-  fund        Fund?          @relation(fields: [fundId], references: [id], onDelete: SetNull)
-  date        DateTime       @default(now())
-  createdAt   DateTime       @default(now())
-  levyPayment LevyPayment?
+  id           String         @id @default(cuid())
+  churchId     String
+  church       Church         @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  description  String
+  category     String         @default("general")
+  amount       Float
+  vendor       String?
+  receiptRef   String?
+  approvedBy   String?
+  accountId    String? // which account the money came out of
+  account      ChurchAccount? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+  fundId       String? // which fund paid for it (fund accounting, Max)
+  fund         Fund?          @relation(fields: [fundId], references: [id], onDelete: SetNull)
+  date         DateTime       @default(now())
+  createdAt    DateTime       @default(now())
+  levyPayment  LevyPayment?
   // Staff & Payroll: posted by a payroll run or a staff loan (locked: reverse from Payroll instead)
   payrollRunId String?
   payrollRun   PayrollRun?    @relation(fields: [payrollRunId], references: [id], onDelete: SetNull)
   staffLoanId  String?
   staffLoan    StaffLoan?     @relation(fields: [staffLoanId], references: [id], onDelete: SetNull)
 
-  receiptUrl        String?     @db.Text
+  receiptUrl        String?             @db.Text
   paymentMethod     String? // cash | momo | bank | cheque | card
   vendorId          String?
-  vendorRef         Vendor?     @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  vendorRef         Vendor?             @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   budgetId          String?
-  budget            Budget?     @relation(fields: [budgetId], references: [id], onDelete: SetNull)
+  budget            Budget?             @relation(fields: [budgetId], references: [id], onDelete: SetNull)
   budgetItemId      String?
-  budgetItem        BudgetItem? @relation(fields: [budgetItemId], references: [id], onDelete: SetNull)
+  budgetItem        BudgetItem?         @relation(fields: [budgetItemId], references: [id], onDelete: SetNull)
   assetId           String?
-  asset             Asset?      @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  asset             Asset?              @relation(fields: [assetId], references: [id], onDelete: SetNull)
   source            String? // fuel | maintenance | request | recurring | asset
   sourceId          String?
-  notes             String?     @db.Text
+  notes             String?             @db.Text
   createdById       String?
   createdByName     String?
-  updatedAt         DateTime    @default(now()) @updatedAt
+  updatedAt         DateTime            @default(now()) @updatedAt
   fuel              VehicleFuel?
   maintenanceRecord MaintenanceRecord?
   maintenanceReq    MaintenanceRequest?
   request           ExpenseRequest?
+
   @@index([churchId, date])
   @@index([fundId])
   @@index([payrollRunId])
@@ -1984,6 +1996,7 @@ model Facility {
 
   assets              Asset[]
   maintenanceRequests MaintenanceRequest[]
+
   @@index([churchId])
 }
 
@@ -2137,6 +2150,7 @@ model Budget {
   expenses          Expense[]
   expenseRequests   ExpenseRequest[]
   recurringExpenses RecurringExpense[]
+
   @@index([churchId, year])
   @@index([departmentId])
 }
@@ -2176,6 +2190,7 @@ model BudgetItem {
   expenses          Expense[]
   expenseRequests   ExpenseRequest[]
   recurringExpenses RecurringExpense[]
+
   @@index([budgetId])
 }
 
@@ -2448,28 +2463,28 @@ model CertificateTemplate {
 // device or software posts to the church's webhook. The device's user ID is the
 // number at the end of the member's ID (GBC-0042 is 42).
 model BiometricDevice {
-  id          String    @id @default(cuid())
-  churchId    String
-  church      Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  name        String
-  brand       String    @default("zkteco") // zkteco | webhook
-  modes       String[] // fingerprint | face | palm
-  serial      String    @unique // the device's serial number, or a generated id for a webhook
-  secret      String // token used by the webhook
-  enabled     Boolean   @default(true)
+  id           String    @id @default(cuid())
+  churchId     String
+  church       Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  name         String
+  brand        String    @default("zkteco") // zkteco | webhook
+  modes        String[] // fingerprint | face | palm
+  serial       String    @unique // the device's serial number, or a generated id for a webhook
+  secret       String // token used by the webhook
+  enabled      Boolean   @default(true)
   // When scans count: during the church's service times, only at custom hours, or always.
-  scanRule    String    @default("service-times") // service-times | custom | always
-  windowDays  Int[]     @default([]) // custom hours: 0 = Sunday ... 6 = Saturday (empty = every day)
-  windowStart String? // custom hours, "06:00"
-  windowEnd   String? // custom hours, "13:00"
-  lastSeenAt  DateTime?
-  lastScanAt  DateTime?
-  info        String? // model and firmware as the device reports them
+  scanRule     String    @default("service-times") // service-times | custom | always
+  windowDays   Int[]     @default([]) // custom hours: 0 = Sunday ... 6 = Saturday (empty = every day)
+  windowStart  String? // custom hours, "06:00"
+  windowEnd    String? // custom hours, "13:00"
+  lastSeenAt   DateTime?
+  lastScanAt   DateTime?
+  info         String? // model and firmware as the device reports them
   // What the device reported about itself: algorithm versions (fingerprint, face, palm), BIODATA support and counts.
   reported     Json?
   syncedAt     DateTime? // last time the device confirmed a command
   reconciledAt DateTime? // last full check that the device's member list matches WorshipHQ
-  createdAt   DateTime  @default(now())
+  createdAt    DateTime  @default(now())
 
   events    BiometricDeviceEvent[]
   commands  BiometricDeviceCommand[]
@@ -2678,14 +2693,14 @@ model AdminAuditLog {
 
 /// The texts WorshipHQ itself sends: sign-in codes, alerts, notices. Codes and links are removed before saving.
 model PlatformSmsLog {
-  id         String   @id
-  toNumbers  String
-  recipients Int
-  sent       Int
-  carrier    String?
-  sender     String?
-  body       String
-  error      String?
+  id             String   @id
+  toNumbers      String
+  recipients     Int
+  sent           Int
+  carrier        String?
+  sender         String?
+  body           String
+  error          String?
   /// What kind of text it was, worked out from its wording: sign-in code, password reset, alert and so on.
   purpose        String?
   /// SMS segments in the message, per recipient.
@@ -2696,7 +2711,7 @@ model PlatformSmsLog {
   costGhs        Float    @default(0)
   /// Set when the text is on behalf of a church but not charged to its credits (a donor's gift receipt).
   churchId       String?
-  createdAt  DateTime @default(now())
+  createdAt      DateTime @default(now())
 
   @@index([createdAt])
 }
@@ -3387,74 +3402,77 @@ model LeaveAdjustment {
 // ── Assets, vehicles, maintenance and expense upgrades (sql/assets-fleet-expenses.sql) ──
 
 model Vendor {
-  id                  String   @id @default(cuid())
+  id                  String               @id @default(cuid())
   churchId            String
-  church              Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  church              Church               @relation(fields: [churchId], references: [id], onDelete: Cascade)
   name                String
   phone               String?
   momoNumber          String?
   category            String?
   notes               String?
-  active              Boolean  @default(true)
-  createdAt           DateTime @default(now())
+  active              Boolean              @default(true)
+  createdAt           DateTime             @default(now())
   expenses            Expense[]
   expenseRequests     ExpenseRequest[]
   recurringExpenses   RecurringExpense[]
   maintenanceRequests MaintenanceRequest[]
   maintenanceRecords  MaintenanceRecord[]
+
   @@unique([churchId, name])
 }
 
 model Vehicle {
-  id                  String    @id @default(cuid())
+  id                  String          @id @default(cuid())
   churchId            String
-  church              Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
-  assetId             String    @unique
-  asset               Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  church              Church          @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  assetId             String          @unique
+  asset               Asset           @relation(fields: [assetId], references: [id], onDelete: Cascade)
   regNumber           String
   make                String?
   model               String?
   year                Int?
   colour              String?
-  kind                String    @default("bus") // bus | minibus | car | pickup | van | motorbike | other
+  kind                String          @default("bus") // bus | minibus | car | pickup | van | motorbike | other
   seats               Int?
-  fuelType            String    @default("diesel") // diesel | petrol | lpg | electric | hybrid
+  fuelType            String          @default("diesel") // diesel | petrol | lpg | electric | hybrid
   chassisNo           String?
-  odometerKm          Int       @default(0)
+  odometerKm          Int             @default(0)
   odometerAt          DateTime?
   insurer             String?
   insurancePolicyNo   String?
-  insuranceType       String?   // comprehensive | third-party
+  insuranceType       String? // comprehensive | third-party
   insuranceExpires    DateTime?
   roadworthyExpires   DateTime?
   registrationExpires DateTime? // DVLA annual licence renewal
-  active              Boolean   @default(true)
+  active              Boolean         @default(true)
   notes               String?
-  createdAt           DateTime  @default(now())
-  updatedAt           DateTime  @default(now()) @updatedAt
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @default(now()) @updatedAt
   drivers             VehicleDriver[]
   trips               VehicleTrip[]
   fuel                VehicleFuel[]
+
   @@unique([churchId, regNumber])
   @@index([churchId])
 }
 
 model VehicleDriver {
-  id             String    @id @default(cuid())
+  id             String        @id @default(cuid())
   churchId       String
-  church         Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  church         Church        @relation(fields: [churchId], references: [id], onDelete: Cascade)
   vehicleId      String
-  vehicle        Vehicle   @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
+  vehicle        Vehicle       @relation(fields: [vehicleId], references: [id], onDelete: Cascade)
   personId       String?
-  person         Person?   @relation(fields: [personId], references: [id], onDelete: SetNull)
+  person         Person?       @relation(fields: [personId], references: [id], onDelete: SetNull)
   name           String
   phone          String?
   licenceNo      String?
   licenceClass   String?
   licenceExpires DateTime?
-  isPrimary      Boolean   @default(false)
-  createdAt      DateTime  @default(now())
+  isPrimary      Boolean       @default(false)
+  createdAt      DateTime      @default(now())
   trips          VehicleTrip[]
+
   @@index([vehicleId])
   @@index([churchId])
 }
@@ -3471,7 +3489,7 @@ model VehicleTrip {
   purpose       String         @default("service-pickup") // service-pickup | event | errand | outreach | funeral | other
   destination   String?
   startAt       DateTime       @default(now())
-  endAt         DateTime?      // null = on the road now
+  endAt         DateTime? // null = on the road now
   odometerStart Int?
   odometerEnd   Int?
   passengers    Int?
@@ -3480,6 +3498,7 @@ model VehicleTrip {
   note          String?
   createdById   String?
   createdAt     DateTime       @default(now())
+
   @@index([churchId, startAt])
   @@index([vehicleId, startAt])
 }
@@ -3502,6 +3521,7 @@ model VehicleFuel {
   expense       Expense? @relation(fields: [expenseId], references: [id], onDelete: SetNull)
   createdById   String?
   createdAt     DateTime @default(now())
+
   @@index([vehicleId, date])
   @@index([churchId, date])
 }
@@ -3526,6 +3546,7 @@ model AssetCheckout {
   outById       String?
   inById        String?
   createdAt     DateTime  @default(now())
+
   @@index([assetId, outAt])
   @@index([churchId, returnedAt])
 }
@@ -3544,15 +3565,16 @@ model AssetDocument {
   expiresAt    DateTime?
   uploadedById String?
   createdAt    DateTime  @default(now())
+
   @@index([assetId])
 }
 
 model MaintenanceSchedule {
-  id         String    @id @default(cuid())
+  id         String              @id @default(cuid())
   churchId   String
-  church     Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  church     Church              @relation(fields: [churchId], references: [id], onDelete: Cascade)
   assetId    String
-  asset      Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  asset      Asset               @relation(fields: [assetId], references: [id], onDelete: Cascade)
   title      String
   everyDays  Int?
   everyKm    Int?
@@ -3560,46 +3582,48 @@ model MaintenanceSchedule {
   lastDoneKm Int?
   nextDueAt  DateTime?
   nextDueKm  Int?
-  active     Boolean   @default(true)
+  active     Boolean             @default(true)
   notes      String?
-  alertedFor String?   // the due key last alerted, so each due is only announced once
-  createdAt  DateTime  @default(now())
+  alertedFor String? // the due key last alerted, so each due is only announced once
+  createdAt  DateTime            @default(now())
   records    MaintenanceRecord[]
+
   @@index([churchId])
   @@index([assetId])
 }
 
 model MaintenanceRequest {
-  id             String    @id @default(cuid())
+  id             String              @id @default(cuid())
   churchId       String
-  church         Church    @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  church         Church              @relation(fields: [churchId], references: [id], onDelete: Cascade)
   title          String
-  description    String?   @db.Text
+  description    String?             @db.Text
   location       String?
   facilityId     String?
-  facility       Facility? @relation(fields: [facilityId], references: [id], onDelete: SetNull)
+  facility       Facility?           @relation(fields: [facilityId], references: [id], onDelete: SetNull)
   assetId        String?
-  asset          Asset?    @relation(fields: [assetId], references: [id], onDelete: SetNull)
-  priority       String    @default("normal") // low | normal | urgent
-  status         String    @default("open")   // open | assigned | in-progress | done | cancelled
-  photoUrl       String?   @db.Text
+  asset          Asset?              @relation(fields: [assetId], references: [id], onDelete: SetNull)
+  priority       String              @default("normal") // low | normal | urgent
+  status         String              @default("open") // open | assigned | in-progress | done | cancelled
+  photoUrl       String?             @db.Text
   reportedById   String?
   reportedByName String?
   assigneeUserId String?
-  assignee       User?     @relation(fields: [assigneeUserId], references: [id], onDelete: SetNull)
-  assigneeName   String?   // artisan or vendor when not a team member
+  assignee       User?               @relation(fields: [assigneeUserId], references: [id], onDelete: SetNull)
+  assigneeName   String? // artisan or vendor when not a team member
   vendorId       String?
-  vendor         Vendor?   @relation(fields: [vendorId], references: [id], onDelete: SetNull)
+  vendor         Vendor?             @relation(fields: [vendorId], references: [id], onDelete: SetNull)
   dueDate        DateTime?
   estimatedCost  Float?
   actualCost     Float?
   resolvedAt     DateTime?
-  resolution     String?   @db.Text
-  expenseId      String?   @unique
-  expense        Expense?  @relation(fields: [expenseId], references: [id], onDelete: SetNull)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @default(now()) @updatedAt
+  resolution     String?             @db.Text
+  expenseId      String?             @unique
+  expense        Expense?            @relation(fields: [expenseId], references: [id], onDelete: SetNull)
+  createdAt      DateTime            @default(now())
+  updatedAt      DateTime            @default(now()) @updatedAt
   records        MaintenanceRecord[]
+
   @@index([churchId, status])
 }
 
@@ -3626,6 +3650,7 @@ model MaintenanceRecord {
   expense     Expense?             @relation(fields: [expenseId], references: [id], onDelete: SetNull)
   createdById String?
   createdAt   DateTime             @default(now())
+
   @@index([assetId, date])
   @@index([churchId, date])
 }
@@ -3653,7 +3678,7 @@ model ExpenseRequest {
   neededBy        DateTime?
   attachmentUrl   String?        @db.Text
   note            String?        @db.Text
-  source          String?        // fuel | maintenance
+  source          String? // fuel | maintenance
   sourceId        String?
   status          String         @default("pending") // pending | approved | rejected | paid | cancelled
   requestedById   String?
@@ -3666,6 +3691,7 @@ model ExpenseRequest {
   expense         Expense?       @relation(fields: [expenseId], references: [id], onDelete: SetNull)
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @default(now()) @updatedAt
+
   @@index([churchId, status])
 }
 
@@ -3689,12 +3715,34 @@ model RecurringExpense {
   budgetItem     BudgetItem?    @relation(fields: [budgetItemId], references: [id], onDelete: SetNull)
   paymentMethod  String?
   frequency      String         @default("monthly") // weekly | monthly | quarterly | yearly
-  anchorDay      Int?           // day of month to return to (31 stays the month end)
+  anchorDay      Int? // day of month to return to (31 stays the month end)
   nextDue        DateTime
   endsAt         DateTime?
   active         Boolean        @default(true)
   lastRecordedAt DateTime?
   createdById    String?
   createdAt      DateTime       @default(now())
+
   @@index([churchId, nextDue])
+}
+
+/// One automatic sequence email sent to one address. Unique per address and step, so nobody gets the same email twice.
+model LifecycleSend {
+  id       String   @id @default(cuid())
+  churchId String? // null for an unfinished sign-up (no church yet)
+  church   Church?  @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  email    String
+  step     String
+  status   String // sent | failed | stubbed
+  sentAt   DateTime @default(now())
+
+  @@unique([email, step])
+  @@index([churchId, sentAt])
+  @@index([sentAt])
+}
+
+/// Addresses that pressed "Stop these emails". Only the sequence and offers stop; codes and receipts still go.
+model EmailOptOut {
+  email     String   @id
+  createdAt DateTime @default(now())
 }

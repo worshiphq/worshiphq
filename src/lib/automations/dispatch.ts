@@ -101,6 +101,11 @@ export async function runDailyAutomations(now = new Date(), precise = false, sen
     return checkDeliveries({ budgetMs: 15_000 });
   });
 
+  // 4c) The automatic email sequence (SuperAdmin, Email sequence). It gates itself: off unless switched on, mornings only.
+  summary.emailSequence = await safe("emailSequence", async () =>
+    (await import("@/lib/lifecycle/run")).runEmailSequence(now, { budgetMs: Math.max(0, Math.min(15_000, t0 + 46_000 - Date.now())) }),
+  );
+
   // 5) Backups use whatever time is left, then stop starting new churches.
   summary.backups = await safe("backups", () => runScheduledBackups(now, Math.max(0, t0 + BACKUP_DEADLINE_MS - Date.now())));
 

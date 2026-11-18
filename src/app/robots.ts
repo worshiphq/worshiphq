@@ -12,7 +12,7 @@ export default function robots(): MetadataRoute.Robots {
           "/app", "/admin", "/api/", "/iclock/",
           "/book", "/checkin", "/children", "/counsel", "/give", "/giving-letter", "/invite", "/join",
           "/offline", "/pray", "/reset-link", "/teens", "/testify", "/visit",
-          "/sign-in", "/sign-up", "/verify-phone",
+          "/sign-in", "/sign-up", "/verify-phone", "/email-preferences",
         ],
       },
     ],

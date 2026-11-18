@@ -392,15 +392,26 @@ function bodyToHtml(body: string): string {
 }
 
 /** The full email, in a clean branded layout that works in Gmail, Outlook and phones. */
-export function renderEmailHtml(opts: { subject: string; body: string; church: string; contact: string; appUrl?: string }): string {
+export function renderEmailHtml(opts: {
+  subject: string; body: string; church: string; contact: string; appUrl?: string;
+  /** The main button. Defaults to "Open WorshipHQ". */
+  button?: { label: string; href: string };
+  /** Replaces "because <church> has an account" for people with no account yet. */
+  reason?: string;
+  /** Adds a "Stop these emails" link to the footer (tips and offers only, never codes or receipts). */
+  unsubscribeUrl?: string;
+}): string {
   const url = opts.appUrl ?? "https://worshiphq.app";
+  const btn = opts.button ?? { label: "Open WorshipHQ", href: `${url}/app` };
+  const reason = opts.reason ?? `${esc(opts.church)} has an account on WorshipHQ`;
+  const stop = opts.unsubscribeUrl ? ` <a href="${esc(opts.unsubscribeUrl)}" style="color:#6b7280;text-decoration:underline">Stop these emails</a>.` : "";
   return `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>${esc(opts.subject)}</title></head>
 <body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#f3f4f6;padding:24px 12px"><tr><td align="center">
 <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;background:#ffffff;border-radius:16px;overflow:hidden">
 <tr><td style="background:#ffffff;padding:22px 28px 18px;border-bottom:3px solid #0d7377"><a href="${url}" style="text-decoration:none"><img src="${url}/email-logo.png" width="240" height="65" alt="WorshipHQ" style="display:block;width:240px;max-width:100%;height:auto;border:0;font-size:22px;font-weight:700;color:#12386f"></a></td></tr>
 <tr><td style="padding:28px 28px 8px">${bodyToHtml(opts.body)}</td></tr>
-<tr><td style="padding:0 28px 28px"><a href="${url}/app" style="display:inline-block;background:#0d7377;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px">Open WorshipHQ</a></td></tr>
-<tr><td style="padding:18px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;font-size:12px;line-height:1.5;color:#6b7280">You are receiving this because ${esc(opts.church)} has an account on WorshipHQ. Questions? Reply to this email or write to <a href="mailto:${esc(opts.contact)}" style="color:#0d7377">${esc(opts.contact)}</a>.</td></tr>
+<tr><td style="padding:0 28px 28px"><a href="${esc(btn.href)}" style="display:inline-block;background:#0d7377;color:#ffffff;text-decoration:none;font-weight:600;font-size:15px;padding:12px 22px;border-radius:10px">${esc(btn.label)}</a></td></tr>
+<tr><td style="padding:18px 28px;background:#f9fafb;border-top:1px solid #e5e7eb;font-size:12px;line-height:1.5;color:#6b7280">You are receiving this because ${reason}. Questions? Reply to this email or write to <a href="mailto:${esc(opts.contact)}" style="color:#0d7377">${esc(opts.contact)}</a>.${stop}</td></tr>
 </table></td></tr></table></body></html>`;
 }

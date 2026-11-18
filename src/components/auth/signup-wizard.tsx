@@ -74,6 +74,7 @@ export function SignupWizard({
   errorMessage,
   google = null,
   showGoogleButton = false,
+  prefill = null,
 }: {
   plans: WizardPlan[];
   currencySymbol: string;
@@ -82,6 +83,8 @@ export function SignupWizard({
   /** Back from Google: the email is confirmed, so there is no password step and no code. */
   google?: { email: string; name: string } | null;
   showGoogleButton?: boolean;
+  /** Details from an unfinished sign-up (the "finish your sign-up" email). Everything except the password. */
+  prefill?: Record<string, string> | null;
 }) {
   const STEPS: readonly WizardStep[] = google ? GOOGLE_STEPS : CODE_STEPS;
   const [step, setStep] = useState(0);
@@ -102,6 +105,8 @@ export function SignupWizard({
     channel: "phone" as "phone" | "email",
     heardFrom: "",
     heardDetail: "",
+    ...(prefill ? Object.fromEntries(Object.entries(prefill).filter(([k, v]) => v && k !== "plan")) : {}),
+    ...(prefill?.plan && plans.some((p) => p.id === prefill.plan) ? { plan: prefill.plan } : {}),
   });
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   // A church in Ghana is shown the cedi price it will actually pay.
@@ -170,7 +175,9 @@ export function SignupWizard({
     <div>
       <h1 className="font-display text-3xl font-bold">Start your church</h1>
       <p className="mt-2 text-sm text-ink-muted">
-        {google ? <>Signing up with Google as <span className="font-medium text-ink">{google.email}</span>.</> : "Create your WorshipHQ account in a minute."}
+        {google
+          ? <>Signing up with Google as <span className="font-medium text-ink">{google.email}</span>.</>
+          : prefill ? "Welcome back. Your details are filled in: check them, set a password and you are done." : "Create your WorshipHQ account in a minute."}
       </p>
 
       {showGoogleButton && step === 0 && (
