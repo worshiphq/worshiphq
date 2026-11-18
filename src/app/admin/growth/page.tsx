@@ -87,7 +87,7 @@ function NotReady({ result, what, accessFor }: { result: Result<unknown>; what: 
   return (
     <AdminCard className="border-dashed p-5 text-sm text-slate-300">
       {result.reason === "not-configured" ? (
-        <>The {what} numbers appear here once the Google service account{what === "website" ? " and GA4 property number are" : " is"} added to the site settings.</>
+        <>The {what} numbers appear here once the Google service account key (GOOGLE_SERVICE_ACCOUNT_JSON) is added to the site settings.</>
       ) : result.reason === "no-access" ? (
         <>Google refused access. In {accessFor}, add <b className="text-slate-100">{email ?? "the service account email"}</b> as a user with read access.</>
       ) : (
