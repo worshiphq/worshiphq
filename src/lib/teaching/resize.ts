@@ -1,4 +1,5 @@
 import "server-only";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { isTeachingChurch } from "@/config/teaching-churches";
 
@@ -81,7 +82,7 @@ export async function resizeTeachingChurch(churchId: string, plan: string, maxSt
 
     // Recent attendance and giving for the new members, so the dashboard grows with the church.
     const sessions = await db.attendanceSession.findMany({ where: { churchId }, orderBy: { date: "desc" }, take: 8, select: { id: true, date: true, serviceName: true, branchId: true } });
-    const att = [];
+    const att: Prisma.AttendanceRecordCreateManyInput[] = [];
     const counts = sessions.map((s) => {
       const share = s.serviceName.startsWith("Sunday") ? 0.8 : 0.35;
       const present = made.filter(() => Math.random() < share);
