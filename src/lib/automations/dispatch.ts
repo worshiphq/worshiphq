@@ -43,21 +43,31 @@ const BACKUP_DEADLINE_MS = 50_000;
  * `sendNow` = SuperAdmin's manual "Run now": every timezone-gated task fires regardless of the hour.
  * Each task is isolated so one error can't stop the rest.
  */
-export async function runDailyAutomations(now = new Date(), precise = false, sendNow = false) {
+/**
+ * The run in parts, so the hourly ping can start each part as its own request with its own time limit. In one
+ * request the slow early tasks used up the time and the later ones (thank-yous, "we miss you", follow-up digest,
+ * backups) were never reached on daytime runs (Nov 2026). Leaving `only` out runs every part, as before.
+ */
+export const CRON_PARTS = ["messages", "messages2", "upkeep", "backups"] as const;
+export type CronPart = (typeof CRON_PARTS)[number];
+
+export async function runDailyAutomations(now = new Date(), precise = false, sendNow = false, only?: CronPart) {
   const t0 = Date.now();
+  const want = (p: CronPart) => !only || only === p;
   const smsDeadline = t0 + SMS_DEADLINE_MS;
   // Each church's chosen send time is always respected. timeReached means "at or after", so the daily run only
   // catches up churches whose time has already passed today; the rest are sent by the hourly run at their hour.
   // (The daily 07:00 UTC run used to skip the check, sending a church set to 6pm its birthday texts at 7am.)
   // Only SuperAdmin's "Run now" sends everything regardless of the hour.
   const ignoreHour = sendNow;
-  const summary: Record<string, unknown> = { precise };
+  const summary: Record<string, unknown> = { precise, ...(only ? { part: only } : {}) };
 
   // 1) Money first (daily only). Cheap, and must never be crowded out.
-  if (!precise) {
+  if (!precise && want("upkeep")) {
     summary.billing = await safe("billing", () => runBillingCycle());
   }
 
+  if (want("messages")) {
   // Free-trial notices: a few rows, so it runs on every tick and a trial ending is announced within the half hour.
   summary.trialNotices = await safe("trialNotices", () => runTrialNotices(now));
 
@@ -69,6 +79,8 @@ export async function runDailyAutomations(now = new Date(), precise = false, sen
   summary.rosterAnnouncements = await safe("rosterAnnouncements", () => runRosterAnnouncements(now, ignoreHour, smsDeadline));
   summary.rosterReminders = await safe("rosterReminders", () => runRosterReminders(now, ignoreHour, smsDeadline));
   summary.groupMeetings = await safe("groupMeetings", () => runGroupMeetingReminders(now, ignoreHour, smsDeadline));
+  }
+  if (want("messages2")) {
   summary.counselingReminders = await safe("counselingReminders", () => runCounselingReminders(now, ignoreHour, smsDeadline));
   summary.absence = await safe("absence", () => runAbsenceCheck(now, ignoreHour, smsDeadline));
   summary.followUpDigest = await safe("followUpDigest", () => runFollowUpDigest(now, ignoreHour, smsDeadline));
@@ -82,9 +94,10 @@ export async function runDailyAutomations(now = new Date(), precise = false, sen
   summary.automations = await safe("automations", () =>
     runAutomations(now, { deadline: smsDeadline, quietHours: precise }),
   );
+  }
 
   // 4) Daily-only housekeeping.
-  if (!precise) {
+  if (!precise && want("upkeep")) {
     // A child turns into a teen on their birthday, not at some particular hour, so this swept every
     // church once an hour to do nothing 23 times out of 24.
     summary.ageGroups = await safe("ageGroups", () => runAgeGroupSync());
@@ -98,6 +111,7 @@ export async function runDailyAutomations(now = new Date(), precise = false, sen
   }
 
   // 4b) Delivery reports for texts sent in the last few days (Delivered / Not delivered on the SMS records).
+  if (want("upkeep")) {
   summary.smsDelivery = await safe("smsDelivery", async () => {
     const { checkDeliveries } = await import("@/lib/sms/delivery");
     return checkDeliveries({ budgetMs: 15_000 });
@@ -108,8 +122,10 @@ export async function runDailyAutomations(now = new Date(), precise = false, sen
     (await import("@/lib/lifecycle/run")).runEmailSequence(now, { budgetMs: Math.max(0, Math.min(15_000, t0 + 46_000 - Date.now())) }),
   );
 
+  }
+
   // 5) Backups use whatever time is left, then stop starting new churches.
-  summary.backups = await safe("backups", () => runScheduledBackups(now, Math.max(0, t0 + BACKUP_DEADLINE_MS - Date.now())));
+  if (want("backups")) summary.backups = await safe("backups", () => runScheduledBackups(now, Math.max(0, t0 + BACKUP_DEADLINE_MS - Date.now())));
 
   summary.elapsedMs = Date.now() - t0;
   return summary;

@@ -1,6 +1,7 @@
 import type { NextRequest } from "next/server";
 import { env } from "@/lib/env";
-import { runDailyAutomations } from "@/lib/automations/dispatch";
+import { runDailyAutomations, CRON_PARTS, type CronPart } from "@/lib/automations/dispatch";
+import { brand } from "@/config/brand";
 import { purgeExpiredBinItems } from "@/lib/recycle-bin";
 import { expireStalePaymentIntents } from "@/lib/billing/collection-provider";
 import { checkFxStaleness } from "@/lib/integrations/fx";
@@ -26,8 +27,34 @@ export async function GET(request: NextRequest) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const precise = new URL(request.url).searchParams.get("precise") === "1";
-  const summary = await runDailyAutomations(new Date(), precise);
+  const url = new URL(request.url);
+  const precise = url.searchParams.get("precise") === "1";
+  const partParam = url.searchParams.get("part");
+  const part = CRON_PARTS.find((p) => p === partParam) as CronPart | undefined;
+
+  // On Netlify, start each part as its own request so each gets its own time limit (one request ran out of time
+  // part way down the list on daytime runs and the later tasks never ran). Each part is safe to repeat.
+  const onNetlify = !!process.env.NETLIFY || url.hostname.endsWith(".netlify.app");
+  if (!part && onNetlify && env.CRON_SECRET) {
+    const started = await Promise.all(CRON_PARTS.map(async (p) => {
+      const sub = `${brand.url}/api/cron/automations?part=${p}${precise ? "&precise=1" : ""}`;
+      try {
+        await fetch(sub, { headers: { authorization: `Bearer ${env.CRON_SECRET}` }, signal: AbortSignal.timeout(3_000), cache: "no-store" });
+        return [p, "done"] as const;
+      } catch {
+        // Timing out here is expected: the part carries on running after this request stops waiting for it.
+        return [p, "started"] as const;
+      }
+    }));
+    return Response.json({ ok: true, precise, parts: Object.fromEntries(started) });
+  }
+
+  const summary = await runDailyAutomations(new Date(), precise, false, part);
+  // Everything below belongs to the "upkeep" part (or to an unsplit run).
+  if (part && part !== "upkeep") {
+    console.info(`[cron/automations] ran ${part}`, JSON.stringify(summary));
+    return Response.json({ ok: true, ...summary });
+  }
   // Housekeeping runs on the once-daily batch only. Both sweep every church, and neither is
   // time-sensitive to the hour: a 7-day-old deleted row does not care whether it goes at 02:00 or
   // 14:00. Doing them on all 24 hourly pings instead was 24x the work for no benefit, which is a
