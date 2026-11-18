@@ -388,6 +388,21 @@ export async function setChurchPlan(churchId: string, plan: string) {
   revalidatePath("/admin/renewals");
 }
 
+/**
+ * One step of resizing a private teaching church to its plan's sample size (see src/lib/teaching/resize.ts).
+ * The plan dropdown calls this again and again until `done`. Any other church: done straight away.
+ */
+export async function stepTeachingResize(churchId: string): Promise<{ done: boolean; members?: number }> {
+  await requireSuperAdmin();
+  const { isTeachingChurch } = await import("@/config/teaching-churches");
+  if (!isTeachingChurch(churchId)) return { done: true };
+  const sub = await db.subscription.findUnique({ where: { churchId }, select: { plan: true } });
+  const { resizeTeachingChurch } = await import("@/lib/teaching/resize");
+  const r = await resizeTeachingChurch(churchId, sub?.plan ?? "free");
+  if (r?.done) revalidatePath("/admin");
+  return { done: !r || r.done, members: r?.after };
+}
+
 export async function grantPlanBypass(churchId: string, plan: string) {
   await requireSuperAdmin();
   await logAdminAction("grantPlanBypass", { churchId, plan });

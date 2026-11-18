@@ -9,6 +9,7 @@ import { SENDER_ID_UPDATE_OPTIONS, SENDER_ID_STATUS_LABEL } from "@/config/sende
 import {
   setChurchSuspended,
   setChurchPlan,
+  stepTeachingResize,
   deleteChurch,
   grantSmsCredits,
   removeSmsCredits,
@@ -87,6 +88,14 @@ function SmsTierSelect({ church, run }: { church: ChurchRow; run: ReturnType<typ
       {SMS_TIERS.map((t) => <option key={t} value={t} className="bg-slate-800">SMS: {t}</option>)}
     </select>
   );
+}
+
+
+/** Set a church's plan. A private teaching church is then resized to the plan in short steps (see stepTeachingResize). */
+async function changePlan(churchId: string, plan: string) {
+  await setChurchPlan(churchId, plan);
+  if (!isTeachingChurch(churchId)) return;
+  for (let i = 0; i < 40; i++) if ((await stepTeachingResize(churchId)).done) break;
 }
 
 export function ChurchTable({ churches, q, total, page, pages, size, params = {} }: { churches: ChurchRow[]; q: string; total: number; page: number; pages: number; size: number; params?: Record<string, string | undefined> }) {
@@ -322,7 +331,7 @@ export function ChurchTable({ churches, q, total, page, pages, size, params = {}
               </button>
               <select
                 defaultValue={c.plan}
-                onChange={(e) => run(() => setChurchPlan(c.id, e.target.value), { pending: "Updating plan…", success: "Plan updated" })}
+                onChange={(e) => run(() => changePlan(c.id, e.target.value), { pending: isTeachingChurch(c.id) ? "Updating plan and resizing the demo church…" : "Updating plan…", success: "Plan updated" })}
                 className="rounded-md border border-white/10 bg-white/5 px-2 py-1 text-xs capitalize text-slate-200 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-400/60"
               >
                 {PLANS.map((p) => <option key={p} value={p} className="bg-slate-800">{p}</option>)}
@@ -467,8 +476,8 @@ export function ChurchTable({ churches, q, total, page, pages, size, params = {}
                   <select
                     defaultValue={c.plan}
                     onChange={(e) =>
-                      run(() => setChurchPlan(c.id, e.target.value), {
-                        pending: "Updating plan…",
+                      run(() => changePlan(c.id, e.target.value), {
+                        pending: isTeachingChurch(c.id) ? "Updating plan and resizing the demo church…" : "Updating plan…",
                         success: "Plan updated",
                       })
                     }
