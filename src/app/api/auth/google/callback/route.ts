@@ -4,7 +4,7 @@ import { startUserSession } from "@/lib/auth";
 import { rateLimitAll, clientIp, MINUTE } from "@/lib/rate-limit";
 import {
   GOOGLE_SIGNUP_COOKIE, GOOGLE_STATE_COOKIE, SIGNUP_TTL,
-  finishGoogle, googleEnabled, googleRedirectUri, readGoogleState, signPendingSignup,
+  finishGoogle, googleEnabled, googleRedirectUri, readGoogleState, signPendingSignup, siteOrigin,
 } from "@/lib/auth/google";
 
 /**
@@ -12,7 +12,8 @@ import {
  * so there is no 6-digit code). A new email goes on to the sign-up questions with the email already confirmed.
  */
 export async function GET(req: NextRequest) {
-  const to = (path: string) => NextResponse.redirect(new URL(path, req.url));
+  // Always back to the real site address, never the host's internal one.
+  const to = (path: string) => NextResponse.redirect(new URL(path, siteOrigin(req.nextUrl.origin)));
   if (!googleEnabled()) return to("/sign-in?error=google");
 
   const saved = readGoogleState(req.cookies.get(GOOGLE_STATE_COOKIE)?.value);
@@ -20,7 +21,9 @@ export async function GET(req: NextRequest) {
   const state = req.nextUrl.searchParams.get("state");
   // Cancelled at Google, or a reply that does not belong to this browser.
   if (!saved || !code || !state || state !== saved.state) {
-    const res = to(req.nextUrl.searchParams.get("error") === "access_denied" ? "/sign-in" : "/sign-in?error=google");
+    const why = !saved ? "no-state-cookie" : !code ? "no-code" : "state-mismatch";
+    if (req.nextUrl.searchParams.get("error") !== "access_denied") console.error("[google sign-in]", why);
+    const res = to(req.nextUrl.searchParams.get("error") === "access_denied" ? "/sign-in" : `/sign-in?error=google&why=${why}`);
     res.cookies.delete(GOOGLE_STATE_COOKIE);
     return res;
   }
@@ -30,7 +33,7 @@ export async function GET(req: NextRequest) {
 
   const who = await finishGoogle(code, googleRedirectUri(req.nextUrl.origin), saved.verifier, saved.nonce);
   if ("error" in who) {
-    const res = to(who.error === "unverified" ? "/sign-in?error=google-unverified" : "/sign-in?error=google");
+    const res = to(who.error === "unverified" ? "/sign-in?error=google-unverified" : `/sign-in?error=google&why=${who.reason}`);
     res.cookies.delete(GOOGLE_STATE_COOKIE);
     return res;
   }

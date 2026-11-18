@@ -35,9 +35,11 @@ export default async function SignInPage({
     dev?: string;
     resent?: string;
     left?: string;
+    why?: string;
   }>;
 }) {
-  const { error, reset, via, login, dev, resent, left } = await searchParams;
+  const { error, reset, via, login, dev, resent, left, why } = await searchParams;
+  const whyCode = (why ?? "").replace(/[^a-z0-9_-]/gi, "").slice(0, 50);
 
   // Already signed in (for example, opened from an email's "Open WorshipHQ" button): go straight in instead of
   // showing the login form, which made people think they had been signed out. Reset and login steps still show.
@@ -346,7 +348,7 @@ export default async function SignInPage({
                 : error === "locked-code"
                   ? `Too many wrong codes, so this account is locked for 24 hours. Try again in 24 hours, or contact support at ${support}.`
                   : error === "google"
-                    ? "Google sign-in didn't complete. Please try again."
+                    ? `Google sign-in didn't complete. Please try again.${whyCode ? ` (code: ${whyCode})` : ""}`
                     : error === "google-unverified"
                       ? "That Google account's email isn't confirmed by Google yet. Use another account, or sign in with your password."
                       : `Incorrect email/phone or password. Please try again.${warn}${google ? " If you signed up with Google, use Continue with Google." : ""}`}

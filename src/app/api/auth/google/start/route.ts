@@ -1,9 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { GOOGLE_STATE_COOKIE, googleEnabled, googleRedirectUri, startGoogle } from "@/lib/auth/google";
+import { GOOGLE_STATE_COOKIE, googleEnabled, googleRedirectUri, siteOrigin, startGoogle } from "@/lib/auth/google";
 
 /** "Continue with Google": sends the browser to Google's account picker. */
 export async function GET(req: NextRequest) {
-  if (!googleEnabled()) return NextResponse.redirect(new URL("/sign-in?error=google", req.url));
+  if (!googleEnabled()) return NextResponse.redirect(new URL("/sign-in?error=google", siteOrigin(req.nextUrl.origin)));
   const mode = req.nextUrl.searchParams.get("mode") === "signup" ? "signup" : "signin";
   const planRaw = req.nextUrl.searchParams.get("plan") ?? "";
   const plan = ["free", "starter", "pro", "max"].includes(planRaw) ? planRaw : undefined;

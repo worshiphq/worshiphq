@@ -17,11 +17,21 @@ export const SIGNUP_TTL = 30 * 60_000;
 
 export const googleEnabled = () => features.googleAuth;
 
-/** Where Google sends people back to. Production always uses the real domain, so the address matches the one registered with Google. */
-export function googleRedirectUri(requestOrigin: string): string {
-  const origin = process.env.NODE_ENV === "production" ? brand.url : requestOrigin;
-  return `${origin}/api/auth/google/callback`;
+/**
+ * The public address of the site. In production always the real domain: the host's own request URL can be an
+ * internal one (Netlify passes its deploy address), which would send people to the wrong site without their session.
+ */
+export function siteOrigin(requestOrigin: string): string {
+  return process.env.NODE_ENV === "production" ? brand.url : requestOrigin;
 }
+
+/** Where Google sends people back to. Must match the address registered with Google exactly. */
+export function googleRedirectUri(requestOrigin: string): string {
+  return `${siteOrigin(requestOrigin)}/api/auth/google/callback`;
+}
+
+const clientId = () => (env.GOOGLE_CLIENT_ID ?? "").trim();
+const clientSecret = () => (env.GOOGLE_CLIENT_SECRET ?? "").trim();
 
 export type GoogleMode = "signin" | "signup";
 type StateData = { state: string; nonce: string; verifier: string; mode: GoogleMode; plan?: string };
@@ -35,7 +45,7 @@ export function startGoogle(redirectUri: string, mode: GoogleMode, plan?: string
   const verifier = b64url(crypto.randomBytes(48));
   const challenge = b64url(crypto.createHash("sha256").update(verifier).digest());
   const params = new URLSearchParams({
-    client_id: env.GOOGLE_CLIENT_ID ?? "",
+    client_id: clientId(),
     redirect_uri: redirectUri,
     response_type: "code",
     scope: "openid email profile",
@@ -59,37 +69,49 @@ export type GoogleIdentity = { email: string; name: string; sub: string };
  * Swaps the one-time code for the person's identity. The ID token comes straight from Google's token endpoint
  * over HTTPS in answer to our secret, so (as OpenID Connect allows) its claims are checked rather than its signature.
  */
-export async function finishGoogle(code: string, redirectUri: string, verifier: string, nonce: string): Promise<GoogleIdentity | { error: "unverified" | "failed" }> {
+/** Why a Google sign-in failed: a short code safe to show and log (never a secret). */
+export type GoogleFailure = { error: "unverified" | "failed"; reason: string };
+
+export async function finishGoogle(code: string, redirectUri: string, verifier: string, nonce: string): Promise<GoogleIdentity | GoogleFailure> {
   try {
     const res = await fetch("https://oauth2.googleapis.com/token", {
       method: "POST",
       headers: { "Content-Type": "application/x-www-form-urlencoded" },
       body: new URLSearchParams({
         code,
-        client_id: env.GOOGLE_CLIENT_ID ?? "",
-        client_secret: env.GOOGLE_CLIENT_SECRET ?? "",
+        client_id: clientId(),
+        client_secret: clientSecret(),
         redirect_uri: redirectUri,
         grant_type: "authorization_code",
         code_verifier: verifier,
       }),
       cache: "no-store",
     });
-    if (!res.ok) return { error: "failed" };
+    if (!res.ok) {
+      // Google answers with a short code such as invalid_client (wrong ID or secret) or redirect_uri_mismatch.
+      const err = (await res.json().catch(() => ({}))) as { error?: string };
+      const reason = `token-${String(err.error ?? res.status).replace(/[^a-z0-9_]/gi, "").slice(0, 40)}`;
+      console.error("[google sign-in]", reason);
+      return { error: "failed", reason };
+    }
     const json = (await res.json()) as { id_token?: string };
     const payload = json.id_token?.split(".")[1];
-    if (!payload) return { error: "failed" };
+    if (!payload) return { error: "failed", reason: "no-id-token" };
     const c = JSON.parse(Buffer.from(payload, "base64url").toString()) as {
       iss?: string; aud?: string; exp?: number; nonce?: string; sub?: string;
       email?: string; email_verified?: boolean | string; name?: string; given_name?: string;
     };
     const issOk = c.iss === "https://accounts.google.com" || c.iss === "accounts.google.com";
-    if (!issOk || c.aud !== env.GOOGLE_CLIENT_ID || !c.exp || c.exp * 1000 < Date.now() || c.nonce !== nonce || !c.sub || !c.email) {
-      return { error: "failed" };
+    const bad = !issOk ? "iss" : c.aud !== clientId() ? "aud" : !c.exp || c.exp * 1000 < Date.now() ? "exp" : c.nonce !== nonce ? "nonce" : !c.sub || !c.email ? "claims" : null;
+    if (bad || !c.sub || !c.email) {
+      console.error("[google sign-in] claim", bad);
+      return { error: "failed", reason: `claim-${bad ?? "claims"}` };
     }
-    if (!(c.email_verified === true || c.email_verified === "true")) return { error: "unverified" };
+    if (!(c.email_verified === true || c.email_verified === "true")) return { error: "unverified", reason: "unverified" };
     return { email: c.email.toLowerCase().trim(), name: (c.name || c.given_name || "").trim().slice(0, 80), sub: c.sub };
-  } catch {
-    return { error: "failed" };
+  } catch (e) {
+    console.error("[google sign-in] exception", (e as Error).message);
+    return { error: "failed", reason: "exception" };
   }
 }
 
