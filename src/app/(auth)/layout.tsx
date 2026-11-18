@@ -3,10 +3,12 @@ import Image from "next/image";
 import { Logo } from "@/components/brand/logo";
 import { Aurora, GridBackdrop } from "@/components/marketing/aurora";
 import { brand } from "@/config/brand";
+import { SiteAnalytics } from "@/components/marketing/site-analytics";
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className="grid min-h-dvh bg-base lg:grid-cols-2">
+      <SiteAnalytics />
       {/* Brand panel */}
       <div className="relative hidden flex-col overflow-hidden border-r border-line p-12 lg:flex">
         <Aurora />

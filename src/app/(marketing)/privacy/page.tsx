@@ -127,8 +127,12 @@ export default function PrivacyPage() {
 
       <LegalSection heading="11. Cookies">
         <p>
-          We use only the essential cookies needed to keep you signed in and to remember basic preferences. We don&rsquo;t use
-          third-party advertising or tracking cookies on the {brand.name}{" "}app.
+          Inside the {brand.name}{" "}app we use only the essential cookies needed to keep you signed in and to remember basic
+          preferences, and no third-party advertising or tracking cookies. On our public website and sign-up pages we use
+          Google Analytics to understand how many people visit and which pages help them, so we can improve the site. It
+          uses cookies and receives your browser&rsquo;s details and the pages you view; Google&rsquo;s advertising features
+          are switched off. Google Analytics is never used inside church dashboards. You can block these cookies in your
+          browser settings at any time.
         </p>
       </LegalSection>
 

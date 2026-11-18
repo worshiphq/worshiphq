@@ -1,5 +1,6 @@
 import { SiteNav } from "@/components/marketing/site-nav";
 import { SiteFooter } from "@/components/marketing/site-footer";
+import { SiteAnalytics } from "@/components/marketing/site-analytics";
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -7,6 +8,7 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <SiteNav />
       <main id="main-content" tabIndex={-1} className="outline-none">{children}</main>
       <SiteFooter />
+      <SiteAnalytics />
     </div>
   );
 }

@@ -35,6 +35,16 @@ const schema = z.object({
   GOOGLE_CLIENT_ID: str,
   GOOGLE_CLIENT_SECRET: str,
 
+  // ── GROWTH ANALYTICS (SuperAdmin > Growth) ───────────
+  /** Google Analytics 4 measurement ID (G-XXXXXXX). Public: it goes into the marketing pages. */
+  NEXT_PUBLIC_GA_ID: str,
+  /** The GA4 property number (Admin > Property details), for reading reports. */
+  GA4_PROPERTY_ID: str,
+  /** The service account's JSON key (raw JSON or base64), read-only access to GA4 and Search Console. */
+  GOOGLE_SERVICE_ACCOUNT_JSON: str,
+  /** Search Console property. Defaults to the Domain property sc-domain:worshiphq.app. */
+  GSC_SITE: str,
+
   // ── PAYMENTS (Paystack / GHS Mobile Money) ───────────
   PAYSTACK_SECRET_KEY: str,
   NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY: str,
@@ -162,6 +172,7 @@ export const features = {
   database: !!env.DATABASE_URL,
   auth: !!env.NEXTAUTH_SECRET,
   googleAuth: !!(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET),
+  googleData: !!env.GOOGLE_SERVICE_ACCOUNT_JSON,
   payments: !!env.PAYSTACK_SECRET_KEY,
   hubtelPay: !!(env.HUBTEL_POS_API_ID && env.HUBTEL_POS_API_KEY && env.HUBTEL_MERCHANT_ACCOUNT),
   sms:
