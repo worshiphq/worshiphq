@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Loader2, Send, Play, Save, Eye, EyeOff } from "lucide-react";
 import { useFeedback } from "@/components/ui/feedback";
-import { saveSequenceSettings, sendSequenceTest, runSequenceNow } from "@/app/actions/admin-sequence";
+import { saveSequenceSettings, sendSequenceTest, runSequenceBatch, refreshSequencePage } from "@/app/actions/admin-sequence";
 
 type StepRow = { id: string; label: string; when: string; subject: string; html: string; sent30: number; sentAll: number; dueNow: number; outcome: string | null };
 
@@ -14,18 +14,35 @@ export function SequenceSettingsForm({ initial, steps, isOwner }: { initial: { e
   const [cap, setCap] = useState(initial.dailyCap);
   const [on, setOn] = useState<Record<string, boolean>>(initial.steps);
   const [saving, startSave] = useTransition();
-  const [running, startRun] = useTransition();
+  const [running, setRunning] = useState(false);
+  const [progress, setProgress] = useState<string | null>(null);
 
   const save = () =>
     startSave(async () => {
       const r = await saveSequenceSettings({ enabled, dailyCap: cap, steps: on });
       toast(r.ok ? (r.message ?? "Saved.") : r.error, r.ok ? "success" : "error");
     });
-  const runNow = () =>
-    startRun(async () => {
-      const r = await runSequenceNow();
-      toast(r.ok ? (r.message ?? "Done.") : r.error, r.ok ? "success" : "error");
-    });
+  // Sends in short batches, one after another, so no single request runs into the host's time limit.
+  const runNow = async () => {
+    setRunning(true);
+    let sent = 0, failed = 0, note: string | undefined, error: string | undefined;
+    try {
+      for (let i = 0; i < 60; i++) {
+        setProgress(`Sending… ${sent} sent so far`);
+        const r = await runSequenceBatch();
+        if (!r.ok) { error = r.error; break; }
+        sent += r.sent; failed += r.failed; note = r.note;
+        if (!r.more) break;
+      }
+    } catch {
+      error = "The connection dropped. Whatever was sent is saved: press the button again to carry on.";
+    }
+    await refreshSequencePage().catch(() => {});
+    setRunning(false);
+    setProgress(null);
+    if (error) toast(`${sent ? `Sent ${sent}. ` : ""}${error}`, "error");
+    else toast(`Sent ${sent}${failed ? `, ${failed} failed (they will be tried again)` : ""}.${note ? ` ${note.charAt(0).toUpperCase()}${note.slice(1)}.` : ""}`, "success");
+  };
 
   return (
     <div className="space-y-4">
@@ -63,7 +80,7 @@ export function SequenceSettingsForm({ initial, steps, isOwner }: { initial: { e
             {saving ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />} {saving ? "Saving…" : "Save"}
           </button>
           <button onClick={runNow} disabled={running || !initial.enabled} title={initial.enabled ? "" : "Switch the sequence on and save first"} className="inline-flex items-center gap-2 rounded-lg border border-white/15 px-4 py-2 text-sm font-semibold text-slate-200 hover:bg-white/5 disabled:opacity-50">
-            {running ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />} {running ? "Sending…" : "Send what is due now"}
+            {running ? <Loader2 className="size-4 animate-spin" /> : <Play className="size-4" />} {running ? (progress ?? "Sending…") : "Send what is due now"}
           </button>
         </div>
       ) : (

@@ -33,13 +33,25 @@ export async function sendSequenceTest(stepId: string): Promise<Result> {
   return r.ok ? { ok: true, message: `Sent to ${sa.email}.` } : { ok: false, error: r.error ?? "The email provider refused it." };
 }
 
-/** Send what is due now, within the daily cap, even outside the morning window. Owner only. */
-export async function runSequenceNow(): Promise<Result> {
+export type BatchResult = { ok: true; sent: number; failed: number; more: boolean; note?: string } | { ok: false; error: string };
+
+/**
+ * Send one short batch of what is due, within the daily cap, even outside the morning window. Owner only.
+ * The host stops a request after about 10 seconds, so each batch stops starting new emails after 6; the button
+ * calls this again and again until nothing is left or the daily cap is reached.
+ */
+export async function runSequenceBatch(): Promise<BatchResult> {
   await requireSuperAdminOwner();
   const s = await getSequenceSettings();
-  if (!s.enabled) return { ok: false, error: "Switch the sequence on first." };
-  const r = await runEmailSequence(new Date(), { force: true, budgetMs: 25_000, perRun: 25 }) as { sent?: number; failed?: number; due?: number; skipped?: string; stopped?: string };
+  if (!s.enabled) return { ok: false, error: "Switch the sequence on and save first." };
+  const r = await runEmailSequence(new Date(), { force: true, budgetMs: 6_000 }) as { sent?: number; failed?: number; more?: boolean; skipped?: string; stopped?: string };
+  if (r.skipped) return { ok: true, sent: 0, failed: 0, more: false, note: r.skipped };
+  if (r.stopped) return { ok: true, sent: r.sent ?? 0, failed: r.failed ?? 0, more: false, note: r.stopped };
+  return { ok: true, sent: r.sent ?? 0, failed: r.failed ?? 0, more: !!r.more };
+}
+
+/** Refresh the page's numbers after a run of batches. */
+export async function refreshSequencePage(): Promise<void> {
+  await requireSuperAdmin();
   revalidatePath("/admin/sequence");
-  if (r.skipped) return { ok: true, message: `Nothing sent: ${r.skipped}.` };
-  return { ok: true, message: `Sent ${r.sent ?? 0}${r.failed ? `, ${r.failed} failed` : ""}. ${r.stopped ? `Stopped: ${r.stopped}.` : ""} ${Math.max(0, (r.due ?? 0) - (r.sent ?? 0))} more are due and will go in the next runs.`.trim() };
 }

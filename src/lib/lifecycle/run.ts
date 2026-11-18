@@ -8,6 +8,7 @@ import { outreachContact } from "@/lib/outreach/send";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { paidPlan } from "@/lib/plan-gate";
 import { signToken } from "@/lib/auth/tokens";
+import { ttlCached } from "@/lib/ttl-cache";
 import { CHURCH_STEP_ORDER, STEPS, fill, stepApplies, stepById, type ChurchFacts, type LiveNumbers, type StepId } from "./steps";
 
 /**
@@ -225,7 +226,13 @@ export async function dueEmails(now = new Date(), settings?: SequenceSettings): 
 }
 
 /** Sends what is due, within the limits. Safe to run more than once: each address gets each email once. */
+/**
+ * `budgetMs` counts from the moment this starts (working out who is due included), so a caller with a hard time
+ * limit (the host stops a request after about 10 seconds) can give it a budget that always fits.
+ * `perRun` defaults to whatever is left of today's cap: the time budget is what keeps one run short.
+ */
 export async function runEmailSequence(now = new Date(), opts: { force?: boolean; budgetMs?: number; perRun?: number } = {}) {
+  const deadline = Date.now() + (opts.budgetMs ?? 20_000);
   const s = await getSequenceSettings();
   if (!s.enabled && !opts.force) return { skipped: "off" };
   const hour = now.getUTCHours();
@@ -233,14 +240,16 @@ export async function runEmailSequence(now = new Date(), opts: { force?: boolean
 
   const startOfDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
   const sentToday = await db.lifecycleSend.count({ where: { sentAt: { gte: startOfDay } } });
-  let room = Math.min(s.dailyCap - sentToday, opts.perRun ?? 25);
+  let room = Math.min(s.dailyCap - sentToday, opts.perRun ?? Infinity);
   if (room <= 0) return { skipped: "daily cap reached", sentToday };
 
-  const { list, live } = await dueEmails(now, s);
-  const deadline = Date.now() + (opts.budgetMs ?? 20_000);
-  let sent = 0, failed = 0;
+  // Kept for 3 minutes, so back-to-back runs (the SuperAdmin button sends in short batches) do not work it out again.
+  // Anyone already sent is skipped by the claim below, so a slightly old list can never send twice.
+  const { list, live } = await ttlCached(`sequence-due-run:${startOfDay.toISOString()}`, 3 * 60_000, () => dueEmails(now, s));
+  let sent = 0, failed = 0, timedOut = false;
   for (const c of list) {
-    if (room <= 0 || Date.now() > deadline) break;
+    if (room <= 0) break;
+    if (Date.now() > deadline) { timedOut = true; break; }
     if ((await brevoSentToday()) >= BREVO_RESERVE) return { stopped: "email provider near its daily limit", sent, failed, due: list.length };
     const step: StepId = c.kind === "signup" ? "finish-signup" : c.step;
 
@@ -267,5 +276,6 @@ export async function runEmailSequence(now = new Date(), opts: { force?: boolean
     }
     if (r.ok) { sent++; room--; } else failed++;
   }
-  return { sent, failed, due: list.length };
+  // more = stopped only because time ran out: another run can carry on.
+  return { sent, failed, due: list.length, more: timedOut && room > 0 };
 }
