@@ -1,40 +1,47 @@
 import "server-only";
 import { PrismaClient } from "@prisma/client";
 
+import { PrismaPg } from "@prisma/adapter-pg";
+
 /**
- * Cap the connections one instance may hold.
+ * Prisma talks to the database through the `pg` driver (Prisma's official driver adapter).
  *
- * Through the Supabase pooler every connection Prisma opens takes one of the pooler's 200 client
- * slots, and Prisma's own default is `cpus * 2 + 1` - so each warm serverless instance quietly
- * reserved three to five slots whether it used them or not. Enough warm instances and the pooler
- * starts refusing new ones with EMAXCONN, which a cold start sees as a 500.
+ * Why: with Prisma's own engine, every query cost about five network round trips through the Supabase pooler.
+ * The functions run in the US (Netlify us-east-1) and the database in Frankfurt, so each query took ~470 ms there
+ * (measured Nov 2026 with /api/admin/region-check). The pg driver sends a query in ONE round trip: ~95 ms there,
+ * and 135 ms instead of 690 ms from a PC in Ghana. Same data back, checked field by field before switching.
  *
- * Three is the compromise: well under the old default, but still enough parallelism for the
- * scheduled job, which works on several churches at once. `pool_timeout` is raised to match, so a
- * query that has to wait its turn behind that job queues instead of failing. Tune with
- * DB_CONNECTION_LIMIT if the pooler ever runs hot again.
- *
- * Only applied to a pooled URL (`pgbouncer=true`), and never overrides a limit already set there.
+ * Connections: each instance holds at most DB_CONNECTION_LIMIT (default 3). Through the Supabase pooler every
+ * connection takes one of its client slots, and enough warm serverless instances each reserving several made the
+ * pooler refuse new ones (EMAXCONN). A query waits up to 25 seconds for a free connection instead of failing.
+ * Encrypted (TLS), as the engine was ("sslmode=prefer", which does not check the certificate either).
  */
-function connectionUrl(): string | undefined {
+function makeAdapter() {
   const raw = process.env.DATABASE_URL;
-  if (!raw || !raw.includes("pgbouncer=true") || raw.includes("connection_limit=")) return undefined;
-  const limit = Number(process.env.DB_CONNECTION_LIMIT) || 3;
-  const sep = raw.includes("?") ? "&" : "?";
-  return `${raw}${sep}connection_limit=${limit}&pool_timeout=25`;
+  if (!raw) return undefined;
+  // pgbouncer= and connection_limit= are Prisma-engine settings; the pg driver does not use them.
+  const url = new URL(raw);
+  for (const k of ["pgbouncer", "connection_limit", "pool_timeout", "sslmode"]) url.searchParams.delete(k);
+  return new PrismaPg({
+    connectionString: url.toString(),
+    max: Number(process.env.DB_CONNECTION_LIMIT) || 3,
+    connectionTimeoutMillis: 25_000,
+    idleTimeoutMillis: 20_000,
+    ssl: { rejectUnauthorized: false },
+  });
 }
 
 /** Prisma client singleton (avoids exhausting connections in dev hot-reload). */
 const globalForPrisma = globalThis as unknown as { prisma?: PrismaClient };
 
-const url = connectionUrl();
+const adapter = makeAdapter();
 
 export const db =
   globalForPrisma.prisma ??
   new PrismaClient({
     // WHQ_LOG_QUERIES=1 prints every database query, to count what a page costs. Off in normal use.
     log: process.env.WHQ_LOG_QUERIES === "1" ? ["query", "error", "warn"] : process.env.NODE_ENV === "development" ? ["error", "warn"] : ["error"],
-    ...(url ? { datasources: { db: { url } } } : {}),
+    ...(adapter ? { adapter } : {}),
   });
 
 if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = db;
