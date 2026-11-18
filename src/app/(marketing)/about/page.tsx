@@ -16,7 +16,7 @@ export const metadata: Metadata = pageMeta({
 
 const values = [
   { icon: Heart, title: "Ministry first", body: "Technology should serve the mission, never complicate it. Every feature earns its place by helping you shepherd people." },
-  { icon: Globe2, title: "Built for every church", body: "Mobile Money, SMS broadcasts, online giving and a light app that loads fast on mobile data - built around how churches actually operate, wherever they are." },
+  { icon: Globe2, title: "Built for every church", body: "Mobile Money, SMS broadcasts, biometric check-in and a light app that loads fast on mobile data - built around how churches actually operate, wherever they are." },
   { icon: ShieldCheck, title: "Trust & stewardship", body: "Your records and your offerings are sacred. Each church's data is kept separate from every other church, and roles decide who on your team sees what." },
   { icon: Zap, title: "Delightfully simple", body: "Powerful doesn't have to mean complicated. WorshipHQ is fast, beautiful and a joy to use on any device." },
 ];
@@ -51,7 +51,7 @@ export default async function AboutPage() {
             <p className="text-lg leading-[1.9] text-ink-muted">
               {brand.name} brings people, giving, events and communications into
               one calm, beautiful headquarters - designed from the ground up for
-              Mobile Money, online giving and the realities of church life.
+              Mobile Money, SMS and the realities of church life.
             </p>
           </Reveal>
         </div>

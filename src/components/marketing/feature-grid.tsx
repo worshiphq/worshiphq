@@ -33,7 +33,7 @@ const FEATURES: [string, string][] = [
   ["member-ids", "Member ID cards"],
   ["import-export", "Import from Excel"],
   ["custom-messages", "Your own message wording"],
-  ["online-payments", "Online giving by Mobile Money & card"],
+  ["online-payments", "Online giving by Mobile Money & card (coming soon)"],
   ["accounting", "Church accounts & expenses"],
   ["harvest", "Harvest & pledges"],
   ["rosters", "Rosters & volunteers"],

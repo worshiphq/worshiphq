@@ -19,7 +19,7 @@ export interface Feature {
 
 export const featureCards: Feature[] = [
   { icon: Users, title: "People & profiles", blurb: "Rich member profiles with photos, IDs, departments, custom fields and smart search - your whole congregation, organised." },
-  { icon: HandCoins, title: "Giving & online payments", blurb: "Record tithes and offerings. Accept online giving via Mobile Money and cards with Paystack. Receipts sent automatically." },
+  { icon: HandCoins, title: "Giving & online payments", blurb: "Record tithes, offerings and pledges, with receipts sent automatically. Online giving by Mobile Money and card is coming soon." },
   { icon: Bell, title: "Birthday & anniversary reminders", blurb: "Never miss a birthday or anniversary - automatic SMS blessings sent on the day, in your church's voice." },
   { icon: CalendarDays, title: "Attendance & QR check-in", blurb: "Create attendance sessions, mark members present by name or scan their QR code for lightning-fast check-in." },
   { icon: MessageSquare, title: "SMS broadcasts", blurb: "Reach your entire church, a department, or hand-picked members by SMS. Targeted messaging, and your own sender name on Max." },
@@ -53,8 +53,8 @@ export const spotlights: Spotlight[] = [
   {
     eyebrow: "Giving",
     title: "Giving made simple",
-    body: "Record tithes, offerings and Day Born on every plan. On Starter, givers get a receipt by text. On Pro, members can give online by Mobile Money and card, straight into the church account.",
-    points: ["Tithes, offerings and Day Born (every plan)", "Automatic receipts by text (Starter)", "Online giving by Mobile Money & card (Pro)", "Harvest, pledges and church accounts (Pro)"],
+    body: "Record tithes, offerings and Day Born on every plan. On Starter, givers get a receipt by text. Online giving by Mobile Money and card is coming soon.",
+    points: ["Tithes, offerings and Day Born (every plan)", "Automatic receipts by text (Starter)", "Online giving by Mobile Money & card (coming soon)", "Harvest, pledges and church accounts (Pro)"],
     shot: "/marketing/app/giving.webp",
     phone: "/marketing/app/m-give.webp",
     chip: "Receipt texted in seconds",
@@ -110,7 +110,7 @@ export interface Faq {
 
 export const faqs: Faq[] = [
   { q: "Is my church's data private?", a: "Yes. Each church's records are kept separate, so no other church can see them, and everything travels encrypted. Inside your church, roles decide who on your team sees what." },
-  { q: "Does it take Mobile Money?", a: "Yes. Churches pay for WorshipHQ with Mobile Money or card. On the Pro plan and above, your members can also give to the church online by Mobile Money or card, paid into the church's own account." },
+  { q: "Does it take Mobile Money?", a: "Yes. Churches pay for WorshipHQ with Mobile Money or card. Online giving, so members can give to the church from their phones by Mobile Money or card, is coming soon." },
   { q: "Do we need the face or fingerprint devices?", a: "No. Every plan can mark attendance by name, and Starter adds QR check-in. The face, palm and fingerprint devices at the door are part of Max, and we can supply and set them up for you." },
   { q: "Can we bring our members from a spreadsheet?", a: "Yes. On Starter and above, import your members from Excel or a CSV file. Or share your registration link and let members fill in their own details on any plan." },
   { q: "What happens on a poor connection?", a: "WorshipHQ is light and loads quickly on mobile data, and pages you have opened recently open fast. You do need a connection to save changes." },

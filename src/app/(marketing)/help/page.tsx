@@ -52,8 +52,8 @@ const sections = [
         desc: "Record tithes, offerings and special gifts. Click the + button on the Giving page, select the member, amount, fund and method (Mobile Money, cash, card, bank transfer).",
       },
       {
-        name: "Online giving",
-        desc: "Share your online giving link so members can give from their phones using Mobile Money or card via Paystack. Receipts are sent automatically.",
+        name: "Online giving (coming soon)",
+        desc: "Members will be able to give from their phones by Mobile Money or card, with receipts sent automatically. This is on the way.",
       },
       {
         name: "Funds",

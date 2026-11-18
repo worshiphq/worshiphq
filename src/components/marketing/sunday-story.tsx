@@ -32,7 +32,7 @@ export function SundayStory({ tiers }: { tiers: Record<string, Tier> }) {
       when: "During the service",
       icon: HandCoins,
       title: "The offering is counted once",
-      body: "Tithes, offerings and Day Born recorded as they come in, with a receipt texted to each giver. Online giving by Mobile Money on Pro.",
+      body: "Tithes, offerings and Day Born recorded as they come in, with a receipt texted to each giver. Online giving by Mobile Money is coming soon.",
       plan: t("auto-receipts", "starter"),
     },
     {
