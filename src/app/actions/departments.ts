@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { moveToBin } from "@/lib/recycle-bin";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 import { audit } from "@/lib/audit";
+import { ensureDepartmentOnForm } from "@/lib/forms/ensure-department";
 
 export async function createDepartment(formData: FormData) {
   const session = await requireSession();
@@ -20,9 +21,12 @@ export async function createDepartment(formData: FormData) {
   });
   if (existing) return;
 
+  const first = (await db.department.count({ where: { churchId: session.churchId } })) === 0;
   const dept = await db.department.create({
     data: { churchId: session.churchId, name, description },
   });
+  // The first department turns on the "Department / ministry" question on the member and join forms.
+  if (first) await ensureDepartmentOnForm(session.churchId);
 
   await audit(session, "create", "department", `Created department "${name}"`, dept.id);
   revalidatePath("/app/settings");
