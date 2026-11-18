@@ -259,6 +259,7 @@ export async function undoCheckIn(recordId: string) {
  * and recipient choices are remembered on the church for next time.
  */
 export async function endService(formData: FormData) {
+  const t0 = Date.now();
   const session = await requireSession();
   assertCanWrite(session, "attendance");
 
@@ -330,7 +331,8 @@ export async function endService(formData: FormData) {
   // Thank everyone who came (one text each, within a time budget; the hourly run finishes any that are left).
   let thanked = 0, thanksLeft = 0, thanksInsufficient = false;
   if (thank && !session.isDemo) {
-    const t = await sendServiceThanks(sess.id, { budgetMs: 20_000 });
+    // Whatever time is left of the request (the host stops it at about 10 seconds); the page sends the rest.
+    const t = await sendServiceThanks(sess.id, { budgetMs: Math.max(2_000, 8_000 - (Date.now() - t0)) });
     thanked = t.sent; thanksLeft = t.remaining; thanksInsufficient = t.insufficient;
   }
 
@@ -347,7 +349,7 @@ export async function thankAttendees(sessionId: string) {
   const sess = await db.attendanceSession.findFirst({ where: { id: sessionId, churchId: session.churchId }, select: { id: true } });
   if (!sess) return { ok: false as const, error: "Service not found" };
   await db.attendanceSession.update({ where: { id: sess.id }, data: { thankRequested: true } });
-  const t = await sendServiceThanks(sess.id, { budgetMs: 20_000 });
+  const t = await sendServiceThanks(sess.id, { budgetMs: 8_000 });
   revalidatePath(`/app/attendance/${sess.id}`);
   return { ok: true as const, sent: t.sent, remaining: t.remaining, insufficient: t.insufficient };
 }

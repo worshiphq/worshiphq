@@ -63,12 +63,14 @@ export async function runDailyAutomations(now = new Date(), precise = false, sen
 
   // 2) Church-facing messages, each across churches in parallel.
   summary.birthdays = await safe("birthdays", () => runBirthdays(now, ignoreHour, smsDeadline));
+  // Early in the run: on the current host the hourly request is cut short, and from further down this list the
+  // thank-you catch-up was never reached (Nov 2026: thank-yous left half sent for days).
+  summary.serviceThanks = await safe("serviceThanks", () => runServiceThanks(now, ignoreHour, smsDeadline));
   summary.rosterAnnouncements = await safe("rosterAnnouncements", () => runRosterAnnouncements(now, ignoreHour, smsDeadline));
   summary.rosterReminders = await safe("rosterReminders", () => runRosterReminders(now, ignoreHour, smsDeadline));
   summary.groupMeetings = await safe("groupMeetings", () => runGroupMeetingReminders(now, ignoreHour, smsDeadline));
   summary.counselingReminders = await safe("counselingReminders", () => runCounselingReminders(now, ignoreHour, smsDeadline));
   summary.absence = await safe("absence", () => runAbsenceCheck(now, ignoreHour, smsDeadline));
-  summary.serviceThanks = await safe("serviceThanks", () => runServiceThanks(now, ignoreHour, smsDeadline));
   summary.followUpDigest = await safe("followUpDigest", () => runFollowUpDigest(now, ignoreHour, smsDeadline));
   summary.assetAlerts = await safe("assetAlerts", () => runAssetAlerts(now, ignoreHour, smsDeadline));
   summary.weeklyBriefing = await safe("weeklyBriefing", () => runWeeklyBriefing(now, ignoreHour, smsDeadline));

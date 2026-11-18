@@ -17,6 +17,25 @@ import {
 } from "@/lib/attendance/report";
 import { cn } from "@/lib/utils";
 
+/**
+ * Keep sending the thank-you until everyone has it. Each server call only has a few seconds before the host stops it,
+ * so the page asks again with the rest, showing progress, instead of leaving people for an hourly run.
+ */
+async function sendRestOfThanks(sessionId: string, start: { sent: number; remaining: number }, onProgress: (sent: number, total: number) => void) {
+  let { sent, remaining } = start;
+  let insufficient = false;
+  for (let round = 0; remaining > 0 && round < 60; round++) {
+    onProgress(sent, sent + remaining);
+    const r = await thankAttendees(sessionId).catch(() => null);
+    if (!r || !r.ok) break;
+    sent += r.sent;
+    remaining = r.remaining;
+    if (r.insufficient) { insufficient = true; break; }
+    if (r.sent === 0) break;
+  }
+  return { sent, remaining, insufficient };
+}
+
 interface Counts { adults: number; teens: number; children: number; visitors: number }
 /** The optional "thank you for coming" text to every member who checked in. */
 export interface ThanksInfo { defaultOn: boolean; recipients: number; requested: boolean; sentCount: number; preview: string }
@@ -42,6 +61,7 @@ export function EndServiceButton({
   const [open, setOpen] = useState(false);
   const [reopening, startReopen] = useTransition();
   const [thanking, startThank] = useTransition();
+  const [progress, setProgress] = useState("");
 
   if (endedAt) {
     return (
@@ -50,21 +70,21 @@ export function EndServiceButton({
           <CheckCircle2 className="size-4" /> Service ended
           {reportSentTo > 0 && <span className="text-success/80">· report sent to {reportSentTo}</span>}
         </span>
-        {!isDemo && !thanks.requested && thanks.recipients > 0 && (
+        {!isDemo && thanks.recipients > 0 && (
           <Button
             variant="secondary" size="sm"
             disabled={thanking}
             onClick={() => {
-              if (!window.confirm(`Text a thank-you to the ${thanks.recipients} member${thanks.recipients === 1 ? "" : "s"} who came? This uses SMS credits.`)) return;
+              if (!window.confirm(`Text a thank-you to the ${thanks.recipients} member${thanks.recipients === 1 ? "" : "s"} who ${thanks.requested ? "have not had it yet" : "came"}? This uses SMS credits.`)) return;
               startThank(async () => {
-                const r = await thankAttendees(sessionId);
-                if (r.ok) toast(r.insufficient ? `Sent ${r.sent}. SMS credits ran out; the rest will go when you top up.` : r.remaining > 0 ? `Sent ${r.sent}. The rest are going out over the next hour.` : `Thank-you sent to ${r.sent}.`, r.insufficient ? "error" : "success");
-                else toast(r.error, "error");
+                const r = await sendRestOfThanks(sessionId, { sent: 0, remaining: thanks.recipients }, (done, total) => setProgress(`${done} of ${total}`));
+                setProgress("");
+                toast(r.insufficient ? `Sent ${r.sent}. SMS credits ran out; the rest will go when you top up.` : r.remaining > 0 ? `Sent ${r.sent}. The rest are going out over the next hour.` : `Thank-you sent to ${r.sent}.`, r.insufficient ? "error" : "success");
                 router.refresh();
               });
             }}
           >
-            {thanking ? <><Loader2 className="size-4 animate-spin" /> Sending…</> : <><HeartHandshake className="size-4" /> Thank everyone who came</>}
+            {thanking ? <><Loader2 className="size-4 animate-spin" /> Sending… {progress}</> : <><HeartHandshake className="size-4" /> {thanks.requested ? `Send the rest (${thanks.recipients})` : "Thank everyone who came"}</>}
           </Button>
         )}
         {thanks.requested && thanks.sentCount > 0 && <span className="text-xs text-ink-faint">Thanked {thanks.sentCount}</span>}
@@ -119,6 +139,7 @@ function EndServiceDialog({
   const router = useRouter();
   const { toast } = useFeedback();
   const [pending, start] = useTransition();
+  const [thankProgress, setThankProgress] = useState("");
 
   const [toAdmins, setToAdmins] = useState(config.toAdmins);
   const [toLeaders, setToLeaders] = useState(config.toLeaders);
@@ -161,6 +182,11 @@ function EndServiceDialog({
     fd.set("thank", thank ? "true" : "false");
     start(async () => {
       const res = await endService(fd);
+      if (res?.ok && thank && res.thanksLeft > 0 && !res.thanksInsufficient) {
+        const more = await sendRestOfThanks(sessionId, { sent: res.thanked, remaining: res.thanksLeft }, (done, total) => setThankProgress(`Thanking ${done} of ${total}…`));
+        setThankProgress("");
+        res.thanked = more.sent; res.thanksLeft = more.remaining; res.thanksInsufficient = more.insufficient;
+      }
       if (res?.ok) {
         if (res.insufficient) {
           toast("Service ended, but SMS credits ran out before all messages sent.", "error");
@@ -295,7 +321,7 @@ function EndServiceDialog({
             <Button variant="secondary" className="flex-1" onClick={onClose} disabled={pending}>Cancel</Button>
             <Button className="flex-1" onClick={submit} disabled={pending}>
               {pending ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
-              {pending ? "Ending…" : thank ? "End, send report & thank" : "End & send report"}
+              {pending ? (thankProgress || "Ending…") : thank ? "End, send report & thank" : "End & send report"}
             </Button>
           </div>
         </div>

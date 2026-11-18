@@ -60,10 +60,17 @@ export async function countThankRecipients(sessionId: string, churchId: string):
 }
 
 /**
- * Text "thank you for coming" to everyone who checked in. One by one (credits are checked and used per church, so
- * sends must not overlap), within a time budget. Anyone left over is finished by the next hourly run.
+ * Text "thank you for coming" to everyone who checked in, within a time budget. Anyone left over is sent by the next
+ * call (the page keeps going until everyone is done) or by the hourly run.
+ *
+ * Sent in batches through sendChurchSms's personal-text mode (several at a time, one credit check per batch). Sending
+ * one person at a time took about 5 seconds each, so a press only reached 4 people before its time ran out (Nov 2026).
+ * Each batch is CLAIMED before it is sent (thankedAt set first, put back for any that fail), so a second press, the
+ * hourly run, or a request cut off half way can never text the same person twice.
  */
+const THANKS_BATCH = 10;
 export async function sendServiceThanks(sessionId: string, opts: { budgetMs?: number } = {}) {
+  const t0 = Date.now();
   const sess = await db.attendanceSession.findUnique({
     where: { id: sessionId },
     select: { id: true, churchId: true, serviceName: true, church: { select: { name: true, isDemo: true, messageTemplates: true } } },
@@ -75,23 +82,36 @@ export async function sendServiceThanks(sessionId: string, opts: { budgetMs?: nu
 
   const template = templateFor(sess.church.messageTemplates, "service_thanks");
   const backTemplate = templateFor(sess.church.messageTemplates, "service_welcome_back");
-  const stop = Date.now() + (opts.budgetMs ?? 20_000);
+  const stop = t0 + (opts.budgetMs ?? 8_000);
   let sent = 0;
+  let handled = 0;
   let insufficient = false;
-  for (const r of out) {
-    if (Date.now() >= stop) break;
-    const msg = renderTemplate(r.person!.status === "visitor" ? backTemplate : template, { name: r.person!.firstName, church: sess.church.name, service: sess.serviceName });
-    const res = await sendChurchSms(sess.churchId, r.person!.phone!, msg, { note: "Thank you after service" });
-    if (res.insufficient) { insufficient = true; break; }
-    if (res.ok) {
-      sent++;
-      const now = new Date();
-      await db.attendanceRecord.update({ where: { id: r.id }, data: { thankedAt: now } });
-      await db.person.update({ where: { id: r.person!.id }, data: { lastThankedAt: now } });
-    }
+  for (let i = 0; i < out.length; i += THANKS_BATCH) {
+    // A batch takes a few seconds; do not start one that would run past the budget.
+    if (i > 0 && Date.now() + 5_000 >= stop) break;
+    const want = out.slice(i, i + THANKS_BATCH);
+    const claim = new Date();
+    await db.attendanceRecord.updateMany({ where: { id: { in: want.map((r) => r.id) }, thankedAt: null }, data: { thankedAt: claim } });
+    const mine = new Set((await db.attendanceRecord.findMany({ where: { id: { in: want.map((r) => r.id) }, thankedAt: claim }, select: { id: true } })).map((r) => r.id));
+    const batch = want.filter((r) => mine.has(r.id));
+    handled += want.length;
+    if (batch.length === 0) continue;
+
+    const textFor = (k: number) => renderTemplate(batch[k]!.person!.status === "visitor" ? backTemplate : template, { name: batch[k]!.person!.firstName, church: sess.church.name, service: sess.serviceName });
+    const res = await sendChurchSms(sess.churchId, batch.map((r) => r.person!.phone!), textFor(0), { note: "Thank you after service", textFor });
+    const okIdx = new Set<number>();
+    (res.results ?? []).forEach((r, k) => { if (r.ok) okIdx.add(k); });
+    const failed = batch.filter((_, k) => !okIdx.has(k)).map((r) => r.id);
+    // Out of credits: hand those back so they go out after a top-up. Any other failure (a bad number the carrier
+    // refused) stays marked, so it is not retried, and charged nothing, on every press and every hour.
+    if (res.insufficient && failed.length) await db.attendanceRecord.updateMany({ where: { id: { in: failed } }, data: { thankedAt: null } });
+    const okPeople = batch.filter((_, k) => okIdx.has(k)).map((r) => r.person!.id);
+    if (okPeople.length) await db.person.updateMany({ where: { id: { in: okPeople } }, data: { lastThankedAt: new Date() } });
+    sent += okPeople.length;
+    if (res.insufficient) { insufficient = true; handled -= failed.length; break; }
   }
   if (sent) await db.attendanceSession.update({ where: { id: sess.id }, data: { thankSentCount: { increment: sent } } });
-  return { sent, remaining: Math.max(0, out.length - sent), insufficient };
+  return { sent, remaining: Math.max(0, out.length - handled), insufficient };
 }
 
 /** Hourly: finish any thank-you texts that did not all go out when the service was ended (time ran out, or credits). */
@@ -115,7 +135,7 @@ export async function runServiceThanks(now = new Date(), ignoreHour = false, dea
       const { hour } = localParts(now, s.church.timezone);
       if (hour < 8 || hour >= 20) continue;
     }
-    const budget = deadline !== undefined ? Math.max(0, Math.min(25_000, deadline - Date.now())) : 25_000;
+    const budget = deadline !== undefined ? Math.max(0, Math.min(8_000, deadline - Date.now())) : 8_000;
     const r = await sendServiceThanks(s.id, { budgetMs: budget });
     sent += r.sent;
   }
