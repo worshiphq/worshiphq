@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { Check, Search, X } from "lucide-react";
+import { Check, Loader2, Search, X } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 import { matchesPerson } from "@/lib/search";
@@ -15,7 +15,7 @@ export type PickerOption = { value: string; label: string; hint?: string };
  * Keyboard: type to search, Down arrow into the list, Up/Down/Home/End to move, Space or Enter to tick, Escape back to the search.
  */
 export function MultiPicker({
-  name, options, defaultValue = [], onChange, placeholder = "Search…", emptyLabel = "Nobody selected", search,
+  name, options, defaultValue = [], onChange, placeholder = "Search…", emptyLabel = "Nobody selected", search, pageSize = 20,
 }: {
   name?: string;
   options: PickerOption[];
@@ -23,8 +23,11 @@ export function MultiPicker({
   onChange?: (values: string[]) => void;
   placeholder?: string;
   emptyLabel?: string;
-  /** Ask the server for matches instead of filtering `options` (use for people). Called after a 300ms pause, and once on load. */
-  search?: (query: string) => Promise<PickerOption[]>;
+  /** Ask the server for matches instead of filtering `options` (use for people). Called after a short pause, and once on load.
+   *  `skip` is how many are already showing: when a search returns a full page, "Load more" asks for the next one. */
+  search?: (query: string, skip: number) => Promise<PickerOption[]>;
+  /** How many the server returns per page (a full page means there may be more). */
+  pageSize?: number;
 }) {
   const [selected, setSelected] = useState<string[]>(defaultValue);
   const [query, setQuery] = useState("");
@@ -52,24 +55,45 @@ export function MultiPicker({
   const seen = useRef(new Map<string, string>());
   for (const o of options) seen.current.set(o.value, o.label);
   if (remote) for (const o of remote) seen.current.set(o.value, o.label);
+  const [more, setMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const reqId = useRef(0);
   useEffect(() => {
     if (!search) return;
     const id = ++reqId.current;
     setLoading(true);
+    setLoadingMore(false);
     const t = setTimeout(() => {
-      search(query.trim())
-        .then((res) => { if (id === reqId.current) setRemote(res); })
-        .catch(() => { if (id === reqId.current) setRemote([]); })
+      search(query.trim(), 0)
+        .then((res) => { if (id === reqId.current) { setRemote(res); setMore(res.length >= pageSize); } })
+        .catch(() => { if (id === reqId.current) { setRemote([]); setMore(false); } })
         .finally(() => { if (id === reqId.current) setLoading(false); });
-    }, query ? 300 : 0);
+    }, query ? 200 : 0);
     return () => clearTimeout(t);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query]);
 
+  function loadMore() {
+    if (!search || !remote || loadingMore) return;
+    const id = reqId.current;
+    setLoadingMore(true);
+    search(query.trim(), remote.length)
+      .then((res) => {
+        if (id !== reqId.current) return;
+        const have = new Set(remote.map((o) => o.value));
+        setRemote([...remote, ...res.filter((o) => !have.has(o.value))]);
+        setMore(res.length >= pageSize);
+      })
+      .catch(() => { if (id === reqId.current) setMore(false); })
+      .finally(() => { if (id === reqId.current) setLoadingMore(false); });
+  }
+
   const label = search ? seen.current : new Map(options.map((o) => [o.value, o.label]));
   const q = query.trim().toLowerCase();
-  const shown = search ? (remote ?? []) : (q ? options.filter((o) => matchesPerson(q, { name: o.label, text: o.hint })) : options).slice(0, 80);
+  // While the server is still looking, narrow what is already on screen at once, so typing never feels stuck.
+  const shown = search
+    ? (loading && q ? (remote ?? []).filter((o) => matchesPerson(q, { name: o.label, text: o.hint })) : (remote ?? []))
+    : (q ? options.filter((o) => matchesPerson(q, { name: o.label, text: o.hint })) : options).slice(0, 80);
 
   function toggle(v: string) {
     const next = selected.includes(v) ? selected.filter((x) => x !== v) : [...selected, v];
@@ -107,11 +131,12 @@ export function MultiPicker({
           }}
           aria-label={placeholder}
           placeholder={placeholder}
-          className="h-10 w-full bg-transparent pl-9 pr-3 text-sm text-ink outline-none placeholder:text-ink-faint"
+          className="h-10 w-full bg-transparent pl-9 pr-9 text-sm text-ink outline-none placeholder:text-ink-faint"
         />
+        {search && loading && <Loader2 aria-label="Searching" className="absolute right-3 top-1/2 size-4 -translate-y-1/2 animate-spin text-primary" />}
       </div>
-      <ul ref={listRef} role="listbox" aria-multiselectable aria-label={placeholder} onKeyDown={onListKey} className="max-h-48 divide-y divide-line overflow-y-auto border-t border-line">
-        {loading && shown.length === 0 && <li className="px-3 py-3 text-sm text-ink-faint">Searching…</li>}
+      <ul ref={listRef} role="listbox" aria-multiselectable aria-label={placeholder} onKeyDown={onListKey} className="max-h-72 divide-y divide-line overflow-y-auto border-t border-line">
+        {loading && shown.length === 0 && <li className="flex items-center gap-2 px-3 py-3 text-sm text-ink-faint"><Loader2 className="size-4 animate-spin" /> Searching…</li>}
         {!loading && shown.length === 0 && <li className="px-3 py-3 text-sm text-ink-faint">No match.</li>}
         {shown.map((o) => {
           const on = selected.includes(o.value);
@@ -135,6 +160,13 @@ export function MultiPicker({
             </li>
           );
         })}
+        {search && more && !loading && shown.length > 0 && (
+          <li role="presentation" className="p-2">
+            <button type="button" onClick={loadMore} disabled={loadingMore} className="flex w-full items-center justify-center gap-2 rounded-lg py-2 text-sm font-medium text-primary hover:bg-primary/5 disabled:opacity-70">
+              {loadingMore ? <><Loader2 className="size-4 animate-spin" /> Loading…</> : "Load more"}
+            </button>
+          </li>
+        )}
       </ul>
     </div>
   );

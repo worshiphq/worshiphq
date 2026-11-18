@@ -10,11 +10,14 @@ export interface PickerQuery {
   who?: "all" | "notInactive" | "notVisitor" | "withPhone" | "activeOrVisitor";
   /** Only adults (not children or teens). */
   adultsOnly?: boolean;
-  /** Leave out people already in this group / department. */
+  /** Leave out people already in this group / department. (A plain NOT on departmentId would also drop everyone with NO
+   *  department, because SQL compares NULL as unknown; that hid every unassigned member from "Add people".) */
   excludeGroupId?: string;
   excludeDepartmentId?: string;
   /** Leave out these people (already chosen elsewhere). */
   excludeIds?: string[];
+  /** Skip this many matches (for "Load more"). */
+  skip?: number;
 }
 
 export interface PickerOption { value: string; label: string; hint?: string; phone?: string | null; memberId?: string | null; photoUrl?: string | null }
@@ -31,13 +34,14 @@ export async function queryPickerPeople(churchId: string, search: string, q: Pic
     ...(q.who === "withPhone" ? { phone: { not: null }, status: { not: "inactive" } } : {}),
     ...(q.adultsOnly ? { OR: [{ ageGroup: null }, { ageGroup: "adult" }] } : {}),
     ...(q.excludeGroupId ? { NOT: { groups: { some: { id: q.excludeGroupId } } } } : {}),
-    ...(q.excludeDepartmentId ? { AND: [{ NOT: { departments: { some: { id: q.excludeDepartmentId } } } }, { NOT: { departmentId: q.excludeDepartmentId } }] } : {}),
+    ...(q.excludeDepartmentId ? { AND: [{ NOT: { departments: { some: { id: q.excludeDepartmentId } } } }, { OR: [{ departmentId: null }, { departmentId: { not: q.excludeDepartmentId } }] }] } : {}),
     ...(q.excludeIds?.length ? { id: { notIn: q.excludeIds.slice(0, 200) } } : {}),
   };
   const people = await db.person.findMany({
     where: { ...where, AND: [...and, ...((where.AND as Prisma.PersonWhereInput[] | undefined) ?? [])] },
     orderBy: [{ firstName: "asc" }, { lastName: "asc" }, { id: "asc" }],
     take: PICKER_LIMIT,
+    skip: Math.max(0, Math.min(q.skip ?? 0, 5000)),
     select: { id: true, firstName: true, lastName: true, phone: true, memberId: true, photoUrl: true },
   });
   return people.map((p) => ({

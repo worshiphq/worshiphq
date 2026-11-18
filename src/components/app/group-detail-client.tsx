@@ -189,7 +189,7 @@ export function GroupDetailClient({
 
       <Modal open={adding} onClose={() => (pending ? undefined : setAdding(false))} title={`Add people to ${group.name}`} description="Search and tick as many as you like, then add them in one go.">
         <div className="space-y-4">
-          <MultiPicker options={[]} search={(q) => searchPickerPeople("people", q, { excludeGroupId: group.id })} defaultValue={chosen} onChange={setChosen} placeholder="Search by name or phone…" emptyLabel="Nobody picked yet" />
+          <MultiPicker options={[]} search={(q, skip) => searchPickerPeople("people", q, { skip, excludeGroupId: group.id })} defaultValue={chosen} onChange={setChosen} placeholder="Search by name or phone…" emptyLabel="Nobody picked yet" />
           <div className="flex gap-2">
             <Button variant="secondary" className="flex-1" onClick={() => setAdding(false)} disabled={pending}>Cancel</Button>
             <Button className="flex-1" onClick={addChosen} disabled={pending || chosen.length === 0}>

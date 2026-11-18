@@ -157,7 +157,7 @@ export function DepartmentDetailClient({
           <p className="text-sm text-ink-muted">
             Pick as many people as you like. Visitors are left out - they join a department once they become members.
           </p>
-          <MultiPicker options={[]} search={(q) => searchPickerPeople("people", q, { who: "notVisitor", excludeDepartmentId: department.id })} defaultValue={chosen} onChange={setChosen} placeholder="Search by name or phone…" emptyLabel="Nobody picked yet" />
+          <MultiPicker options={[]} search={(q, skip) => searchPickerPeople("people", q, { skip, who: "notVisitor", excludeDepartmentId: department.id })} defaultValue={chosen} onChange={setChosen} placeholder="Search by name or phone…" emptyLabel="Nobody picked yet" />
           <div className="flex gap-2">
             <Button variant="secondary" className="flex-1" onClick={() => setAdding(false)} disabled={pending}>Cancel</Button>
             <Button className="flex-1" onClick={addChosen} disabled={pending || chosen.length === 0}>
