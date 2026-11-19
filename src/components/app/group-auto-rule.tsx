@@ -87,7 +87,7 @@ export function AutoRuleFields({ initial }: { initial?: AutoRule | null }) {
                   </select>
                 </div>
               )}
-              {q?.isDay && <p className="text-[11px] text-ink-faint">Day names are read smartly: Kwabena, Abena, &quot;Tue&quot; or a small typo all count as Tuesday, and a full date of birth fills in the day when the answer is blank.</p>}
+              {q?.isDay && <p className="text-[11px] text-ink-faint">Day names are read smartly: Kwabena, Abena, &quot;Tue&quot; or a small typo all count as Tuesday.</p>}
               {question && answer && count !== undefined && <p className="text-xs text-success">{count} {count === 1 ? "person matches" : "people match"} right now and will be added when you save.</p>}
               {question && !answer && <p className="text-xs text-amber-600">Pick an answer, or switch this off.</p>}
             </>

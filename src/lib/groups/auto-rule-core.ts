@@ -6,7 +6,8 @@
  *
  * Day questions ("Day Born", "Day of birth"...) are matched smartly: Akan day names
  * (Kwabena, Abena, Kobina, Araba...), Twi weekday names (Benada), short forms (Tue, Tues)
- * and small typos ("Sarurday") all count as the right weekday.
+ * and small typos ("Sarurday") all count as the right weekday. Only what the person answered
+ * counts: a date of birth is never used to decide someone's day born.
  */
 
 export type AutoRule = { question: string; answer: string };
@@ -92,22 +93,16 @@ export function parseAutoRule(raw: unknown): AutoRule | null {
   return question && answer ? { question: question.slice(0, 120), answer: answer.slice(0, 120) } : null;
 }
 
-/** A person's answer to the rule's question, falling back to their date of birth for day questions. */
-export function personAnswer(question: string, customFields: unknown, dateOfBirth?: Date | null): string | null {
+/** A person's answer to the rule's question (their own answer only). */
+export function personAnswer(question: string, customFields: unknown): string | null {
   const cf = customFields && typeof customFields === "object" ? (customFields as Record<string, unknown>) : {};
   const key = Object.keys(cf).find((k) => clean(k) === clean(question));
   const v = key != null ? cf[key] : null;
-  const n = normalAnswer(question, typeof v === "string" || typeof v === "number" ? String(v) : null);
-  if (n) return n;
-  // Day questions: a full date of birth tells us the weekday (ignore placeholder years).
-  if (isDayQuestion(question) && dateOfBirth && dateOfBirth.getUTCFullYear() >= 1910) {
-    return WEEKDAYS[dateOfBirth.getUTCDay()].toLowerCase();
-  }
-  return null;
+  return normalAnswer(question, typeof v === "string" || typeof v === "number" ? String(v) : null);
 }
 
-export function matchesRule(rule: AutoRule, customFields: unknown, dateOfBirth?: Date | null): boolean {
-  const mine = personAnswer(rule.question, customFields, dateOfBirth);
+export function matchesRule(rule: AutoRule, customFields: unknown): boolean {
+  const mine = personAnswer(rule.question, customFields);
   return !!mine && mine === normalAnswer(rule.question, rule.answer);
 }
 

@@ -46,7 +46,7 @@ export async function applyRuleToGroup(churchId: string, groupId: string): Promi
 async function fillGroups(churchId: string, ruled: { id: string; rule: AutoRule }[], personIds?: string[]): Promise<number> {
   const people = await db.person.findMany({
     where: { churchId, status: { not: "visitor" }, ...(personIds ? { id: { in: personIds.slice(0, 2000) } } : {}) },
-    select: { id: true, customFields: true, dateOfBirth: true, groups: { select: { id: true } } },
+    select: { id: true, customFields: true, groups: { select: { id: true } } },
   });
   if (people.length === 0) return 0;
   const locked = new Set(await lockedAmong(churchId, people.map((p) => p.id)));
@@ -57,9 +57,9 @@ async function fillGroups(churchId: string, ruled: { id: string; rule: AutoRule 
     const leave: string[] = [];
     for (const p of people) {
       const inGroup = p.groups.some((x) => x.id === g.id);
-      if (matchesRule(g.rule, p.customFields, p.dateOfBirth)) {
+      if (matchesRule(g.rule, p.customFields)) {
         if (!inGroup && !locked.has(p.id)) join.push(p.id);
-      } else if (personIds && inGroup && personAnswer(g.rule.question, p.customFields, p.dateOfBirth)) {
+      } else if (personIds && inGroup && personAnswer(g.rule.question, p.customFields)) {
         leave.push(p.id);
       }
     }
@@ -125,16 +125,6 @@ export async function ruleQuestions(churchId: string): Promise<RuleQuestion[]> {
     if (isDay) {
       for (const d of WEEKDAYS) counts.set(d.toLowerCase(), { value: d, count: 0 });
       for (const [v, n] of e.raw) { const d = weekdayFrom(v); if (d) counts.get(d.toLowerCase())!.count += n; }
-      // People who skipped the question but gave a full date of birth join by that weekday too.
-      const fromDob = await db.$queryRaw<{ dow: number; n: number }[]>`
-        SELECT extract(dow from p."dateOfBirth")::int AS dow, count(*)::int AS n
-        FROM "Person" p
-        WHERE p."churchId" = ${churchId} AND p."status" <> 'visitor' AND p."dateOfBirth" >= '1910-01-01'
-          AND NOT EXISTS (
-            SELECT 1 FROM jsonb_each_text(CASE WHEN jsonb_typeof(p."customFields") = 'object' THEN p."customFields" ELSE '{}'::jsonb END) k
-            WHERE lower(trim(k.key)) = ${e.question.trim().toLowerCase()} AND trim(k.value) <> '')
-        GROUP BY 1`;
-      for (const r of fromDob) counts.get(WEEKDAYS[r.dow].toLowerCase())!.count += r.n;
     } else {
       for (const o of e.options ?? []) add(o, 0);
       for (const [v, n] of e.raw) add(v, n);
