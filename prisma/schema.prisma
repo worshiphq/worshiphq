@@ -724,6 +724,8 @@ model Group {
   isActive                Boolean  @default(true)
   // People can pick this group themselves on the sign-up forms.
   onForms                 Boolean  @default(false)
+  // Fill the group automatically from a form answer: { question: "Day Born", answer: "Tuesday" }.
+  autoRule                Json?
   createdAt               DateTime @default(now())
   members                 Person[] @relation("GroupMembers")
 

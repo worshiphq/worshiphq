@@ -83,6 +83,8 @@ export async function createPerson(formData: FormData) {
   invalidateMemberLock(session.churchId);
   // Keep the church's face, palm and fingerprint devices in step (never throws).
   await (await import("@/lib/devices/sync")).queueMemberSync(session.churchId, [person.id]);
+  // Groups that fill themselves from a form answer (e.g. Day Born cell groups).
+  await (await import("@/lib/groups/auto-rule")).applyGroupRules(session.churchId, [person.id]);
   await logAudit({ churchId: session.churchId, userId: session.userId, action: "create", entity: "person", entityId: person.id, detail: `Added ${data.firstName} ${data.lastName}` });
   revalidatePath("/app/people");
   revalidatePath("/app");
@@ -163,6 +165,8 @@ export async function updatePerson(formData: FormData) {
   await saveMemberCategoryChoices(session.churchId, id, formData);
   // Keep the church's face, palm and fingerprint devices in step (never throws).
   await (await import("@/lib/devices/sync")).queueMemberSync(session.churchId, [id]);
+  // Groups that fill themselves from a form answer (e.g. Day Born cell groups).
+  await (await import("@/lib/groups/auto-rule")).applyGroupRules(session.churchId, [id]);
 
   revalidatePath("/app/people");
   revalidatePath("/app");

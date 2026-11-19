@@ -6,6 +6,7 @@ import { db } from "@/lib/db";
 import { GroupDetailClient } from "@/components/app/group-detail-client";
 import { queryGroupMembers } from "@/lib/data/lists-b";
 import { parseSchedule } from "@/lib/groups/meeting-reminder";
+import { parseAutoRule } from "@/lib/groups/auto-rule-core";
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -53,6 +54,7 @@ export default async function GroupDetailPage({ params }: { params: Promise<{ id
         location: group.location,
         isActive: group.isActive,
         onForms: group.onForms,
+        autoRule: parseAutoRule(group.autoRule),
         leaderId: group.leaderId,
         leader: group.leader
           ? { id: group.leader.id, name: `${group.leader.firstName} ${group.leader.lastName}`, phone: group.leader.phone }

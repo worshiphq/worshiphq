@@ -57,6 +57,8 @@ export async function selfRegister(formData: FormData) {
   await saveMemberCategoryChoices(church.id, created.id, formData, { joinFormOnly: true });
   // Keep the church's face, palm and fingerprint devices in step (never throws).
   await (await import("@/lib/devices/sync")).queueMemberSync(church.id, [created.id]);
+  // Groups that fill themselves from a form answer (e.g. Day Born cell groups).
+  await (await import("@/lib/groups/auto-rule")).applyGroupRules(church.id, [created.id]);
 
   // Optional: a follow-up task so someone personally welcomes them (church setting).
   const { createAutoFollowUp } = await import("@/lib/follow-ups/auto");
@@ -117,6 +119,8 @@ export async function registerChild(formData: FormData) {
   });
   // Keep the church's face, palm and fingerprint devices in step (never throws).
   await (await import("@/lib/devices/sync")).queueMemberSync(church.id, [child.id]);
+  // Groups that fill themselves from a form answer (e.g. Day Born cell groups).
+  await (await import("@/lib/groups/auto-rule")).applyGroupRules(church.id, [child.id]);
 
   redirect(`/children/${churchSlug}/thank-you`);
 }
@@ -161,6 +165,8 @@ export async function registerTeen(formData: FormData) {
   });
   // Keep the church's face, palm and fingerprint devices in step (never throws).
   await (await import("@/lib/devices/sync")).queueMemberSync(church.id, [teen.id]);
+  // Groups that fill themselves from a form answer (e.g. Day Born cell groups).
+  await (await import("@/lib/groups/auto-rule")).applyGroupRules(church.id, [teen.id]);
 
   redirect(`/teens/${churchSlug}/thank-you`);
 }

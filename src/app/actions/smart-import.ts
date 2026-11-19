@@ -323,5 +323,7 @@ export async function importMembersChunk(formData: FormData): Promise<ImportChun
   if (done && !opts.dryRun) await audit(session, "create", "person", `Imported members from ${(formData.get("file") as File).name}`);
   // The whole import is in: put the new members on the church's devices.
   if (done && !opts.dryRun) await (await import("@/lib/devices/sync")).queueMemberSync(churchId, "all");
+  // ...and into any groups that fill themselves from an answer (e.g. a "Day Born" column).
+  if (done && !opts.dryRun) await (await import("@/lib/groups/auto-rule")).applyGroupRules(churchId);
   return { ok: true, dryRun: opts.dryRun, processed: slice.length, ...res, errors: res.errors.slice(0, 30), nextOffset: done ? null : offset + slice.length };
 }

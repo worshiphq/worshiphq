@@ -8,6 +8,8 @@ import { DAYS_FULL, DEFAULT_MEETING_REMINDER, type ScheduleEntry, type DayRemind
 import { WEEKDAY_OPTIONS } from "@/lib/automations/weekdays";
 import { Segmented } from "@/components/ui/segmented";
 import { cn } from "@/lib/utils";
+import { AutoRuleFields } from "@/components/app/group-auto-rule";
+import type { AutoRule } from "@/lib/groups/auto-rule-core";
 
 export type GroupFormValues = {
   name: string;
@@ -21,6 +23,7 @@ export type GroupFormValues = {
   leaderId: string | null;
   leaderName?: string | null;
   onForms: boolean;
+  autoRule?: AutoRule | null;
   meetingReminderOn: boolean;
   meetingReminderAuto: boolean;
   meetingReminderLeadDays: number;
@@ -134,6 +137,8 @@ export function GroupFields({
         </span>
         <input type="checkbox" name="onForms" defaultChecked={group?.onForms ?? false} className="mt-1 size-4 shrink-0 accent-primary" />
       </label>
+
+      <AutoRuleFields initial={group?.autoRule ?? null} />
 
       <Field label="Location" name="location" placeholder="e.g. Church hall room 3" defaultValue={group?.location ?? ""} />
       <Field

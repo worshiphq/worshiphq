@@ -10,6 +10,8 @@ import { DEFAULT_MEETING_REMINDER, renderMeetingReminder, parseSchedule } from "
 import { ownedId } from "@/lib/tenant";
 import { isPersonLocked, lockedAddError, lockedAmong, notLockedWhere } from "@/lib/member-lock";
 import { LOCKED_ADD } from "@/lib/member-lock-core";
+import { parseAutoRule } from "@/lib/groups/auto-rule-core";
+import { applyRuleToGroup, ruleQuestions, type RuleQuestion } from "@/lib/groups/auto-rule";
 
 /** Parse the shared group fields (create + edit) from the form. */
 function readGroupFields(formData: FormData) {
@@ -31,6 +33,8 @@ function readGroupFields(formData: FormData) {
     location: String(formData.get("location") ?? "").trim() || null,
     leaderId: String(formData.get("leaderId") ?? "").trim() || null,
     onForms: formData.get("onForms") === "on",
+    // Fill automatically from a form answer (both parts needed, else filled by hand).
+    autoRule: parseAutoRule({ question: String(formData.get("autoRuleQuestion") ?? ""), answer: String(formData.get("autoRuleAnswer") ?? "") }),
     meetingReminderOn: formData.get("meetingReminderOn") === "on" && meetingDays.length > 0,
     meetingReminderAuto: String(formData.get("meetingReminderMode") ?? "auto") !== "manual",
     meetingReminderLeadDays: Math.min(14, Math.max(0, parseInt(String(formData.get("meetingReminderLeadDays") ?? "0"), 10) || 0)),
@@ -52,8 +56,9 @@ export async function createGroup(formData: FormData) {
   if (await isPersonLocked(session.churchId, f.leaderId)) f.leaderId = null;
 
   const group = await db.group.create({
-    data: { churchId: session.churchId, ...f, meetingSchedule: f.meetingSchedule as unknown as Prisma.InputJsonValue },
+    data: { churchId: session.churchId, ...f, meetingSchedule: f.meetingSchedule as unknown as Prisma.InputJsonValue, autoRule: f.autoRule ?? Prisma.DbNull },
   });
+  if (f.autoRule) await applyRuleToGroup(session.churchId, group.id);
 
   await audit(session, "create", "group", `Created group "${f.name}"`, group.id);
   revalidatePath("/app/groups");
@@ -95,8 +100,9 @@ export async function updateGroup(formData: FormData) {
 
   await db.group.updateMany({
     where: { id, churchId: session.churchId },
-    data: { ...f, meetingSchedule: f.meetingSchedule as unknown as Prisma.InputJsonValue },
+    data: { ...f, meetingSchedule: f.meetingSchedule as unknown as Prisma.InputJsonValue, autoRule: f.autoRule ?? Prisma.DbNull },
   });
+  if (f.autoRule) await applyRuleToGroup(session.churchId, id);
 
   await audit(session, "update", "group", `Updated group "${f.name}"`, id);
   revalidatePath("/app/groups");
@@ -237,4 +243,43 @@ export async function setGroupLeader(groupId: string, personId: string | null) {
   revalidatePath("/app/groups");
   revalidatePath(`/app/groups/${group.id}`);
   return { ok: true as const };
+}
+
+/** Questions a group can be filled from, with their answers and counts (for the rule pickers). */
+export async function getGroupRuleQuestions(): Promise<RuleQuestion[]> {
+  const session = await requireManage("groups");
+  return ruleQuestions(session.churchId);
+}
+
+/**
+ * One group per answer, each filling itself (e.g. seven Day Born cell groups).
+ * An answer that already has a group with the same rule or the same name is skipped.
+ */
+export async function createGroupsFromAnswers(input: { question: string; answers: string[]; type: string; nameFormat: string }) {
+  const session = await requireManage("groups");
+  if (session.isDemo) return { ok: false as const, error: "Read-only demo." };
+  const question = String(input.question ?? "").trim().slice(0, 120);
+  const answers = [...new Set((input.answers ?? []).map((a) => String(a).trim().slice(0, 120)).filter(Boolean))].slice(0, 40);
+  if (!question || answers.length === 0) return { ok: false as const, error: "Pick at least one answer." };
+  const type = String(input.type ?? "").trim().slice(0, 40) || "Cell group";
+  const format = String(input.nameFormat ?? "").includes("{answer}") ? String(input.nameFormat).trim().slice(0, 80) : "{answer} Cell";
+
+  const existing = await db.group.findMany({ where: { churchId: session.churchId }, select: { name: true, autoRule: true } });
+  const names = new Set(existing.map((g) => g.name.trim().toLowerCase()));
+  const rules = new Set(existing.map((g) => parseAutoRule(g.autoRule)).filter(Boolean).map((r) => `${r!.question}|${r!.answer}`.toLowerCase()));
+
+  let created = 0, filled = 0, skipped = 0;
+  for (const answer of answers) {
+    const name = format.replace(/\{answer\}/g, answer).slice(0, 80);
+    if (names.has(name.toLowerCase()) || rules.has(`${question}|${answer}`.toLowerCase())) { skipped++; continue; }
+    names.add(name.toLowerCase());
+    const g = await db.group.create({
+      data: { churchId: session.churchId, name, type, autoRule: { question, answer } as Prisma.InputJsonValue },
+    });
+    filled += await applyRuleToGroup(session.churchId, g.id);
+    created++;
+  }
+  await audit(session, "create", "group", `Created ${created} group${created === 1 ? "" : "s"} from "${question}"`);
+  revalidatePath("/app/groups");
+  return { ok: true as const, created, filled, skipped };
 }

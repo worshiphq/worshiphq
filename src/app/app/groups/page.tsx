@@ -9,6 +9,8 @@ import { PageHeader } from "@/components/app/page-header";
 import { ActionDialog } from "@/components/app/action-dialog";
 import { nextGroupReminderFromSchedule, parseSchedule } from "@/lib/groups/meeting-reminder";
 import { Plus } from "lucide-react";
+import { GroupsFromAnswersButton } from "@/components/app/group-auto-rule";
+import { parseAutoRule } from "@/lib/groups/auto-rule-core";
 
 export const metadata = { title: "Groups" };
 
@@ -42,6 +44,7 @@ export default async function GroupsPage() {
   return (
     <div>
       <PageHeader title="Groups" description="Manage small groups, ministries, committees, and fellowships.">
+        {canEdit(session, "groups") && <GroupsFromAnswersButton />}
         <ActionDialog
           triggerLabel="New group"
           triggerIcon={<Plus />}
@@ -81,6 +84,7 @@ export default async function GroupsPage() {
             location: g.location,
             isActive: g.isActive,
             onForms: g.onForms,
+            autoRule: parseAutoRule(g.autoRule),
             leaderId: g.leaderId,
             leaderName: g.leader ? `${g.leader.firstName} ${g.leader.lastName}` : null,
             memberCount: g._count.members,

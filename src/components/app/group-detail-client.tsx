@@ -16,9 +16,10 @@ import { Users2, MapPin, CalendarClock, UserCheck, UserPlus, X, ArrowLeft, Searc
 import { addGroupMembers, removeGroupMember } from "@/app/actions/groups";
 import { type ScheduleEntry } from "@/lib/groups/meeting-reminder";
 import { cn } from "@/lib/utils";
+import { AutoRuleBadge } from "@/components/app/group-auto-rule";
 
 import { matchesPerson } from "@/lib/search";
-type GroupInfo = Pick<GroupRow, "id" | "name" | "type" | "description" | "schedule" | "meetingDays" | "location" | "isActive" | "onForms" | "leaderId" | "meetingReminderOn" | "meetingReminderAuto" | "meetingReminderLeadDays" | "meetingReminderHour" | "meetingReminderMinute" | "meetingReminderWeekday" | "meetingReminderText"> & {
+type GroupInfo = Pick<GroupRow, "id" | "name" | "type" | "description" | "schedule" | "meetingDays" | "location" | "isActive" | "onForms" | "autoRule" | "leaderId" | "meetingReminderOn" | "meetingReminderAuto" | "meetingReminderLeadDays" | "meetingReminderHour" | "meetingReminderMinute" | "meetingReminderWeekday" | "meetingReminderText"> & {
   leader: { id: string; name: string; phone: string | null } | null;
 };
 type MemberInfo = { id: string; name: string; phone: string | null; photoUrl: string | null; gender: string | null; inactive: boolean };
@@ -81,6 +82,7 @@ export function GroupDetailClient({
             <h1 className="font-display text-2xl font-bold tracking-tight">{group.name}</h1>
             <span className="rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-semibold text-primary">{TYPE_LABELS[group.type] ?? group.type}</span>
             {group.onForms && <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2.5 py-0.5 text-xs font-semibold text-success"><Sparkles className="size-3" /> Open to sign-ups</span>}
+            {group.autoRule && <AutoRuleBadge rule={group.autoRule} className="px-2.5 text-xs" />}
             {!group.isActive && <span className="rounded-full bg-surface-2 px-2.5 py-0.5 text-xs font-semibold text-ink-muted">Paused</span>}
           </div>
           {group.description && <p className="mt-1 max-w-2xl text-sm text-ink-muted">{group.description}</p>}

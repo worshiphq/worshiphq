@@ -21,6 +21,8 @@ import { type ScheduleEntry, describeLead } from "@/lib/groups/meeting-reminder"
 import { Pager, filterSelectCls } from "@/components/app/list-filters";
 import { cn } from "@/lib/utils";
 import { binDeleted, confirmBinDelete } from "@/lib/recycle-bin-events";
+import { AutoRuleBadge } from "@/components/app/group-auto-rule";
+import type { AutoRule } from "@/lib/groups/auto-rule-core";
 
 export type GroupRow = {
   id: string;
@@ -32,6 +34,7 @@ export type GroupRow = {
   location: string | null;
   isActive: boolean;
   onForms: boolean;
+  autoRule: AutoRule | null;
   leaderId: string | null;
   leaderName: string | null;
   memberCount: number;
@@ -177,6 +180,7 @@ export function GroupsClient({ items, typeSuggestions, canWrite, stats, leaderOf
                     <div className="mt-1 flex flex-wrap items-center gap-1.5">
                       <span className={cn("rounded-full px-2 py-0.5 text-[10px] font-semibold", toneFor(g.type))}>{typeLabel(g.type)}</span>
                       {g.onForms && <span className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 text-[10px] font-semibold text-success"><Sparkles className="size-3" /> Open to sign-ups</span>}
+                      {g.autoRule && <AutoRuleBadge rule={g.autoRule} />}
                       {!g.isActive && <span className="rounded-full bg-surface-2 px-2 py-0.5 text-[10px] font-semibold text-ink-muted">Paused</span>}
                     </div>
                   </div>
@@ -261,7 +265,7 @@ export function GroupsClient({ items, typeSuggestions, canWrite, stats, leaderOf
 }
 
 export function EditGroupDialog({ g, typeSuggestions }: {
-  g: Pick<GroupRow, "id" | "name" | "type" | "description" | "schedule" | "meetingDays" | "location" | "leaderId" | "leaderName" | "onForms" | "meetingReminderOn" | "meetingReminderAuto" | "meetingReminderLeadDays" | "meetingReminderHour" | "meetingReminderMinute" | "meetingReminderWeekday" | "meetingReminderText">;
+  g: Pick<GroupRow, "id" | "name" | "type" | "description" | "schedule" | "meetingDays" | "location" | "leaderId" | "leaderName" | "onForms" | "autoRule" | "meetingReminderOn" | "meetingReminderAuto" | "meetingReminderLeadDays" | "meetingReminderHour" | "meetingReminderMinute" | "meetingReminderWeekday" | "meetingReminderText">;
   typeSuggestions: string[];
 }) {
   return (

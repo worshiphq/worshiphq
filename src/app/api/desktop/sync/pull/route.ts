@@ -45,7 +45,8 @@ async function pullTable(
     table,
     recordId: r.id,
     action: "upsert" as const,
-    data: toSnakeCase(r as any),
+    // The desktop app has no column for a group's auto-fill rule; leave it out so its insert still works.
+    data: (({ auto_rule: _omit, ...rest }) => (void _omit, rest))(toSnakeCase(r as any) as Record<string, unknown>),
   }));
 }
 
