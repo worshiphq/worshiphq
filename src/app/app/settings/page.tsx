@@ -1,4 +1,5 @@
 import { listCards } from "@/lib/billing/cards";
+import { RECOVERY_DAYS } from "@/lib/church-deletion";
 import { localPrices, isGhana } from "@/lib/billing/local-price";
 import { PageHeader } from "@/components/app/page-header";
 import { SettingsClient } from "@/components/app/settings-client";
@@ -23,7 +24,7 @@ export default async function SettingsPage() {
     db.user.findMany({
       where: { churchId: session.churchId, staffPortalOnly: false },
       orderBy: { createdAt: "asc" },
-      select: { id: true, name: true, email: true, phone: true, photoUrl: true, role: true, createdAt: true, inviteToken: true, inviteAcceptedAt: true, customRole: { select: { id: true, name: true } }, budgetDepartment: { select: { id: true, name: true } }, payrollAccess: true },
+      select: { id: true, name: true, email: true, phone: true, photoUrl: true, role: true, createdAt: true, inviteToken: true, inviteAcceptedAt: true, customRole: { select: { id: true, name: true } }, budgetDepartment: { select: { id: true, name: true } }, payrollAccess: true, passwordHash: true },
     }),
     db.department.findMany({
       where: { churchId: session.churchId },
@@ -149,6 +150,10 @@ export default async function SettingsPage() {
         // Mobile Money first only for a church in Ghana; elsewhere the card checkout opens directly.
         momoEnabled={isGhana(church?.country) && (await getCollectionProvider()) === "paystack"}
         ownerPhone={users.find((u) => u.id === session.userId)?.phone ?? null}
+        // Delete church (Main Admin only): a Google-only sign-in has no password, so that step is skipped.
+        deleteChurch={session.role === "Owner" && !session.isDemo && !session.impersonating
+          ? { hasPassword: !!users.find((u) => u.id === session.userId)?.passwordHash, recoveryDays: RECOVERY_DAYS }
+          : null}
         platformPricing={{ ...platformConfig, ...(localPrices(platformConfig, isGhana(church?.country)) ?? {}) }}
         billingUsage={(() => {
           const limits = platformConfig.planTable[(sub?.plan ?? "free") as keyof typeof platformConfig.planTable];

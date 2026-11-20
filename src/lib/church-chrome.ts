@@ -9,6 +9,6 @@ import { db } from "@/lib/db";
 export const getChurchChrome = cache((churchId: string) =>
   db.church.findUnique({
     where: { id: churchId },
-    select: { suspended: true, logoUrl: true, accentColor: true, hideAmounts: true, createdAt: true, country: true },
+    select: { suspended: true, deletionRequestedAt: true, deleteAfter: true, logoUrl: true, accentColor: true, hideAmounts: true, createdAt: true, country: true },
   }),
 );

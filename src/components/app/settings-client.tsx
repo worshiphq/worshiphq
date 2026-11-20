@@ -48,6 +48,7 @@ import type { MomoPay } from "@/lib/momo/types";
 import { cn } from "@/lib/utils";
 import { confirmBinDelete } from "@/lib/recycle-bin-events";
 import { BIN_TOAST } from "@/lib/recycle-bin-config";
+import { DeleteChurchCard } from "@/components/app/delete-church";
 
 type FeatureMap = Record<string, boolean>;
 type Church = {
@@ -247,6 +248,7 @@ export function SettingsClient({
   messageCenter,
   momoEnabled = false,
   ownerPhone = null,
+  deleteChurch = null,
 }: {
   session: Session;
   features: FeatureMap;
@@ -268,6 +270,8 @@ export function SettingsClient({
   momoEnabled?: boolean;
   /** Prefills the Mobile Money number. */
   ownerPhone?: string | null;
+  /** Main Admin only: the Delete church card. */
+  deleteChurch?: { hasPassword: boolean; recoveryDays: number } | null;
 }) {
   // Links such as /app/settings?tab=billing open straight on that tab.
   const asked = useSearchParams().get("tab");
@@ -368,6 +372,9 @@ export function SettingsClient({
               <SubmitButton className="mt-5" disabled={ro} successMessage="Changes saved">Save changes</SubmitButton>
             </form>
           </Card>
+        )}
+        {tab === "church" && deleteChurch && (
+          <DeleteChurchCard churchName={church?.name ?? "your church"} hasPassword={deleteChurch.hasPassword} recoveryDays={deleteChurch.recoveryDays} />
         )}
 
         {/* ── Branding ── */}

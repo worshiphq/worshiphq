@@ -12,7 +12,7 @@ export const metadata: Metadata = pageMeta({
 export default function TermsPage() {
   const support = brand.email.support;
   return (
-    <LegalPage eyebrow="Legal" title="Terms of Service" updated="September 2026">
+    <LegalPage eyebrow="Legal" title="Terms of Service" updated="November 2026">
       <p className="mb-8 text-[15px] leading-[1.8] text-ink-muted">
         Welcome to {brand.name}. These Terms of Service (&ldquo;Terms&rdquo;) are a contract between your church
         (&ldquo;you,&rdquo; &ldquo;your church&rdquo;) and {brand.name}{" "}(&ldquo;we,&rdquo; &ldquo;us&rdquo;). They explain what you
@@ -181,12 +181,25 @@ export default function TermsPage() {
         </p>
       </LegalSection>
 
-      <LegalSection heading="15. Suspension &amp; termination">
+      <LegalSection heading="15. Suspension, termination &amp; deleting your account">
         <p>
           You may stop using the Service at any time. We may suspend or terminate an account that breaches these Terms, poses a
           security risk, or is required by law. On termination, your access ends, but our Refund Policy still applies to
           eligible payments already made, and you can request your data export before it is deleted.
         </p>
+        <p>
+          <b>Deleting your church account.</b> The Main Admin can delete the church account from Settings. To protect you, we
+          ask them to type a confirmation phrase, enter their password (where the account has one) and enter a one-time code we
+          send to their email. When a deletion is confirmed:
+        </p>
+        <ul className="list-disc space-y-1 pl-5">
+          <li>The account closes straight away for everyone on the church&rsquo;s team, and no messages are sent in the church&rsquo;s name.</li>
+          <li>The account is kept for <b>30 days</b>, during which the Main Admin can restore it by signing in. After 30 days it is permanently deleted from our live systems and cannot be recovered.</li>
+          <li>Copies held in our backups are removed within <b>90 days</b> of the deletion request.</li>
+          <li>We may keep limited records for longer where the law requires it or where they are needed for legitimate purposes, such as payment and invoice records, tax records, a record of the deletion request, and records needed to resolve disputes, prevent fraud or enforce these Terms.</li>
+          <li>The subscription stops renewing. Unused subscription time and SMS credits are not refunded, except as our Refund Policy allows, and deleting the account does not cancel any amount already owed.</li>
+        </ul>
+        <p>Please download a copy of your church&rsquo;s data before deleting the account. Once it is permanently deleted, neither you nor we can recover it.</p>
       </LegalSection>
 
       <LegalSection heading="16. Governing law &amp; disputes">

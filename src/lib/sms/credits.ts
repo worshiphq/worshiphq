@@ -214,8 +214,14 @@ export async function sendChurchSms(
       smsProvider: true,
       smsSenderIdProvider: true,
       isInternal: true,
+      deletionRequestedAt: true,
     },
   });
+
+  // A church waiting to be deleted is closed: nothing goes out in its name (birthdays, thank-yous, reminders).
+  if (church?.deletionRequestedAt) {
+    return { ok: false, sent: 0, cost: 0, balance: await getSmsBalance(churchId), results: recipients.map((r) => ({ to: normalisePhone(r) || r, ok: false })) };
+  }
 
   // The hidden internal QA church never texts anyone and never spends credits: the send is logged as a stub so
   // the test can still see it in the church's SMS history.

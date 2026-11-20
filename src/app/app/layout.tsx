@@ -5,6 +5,7 @@ import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { getChurchChrome } from "@/lib/church-chrome";
+import { ChurchClosingScreen } from "@/components/app/delete-church";
 import { AppShell } from "@/components/app/app-shell";
 import { getPlatformConfig } from "@/lib/data/platform-config";
 import { TourProvider } from "@/components/app/tour";
@@ -67,6 +68,10 @@ export default async function AppLayout({ children }: { children: React.ReactNod
     ? { ...platformConfig.planTable, free: { ...platformConfig.planTable.free, features: [...platformConfig.planTable.free.features, "sms"] } }
     : platformConfig.planTable;
 
+  // The Main Admin asked to delete the church: closed for everyone, and the Main Admin can restore it until it is deleted.
+  if (church?.deletionRequestedAt && !session.impersonating) {
+    return <ChurchClosingScreen churchName={session.churchName} deleteAfter={church.deleteAfter?.toISOString() ?? null} isOwner={session.role === "Owner"} />;
+  }
   // Suspended churches are locked out - but SuperAdmin support can still enter.
   if (church?.suspended && !session.impersonating) {
     return (

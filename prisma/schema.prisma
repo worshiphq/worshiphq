@@ -94,6 +94,10 @@ model Church {
   // Hidden internal QA church (sql/internal-churches.sql): excluded from stats, crons and outreach.
   isInternal             Boolean               @default(false)
   suspended              Boolean               @default(false)
+  // The Main Admin asked to delete the church (Settings): it is closed at once and kept for a recovery
+  // window, then permanently deleted by the daily cron once deleteAfter passes (sql/church-deletion.sql).
+  deletionRequestedAt    DateTime?
+  deleteAfter            DateTime?
   // When the owner checked "I agree to Terms/Privacy" at signup - proof of
   // click-wrap acceptance, not just a UI gate. Null for churches created
   // before this was enforced.

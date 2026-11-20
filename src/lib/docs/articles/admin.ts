@@ -222,6 +222,26 @@ export const admin: DocArticle[] = [
     ],
   },
   {
+    slug: "delete-church",
+    section: "admin",
+    title: "Delete your church account",
+    summary: "Close your church on WorshipHQ, with 30 days to change your mind.",
+    appPath: "/app/settings",
+    body: [
+      { p: "Only the **Main Admin** can delete the church. Download your data first if you want a copy." },
+      { steps: [
+        "Go to **Settings**, **Church profile**, and scroll to **Delete church**.",
+        "Type **delete my app** to confirm.",
+        "Enter your password. (If you sign in with Google, there is no password step.)",
+        "Enter the 6-digit code we email you, then tap **Delete my church**.",
+      ] },
+      { p: "Your church closes straight away for everyone on your team, your plan stops renewing, and no messages go out in your church's name." },
+      { h: "Changed your mind?" },
+      { p: "Your church is kept for **30 days**. Sign in as the Main Admin and tap **Restore my church**, and everything is just as you left it. After 30 days it is permanently deleted and can't be recovered. Copies in our backups are removed within 90 days." },
+      { note: "Unused subscription time and SMS credits are not refunded, except as our Refund Policy allows. See the Terms of Service, section 15." },
+    ],
+  },
+  {
     slug: "audit-log",
     section: "admin",
     title: "Audit log",

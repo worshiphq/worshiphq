@@ -12,7 +12,7 @@ export const metadata: Metadata = pageMeta({
 export default function PrivacyPage() {
   const support = brand.email.support;
   return (
-    <LegalPage eyebrow="Legal" title="Privacy Policy" updated="September 2026">
+    <LegalPage eyebrow="Legal" title="Privacy Policy" updated="November 2026">
       <p className="mb-8 text-[15px] leading-[1.8] text-ink-muted">
         Your church trusts you with sensitive information about its members - and you trust us with that same information
         when you use {brand.name}. This policy explains, in plain language, what we collect, why, how it&rsquo;s protected,
@@ -93,6 +93,13 @@ export default function PrivacyPage() {
           individual records (a member, a message, a biometric enrolment) within the app at any time, and export a full copy of
           your church&rsquo;s data whenever you like.
         </p>
+        <p>
+          When the Main Admin deletes the church account, it closes straight away and is kept for 30 days so it can be restored.
+          After 30 days it is permanently deleted from our live systems, and copies in our backups are removed within 90 days of
+          the request. We may keep limited records for longer where the law requires it or for legitimate purposes, such as
+          payment, invoice and tax records, a record of the deletion request, and records needed to resolve disputes or prevent
+          fraud.
+        </p>
       </LegalSection>
 
       <LegalSection heading="8. Security">
@@ -120,7 +127,7 @@ export default function PrivacyPage() {
           <li>Export your church&rsquo;s data at any time from <strong>Settings → Download data</strong>.</li>
           <li>Correct or delete member records directly within the app.</li>
           <li>Delete a member&rsquo;s biometric enrolment at any time, without deleting the rest of their record.</li>
-          <li>Ask us to close your account; we&rsquo;ll retain data only for a reasonable period before deleting it.</li>
+          <li>Delete your church account yourself from Settings (Main Admin), or ask us to close it. It can be restored for 30 days, then it is permanently deleted.</li>
           <li>Depending on where your church is based, you or the individuals in your records may also have rights to access, correct, or object to processing under local data-protection law - including the right to lodge a complaint with your national data-protection authority (for example, Ghana&rsquo;s Data Protection Commission under the Data Protection Act, 2012, Act 843).</li>
         </ul>
       </LegalSection>
