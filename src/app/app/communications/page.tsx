@@ -4,6 +4,7 @@ import { MessageSquare, Mail, Users, BarChart3, Wallet, AlertTriangle, ScrollTex
 import { PageHeader } from "@/components/app/page-header";
 import { StatCard } from "@/components/app/stat-card";
 import { Composer } from "@/components/app/composer";
+import { isGhana } from "@/lib/billing/local-price";
 import { CampaignHistory } from "@/components/app/campaign-history";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -46,7 +47,7 @@ export default async function CommunicationsPage({
     db.department.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     db.group.findMany({ where: { churchId: session.churchId }, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     getChurchPlan(session.churchId),
-    db.church.findUnique({ where: { id: session.churchId }, select: { createdAt: true, name: true, smsSenderIdStatus: true, smsPrefix: true } }),
+    db.church.findUnique({ where: { id: session.churchId }, select: { createdAt: true, name: true, smsSenderIdStatus: true, smsPrefix: true, country: true } }),
   ]);
   // A quiet hint of what their own sender name could look like, for churches below Pro that do not have one.
   const suggestion = churchRow ? suggestSenderId(churchRow.name) : "";
@@ -104,7 +105,7 @@ export default async function CommunicationsPage({
       </div>
 
       <div className="mt-4 grid gap-4 lg:grid-cols-5">
-        <div className="lg:col-span-2"><Composer initialTarget={initialTarget} departments={departments} groups={groups} canWrite={canEdit(session, "communications")} senderTeaser={senderTeaser} nameLine={nameLine} /></div>
+        <div className="lg:col-span-2"><Composer initialTarget={initialTarget} departments={departments} groups={groups} canWrite={canEdit(session, "communications")} senderTeaser={senderTeaser} nameLine={nameLine} emailAllowed={!isGhana(churchRow?.country)} /></div>
 
         <CampaignHistory campaigns={campaigns} />
       </div>

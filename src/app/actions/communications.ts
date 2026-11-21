@@ -194,6 +194,14 @@ export async function sendBroadcast(formData: FormData) {
   // target: "all" | "active" | "visitor" | "leaders" | "group-leaders" |
   //         "missing-national-id" | "dept:<id>" | "custom"
   const target = String(formData.get("target") ?? "all");
+
+  // Email broadcasts are for churches outside Ghana; Ghana churches text. Checked here, not only in the screen.
+  const churchInfo = await db.church.findUnique({ where: { id: session.churchId }, select: { name: true, country: true } });
+  if (channel === "Email") {
+    const { isGhana } = await import("@/lib/billing/local-price");
+    if (isGhana(churchInfo?.country)) return;
+  }
+
   const { recipientObjs, segmentLabel, groupLabel } = await resolveBroadcastRecipients(
     session.churchId, target, String(formData.get("contacts") ?? ""), channel,
   );
@@ -222,17 +230,20 @@ export async function sendBroadcast(formData: FormData) {
   let outOfCredits = false;
   if (recipients.length) {
     if (channel === "Email") {
-      if (personalize) {
-        const results = await Promise.all(
-          recipientObjs.map((r) => sendEmail({ to: r.contact, subject: name, html: `<p>${textToHtml(renderFor(r.name))}</p>` })),
-        );
-        statusByIndex = results.map((r) => r.ok);
-        sent = statusByIndex.filter(Boolean).length;
-      } else {
-        const result = await sendEmail({ to: recipients, subject: name, html: `<p>${textToHtml(message)}</p>` });
-        statusByIndex = recipients.map(() => result.ok);
-        sent = result.ok ? recipients.length : 0;
+      // One email per person, never one email with everyone in "To" (that would show every member's address to all).
+      // A few at a time so a big church stays inside the email provider's rate limit. Replies go to whoever sent it.
+      const me = await db.user.findUnique({ where: { id: session.userId }, select: { email: true } });
+      const churchName = churchInfo?.name ?? "Your church";
+      const html = (text: string) => `<div style="font-family:Arial,sans-serif;font-size:15px;line-height:1.55;color:#1c1a16"><p>${textToHtml(text)}</p><p style="margin-top:24px;font-size:12px;color:#7a7a7a">Sent by ${textToHtml(churchName)} through WorshipHQ.</p></div>`;
+      statusByIndex = [];
+      for (let i = 0; i < recipientObjs.length; i += 8) {
+        const batch = recipientObjs.slice(i, i + 8);
+        const results = await Promise.all(batch.map((r) =>
+          sendEmail({ to: r.contact, subject: `${name} · ${churchName}`, html: html(personalize ? renderFor(r.name) : outMessage), ...(me?.email ? { replyTo: me.email } : {}) })
+            .catch(() => ({ ok: false }))));
+        statusByIndex.push(...results.map((r) => !!r.ok));
       }
+      sent = statusByIndex.filter(Boolean).length;
     } else {
       // SMS is billed against the church's prepaid credits.
       const result = await sendChurchSms(session.churchId, recipients, outMessage, {

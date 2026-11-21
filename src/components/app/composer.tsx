@@ -3,7 +3,7 @@
 import { segmentsFor } from "@/config/sms";
 import { useEffect, useState } from "react";
 import Link from "@/components/ui/app-link";
-import { Globe2, Loader2, Send, Sparkles, X } from "lucide-react";
+import { Globe2, Loader2, Mail, Send, Smartphone, Sparkles, X } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { SubmitButton } from "@/components/ui/submit-button";
 import { Input, Textarea } from "@/components/ui/input";
@@ -16,7 +16,10 @@ export function Composer({
   senderTeaser = null,
   nameLine = null,
   initialTarget = "all",
+  emailAllowed = false,
 }: {
+  /** Email broadcasts are offered to churches outside Ghana (Ghana churches text). */
+  emailAllowed?: boolean;
   departments: { id: string; name: string }[];
   /** Pre-selected audience, e.g. "visitor" when opened from the Visitors page. */
   initialTarget?: string;
@@ -27,10 +30,8 @@ export function Composer({
   /** The name line every text starts with. It counts toward the 160 characters. Null when the church has its own sender name. */
   nameLine?: string | null;
 }) {
-  // Email is off for now - the Resend account is on the free tier (100/day),
-  // too easy for a church-wide broadcast to blow through. SMS only until
-  // that's upgraded.
-  const channel = "SMS" as const;
+  const [channel, setChannel] = useState<"SMS" | "Email">("SMS");
+  const isEmail = emailAllowed && channel === "Email";
   const [hideTeaser, setHideTeaser] = useState(false);
   // Remember a dismissal on this device only. Storage can be blocked, so the hint simply shows again then.
   useEffect(() => {
@@ -52,7 +53,7 @@ export function Composer({
   const [cost, setCost] = useState<Cost | null>(null);
   const [costing, setCosting] = useState(false);
   useEffect(() => {
-    if (!canWrite || !message.trim()) { setCost(null); return; }
+    if (!canWrite || !message.trim() || isEmail) { setCost(null); return; }
     let live = true;
     setCosting(true);
     const t = setTimeout(() => {
@@ -62,7 +63,7 @@ export function Composer({
         .finally(() => { if (live) setCosting(false); });
     }, 600);
     return () => { live = false; clearTimeout(t); };
-  }, [target, contacts, message, canWrite]);
+  }, [target, contacts, message, canWrite, isEmail]);
 
   const selectCls =
     "flex h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30";
@@ -73,7 +74,17 @@ export function Composer({
         <h3 className="font-display text-lg font-semibold">New broadcast</h3>
       </div>
       <form action={sendBroadcast} className="space-y-4 p-5">
-        <input type="hidden" name="channel" value={channel} />
+        <input type="hidden" name="channel" value={isEmail ? "Email" : "SMS"} />
+        {emailAllowed && (
+          <div className="grid grid-cols-2 gap-2">
+            {(["SMS", "Email"] as const).map((c) => (
+              <button key={c} type="button" onClick={() => setChannel(c)}
+                className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 text-sm font-medium transition-colors ${channel === c ? "border-primary/50 bg-primary/10 text-ink" : "border-line text-ink-muted hover:bg-surface-2"}`}>
+                {c === "SMS" ? <Smartphone className="size-4" /> : <Mail className="size-4" />} {c}
+              </button>
+            ))}
+          </div>
+        )}
 
         <div>
           <label className="mb-1.5 block text-sm font-medium text-ink-muted">Campaign name</label>
@@ -100,18 +111,18 @@ export function Composer({
                 {groups.map((g) => <option key={g.id} value={`group:${g.id}`}>{g.name}</option>)}
               </optgroup>
             )}
-            <option value="custom">Specific numbers…</option>
+            <option value="custom">{isEmail ? "Specific emails…" : "Specific numbers…"}</option>
           </select>
         </div>
 
         {target === "custom" && (
           <div>
-            <label className="mb-1.5 block text-sm font-medium text-ink-muted">Phone numbers</label>
+            <label className="mb-1.5 block text-sm font-medium text-ink-muted">{isEmail ? "Email addresses" : "Phone numbers"}</label>
             <Textarea
               name="contacts"
               value={contacts}
               onChange={(e) => setContacts(e.target.value)}
-              placeholder="024 000 0000, 020 111 2222"
+              placeholder={isEmail ? "a@example.com, b@example.com" : "024 000 0000, 020 111 2222"}
               className="min-h-16"
             />
             <p className="mt-1 text-xs text-ink-faint">Separate with commas, spaces or new lines.</p>
@@ -121,9 +132,9 @@ export function Composer({
         <div>
           <div className="mb-1.5 flex items-center justify-between text-sm">
             <span className="font-medium text-ink-muted">Message</span>
-            <span className="text-xs text-ink-faint">
+            {!isEmail && <span className="text-xs text-ink-faint">
               {message.length + (nameLine ? nameLine.length + 1 : 0)}/160 · {segmentsFor(nameLine ? nameLine + "\n" + message : message)} SMS{nameLine ? " (name line included)" : ""}
-            </span>
+            </span>}
           </div>
           <Textarea name="message" value={message} onChange={(e) => setMessage(e.target.value)} className="min-h-28" required />
           <div className="mt-1.5 flex items-center gap-2 text-xs text-ink-faint">
@@ -139,7 +150,7 @@ export function Composer({
           </div>
         </div>
 
-        {senderTeaser && !hideTeaser && (
+        {!isEmail && senderTeaser && !hideTeaser && (
           <div className="flex items-start gap-2.5 rounded-xl border border-dashed border-line bg-surface-2 px-3.5 py-3 text-xs text-ink-muted">
             <Sparkles className="mt-0.5 size-3.5 shrink-0 text-primary" />
             <p className="min-w-0 flex-1">
@@ -183,12 +194,12 @@ export function Composer({
         <SubmitButton
           className="w-full"
           disabled={!canWrite}
-          pendingLabel="Sending SMS…"
-          successMessage="SMS sent"
+          pendingLabel={isEmail ? "Sending emails…" : "Sending SMS…"}
+          successMessage={isEmail ? "Emails sent" : "SMS sent"}
         >
-          <Send /> Send SMS
+          <Send /> {isEmail ? "Send email" : "Send SMS"}
         </SubmitButton>
-        <p className="text-center text-xs text-ink-faint">SMS is billed to your credits · sender shows your church name</p>
+        <p className="text-center text-xs text-ink-faint">{isEmail ? "Free · each person gets their own email · replies come to you" : "SMS is billed to your credits · sender shows your church name"}</p>
       </form>
     </Card>
   );
