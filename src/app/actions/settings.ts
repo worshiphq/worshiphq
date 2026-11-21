@@ -205,12 +205,17 @@ export async function updateChurch(formData: FormData) {
   const name = String(formData.get("name") ?? "").trim();
   if (!name) return;
 
-  // The country decides whether the church pays the fixed Ghana cedi price, so it cannot be used to pick a price.
-  // Only the Main Admin may change it, and a move into or out of Ghana is left to WorshipHQ support.
-  const current = await db.church.findUnique({ where: { id: session.churchId }, select: { country: true } });
-  const askedCountry = String(formData.get("country") ?? "").trim() || current?.country || "Ghana";
+  // The country sets the plan price and the SMS rules, so a church can't just switch it.
+  // The Main Admin asks for a new one here and it waits for the SuperAdmin to approve it
+  // (approveCountryChange). A SuperAdmin signed in as the church changes it straight away.
+  const current = await db.church.findUnique({ where: { id: session.churchId }, select: { country: true, countryRequested: true } });
+  const currentCountry = current?.country ?? "Ghana";
+  const askedCountry = String(formData.get("country") ?? "").trim().slice(0, 60) || currentCountry;
   const { isGhana } = await import("@/lib/billing/local-price");
-  const country = session.role === "Owner" && (session.impersonating || isGhana(askedCountry) === isGhana(current?.country)) ? askedCountry : (current?.country ?? "Ghana");
+  const { COUNTRY_CHOICES } = await import("@/config/country-choices");
+  const changing = session.role === "Owner" && askedCountry !== currentCountry && (session.impersonating || (COUNTRY_CHOICES as readonly string[]).includes(askedCountry));
+  const country = changing && session.impersonating ? askedCountry : currentCountry;
+  const newRequest = changing && !session.impersonating && askedCountry !== current?.countryRequested ? askedCountry : null;
 
   await db.church.update({
     where: { id: session.churchId },
@@ -219,6 +224,8 @@ export async function updateChurch(formData: FormData) {
       denomination: String(formData.get("denomination") ?? "").trim() || null,
       city: String(formData.get("city") ?? "").trim() || null,
       country,
+      ...(country !== currentCountry ? { countryRequested: null, countryRequestedAt: null } : {}),
+      ...(newRequest ? { countryRequested: newRequest, countryRequestedAt: new Date() } : {}),
       address: String(formData.get("address") ?? "").trim() || null,
       // Admins get SMS+email when a member submits a prayer/testimony/counselling.
       notifySubmissions: formData.get("notifySubmissions") === "on",
@@ -235,6 +242,21 @@ export async function updateChurch(formData: FormData) {
   if (isGhana(country) !== isGhana(current?.country)) {
     const { convertCreditsForCountryMove } = await import("@/lib/sms/intl");
     await convertCreditsForCountryMove(session.churchId, isGhana(country));
+  }
+
+  // Let the SuperAdmin know there is a country change waiting. A failed text never blocks the save.
+  if (newRequest) {
+    try {
+      const { getAlertPhone } = await import("@/lib/outreach/owner-alert");
+      const { phone } = await getAlertPhone();
+      if (phone) await sendSms(phone, `Country change request
+
+Church: ${name}
+From: ${currentCountry}
+To: ${newRequest}
+
+Approve or reject it on the SuperAdmin dashboard.`, { heading: null });
+    } catch { /* the request is saved; the dashboard still shows it */ }
   }
 
   revalidatePath("/app/settings");
@@ -1226,5 +1248,15 @@ export async function setPayrollAccess(userId: string, level: string): Promise<A
   await audit(session, "update", "user", `Changed payroll access for ${target.name}`, target.id);
   revalidatePath("/app/settings");
   revalidatePath("/app", "layout");
+  return { ok: true };
+}
+
+/** The Main Admin withdraws a country change that is still waiting for approval. */
+export async function cancelCountryRequest(): Promise<{ ok: true } | { ok: false; error: string }> {
+  const session = await requireSession();
+  assertCanWrite(session, "settings");
+  if (session.role !== "Owner") return { ok: false, error: "Only the Main Admin can change the country." };
+  await db.church.update({ where: { id: session.churchId }, data: { countryRequested: null, countryRequestedAt: null } });
+  revalidatePath("/app/settings");
   return { ok: true };
 }

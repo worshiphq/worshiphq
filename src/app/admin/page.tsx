@@ -5,12 +5,16 @@ import { readPage } from "@/lib/admin-paging";
 import { AdminShell, AdminCard } from "@/components/admin/admin-shell";
 import { ChurchTable } from "@/components/admin/church-table";
 import { RunAutomationsButton } from "@/components/admin/run-automations-button";
+import { CountryRequests } from "@/components/admin/country-requests";
+import { db } from "@/lib/db";
 
 export default async function AdminOverviewPage({ searchParams }: { searchParams: Promise<{ q?: string; page?: string; sort?: string; dir?: string; plan?: string; status?: string; internal?: string }> }) {
   const sa = await requireSuperAdmin();
   const sp = await searchParams;
   const q = (sp.q ?? "").trim().slice(0, 100);
-  const [list, stats] = await Promise.all([getChurchesPage({ page: readPage(sp.page), q, sort: sp.sort, dir: sp.dir, plan: sp.plan, status: sp.status, internal: sp.internal === "1" }), getPlatformStats()]);
+  const [list, stats, countryAsks] = await Promise.all([getChurchesPage({ page: readPage(sp.page), q, sort: sp.sort, dir: sp.dir, plan: sp.plan, status: sp.status, internal: sp.internal === "1" }), getPlatformStats(),
+    db.church.findMany({ where: { countryRequested: { not: null } }, orderBy: { countryRequestedAt: "asc" }, select: { id: true, name: true, city: true, country: true, countryRequested: true, countryRequestedAt: true } }),
+  ]);
 
   const kpis = [
     { label: "Churches", value: stats.churches, icon: Building2, hint: `${stats.activeChurches} active` },
@@ -37,6 +41,8 @@ export default async function AdminOverviewPage({ searchParams }: { searchParams
       </div>
 
       {/* Automations control */}
+      <CountryRequests rows={countryAsks.map((c) => ({ id: c.id, name: c.name, city: c.city, country: c.country, requested: c.countryRequested!, at: (c.countryRequestedAt ?? new Date()).toISOString() }))} />
+
       <AdminCard className="mb-6 p-5">
         <div className="mb-1 flex items-center gap-2 text-sm font-semibold text-slate-200">
           <Activity className="size-4 text-teal-400" /> Automations

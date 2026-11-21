@@ -21,13 +21,14 @@ import { PlanHero, UsageTiles, PaymentHistory, type PaymentItem } from "@/compon
 import { TrialCard, type TrialCardInfo } from "@/components/app/trial-card";
 import { BillingRenewal, type CardRow } from "@/components/app/billing-renewal";
 import { toastNow } from "@/components/ui/feedback";
+import { COUNTRY_CHOICES } from "@/config/country-choices";
 import { AutoInactiveCard, type AutoInactiveData } from "@/components/app/auto-inactive-card";
 import { MemberCategoriesTab } from "@/components/app/member-categories-tab";
 import { AgeGroupsTab } from "@/components/app/age-groups-tab";
 import { LinkedChurchesTab } from "@/components/app/linked-churches-tab";
 import { canManage as canManageSection } from "@/lib/permissions";
 import {
-  updateChurch, changePlan, redeemPlanBypass, verifyPlanUpgrade, previewCoupon,
+  updateChurch, cancelCountryRequest, changePlan, redeemPlanBypass, verifyPlanUpgrade, previewCoupon,
   previewPlanChangeAction, cancelScheduledChange,
   updateSlug, transferMainAdmin,
 } from "@/app/actions/settings";
@@ -56,6 +57,8 @@ type Church = {
   denomination: string;
   city: string;
   country: string;
+  /** A country the Main Admin asked to move to, waiting for WorshipHQ to approve it. */
+  countryRequested?: string | null;
   address: string;
   notifySubmissions?: boolean;
   hideAmounts?: boolean;
@@ -330,9 +333,7 @@ export function SettingsClient({
                 <div><Label>City</Label><Input name="city" defaultValue={church?.city ?? ""} disabled={ro} /></div>
                 <div>
                   <Label>Country</Label>
-                  <Input name="country" defaultValue={church?.country ?? "Ghana"} disabled={ro || session.role !== "Owner"} />
-                  {/* The country sets the billing price, so only the Main Admin changes it, and moving into or out of Ghana goes through support. */}
-                  <p className="mt-1 text-xs text-ink-faint">{session.role === "Owner" ? "Moving your church into or out of Ghana? Contact WorshipHQ support, as it changes your plan price." : "Only the Main Admin can change the country."}</p>
+                  <CountryField country={church?.country ?? "Ghana"} requested={church?.countryRequested ?? null} disabled={ro || session.role !== "Owner"} isOwner={session.role === "Owner"} />
                 </div>
                 <div className="sm:col-span-2"><Label>Address</Label><Input name="address" defaultValue={church?.address ?? ""} disabled={ro} /></div>
               </div>
@@ -1432,5 +1433,41 @@ function SlugEditor({ slug, ro, isAdmin }: { slug: string; ro: boolean; isAdmin:
         <p className="mt-2 text-xs text-ink-faint">Preview: /join/<strong>{preview}</strong></p>
       )}
     </Card>
+  );
+}
+
+/**
+ * The country sets the plan price and the SMS rules, so picking a new one sends a request:
+ * it only changes once WorshipHQ approves it (SuperAdmin dashboard).
+ */
+function CountryField({ country, requested, disabled, isOwner }: { country: string; requested: string | null; disabled: boolean; isOwner: boolean }) {
+  const [pick, setPick] = useState(country);
+  const [cancelling, startCancel] = useTransition();
+  const router = useRouter();
+  const choices = (COUNTRY_CHOICES as readonly string[]).includes(country) ? COUNTRY_CHOICES : [country, ...COUNTRY_CHOICES];
+  return (
+    <>
+      <select name="country" value={pick} onChange={(e) => setPick(e.target.value)} disabled={disabled}
+        className="flex h-11 w-full rounded-xl border border-line bg-surface px-3 text-sm text-ink shadow-sm focus-visible:border-primary/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary/30 disabled:cursor-not-allowed disabled:opacity-50">
+        {choices.map((c) => <option key={c} value={c}>{c}</option>)}
+      </select>
+      {requested ? (
+        <div className="mt-2 rounded-xl border border-amber-300/60 bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:border-amber-400/30 dark:bg-amber-500/10 dark:text-amber-200">
+          <span className="font-semibold">Waiting for approval:</span> move to {requested}. WorshipHQ will text you once it is approved.
+          {isOwner && (
+            <button type="button" disabled={cancelling} onClick={() => startCancel(async () => {
+              const r = await cancelCountryRequest();
+              if (!r.ok) toastNow(r.error, "error"); else { toastNow("Request cancelled", "success"); router.refresh(); }
+            })} className="ml-2 inline-flex items-center gap-1 font-semibold underline disabled:opacity-60">
+              {cancelling && <Spinner className="size-3 animate-spin" />}{cancelling ? "Cancelling..." : "Cancel request"}
+            </button>
+          )}
+        </div>
+      ) : pick !== country ? (
+        <p className="mt-1 text-xs font-medium text-amber-700 dark:text-amber-300">Saving sends a request to WorshipHQ. Your country changes to {pick} once it is approved.</p>
+      ) : (
+        <p className="mt-1 text-xs text-ink-faint">{isOwner ? "Changing the country needs WorshipHQ approval, as it sets your plan price and SMS." : "Only the Main Admin can change the country."}</p>
+      )}
+    </>
   );
 }

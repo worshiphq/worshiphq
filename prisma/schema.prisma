@@ -179,6 +179,9 @@ model Church {
   denomination    String?
   city            String?
   country         String  @default("Ghana")
+  /// A country the Main Admin asked to move to; only applied when the SuperAdmin approves it.
+  countryRequested   String?
+  countryRequestedAt DateTime?
   address         String?
   accentColor     String  @default("#6D5EF8")
   logoUrl         String?

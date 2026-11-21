@@ -111,6 +111,7 @@ const PROTECTED_FIELDS: Record<string, string[]> = {
     "smsSenderIdApprovedAt", "smsSenderIdApprovedBy", "parentChurchId", "linkKind", "linkShare",
     "autoAcceptTransfers", "rolePermissions", "logoUrl", "createdAt", "updatedAt", "lastBackupAt",
     "lastBackupAttemptAt", "followUpAssigneeId", "rosterAnnounceGroupId", "absenceNotifyUserIds",
+    "country", "countryRequested", "countryRequestedAt",
   ],
   user: ["role", "sessionVersion", "inviteToken", "customRoleId", "budgetDepartmentId", "phoneVerified", "emailVerified"],
 };

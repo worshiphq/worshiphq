@@ -64,7 +64,7 @@ function SenderIdTest({ church, run }: { church: ChurchRow; run: ReturnType<type
 }
 
 /** What the approval or rejection text did, said plainly, so nobody has to wonder whether the church was told. */
-function noticeMessage(what: string, n: SenderIdNotice): { text: string; type: "success" | "error" } {
+export function noticeMessage(what: string, n: SenderIdNotice): { text: string; type: "success" | "error" } {
   if (n.status === "sent") return { text: `${what}. Text sent to the church (${n.to}).`, type: "success" };
   if (n.status === "no-phone") return { text: `${what}, but nobody at the church has a verified phone, so NO text was sent. Tell them another way.`, type: "error" };
   if (n.status === "not-connected") return { text: `${what}. No text was sent: SMS is not connected where this is running.`, type: "error" };

@@ -101,6 +101,7 @@ export default async function SettingsPage() {
       denomination: church.denomination ?? "",
       city: church.city ?? "",
       country: church.country ?? "Ghana",
+      countryRequested: church.countryRequested ?? null,
       address: church.address ?? "",
       notifySubmissions: church.notifySubmissions ?? true,
       hideAmounts: church.hideAmounts ?? false,

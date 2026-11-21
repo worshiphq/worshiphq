@@ -1260,3 +1260,39 @@ export async function switchCollectionsProvider(provider: "paystack" | "hubtel")
   revalidatePath("/admin/payments");
   return { ok: true as const, provider };
 }
+
+/* ───── Country change requests (the Main Admin asks in Settings, the SuperAdmin decides) ───── */
+
+export async function approveCountryChange(churchId: string): Promise<SenderIdNotice & { country: string }> {
+  await requireSuperAdmin();
+  const church = await db.church.findUnique({ where: { id: churchId }, select: { country: true, countryRequested: true } });
+  if (!church?.countryRequested) throw new Error("This church has no country change waiting.");
+  const to = church.countryRequested;
+  await logAdminAction("approveCountryChange", { churchId, from: church.country, to });
+  await db.church.update({ where: { id: churchId }, data: { country: to, countryRequested: null, countryRequestedAt: null } });
+
+  // Moving into or out of Ghana changes the kind of SMS credits, at the same value (as Settings does).
+  const { isGhana } = await import("@/lib/billing/local-price");
+  if (isGhana(to) !== isGhana(church.country)) {
+    const { convertCreditsForCountryMove } = await import("@/lib/sms/intl");
+    await convertCreditsForCountryMove(churchId, isGhana(to));
+  }
+
+  const notice = await sendSenderIdNotice(churchId, `Your church's country has been changed to ${to} on WorshipHQ.\n\nGod Bless You!`);
+  revalidatePath("/admin");
+  return { ...notice, country: to };
+}
+
+export async function rejectCountryChange(churchId: string): Promise<SenderIdNotice> {
+  await requireSuperAdmin();
+  const church = await db.church.findUnique({ where: { id: churchId }, select: { country: true, countryRequested: true } });
+  if (!church?.countryRequested) throw new Error("This church has no country change waiting.");
+  await logAdminAction("rejectCountryChange", { churchId, kept: church.country, asked: church.countryRequested });
+  await db.church.update({ where: { id: churchId }, data: { countryRequested: null, countryRequestedAt: null } });
+  const notice = await sendSenderIdNotice(
+    churchId,
+    `Your request to change your church's country to ${church.countryRequested} was not approved, so it stays as ${church.country}.\n\nPlease contact WorshipHQ for help.\n\nEmail: ${supportEmail()}`,
+  );
+  revalidatePath("/admin");
+  return notice;
+}

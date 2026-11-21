@@ -1,5 +1,6 @@
 "use client";
 
+import { COUNTRY_CHOICES } from "@/config/country-choices";
 import { countryFromName } from "@/lib/countries";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useMemo, useRef, useState } from "react";
@@ -29,64 +30,7 @@ export interface WizardPlan {
   features: string[];
 }
 
-// Ghana first, then every African country A-Z, then the diaspora. Names must resolve in countryFromName (src/lib/countries.ts).
-const COUNTRIES = [
-  "Ghana",
-  "Algeria",
-  "Angola",
-  "Benin",
-  "Botswana",
-  "Burkina Faso",
-  "Burundi",
-  "Cameroon",
-  "Cape Verde",
-  "Central African Republic",
-  "Chad",
-  "Comoros",
-  "DR Congo",
-  "Djibouti",
-  "Egypt",
-  "Equatorial Guinea",
-  "Eritrea",
-  "Eswatini",
-  "Ethiopia",
-  "Gabon",
-  "Gambia",
-  "Guinea",
-  "Guinea-Bissau",
-  "Ivory Coast",
-  "Kenya",
-  "Lesotho",
-  "Liberia",
-  "Libya",
-  "Madagascar",
-  "Malawi",
-  "Mali",
-  "Mauritania",
-  "Mauritius",
-  "Morocco",
-  "Mozambique",
-  "Namibia",
-  "Niger",
-  "Nigeria",
-  "Republic of the Congo",
-  "Rwanda",
-  "São Tomé & Príncipe",
-  "Senegal",
-  "Seychelles",
-  "Sierra Leone",
-  "Somalia",
-  "South Africa",
-  "South Sudan",
-  "Sudan",
-  "Tanzania",
-  "Togo",
-  "Tunisia",
-  "Uganda",
-  "Zambia",
-  "Zimbabwe",
-  "United Kingdom", "United States", "Canada", "Other",
-];
+const COUNTRIES = COUNTRY_CHOICES;
 
 type WizardStep = { key: string; label: string; icon: typeof Church; title: string; sub: string };
 
