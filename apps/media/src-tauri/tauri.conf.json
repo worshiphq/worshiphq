@@ -19,7 +19,8 @@
       "icons/icon.ico"
     ],
     "resources": {
-      "resources/bibles/*.db": "bibles/"
+      "resources/bibles/*.db": "bibles/",
+      "resources/stock/*": "stock/"
     },
     "windows": {
       "certificateThumbprint": null,

@@ -20,6 +20,8 @@ export interface MediaItem {
   addedAt: number;
   /** Browser preview only: gone after a reload. */
   temporary?: boolean;
+  /** A WorshipHQ free background (its id in the stock library). */
+  stockId?: string;
 }
 
 interface MediaState {
@@ -37,6 +39,8 @@ interface MediaState {
   importPaths: (paths: string[]) => Promise<MediaItem[]>;
   /** Browser preview: files from a file input or a drop. */
   importBrowserFiles: (files: File[]) => MediaItem[];
+  /** Files already in our media folder (free backgrounds), added to the library. */
+  addStockFile: (file: { path: string; name: string; kind: "image" | "video" | "audio"; size: number }, stockId: string) => MediaItem;
   rename: (id: string, name: string) => void;
   remove: (id: string) => Promise<void>;
   clearError: () => void;
@@ -132,6 +136,12 @@ export const useMediaStore = create<MediaState>()(persist((set, get) => ({
     if (!added.length) set({ error: "Those files aren't pictures or videos WorshipHQ can show (try JPG, PNG, MP4 or WEBM)." });
     set((s) => ({ items: [...added, ...s.items] }));
     return added;
+  },
+
+  addStockFile: (f, stockId) => {
+    const item: MediaItem = { id: crypto.randomUUID(), name: f.name, kind: f.kind, path: f.path, size: f.size, addedAt: Date.now(), stockId };
+    set((s) => ({ items: [item, ...s.items.filter((i) => i.stockId !== stockId)] }));
+    return item;
   },
 
   rename: (id, name) => set((s) => ({ items: s.items.map((i) => (i.id === id ? { ...i, name } : i)) })),

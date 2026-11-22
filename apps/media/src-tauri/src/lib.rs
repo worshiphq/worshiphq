@@ -5,6 +5,7 @@ mod extras;
 mod media;
 mod voice;
 mod whisper;
+mod stock;
 
 use serde::Serialize;
 use std::sync::Mutex;
@@ -295,6 +296,40 @@ fn whisper_status(app: tauri::AppHandle) -> whisper::WhisperStatus {
 }
 
 #[tauri::command]
+fn stock_bundled(app: tauri::AppHandle) -> Vec<stock::BundledStock> {
+    let dir = app.path().resource_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let list = stock::bundled(&dir);
+    for b in &list {
+        let _ = app.asset_protocol_scope().allow_file(&b.path);
+        let _ = app.asset_protocol_scope().allow_file(&b.thumb);
+    }
+    list
+}
+
+#[tauri::command]
+fn stock_licence(app: tauri::AppHandle) -> Option<String> {
+    let hwid = licensing::get_hardware_id().ok()?;
+    licensing::licence_header(&hwid, &bible_dir(&app))
+}
+
+#[tauri::command]
+async fn stock_download(app: tauri::AppHandle, url: String, ext: String, token: String, title: String, kind: String) -> Result<media::MediaFile, String> {
+    let f = stock::download(&bible_dir(&app), &url, &ext, &token, &title, &kind)?;
+    let _ = app.asset_protocol_scope().allow_file(&f.path);
+    Ok(f)
+}
+
+#[tauri::command]
+fn stock_progress(app: tauri::AppHandle, token: String, ext: String) -> u64 {
+    stock::progress(&bible_dir(&app), &token, &ext)
+}
+
+#[tauri::command]
+fn whisper_progress(app: tauri::AppHandle) -> whisper::WhisperProgress {
+    whisper::progress(&bible_dir(&app))
+}
+
+#[tauri::command]
 async fn whisper_install(app: tauri::AppHandle) -> Result<(), String> {
     whisper::install(&bible_dir(&app))
 }
@@ -567,6 +602,11 @@ pub fn run() {
             list_easyworship_bibles,
             whisper_status,
             whisper_install,
+            whisper_progress,
+            stock_bundled,
+            stock_licence,
+            stock_download,
+            stock_progress,
             whisper_transcribe,
             import_easyworship_bible,
             voice_start,

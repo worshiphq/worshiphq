@@ -55,6 +55,8 @@ interface VoiceState {
   setMicId: (id: string) => void;
   whisperInstalled: boolean | null;
   installingWhisper: boolean;
+  /** While downloading: bytes so far and in total, and which part. */
+  whisperProgress: { stage: string; done: number; total: number } | null;
   checkWhisper: () => Promise<void>;
   installWhisper: () => Promise<void>;
 
@@ -141,6 +143,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     setMicId: (micId) => set({ micId }),
     whisperInstalled: null,
     installingWhisper: false,
+    whisperProgress: null,
     checkWhisper: async () => {
       if (!isDesktopApp()) return;
       const { invoke } = await import("@tauri-apps/api/core");
@@ -149,13 +152,18 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     },
     installWhisper: async () => {
       if (!isDesktopApp()) return;
-      set({ installingWhisper: true, message: null });
+      set({ installingWhisper: true, message: null, whisperProgress: { stage: "program", done: 0, total: 156537481 } });
+      const { invoke } = await import("@tauri-apps/api/core");
+      const timer = setInterval(() => {
+        invoke<{ stage: string; done: number; total: number }>("whisper_progress").then((p) => { if (get().installingWhisper) set({ whisperProgress: p }); }).catch(() => {});
+      }, 400);
       try {
-        const { invoke } = await import("@tauri-apps/api/core");
         await invoke("whisper_install");
-        set({ whisperInstalled: true, installingWhisper: false });
+        set({ whisperInstalled: true, installingWhisper: false, whisperProgress: null });
       } catch (e) {
-        set({ installingWhisper: false, status: "error", message: String(e) });
+        set({ installingWhisper: false, whisperProgress: null, status: "error", message: String(e) });
+      } finally {
+        clearInterval(timer);
       }
     },
 

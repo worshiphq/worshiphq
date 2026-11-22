@@ -14,8 +14,9 @@ import { useAudioStore, formatTime } from "../stores/audio-store";
 import { presentationSlides, presentationToServiceItem } from "../lib/media-slides";
 import { Music2, Presentation as PresIcon, Square as StopIcon, Repeat, Volume2 } from "lucide-react";
 import type { ThemeKind } from "../lib/themes";
+import { StockLibrary } from "./StockLibrary";
 
-type Filter = "all" | "image" | "video" | "audio" | "presentations";
+type Filter = "all" | "image" | "video" | "audio" | "presentations" | "stock";
 
 export function MediaView() {
   const { items, importing, error, pickFiles, importPaths, importBrowserFiles, remove, rename, clearError, presentations, importPresentation, removePresentation, renamePresentation } = useMediaStore();
@@ -126,7 +127,7 @@ export function MediaView() {
         <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-line px-4 py-3">
           <h2 className="text-[18px] font-bold text-ink">Pictures &amp; videos</h2>
           <div className="flex rounded-lg bg-surface-4 p-1">
-            {([["all", "All"], ["image", "Pictures"], ["video", "Videos"], ["audio", "Audio"], ["presentations", "Presentations"]] as [Filter, string][]).map(([f, label]) => (
+            {([["all", "All"], ["image", "Pictures"], ["video", "Videos"], ["audio", "Audio"], ["presentations", "Presentations"], ["stock", "✦ Free backgrounds"]] as [Filter, string][]).map(([f, label]) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
@@ -170,7 +171,9 @@ export function MediaView() {
           </div>
         )}
 
-        {filter === "presentations" ? (
+        {filter === "stock" ? (
+          <StockLibrary onAdded={(item) => { setSelectedId(item.id); setToast(`“${item.name}” added to your pictures & videos`); }} />
+        ) : filter === "presentations" ? (
           <div className="flex-1 overflow-y-auto p-4">
             {presentations.length === 0 ? (
               <button onClick={() => importPresentation().then((p) => p && setPresId(p.id))} className="flex w-full flex-col items-center justify-center gap-3 rounded-xl border-2 border-dashed border-line-bright p-10 text-center hover:border-primary hover:bg-primary-soft/30">
@@ -203,6 +206,15 @@ export function MediaView() {
               Click here, or drag files from your computer or USB stick onto this window. They are copied into WorshipHQ, so they keep working after you unplug the USB stick.
             </span>
             <span className="text-[13px] text-ink-faint">Pictures: JPG, PNG, GIF, WEBP · Videos: MP4, WEBM, MOV</span>
+            <span
+              role="button"
+              tabIndex={0}
+              onClick={(e) => { e.stopPropagation(); setFilter("stock"); }}
+              onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setFilter("stock"); } }}
+              className="mt-2 rounded-lg bg-primary px-4 py-2 text-[14px] font-bold text-white hover:bg-primary-bright"
+            >
+              Or browse WorshipHQ's free backgrounds
+            </span>
           </button>
         ) : (
           <div className="flex-1 overflow-y-auto p-4">

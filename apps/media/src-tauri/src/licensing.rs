@@ -205,3 +205,9 @@ pub fn activate_license(hwid: &str, key: &str, data_dir: &PathBuf) -> Result<Lic
 pub fn generate_key_for_hwid(hwid: &str) -> String {
     generate_valid_key(hwid)
 }
+
+/// "<computer id> <licence key>" for the WorshipHQ server, when this computer is licensed.
+pub fn licence_header(hwid: &str, data_dir: &PathBuf) -> Option<String> {
+    let key = read_license_file(data_dir).license_key?;
+    (key == generate_valid_key(hwid)).then(|| format!("{hwid} {key}"))
+}

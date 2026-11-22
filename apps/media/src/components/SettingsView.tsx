@@ -349,12 +349,16 @@ function WhisperSetup({ deviceId, devices }: { deviceId: string; devices: MediaD
           {v.whisperInstalled ? (
             <p className="text-[14px] font-medium text-success">✓ Whisper is installed on this computer.</p>
           ) : (
-            <div className="flex flex-wrap items-center gap-3">
-              <p className="flex-1 text-[14px] text-ink">Whisper needs a one-time download (about 155 MB). After that it works without internet.</p>
-              <button onClick={v.installWhisper} disabled={v.installingWhisper} className="h-10 rounded-lg bg-primary px-4 text-[14px] font-bold text-white hover:bg-primary-bright disabled:opacity-60">
-                {v.installingWhisper ? "Downloading… (a few minutes)" : "Download Whisper"}
-              </button>
-            </div>
+            v.installingWhisper && v.whisperProgress ? (
+              <WhisperProgressBar p={v.whisperProgress} />
+            ) : (
+              <div className="flex flex-wrap items-center gap-3">
+                <p className="flex-1 text-[14px] text-ink">Whisper needs a one-time download (about 155 MB). After that it works without internet.</p>
+                <button onClick={v.installWhisper} className="h-10 rounded-lg bg-primary px-4 text-[14px] font-bold text-white hover:bg-primary-bright">
+                  Download Whisper
+                </button>
+              </div>
+            )
           )}
           <label className="mt-3 block">
             <span className="mb-1 block text-[13px] font-medium text-ink-muted">Microphone to listen to</span>
@@ -368,6 +372,24 @@ function WhisperSetup({ deviceId, devices }: { deviceId: string; devices: MediaD
           </label>
         </div>
       )}
+    </div>
+  );
+}
+
+function WhisperProgressBar({ p }: { p: { stage: string; done: number; total: number } }) {
+  const pct = Math.min(100, Math.round((p.done / Math.max(1, p.total)) * 100));
+  const mb = (n: number) => (n / 1048576).toFixed(0);
+  const label = p.stage === "program" ? "Downloading the Whisper program…" : p.stage === "model" ? "Downloading the English speech model…" : "Finishing…";
+  return (
+    <div role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Downloading Whisper">
+      <div className="mb-1.5 flex items-baseline justify-between gap-3 text-[14px]">
+        <span className="font-medium text-ink">{label}</span>
+        <span className="tabular-nums text-ink-muted">{mb(p.done)} of {mb(p.total)} MB · <b className="text-ink">{pct}%</b></span>
+      </div>
+      <div className="h-3 overflow-hidden rounded-full bg-surface-4">
+        <div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${Math.max(2, pct)}%` }} />
+      </div>
+      <p className="mt-1.5 text-[12px] text-ink-faint">You can keep using WorshipHQ while this downloads.</p>
     </div>
   );
 }

@@ -108,3 +108,28 @@ pub fn transcribe(app_data: &Path, wav: &[u8]) -> Result<String, String> {
         .join(" ");
     Ok(text)
 }
+
+const ZIP_BYTES: u64 = 8_573_270;
+const MODEL_BYTES: u64 = 147_964_211;
+
+#[derive(Serialize)]
+pub struct WhisperProgress {
+    /// "program", "model" or "done"
+    pub stage: &'static str,
+    pub done: u64,
+    pub total: u64,
+}
+
+fn size(p: &Path) -> u64 {
+    std::fs::metadata(p).map(|m| m.len()).unwrap_or(0)
+}
+
+/// How far the download has got (the files grow on disk while they download).
+pub fn progress(app_data: &Path) -> WhisperProgress {
+    let d = dir(app_data);
+    let program = if cli(app_data).exists() { ZIP_BYTES } else { size(&d.join("whisper.zip")).min(ZIP_BYTES) };
+    let model_path = d.join(MODEL_FILE);
+    let model = if model_path.exists() && size(&model_path) > 100_000_000 { MODEL_BYTES } else { size(&d.join(format!("{MODEL_FILE}.part"))).min(MODEL_BYTES) };
+    let stage = if program < ZIP_BYTES { "program" } else if model < MODEL_BYTES { "model" } else { "done" };
+    WhisperProgress { stage, done: program + model, total: ZIP_BYTES + MODEL_BYTES }
+}
