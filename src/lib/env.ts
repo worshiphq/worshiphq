@@ -64,6 +64,11 @@ const schema = z.object({
   NALO_USERNAME: str,
   NALO_PASSWORD: str,
   NALO_SENDER_ID: z.string().default("WorshipHQ"),
+  // Africa's Talking (Africa outside Ghana). Username "sandbox" uses their test system. The sender name is
+  // optional: left empty, Africa's Talking sends from its own default name until ours is registered.
+  AFRICASTALKING_USERNAME: str,
+  AFRICASTALKING_API_KEY: str,
+  AFRICASTALKING_SENDER_ID: z.string().default(""),
   MNOTIFY_API_KEY: str,
   MNOTIFY_SENDER_ID: z.string().default("WorshipHQ"),
   TWILIO_ACCOUNT_SID: str,

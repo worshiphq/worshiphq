@@ -1,6 +1,6 @@
 import { env } from "@/lib/env";
 
-export type SmsProvider = "arkesel" | "hubtel" | "nalo" | "mnotify" | "twilio";
+export type SmsProvider = "arkesel" | "hubtel" | "nalo" | "mnotify" | "twilio" | "africastalking";
 
 /** A normalised number (digits with country code, no "+") belongs to Ghana when it starts with 233. */
 export function isGhanaNumber(normalised: string): boolean {
@@ -10,6 +10,11 @@ export function isGhanaNumber(normalised: string): boolean {
 /** Nalo can send once we have either an API key or a username and password. */
 export function naloConfigured(): boolean {
   return !!(env.NALO_AUTH_KEY || (env.NALO_USERNAME && env.NALO_PASSWORD));
+}
+
+/** Africa's Talking can send once both the username and the API key are set. */
+export function africasTalkingConfigured(): boolean {
+  return !!(env.AFRICASTALKING_USERNAME && env.AFRICASTALKING_API_KEY);
 }
 
 export type Routing = {
@@ -38,6 +43,8 @@ export function resolveRouting(): Routing {
  */
 export function routingForChurch(carrier: string | null | undefined): Routing {
   const base = resolveRouting();
+  // Only the SuperAdmin test box asks for Africa's Talking for now: every number then goes through it.
+  if (carrier === "africastalking") return africasTalkingConfigured() ? { primary: "africastalking", international: null } : base;
   if (carrier !== "hubtel" && carrier !== "nalo") return base;
   if (carrier === "nalo" && !naloConfigured()) return base;
   return { primary: carrier, international: carrier !== "nalo" && naloConfigured() ? "nalo" : null };

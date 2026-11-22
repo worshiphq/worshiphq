@@ -31,6 +31,8 @@ export type SmsResult = {
   costGhs?: number;
   /** Segments actually sent (segments in the message x recipients reached). */
   billedSegments?: number;
+  /** The carrier's own summary of the send when it gives one, e.g. Africa's Talking's "Sent to 1/1 Total Cost: KES 0.8000". */
+  providerCost?: string;
   /** Per-recipient outcome (normalised phone/email actually dialled), in the
    *  same order as the input list, so callers can log a detailed send audit. */
   results: SmsRecipientResult[];
@@ -55,6 +57,8 @@ function platformSenderFor(provider: SmsProvider): string {
   if (provider === "arkesel") return env.ARKESEL_SENDER_ID;
   if (provider === "nalo") return env.NALO_SENDER_ID;
   if (provider === "mnotify") return env.MNOTIFY_SENDER_ID;
+  // Empty until our sender name is registered with Africa's Talking: they then use their own default name.
+  if (provider === "africastalking") return env.AFRICASTALKING_SENDER_ID;
   return DEFAULT_HEADING;
 }
 
@@ -75,7 +79,62 @@ function reportHubtelUsage(segments: number) {
   }).catch(() => {});
 }
 
-type GroupResult = { perOk: boolean[]; ids?: (string | undefined)[]; errors?: (string | undefined)[]; id?: string; error?: string };
+type GroupResult = { perOk: boolean[]; ids?: (string | undefined)[]; errors?: (string | undefined)[]; id?: string; error?: string; providerCost?: string };
+
+/** Africa's Talking status codes that mean it took the message: 100 processed, 101 sent, 102 queued. */
+const AT_OK = new Set([100, 101, 102]);
+
+/** Send through Africa's Talking, up to 100 numbers per request. They report each number's outcome and its cost. */
+async function sendAfricasTalking(recipients: string[], message: string, sender: string): Promise<GroupResult> {
+  const username = env.AFRICASTALKING_USERNAME!;
+  const base = username === "sandbox" ? "https://api.sandbox.africastalking.com" : "https://api.africastalking.com";
+  const perOk: boolean[] = new Array(recipients.length).fill(false);
+  const ids: (string | undefined)[] = new Array(recipients.length);
+  const errors: (string | undefined)[] = new Array(recipients.length);
+  let error: string | undefined;
+  let providerCost: string | undefined;
+  for (let start = 0; start < recipients.length; start += 100) {
+    const chunk = recipients.slice(start, start + 100);
+    const body = new URLSearchParams({ username, to: chunk.map((n) => `+${n}`).join(","), message });
+    if (sender) body.set("from", sender);
+    try {
+      const res = await fetch(`${base}/version1/messaging`, {
+        method: "POST",
+        headers: { apiKey: env.AFRICASTALKING_API_KEY!, Accept: "application/json", "Content-Type": "application/x-www-form-urlencoded" },
+        body: body.toString(),
+        signal: AbortSignal.timeout(20_000),
+      });
+      const text = await res.text();
+      let data: { SMSMessageData?: { Message?: string; Recipients?: { number?: string; statusCode?: number; status?: string; cost?: string; messageId?: string }[] } } = {};
+      try { data = JSON.parse(text); } catch { /* not JSON: an error page or a plain-text refusal */ }
+      if (!res.ok || !data.SMSMessageData) {
+        const err = `Africa's Talking said ${res.status}: ${text.slice(0, 200)}`;
+        console.error(`[SMS:africastalking] ${err}`);
+        error = error ?? err;
+        chunk.forEach((_, k) => { errors[start + k] = err; });
+        continue;
+      }
+      const list = data.SMSMessageData.Recipients ?? [];
+      providerCost = data.SMSMessageData.Message ?? providerCost;
+      chunk.forEach((num, k) => {
+        const r = list.find((x) => (x.number ?? "").replace(/\D/g, "") === num);
+        const i = start + k;
+        if (r && AT_OK.has(Number(r.statusCode))) {
+          perOk[i] = true;
+          ids[i] = r.messageId;
+        } else {
+          errors[i] = r ? `Africa's Talking: ${r.status ?? "refused"} (code ${r.statusCode})` : `Africa's Talking did not take this number: ${data.SMSMessageData?.Message ?? ""}`;
+          error = error ?? errors[i];
+        }
+      });
+    } catch (e) {
+      const err = `Could not reach Africa's Talking: ${(e as Error).message}`;
+      error = error ?? err;
+      chunk.forEach((_, k) => { errors[start + k] = err; });
+    }
+  }
+  return { perOk, ids, errors, id: ids.find(Boolean), error, providerCost };
+}
 
 /** Send one already-normalised group of recipients through a single carrier, with the message and sender
  *  already decided for that carrier. Returns one ok per recipient, in order. Never throws. */
@@ -136,6 +195,8 @@ async function sendViaProvider(provider: SmsProvider, recipients: string[], mess
       reportHubtelUsage(sent); // one usage report for the whole group, not per recipient.
       return { perOk, ids, errors, id, error };
     }
+
+    if (provider === "africastalking") return await sendAfricasTalking(recipients, message, sender);
 
     if (provider === "nalo") {
       // Nalo takes one number per request and reaches Ghana and other countries the same way, so a church
@@ -270,6 +331,7 @@ export async function sendSms(
   const perValidErr = new Array<string | undefined>(recipients.length);
   let id: string | undefined;
   let firstError: string | undefined;
+  let providerCost: string | undefined;
   const used: SmsProvider[] = [];
   const rates = await getSmsRates().catch(() => ({ hubtel: 0.03, nalo: 0.032, intl: 2 }));
   const groupLogs: { provider: SmsProvider; sender: string; to: string[]; sent: number; segments: number; cost: number; error?: string }[] = [];
@@ -302,6 +364,7 @@ export async function sendSms(
       perValidErr[origIdx] = r.errors?.[k] ?? (r.perOk[k] ? undefined : r.error);
     });
     if (!id && r.id) id = r.id;
+    if (r.providerCost) providerCost = r.providerCost;
     if (!firstError && r.error) firstError = r.error;
     used.push(provider);
 
@@ -340,6 +403,7 @@ export async function sendSms(
     sentCount,
     costGhs,
     billedSegments,
+    ...(providerCost ? { providerCost } : {}),
     results: toFullResults(perValidOk, perValidId, perValidErr),
   };
 }

@@ -106,7 +106,7 @@ export async function saveAlertPhone(phone: string): Promise<{ ok: true } | { ok
 }
 
 export type TestSmsResult =
-  | { ok: true; stubbed: boolean; provider: string; dialled: string; ghana: boolean; id: string | null }
+  | { ok: true; stubbed: boolean; provider: string; dialled: string; ghana: boolean; id: string | null; providerCost?: string }
   | { ok: false; error: string; provider?: string; dialled?: string; ghana?: boolean };
 
 /**
@@ -131,9 +131,14 @@ export async function sendTestSms(input: { to: string; message: string; carrier?
   if (raw.replace(/[\s\-()]/g, "").startsWith("0") && !raw.startsWith("00")) return { ok: false, error: "Start with the country code, like +234 or +44. A number starting with 0 is read as Ghana." };
   if (digits.length < 8 || digits.length > 15) return { ok: false, error: "That phone number does not look right." };
   const ghana = digits.startsWith("233");
-  const r = await sendSms(digits, message, { heading: null, international: true, carrier: input.carrier === "nalo" || input.carrier === "hubtel" ? input.carrier : null });
+  if (input.carrier === "africastalking") {
+    const { africasTalkingConfigured } = await import("@/lib/sms/routing");
+    if (!africasTalkingConfigured()) return { ok: false, error: "Africa's Talking is not set up here yet: add AFRICASTALKING_USERNAME and AFRICASTALKING_API_KEY, then redeploy.", dialled: digits, ghana };
+  }
+  const carrier = input.carrier === "nalo" || input.carrier === "hubtel" || input.carrier === "africastalking" ? input.carrier : null;
+  const r = await sendSms(digits, message, { heading: null, international: true, carrier });
   if (!r.ok) return { ok: false, error: r.error ?? "The SMS provider refused it.", provider: r.provider, dialled: digits, ghana };
-  return { ok: true, stubbed: r.stubbed, provider: r.provider, dialled: digits, ghana, id: r.id ?? null };
+  return { ok: true, stubbed: r.stubbed, provider: r.provider, dialled: digits, ghana, id: r.id ?? null, ...(r.providerCost ? { providerCost: r.providerCost } : {}) };
 }
 
 /** A test text to the alert number, so you can see it works before the next church signs up. */

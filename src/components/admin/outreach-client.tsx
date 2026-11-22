@@ -517,6 +517,7 @@ function TestSmsCard({ smsLive, platformCarrier }: { smsLive: boolean; platformC
           <select id="test-sms-carrier" className={input} value={carrier} onChange={(e) => setCarrier(e.target.value)}>
             <option value="nalo" className="bg-slate-800">Nalo</option>
             <option value="hubtel" className="bg-slate-800">Hubtel</option>
+            <option value="africastalking" className="bg-slate-800">Africa&apos;s Talking</option>
           </select>
         </div>
         <button type="button" className={primary} onClick={go} disabled={busy || !to.trim() || !message.trim()}>
@@ -529,7 +530,7 @@ function TestSmsCard({ smsLive, platformCarrier }: { smsLive: boolean; platformC
             <>
               {res.stubbed
                 ? "Nothing was sent: SMS is not connected where this is running."
-                : <>The provider accepted it for <b>+{res.dialled}</b> ({res.ghana ? "a Ghana number" : "outside Ghana"}){res.id ? `, message id ${res.id}` : ""}. Now check the phone. Accepted does not always mean delivered, so the phone is the real answer.</>}
+                : <>The provider accepted it for <b>+{res.dialled}</b> ({res.ghana ? "a Ghana number" : "outside Ghana"}){res.id ? `, message id ${res.id}` : ""}.{res.providerCost ? <> Carrier says: <b>{res.providerCost}</b>.</> : null} Now check the phone. Accepted does not always mean delivered, so the phone is the real answer.</>}
             </>
           ) : (
             <>Not sent{res.dialled ? ` to +${res.dialled}` : ""}: {res.error}</>
