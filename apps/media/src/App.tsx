@@ -17,7 +17,7 @@ import type { Slide } from "./types";
 
 export default function App() {
   const [launched, setLaunched] = useState(false);
-  const [workspace, setWorkspaceRaw] = useState<Workspace>("service");
+  const [workspace, setWorkspaceRaw] = useState<Workspace>("bible");
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("looks");
   // "looks" and "screens" open those tabs of Settings.
   const setWorkspace = (w: Workspace) => {

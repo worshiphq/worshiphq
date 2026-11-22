@@ -31,7 +31,27 @@ export function SongEditorDialog({ song, isNew, onSave, onCancel }: {
   useEffect(() => { if (isNew) setTimeout(() => { titleRef.current?.focus(); titleRef.current?.select(); }, 60); }, [isNew]);
 
   const changes = (t = title, a = author, k = keyName, words = text): Partial<Song> => ({ title: t.trim() || "Untitled song", author: a, key: k, ...textToSections(words) });
-  const preview = useMemo(() => buildSongSlides({ ...song, ...changes() } as Song), [title, author, keyName, text]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [caretLine, setCaretLine] = useState(1);
+  /** The paragraph the cursor is in (lines between empty lines), shown on the one big screen. */
+  const current = useMemo(() => {
+    const lines = text.split("\n");
+    const heading = (l: string) => /^\s*\[[^\]]{1,30}\]\s*$/.test(l);
+    let i = Math.min(caretLine, lines.length - 1);
+    // On a heading or an empty line: use the next paragraph.
+    while (i < lines.length && (heading(lines[i]) || !lines[i].trim())) i++;
+    if (i >= lines.length) { i = Math.min(caretLine, lines.length - 1); while (i > 0 && (heading(lines[i]) || !lines[i].trim())) i--; }
+    let a = i, b = i;
+    while (a > 0 && lines[a - 1].trim() && !heading(lines[a - 1])) a--;
+    while (b < lines.length - 1 && lines[b + 1].trim() && !heading(lines[b + 1])) b++;
+    let label = "";
+    for (let k = a - 1; k >= 0; k--) { const m = lines[k].match(/^\s*\[([^\]]{1,30})\]\s*$/); if (m) { label = m[1]; break; } }
+    const words = lines.slice(a, b + 1).join("\n").trim();
+    const slide = words ? buildSongSlides({ ...song, sections: [{ id: "p", label: label || "Words", lyrics: words, order: 0 }], order: ["p"] } as Song)[0] : null;
+    // Which screen this is, counting paragraphs from the top.
+    let n = 0, total = 0, inPara = false;
+    lines.forEach((l, k) => { const word = !!l.trim() && !heading(l); if (word && !inPara) { total++; if (k <= a) n = total; } inPara = word; });
+    return { slide, label, n, total };
+  }, [text, caretLine, song]);
 
   function edit(next: { t?: string; a?: string; k?: string; w?: string }) {
     const t = next.t ?? title, a = next.a ?? author, k = next.k ?? keyName, w = next.w ?? text;
@@ -98,7 +118,7 @@ export function SongEditorDialog({ song, isNew, onSave, onCancel }: {
         </div>
 
         {/* Words + slides */}
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_300px]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_420px]">
           <div className="flex min-h-0 flex-col">
             <div className="mb-2 flex items-center gap-2">
               <span className="text-[14px] font-semibold text-ink">Words</span>
@@ -113,18 +133,18 @@ export function SongEditorDialog({ song, isNew, onSave, onCancel }: {
                 Select words and click a colour or pick a font, or pick one first and keep typing.
               </div>
             )}
-            <LyricsEditor value={text} onChange={(w) => edit({ w })} placeholder={"[Verse 1]\nType or paste the words here…"} />
+            <LyricsEditor value={text} onChange={(w) => edit({ w })} onCaretLine={setCaretLine} placeholder={"[Verse 1]\nType or paste the words here…"} />
           </div>
           <div className="hidden min-h-0 flex-col lg:flex">
-            <span className="mb-2 text-[14px] font-semibold text-ink">Slides <span className="font-normal text-ink-muted">({preview.length})</span></span>
-            <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto pr-1">
-              {preview.map((s, i) => (
-                <div key={i}>
-                  <SlidePreview slide={s} />
-                  <div className="mt-1 text-[12px] font-semibold text-ink-muted">{i + 1}. {s.label}</div>
-                </div>
-              ))}
-            </div>
+            <span className="mb-2 flex items-baseline justify-between text-[14px] font-semibold text-ink">
+              On screen
+              <span className="text-[12px] font-normal text-ink-muted">{current.total ? `${current.label ? current.label + " · " : ""}screen ${current.n} of ${current.total}` : ""}</span>
+            </span>
+            {current.slide ? <SlidePreview slide={current.slide} /> : <div className="grid aspect-video place-items-center rounded-lg bg-ink text-[13px] text-white/60">Type some words</div>}
+            <p className="mt-3 text-[12px] leading-relaxed text-ink-muted">
+              Click in any part of the words to see how it looks on the screen. Lines that are together show together;
+              leave an empty line between them to make a new screen.
+            </p>
           </div>
         </div>
 

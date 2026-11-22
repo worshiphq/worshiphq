@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import logoMark from "../assets/worshiphq-mark.png";
 import {
   BookOpen, CalendarDays, Cast, Church, Eraser, Image as ImageIcon, Mic, Minus, Monitor, MonitorOff,
@@ -186,7 +186,6 @@ const NAV: { heading: string; items: NavItem[] }[] = [
   {
     heading: "During the service",
     items: [
-      { id: "service", label: "Service plan", Icon: CalendarDays, ready: true },
       { id: "live", label: "Live", Icon: Cast, ready: true },
       { id: "voice", label: "Voice assistant", Icon: Mic, ready: true },
     ],
@@ -202,6 +201,7 @@ const NAV: { heading: string; items: NavItem[] }[] = [
   {
     heading: "Setup",
     items: [
+      { id: "service", label: "Plan the service", Icon: CalendarDays, ready: true },
       { id: "settings", label: "Settings", Icon: Settings, ready: true },
     ],
   },
@@ -212,11 +212,12 @@ export function AppSidebar({ workspace, onChange }: { workspace: Workspace; onCh
   const voiceOn = useVoiceStore((v) => v.status === "listening");
 
   return (
-    <aside className="flex w-16 shrink-0 flex-col border-r border-line bg-surface-2 lg:w-56">
-      <nav className="flex-1 overflow-y-auto p-3" aria-label="Main menu">
+    <aside className="flex w-16 shrink-0 flex-col border-r border-line bg-surface-2 lg:w-64 xl:w-72">
+      <ScheduleBox onOpen={onChange} />
+      <nav className="shrink-0 overflow-y-auto px-3 pb-2 pt-1" aria-label="Main menu">
         {NAV.map((group) => (
-          <div key={group.heading} className="mb-4">
-            <div className="hidden px-3 pb-1.5 text-[12px] font-semibold text-ink-faint lg:block">{group.heading}</div>
+          <div key={group.heading} className="mb-1.5">
+            <div className="hidden px-3 pb-0.5 pt-1 text-[11px] font-semibold uppercase tracking-wide text-ink-faint lg:block">{group.heading}</div>
             {group.items.map(({ id, label, Icon, ready }) => {
               const active = workspace === id || (id === "settings" && (workspace === "looks" || workspace === "screens"));
               return (
@@ -226,7 +227,7 @@ export function AppSidebar({ workspace, onChange }: { workspace: Workspace; onCh
                   onClick={() => ready && onChange(id as Workspace)}
                   aria-current={active ? "page" : undefined}
                   title={ready ? label : "Coming soon"}
-                  className={`mb-0.5 flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-[14px] transition-colors ${
+                  className={`mb-0.5 flex w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-[14px] transition-colors ${
                     active
                       ? "bg-primary-soft font-semibold text-primary-bright"
                       : ready
@@ -246,7 +247,7 @@ export function AppSidebar({ workspace, onChange }: { workspace: Workspace; onCh
         ))}
       </nav>
 
-      <div className="hidden border-t border-line p-4 text-[13px] lg:block">
+      <div className="hidden border-t border-line px-4 py-2.5 text-[13px] lg:block">
         {isLicensed ? (
           <span className="font-medium text-success">Licensed</span>
         ) : isTrial ? (
@@ -284,5 +285,98 @@ function VoicePill() {
         {status === "starting" ? "Starting…" : on ? (fresh ? (fresh.command ?? fresh.text) : "Listening") : status === "error" ? "Voice stopped" : "Voice off"}
       </span>
     </button>
+  );
+}
+
+/* ─────────────────────────── Schedule (EasyWorship-style) ─────────────────────────── */
+
+const ITEM_ICON: Record<string, typeof Music> = { song: Music, scripture: BookOpen, media: ImageIcon, announcement: CalendarDays, custom: CalendarDays };
+
+/**
+ * The service order, always on the left: click an item to open it on Live, double-click to show it,
+ * drag to reorder, right-click for more.
+ */
+function ScheduleBox({ onOpen }: { onOpen: (w: Workspace) => void }) {
+  const { serviceItems, activeItemIndex, setActiveItem, goLive, removeFromService, reorderService, projectionOpen, openProjection, currentSlide, isLive } = useProjectionStore();
+  const [drag, setDrag] = useState<number | null>(null);
+  const [over, setOver] = useState<number | null>(null);
+  const [menuAt, setMenuAt] = useState<{ i: number; x: number; y: number } | null>(null);
+  useEffect(() => {
+    if (!menuAt) return;
+    const close = () => setMenuAt(null);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [menuAt]);
+
+  const open = (i: number) => { setActiveItem(i); onOpen("live"); };
+  const show = (i: number) => {
+    const first = serviceItems[i]?.slides?.[0];
+    if (!first) return;
+    setActiveItem(i);
+    if (isDesktopApp() && !projectionOpen) openProjection();
+    goLive(first);
+  };
+  const onAir = (i: number) => isLive && !!currentSlide && !!serviceItems[i]?.slides?.includes(currentSlide);
+
+  return (
+    <section className="flex min-h-[180px] flex-1 flex-col border-b border-line p-2 lg:p-3" aria-label="Schedule">
+      <div className="mb-1.5 hidden items-center justify-between lg:flex">
+        <span className="text-[13px] font-bold text-ink">Schedule <span className="font-normal text-ink-muted">· {serviceItems.length}</span></span>
+        <button onClick={() => onOpen("service")} className="rounded-md px-1.5 py-0.5 text-[12px] font-semibold text-primary-bright hover:bg-primary-soft">Plan</button>
+      </div>
+      <div
+        className="min-h-0 flex-1 overflow-y-auto rounded-lg border border-line bg-surface-4/40 p-1"
+        onDragOver={(e) => e.preventDefault()}
+      >
+        {serviceItems.length === 0 ? (
+          <p className="hidden px-2 py-6 text-center text-[12px] leading-relaxed text-ink-muted lg:block">
+            Nothing in the schedule yet. Right-click a song, verse or picture and choose <b>Add to service</b>.
+          </p>
+        ) : (
+          serviceItems.map((item, i) => {
+            const Icon = ITEM_ICON[item.type] ?? CalendarDays;
+            const active = i === activeItemIndex;
+            const live = onAir(i);
+            return (
+              <div
+                key={item.id}
+                draggable
+                onDragStart={() => setDrag(i)}
+                onDragEnter={() => setOver(i)}
+                onDragEnd={() => { if (drag !== null && over !== null && drag !== over) reorderService(drag, over); setDrag(null); setOver(null); }}
+                onClick={() => open(i)}
+                onDoubleClick={() => show(i)}
+                onContextMenu={(e) => { e.preventDefault(); setMenuAt({ i, x: e.clientX, y: e.clientY }); }}
+                title={`${item.title} · click to open, double-click to show`}
+                className={`mb-0.5 flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 ${live ? "bg-danger/10 ring-1 ring-danger/40" : active ? "bg-primary-soft" : "hover:bg-surface-2"} ${over === i && drag !== null && drag !== i ? "border-t-2 border-primary" : ""}`}
+              >
+                <Icon className={`size-4 shrink-0 ${live ? "text-danger" : active ? "text-primary-bright" : "text-ink-faint"}`} />
+                <span className="hidden min-w-0 flex-1 lg:block">
+                  <span className="block truncate text-[13px] font-semibold text-ink">{item.title}</span>
+                  {item.subtitle && <span className="block truncate text-[11px] text-ink-muted">{item.subtitle}</span>}
+                </span>
+                {live && <span className="hidden rounded bg-danger px-1 text-[9px] font-bold text-white lg:inline">LIVE</span>}
+              </div>
+            );
+          })
+        )}
+      </div>
+      {menuAt && (
+        <div className="fixed z-50 w-48 rounded-xl border border-line-bright bg-surface-2 py-1 shadow-[0_10px_30px_rgba(15,23,42,0.18)]" style={{ left: menuAt.x, top: menuAt.y }}>
+          {[
+            ["Open on Live", () => open(menuAt.i)],
+            ["Show on screen", () => show(menuAt.i)],
+            ["Move up", () => menuAt.i > 0 && reorderService(menuAt.i, menuAt.i - 1)],
+            ["Move down", () => menuAt.i < serviceItems.length - 1 && reorderService(menuAt.i, menuAt.i + 1)],
+            ["Remove from schedule", () => removeFromService(menuAt.i)],
+          ].map(([label, fn]) => (
+            <button key={label as string} onClick={() => { (fn as () => void)(); setMenuAt(null); }}
+              className={`block w-full px-3 py-1.5 text-left text-[13px] hover:bg-primary-soft ${label === "Remove from schedule" ? "text-danger" : "text-ink"}`}>
+              {label as string}
+            </button>
+          ))}
+        </div>
+      )}
+    </section>
   );
 }

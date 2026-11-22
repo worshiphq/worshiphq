@@ -44,6 +44,11 @@ export function ScriptureView({ onOpenLooks }: { onOpenLooks: () => void }) {
   const [liveParts, setLiveParts] = useState<Slide[]>([]);
 
   useEffect(() => { if (!packs.length) loadPacks(); }, [packs.length, loadPacks]);
+  // First time the Bible opens: Genesis 1:1 is picked, ready to show (nothing goes on screen by itself).
+  useEffect(() => {
+    if (selectedBook === null && packs.length) openReference(0, 1, 1, 1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [packs.length]);
 
   useEffect(() => {
     if (versesLoading || !pendingSelection) return;

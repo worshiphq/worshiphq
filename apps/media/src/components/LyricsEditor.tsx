@@ -78,10 +78,18 @@ function fromDom(root: HTMLElement): string {
   return runsToText(runs).replace(/\n$/, "");
 }
 
-export function LyricsEditor({ value, onChange, placeholder }: { value: string; onChange: (text: string) => void; placeholder?: string }) {
+export function LyricsEditor({ value, onChange, placeholder, onCaretLine }: {
+  value: string;
+  onChange: (text: string) => void;
+  placeholder?: string;
+  /** The line the cursor is on (0 = first), so the preview can show that part. */
+  onCaretLine?: (line: number) => void;
+}) {
   const ref = useRef<HTMLDivElement>(null);
   const lastSent = useRef<string | null>(null);
   const saved = useRef<Range | null>(null);
+  const caretCb = useRef(onCaretLine);
+  caretCb.current = onCaretLine;
   const [fonts, setFonts] = useState<string[]>([]);
   const [custom, setCustom] = useState("#facc15");
   const [empty, setEmpty] = useState(!value);
@@ -101,7 +109,14 @@ export function LyricsEditor({ value, onChange, placeholder }: { value: string; 
   useEffect(() => {
     const onSel = () => {
       const sel = document.getSelection();
-      if (sel && sel.rangeCount && ref.current?.contains(sel.anchorNode)) saved.current = sel.getRangeAt(0).cloneRange();
+      if (sel && sel.rangeCount && ref.current?.contains(sel.anchorNode)) {
+        saved.current = sel.getRangeAt(0).cloneRange();
+        // Which line: the top-level <div> holding the cursor.
+        let n: Node | null = sel.anchorNode;
+        while (n && n.parentNode !== ref.current) n = n.parentNode;
+        const line = n ? Array.prototype.indexOf.call(ref.current!.childNodes, n) : 0;
+        caretCb.current?.(Math.max(0, line));
+      }
     };
     document.addEventListener("selectionchange", onSel);
     return () => document.removeEventListener("selectionchange", onSel);
