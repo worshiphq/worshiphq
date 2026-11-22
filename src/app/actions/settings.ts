@@ -245,7 +245,10 @@ export async function updateChurch(formData: FormData) {
   }
 
   // Let the SuperAdmin know there is a country change waiting. A failed text never blocks the save.
-  if (newRequest) {
+  // Never for the hidden QA / demo churches: their requests must not text a real phone.
+  const hidden = newRequest ? await db.church.findUnique({ where: { id: session.churchId }, select: { isDemo: true, isInternal: true } }) : null;
+  const { isHiddenChurch } = await import("@/lib/live-church");
+  if (newRequest && hidden && !isHiddenChurch(hidden)) {
     try {
       const { getAlertPhone } = await import("@/lib/outreach/owner-alert");
       const { phone } = await getAlertPhone();
