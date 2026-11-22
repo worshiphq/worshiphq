@@ -1,4 +1,6 @@
 export interface Slide {
+  /** Name shown to the operator only, e.g. "Chorus" or "Part 2". Never projected. */
+  label?: string;
   type: "scripture" | "song" | "media" | "announcement" | "logo" | "custom";
   content: {
     primaryText: string;

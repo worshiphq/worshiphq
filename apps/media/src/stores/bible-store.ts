@@ -1,5 +1,7 @@
 import { create } from "zustand";
 import type { BibleVerse } from "../types";
+import { CHAPTER_COUNTS } from "../lib/scripture-ref";
+import { demoChapter } from "../lib/demo-bible";
 
 function isTauri(): boolean {
   return typeof window !== "undefined" && !!(window as any).__TAURI_INTERNALS__;
@@ -48,6 +50,8 @@ interface BibleState {
   selectBook: (bookIndex: number | null) => void;
   selectChapter: (chapter: number | null) => void;
   loadChapter: (bookIndex: number, chapter: number) => Promise<void>;
+  /** Jump straight to a book + chapter (used by the reference search box). */
+  goTo: (bookIndex: number, chapter: number) => Promise<void>;
   searchBible: (query: string) => Promise<void>;
   importPack: (sourcePath: string, packId: string) => Promise<void>;
   deletePack: (packId: string) => Promise<void>;
@@ -79,7 +83,12 @@ export const useBibleStore = create<BibleState>((set, get) => ({
   },
 
   setActivePack: (id) => {
-    set({ activePack: id, selectedBook: null, selectedChapter: null, verses: [], searchResults: [], searchQuery: "" });
+    // Keep the reader on the same passage when switching translations.
+    const { selectedBook, selectedChapter } = get();
+    set({ activePack: id, searchResults: [], searchQuery: "" });
+    if (selectedBook !== null && selectedChapter !== null) {
+      get().loadChapter(selectedBook, selectedChapter);
+    }
   },
 
   selectBook: async (bookIndex) => {
@@ -90,12 +99,24 @@ export const useBibleStore = create<BibleState>((set, get) => ({
     const pack = get().activePack;
     if (!pack) return;
 
+    const fallback = CHAPTER_COUNTS[bookIndex] ?? 0;
     try {
       const count = await tauriInvoke<number>("bible_chapter_count", { packId: pack, book: bookIndex + 1 }) ?? 0;
-      set({ selectedBook: bookIndex, selectedChapter: null, chapterCount: count, verses: [] });
+      set({ selectedBook: bookIndex, selectedChapter: null, chapterCount: count || fallback, verses: [] });
     } catch {
-      set({ selectedBook: bookIndex, selectedChapter: null, chapterCount: 0, verses: [] });
+      set({ selectedBook: bookIndex, selectedChapter: null, chapterCount: fallback, verses: [] });
     }
+  },
+
+  goTo: async (bookIndex, chapter) => {
+    const pack = get().activePack;
+    if (!pack) return;
+    let count: number = CHAPTER_COUNTS[bookIndex] ?? 0;
+    try {
+      count = (await tauriInvoke<number>("bible_chapter_count", { packId: pack, book: bookIndex + 1 })) || count;
+    } catch { /* keep fallback */ }
+    set({ selectedBook: bookIndex, chapterCount: count, selectedChapter: chapter });
+    await get().loadChapter(bookIndex, chapter);
   },
 
   selectChapter: (chapter) => {
@@ -115,11 +136,9 @@ export const useBibleStore = create<BibleState>((set, get) => ({
 
     set({ versesLoading: true });
     try {
-      const verses = await tauriInvoke<BibleVerse[]>("bible_get_chapter", {
-        packId: pack,
-        book: bookIndex + 1,
-        chapter,
-      }) ?? [];
+      const verses = isTauri()
+        ? await tauriInvoke<BibleVerse[]>("bible_get_chapter", { packId: pack, book: bookIndex + 1, chapter }) ?? []
+        : demoChapter(bookIndex + 1, chapter);
       set({ verses, versesLoading: false });
     } catch (e) {
       console.error("Failed to load chapter:", e);

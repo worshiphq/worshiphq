@@ -119,19 +119,31 @@ export const useProjectionStore = create<ProjectionState>((set) => ({
   addToService: (item) =>
     set((state) => ({
       serviceItems: [...state.serviceItems, { ...item, order: state.serviceItems.length }],
+      // The first thing added becomes the selected item, so its slides show straight away.
+      activeItemIndex: state.activeItemIndex === -1 ? state.serviceItems.length : state.activeItemIndex,
     })),
 
   removeFromService: (index) =>
-    set((state) => ({
-      serviceItems: state.serviceItems.filter((_, i) => i !== index),
-    })),
+    set((state) => {
+      const serviceItems = state.serviceItems.filter((_, i) => i !== index);
+      let activeItemIndex = state.activeItemIndex;
+      if (index < activeItemIndex) activeItemIndex -= 1;
+      else if (index === activeItemIndex) activeItemIndex = Math.min(index, serviceItems.length - 1);
+      return { serviceItems, activeItemIndex };
+    }),
 
   reorderService: (from, to) =>
     set((state) => {
+      if (to < 0 || to >= state.serviceItems.length) return {};
       const items = [...state.serviceItems];
       const [moved] = items.splice(from, 1);
       items.splice(to, 0, moved);
-      return { serviceItems: items.map((item, i) => ({ ...item, order: i })) };
+      // Keep the same item selected after it (or a neighbour) moves.
+      const activeId = state.serviceItems[state.activeItemIndex]?.id;
+      return {
+        serviceItems: items.map((item, i) => ({ ...item, order: i })),
+        activeItemIndex: activeId ? items.findIndex((i) => i.id === activeId) : state.activeItemIndex,
+      };
     }),
 
   setActiveItem: (index) =>
