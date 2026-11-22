@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState, type CSSProperties, type RefObject } from "react";
+import { richText } from "../lib/rich-text";
 import type { Slide } from "../types";
 import { textShadowFor, themeKindFor, type SlideStyle } from "../lib/themes";
 import { useThemeStore } from "../stores/theme-store";
@@ -142,7 +143,7 @@ function TextSlide({ slide, style, live, transparent = false }: { slide: Slide; 
       ref={mainRef}
       style={{
         margin: 0,
-        fontFamily: style.fontFamily,
+        fontFamily: slide.font ?? style.fontFamily,
         fontWeight: style.fontWeight,
         fontStyle: style.italic ? "italic" : "normal",
         color: style.color,
@@ -155,7 +156,7 @@ function TextSlide({ slide, style, live, transparent = false }: { slide: Slide; 
         ...outline,
       } as CSSProperties}
     >
-      {main}
+      {richText(main)}
     </p>
   );
   const subEl = sub ? (
@@ -255,7 +256,7 @@ function FitBlock({ text, label, style }: { text: string; label: string; style: 
   return (
     <div ref={boxRef} style={{ flex: 1, minHeight: 0, display: "flex", flexDirection: "column", justifyContent: "center", alignItems: style.align === "left" ? "flex-start" : style.align === "right" ? "flex-end" : "center", textAlign: style.align, overflow: "hidden" }}>
       <div ref={innerRef} style={{ maxWidth: "100%" }}>
-        <p ref={mRef} style={{ margin: 0, fontFamily: style.fontFamily, fontWeight: style.fontWeight, color: style.color, lineHeight: style.lineHeight, textTransform: style.uppercase ? "uppercase" : "none", textShadow: textShadowFor(style), whiteSpace: "pre-line" }}>{text}</p>
+        <p ref={mRef} style={{ margin: 0, fontFamily: style.fontFamily, fontWeight: style.fontWeight, color: style.color, lineHeight: style.lineHeight, textTransform: style.uppercase ? "uppercase" : "none", textShadow: textShadowFor(style), whiteSpace: "pre-line" }}>{richText(text)}</p>
         {label && <p ref={lRef} style={{ margin: "0.4em 0 0", fontFamily: style.fontFamily, fontWeight: 700, color: style.sub.color, textShadow: textShadowFor(style) }}>{label}</p>}
       </div>
     </div>

@@ -81,6 +81,8 @@ export default function App() {
       const { listen } = await import("@tauri-apps/api/event");
       const { invoke } = await import("@tauri-apps/api/core");
       off.push(await listen<string>("voice-event", (e) => useVoiceStore.getState().handleEvent(e.payload)));
+      const voice = useVoiceStore.getState();
+      if (voice.autoStart && voice.status === "off") voice.start();
       off.push(await listen("projection-closed", () => useProjectionStore.getState().markProjectionClosed()));
       off.push(await listen("stage-closed", () => useProjectionStore.getState().markStageClosed()));
       // After a reload, find out whether the projector window is still open.

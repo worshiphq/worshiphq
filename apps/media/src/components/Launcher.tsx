@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import logoMark from "../assets/worshiphq-mark.png";
 import {
   Monitor, MonitorSmartphone, Shield, ShieldCheck, Clock, Plus,
   FolderOpen, ChevronRight, Loader2, AlertTriangle, Tv2,
@@ -84,8 +85,8 @@ export function Launcher({ onEnter }: LauncherProps) {
 
       <div className="relative z-10 flex w-full max-w-md flex-col items-center px-6">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 grid size-20 place-items-center rounded-2xl bg-primary shadow-lg shadow-primary/25">
-            <span className="text-3xl font-black tracking-tight text-white">W</span>
+          <div className="mx-auto mb-4 grid size-24 place-items-center rounded-3xl bg-white p-3 shadow-lg ring-1 ring-line">
+            <img src={logoMark} alt="WorshipHQ" className="h-full w-full object-contain" draggable={false} />
           </div>
           <h1 className="text-[28px] font-bold tracking-tight text-ink">
             WorshipHQ <span className="text-primary">Media</span>

@@ -20,6 +20,11 @@ pub struct LicenseStatus {
 struct LicenseFile {
     trial_start_epoch: Option<u64>,
     license_key: Option<String>,
+    /// Church or person this copy is registered to (shown in Settings › About).
+    #[serde(default)]
+    registered_to: Option<String>,
+    #[serde(default)]
+    activated_epoch: Option<u64>,
 }
 
 fn license_path(data_dir: &PathBuf) -> PathBuf {
@@ -191,6 +196,7 @@ pub fn activate_license(hwid: &str, key: &str, data_dir: &PathBuf) -> Result<Lic
 
     let mut lf = read_license_file(data_dir);
     lf.license_key = Some(input);
+    lf.activated_epoch = Some(now_epoch());
     write_license_file(data_dir, &lf)?;
 
     Ok(LicenseStatus {
@@ -210,4 +216,37 @@ pub fn generate_key_for_hwid(hwid: &str) -> String {
 pub fn licence_header(hwid: &str, data_dir: &PathBuf) -> Option<String> {
     let key = read_license_file(data_dir).license_key?;
     (key == generate_valid_key(hwid)).then(|| format!("{hwid} {key}"))
+}
+
+#[derive(Debug, Serialize)]
+pub struct LicenseInfo {
+    pub is_licensed: bool,
+    pub is_trial: bool,
+    pub trial_days_remaining: i32,
+    pub hwid: String,
+    pub license_key: Option<String>,
+    pub registered_to: Option<String>,
+    pub activated_epoch: Option<u64>,
+}
+
+/// Everything Settings › About shows about this copy.
+pub fn license_info(hwid: &str, data_dir: &PathBuf) -> Result<LicenseInfo, String> {
+    let st = check_license(hwid, data_dir)?;
+    let lf = read_license_file(data_dir);
+    Ok(LicenseInfo {
+        is_licensed: st.is_licensed,
+        is_trial: st.is_trial,
+        trial_days_remaining: st.trial_days_remaining,
+        hwid: st.hwid,
+        license_key: lf.license_key.filter(|_| st.is_licensed),
+        registered_to: lf.registered_to,
+        activated_epoch: lf.activated_epoch,
+    })
+}
+
+pub fn set_registered_to(data_dir: &PathBuf, name: &str) -> Result<(), String> {
+    let mut lf = read_license_file(data_dir);
+    let n = name.trim();
+    lf.registered_to = if n.is_empty() { None } else { Some(n.chars().take(120).collect()) };
+    write_license_file(data_dir, &lf)
 }

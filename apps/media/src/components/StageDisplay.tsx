@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { plainText } from "../lib/rich-text";
 import type { Slide } from "../types";
 
 export function StageDisplay() {
@@ -85,7 +86,7 @@ export function StageDisplay() {
           {currentSlide ? (
             <div>
               <p className="text-3xl font-semibold leading-relaxed text-white" style={{ whiteSpace: "pre-line" }}>
-                {currentSlide.content.primaryText}
+                {plainText(currentSlide.content.primaryText)}
               </p>
               {currentSlide.content.secondaryText && (
                 <p className="mt-3 text-lg text-white/60">
@@ -106,7 +107,7 @@ export function StageDisplay() {
           {nextSlide ? (
             <div>
               <p className="text-lg leading-relaxed text-white/70" style={{ whiteSpace: "pre-line" }}>
-                {nextSlide.content.primaryText}
+                {plainText(nextSlide.content.primaryText)}
               </p>
               {nextSlide.content.secondaryText && (
                 <p className="mt-2 text-sm text-white/40">

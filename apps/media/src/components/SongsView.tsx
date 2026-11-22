@@ -1,4 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { SongToolbar } from "./SongToolbar";
+import { cssFont } from "../lib/rich-text";
 import { Check, HelpCircle, Music, Plus, Search, Trash2, X } from "lucide-react";
 import { useSongStore } from "../stores/song-store";
 import { useProjectionStore } from "../stores/projection-store";
@@ -64,6 +66,7 @@ export function SongsView() {
   const [toast, setToast] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
+  const wordsRef = useRef<HTMLTextAreaElement>(null);
   const saveTimer = useRef<number | undefined>(undefined);
   const menu = useContextMenu();
 
@@ -230,14 +233,16 @@ export function SongsView() {
                   Leave an empty line to start a new slide. To sing the chorus again, just write <code className="rounded bg-surface-2 px-1">[Chorus]</code> again with nothing under it.
                 </div>
               )}
+              <SongToolbar song={song} text={text} setText={changeWords} area={wordsRef} onChange={(c) => updateSong(song.id, c)} />
               <textarea
+                ref={wordsRef}
                 value={text}
                 onChange={(e) => changeWords(e.target.value)}
                 spellCheck={false}
                 aria-label="Song words"
                 placeholder={"[Verse 1]\nType or paste the words here…"}
                 className="min-h-0 flex-1 resize-none rounded-lg border border-line-bright bg-surface-2 p-3 font-mono text-[14px] leading-relaxed text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary-glow"
-                style={{ userSelect: "text" }}
+                style={{ userSelect: "text", ...(song.font ? { fontFamily: cssFont(song.font), fontSize: 16 } : {}) }}
               />
             </div>
           </>

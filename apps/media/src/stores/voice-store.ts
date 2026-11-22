@@ -16,6 +16,15 @@ import { findPack } from "../lib/version-match";
 /** whisper = OpenAI Whisper on this computer (accurate); windows = the old Windows recogniser. */
 export type VoiceEngine = "whisper" | "windows";
 
+/** Whisper speech models: bigger ones hear better but need a faster computer. */
+export type WhisperModel = "tiny" | "base" | "small" | "turbo";
+export const WHISPER_MODELS: { id: WhisperModel; label: string; size: string; note: string }[] = [
+  { id: "tiny", label: "Fastest", size: "78 MB", note: "Answers almost at once, even on older computers. Best for spoken commands." },
+  { id: "base", label: "Standard", size: "148 MB", note: "Quick, and better at full sentences and accents." },
+  { id: "small", label: "Accurate", size: "488 MB", note: "Hears accents and busy rooms much better. Needs a fairly recent computer." },
+  { id: "turbo", label: "Best", size: "574 MB", note: "The most accurate (OpenAI's large Whisper, turbo). Needs a fast computer." },
+];
+
 export type VoiceStatus = "off" | "starting" | "listening" | "error";
 /** ask = show a banner with a button · auto = show it after a short countdown · list = only list it */
 export type VoiceMode = "ask" | "auto" | "list";
@@ -62,11 +71,18 @@ interface VoiceState {
   micId: string;
   setMicId: (id: string) => void;
   whisperInstalled: boolean | null;
+  /** Models downloaded on this computer. */
+  whisperModels: WhisperModel[];
+  whisperModel: WhisperModel;
+  setWhisperModel: (m: WhisperModel) => void;
+  /** Start listening as soon as WorshipHQ Media opens. */
+  autoStart: boolean;
+  setAutoStart: (v: boolean) => void;
   installingWhisper: boolean;
   /** While downloading: bytes so far and in total, and which part. */
   whisperProgress: { stage: string; done: number; total: number } | null;
   checkWhisper: () => Promise<void>;
-  installWhisper: () => Promise<void>;
+  installWhisper: (model?: WhisperModel) => Promise<void>;
   /** Spoken commands ("next verse", "verse 5", "clear the screen"). */
   commandsOn: boolean;
   setCommandsOn: (v: boolean) => void;
@@ -93,6 +109,10 @@ interface VoiceState {
 }
 
 const MAX_LINES = 40;
+
+/** A command already acted on from an early guess, so the finished sentence doesn't run it again. */
+let earlyDone: { key: string; at: number } | null = null;
+const commandKey = (c: VoiceCommand) => JSON.stringify(c);
 
 /**
  * The preacher may read a verse without saying where it is. Look up a few words of what was heard in the
@@ -159,6 +179,15 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     micId: "default",
     setMicId: (micId) => set({ micId }),
     whisperInstalled: null,
+    whisperModels: [],
+    whisperModel: "base",
+    setWhisperModel: (whisperModel) => {
+      set({ whisperModel, whisperInstalled: get().whisperModels.includes(whisperModel) });
+      const st = get().status;
+      if (st === "listening" || st === "starting") get().stop().then(() => { if (get().whisperModels.includes(whisperModel)) get().start(); });
+    },
+    autoStart: false,
+    setAutoStart: (autoStart) => set({ autoStart }),
     installingWhisper: false,
     whisperProgress: null,
     commandsOn: true,
@@ -239,19 +268,24 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     checkWhisper: async () => {
       if (!isDesktopApp()) return;
       const { invoke } = await import("@tauri-apps/api/core");
-      const st = await invoke<{ installed: boolean }>("whisper_status").catch(() => ({ installed: false }));
-      set({ whisperInstalled: st.installed });
+      const st = await invoke<{ installed: boolean; models: WhisperModel[] }>("whisper_status").catch(() => ({ installed: false, models: [] as WhisperModel[] }));
+      const models = st.models ?? [];
+      // The chosen model isn't here but another is: use that one.
+      if (st.installed && !models.includes(get().whisperModel) && models.length) set({ whisperModel: models[models.length - 1] });
+      set({ whisperModels: models, whisperInstalled: st.installed && models.includes(get().whisperModel) });
     },
-    installWhisper: async () => {
+    installWhisper: async (model) => {
       if (!isDesktopApp()) return;
-      set({ installingWhisper: true, message: null, whisperProgress: { stage: "program", done: 0, total: 156537481 } });
+      const m = model ?? get().whisperModel;
+      set({ installingWhisper: true, message: null, whisperProgress: { stage: "model", done: 0, total: 1 } });
       const { invoke } = await import("@tauri-apps/api/core");
       const timer = setInterval(() => {
-        invoke<{ stage: string; done: number; total: number }>("whisper_progress").then((p) => { if (get().installingWhisper) set({ whisperProgress: p }); }).catch(() => {});
+        invoke<{ stage: string; done: number; total: number }>("whisper_progress", { model: m }).then((p) => { if (get().installingWhisper) set({ whisperProgress: p }); }).catch(() => {});
       }, 400);
       try {
-        await invoke("whisper_install");
-        set({ whisperInstalled: true, installingWhisper: false, whisperProgress: null });
+        await invoke("whisper_install", { model: m });
+        set({ installingWhisper: false, whisperProgress: null, whisperModel: m });
+        await get().checkWhisper();
       } catch (e) {
         set({ installingWhisper: false, whisperProgress: null, status: "error", message: String(e) });
       } finally {
@@ -271,13 +305,31 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
           set({ status: "error", message: "Whisper isn't downloaded yet. Go to Settings › Audio & microphone and press Download Whisper (one time, about 155 MB)." });
           return;
         }
+        // Load the speech model once and keep it in memory (much faster than loading it for every sentence).
+        set({ recognizer: "Loading the speech model…" });
+        const { invoke } = await import("@tauri-apps/api/core");
+        await invoke("whisper_start", { model: get().whisperModel }).catch(() => { /* falls back to the slower way */ });
+        if (get().status !== "starting") return;
         await startWhisperListening(get().micId, {
           onLevel: (level) => set({ level }),
           onSpeaking: (speaking) => set({ partial: speaking ? "…" : "" }),
+          onEarly: (text) => {
+            set({ partial: text });
+            const st = get();
+            if (!st.commandsOn) return;
+            const cmd = parseVoiceCommand(text, st.wakeWord || undefined);
+            // Single words ("next", "back") could still become "next chapter": wait for those.
+            if (!cmd || text.trim().split(/\s+/).length < 2 || !st.commandGroups[COMMAND_GROUP[cmd.type]]) return;
+            if (cmd.type === "version" && !findPack(cmd.query, useBibleStore.getState().packs)) return;
+            const key = commandKey(cmd);
+            if (earlyDone && earlyDone.key === key && Date.now() - earlyDone.at < 4000) return;
+            earlyDone = { key, at: Date.now() };
+            get().handleEvent(JSON.stringify({ type: "heard", text, confidence: 0.9, kind: "speech", early: true }));
+          },
           onText: (text) => get().handleEvent(JSON.stringify({ type: "heard", text, confidence: 0.92, kind: "speech" })),
           onError: (message) => set({ status: "error", message }),
-        });
-        if (get().status === "starting") set({ status: "listening", recognizer: "Whisper (OpenAI) on this computer" });
+        }, get().whisperModel);
+        if (get().status === "starting") set({ status: "listening", recognizer: `Whisper ${WHISPER_MODELS.find((x) => x.id === get().whisperModel)?.label ?? ""} (OpenAI) on this computer` });
         return;
       }
       try {
@@ -293,6 +345,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
       if (isDesktopApp()) {
         const { invoke } = await import("@tauri-apps/api/core");
         await invoke("voice_stop").catch(() => {});
+        await invoke("whisper_stop").catch(() => {});
       }
       set({ status: "off", level: 0, partial: "" });
     },
@@ -323,6 +376,11 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
           let cmd = st.commandsOn ? parseVoiceCommand(text, st.wakeWord || undefined) : null;
           if (cmd?.type === "version" && !findPack(cmd.query, useBibleStore.getState().packs)) cmd = null;
           if (cmd) {
+            // Already done from the early guess while it was being said.
+            if (!msg.early && earlyDone && earlyDone.key === commandKey(cmd) && Date.now() - earlyDone.at < 5000) {
+              earlyDone = null;
+              break;
+            }
             const id = crypto.randomUUID();
             const allowed = st.commandGroups[COMMAND_GROUP[cmd.type]];
             const name = describeCommand(cmd);
@@ -413,7 +471,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
 }, {
   name: "whq-media-voice",
   version: 1,
-  partialize: (s) => ({ mode: s.mode, autoDelay: s.autoDelay, minConfidence: s.minConfidence, matchQuotes: s.matchQuotes, engine: s.engine, micId: s.micId, commandsOn: s.commandsOn, commandGroups: s.commandGroups, wakeWord: s.wakeWord }),
+  partialize: (s) => ({ mode: s.mode, autoDelay: s.autoDelay, minConfidence: s.minConfidence, matchQuotes: s.matchQuotes, engine: s.engine, micId: s.micId, commandsOn: s.commandsOn, commandGroups: s.commandGroups, wakeWord: s.wakeWord, whisperModel: s.whisperModel, autoStart: s.autoStart }),
   merge: (persisted, current) => ({
     ...current,
     ...(persisted as object),

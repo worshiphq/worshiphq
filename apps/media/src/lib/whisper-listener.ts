@@ -1,19 +1,26 @@
 /**
  * Records the chosen microphone, cuts the audio into sentences (when the speaker pauses) and sends each one
  * to Whisper on this computer. Calls back with the level (0–100), "speaking" changes and the recognised text.
+ *
+ * For speed, while someone is still speaking a short sentence, the audio so far is also sent as an "early" guess,
+ * so a command like "next verse" can act before the pause has even finished.
  */
 
 interface Callbacks {
   onLevel: (level: number) => void;
   onSpeaking: (speaking: boolean) => void;
   onText: (text: string) => void;
+  /** What has been said so far in the sentence that is still going on. */
+  onEarly?: (text: string) => void;
   onError: (message: string) => void;
 }
 
 const RATE = 16000;
-const SILENCE_MS = 700;     // a pause this long ends a sentence
-const MAX_MS = 12000;       // never send more than this at once
-const MIN_MS = 500;         // ignore coughs and clicks
+const SILENCE_MS = 450;     // a pause this long ends a sentence
+const MAX_MS = 10000;       // never send more than this at once (Whisper is set up for 10 s)
+const MIN_MS = 350;         // ignore coughs and clicks
+const EARLY_EVERY_MS = 700; // early guesses while a short sentence is being spoken…
+const EARLY_UNTIL_MS = 3500; // …only for the first few seconds (commands are short)
 
 let ctx: AudioContext | null = null;
 let stream: MediaStream | null = null;
@@ -41,7 +48,14 @@ function junk(text: string): boolean {
   return !t || /^[\[(].*[\])]$/.test(t) || ["thank you.", "thanks for watching!", "you", "."].includes(t);
 }
 
-export async function startWhisperListening(deviceId: string | null, cb: Callbacks) {
+function join(chunks: Float32Array[]): Float32Array {
+  const all = new Float32Array(chunks.reduce((n, c) => n + c.length, 0));
+  let o = 0;
+  for (const c of chunks) { all.set(c, o); o += c.length; }
+  return all;
+}
+
+export async function startWhisperListening(deviceId: string | null, cb: Callbacks, model = "base") {
   await stopWhisperListening();
   try {
     stream = await navigator.mediaDevices.getUserMedia({
@@ -59,16 +73,21 @@ export async function startWhisperListening(deviceId: string | null, cb: Callbac
   }
   ctx = new AudioContext({ sampleRate: RATE });
   const src = ctx.createMediaStreamSource(stream);
-  node = ctx.createScriptProcessor(2048, 1, 1);
+  node = ctx.createScriptProcessor(1024, 1, 1);
   src.connect(node);
   node.connect(ctx.destination);
   running = true;
+  const { invoke } = await import("@tauri-apps/api/core");
+  const transcribe = (audio: Uint8Array) =>
+    invoke<string>("whisper_transcribe", audio as unknown as Record<string, unknown>, { headers: { "x-model": model } });
 
   let noise = 0.008;              // learns the room's background level
   let chunks: Float32Array[] = [];
   let speaking = false;
   let silentMs = 0;
   let speechMs = 0;
+  let sentence = 0;               // which sentence we are in (early guesses for an old one are dropped)
+  let lastEarlyAt = 0;
   const queue: Uint8Array[] = [];
   let busy = false;
 
@@ -77,8 +96,7 @@ export async function startWhisperListening(deviceId: string | null, cb: Callbac
     busy = true;
     const audio = queue.shift()!;
     try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const text = await invoke<string>("whisper_transcribe", audio as unknown as Record<string, unknown>);
+      const text = await transcribe(audio);
       if (running && !junk(text)) cb.onText(text.trim());
     } catch (e) {
       if (running) cb.onError(String(e));
@@ -87,15 +105,25 @@ export async function startWhisperListening(deviceId: string | null, cb: Callbac
     pump();
   };
 
+  /** A quick guess at the sentence still being spoken (never holds up a finished sentence). */
+  const early = async () => {
+    if (!cb.onEarly || busy || queue.length) return;
+    busy = true;
+    const mine = sentence;
+    try {
+      const text = await transcribe(wav(join(chunks)));
+      if (running && mine === sentence && !junk(text)) cb.onEarly(text.trim());
+    } catch { /* only a guess */ }
+    busy = false;
+    pump();
+  };
+
   const flush = () => {
     if (speechMs >= MIN_MS) {
-      const total = chunks.reduce((n, c) => n + c.length, 0);
-      const all = new Float32Array(total);
-      let o = 0;
-      for (const c of chunks) { all.set(c, o); o += c.length; }
-      if (queue.length < 3) queue.push(wav(all));
+      if (queue.length < 3) queue.push(wav(join(chunks)));
       pump();
     }
+    sentence++;
     chunks = [];
     speechMs = 0;
     silentMs = 0;
@@ -121,9 +149,15 @@ export async function startWhisperListening(deviceId: string | null, cb: Callbac
     } else if (speaking) {
       silentMs += ms;
       chunks.push(data);
-      if (silentMs >= SILENCE_MS) { speaking = false; cb.onSpeaking(false); flush(); }
+      if (silentMs >= SILENCE_MS) { speaking = false; cb.onSpeaking(false); flush(); return; }
     }
-    if (speaking && speechMs + silentMs >= MAX_MS) flush();
+    if (speaking && speechMs + silentMs >= MAX_MS) { flush(); return; }
+    // Early guess: short sentences only, every ~0.7 s, as soon as there is enough to hear a command.
+    const length = speechMs + silentMs;
+    if (speaking && speechMs >= 500 && length <= EARLY_UNTIL_MS && performance.now() - lastEarlyAt >= EARLY_EVERY_MS) {
+      lastEarlyAt = performance.now();
+      early();
+    }
   };
 }
 

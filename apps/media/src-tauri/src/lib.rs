@@ -254,6 +254,11 @@ async fn read_text_files(paths: Vec<String>) -> Result<Vec<extras::TextFile>, St
 }
 
 #[tauri::command]
+async fn list_fonts() -> Vec<String> {
+    extras::list_fonts()
+}
+
+#[tauri::command]
 fn open_sound_settings() {
     extras::open_sound_settings();
 }
@@ -325,13 +330,24 @@ fn stock_progress(app: tauri::AppHandle, token: String, ext: String) -> u64 {
 }
 
 #[tauri::command]
-fn whisper_progress(app: tauri::AppHandle) -> whisper::WhisperProgress {
-    whisper::progress(&bible_dir(&app))
+fn whisper_progress(app: tauri::AppHandle, model: Option<String>) -> whisper::WhisperProgress {
+    whisper::progress(&bible_dir(&app), model.as_deref().unwrap_or("base"))
+}
+
+/// Loads the speech model and keeps it in memory while listening.
+#[tauri::command]
+async fn whisper_start(app: tauri::AppHandle, model: String) -> Result<(), String> {
+    whisper::start_server(&bible_dir(&app), &model)
 }
 
 #[tauri::command]
-async fn whisper_install(app: tauri::AppHandle) -> Result<(), String> {
-    whisper::install(&bible_dir(&app))
+fn whisper_stop() {
+    whisper::stop_server();
+}
+
+#[tauri::command]
+async fn whisper_install(app: tauri::AppHandle, model: Option<String>) -> Result<(), String> {
+    whisper::install(&bible_dir(&app), model.as_deref().unwrap_or("base"))
 }
 
 /// One spoken sentence as a WAV file (sent as raw bytes) → text.
@@ -340,7 +356,8 @@ async fn whisper_transcribe(app: tauri::AppHandle, request: tauri::ipc::Request<
     let tauri::ipc::InvokeBody::Raw(wav) = request.body() else {
         return Err("Expected audio".into());
     };
-    whisper::transcribe(&bible_dir(&app), wav)
+    let model = request.headers().get("x-model").and_then(|v| v.to_str().ok()).unwrap_or("base").to_string();
+    whisper::transcribe(&bible_dir(&app), &model, wav)
 }
 
 #[tauri::command]
@@ -398,6 +415,26 @@ fn check_license(app: tauri::AppHandle, hwid: String) -> Result<licensing::Licen
         .app_data_dir()
         .unwrap_or_else(|_| std::path::PathBuf::from("."));
     licensing::check_license(&hwid, &data_dir)
+}
+
+#[tauri::command]
+fn license_info(app: tauri::AppHandle) -> Result<licensing::LicenseInfo, String> {
+    let data_dir = app.path().app_data_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    let hwid = licensing::get_hardware_id()?;
+    licensing::license_info(&hwid, &data_dir)
+}
+
+#[tauri::command]
+fn set_registered_to(app: tauri::AppHandle, name: String) -> Result<(), String> {
+    let data_dir = app.path().app_data_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+    licensing::set_registered_to(&data_dir, &name)
+}
+
+#[tauri::command]
+fn open_data_folder(app: tauri::AppHandle) -> Result<(), String> {
+    let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    std::process::Command::new("explorer.exe").arg(&data_dir).spawn().map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -532,6 +569,7 @@ pub fn run() {
                 if window.label() == "main" {
                     // Closing the main window closes everything, including the projector and the listener.
                     voice::stop(&app.state::<voice::VoiceState>());
+                    whisper::stop_server();
                     if let Some(p) = app.get_webview_window("projection") {
                         let _ = p.destroy();
                     }
@@ -582,6 +620,9 @@ pub fn run() {
             check_license,
             activate_license,
             remove_license,
+            license_info,
+            set_registered_to,
+            open_data_folder,
             generate_license_key,
             search_bible,
             search_bible_text,
@@ -603,6 +644,9 @@ pub fn run() {
             whisper_status,
             whisper_install,
             whisper_progress,
+            list_fonts,
+            whisper_start,
+            whisper_stop,
             stock_bundled,
             stock_licence,
             stock_download,

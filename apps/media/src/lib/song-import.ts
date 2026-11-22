@@ -4,7 +4,7 @@ import { textToSections } from "./song-text";
 /** EasyWorship stores song words as RTF. Turn that into plain lines ("Verse 1", words…, blank line…). */
 export function rtfToText(rtf: string): string {
   if (!rtf.startsWith("{\\rtf")) return rtf;
-  let s = rtf;
+  let s = convertAkanRuns(rtf);
   // Drop the header groups (fonts, colours, list styles) — the words start at the first \pard.
   const start = s.indexOf("\\pard");
   if (start >= 0) s = s.slice(start);
@@ -61,4 +61,26 @@ export function songFromTextFile(fileName: string, text: string): Song | null {
   const words = body.join("\n").trim();
   if (!words) return null;
   return makeSong(title, "", words, ["imported"]);
+}
+
+/**
+ * EasyWorship songs typed in an old Akan font store ɛ as "j" and ɔ as "c". Find those fonts in the RTF font
+ * table and change the letters typed in them, so the words show correctly in any font.
+ */
+function convertAkanRuns(rtf: string): string {
+  const table = rtf.match(/\{\\fonttbl([\s\S]*?)\}\s*(?:\{\\colortbl|\{\\\*|\\pard|\\viewkind)/)?.[1] ?? "";
+  const akan = new Set<string>();
+  for (const m of table.matchAll(/\\f(\d+)[^;]*?([^;\\{}]+);/g)) if (/akan|asante|twi/i.test(m[2])) akan.add(m[1]);
+  if (!akan.size) return rtf;
+  const start = rtf.indexOf("\\pard");
+  if (start < 0) return rtf;
+  let inAkan = false;
+  // Walk the body: control words switch fonts; plain letters in an Akan font are changed.
+  const body = rtf.slice(start).replace(/(\\f(\d+)\b ?)|(\\'[0-9a-fA-F]{2}|\\u-?\d+\??|\\[a-zA-Z]+-?\d* ?)|([jcJC])/g, (all, fsw, fnum, ctrl, ch) => {
+    if (fsw) { inAkan = akan.has(fnum); return all; }
+    if (ctrl) return all;
+    if (ch && inAkan) return ({ j: "ɛ", c: "ɔ", J: "Ɛ", C: "Ɔ" } as Record<string, string>)[ch];
+    return all;
+  });
+  return rtf.slice(0, start) + body;
 }

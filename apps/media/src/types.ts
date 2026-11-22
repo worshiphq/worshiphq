@@ -13,6 +13,8 @@ export interface Slide {
   hideText?: boolean;
   /** A second Bible version shown under the first (e.g. Twi on top, KJV below). */
   second?: { text: string; label: string };
+  /** This slide's own font (e.g. a song's font), instead of the look's. */
+  font?: string;
   /** A countdown clock to this time (ms since 1970). */
   countdownTo?: number;
   type: "scripture" | "song" | "media" | "announcement" | "logo" | "custom";
@@ -87,6 +89,10 @@ export interface Song {
   sections: SongSection[];
   order: string[];
   tags: string[];
+  /** Font for this song's words (a font name); empty = the font chosen in Look & fonts. */
+  font?: string;
+  /** Words typed for an old Akan font: show j as ɛ and c as ɔ. */
+  akan?: boolean;
 }
 
 export interface SongSection {

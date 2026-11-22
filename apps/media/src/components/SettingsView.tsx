@@ -1,13 +1,14 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BookOpen, Keyboard, Mic, Palette, TvMinimal, Volume2 } from "lucide-react";
+import { BookOpen, Info, Keyboard, Mic, Palette, TvMinimal, Volume2 } from "lucide-react";
+import { AboutView } from "./AboutView";
 import { LooksView } from "./LooksView";
 import { ScreensView } from "./ScreensView";
-import { useVoiceStore, type VoiceMode } from "../stores/voice-store";
+import { useVoiceStore, WHISPER_MODELS, type VoiceMode } from "../stores/voice-store";
 import { COMMAND_HELP } from "../lib/voice-commands";
 import { useBibleStore } from "../stores/bible-store";
 import { isDesktopApp } from "../lib/media-src";
 
-export type SettingsTab = "looks" | "screens" | "audio" | "bibles" | "shortcuts";
+export type SettingsTab = "looks" | "screens" | "audio" | "bibles" | "shortcuts" | "about";
 
 const TABS: { id: SettingsTab; label: string; Icon: typeof Palette }[] = [
   { id: "looks", label: "Look & fonts", Icon: Palette },
@@ -15,6 +16,7 @@ const TABS: { id: SettingsTab; label: string; Icon: typeof Palette }[] = [
   { id: "audio", label: "Audio & microphone", Icon: Mic },
   { id: "bibles", label: "Bible versions", Icon: BookOpen },
   { id: "shortcuts", label: "Keyboard shortcuts", Icon: Keyboard },
+  { id: "about", label: "About & licence", Icon: Info },
 ];
 
 export function SettingsView({ tab, onTab, onOpenMedia }: { tab: SettingsTab; onTab: (t: SettingsTab) => void; onOpenMedia: () => void }) {
@@ -40,6 +42,7 @@ export function SettingsView({ tab, onTab, onOpenMedia }: { tab: SettingsTab; on
         {tab === "audio" && <AudioSettings />}
         {tab === "bibles" && <BibleSettings />}
         {tab === "shortcuts" && <Shortcuts />}
+        {tab === "about" && <AboutView />}
       </div>
     </div>
   );
@@ -351,20 +354,35 @@ function WhisperSetup({ deviceId, devices }: { deviceId: string; devices: MediaD
       </label>
       {v.engine === "whisper" && (
         <div className="rounded-lg border border-line p-3">
-          {v.whisperInstalled ? (
-            <p className="text-[14px] font-medium text-success">✓ Whisper is installed on this computer.</p>
-          ) : (
-            v.installingWhisper && v.whisperProgress ? (
-              <WhisperProgressBar p={v.whisperProgress} />
-            ) : (
-              <div className="flex flex-wrap items-center gap-3">
-                <p className="flex-1 text-[14px] text-ink">Whisper needs a one-time download (about 155 MB). After that it works without internet.</p>
-                <button onClick={v.installWhisper} className="h-10 rounded-lg bg-primary px-4 text-[14px] font-bold text-white hover:bg-primary-bright">
-                  Download Whisper
-                </button>
-              </div>
-            )
-          )}
+          <span className="mb-2 block text-[13px] font-medium text-ink-muted">Speech model (each is a one-time download, then works without internet)</span>
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            {WHISPER_MODELS.map((m) => {
+              const have = v.whisperModels.includes(m.id);
+              const chosen = v.whisperModel === m.id;
+              return (
+                <div key={m.id} className={`flex flex-col rounded-lg p-3 ${chosen ? "bg-primary-soft/70 ring-2 ring-primary" : "bg-surface-4/60"}`}>
+                  <span className="flex items-center gap-2 text-[14px] font-bold text-ink">{m.label} <span className="text-[12px] font-medium text-ink-faint">{m.size}</span></span>
+                  <span className="mt-0.5 flex-1 text-[12px] text-ink-muted">{m.note}</span>
+                  {have ? (
+                    <button onClick={() => v.setWhisperModel(m.id)} disabled={chosen}
+                      className={`mt-2 h-8 rounded-lg text-[13px] font-bold ${chosen ? "bg-success/15 text-success" : "border border-line-bright text-ink hover:bg-surface-2"}`}>
+                      {chosen ? "✓ In use" : "Use this"}
+                    </button>
+                  ) : (
+                    <button onClick={() => v.installWhisper(m.id)} disabled={v.installingWhisper}
+                      className="mt-2 h-8 rounded-lg bg-primary text-[13px] font-bold text-white hover:bg-primary-bright disabled:opacity-50">
+                      Download
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {v.installingWhisper && v.whisperProgress && <div className="mt-3"><WhisperProgressBar p={v.whisperProgress} /></div>}
+          <label className="mt-3 flex cursor-pointer items-center gap-2">
+            <input type="checkbox" checked={v.autoStart} onChange={(e) => v.setAutoStart(e.target.checked)} className="size-4 accent-[var(--color-primary)]" />
+            <span className="text-[14px] text-ink">Start listening as soon as WorshipHQ Media opens</span>
+          </label>
           <label className="mt-3 block">
             <span className="mb-1 block text-[13px] font-medium text-ink-muted">Microphone to listen to</span>
             <select value={v.micId} onChange={(e) => v.setMicId(e.target.value)} className="h-10 w-full rounded-lg border border-line-bright bg-surface-2 px-2 text-[14px] text-ink">
@@ -384,7 +402,7 @@ function WhisperSetup({ deviceId, devices }: { deviceId: string; devices: MediaD
 function WhisperProgressBar({ p }: { p: { stage: string; done: number; total: number } }) {
   const pct = Math.min(100, Math.round((p.done / Math.max(1, p.total)) * 100));
   const mb = (n: number) => (n / 1048576).toFixed(0);
-  const label = p.stage === "program" ? "Downloading the Whisper program…" : p.stage === "model" ? "Downloading the English speech model…" : "Finishing…";
+  const label = p.stage === "program" ? "Downloading the Whisper program…" : p.stage === "model" ? "Downloading the speech model…" : "Finishing…";
   return (
     <div role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100} aria-label="Downloading Whisper">
       <div className="mb-1.5 flex items-baseline justify-between gap-3 text-[14px]">

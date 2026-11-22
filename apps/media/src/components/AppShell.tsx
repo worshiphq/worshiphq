@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import logoMark from "../assets/worshiphq-mark.png";
 import {
   BookOpen, CalendarDays, Cast, Church, Eraser, Image as ImageIcon, Mic, Minus, Monitor, MonitorOff,
   Music, Settings, Square, X,
@@ -44,9 +45,7 @@ export function AppHeader() {
   return (
     <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface-2 pl-4" data-tauri-drag-region>
       <div className="flex items-center gap-2.5" data-tauri-drag-region>
-        <div className="grid size-8 place-items-center rounded-lg bg-primary">
-          <span className="text-[14px] font-black text-white">W</span>
-        </div>
+        <img src={logoMark} alt="WorshipHQ" className="size-8 object-contain" draggable={false} data-tauri-drag-region />
         <span className="hidden text-[15px] font-bold tracking-tight text-ink lg:inline" data-tauri-drag-region>
           WorshipHQ <span className="text-primary">Media</span>
         </span>
@@ -94,6 +93,7 @@ export function AppHeader() {
         <span className={`size-2 shrink-0 rounded-full ${showingSomething ? "live-dot bg-danger" : "bg-ink-faint/60"}`} />
         <span className="truncate">{onScreen}</span>
       </div>
+      <VoicePill />
       <NowPlaying />
       {alert && <span className="max-w-[180px] truncate rounded-full bg-danger px-3 py-1.5 text-[12px] font-bold text-white" title={alert.text}>Alert: {alert.text}</span>}
 
@@ -258,5 +258,31 @@ export function AppSidebar({ workspace, onChange }: { workspace: Workspace; onCh
         )}
       </div>
     </aside>
+  );
+}
+
+/** The voice assistant keeps listening on every page: shows it, what it last heard, and starts / stops it. */
+function VoicePill() {
+  const status = useVoiceStore((v) => v.status);
+  const level = useVoiceStore((v) => v.level);
+  const last = useVoiceStore((v) => v.lines[0]);
+  const start = useVoiceStore((v) => v.start);
+  const stop = useVoiceStore((v) => v.stop);
+  const on = status === "listening" || status === "starting";
+  const fresh = last && Date.now() - last.at < 8000 ? last : null;
+  return (
+    <button
+      onClick={() => (on ? stop() : start())}
+      title={on ? "The voice assistant is listening on every page. Click to stop." : "Start the voice assistant"}
+      className={`flex h-9 max-w-[320px] items-center gap-2 rounded-lg border px-2.5 text-[13px] font-semibold ${on ? "border-success/40 bg-success/10 text-ink" : status === "error" ? "border-danger/40 bg-danger/10 text-danger" : "border-line-bright text-ink-muted hover:bg-surface-4"}`}
+    >
+      <span className="relative grid size-5 place-items-center">
+        <Mic className={`size-4 ${on ? "text-success" : ""}`} />
+        {on && <span className="absolute -bottom-0.5 left-0 h-0.5 rounded bg-success transition-[width]" style={{ width: `${Math.min(100, level * 1.5)}%` }} />}
+      </span>
+      <span className="hidden min-w-0 truncate xl:inline">
+        {status === "starting" ? "Starting…" : on ? (fresh ? (fresh.command ?? fresh.text) : "Listening") : status === "error" ? "Voice stopped" : "Voice off"}
+      </span>
+    </button>
   );
 }
