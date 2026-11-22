@@ -114,7 +114,14 @@ pub fn import_presentation(app_data: &Path, source: &str) -> Result<Vec<String>,
         }
     }
     if slides.is_empty() {
-        return Err("No slides were found in that file.".into());
+        let _ = std::fs::remove_dir_all(&out_dir);
+        let err = String::from_utf8_lossy(&output.stderr);
+        let detail = err.lines().map(str::trim).find(|l| !l.is_empty()).unwrap_or("");
+        return Err(if detail.is_empty() {
+            "No slides were found in that file.".into()
+        } else {
+            format!("Couldn't import this file: {detail}")
+        });
     }
     Ok(slides)
 }

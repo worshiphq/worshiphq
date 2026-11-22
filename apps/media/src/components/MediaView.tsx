@@ -24,7 +24,7 @@ export function MediaView() {
   const pres = presentations.find((p) => p.id === presId) ?? null;
   const { currentSlide, isLive, isBlack, projectionOpen, goLive, goClear, openProjection, addToService, logo, setLogo } = useProjectionStore();
 
-  const [filter, setFilter] = useState<Filter>("all");
+  const [filter, setFilter] = useState<Filter>("image");
   const [query, setQuery] = useState("");
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [options, setOptions] = useState<Record<string, MediaOptions>>({});
@@ -127,7 +127,7 @@ export function MediaView() {
         <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-line px-4 py-3">
           <h2 className="text-[18px] font-bold text-ink">Media</h2>
           <div className="flex max-w-full flex-wrap rounded-lg bg-surface-4 p-1">
-            {([["image", "Pictures"], ["video", "Videos"], ["audio", "Audio"], ["presentations", "Presentations"], ["stock", "✦ Free backgrounds"], ["all", "All"]] as [Filter, string][]).map(([f, label]) => (
+            {([["image", "Images"], ["video", "Videos"], ["audio", "Audio"], ["presentations", "Presentations"], ["stock", "✦ Free backgrounds"], ["all", "All"]] as [Filter, string][]).map(([f, label]) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
