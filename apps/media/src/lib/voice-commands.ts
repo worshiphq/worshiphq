@@ -10,18 +10,23 @@ export type VoiceCommand =
   | { type: "clear" }
   | { type: "black" }
   | { type: "show" }
-  | { type: "cancel" };
+  | { type: "cancel" }
+  /** Change the Bible version (or the second one shown underneath). `query` is matched against the Bibles on this computer. */
+  | { type: "version"; query: string; second?: boolean }
+  | { type: "secondOff" };
 
 export type CommandGroup = "bible" | "slides" | "screen" | "banner";
 
 export const COMMAND_GROUP: Record<VoiceCommand["type"], CommandGroup> = {
   verse: "bible", gotoVerse: "bible", chapter: "bible", chapterDelta: "bible",
   slide: "slides", clear: "screen", black: "screen", show: "banner", cancel: "banner",
+  version: "bible", secondOff: "bible",
 };
 
 /** What to say, for the help list in Settings and on the Voice assistant page. */
 export const COMMAND_HELP: { group: CommandGroup; title: string; examples: string[] }[] = [
   { group: "bible", title: "Move through the Bible", examples: ["Next verse", "Previous verse", "Verse 5", "Verses 5 to 8", "Chapter 4", "Chapter 4 verse 2", "Next chapter"] },
+  { group: "bible", title: "Change the Bible version", examples: ["Give me the Amplified version", "Read it in NIV", "Switch to Twi", "Add King James underneath", "Remove the second version"] },
   { group: "slides", title: "Songs and slides", examples: ["Next slide", "Previous slide", "Next part"] },
   { group: "screen", title: "The screen", examples: ["Clear the screen", "Black screen"] },
   { group: "banner", title: "The verse banner", examples: ["Show it", "Cancel"] },
@@ -65,6 +70,22 @@ export function parseVoiceCommand(text: string, wake?: string): VoiceCommand | n
   if (/^clear(?: (?:it|that|everything|the words|the screen|screen|words|text))?$/.test(s)) return { type: "clear" };
   if (/^(?:black|blank)(?: (?:the )?screen| it| out)?$|^blackout$|^go black$/.test(s)) return { type: "black" };
 
+  // Bible versions (checked against the Bibles on this computer before acting).
+  const version = (q: string) => q.replace(/\s+(?:version|bible|translation)$/, "").replace(/^the /, "").trim();
+  if (/^(?:remove|drop|hide|no|take off|turn off|clear|close) (?:the )?(?:second|other|bottom|extra) (?:version|bible|translation)$/.test(s)) return { type: "secondOff" };
+  m = s.match(/^(?:add|also show|show also|put|include|bring) (?:the )?(.+?) (?:underneath|below|beneath|under it|under|too|as well|also|as (?:the )?second(?: version)?|at the bottom)$/);
+  if (m) return { type: "version", query: version(m[1]), second: true };
+  m = s.match(/^second (?:version|bible|translation)(?: to| in| is)? (.+)$/);
+  if (m) return { type: "version", query: version(m[1]), second: true };
+  m = s.match(/^(?:switch|change|swap|turn)(?: it| that| this)?(?: over)? (?:to|into) (?:the )?(.+)$/);
+  if (m) return { type: "version", query: version(m[1]) };
+  m = s.match(/^(?:read|show|put|display|give)(?: it| that| this| us| me)? in (?:the )?(.+)$/);
+  if (m) return { type: "version", query: version(m[1]) };
+  m = s.match(/^in (?:the )?(.+)$/);
+  if (m && m[1].split(" ").length <= 4) return { type: "version", query: version(m[1]) };
+  m = s.match(/^(.+?) (?:version|translation|bible)$/);
+  if (m && m[1].split(" ").length <= 4) return { type: "version", query: version(m[1]) };
+
   if (/^(?:show|display|project|put up)(?: (?:it|that|this|that verse|the verse|it up))?$|^put it (?:up|on)(?: the screen)?$/.test(s)) return { type: "show" };
   if (/^(?:cancel|dismiss|not that(?: one)?|wrong(?: one)?|ignore(?: it| that)?)$/.test(s)) return { type: "cancel" };
   return null;
@@ -81,5 +102,7 @@ export function describeCommand(c: VoiceCommand): string {
     case "black": return "Black screen";
     case "show": return "Show it";
     case "cancel": return "Cancel";
+    case "version": return c.second ? `Second version: ${c.query}` : `Version: ${c.query}`;
+    case "secondOff": return "Remove the second version";
   }
 }

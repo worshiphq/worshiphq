@@ -100,3 +100,9 @@ export function stepPart(delta: 1 | -1): boolean {
   usePassageStore.getState().set({ ...p, index: i });
   return true;
 }
+
+/** Chooses the second version shown under the first ("" = none). The Bible page follows along. */
+export function setSecondVersion(id: string) {
+  try { localStorage.setItem("whq-second-version", id); } catch { /* ignore */ }
+  window.dispatchEvent(new CustomEvent("whq-second-version", { detail: id }));
+}

@@ -10,7 +10,8 @@ import { useBibleStore } from "./bible-store";
 import { useProjectionStore } from "./projection-store";
 import { startWhisperListening, stopWhisperListening } from "../lib/whisper-listener";
 import { COMMAND_GROUP, describeCommand, parseVoiceCommand, type CommandGroup, type VoiceCommand } from "../lib/voice-commands";
-import { showPassage, stepPart, stepVerse, usePassageStore } from "../lib/show-passage";
+import { showPassage, stepPart, stepVerse, usePassageStore, setSecondVersion } from "../lib/show-passage";
+import { findPack } from "../lib/version-match";
 
 /** whisper = OpenAI Whisper on this computer (accurate); windows = the old Windows recogniser. */
 export type VoiceEngine = "whisper" | "windows";
@@ -210,6 +211,23 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
           if (proj.textCleared) { proj.toggleClearText(); return { ok: true, note: "Words back on" }; }
           return { ok: false, note: "Nothing waiting to show" };
         }
+        case "version": {
+          const bible = useBibleStore.getState();
+          if (!bible.packs.length) await bible.loadPacks();
+          const packs = useBibleStore.getState().packs;
+          const pack = findPack(c.query, packs);
+          if (!pack) return { ok: false, note: `No Bible called “${c.query}” on this computer` };
+          if (c.second) setSecondVersion(pack.id === useBibleStore.getState().activePack ? "" : pack.id);
+          else useBibleStore.getState().setActivePack(pack.id);
+          const again = passage ? await showPassage({ book: passage.book, chapter: passage.chapter, verseStart: passage.start, verseEnd: passage.end }) : null;
+          const what = c.second ? `${pack.abbreviation} underneath` : `Now in ${pack.abbreviation}`;
+          return { ok: true, note: again ? `${what} · ${again}` : what };
+        }
+        case "secondOff": {
+          setSecondVersion("");
+          const again = passage ? await showPassage({ book: passage.book, chapter: passage.chapter, verseStart: passage.start, verseEnd: passage.end }) : null;
+          return { ok: true, note: again ? `One version · ${again}` : "One version" };
+        }
         case "cancel": {
           const pending = get().pending;
           if (!pending) return { ok: false, note: "Nothing to cancel" };
@@ -302,7 +320,8 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
           const text = String(msg.text ?? "");
           const confidence = Number(msg.confidence) || 0;
           const st = get();
-          const cmd = st.commandsOn ? parseVoiceCommand(text, st.wakeWord || undefined) : null;
+          let cmd = st.commandsOn ? parseVoiceCommand(text, st.wakeWord || undefined) : null;
+          if (cmd?.type === "version" && !findPack(cmd.query, useBibleStore.getState().packs)) cmd = null;
           if (cmd) {
             const id = crypto.randomUUID();
             const allowed = st.commandGroups[COMMAND_GROUP[cmd.type]];
@@ -328,7 +347,8 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     tryText: (text) => {
       const t = text.trim();
       if (!t) return;
-      if (get().commandsOn && parseVoiceCommand(t, get().wakeWord || undefined)) {
+      const typedCmd = get().commandsOn ? parseVoiceCommand(t, get().wakeWord || undefined) : null;
+      if (typedCmd && (typedCmd.type !== "version" || findPack(typedCmd.query, useBibleStore.getState().packs))) {
         get().handleEvent(JSON.stringify({ type: "heard", text: t, confidence: 1, kind: "speech" }));
         return;
       }

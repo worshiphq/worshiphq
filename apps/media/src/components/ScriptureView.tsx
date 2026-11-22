@@ -69,6 +69,12 @@ export function ScriptureView({ onOpenLooks }: { onOpenLooks: () => void }) {
   // Optional second version on screen (remembered on this computer).
   const [secondId, setSecondIdRaw] = useState<string>(() => { try { return localStorage.getItem("whq-second-version") ?? ""; } catch { return ""; } });
   const setSecondId = (id: string) => { setSecondIdRaw(id); try { localStorage.setItem("whq-second-version", id); } catch { /* ignore */ } };
+  // The voice assistant can change it too ("add King James underneath").
+  useEffect(() => {
+    const on = (e: Event) => setSecondIdRaw(String((e as CustomEvent).detail ?? ""));
+    window.addEventListener("whq-second-version", on);
+    return () => window.removeEventListener("whq-second-version", on);
+  }, []);
   const secondPack = packs.find((p) => p.id === secondId && p.id !== activePack);
   const [secondVerses, setSecondVerses] = useState<BibleVerse[]>([]);
   useEffect(() => {
