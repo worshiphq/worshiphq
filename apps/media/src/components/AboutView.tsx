@@ -140,6 +140,7 @@ export function AboutView() {
             <li>Public-domain and openly licensed Bibles from eBible.org (Biblica Open versions under CC BY-SA 4.0). Other versions are provided under licences held by WorshipHQ or your church.</li>
             <li>Hymns in the song library are in the public domain.</li>
             <li>Free backgrounds are original work by WorshipHQ.</li>
+            <li>Akan Times New Roman is made by WorshipHQ from the Tinos font by Steve Matteson (Apache Licence 2.0).</li>
           </ul>
           <p className="mt-3 text-[12px] text-ink-faint">© {new Date().getFullYear()} WorshipHQ. All rights reserved.</p>
         </section>

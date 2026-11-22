@@ -1,5 +1,39 @@
 @import "tailwindcss";
 
+/* Akan Times New Roman: Times-style letters (Tinos, Apache 2.0) where j/J show ɛ/Ɛ and c/C show ɔ/Ɔ, like the old Akan fonts. */
+@font-face {
+  font-family: "Akan Times New Roman";
+  src: url("./assets/fonts/akan-times-regular.woff2") format("woff2");
+  font-weight: 100 500;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Akan Times New Roman";
+  src: url("./assets/fonts/akan-times-bold.woff2") format("woff2");
+  font-weight: 600 900;
+  font-style: normal;
+  font-display: block;
+}
+@font-face {
+  font-family: "Akan Times New Roman";
+  src: url("./assets/fonts/akan-times-italic.woff2") format("woff2");
+  font-weight: 100 500;
+  font-style: italic;
+  font-display: block;
+}
+@font-face {
+  font-family: "Akan Times New Roman";
+  src: url("./assets/fonts/akan-times-bold-italic.woff2") format("woff2");
+  font-weight: 600 900;
+  font-style: italic;
+  font-display: block;
+}
+
+/* Song words editor: section headings */
+.lyric-heading { color: var(--color-primary-bright); font-weight: 700; }
+.lyrics-editor [style*="__default"] { font-family: inherit !important; }
+
 @theme {
   /* Stitch "Sanctuary Studio" palette: calm light slate surfaces with teal accents */
   --color-surface: #eef2f6;      /* app background */

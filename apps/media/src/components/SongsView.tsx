@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { SongToolbar } from "./SongToolbar";
-import { cssFont } from "../lib/rich-text";
+import { LyricsEditor } from "./LyricsEditor";
 import { Check, HelpCircle, Music, Plus, Search, Trash2, X } from "lucide-react";
 import { useSongStore } from "../stores/song-store";
 import { useProjectionStore } from "../stores/projection-store";
@@ -60,13 +59,17 @@ export function SongsView() {
   }
   const { addToService, goLive, serviceItems, projectionOpen, openProjection } = useProjectionStore();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [text, setText] = useState("");
-  const [saved, setSaved] = useState(true);
+  /** What is being edited. Nothing changes in the library until Save (or straight away with auto-save on). */
+  const [draft, setDraft] = useState<{ title: string; author: string; key: string; text: string }>({ title: "", author: "", key: "", text: "" });
+  const [dirty, setDirty] = useState(false);
+  /** A brand-new song that was never saved: Cancel removes it again. */
+  const [unsavedNew, setUnsavedNew] = useState<string | null>(null);
+  const [autoSave, setAutoSaveRaw] = useState(() => { try { return localStorage.getItem("whq-songs-autosave") === "1"; } catch { return false; } });
+  const setAutoSave = (v: boolean) => { setAutoSaveRaw(v); try { localStorage.setItem("whq-songs-autosave", v ? "1" : "0"); } catch { /* ignore */ } };
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
   const titleRef = useRef<HTMLInputElement>(null);
-  const wordsRef = useRef<HTMLTextAreaElement>(null);
   const saveTimer = useRef<number | undefined>(undefined);
   const menu = useContextMenu();
 
@@ -77,11 +80,13 @@ export function SongsView() {
 
   const song = songs.find((s) => s.id === selectedId) ?? null;
 
-  // Load the words when a different song is chosen.
+  const draftFrom = (s: Song) => ({ title: s.title, author: s.author ?? "", key: s.key ?? "", text: songToText(s) });
+
+  // Load the song when a different one is chosen.
   useEffect(() => {
-    if (song) setText(songToText(song));
+    if (song) setDraft(draftFrom(song));
+    setDirty(false);
     setConfirmDelete(false);
-    setSaved(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId]);
 
@@ -91,19 +96,50 @@ export function SongsView() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  const slides = useMemo(() => (song ? buildSongSlides(song) : []), [song]);
+  // The slides show the words as they are being edited.
+  const shownSong = useMemo<Song | null>(() => (song ? { ...song, title: draft.title, ...textToSections(draft.text) } : null), [song, draft.text, draft.title]);
+  const slides = useMemo(() => (shownSong ? buildSongSlides(shownSong) : []), [shownSong]);
   const inService = !!song && serviceItems.some((i) => i.data?.songId === song.id);
 
-  function changeWords(value: string) {
-    setText(value);
-    setSaved(false);
+  function save(d = draft) {
+    if (!song) return;
+    updateSong(song.id, { title: d.title.trim() || "Untitled song", author: d.author, key: d.key, ...textToSections(d.text) });
+    setDirty(false);
+    setUnsavedNew(null);
+  }
+
+  function cancel() {
     window.clearTimeout(saveTimer.current);
-    const id = selectedId;
-    saveTimer.current = window.setTimeout(() => {
-      if (!id) return;
-      updateSong(id, textToSections(value));
-      setSaved(true);
-    }, 400);
+    if (song && unsavedNew === song.id) {
+      deleteSong(song.id);
+      setSelectedId(null);
+      setUnsavedNew(null);
+    } else if (song) {
+      setDraft(draftFrom(song));
+    }
+    setDirty(false);
+  }
+
+  function edit(changes: Partial<typeof draft>) {
+    const next = { ...draft, ...changes };
+    setDraft(next);
+    setDirty(true);
+    if (autoSave) {
+      window.clearTimeout(saveTimer.current);
+      saveTimer.current = window.setTimeout(() => save(next), 500);
+    }
+  }
+
+  const changeWords = (value: string) => edit({ text: value });
+
+  /** Before leaving a song with changes: save them, throw them away, or stay. */
+  function choose(id: string | null) {
+    if (dirty && song && id !== song.id) {
+      const keep = window.confirm(`Save your changes to “${draft.title || "this song"}”?\n\nOK = Save   ·   Cancel = Don't save`);
+      if (keep) save();
+      else if (unsavedNew === song.id) { deleteSong(song.id); setUnsavedNew(null); }
+    }
+    setSelectedId(id);
   }
 
   function newSong() {
@@ -115,10 +151,13 @@ export function SongsView() {
       tags: [],
       ...textToSections(NEW_SONG_TEXT),
     };
+    if (dirty) choose(null);
     search("");
     addSong(s);
     setSelectedId(s.id);
-    setText(NEW_SONG_TEXT);
+    setUnsavedNew(s.id);
+    setDraft({ title: "New song", author: "", key: "", text: NEW_SONG_TEXT });
+    setDirty(true);
     setTimeout(() => { titleRef.current?.focus(); titleRef.current?.select(); }, 50);
   }
 
@@ -169,12 +208,12 @@ export function SongsView() {
           {filteredSongs.map((s) => (
             <button
               key={s.id}
-              onClick={() => setSelectedId(s.id)}
+              onClick={() => choose(s.id)}
               onContextMenu={menu.open(() => [
                 { label: "Show on screen", icon: <MonitorPlay className="size-4" />, onClick: () => { const first = buildSongSlides(s)[0]; if (first) { if ((window as any).__TAURI_INTERNALS__ && !projectionOpen) openProjection(); goLive(first); } } },
                 { label: "Add to service", icon: <Plus className="size-4" />, onClick: () => { addToService(songToServiceItem(s)); setToast(`${s.title} added to the service`); } },
-                { label: "Edit", icon: <Music className="size-4" />, onClick: () => setSelectedId(s.id) },
-                { label: "Make a copy", icon: <CopyIcon className="size-4" />, onClick: () => { const c = { ...JSON.parse(JSON.stringify(s)), id: crypto.randomUUID(), title: `${s.title} (copy)` }; addSong(c); setSelectedId(c.id); } },
+                { label: "Edit", icon: <Music className="size-4" />, onClick: () => choose(s.id) },
+                { label: "Make a copy", icon: <CopyIcon className="size-4" />, onClick: () => { const c = { ...JSON.parse(JSON.stringify(s)), id: crypto.randomUUID(), title: `${s.title} (copy)` }; addSong(c); choose(c.id); } },
                 { divider: true },
                 { label: "Delete", icon: <Trash2 className="size-4" />, danger: true, onClick: () => { deleteSong(s.id); if (selectedId === s.id) setSelectedId(null); } },
               ])}
@@ -207,16 +246,35 @@ export function SongsView() {
             <div className="shrink-0 border-b border-line p-4">
               <input
                 ref={titleRef}
-                value={song.title}
-                onChange={(e) => updateSong(song.id, { title: e.target.value })}
+                value={draft.title}
+                onChange={(e) => edit({ title: e.target.value })}
                 placeholder="Song title"
                 aria-label="Song title"
                 className="w-full rounded-md bg-transparent px-1 text-[22px] font-bold text-ink outline-none hover:bg-surface-4 focus:bg-surface-4"
               />
               <div className="mt-2 flex flex-wrap gap-3">
-                <Field label="Written by" value={song.author ?? ""} onChange={(v) => updateSong(song.id, { author: v })} placeholder="e.g. Chris Tomlin" width="w-64" />
-                <Field label="Key" value={song.key ?? ""} onChange={(v) => updateSong(song.id, { key: v })} placeholder="G" width="w-20" />
-                <span className="ml-auto self-end text-[12px] text-ink-faint">{saved ? "✓ Saved" : "Saving…"}</span>
+                <Field label="Written by" value={draft.author} onChange={(v) => edit({ author: v })} placeholder="e.g. Chris Tomlin" width="w-64" />
+                <Field label="Key" value={draft.key} onChange={(v) => edit({ key: v })} placeholder="G" width="w-20" />
+                <div className="ml-auto flex items-end gap-2 self-end">
+                  <label className="mb-1.5 flex cursor-pointer items-center gap-1.5 text-[12px] text-ink-muted" title="Save every change as you type">
+                    <input type="checkbox" checked={autoSave} onChange={(e) => { setAutoSave(e.target.checked); if (e.target.checked && dirty) save(); }} className="size-3.5 accent-[var(--color-primary)]" />
+                    Save automatically
+                  </label>
+                  {autoSave ? (
+                    <span className="mb-1.5 text-[12px] text-ink-faint">{dirty ? "Saving…" : "✓ Saved"}</span>
+                  ) : (
+                    <>
+                      <button onClick={cancel} disabled={!dirty && unsavedNew !== song.id}
+                        className="h-9 rounded-lg border border-line-bright px-3 text-[14px] font-semibold text-ink hover:bg-surface-4 disabled:opacity-40">
+                        Cancel
+                      </button>
+                      <button onClick={() => save()} disabled={!dirty}
+                        className="h-9 rounded-lg bg-primary px-4 text-[14px] font-bold text-white hover:bg-primary-bright disabled:bg-surface-5 disabled:text-ink-faint">
+                        {dirty ? "Save" : "✓ Saved"}
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
             </div>
             <div className="flex min-h-0 flex-1 flex-col p-4">
@@ -233,17 +291,7 @@ export function SongsView() {
                   Leave an empty line to start a new slide. To sing the chorus again, just write <code className="rounded bg-surface-2 px-1">[Chorus]</code> again with nothing under it.
                 </div>
               )}
-              <SongToolbar song={song} text={text} setText={changeWords} area={wordsRef} onChange={(c) => updateSong(song.id, c)} />
-              <textarea
-                ref={wordsRef}
-                value={text}
-                onChange={(e) => changeWords(e.target.value)}
-                spellCheck={false}
-                aria-label="Song words"
-                placeholder={"[Verse 1]\nType or paste the words here…"}
-                className="min-h-0 flex-1 resize-none rounded-lg border border-line-bright bg-surface-2 p-3 font-mono text-[14px] leading-relaxed text-ink outline-none focus:border-primary focus:ring-2 focus:ring-primary-glow"
-                style={{ userSelect: "text", ...(song.font ? { fontFamily: cssFont(song.font), fontSize: 16 } : {}) }}
-              />
+              <LyricsEditor value={draft.text} onChange={changeWords} placeholder={"[Verse 1]\nType or paste the words here…"} />
             </div>
           </>
         )}
@@ -255,7 +303,7 @@ export function SongsView() {
           <section className="rounded-xl border border-line bg-surface-2 p-3 shadow-sm">
             <div className="flex flex-col gap-2">
               <button
-                onClick={() => { addToService(songToServiceItem(song)); setToast(`${song.title} added to the service`); }}
+                onClick={() => { if (dirty) save(); addToService(songToServiceItem(shownSong ?? song)); setToast(`${draft.title || song.title} added to the service`); }}
                 disabled={!slides.length}
                 className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary text-[16px] font-bold text-white hover:bg-primary-bright disabled:bg-surface-5 disabled:text-ink-faint"
               >

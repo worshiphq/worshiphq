@@ -57,6 +57,7 @@ export const FONTS: { value: string; label: string }[] = [
   { value: "Cambria, Georgia, serif", label: "Cambria" },
   { value: "'Palatino Linotype', 'Book Antiqua', serif", label: "Palatino (Bible style)" },
   { value: "'Book Antiqua', 'Palatino Linotype', serif", label: "Book Antiqua" },
+  { value: "'Akan Times New Roman', 'Times New Roman', serif", label: "Akan Times New Roman (j = ɛ, c = ɔ)" },
 ];
 
 export const GRADIENTS: { value: string; label: string }[] = [

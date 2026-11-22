@@ -1,58 +1,80 @@
 import type { ReactNode } from "react";
 
 /**
- * Coloured words in song lyrics, like EasyWorship: the editor wraps the chosen words as {#e11d48}Jesus{/}.
- * Everything else is plain text.
+ * Coloured words and words in another font, like in Word or EasyWorship. People never see this: the song editor
+ * shows the colours and fonts themselves. Behind the scenes a run of words is kept as
+ *   {#e11d48}Jesus{/}                         a colour
+ *   {|Akan Times New Roman}Onyame{/}          a font
+ *   {#e11d48|Akan Times New Roman}Yesu{/}     both
  */
-const COLOURED = /\{#([0-9a-fA-F]{6})\}([\s\S]*?)\{\/\}/g;
+const RUN = /\{(?:#([0-9a-fA-F]{6}))?(?:\|([^{}|\n]+))?\}([\s\S]*?)\{\/\}/g;
 
-export function hasColours(text: string): boolean {
-  COLOURED.lastIndex = 0;
-  return COLOURED.test(text);
-}
+export interface Run { text: string; color?: string; font?: string }
 
-/** The words with colour marks removed (for search, the stage display, lists). */
-export function plainText(text: string): string {
-  return text.replace(COLOURED, "$2").replace(/\{#[0-9a-fA-F]{6}\}|\{\/\}/g, "");
-}
-
-/** Words with their colours, ready to put on screen. */
-export function richText(text: string): ReactNode {
-  if (!text.includes("{")) return text;
-  const out: ReactNode[] = [];
+/** Splits text into runs of the same colour and font. */
+export function parseRuns(text: string): Run[] {
+  const out: Run[] = [];
   let last = 0;
-  let k = 0;
-  for (const m of text.matchAll(COLOURED)) {
-    if (m.index! > last) out.push(text.slice(last, m.index));
-    out.push(<span key={k++} style={{ color: `#${m[1]}` }}>{m[2]}</span>);
+  for (const m of text.matchAll(RUN)) {
+    if (!m[1] && !m[2]) continue;
+    if (m.index! > last) out.push({ text: text.slice(last, m.index) });
+    out.push({ text: m[3], color: m[1] ? `#${m[1].toLowerCase()}` : undefined, font: m[2]?.trim() || undefined });
     last = m.index! + m[0].length;
   }
-  if (last < text.length) out.push(text.slice(last));
-  return out.length ? out : text;
+  if (last < text.length) out.push({ text: text.slice(last) });
+  return out;
 }
 
-/** Wraps the selected part of `text` in a colour (or removes colours from it when colour is null). */
-export function colourSelection(text: string, start: number, end: number, colour: string | null): { text: string; start: number; end: number } {
-  if (start === end) return { text, start, end };
-  const before = text.slice(0, start);
-  const middle = plainText(text.slice(start, end));
-  const after = text.slice(end);
-  if (!colour) return { text: before + middle + after, start, end: start + middle.length };
-  // Colour line by line so the slide breaks and headings stay intact.
-  const hex = colour.replace("#", "").toLowerCase();
-  const wrapped = middle.split("\n").map((line) => (line.trim() && !/^\s*\[[^\]]+\]\s*$/.test(line) ? `{#${hex}}${line}{/}` : line)).join("\n");
-  return { text: before + wrapped + after, start, end: start + wrapped.length };
+/** Runs back into text (neighbouring runs that look the same are joined; a run never crosses a line). */
+export function runsToText(runs: Run[]): string {
+  const merged: Run[] = [];
+  for (const r of runs) {
+    if (!r.text) continue;
+    const prev = merged[merged.length - 1];
+    if (prev && prev.color === r.color && prev.font === r.font) prev.text += r.text;
+    else merged.push({ ...r });
+  }
+  return merged
+    .map((r) => {
+      if (!r.color && !r.font) return r.text;
+      const open = `{${r.color ? r.color.toLowerCase() : ""}${r.font ? `|${r.font}` : ""}}`;
+      return r.text.split("\n").map((line) => (line ? `${open}${line}{/}` : line)).join("\n");
+    })
+    .join("");
+}
+
+export function hasFormatting(text: string): boolean {
+  return parseRuns(text).some((r) => r.color || r.font);
+}
+
+/** The words without colours or fonts (for search, the stage display, lists). */
+export function plainText(text: string): string {
+  return parseRuns(text).map((r) => r.text).join("");
+}
+
+/** A font name as CSS (quoted, with a sensible fallback). */
+export function cssFont(name: string): string {
+  return name.includes(",") ? name : `'${name.replace(/'/g, "")}', 'Segoe UI', sans-serif`;
+}
+
+/** Words with their colours and fonts, ready to put on screen. */
+export function richText(text: string): ReactNode {
+  if (!text.includes("{")) return text;
+  const runs = parseRuns(text);
+  if (!runs.some((r) => r.color || r.font)) return text;
+  return runs.map((r, i) =>
+    r.color || r.font ? <span key={i} style={{ color: r.color, fontFamily: r.font ? cssFont(r.font) : undefined }}>{r.text}</span> : r.text,
+  );
 }
 
 /* ───────────── Akan (Twi) letters ───────────── */
 
 /**
- * Old Akan fonts (e.g. "Akan Times New Roman") draw ɛ where you type j, and ɔ where you type c.
- * Words typed that way show the right letters in any font after this.
+ * Old Akan fonts draw ɛ where you type j, and ɔ where you type c. Imported words typed that way are changed to the
+ * real letters, so they show correctly in any font.
  */
 export function akanFontToUnicode(text: string): string {
-  // Keep the colour marks ({#…} / {/}) and headings untouched.
-  return text.replace(/(\{#[0-9a-fA-F]{6}\}|\{\/\}|^\s*\[[^\]]+\]\s*$)|([jcJC])/gm, (all, keep, ch) =>
+  return text.replace(/(\{[^{}\n]*\}|^\s*\[[^\]]+\]\s*$)|([jcJC])/gm, (all, keep, ch) =>
     keep ? keep : ({ j: "ɛ", c: "ɔ", J: "Ɛ", C: "Ɔ" } as Record<string, string>)[ch] ?? all,
   );
 }
@@ -73,11 +95,6 @@ export function listSystemFonts(): Promise<string[]> {
     })();
   }
   return systemFonts;
-}
-
-/** A font name as CSS (quoted, with a sensible fallback). */
-export function cssFont(name: string): string {
-  return name.includes(",") ? name : `'${name.replace(/'/g, "")}', 'Segoe UI', sans-serif`;
 }
 
 /** Whether the name is an old-style Akan font (j = ɛ, c = ɔ). */
