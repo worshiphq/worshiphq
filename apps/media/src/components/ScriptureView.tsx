@@ -16,6 +16,7 @@ import {
 } from "../lib/scripture-slides";
 import { DEFAULT_TEMPLATES } from "../lib/slide-templates";
 import { SlidePreview } from "./SlidePreview";
+import { useContextMenu } from "./ContextMenu";
 
 const EXAMPLES = ["John 3:16", "Psalm 23", "Romans 8:28", "1 Corinthians 13:4-7", "Philippians 4:6-7"];
 
@@ -23,7 +24,7 @@ const isDesktopApp = () => typeof window !== "undefined" && !!(window as any).__
 
 interface Selection { start: number; end: number }
 
-export function ScriptureView() {
+export function ScriptureView({ onOpenLooks }: { onOpenLooks: () => void }) {
   const {
     packs, activePack, selectedBook, selectedChapter, chapterCount,
     verses, versesLoading, searchResults,
@@ -60,6 +61,29 @@ export function ScriptureView() {
   }, [toast]);
 
   const pack = packs.find((p) => p.id === activePack);
+  // Optional second version on screen (remembered on this computer).
+  const [secondId, setSecondIdRaw] = useState<string>(() => { try { return localStorage.getItem("whq-second-version") ?? ""; } catch { return ""; } });
+  const setSecondId = (id: string) => { setSecondIdRaw(id); try { localStorage.setItem("whq-second-version", id); } catch { /* ignore */ } };
+  const secondPack = packs.find((p) => p.id === secondId && p.id !== activePack);
+  const [secondVerses, setSecondVerses] = useState<BibleVerse[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    if (!secondPack || selectedBook === null || selectedChapter === null) { setSecondVerses([]); return; }
+    (async () => {
+      let v: BibleVerse[] = [];
+      try {
+        if ((window as any).__TAURI_INTERNALS__) {
+          const { invoke } = await import("@tauri-apps/api/core");
+          v = await invoke<BibleVerse[]>("bible_get_chapter", { packId: secondPack.id, book: selectedBook + 1, chapter: selectedChapter });
+        } else {
+          const { demoChapter } = await import("../lib/demo-bible");
+          v = demoChapter(selectedBook + 1, selectedChapter);
+        }
+      } catch { v = []; }
+      if (!cancelled) setSecondVerses(v);
+    })();
+    return () => { cancelled = true; };
+  }, [secondPack, selectedBook, selectedChapter]);
   const chosen: BibleVerse[] = useMemo(
     () => (selection ? verses.filter((v) => v.verse >= selection.start && v.verse <= selection.end) : []),
     [selection, verses],
@@ -69,8 +93,10 @@ export function ScriptureView() {
       ? formatReference({ book: selectedBook, chapter: selectedChapter, verseStart: selection.start, verseEnd: selection.end })
       : null;
   const slides = useMemo(
-    () => (reference && chosen.length ? buildScriptureSlides(chosen, reference, pack?.abbreviation, style) : []),
-    [chosen, reference, pack?.abbreviation, style],
+    () => (reference && chosen.length
+      ? buildScriptureSlides(chosen, reference, pack?.abbreviation, style, secondPack && secondVerses.length ? { verses: secondVerses, abbreviation: secondPack.abbreviation } : undefined)
+      : []),
+    [chosen, reference, pack?.abbreviation, style, secondPack, secondVerses],
   );
   const wordCount = chosen.reduce((n, v) => n + v.text.split(/\s+/).length, 0);
 
@@ -99,6 +125,18 @@ export function ScriptureView() {
     }
     openReference(book, chapter);
   }
+
+  const menu = useContextMenu();
+  // Menu actions run after the right-clicked verse has been selected, so they read the latest functions.
+  const actions = useRef({ showOnScreen: () => {}, addPassageToService: () => {}, copyText: async () => {} });
+  const verseMenu = (verse: number) => menu.open(() => {
+    if (!selection || verse < selection.start || verse > selection.end) setSelection({ start: verse, end: verse });
+    return [
+      { label: "Show on screen", icon: <MonitorPlay className="size-4" />, onClick: () => actions.current.showOnScreen() },
+      { label: "Add to service", icon: <Plus className="size-4" />, onClick: () => actions.current.addPassageToService() },
+      { label: "Copy the words", icon: <Copy className="size-4" />, onClick: () => actions.current.copyText() },
+    ];
+  });
 
   function clickVerse(verse: number, extend: boolean) {
     if (extend && selection) {
@@ -148,10 +186,13 @@ export function ScriptureView() {
     }
   }
 
+  actions.current = { showOnScreen, addPassageToService, copyText };
+
   const testamentOf = (b: number | null) => (b !== null && b < OLD_TESTAMENT_COUNT ? "old" : "new");
 
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-3">
+      {menu.element}
       {/* ─── Search ─── */}
       <div className="shrink-0 rounded-xl border border-line bg-surface-2 p-2 shadow-sm">
         <ReferenceSearch
@@ -161,9 +202,9 @@ export function ScriptureView() {
         />
       </div>
 
-      <div className="grid min-h-0 flex-1 gap-3" style={{ gridTemplateColumns: "300px minmax(0,1fr) 340px" }}>
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 max-xl:overflow-y-auto lg:grid-cols-[270px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)_340px]">
         {/* ─── Left: version, book, chapter, verse ─── */}
-        <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-0.5">
+        <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-0.5 max-xl:min-h-[560px]">
           <Card title="Bible version" aside={`${packs.length} installed`}>
             <div className="grid grid-cols-2 gap-1.5">
               {packs.map((p) => {
@@ -183,6 +224,19 @@ export function ScriptureView() {
                 );
               })}
             </div>
+            <label className="mt-3 block">
+              <span className="mb-1 block text-[13px] font-medium text-ink-muted">Second version on screen (shown underneath)</span>
+              <select
+                value={secondPack ? secondId : ""}
+                onChange={(e) => setSecondId(e.target.value)}
+                className="h-10 w-full rounded-lg border border-line-bright bg-surface-2 px-2 text-[14px] text-ink outline-none focus:border-primary"
+              >
+                <option value="">None, one version only</option>
+                {packs.filter((p) => p.id !== activePack).map((p) => (
+                  <option key={p.id} value={p.id}>{p.abbreviation} · {p.name}</option>
+                ))}
+              </select>
+            </label>
           </Card>
 
           <BookCard
@@ -212,6 +266,7 @@ export function ScriptureView() {
                     key={v.verse}
                     on={!!selection && v.verse >= selection.start && v.verse <= selection.end}
                     onClick={(e) => clickVerse(v.verse, e.shiftKey)}
+                        onContextMenu={verseMenu(v.verse)}
                   >
                     {v.verse}
                   </NumberButton>
@@ -222,7 +277,7 @@ export function ScriptureView() {
         </div>
 
         {/* ─── Middle: read & choose ─── */}
-        <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-line bg-surface-2 shadow-sm">
+        <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-line bg-surface-2 shadow-sm max-xl:min-h-[560px]">
           {showingWords ? (
             <WordResults
               results={searchResults}
@@ -280,6 +335,7 @@ export function ScriptureView() {
                       <button
                         key={v.verse}
                         onClick={(e) => clickVerse(v.verse, e.shiftKey)}
+                        onContextMenu={verseMenu(v.verse)}
                         aria-pressed={on}
                         className={`mb-1 flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
                           on ? "bg-primary-soft" : "hover:bg-surface-4"
@@ -309,7 +365,7 @@ export function ScriptureView() {
         </section>
 
         {/* ─── Right: preview, look, send ─── */}
-        <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pl-0.5">
+        <div className="flex min-h-0 flex-col gap-3 pl-0.5 lg:col-span-2 lg:grid lg:grid-cols-2 xl:col-span-1 xl:flex xl:overflow-y-auto">
           <Card
             title="Screen preview"
             aside={
@@ -330,46 +386,9 @@ export function ScriptureView() {
             )}
 
             <div className="mt-4 space-y-3">
-              <div>
-                <Label>Background</Label>
-                <div className="grid grid-cols-4 gap-1.5">
-                  {SCRIPTURE_BACKGROUNDS.map((b) => {
-                    const t = DEFAULT_TEMPLATES.find((x) => x.id === b.id);
-                    const on = style.backgroundId === b.id;
-                    return (
-                      <button
-                        key={b.id}
-                        onClick={() => setStyle((s) => ({ ...s, backgroundId: b.id }))}
-                        aria-pressed={on}
-                        title={b.label}
-                        className={`relative h-10 rounded-lg ring-offset-2 ring-offset-surface-2 transition ${on ? "ring-2 ring-primary" : "hover:opacity-90"}`}
-                        style={{ background: t?.background ?? "#000" }}
-                      >
-                        {on && <Check className="absolute inset-0 m-auto size-4 text-white" />}
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-
-              <div>
-                <Label>Text size</Label>
-                <div className="grid grid-cols-4 gap-1 rounded-lg bg-surface-4 p-1">
-                  {(["auto", "small", "medium", "large"] as TextSize[]).map((s) => (
-                    <button
-                      key={s}
-                      onClick={() => setStyle((st) => ({ ...st, textSize: s }))}
-                      aria-pressed={style.textSize === s}
-                      className={`rounded-md py-1.5 text-[13px] font-medium capitalize transition-colors ${
-                        style.textSize === s ? "bg-surface-2 font-semibold text-primary-bright shadow-sm" : "text-ink-muted hover:text-ink"
-                      }`}
-                    >
-                      {s === "auto" ? "Best fit" : s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
+              <button onClick={onOpenLooks} className="flex w-full items-center justify-center gap-2 rounded-lg bg-surface-4 py-2 text-[13px] font-semibold text-ink hover:bg-surface-5">
+                Change font, size, colours &amp; background
+              </button>
               <label className="flex cursor-pointer items-center gap-2.5 text-[14px] text-ink">
                 <input
                   type="checkbox"
@@ -621,11 +640,12 @@ function Label({ children }: { children: ReactNode }) {
 }
 
 function NumberButton({
-  on, onClick, children,
-}: { on: boolean; onClick: (e: ReactMouseEvent) => void; children: ReactNode }) {
+  on, onClick, onContextMenu, children,
+}: { on: boolean; onClick: (e: ReactMouseEvent) => void; onContextMenu?: (e: ReactMouseEvent) => void; children: ReactNode }) {
   return (
     <button
       onClick={onClick}
+      onContextMenu={onContextMenu}
       aria-pressed={on}
       className={`grid h-9 place-items-center rounded-md text-[13px] font-semibold transition-colors ${
         on ? "bg-primary text-white" : "bg-surface-4 text-ink hover:bg-surface-5"

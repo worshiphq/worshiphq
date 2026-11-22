@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { WindowControls } from "./AppShell";
 import { Shield, Copy, Check, AlertTriangle, Loader2 } from "lucide-react";
 import { useProjectionStore } from "../stores/projection-store";
 
@@ -147,7 +148,8 @@ function TrialExpired({ hwid, onActivated }: { hwid: string; onActivated: (s: an
   }
 
   return (
-    <div className="flex h-full items-center justify-center bg-surface">
+    <div className="flex h-full items-center justify-center bg-surface" data-tauri-drag-region>
+      <WindowControls />
       <div className="w-full max-w-md rounded-2xl border border-line bg-surface-2 p-8 text-center">
         <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-danger/10">
           <Shield className="size-8 text-danger" />
@@ -193,7 +195,7 @@ function TrialExpired({ hwid, onActivated }: { hwid: string; onActivated: (s: an
         </button>
 
         <p className="mt-4 text-[11px] text-ink-faint">
-          Purchase a license at <span className="text-primary-bright">worshiphq.com/media</span>
+          Get a licence at <span className="text-primary-bright">worshiphq.app/pricing</span>
         </p>
       </div>
     </div>

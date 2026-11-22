@@ -174,6 +174,13 @@ pub fn check_license(hwid: &str, data_dir: &PathBuf) -> Result<LicenseStatus, St
     })
 }
 
+/// Takes the licence off this computer (e.g. before moving it to another computer). The trial does not restart.
+pub fn remove_license(data_dir: &PathBuf) -> Result<(), String> {
+    let mut lf = read_license_file(data_dir);
+    lf.license_key = None;
+    write_license_file(data_dir, &lf)
+}
+
 pub fn activate_license(hwid: &str, key: &str, data_dir: &PathBuf) -> Result<LicenseStatus, String> {
     let valid_key = generate_valid_key(hwid);
     let input = key.trim().to_uppercase();

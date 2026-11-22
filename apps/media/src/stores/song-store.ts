@@ -1,5 +1,18 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import type { Song, SongSection } from "../types";
+import hymns from "../data/hymns.json";
+import { textToSections } from "../lib/song-text";
+
+/** Free starter library: public-domain hymns (words only). */
+const STARTER_SONGS: Song[] = (hymns as { title: string; author: string; words: string }[]).map((h, i) => ({
+  id: `hymn-${i + 1}`,
+  title: h.title,
+  author: h.author,
+  key: "",
+  tags: ["hymn"],
+  ...textToSections(h.words),
+}));
 
 interface SongState {
   songs: Song[];
@@ -11,6 +24,8 @@ interface SongState {
   setActiveSong: (song: Song | null) => void;
   search: (query: string) => void;
   addSong: (song: Song) => void;
+  /** Adds many songs at once, skipping titles that are already in the library. Returns how many were added. */
+  addSongs: (songs: Song[]) => number;
   updateSong: (id: string, updates: Partial<Song>) => void;
   deleteSong: (id: string) => void;
   addSection: (songId: string, section: SongSection) => void;
@@ -134,14 +149,29 @@ const DEMO_SONGS: Song[] = [
   },
 ];
 
-export const useSongStore = create<SongState>((set, get) => ({
-  songs: [],
+function filterSongs(songs: Song[], query: string): Song[] {
+  const q = query.toLowerCase().trim();
+  if (!q) return songs;
+  return songs.filter(
+    (s) =>
+      s.title.toLowerCase().includes(q) ||
+      (s.author?.toLowerCase().includes(q) ?? false) ||
+      s.tags.some((t) => t.includes(q)) ||
+      s.sections.some((sec) => sec.lyrics.toLowerCase().includes(q)),
+  );
+}
+
+const sortSongs = (songs: Song[]) => [...songs].sort((a, b) => a.title.localeCompare(b.title));
+
+export const useSongStore = create<SongState>()(persist((set, get) => ({
+  songs: STARTER_SONGS, // starter hymns on a fresh install
   activeSong: null,
   searchQuery: "",
-  filteredSongs: [],
+  filteredSongs: sortSongs(STARTER_SONGS),
 
   loadSongs: () => {
-    set({ songs: DEMO_SONGS, filteredSongs: DEMO_SONGS });
+    const { songs, searchQuery } = get();
+    set({ filteredSongs: filterSongs(sortSongs(songs), searchQuery) });
   },
 
   setActiveSong: (song) => set({ activeSong: song }),
@@ -164,22 +194,29 @@ export const useSongStore = create<SongState>((set, get) => ({
     });
   },
 
+  addSongs: (incoming) => {
+    const have = new Set(get().songs.map((x) => x.title.trim().toLowerCase()));
+    const fresh = incoming.filter((x) => { const k = x.title.trim().toLowerCase(); if (have.has(k)) return false; have.add(k); return true; });
+    if (fresh.length) set((state) => { const songs = sortSongs([...state.songs, ...fresh]); return { songs, filteredSongs: filterSongs(songs, state.searchQuery) }; });
+    return fresh.length;
+  },
+
   addSong: (song) =>
     set((state) => {
-      const songs = [...state.songs, song];
-      return { songs, filteredSongs: songs };
+      const songs = sortSongs([...state.songs, song]);
+      return { songs, filteredSongs: filterSongs(songs, state.searchQuery) };
     }),
 
   updateSong: (id, updates) =>
     set((state) => {
-      const songs = state.songs.map((s) => (s.id === id ? { ...s, ...updates } : s));
-      return { songs, filteredSongs: songs, activeSong: state.activeSong?.id === id ? { ...state.activeSong, ...updates } : state.activeSong };
+      const songs = sortSongs(state.songs.map((s) => (s.id === id ? { ...s, ...updates } : s)));
+      return { songs, filteredSongs: filterSongs(songs, state.searchQuery), activeSong: state.activeSong?.id === id ? { ...state.activeSong, ...updates } : state.activeSong };
     }),
 
   deleteSong: (id) =>
     set((state) => {
       const songs = state.songs.filter((s) => s.id !== id);
-      return { songs, filteredSongs: songs, activeSong: state.activeSong?.id === id ? null : state.activeSong };
+      return { songs, filteredSongs: filterSongs(songs, state.searchQuery), activeSong: state.activeSong?.id === id ? null : state.activeSong };
     }),
 
   addSection: (songId, section) =>
@@ -229,4 +266,23 @@ export const useSongStore = create<SongState>((set, get) => ({
         : state.activeSong;
       return { songs, filteredSongs: songs, activeSong };
     }),
+}), {
+  // Your songs are saved on this computer.
+  name: "whq-media-songs",
+  version: 2,
+  // Version 1 shipped sample songs (some copyrighted). Swap those for the free hymn library; keep the church's own songs.
+  migrate: (persisted, version) => {
+    const state = (persisted ?? {}) as { songs?: Song[] };
+    if (version < 2) {
+      const sampleIds = new Set(DEMO_SONGS.map((d) => d.id));
+      const own = (state.songs ?? []).filter((x) => !sampleIds.has(x.id));
+      const ownTitles = new Set(own.map((x) => x.title.trim().toLowerCase()));
+      state.songs = [...own, ...STARTER_SONGS.filter((h) => !ownTitles.has(h.title.trim().toLowerCase()))];
+    }
+    return state as never;
+  },
+  partialize: (state) => ({ songs: state.songs }),
+  onRehydrateStorage: () => (state) => {
+    if (state) state.filteredSongs = sortSongs(state.songs);
+  },
 }));

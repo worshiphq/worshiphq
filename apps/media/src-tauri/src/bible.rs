@@ -316,7 +316,11 @@ pub fn install_bundled_packs(app_data: &Path, resource_dir: &Path) -> Result<(),
         if src.extension().is_some_and(|e| e == "db") {
             let name = src.file_name().unwrap();
             let dest = dest_dir.join(name);
-            if !dest.exists() {
+            let newer = match (fs::metadata(&src), fs::metadata(&dest)) {
+                (Ok(a), Ok(b)) => a.len() != b.len(),
+                _ => true,
+            };
+            if !dest.exists() || newer {
                 fs::copy(&src, &dest)
                     .map_err(|e| format!("Failed to install {}: {}", name.to_string_lossy(), e))?;
                 eprintln!("[bible] installed bundled pack: {}", name.to_string_lossy());

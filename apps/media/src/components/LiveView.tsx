@@ -1,13 +1,16 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ArrowDown, ArrowUp, BookOpen, Check, ChevronLeft, ChevronRight, Image as ImageIcon,
-  ListMusic, MonitorOff, Music, Plus, Search, Trash2, X,
+  ListMusic, MonitorOff, Music, Pause, Play, Plus, RotateCcw, Search, Trash2, X,
 } from "lucide-react";
 import { useProjectionStore } from "../stores/projection-store";
 import { useSongStore } from "../stores/song-store";
 import { songToServiceItem } from "../lib/song-slides";
+import { controlVideo } from "../lib/media-slides";
 import type { ServiceItem } from "../types";
 import { SlidePreview } from "./SlidePreview";
+import { useContextMenu } from "./ContextMenu";
+import { ShowTools } from "./ShowTools";
 
 interface Pos { item: number; slide: number }
 
@@ -25,6 +28,7 @@ export function LiveView({ onOpenBible }: { onOpenBible: () => void }) {
     goLive, goClear, removeFromService, reorderService,
   } = useProjectionStore();
   const activeItem: ServiceItem | null = serviceItems[activeItemIndex] ?? null;
+  const menu = useContextMenu();
 
   /** Where the slide that's on screen sits in the service (if it came from the service). */
   const livePos: Pos | null = useMemo(() => {
@@ -83,14 +87,17 @@ export function LiveView({ onOpenBible }: { onOpenBible: () => void }) {
   });
 
   const nextSlide = slideAt(nextPos);
+  // The stage display shows what comes next.
+  useEffect(() => { useProjectionStore.getState().setNextSlide(nextSlide); }, [nextSlide]);
   const nextLabel = nextPos
     ? `${slideAt(nextPos)?.label ?? `Slide ${nextPos.slide + 1}`}${nextPos.item !== livePos?.item ? ` · ${serviceItems[nextPos.item].title}` : ""}`
     : null;
 
   return (
-    <div className="grid h-full min-h-0 gap-3 overflow-hidden p-3" style={{ gridTemplateColumns: "290px minmax(0,1fr) 340px" }}>
+    <div className="grid h-full min-h-0 grid-cols-1 gap-3 overflow-y-auto p-3 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[290px_minmax(0,1fr)_340px] xl:overflow-hidden">
+      {menu.element}
       {/* ─── Left: order of service ─── */}
-      <Card title="Service order" aside={`${serviceItems.length} item${serviceItems.length === 1 ? "" : "s"}`} className="min-h-0">
+      <Card title="Service order" aside={`${serviceItems.length} item${serviceItems.length === 1 ? "" : "s"}`} className="min-h-0 max-xl:min-h-[560px]">
         <div className="-mx-1 flex-1 overflow-y-auto px-1">
           {serviceItems.length === 0 ? (
             <p className="px-2 py-8 text-center text-[14px] leading-relaxed text-ink-muted">
@@ -105,6 +112,13 @@ export function LiveView({ onOpenBible }: { onOpenBible: () => void }) {
                 <div
                   key={item.id}
                   onClick={() => setActiveItem(i)}
+                  onContextMenu={menu.open(() => [
+                    { label: "Show the first slide", icon: <ChevronRight className="size-4" />, disabled: !item.slides?.length, onClick: () => show({ item: i, slide: 0 }) },
+                    { label: "Move up", icon: <ArrowUp className="size-4" />, disabled: i === 0, onClick: () => reorderService(i, i - 1) },
+                    { label: "Move down", icon: <ArrowDown className="size-4" />, disabled: i === serviceItems.length - 1, onClick: () => reorderService(i, i + 1) },
+                    { divider: true },
+                    { label: "Remove from service", icon: <Trash2 className="size-4" />, danger: true, onClick: () => removeFromService(i) },
+                  ])}
                   className={`group relative mb-1 flex cursor-pointer items-center gap-2.5 rounded-lg border-l-[3px] py-2 pl-2 pr-1.5 transition-colors ${
                     selected ? "border-primary bg-primary-soft/70" : "border-transparent hover:bg-surface-4"
                   }`}
@@ -139,7 +153,7 @@ export function LiveView({ onOpenBible }: { onOpenBible: () => void }) {
       </Card>
 
       {/* ─── Middle: slides of the selected item + song library ─── */}
-      <div className="flex min-h-0 flex-col gap-3">
+      <div className="flex min-h-0 flex-col gap-3 max-xl:min-h-[560px]">
         <Card
           title={activeItem ? activeItem.title : "Slides"}
           aside={activeItem ? "Click a slide to put it on the screen" : undefined}
@@ -161,6 +175,10 @@ export function LiveView({ onOpenBible }: { onOpenBible: () => void }) {
                     <button
                       key={j}
                       onClick={() => show({ item: activeItemIndex, slide: j })}
+                      onContextMenu={menu.open(() => [
+                        { label: "Show on screen", icon: <ChevronRight className="size-4" />, onClick: () => show({ item: activeItemIndex, slide: j }) },
+                        { label: "Take it off the screen", icon: <MonitorOff className="size-4" />, onClick: goClear },
+                      ])}
                       className="group rounded-lg p-1 text-left transition-colors hover:bg-surface-4"
                     >
                       <SlidePreview slide={slide} highlight={onAir ? "live" : isNext ? "next" : undefined} />
@@ -182,7 +200,7 @@ export function LiveView({ onOpenBible }: { onOpenBible: () => void }) {
       </div>
 
       {/* ─── Right: what's on screen, and what comes next ─── */}
-      <div className="flex min-h-0 flex-col gap-3 overflow-y-auto">
+      <div className="flex min-h-0 flex-col gap-3 lg:col-span-2 lg:grid lg:grid-cols-2 xl:col-span-1 xl:flex xl:overflow-y-auto">
         <Card
           title="On screen now"
           aside={
@@ -203,6 +221,14 @@ export function LiveView({ onOpenBible }: { onOpenBible: () => void }) {
                 : currentSlide.type === "logo" ? "Church logo" : currentSlide.content.secondaryText ?? currentSlide.label ?? ""
               : " "}
           </p>
+
+          {isLive && !isBlack && currentSlide?.media?.kind === "video" && (
+            <div className="mt-2 grid grid-cols-3 gap-2">
+              <button onClick={() => controlVideo("play")} className="flex h-9 items-center justify-center gap-1 rounded-lg bg-surface-4 text-[13px] font-semibold text-ink hover:bg-surface-5"><Play className="size-4" /> Play</button>
+              <button onClick={() => controlVideo("pause")} className="flex h-9 items-center justify-center gap-1 rounded-lg bg-surface-4 text-[13px] font-semibold text-ink hover:bg-surface-5"><Pause className="size-4" /> Pause</button>
+              <button onClick={() => controlVideo("restart")} className="flex h-9 items-center justify-center gap-1 rounded-lg bg-surface-4 text-[13px] font-semibold text-ink hover:bg-surface-5"><RotateCcw className="size-4" /> Restart</button>
+            </div>
+          )}
 
           <div className="mt-3 grid grid-cols-2 gap-2">
             <button
@@ -238,6 +264,8 @@ export function LiveView({ onOpenBible }: { onOpenBible: () => void }) {
           <SlidePreview slide={nextSlide} placeholder="Nothing after this." highlight={nextSlide ? "next" : undefined} />
           {nextLabel && <p className="mt-2 truncate text-[13px] font-medium text-ink">{nextLabel}</p>}
         </Card>
+
+        <ShowTools />
       </div>
     </div>
   );
@@ -245,7 +273,10 @@ export function LiveView({ onOpenBible }: { onOpenBible: () => void }) {
 
 /* ─────────────────────────── Song library ─────────────────────────── */
 
-function SongLibrary() {
+export function SongLibrary({
+  title = "Add songs to the service",
+  className = "h-[38%] min-h-[200px] shrink-0",
+}: { title?: string; className?: string }) {
   const { filteredSongs, searchQuery, loadSongs, search } = useSongStore();
   const { serviceItems, addToService } = useProjectionStore();
   const [justAdded, setJustAdded] = useState<string | null>(null);
@@ -260,7 +291,7 @@ function SongLibrary() {
   const inService = new Set(serviceItems.map((i) => i.data?.songId).filter(Boolean));
 
   return (
-    <Card title="Add songs to the service" className="h-[38%] min-h-[200px] shrink-0">
+    <Card title={title} className={className}>
       <div className="relative mb-2 shrink-0">
         <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
         <input

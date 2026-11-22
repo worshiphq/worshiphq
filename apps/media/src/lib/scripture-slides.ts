@@ -48,13 +48,18 @@ export function buildScriptureSlides(
   reference: string,
   translation: string | undefined,
   style: ScriptureStyle = DEFAULT_SCRIPTURE_STYLE,
+  /** The same passage in a second version, shown under the first. */
+  second?: { verses: BibleVerse[]; abbreviation: string },
 ): Slide[] {
   const groups: BibleVerse[][] = [];
   let current: BibleVerse[] = [];
   let words = 0;
+  // Two versions share the screen, so each part holds about half as many words.
+  const maxWords = second ? Math.round(MAX_WORDS_PER_SLIDE * 0.55) : MAX_WORDS_PER_SLIDE;
+  const secondWords = (v: BibleVerse) => second?.verses.find((x) => x.verse === v.verse)?.text.split(/\s+/).length ?? 0;
   for (const v of verses) {
-    const w = v.text.split(/\s+/).length;
-    if (current.length && words + w > MAX_WORDS_PER_SLIDE) {
+    const w = Math.max(v.text.split(/\s+/).length, secondWords(v));
+    if (current.length && words + w > maxWords) {
       groups.push(current);
       current = [];
       words = 0;
@@ -76,6 +81,15 @@ export function buildScriptureSlides(
     slide.label = groups.length > 1 ? `Part ${i + 1} · v${first}${last !== first ? `–${last}` : ""}` : reference;
     slide.template.textLayout = "center";
     slide.template.fontSize = fontSizeFor(text, style.textSize);
+    if (second) {
+      const nums = new Set(group.map((v) => v.verse));
+      const other = second.verses.filter((v) => nums.has(v.verse));
+      const otherText = other.map((v) => (showNumbers ? `${v.verse} ${v.text}` : v.text)).join(" ");
+      if (otherText) {
+        slide.second = { text: otherText, label: `${reference} · ${second.abbreviation}` };
+        slide.content.secondaryText = translation ? `${reference} · ${translation}` : reference;
+      }
+    }
     return slide;
   });
 }

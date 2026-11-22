@@ -1,6 +1,20 @@
+import type { SlideStyle, Transition } from "./lib/themes";
+
 export interface Slide {
+  /** The look this slide is shown with on the projector (attached when it is sent). */
+  style?: SlideStyle;
+  /** How the projector changes to this slide (attached when it is sent). */
+  transition?: Transition;
   /** Name shown to the operator only, e.g. "Chorus" or "Part 2". Never projected. */
   label?: string;
+  /** A picture or video that fills the screen (Pictures & videos, church logo). */
+  media?: SlideMedia;
+  /** Clear (Ctrl+C): show the background only, without the words. */
+  hideText?: boolean;
+  /** A second Bible version shown under the first (e.g. Twi on top, KJV below). */
+  second?: { text: string; label: string };
+  /** A countdown clock to this time (ms since 1970). */
+  countdownTo?: number;
   type: "scripture" | "song" | "media" | "announcement" | "logo" | "custom";
   content: {
     primaryText: string;
@@ -17,12 +31,35 @@ export interface Slide {
   };
 }
 
+/** A message across the bottom of the projector, e.g. a nursery call. */
+export interface AlertMessage {
+  text: string;
+  /** Scroll across the screen instead of standing still. */
+  scroll: boolean;
+  background: string;
+  color: string;
+}
+
+export interface SlideMedia {
+  kind: "image" | "video";
+  /** File path on this computer (desktop app) or a temporary blob: URL (browser preview). */
+  src: string;
+  /** "cover" fills the screen (may crop); "contain" shows the whole picture. */
+  fit: "cover" | "contain";
+  loop?: boolean;
+  muted?: boolean;
+}
+
 export interface ServiceItem {
   id: string;
   type: "scripture" | "song" | "media" | "announcement" | "custom";
   title: string;
   subtitle?: string;
   order: number;
+  /** Planned length in minutes (Service plan screen). */
+  minutes?: number;
+  /** Private note for the team, e.g. "Pastor prays after this". Never projected. */
+  note?: string;
   slides?: Slide[];
   data?: {
     book?: number;

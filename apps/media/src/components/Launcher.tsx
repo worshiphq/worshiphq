@@ -4,6 +4,7 @@ import {
   FolderOpen, ChevronRight, Loader2, AlertTriangle, Tv2,
 } from "lucide-react";
 import { useProjectionStore } from "../stores/projection-store";
+import { WindowControls } from "./AppShell";
 
 function isTauri(): boolean {
   return typeof window !== "undefined" && !!(window as any).__TAURI_INTERNALS__;
@@ -43,8 +44,9 @@ export function Launcher({ onEnter }: LauncherProps) {
           });
 
           // Detect displays
-          const displays = await invoke<any[]>("list_displays");
+          const displays = await invoke<{ id: number; name: string; width: number; height: number; is_primary: boolean }[]>("list_displays");
           setDisplayCount(displays.length);
+          setDisplays(displays.map((d) => ({ id: d.id, name: d.name, width: d.width, height: d.height, isPrimary: d.is_primary })));
         } catch (e) {
           console.error("Launcher init failed:", e);
           setLicense({ isLicensed: false, isTrial: true, trialDaysRemaining: 14, hwid: "unknown" });
@@ -67,120 +69,113 @@ export function Launcher({ onEnter }: LauncherProps) {
   };
 
   const version = "0.1.0";
+  const { serviceItems, serviceName } = useProjectionStore();
+  const hasPlan = serviceItems.length > 0;
+  const trialOver = !isLicensed && !(isTrial && trialDaysRemaining > 0);
 
   return (
     <div
-      className={`flex h-full flex-col items-center justify-center bg-[#0a0a0f] transition-opacity duration-400 ${fadeOut ? "opacity-0" : "opacity-100"}`}
+      className={`relative flex h-full flex-col items-center justify-center overflow-hidden bg-surface transition-opacity duration-300 ${fadeOut ? "opacity-0" : "opacity-100"}`}
+      data-tauri-drag-region
     >
-      {/* Background gradient */}
-      <div className="pointer-events-none absolute inset-0">
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(56,189,248,0.08)_0%,transparent_60%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_bottom_right,rgba(139,92,246,0.06)_0%,transparent_50%)]" />
-      </div>
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(13,148,136,0.14)_0%,transparent_60%)]" />
+      <div className="absolute inset-x-0 top-0 h-10" data-tauri-drag-region />
+      <WindowControls />
 
-      <div className="relative z-10 flex flex-col items-center">
-        {/* Logo + branding */}
+      <div className="relative z-10 flex w-full max-w-md flex-col items-center px-6">
         <div className="mb-8 text-center">
-          <div className="mx-auto mb-4 grid size-20 place-items-center rounded-2xl bg-white/[0.06] ring-1 ring-white/[0.08] backdrop-blur-sm">
+          <div className="mx-auto mb-4 grid size-20 place-items-center rounded-2xl bg-primary shadow-lg shadow-primary/25">
             <span className="text-3xl font-black tracking-tight text-white">W</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">
-            WorshipHQ <span className="text-sky-400">Media</span>
+          <h1 className="text-[28px] font-bold tracking-tight text-ink">
+            WorshipHQ <span className="text-primary">Media</span>
           </h1>
-          <p className="mt-1 text-xs text-white/40">Church Presentation Software</p>
+          <p className="mt-1 text-[15px] text-ink-muted">Songs, Bible verses, pictures and videos on your church screen</p>
         </div>
 
         {loading ? (
           <div className="flex flex-col items-center gap-3">
-            <Loader2 className="size-6 text-sky-400 animate-spin" />
-            <p className="text-sm text-white/50">Initialising...</p>
+            <Loader2 className="size-6 animate-spin text-primary" />
+            <p className="text-[14px] text-ink-muted">Getting ready…</p>
           </div>
         ) : (
           <>
-            {/* Status cards */}
-            <div className="mb-8 flex gap-3">
-              {/* License status */}
-              <div className="flex items-center gap-3 rounded-xl bg-white/[0.04] px-4 py-3 ring-1 ring-white/[0.06]">
+            <div className="mb-6 grid w-full gap-2">
+              <div className="flex items-center gap-3 rounded-xl border border-line bg-surface-2 px-4 py-3 shadow-sm">
                 {isLicensed ? (
                   <>
-                    <ShieldCheck className="size-5 text-emerald-400" />
+                    <ShieldCheck className="size-5 text-success" />
                     <div>
-                      <p className="text-xs font-semibold text-emerald-400">Licensed</p>
-                      <p className="text-[10px] text-white/40">Full version</p>
+                      <p className="text-[14px] font-semibold text-ink">Licensed</p>
+                      <p className="text-[13px] text-ink-muted">Full version</p>
                     </div>
                   </>
-                ) : isTrial && trialDaysRemaining > 0 ? (
+                ) : !trialOver ? (
                   <>
-                    <Clock className="size-5 text-amber-400" />
+                    <Clock className="size-5 text-gold" />
                     <div>
-                      <p className="text-xs font-semibold text-amber-400">
-                        Trial — {trialDaysRemaining} day{trialDaysRemaining !== 1 ? "s" : ""} left
-                      </p>
-                      <p className="text-[10px] text-white/40">Watermark on output</p>
+                      <p className="text-[14px] font-semibold text-ink">Free trial · {trialDaysRemaining} day{trialDaysRemaining !== 1 ? "s" : ""} left</p>
+                      <p className="text-[13px] text-ink-muted">A small “Trial” mark shows on the projector</p>
                     </div>
                   </>
                 ) : (
                   <>
-                    <AlertTriangle className="size-5 text-red-400" />
+                    <AlertTriangle className="size-5 text-danger" />
                     <div>
-                      <p className="text-xs font-semibold text-red-400">Trial Expired</p>
-                      <p className="text-[10px] text-white/40">Activation required</p>
+                      <p className="text-[14px] font-semibold text-ink">Your free trial has ended</p>
+                      <p className="text-[13px] text-ink-muted">Open the app to enter your licence key</p>
                     </div>
                   </>
                 )}
               </div>
 
-              {/* Display detection */}
-              <div className="flex items-center gap-3 rounded-xl bg-white/[0.04] px-4 py-3 ring-1 ring-white/[0.06]">
-                {displayCount > 1 ? (
-                  <MonitorSmartphone className="size-5 text-sky-400" />
-                ) : (
-                  <Monitor className="size-5 text-white/40" />
-                )}
+              <div className="flex items-center gap-3 rounded-xl border border-line bg-surface-2 px-4 py-3 shadow-sm">
+                {displayCount > 1 ? <MonitorSmartphone className="size-5 text-primary" /> : <Monitor className="size-5 text-ink-faint" />}
                 <div>
-                  <p className="text-xs font-semibold text-white/80">
-                    {displayCount} display{displayCount !== 1 ? "s" : ""} detected
+                  <p className="text-[14px] font-semibold text-ink">
+                    {displayCount > 1 ? `Projector connected (${displayCount} screens)` : "Only this screen found"}
                   </p>
-                  <p className="text-[10px] text-white/40">
-                    {displayCount > 1
-                      ? "Ready for projection"
-                      : "Connect a projector for output"}
+                  <p className="text-[13px] text-ink-muted">
+                    {displayCount > 1 ? "Ready to show on the big screen" : "Plug in the projector or TV, or test on this screen"}
                   </p>
                 </div>
               </div>
             </div>
 
-            {/* Action buttons */}
-            <div className="mb-6 flex gap-3">
-              <button
-                onClick={handleEnter}
-                disabled={entering || (!isLicensed && isTrial && trialDaysRemaining <= 0)}
-                className="group flex items-center gap-3 rounded-xl bg-sky-500 px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-sky-500/20 transition-all hover:bg-sky-400 hover:shadow-sky-400/30 disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {entering ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Plus className="size-4" />
-                )}
-                New Service
-                <ChevronRight className="size-4 opacity-50 transition-transform group-hover:translate-x-0.5" />
-              </button>
-            </div>
+            <button
+              onClick={handleEnter}
+              disabled={entering}
+              className="group flex h-14 w-full items-center justify-center gap-3 rounded-xl bg-primary px-6 text-[17px] font-bold text-white shadow-lg shadow-primary/20 transition-colors hover:bg-primary-bright disabled:opacity-60"
+            >
+              {entering ? <Loader2 className="size-5 animate-spin" /> : hasPlan ? <FolderOpen className="size-5" /> : <Plus className="size-5" />}
+              {hasPlan ? `Continue: ${serviceName || "your service"}` : "Start"}
+              <ChevronRight className="size-5 opacity-70 transition-transform group-hover:translate-x-0.5" />
+            </button>
+            {hasPlan && <p className="mt-2 text-[13px] text-ink-muted">{serviceItems.length} items planned. You can start a new service from the Service plan.</p>}
 
-            {/* Quick tips */}
-            <div className="flex items-center gap-2 text-[10px] text-white/25">
-              <Tv2 className="size-3" />
-              <span>Press F5 to go live · Esc to go black · F7 to clear</span>
+            <div className="mt-6 flex items-center gap-2 text-[12px] text-ink-faint">
+              <Tv2 className="size-3.5" />
+              <span>Ctrl+C clear words · Ctrl+B black · Ctrl+L logo · ← → change slides</span>
             </div>
           </>
         )}
 
-        {/* Version + HWID */}
         <div className="mt-8 text-center">
-          <p className="text-[10px] text-white/20">v{version}</p>
-          {hwid && hwid !== "unknown" && (
-            <p className="mt-0.5 text-[9px] text-white/10 font-mono">{hwid}</p>
+          <p className="text-[12px] text-ink-faint">Version {version}</p>
+          {isLicensed && (
+            <button
+              onClick={async () => {
+                if (!window.confirm("Remove the licence from this computer? You can enter the key again any time.")) return;
+                const { invoke } = await import("@tauri-apps/api/core");
+                await invoke("remove_license");
+                window.location.reload();
+              }}
+              className="mt-2 text-[12px] font-semibold text-ink-muted underline-offset-2 hover:text-danger hover:underline"
+            >
+              Remove licence from this computer (sign out)
+            </button>
           )}
+          {hwid && hwid !== "unknown" && <p className="mt-0.5 font-mono text-[11px] text-ink-faint/70">{hwid}</p>}
         </div>
       </div>
     </div>
