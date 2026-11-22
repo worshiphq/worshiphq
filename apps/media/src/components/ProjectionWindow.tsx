@@ -4,7 +4,7 @@ import { useProjectionStore } from "../stores/projection-store";
 import { ScaledSlide, CANVAS_W } from "./SlideCanvas";
 import { DEFAULT_TRANSITION, themeKindFor, DEFAULT_THEMES, type Transition } from "../lib/themes";
 
-interface Layer { id: number; slide: Slide | null; transition: Transition; done: boolean }
+interface Layer { id: number; slide: Slide | null; transition: Transition; leaving: boolean }
 
 /** What makes two slides share a background: then it stays still while only the words change. */
 function backgroundKey(slide: Slide | null): string {
@@ -16,16 +16,26 @@ function backgroundKey(slide: Slide | null): string {
 
 let layerId = 0;
 
-/** A stack of layers: the newest animates in on top; once it has, the older ones are removed. */
+/**
+ * A stack of layers. The newest animates in on top while the older ones are marked "leaving";
+ * after the transition every older layer is removed, so at most two are ever on screen together.
+ * Cut replaces straight away.
+ */
 function useLayers() {
   const [layers, setLayers] = useState<Layer[]>([]);
-  const push = (slide: Slide | null, transition: Transition) =>
-    setLayers((ls) => [...ls.slice(-2), { id: ++layerId, slide, transition, done: transition.kind === "cut" }]);
-  const finished = (id: number) => setLayers((ls) => {
-    const i = ls.findIndex((l) => l.id === id);
-    return i < 0 ? ls : ls.slice(i).map((l, j) => (j === 0 ? { ...l, done: true } : l));
-  });
-  return { layers, push, finished };
+  const timer = useRef<number | undefined>(undefined);
+  const push = (slide: Slide | null, transition: Transition) => {
+    const id = ++layerId;
+    window.clearTimeout(timer.current);
+    if (transition.kind === "cut" || transition.ms <= 0) {
+      setLayers([{ id, slide, transition, leaving: false }]);
+      return;
+    }
+    // Only the newest previous layer stays to animate out; anything older goes now (fast clicking).
+    setLayers((ls) => [...ls.slice(-1).map((l) => ({ ...l, leaving: true })), { id, slide, transition, leaving: false }]);
+    timer.current = window.setTimeout(() => setLayers((ls) => ls.filter((l) => l.id >= id)), transition.ms + 60);
+  };
+  return { layers, push };
 }
 
 /** The window on the projector / TV. It only shows what the operator sends. */
@@ -120,12 +130,12 @@ export function ProjectionWindow() {
   return (
     <div className="relative h-screen w-screen cursor-none overflow-hidden bg-black">
       {bg.layers.map((l, i) => (
-        <LayerView key={l.id} layer={l} leaving={i < bg.layers.length - 1} onDone={() => bg.finished(l.id)}>
+        <LayerView key={l.id} layer={l} solid>
           {l.slide && <ScaledSlide slide={l.slide} live fill part="background" videoRef={i === bg.layers.length - 1 ? videoRef : undefined} />}
         </LayerView>
       ))}
-      {fg.layers.map((l, i) => (
-        <LayerView key={l.id} layer={l} leaving={i < fg.layers.length - 1} onDone={() => fg.finished(l.id)}>
+      {fg.layers.map((l) => (
+        <LayerView key={l.id} layer={l}>
           {l.slide && !l.slide.media && <ScaledSlide slide={l.slide} live fill part="foreground" />}
         </LayerView>
       ))}
@@ -136,20 +146,21 @@ export function ProjectionWindow() {
   );
 }
 
-/** One layer, animating in with its transition. Layers underneath it are removed once it has finished. */
-function LayerView({ layer, leaving, onDone, children }: { layer: Layer; leaving: boolean; onDone: () => void; children: React.ReactNode }) {
+/**
+ * One layer. The new one animates in; the one it replaces animates out at the same time.
+ * Backgrounds are solid, so the old background simply stays underneath until the new one has covered it
+ * (no dip to black). Words are see-through, so the old words fade out while the new words fade in.
+ */
+function LayerView({ layer, solid = false, children }: { layer: Layer; solid?: boolean; children: React.ReactNode }) {
   const { kind, ms } = layer.transition;
-  useEffect(() => {
-    if (layer.done) return;
-    const t = window.setTimeout(onDone, kind === "cut" ? 0 : ms + 30);
-    return () => window.clearTimeout(t);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-  const anim = kind === "cut" || layer.done ? undefined : `whq-in-${kind} ${ms}ms ease-out both`;
-  // Fade through black: the old layer fades away first.
-  const out = leaving && kind === "fade-black" ? `whq-out-fade ${Math.round(ms / 2)}ms ease-in both` : undefined;
+  let animation: string | undefined;
+  if (kind !== "cut") {
+    if (!layer.leaving) animation = `whq-in-${kind} ${ms}ms ease-out both`;
+    else if (kind === "fade-black") animation = `whq-out-fade ${Math.round(ms / 2)}ms ease-in both`;
+    else if (!solid) animation = `whq-out-${kind === "push-left" ? "push-left" : "fade"} ${ms}ms ease-in both`;
+  }
   return (
-    <div className="absolute inset-0" style={{ animation: out ?? anim, willChange: "opacity, transform" }} data-width={CANVAS_W}>
+    <div className="absolute inset-0" style={{ animation, willChange: "opacity, transform" }} data-width={CANVAS_W} data-leaving={layer.leaving ? "1" : undefined}>
       {children}
     </div>
   );

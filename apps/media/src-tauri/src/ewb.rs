@@ -160,5 +160,6 @@ pub fn import_ewb(app_data: &Path, source: &str) -> Result<BiblePack, String> {
         description: description.to_string(),
         verse_count: count,
         file_size: std::fs::metadata(&db_path).map(|m| m.len()).unwrap_or(0),
+        book_names: Vec::new(),
     })
 }

@@ -8,6 +8,10 @@ import { demoChapter } from "../lib/demo-bible";
 import { isDesktopApp } from "../lib/media-src";
 import { useBibleStore } from "./bible-store";
 import { useProjectionStore } from "./projection-store";
+import { startWhisperListening, stopWhisperListening } from "../lib/whisper-listener";
+
+/** whisper = OpenAI Whisper on this computer (accurate); windows = the old Windows recogniser. */
+export type VoiceEngine = "whisper" | "windows";
 
 export type VoiceStatus = "off" | "starting" | "listening" | "error";
 /** ask = show a banner with a button · auto = show it after a short countdown · list = only list it */
@@ -44,6 +48,15 @@ interface VoiceState {
   /** Also look up sentences in the Bible, to catch a verse being read without its reference. */
   matchQuotes: boolean;
   setMatchQuotes: (v: boolean) => void;
+  engine: VoiceEngine;
+  setEngine: (e: VoiceEngine) => void;
+  /** Microphone for Whisper (a browser device id; "default" = Windows default). */
+  micId: string;
+  setMicId: (id: string) => void;
+  whisperInstalled: boolean | null;
+  installingWhisper: boolean;
+  checkWhisper: () => Promise<void>;
+  installWhisper: () => Promise<void>;
 
   start: () => Promise<void>;
   stop: () => Promise<void>;
@@ -122,6 +135,29 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     minConfidence: 0.55,
     matchQuotes: true,
     setMatchQuotes: (matchQuotes) => set({ matchQuotes }),
+    engine: "whisper",
+    setEngine: (engine) => { const was = get().status; if (was === "listening" || was === "starting") get().stop(); set({ engine }); },
+    micId: "default",
+    setMicId: (micId) => set({ micId }),
+    whisperInstalled: null,
+    installingWhisper: false,
+    checkWhisper: async () => {
+      if (!isDesktopApp()) return;
+      const { invoke } = await import("@tauri-apps/api/core");
+      const st = await invoke<{ installed: boolean }>("whisper_status").catch(() => ({ installed: false }));
+      set({ whisperInstalled: st.installed });
+    },
+    installWhisper: async () => {
+      if (!isDesktopApp()) return;
+      set({ installingWhisper: true, message: null });
+      try {
+        const { invoke } = await import("@tauri-apps/api/core");
+        await invoke("whisper_install");
+        set({ whisperInstalled: true, installingWhisper: false });
+      } catch (e) {
+        set({ installingWhisper: false, status: "error", message: String(e) });
+      }
+    },
 
     start: async () => {
       if (!isDesktopApp()) {
@@ -129,6 +165,21 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
         return;
       }
       set({ status: "starting", message: null });
+      if (get().engine === "whisper") {
+        if (get().whisperInstalled === null) await get().checkWhisper();
+        if (!get().whisperInstalled) {
+          set({ status: "error", message: "Whisper isn't downloaded yet. Go to Settings › Audio & microphone and press Download Whisper (one time, about 155 MB)." });
+          return;
+        }
+        await startWhisperListening(get().micId, {
+          onLevel: (level) => set({ level }),
+          onSpeaking: (speaking) => set({ partial: speaking ? "…" : "" }),
+          onText: (text) => get().handleEvent(JSON.stringify({ type: "heard", text, confidence: 0.92, kind: "speech" })),
+          onError: (message) => set({ status: "error", message }),
+        });
+        if (get().status === "starting") set({ status: "listening", recognizer: "Whisper (OpenAI) on this computer" });
+        return;
+      }
       try {
         const { invoke } = await import("@tauri-apps/api/core");
         await invoke("voice_start");
@@ -138,6 +189,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     },
 
     stop: async () => {
+      await stopWhisperListening();
       if (isDesktopApp()) {
         const { invoke } = await import("@tauri-apps/api/core");
         await invoke("voice_stop").catch(() => {});
@@ -249,5 +301,5 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
 }, {
   name: "whq-media-voice",
   version: 1,
-  partialize: (s) => ({ mode: s.mode, autoDelay: s.autoDelay, minConfidence: s.minConfidence, matchQuotes: s.matchQuotes }),
+  partialize: (s) => ({ mode: s.mode, autoDelay: s.autoDelay, minConfidence: s.minConfidence, matchQuotes: s.matchQuotes, engine: s.engine, micId: s.micId }),
 }));

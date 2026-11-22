@@ -159,11 +159,29 @@ export function parseReference(input: string): ScriptureRef | null {
   return { book, chapter, verseStart, verseEnd };
 }
 
-export function formatReference(ref: ScriptureRef): string {
+export function formatReference(ref: ScriptureRef, bookNames?: string[]): string {
+  // The Bible's own name for the book (e.g. Twi "Yohane") when it has one.
+  const own = bookNames?.[ref.book];
   // "Psalm 23", not "Psalms 23", when naming a single psalm.
-  const name = BIBLE_BOOKS[ref.book] === "Psalms" ? "Psalm" : BIBLE_BOOKS[ref.book];
+  const name = own || (BIBLE_BOOKS[ref.book] === "Psalms" ? "Psalm" : BIBLE_BOOKS[ref.book]);
   const base = `${name} ${ref.chapter}`;
   if (!ref.verseStart) return base;
   if (ref.verseEnd && ref.verseEnd !== ref.verseStart) return `${base}:${ref.verseStart}–${ref.verseEnd}`;
   return `${base}:${ref.verseStart}`;
+}
+
+/** "Yohane 3:16" with a Bible's own book names (falls back to the English parser). */
+export function parseReferenceWithNames(input: string, bookNames?: string[]): ScriptureRef | null {
+  const english = parseReference(input);
+  if (english || !bookNames?.length) return english;
+  const m = input.trim().toLowerCase().replace(/[–—]/g, "-").match(/^(.+?)\s*(\d+)(?:\s*[:\s.]\s*(\d+)(?:\s*-\s*(\d+))?)?\s*$/);
+  if (!m) return null;
+  const want = m[1].trim();
+  const book = bookNames.findIndex((n) => n && n.toLowerCase() === want);
+  const loose = book >= 0 ? book : bookNames.findIndex((n) => n && n.toLowerCase().startsWith(want));
+  if (loose < 0) return null;
+  const chapter = Math.min(Math.max(parseInt(m[2], 10), 1), CHAPTER_COUNTS[loose]);
+  const verseStart = m[3] ? parseInt(m[3], 10) : undefined;
+  const verseEnd = m[4] ? parseInt(m[4], 10) : undefined;
+  return { book: loose, chapter, verseStart, verseEnd: verseEnd && verseStart && verseEnd > verseStart ? verseEnd : undefined };
 }

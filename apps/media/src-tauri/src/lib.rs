@@ -4,6 +4,7 @@ mod ewb;
 mod extras;
 mod media;
 mod voice;
+mod whisper;
 
 use serde::Serialize;
 use std::sync::Mutex;
@@ -289,6 +290,25 @@ async fn media_import(app: tauri::AppHandle, paths: Vec<String>) -> Result<Vec<m
 }
 
 #[tauri::command]
+fn whisper_status(app: tauri::AppHandle) -> whisper::WhisperStatus {
+    whisper::status(&bible_dir(&app))
+}
+
+#[tauri::command]
+async fn whisper_install(app: tauri::AppHandle) -> Result<(), String> {
+    whisper::install(&bible_dir(&app))
+}
+
+/// One spoken sentence as a WAV file (sent as raw bytes) → text.
+#[tauri::command]
+async fn whisper_transcribe(app: tauri::AppHandle, request: tauri::ipc::Request<'_>) -> Result<String, String> {
+    let tauri::ipc::InvokeBody::Raw(wav) = request.body() else {
+        return Err("Expected audio".into());
+    };
+    whisper::transcribe(&bible_dir(&app), wav)
+}
+
+#[tauri::command]
 fn list_easyworship_bibles() -> Vec<String> {
     ewb::list_easyworship_bibles()
 }
@@ -545,6 +565,9 @@ pub fn run() {
             media_delete,
             import_presentation,
             list_easyworship_bibles,
+            whisper_status,
+            whisper_install,
+            whisper_transcribe,
             import_easyworship_bible,
             voice_start,
             voice_stop,

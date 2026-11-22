@@ -62,7 +62,7 @@ export function VoiceView({ onOpenBible }: { onOpenBible: () => void }) {
               <p className="mt-2 text-[13px] text-ink-muted">
                 {listening
                   ? "The bar moves when someone speaks. If it stays still, check the microphone."
-                  : "Uses the computer's default microphone. To change it, open Windows Settings › System › Sound › Input."}
+                  : v.engine === "whisper" ? "Uses Whisper and the microphone chosen in Settings › Audio & microphone." : "Uses the computer's default microphone. To change it, open Windows Settings › System › Sound › Input."}
               </p>
               {v.recognizer && listening && <p className="mt-1 text-[12px] text-ink-faint">Using {v.recognizer} · works offline</p>}
             </Card>

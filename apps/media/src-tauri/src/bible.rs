@@ -20,6 +20,9 @@ pub struct BiblePack {
     pub description: String,
     pub verse_count: u32,
     pub file_size: u64,
+    /// The Bible's own names for the 66 books (e.g. Twi "Yohane"), when it has them.
+    #[serde(default)]
+    pub book_names: Vec<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -216,6 +219,11 @@ fn read_pack_metadata(db_path: &Path) -> Result<BiblePack, String> {
         let verse_count: u32 = conn
             .query_row("SELECT COUNT(*) FROM verses", [], |r| r.get(0))
             .unwrap_or(0);
+        let book_names: Vec<String> = conn
+            .query_row("SELECT value FROM metadata WHERE key='books'", [], |r| r.get::<_, String>(0))
+            .ok()
+            .and_then(|v| serde_json::from_str(&v).ok())
+            .unwrap_or_default();
 
         Ok(BiblePack {
             id,
@@ -225,6 +233,7 @@ fn read_pack_metadata(db_path: &Path) -> Result<BiblePack, String> {
             description,
             verse_count,
             file_size,
+            book_names,
         })
     } else {
         let verse_count: u32 = conn
@@ -239,6 +248,7 @@ fn read_pack_metadata(db_path: &Path) -> Result<BiblePack, String> {
             description: String::new(),
             verse_count,
             file_size,
+            book_names: Vec::new(),
         })
     }
 }

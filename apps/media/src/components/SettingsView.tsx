@@ -124,9 +124,13 @@ function AudioSettings() {
           {error && <p className="mt-2 rounded-lg bg-danger/10 p-2 text-[13px] text-danger">{error}</p>}
         </Card>
 
-        <Card title="Microphone for the voice assistant" icon={<Mic className="size-5 text-primary-bright" />}>
+        <Card title="Speech recognition" icon={<Mic className="size-5 text-primary-bright" />}>
+          <WhisperSetup deviceId={deviceId} devices={devices} />
+        </Card>
+
+        <Card title="Old Windows recogniser (only if you choose it above)" icon={<Mic className="size-5 text-primary-bright" />}>
           <p className="text-[14px] text-ink">
-            The voice assistant listens on <b>the Windows default microphone</b>. If the pastor's mic or the sound desk feed is a different input, make it the default in Windows, then restart listening.
+            The old Windows recogniser always listens on <b>the Windows default microphone</b>. If the pastor's mic or the sound desk feed is a different input, make it the default in Windows, then restart listening.
           </p>
           <button
             onClick={async () => { if (isDesktopApp()) { const { invoke } = await import("@tauri-apps/api/core"); invoke("open_sound_settings"); } }}
@@ -317,5 +321,53 @@ function Toggle({ label, checked, onChange }: { label: string; checked: boolean;
       <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} className="size-4 accent-[var(--color-primary)]" />
       {label}
     </label>
+  );
+}
+
+/** Choose Whisper (accurate, offline) or the old Windows recogniser, download Whisper, and pick its microphone. */
+function WhisperSetup({ deviceId, devices }: { deviceId: string; devices: MediaDeviceInfo[] }) {
+  const v = useVoiceStore();
+  useEffect(() => { v.checkWhisper(); }, []); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <div className="space-y-3">
+      <label className={`flex cursor-pointer gap-3 rounded-lg p-3 ${v.engine === "whisper" ? "bg-primary-soft/70 ring-1 ring-primary/40" : "bg-surface-4/60"}`}>
+        <input type="radio" name="engine" checked={v.engine === "whisper"} onChange={() => v.setEngine("whisper")} className="mt-1 size-4 accent-[var(--color-primary)]" />
+        <span>
+          <span className="flex items-center gap-2 text-[14px] font-semibold text-ink">Whisper by OpenAI <span className="rounded bg-primary-soft px-1.5 py-0.5 text-[11px] font-bold text-primary-bright">Recommended</span></span>
+          <span className="block text-[13px] text-ink-muted">Much more accurate, handles accents and headsets, works offline, and listens on the microphone you choose. English only for now.</span>
+        </span>
+      </label>
+      <label className={`flex cursor-pointer gap-3 rounded-lg p-3 ${v.engine === "windows" ? "bg-primary-soft/70 ring-1 ring-primary/40" : "bg-surface-4/60"}`}>
+        <input type="radio" name="engine" checked={v.engine === "windows"} onChange={() => v.setEngine("windows")} className="mt-1 size-4 accent-[var(--color-primary)]" />
+        <span>
+          <span className="block text-[14px] font-semibold text-ink">Windows recogniser (old)</span>
+          <span className="block text-[13px] text-ink-muted">Built into Windows, nothing to download, but often mishears.</span>
+        </span>
+      </label>
+      {v.engine === "whisper" && (
+        <div className="rounded-lg border border-line p-3">
+          {v.whisperInstalled ? (
+            <p className="text-[14px] font-medium text-success">✓ Whisper is installed on this computer.</p>
+          ) : (
+            <div className="flex flex-wrap items-center gap-3">
+              <p className="flex-1 text-[14px] text-ink">Whisper needs a one-time download (about 155 MB). After that it works without internet.</p>
+              <button onClick={v.installWhisper} disabled={v.installingWhisper} className="h-10 rounded-lg bg-primary px-4 text-[14px] font-bold text-white hover:bg-primary-bright disabled:opacity-60">
+                {v.installingWhisper ? "Downloading… (a few minutes)" : "Download Whisper"}
+              </button>
+            </div>
+          )}
+          <label className="mt-3 block">
+            <span className="mb-1 block text-[13px] font-medium text-ink-muted">Microphone to listen to</span>
+            <select value={v.micId} onChange={(e) => v.setMicId(e.target.value)} className="h-10 w-full rounded-lg border border-line-bright bg-surface-2 px-2 text-[14px] text-ink">
+              <option value="default">Windows default microphone</option>
+              {devices.filter((d) => d.deviceId !== "default" && d.deviceId !== "communications").map((d, i) => (
+                <option key={d.deviceId} value={d.deviceId}>{d.label || `Microphone ${i + 1}`}</option>
+              ))}
+            </select>
+            <span className="mt-1 block text-[12px] text-ink-faint">If the names are missing, press Test microphone above once so Windows lets WorshipHQ see them.{deviceId ? "" : ""}</span>
+          </label>
+        </div>
+      )}
+    </div>
   );
 }

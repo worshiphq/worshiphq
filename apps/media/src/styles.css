@@ -270,3 +270,4 @@ body { font-size: 14px; }
 @keyframes whq-in-push-left { from { transform: translateX(100%); } to { transform: translateX(0); } }
 @keyframes whq-in-fade-black { 0%, 50% { opacity: 0; } 100% { opacity: 1; } }
 @keyframes whq-out-fade { from { opacity: 1; } to { opacity: 0; } }
+@keyframes whq-out-push-left { from { transform: translateX(0); } to { transform: translateX(-100%); } }

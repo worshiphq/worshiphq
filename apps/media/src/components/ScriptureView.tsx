@@ -8,7 +8,7 @@ import { useProjectionStore } from "../stores/projection-store";
 import { BIBLE_BOOKS } from "../types";
 import type { BibleVerse, Slide } from "../types";
 import {
-  CHAPTER_COUNTS, OLD_TESTAMENT_COUNT, SHORT_BOOKS, formatReference, matchBooks, parseReference,
+  CHAPTER_COUNTS, OLD_TESTAMENT_COUNT, SHORT_BOOKS, formatReference, matchBooks, parseReference, parseReferenceWithNames,
 } from "../lib/scripture-ref";
 import {
   DEFAULT_SCRIPTURE_STYLE, SCRIPTURE_BACKGROUNDS, buildScriptureSlides,
@@ -61,6 +61,10 @@ export function ScriptureView({ onOpenLooks }: { onOpenLooks: () => void }) {
   }, [toast]);
 
   const pack = packs.find((p) => p.id === activePack);
+  const ownNames = pack?.book_names?.length === 66 && pack.book_names.every(Boolean) ? pack.book_names : undefined;
+  const bookName = (b: number) => ownNames?.[b] ?? BIBLE_BOOKS[b];
+  const [bookFilter, setBookFilter] = useState("");
+  const [verseFilter, setVerseFilter] = useState("");
   // Optional second version on screen (remembered on this computer).
   const [secondId, setSecondIdRaw] = useState<string>(() => { try { return localStorage.getItem("whq-second-version") ?? ""; } catch { return ""; } });
   const setSecondId = (id: string) => { setSecondIdRaw(id); try { localStorage.setItem("whq-second-version", id); } catch { /* ignore */ } };
@@ -90,7 +94,7 @@ export function ScriptureView({ onOpenLooks }: { onOpenLooks: () => void }) {
   );
   const reference =
     selectedBook !== null && selectedChapter !== null && selection
-      ? formatReference({ book: selectedBook, chapter: selectedChapter, verseStart: selection.start, verseEnd: selection.end })
+      ? formatReference({ book: selectedBook, chapter: selectedChapter, verseStart: selection.start, verseEnd: selection.end }, ownNames)
       : null;
   const slides = useMemo(
     () => (reference && chosen.length
@@ -138,14 +142,16 @@ export function ScriptureView({ onOpenLooks }: { onOpenLooks: () => void }) {
     ];
   });
 
+  // The first verse clicked; Ctrl+click on a second verse chooses everything between the two.
+  const anchor = useRef<number | null>(null);
   function clickVerse(verse: number, extend: boolean) {
-    if (extend && selection) {
-      setSelection({ start: Math.min(selection.start, verse), end: Math.max(selection.end, verse) });
-    } else if (selection && selection.start === verse && selection.end === verse) {
-      setSelection(null);
-    } else {
-      setSelection({ start: verse, end: verse });
+    if (extend && anchor.current !== null) {
+      const a = anchor.current;
+      setSelection({ start: Math.min(a, verse), end: Math.max(a, verse) });
+      return;
     }
+    anchor.current = verse;
+    setSelection({ start: verse, end: verse });
   }
 
   function showOnScreen() {
@@ -193,179 +199,147 @@ export function ScriptureView({ onOpenLooks }: { onOpenLooks: () => void }) {
   return (
     <div className="flex h-full min-h-0 flex-col gap-3 overflow-hidden p-3">
       {menu.element}
-      {/* ─── Search ─── */}
-      <div className="shrink-0 rounded-xl border border-line bg-surface-2 p-2 shadow-sm">
-        <ReferenceSearch
-          onOpen={openReference}
-          onPickBook={(b) => { setShowingWords(false); selectBook(b); }}
-          onSearchWords={(q) => { setShowingWords(true); searchBible(q); }}
-        />
+      {/* ─── Search and versions ─── */}
+      <div className="flex shrink-0 flex-wrap items-center gap-2 rounded-xl border border-line bg-surface-2 p-2 shadow-sm">
+        <div className="min-w-[260px] flex-1">
+          <ReferenceSearch
+            bookNames={ownNames}
+            onOpen={openReference}
+            onPickBook={(b) => { setShowingWords(false); selectBook(b); }}
+            onSearchWords={(q) => { setShowingWords(true); searchBible(q); }}
+          />
+        </div>
+        <label className="flex items-center gap-2 text-[13px] text-ink-muted">
+          Version
+          <select value={activePack ?? ""} onChange={(e) => setActivePack(e.target.value)} className="h-10 max-w-[220px] rounded-lg border border-line-bright bg-surface-2 px-2 text-[14px] font-semibold text-ink outline-none focus:border-primary">
+            {packs.map((p) => <option key={p.id} value={p.id}>{p.abbreviation} · {p.name}</option>)}
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-[13px] text-ink-muted">
+          + Second
+          <select value={secondPack ? secondId : ""} onChange={(e) => setSecondId(e.target.value)} className="h-10 max-w-[200px] rounded-lg border border-line-bright bg-surface-2 px-2 text-[14px] text-ink outline-none focus:border-primary">
+            <option value="">None</option>
+            {packs.filter((p) => p.id !== activePack).map((p) => <option key={p.id} value={p.id}>{p.abbreviation} · {p.name}</option>)}
+          </select>
+        </label>
       </div>
 
-      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 max-xl:overflow-y-auto lg:grid-cols-[270px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)_340px]">
-        {/* ─── Left: version, book, chapter, verse ─── */}
-        <div className="flex min-h-0 flex-col gap-3 overflow-y-auto pr-0.5 max-xl:min-h-[560px]">
-          <Card title="Bible version" aside={`${packs.length} installed`}>
-            <div className="grid grid-cols-2 gap-1.5">
-              {packs.map((p) => {
-                const on = p.id === activePack;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => setActivePack(p.id)}
-                    aria-pressed={on}
-                    className={`rounded-lg px-3 py-2 text-left transition-colors ${
-                      on ? "bg-primary text-white" : "bg-surface-4 text-ink hover:bg-surface-5"
-                    }`}
-                  >
-                    <div className="text-[14px] font-bold">{p.abbreviation}</div>
-                    <div className={`truncate text-[12px] ${on ? "text-white/85" : "text-ink-muted"}`}>{p.name}</div>
-                  </button>
-                );
-              })}
+      <div className="grid min-h-0 flex-1 grid-cols-1 gap-3 max-xl:overflow-y-auto xl:grid-cols-[minmax(0,1fr)_340px]">
+        {/* ─── Book › Chapter › Verse lists (like EasyWorship) ─── */}
+        <section className="grid min-h-0 grid-cols-[minmax(150px,210px)_74px_minmax(0,1fr)] overflow-hidden rounded-xl border border-line bg-surface-2 shadow-sm max-xl:h-[560px]">
+          {/* Books */}
+          <div className="flex min-h-0 flex-col border-r border-line">
+            <div className="shrink-0 border-b border-line p-2">
+              <input value={bookFilter} onChange={(e) => setBookFilter(e.target.value)} placeholder="Find a book" aria-label="Find a book"
+                className="h-9 w-full rounded-lg border border-line-bright px-2.5 text-[14px] text-ink outline-none focus:border-primary" />
             </div>
-            <label className="mt-3 block">
-              <span className="mb-1 block text-[13px] font-medium text-ink-muted">Second version on screen (shown underneath)</span>
-              <select
-                value={secondPack ? secondId : ""}
-                onChange={(e) => setSecondId(e.target.value)}
-                className="h-10 w-full rounded-lg border border-line-bright bg-surface-2 px-2 text-[14px] text-ink outline-none focus:border-primary"
-              >
-                <option value="">None, one version only</option>
-                {packs.filter((p) => p.id !== activePack).map((p) => (
-                  <option key={p.id} value={p.id}>{p.abbreviation} · {p.name}</option>
-                ))}
-              </select>
-            </label>
-          </Card>
-
-          <BookCard
-            key={testamentOf(selectedBook)}
-            initialTestament={testamentOf(selectedBook)}
-            selectedBook={selectedBook}
-            onPick={(b) => { setShowingWords(false); setSelection(null); selectBook(b); }}
-          />
-
-          {selectedBook !== null && (
-            <Card title="Chapter" aside={BIBLE_BOOKS[selectedBook]}>
-              <div className="grid grid-cols-6 gap-1">
-                {Array.from({ length: chapterCount || CHAPTER_COUNTS[selectedBook] }, (_, i) => i + 1).map((c) => (
-                  <NumberButton key={c} on={c === selectedChapter} onClick={() => openReference(selectedBook, c)}>
-                    {c}
-                  </NumberButton>
-                ))}
-              </div>
-            </Card>
-          )}
-
-          {selectedChapter !== null && verses.length > 0 && !versesLoading && (
-            <Card title="Verse" aside={`1 to ${verses[verses.length - 1].verse}`}>
-              <div className="grid grid-cols-6 gap-1">
-                {verses.map((v) => (
-                  <NumberButton
-                    key={v.verse}
-                    on={!!selection && v.verse >= selection.start && v.verse <= selection.end}
-                    onClick={(e) => clickVerse(v.verse, e.shiftKey)}
-                        onContextMenu={verseMenu(v.verse)}
+            <div className="min-h-0 flex-1 overflow-y-auto py-1" role="listbox" aria-label="Books">
+              {BIBLE_BOOKS.map((_, i) => i).filter((i) => {
+                const f = bookFilter.trim().toLowerCase();
+                if (!f) return true;
+                return bookName(i).toLowerCase().includes(f) || BIBLE_BOOKS[i].toLowerCase().startsWith(f) || SHORT_BOOKS[i].toLowerCase().startsWith(f);
+              }).map((i) => (
+                <div key={i}>
+                  {!bookFilter && (i === 0 || i === OLD_TESTAMENT_COUNT) && (
+                    <div className="px-3 pb-1 pt-2 text-[11px] font-semibold uppercase tracking-wide text-ink-faint">{i === 0 ? "Old Testament" : "New Testament"}</div>
+                  )}
+                  <button
+                    role="option"
+                    aria-selected={i === selectedBook}
+                    ref={(el) => { if (el && i === selectedBook) el.scrollIntoView({ block: "nearest" }); }}
+                    onClick={() => { setShowingWords(false); setSelection(null); setVerseFilter(""); openReference(i, 1); }}
+                    className={`block w-full truncate px-3 py-1.5 text-left text-[14px] ${i === selectedBook ? "bg-primary font-semibold text-white" : "text-ink hover:bg-surface-4"}`}
+                    title={ownNames ? `${bookName(i)} (${BIBLE_BOOKS[i]})` : undefined}
                   >
-                    {v.verse}
-                  </NumberButton>
-                ))}
-              </div>
-            </Card>
-          )}
-        </div>
-
-        {/* ─── Middle: read & choose ─── */}
-        <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-line bg-surface-2 shadow-sm max-xl:min-h-[560px]">
-          {showingWords ? (
-            <WordResults
-              results={searchResults}
-              onOpen={(v) => openReference(v.book - 1, v.chapter, v.verse)}
-              onClose={() => setShowingWords(false)}
-            />
-          ) : selectedBook === null || selectedChapter === null ? (
-            <EmptyReader onExample={(text) => {
-              const ref = parseReference(text);
-              if (ref) openReference(ref.book, ref.chapter, ref.verseStart, ref.verseEnd);
-            }} />
-          ) : (
-            <>
-              <div className="flex shrink-0 items-center gap-3 border-b border-line px-4 py-3">
-                <div className="grid size-11 shrink-0 place-items-center rounded-lg bg-primary text-[16px] font-bold text-white">
-                  {selectedChapter}
-                </div>
-                <div className="min-w-0 flex-1">
-                  <h2 className="truncate text-[20px] font-bold text-ink">
-                    {formatReference({ book: selectedBook, chapter: selectedChapter })}
-                  </h2>
-                  <p className="truncate text-[13px] text-ink-muted">{pack?.name}</p>
-                </div>
-                <IconButton label="Previous chapter" onClick={() => changeChapter(-1)}><ChevronLeft className="size-5" /></IconButton>
-                <IconButton label="Next chapter" onClick={() => changeChapter(1)}><ChevronRight className="size-5" /></IconButton>
-              </div>
-
-              <div className="mx-4 mt-3 flex shrink-0 items-center gap-2 rounded-lg bg-primary-soft/60 px-3 py-2 text-[13px] text-ink">
-                {selection ? (
-                  <>
-                    <Check className="size-4 shrink-0 text-primary-bright" />
-                    <span className="flex-1">
-                      <b className="text-primary-bright">{reference}</b> chosen. Hold <Kbd>Shift</Kbd> and click to add more verses.
-                    </span>
-                    <button onClick={() => setSelection(null)} className="font-semibold text-primary-bright hover:underline">
-                      Clear
-                    </button>
-                  </>
-                ) : (
-                  <span>Click a verse to choose it. Hold <Kbd>Shift</Kbd> and click another to choose several.</span>
-                )}
-              </div>
-
-              <div className="flex-1 overflow-y-auto px-3 py-2">
-                {versesLoading ? (
-                  <div className="flex justify-center py-16"><Loader2 className="size-6 whq-spin text-primary" /></div>
-                ) : verses.length === 0 ? (
-                  <p className="py-16 text-center text-[15px] text-ink-muted">
-                    This chapter isn't in the {pack?.abbreviation ?? "selected"} Bible. Try another version.
-                  </p>
-                ) : (
-                  verses.map((v) => {
-                    const on = !!selection && v.verse >= selection.start && v.verse <= selection.end;
-                    return (
-                      <button
-                        key={v.verse}
-                        onClick={(e) => clickVerse(v.verse, e.shiftKey)}
-                        onContextMenu={verseMenu(v.verse)}
-                        aria-pressed={on}
-                        className={`mb-1 flex w-full items-start gap-3 rounded-lg px-3 py-2.5 text-left transition-colors ${
-                          on ? "bg-primary-soft" : "hover:bg-surface-4"
-                        }`}
-                      >
-                        <span className={`mt-[3px] w-6 shrink-0 text-right text-[13px] font-bold ${on ? "text-primary-bright" : "text-ink-faint"}`}>
-                          {v.verse}
-                        </span>
-                        <span className="flex-1 text-[17px] leading-relaxed text-ink">{v.text}</span>
-                        {on && <Check className="mt-1.5 size-4 shrink-0 text-primary-bright" />}
-                      </button>
-                    );
-                  })
-                )}
-              </div>
-
-              {chosen.length > 0 && (
-                <div className="flex shrink-0 items-center gap-3 border-t border-line px-4 py-2.5 text-[13px] text-ink-muted">
-                  <span className="flex-1">{wordCount} words chosen</span>
-                  <button onClick={copyText} className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 font-semibold text-ink hover:bg-surface-4">
-                    <Copy className="size-4" /> Copy text
+                    {bookName(i)}
                   </button>
                 </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Chapters */}
+          <div className="flex min-h-0 flex-col border-r border-line">
+            <div className="shrink-0 border-b border-line px-2 py-[14px] text-center text-[12px] font-semibold text-ink-muted">Chapter</div>
+            <div className="min-h-0 flex-1 overflow-y-auto py-1" role="listbox" aria-label="Chapters">
+              {selectedBook !== null && Array.from({ length: chapterCount || CHAPTER_COUNTS[selectedBook] }, (_, i) => i + 1).map((c) => (
+                <button
+                  key={c}
+                  role="option"
+                  aria-selected={c === selectedChapter}
+                  ref={(el) => { if (el && c === selectedChapter) el.scrollIntoView({ block: "nearest" }); }}
+                  onClick={() => { setVerseFilter(""); openReference(selectedBook, c); }}
+                  className={`block w-full py-1.5 text-center text-[14px] font-semibold ${c === selectedChapter ? "bg-primary text-white" : "text-ink hover:bg-surface-4"}`}
+                >
+                  {c}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Verses */}
+          <div className="flex min-h-0 flex-col">
+            <div className="flex shrink-0 items-center gap-2 border-b border-line p-2">
+              <IconButton label="Previous chapter" onClick={() => changeChapter(-1)}><ChevronLeft className="size-4" /></IconButton>
+              <span className="min-w-0 shrink truncate text-[15px] font-bold text-ink">
+                {selectedBook !== null && selectedChapter !== null ? formatReference({ book: selectedBook, chapter: selectedChapter }, ownNames) : "Choose a book"}
+              </span>
+              <IconButton label="Next chapter" onClick={() => changeChapter(1)}><ChevronRight className="size-4" /></IconButton>
+              <input value={verseFilter} onChange={(e) => setVerseFilter(e.target.value)} placeholder="Find in this chapter" aria-label="Find in this chapter"
+                className="ml-auto h-9 w-44 min-w-0 rounded-lg border border-line-bright px-2.5 text-[13px] text-ink outline-none focus:border-primary" />
+            </div>
+            <div className="min-h-0 flex-1 overflow-y-auto" role="listbox" aria-label="Verses" aria-multiselectable="true">
+              {showingWords ? (
+                <WordResults results={searchResults} onOpen={(v) => openReference(v.book - 1, v.chapter, v.verse)} onClose={() => setShowingWords(false)} />
+              ) : selectedBook === null || selectedChapter === null ? (
+                <EmptyReader onExample={(text) => {
+                  const ref = parseReference(text);
+                  if (ref) openReference(ref.book, ref.chapter, ref.verseStart, ref.verseEnd);
+                }} />
+              ) : versesLoading ? (
+                <div className="flex justify-center py-16"><Loader2 className="size-6 whq-spin text-primary" /></div>
+              ) : verses.length === 0 ? (
+                <p className="py-16 text-center text-[15px] text-ink-muted">This chapter isn't in the {pack?.abbreviation ?? "selected"} Bible. Try another version.</p>
+              ) : (
+                verses.filter((v) => !verseFilter.trim() || v.text.toLowerCase().includes(verseFilter.trim().toLowerCase()) || String(v.verse) === verseFilter.trim()).map((v) => {
+                  const on = !!selection && v.verse >= selection.start && v.verse <= selection.end;
+                  const edge = !!selection && (v.verse === selection.start || v.verse === selection.end);
+                  return (
+                    <button
+                      key={v.verse}
+                      role="option"
+                      aria-selected={on}
+                      ref={(el) => { if (el && selection && v.verse === selection.start && !verseFilter) el.scrollIntoView({ block: "nearest" }); }}
+                      onClick={(e) => clickVerse(v.verse, e.ctrlKey || e.shiftKey)}
+                      onDoubleClick={() => { setSelection({ start: v.verse, end: v.verse }); anchor.current = v.verse; setTimeout(() => actions.current.showOnScreen(), 0); }}
+                      onContextMenu={verseMenu(v.verse)}
+                      className={`flex w-full items-start gap-2.5 border-b border-line-soft px-3 py-2 text-left ${on ? (edge ? "bg-primary text-white" : "bg-primary-soft text-ink") : "text-ink hover:bg-surface-4"}`}
+                    >
+                      <span className={`w-7 shrink-0 text-right text-[13px] font-bold ${on && edge ? "text-white" : on ? "text-primary-bright" : "text-ink-faint"}`}>{v.verse}</span>
+                      <span className="flex-1 text-[15px] leading-snug">{v.text}</span>
+                    </button>
+                  );
+                })
               )}
-            </>
-          )}
+            </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-2 border-t border-line px-3 py-2 text-[13px] text-ink-muted">
+              {selection ? (
+                <>
+                  <Check className="size-4 text-primary-bright" />
+                  <b className="text-primary-bright">{reference}</b>
+                  <span>· {wordCount} words</span>
+                  <button onClick={copyText} className="ml-auto flex items-center gap-1 rounded-md px-2 py-1 font-semibold text-ink hover:bg-surface-4"><Copy className="size-3.5" /> Copy</button>
+                  <button onClick={() => { setSelection(null); anchor.current = null; }} className="rounded-md px-2 py-1 font-semibold text-ink hover:bg-surface-4">Clear</button>
+                </>
+              ) : (
+                <span>Click a verse. <Kbd>Ctrl</Kbd> + click another to choose the verses in between. Double-click shows it straight away.</span>
+              )}
+            </div>
+          </div>
         </section>
 
         {/* ─── Right: preview, look, send ─── */}
-        <div className="flex min-h-0 flex-col gap-3 pl-0.5 lg:col-span-2 lg:grid lg:grid-cols-2 xl:col-span-1 xl:flex xl:overflow-y-auto">
+        <div className="flex min-h-0 flex-col gap-3 pl-0.5 max-xl:grid max-xl:grid-cols-2 xl:overflow-y-auto">
           <Card
             title="Screen preview"
             aside={
@@ -470,8 +444,9 @@ export function ScriptureView({ onOpenLooks }: { onOpenLooks: () => void }) {
 /* ─────────────────────────── Search box ─────────────────────────── */
 
 function ReferenceSearch({
-  onOpen, onPickBook, onSearchWords,
+  onOpen, onPickBook, onSearchWords, bookNames,
 }: {
+  bookNames?: string[];
   onOpen: (book: number, chapter: number, start?: number, end?: number) => void;
   onPickBook: (book: number) => void;
   onSearchWords: (q: string) => void;
@@ -496,7 +471,7 @@ function ReferenceSearch({
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
-  const parsed = q.trim() ? parseReference(q) : null;
+  const parsed = q.trim() ? parseReferenceWithNames(q, bookNames) : null;
   const books = q.trim() && !/\d\s*$/.test(q.trim()) && !parsed ? matchBooks(q) : [];
 
   type Option = { key: string; label: ReactNode; hint?: string; run: () => void };
@@ -504,7 +479,7 @@ function ReferenceSearch({
   if (parsed) {
     options.push({
       key: "ref",
-      label: <>Go to <b>{formatReference(parsed)}</b></>,
+      label: <>Go to <b>{formatReference(parsed, bookNames)}</b></>,
       run: () => onOpen(parsed.book, parsed.chapter, parsed.verseStart, parsed.verseEnd),
     });
   }
@@ -519,7 +494,7 @@ function ReferenceSearch({
     const opt = options[i];
     if (!opt) return;
     opt.run();
-    if (opt.key === "ref" && parsed) setQ(formatReference(parsed));
+    if (opt.key === "ref" && parsed) setQ(formatReference(parsed, bookNames));
     setOpen(opt.key.startsWith("b"));
     setActive(0);
   }

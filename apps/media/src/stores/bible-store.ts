@@ -21,6 +21,8 @@ export interface BiblePack {
   description: string;
   verse_count: number;
   file_size: number;
+  /** The Bible's own names for the 66 books (e.g. Twi "Yohane"), if it has them. */
+  book_names?: string[];
 }
 
 const DEMO_PACKS: BiblePack[] = [
