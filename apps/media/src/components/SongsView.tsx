@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { LyricsEditor } from "./LyricsEditor";
-import { Check, HelpCircle, Music, Plus, Search, Trash2, X } from "lucide-react";
+import { SongEditorDialog } from "./SongEditorDialog";
+import { Check, Music, Pencil, Plus, Search, Trash2, X } from "lucide-react";
+import { richText } from "../lib/rich-text";
 import { useSongStore } from "../stores/song-store";
 import { useProjectionStore } from "../stores/projection-store";
 import { buildSongSlides, songToServiceItem } from "../lib/song-slides";
-import { NEW_SONG_TEXT, songToText, textToSections } from "../lib/song-text";
+import { NEW_SONG_TEXT, textToSections } from "../lib/song-text";
 import type { Song } from "../types";
 import { SlidePreview } from "./SlidePreview";
 import { useContextMenu } from "./ContextMenu";
@@ -57,20 +58,15 @@ export function SongsView() {
     }
     setImporting(false);
   }
-  const { addToService, goLive, serviceItems, projectionOpen, openProjection } = useProjectionStore();
+  const { addToService, goLive, serviceItems, projectionOpen, openProjection, currentSlide, isLive, isBlack } = useProjectionStore();
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  /** What is being edited. Nothing changes in the library until Save (or straight away with auto-save on). */
-  const [draft, setDraft] = useState<{ title: string; author: string; key: string; text: string }>({ title: "", author: "", key: "", text: "" });
-  const [dirty, setDirty] = useState(false);
-  /** A brand-new song that was never saved: Cancel removes it again. */
-  const [unsavedNew, setUnsavedNew] = useState<string | null>(null);
-  const [autoSave, setAutoSaveRaw] = useState(() => { try { return localStorage.getItem("whq-songs-autosave") === "1"; } catch { return false; } });
-  const setAutoSave = (v: boolean) => { setAutoSaveRaw(v); try { localStorage.setItem("whq-songs-autosave", v ? "1" : "0"); } catch { /* ignore */ } };
+  /** The slide picked in the middle (shown in the preview). */
+  const [slideIndex, setSlideIndex] = useState(0);
+  /** The song open in the edit window. */
+  const [editing, setEditing] = useState<{ id: string; isNew: boolean; saved: boolean } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [toast, setToast] = useState<string | null>(null);
-  const [showHelp, setShowHelp] = useState(false);
-  const titleRef = useRef<HTMLInputElement>(null);
-  const saveTimer = useRef<number | undefined>(undefined);
+  const listRef = useRef<HTMLDivElement>(null);
   const menu = useContextMenu();
 
   useEffect(() => { loadSongs(); }, [loadSongs]);
@@ -79,16 +75,7 @@ export function SongsView() {
   }, [selectedId, songs]);
 
   const song = songs.find((s) => s.id === selectedId) ?? null;
-
-  const draftFrom = (s: Song) => ({ title: s.title, author: s.author ?? "", key: s.key ?? "", text: songToText(s) });
-
-  // Load the song when a different one is chosen.
-  useEffect(() => {
-    if (song) setDraft(draftFrom(song));
-    setDirty(false);
-    setConfirmDelete(false);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedId]);
+  useEffect(() => { setSlideIndex(0); setConfirmDelete(false); }, [selectedId]);
 
   useEffect(() => {
     if (!toast) return;
@@ -96,85 +83,74 @@ export function SongsView() {
     return () => clearTimeout(t);
   }, [toast]);
 
-  // The slides show the words as they are being edited.
-  const shownSong = useMemo<Song | null>(() => (song ? { ...song, title: draft.title, ...textToSections(draft.text) } : null), [song, draft.text, draft.title]);
-  const slides = useMemo(() => (shownSong ? buildSongSlides(shownSong) : []), [shownSong]);
+  const slides = useMemo(() => (song ? buildSongSlides(song) : []), [song]);
+  const picked = slides[Math.min(slideIndex, slides.length - 1)] ?? null;
   const inService = !!song && serviceItems.some((i) => i.data?.songId === song.id);
+  const liveText = isLive && !isBlack ? currentSlide?.content.primaryText : undefined;
 
-  function save(d = draft) {
-    if (!song) return;
-    updateSong(song.id, { title: d.title.trim() || "Untitled song", author: d.author, key: d.key, ...textToSections(d.text) });
-    setDirty(false);
-    setUnsavedNew(null);
+  function showLive(i: number) {
+    const s = slides[i];
+    if (!s) return;
+    setSlideIndex(i);
+    if ((window as any).__TAURI_INTERNALS__ && !projectionOpen) openProjection();
+    goLive(s);
   }
 
-  function cancel() {
-    window.clearTimeout(saveTimer.current);
-    if (song && unsavedNew === song.id) {
-      deleteSong(song.id);
-      setSelectedId(null);
-      setUnsavedNew(null);
-    } else if (song) {
-      setDraft(draftFrom(song));
-    }
-    setDirty(false);
-  }
-
-  function edit(changes: Partial<typeof draft>) {
-    const next = { ...draft, ...changes };
-    setDraft(next);
-    setDirty(true);
-    if (autoSave) {
-      window.clearTimeout(saveTimer.current);
-      saveTimer.current = window.setTimeout(() => save(next), 500);
-    }
-  }
-
-  const changeWords = (value: string) => edit({ text: value });
-
-  /** Before leaving a song with changes: save them, throw them away, or stay. */
-  function choose(id: string | null) {
-    if (dirty && song && id !== song.id) {
-      const keep = window.confirm(`Save your changes to “${draft.title || "this song"}”?\n\nOK = Save   ·   Cancel = Don't save`);
-      if (keep) save();
-      else if (unsavedNew === song.id) { deleteSong(song.id); setUnsavedNew(null); }
-    }
-    setSelectedId(id);
+  function addSongToService(s: Song) {
+    addToService(songToServiceItem(s));
+    setToast(`${s.title} added to the service`);
   }
 
   function newSong() {
-    const s: Song = {
-      id: crypto.randomUUID(),
-      title: "New song",
-      author: "",
-      key: "",
-      tags: [],
-      ...textToSections(NEW_SONG_TEXT),
-    };
-    if (dirty) choose(null);
+    const s: Song = { id: crypto.randomUUID(), title: "New song", author: "", key: "", tags: [], ...textToSections(NEW_SONG_TEXT) };
     search("");
     addSong(s);
     setSelectedId(s.id);
-    setUnsavedNew(s.id);
-    setDraft({ title: "New song", author: "", key: "", text: NEW_SONG_TEXT });
-    setDirty(true);
-    setTimeout(() => { titleRef.current?.focus(); titleRef.current?.select(); }, 50);
+    setEditing({ id: s.id, isNew: true, saved: false });
   }
 
+  const editSong = (id: string) => { setSelectedId(id); setEditing({ id, isNew: false, saved: true }); };
+  const editingSong = editing ? songs.find((s) => s.id === editing.id) ?? null : null;
+
+  // ↑ ↓ pick a slide, Enter (or double-click) shows it on screen.
+  function onSlidesKey(e: React.KeyboardEvent) {
+    if (e.key === "ArrowDown" || e.key === "ArrowRight") { e.preventDefault(); setSlideIndex((i) => Math.min(slides.length - 1, i + 1)); }
+    else if (e.key === "ArrowUp" || e.key === "ArrowLeft") { e.preventDefault(); setSlideIndex((i) => Math.max(0, i - 1)); }
+    else if (e.key === "Enter") { e.preventDefault(); showLive(slideIndex); }
+  }
+  useEffect(() => {
+    listRef.current?.querySelector(`[data-slide="${slideIndex}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [slideIndex]);
+
+  const songMenu = (s: Song) => menu.open(() => [
+    { label: "Show on screen", icon: <MonitorPlay className="size-4" />, onClick: () => { const first = buildSongSlides(s)[0]; if (first) { if ((window as any).__TAURI_INTERNALS__ && !projectionOpen) openProjection(); goLive(first); } } },
+    { label: "Add to service", icon: <Plus className="size-4" />, onClick: () => addSongToService(s) },
+    { label: "Edit", icon: <Pencil className="size-4" />, onClick: () => editSong(s.id) },
+    { label: "Make a copy", icon: <CopyIcon className="size-4" />, onClick: () => { const c = { ...JSON.parse(JSON.stringify(s)), id: crypto.randomUUID(), title: `${s.title} (copy)` }; addSong(c); setSelectedId(c.id); } },
+    { divider: true },
+    { label: "Delete", icon: <Trash2 className="size-4" />, danger: true, onClick: () => { if (window.confirm(`Delete “${s.title}”? This can't be undone.`)) { deleteSong(s.id); if (selectedId === s.id) setSelectedId(null); } } },
+  ]);
+
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 gap-3 overflow-y-auto p-3 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_340px] xl:overflow-hidden">
+    <div className="grid h-full min-h-0 grid-cols-1 gap-3 overflow-y-auto p-3 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_380px] xl:overflow-hidden">
+      {menu.element}
       {/* ─── Song list ─── */}
       <section className="flex min-h-0 flex-col rounded-xl border border-line bg-surface-2 p-3 shadow-sm max-xl:min-h-[560px]">
         <div className="mb-2.5 flex items-center justify-between">
           <h3 className="text-[15px] font-semibold text-ink">Songs</h3>
           <span className="text-[12px] text-ink-muted">{songs.length}</span>
         </div>
-        <div className="relative mb-2 grid grid-cols-2 gap-2">
-          <button onClick={newSong} className="flex h-10 items-center justify-center gap-2 rounded-lg bg-primary text-[14px] font-bold text-white hover:bg-primary-bright">
+        <div className="relative mb-2 grid grid-cols-[1fr_auto_auto] gap-1.5">
+          <button onClick={newSong} className="flex h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-lg bg-primary px-2 text-[14px] font-bold text-white hover:bg-primary-bright">
             <Plus className="size-4" /> New song
           </button>
-          <button onClick={() => setImportOpen((o) => !o)} disabled={importing} className="flex h-10 items-center justify-center gap-2 rounded-lg border border-line-bright text-[14px] font-semibold text-ink hover:bg-surface-4">
-            {importing ? <Loader2 className="size-4 whq-spin" /> : <Download className="size-4" />} Import
+          <button onClick={() => song && editSong(song.id)} disabled={!song} title="Edit the selected song"
+            className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-line-bright px-2.5 text-[14px] font-semibold text-ink hover:bg-surface-4 disabled:opacity-40">
+            <Pencil className="size-4" /> Edit
+          </button>
+          <button onClick={() => setImportOpen((o) => !o)} disabled={importing} title="Import songs"
+            className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-line-bright px-2.5 text-[14px] font-semibold text-ink hover:bg-surface-4">
+            {importing ? <Loader2 className="size-4 whq-spin" /> : <Download className="size-4" />} <span className="hidden xl:inline">Import</span>
           </button>
           {importOpen && (
             <div className="absolute right-0 top-full z-30 mt-1 w-72 rounded-xl border border-line-bright bg-surface-2 py-1.5 shadow-[0_10px_30px_rgba(15,23,42,0.18)]">
@@ -208,15 +184,8 @@ export function SongsView() {
           {filteredSongs.map((s) => (
             <button
               key={s.id}
-              onClick={() => choose(s.id)}
-              onContextMenu={menu.open(() => [
-                { label: "Show on screen", icon: <MonitorPlay className="size-4" />, onClick: () => { const first = buildSongSlides(s)[0]; if (first) { if ((window as any).__TAURI_INTERNALS__ && !projectionOpen) openProjection(); goLive(first); } } },
-                { label: "Add to service", icon: <Plus className="size-4" />, onClick: () => { addToService(songToServiceItem(s)); setToast(`${s.title} added to the service`); } },
-                { label: "Edit", icon: <Music className="size-4" />, onClick: () => choose(s.id) },
-                { label: "Make a copy", icon: <CopyIcon className="size-4" />, onClick: () => { const c = { ...JSON.parse(JSON.stringify(s)), id: crypto.randomUUID(), title: `${s.title} (copy)` }; addSong(c); choose(c.id); } },
-                { divider: true },
-                { label: "Delete", icon: <Trash2 className="size-4" />, danger: true, onClick: () => { deleteSong(s.id); if (selectedId === s.id) setSelectedId(null); } },
-              ])}
+              onClick={() => setSelectedId(s.id)}
+              onContextMenu={songMenu(s)}
               className={`mb-0.5 flex w-full items-center gap-2.5 rounded-lg px-2.5 py-2 text-left ${s.id === selectedId ? "bg-primary-soft" : "hover:bg-surface-4"}`}
             >
               <Music className={`size-4 shrink-0 ${s.id === selectedId ? "text-primary-bright" : "text-ink-faint"}`} />
@@ -230,91 +199,91 @@ export function SongsView() {
         </div>
       </section>
 
-      {menu.element}
-      {/* ─── Editor ─── */}
+      {/* ─── The song, slide by slide (click = preview, double-click = on screen) ─── */}
       <section className="flex min-h-0 flex-col rounded-xl border border-line bg-surface-2 shadow-sm max-xl:min-h-[560px]">
         {!song ? (
           <div className="grid flex-1 place-items-center p-8 text-center">
             <div>
               <Music className="mx-auto size-10 text-ink-faint" />
               <p className="mt-3 text-[16px] font-semibold text-ink">No songs yet</p>
-              <p className="mt-1 text-[14px] text-ink-muted">Press “New song” and paste in the words.</p>
+              <p className="mt-1 text-[14px] text-ink-muted">Press “New song” and paste in the words, or Import.</p>
             </div>
           </div>
         ) : (
           <>
-            <div className="shrink-0 border-b border-line p-4">
-              <input
-                ref={titleRef}
-                value={draft.title}
-                onChange={(e) => edit({ title: e.target.value })}
-                placeholder="Song title"
-                aria-label="Song title"
-                className="w-full rounded-md bg-transparent px-1 text-[22px] font-bold text-ink outline-none hover:bg-surface-4 focus:bg-surface-4"
-              />
-              <div className="mt-2 flex flex-wrap gap-3">
-                <Field label="Written by" value={draft.author} onChange={(v) => edit({ author: v })} placeholder="e.g. Chris Tomlin" width="w-64" />
-                <Field label="Key" value={draft.key} onChange={(v) => edit({ key: v })} placeholder="G" width="w-20" />
-                <div className="ml-auto flex items-end gap-2 self-end">
-                  <label className="mb-1.5 flex cursor-pointer items-center gap-1.5 text-[12px] text-ink-muted" title="Save every change as you type">
-                    <input type="checkbox" checked={autoSave} onChange={(e) => { setAutoSave(e.target.checked); if (e.target.checked && dirty) save(); }} className="size-3.5 accent-[var(--color-primary)]" />
-                    Save automatically
-                  </label>
-                  {autoSave ? (
-                    <span className="mb-1.5 text-[12px] text-ink-faint">{dirty ? "Saving…" : "✓ Saved"}</span>
-                  ) : (
-                    <>
-                      <button onClick={cancel} disabled={!dirty && unsavedNew !== song.id}
-                        className="h-9 rounded-lg border border-line-bright px-3 text-[14px] font-semibold text-ink hover:bg-surface-4 disabled:opacity-40">
-                        Cancel
-                      </button>
-                      <button onClick={() => save()} disabled={!dirty}
-                        className="h-9 rounded-lg bg-primary px-4 text-[14px] font-bold text-white hover:bg-primary-bright disabled:bg-surface-5 disabled:text-ink-faint">
-                        {dirty ? "Save" : "✓ Saved"}
-                      </button>
-                    </>
-                  )}
-                </div>
+            <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-line px-4 py-3">
+              <div className="min-w-0 flex-1">
+                <h2 className="truncate text-[20px] font-bold text-ink">{song.title}</h2>
+                <p className="truncate text-[13px] text-ink-muted">{[song.author, song.key ? `Key of ${song.key}` : null, `${slides.length} slides`].filter(Boolean).join(" · ")}</p>
               </div>
+              <button onClick={() => editSong(song.id)} className="flex h-9 items-center gap-1.5 rounded-lg border border-line-bright px-3 text-[13px] font-semibold text-ink hover:bg-surface-4">
+                <Pencil className="size-4" /> Edit
+              </button>
             </div>
-            <div className="flex min-h-0 flex-1 flex-col p-4">
-              <div className="mb-2 flex items-center gap-2">
-                <span className="text-[14px] font-semibold text-ink">Words</span>
-                <button onClick={() => setShowHelp((h) => !h)} className="flex items-center gap-1 text-[13px] font-medium text-primary-bright hover:underline">
-                  <HelpCircle className="size-4" /> How to write the words
-                </button>
-              </div>
-              {showHelp && (
-                <div className="mb-2 rounded-lg bg-primary-soft/60 p-3 text-[13px] leading-relaxed text-ink">
-                  Put each part under a heading in square brackets, like <code className="rounded bg-surface-2 px-1">[Verse 1]</code>,{" "}
-                  <code className="rounded bg-surface-2 px-1">[Chorus]</code> or <code className="rounded bg-surface-2 px-1">[Bridge]</code>.
-                  Leave an empty line to start a new slide. To sing the chorus again, just write <code className="rounded bg-surface-2 px-1">[Chorus]</code> again with nothing under it.
-                </div>
-              )}
-              <LyricsEditor value={draft.text} onChange={changeWords} placeholder={"[Verse 1]\nType or paste the words here…"} />
+            <p className="shrink-0 px-4 pt-2 text-[12px] text-ink-faint">Click a slide to preview it · double-click (or Enter) to show it on screen · ↑ ↓ to move</p>
+            <div ref={listRef} tabIndex={0} onKeyDown={onSlidesKey} className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-3 outline-none">
+              {slides.map((s, i) => {
+                const on = i === slideIndex;
+                const live = liveText !== undefined && liveText === s.content.primaryText;
+                return (
+                  <div
+                    key={i}
+                    data-slide={i}
+                    onClick={() => { setSlideIndex(i); listRef.current?.focus(); }}
+                    onDoubleClick={() => showLive(i)}
+                    onContextMenu={menu.open(() => { setSlideIndex(i); return [
+                      { label: "Show on screen", icon: <MonitorPlay className="size-4" />, onClick: () => showLive(i) },
+                      { label: "Edit the song", icon: <Pencil className="size-4" />, onClick: () => editSong(song.id) },
+                    ]; })}
+                    className={`group flex cursor-pointer select-none gap-3 rounded-lg border px-3 py-2.5 transition-colors ${live ? "border-danger bg-danger/5" : on ? "border-primary bg-primary-soft/60" : "border-transparent hover:bg-surface-4"}`}
+                  >
+                    <div className="w-24 shrink-0 pt-0.5">
+                      <span className={`inline-block rounded px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${live ? "bg-danger text-white" : on ? "bg-primary text-white" : "bg-surface-4 text-ink-muted"}`}>
+                        {live ? "On screen" : s.label}
+                      </span>
+                    </div>
+                    <div className="min-w-0 flex-1 whitespace-pre-line text-[16px] leading-snug text-ink" style={{ fontFamily: s.font }}>
+                      {richText(s.content.primaryText)}
+                    </div>
+                    <button onClick={(e) => { e.stopPropagation(); showLive(i); }} title="Show on screen"
+                      className={`self-center rounded-md p-1.5 text-ink-faint hover:bg-primary hover:text-white ${on ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}>
+                      <MonitorPlay className="size-4" />
+                    </button>
+                  </div>
+                );
+              })}
+              {!slides.length && <p className="py-10 text-center text-[14px] text-ink-muted">This song has no words yet. Press Edit to add them.</p>}
             </div>
           </>
         )}
       </section>
 
-      {/* ─── Slides + actions ─── */}
+      {/* ─── Preview + actions ─── */}
       <div className="flex min-h-0 flex-col gap-3 lg:col-span-2 xl:col-span-1 xl:overflow-y-auto">
         {song && (
           <section className="rounded-xl border border-line bg-surface-2 p-3 shadow-sm">
-            <div className="flex flex-col gap-2">
-              <button
-                onClick={() => { if (dirty) save(); addToService(songToServiceItem(shownSong ?? song)); setToast(`${draft.title || song.title} added to the service`); }}
-                disabled={!slides.length}
-                className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary text-[16px] font-bold text-white hover:bg-primary-bright disabled:bg-surface-5 disabled:text-ink-faint"
-              >
+            <div className="mb-2 flex items-center justify-between">
+              <h3 className="text-[15px] font-semibold text-ink">Preview</h3>
+              <span className="text-[12px] text-ink-muted">{picked ? `${slideIndex + 1} of ${slides.length} · ${picked.label}` : ""}</span>
+            </div>
+            {picked ? <SlidePreview slide={picked} /> : <div className="aspect-video rounded-lg bg-surface-4" />}
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <button onClick={() => showLive(slideIndex)} disabled={!picked}
+                className="flex h-12 items-center justify-center gap-2 rounded-xl bg-danger text-[15px] font-bold text-white hover:brightness-110 disabled:opacity-40">
+                <MonitorPlay className="size-5" /> Show on screen
+              </button>
+              <button onClick={() => addSongToService(song)} disabled={!slides.length}
+                className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary text-[15px] font-bold text-white hover:bg-primary-bright disabled:opacity-40">
                 <Plus className="size-5" /> Add to service
               </button>
-              {inService && <p className="text-center text-[13px] text-primary-bright">This song is already in the service</p>}
-              {toast && (
-                <p role="status" className="fade-in flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2 text-[13px] font-medium text-success">
-                  <Check className="size-4" /> {toast}
-                </p>
-              )}
+            </div>
+            {inService && <p className="mt-2 text-center text-[13px] text-primary-bright">This song is already in the service</p>}
+            {toast && (
+              <p role="status" className="fade-in mt-2 flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2 text-[13px] font-medium text-success">
+                <Check className="size-4" /> {toast}
+              </p>
+            )}
+            <div className="mt-2">
               {confirmDelete ? (
                 <div className="flex items-center gap-2 rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-ink">
                   <span className="flex-1">Delete “{song.title}”?</span>
@@ -322,51 +291,28 @@ export function SongsView() {
                   <button onClick={() => setConfirmDelete(false)} className="rounded-md px-2 py-1 font-semibold text-ink-muted hover:bg-surface-4">Keep</button>
                 </div>
               ) : (
-                <button onClick={() => setConfirmDelete(true)} className="flex h-9 items-center justify-center gap-2 rounded-lg text-[13px] font-semibold text-ink-faint hover:bg-danger/10 hover:text-danger">
+                <button onClick={() => setConfirmDelete(true)} className="flex h-9 w-full items-center justify-center gap-2 rounded-lg text-[13px] font-semibold text-ink-faint hover:bg-danger/10 hover:text-danger">
                   <Trash2 className="size-4" /> Delete song
                 </button>
               )}
             </div>
           </section>
         )}
-
-        {song && (
-          <section className="rounded-xl border border-line bg-surface-2 p-3 shadow-sm">
-            <div className="mb-2.5 flex items-center justify-between">
-              <h3 className="text-[15px] font-semibold text-ink">Slides</h3>
-              <span className="text-[12px] text-ink-muted">{slides.length} · click one to show it</span>
-            </div>
-            <div className="space-y-3">
-              {slides.map((s, i) => (
-                <button
-                  key={i}
-                  onClick={() => { if ((window as any).__TAURI_INTERNALS__ && !projectionOpen) openProjection(); goLive(s); }}
-                  className="block w-full rounded-lg p-1 text-left hover:bg-surface-4"
-                  title="Show this slide on screen now"
-                >
-                  <SlidePreview slide={s} />
-                  <div className="mt-1 px-0.5 text-[13px] font-semibold text-ink">{i + 1}. {s.label}</div>
-                </button>
-              ))}
-              {!slides.length && <p className="py-6 text-center text-[13px] text-ink-muted">Type the words and the slides appear here.</p>}
-            </div>
-          </section>
-        )}
       </div>
-    </div>
-  );
-}
 
-function Field({ label, value, onChange, placeholder, width }: { label: string; value: string; onChange: (v: string) => void; placeholder: string; width: string }) {
-  return (
-    <label className={`block ${width}`}>
-      <span className="mb-1 block text-[12px] font-medium text-ink-muted">{label}</span>
-      <input
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder}
-        className="h-9 w-full rounded-lg border border-line-bright px-2.5 text-[14px] text-ink outline-none focus:border-primary"
-      />
-    </label>
+      {editing && editingSong && (
+        <SongEditorDialog
+          key={editing.id}
+          song={editingSong}
+          isNew={editing.isNew && !editing.saved}
+          onSave={(changes) => { updateSong(editing.id, changes); setEditing((e) => (e ? { ...e, saved: true } : e)); }}
+          onCancel={() => {
+            // A new song that was never saved is thrown away.
+            if (editing.isNew && !editing.saved) { deleteSong(editing.id); setSelectedId(null); }
+            setEditing(null);
+          }}
+        />
+      )}
+    </div>
   );
 }
