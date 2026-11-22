@@ -77,22 +77,32 @@ export async function requestSupportAccess(churchId: string, reason: string): Pr
   });
   await db.supportAccess.update({ where: { id: rec.id }, data: { codeHash: hashCode(code, rec.id) } });
 
-  const body = `WorshipHQ Support is asking for temporary access to ${church.name} to help you. Code: ${code}. Only share it if you asked us for help. Expires in ${CODE_TTL_MIN} min.`;
+  // Keep the SMS worded like the sign-in code text, which reaches phones reliably on the same sender. The older
+  // wording ("...asking for temporary access... Only share it if...") was accepted by the carrier but never
+  // arrived for two churches, most likely caught by the phone networks' scam filters.
+  const smsBody = `Your WorshipHQ support code is ${code}. It expires in ${CODE_TTL_MIN} minutes. Give it to WorshipHQ Support only if you asked us for help.`;
   let delivered = false;
-  let stubbed = false;
+  let stubbed = true;
+  const sentVia: string[] = [];
   if (owner.phone) {
-    const sms = await sendSms(owner.phone, body, { heading: null });
-    delivered = sms.ok;
-    stubbed = !features.sms;
-  } else {
+    const sms = await sendSms(owner.phone, smsBody, { heading: null });
+    if (sms.ok) { delivered = true; sentVia.push(maskPhone(owner.phone)); }
+    stubbed = stubbed && !features.sms;
+  }
+  // Email it as well whenever there is an address, so one blocked channel does not stop the request.
+  if (owner.email) {
     const mail = await sendEmail({
       to: owner.email,
-      subject: "WorshipHQ Support access code",
+      subject: "Your WorshipHQ support code",
       private: true,
-      html: `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px"><p>${escapeHtml(body.split(" Code: ")[0])}.</p><div style="font-size:32px;font-weight:700;letter-spacing:8px;background:#f4f4f5;border-radius:12px;padding:16px;text-align:center">${code}</div><p style="color:#888;font-size:13px">Only share this code if you asked us for help. It expires in ${CODE_TTL_MIN} minutes.</p></div>`,
+      html: `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px"><p>WorshipHQ Support is asking for temporary access to ${escapeHtml(church.name)} to help you. Here is your code:</p><div style="font-size:32px;font-weight:700;letter-spacing:8px;background:#f4f4f5;border-radius:12px;padding:16px;text-align:center">${code}</div><p style="color:#888;font-size:13px">Only share this code if you asked us for help. It expires in ${CODE_TTL_MIN} minutes.</p></div>`,
     });
-    delivered = mail.ok;
-    stubbed = mail.stubbed;
+    if (mail.ok) { delivered = true; sentVia.push(maskEmail(owner.email)); }
+    stubbed = stubbed && mail.stubbed;
+  }
+  if (sentVia.length) {
+    await db.supportAccess.update({ where: { id: rec.id }, data: { sentTo: sentVia.join(" and ") } });
+    rec.sentTo = sentVia.join(" and ");
   }
 
   if (!delivered && !stubbed) {
