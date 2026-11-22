@@ -131,7 +131,7 @@ export function LooksView() {
           <div className="mt-4">
             <div className="mb-2 text-[14px] font-medium text-ink">Or a picture / moving video from your library</div>
             {mediaItems.length === 0 ? (
-              <p className="text-[13px] text-ink-muted">Add pictures or videos in Pictures &amp; videos first, then pick one here.</p>
+              <p className="text-[13px] text-ink-muted">Add pictures or videos in Media first, then pick one here.</p>
             ) : (
               <div className="grid gap-2" style={{ gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))" }}>
                 {mediaItems.filter((m) => m.kind !== "audio").map((m) => {

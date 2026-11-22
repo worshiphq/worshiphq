@@ -125,14 +125,14 @@ export function MediaView() {
       {/* ─── Library ─── */}
       <section className="flex min-h-0 flex-col overflow-hidden rounded-xl border border-line bg-surface-2 shadow-sm max-lg:min-h-[480px]">
         <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-line px-4 py-3">
-          <h2 className="text-[18px] font-bold text-ink">Pictures &amp; videos</h2>
-          <div className="flex rounded-lg bg-surface-4 p-1">
-            {([["all", "All"], ["image", "Pictures"], ["video", "Videos"], ["audio", "Audio"], ["presentations", "Presentations"], ["stock", "✦ Free backgrounds"]] as [Filter, string][]).map(([f, label]) => (
+          <h2 className="text-[18px] font-bold text-ink">Media</h2>
+          <div className="flex max-w-full flex-wrap rounded-lg bg-surface-4 p-1">
+            {([["image", "Pictures"], ["video", "Videos"], ["audio", "Audio"], ["presentations", "Presentations"], ["stock", "✦ Free backgrounds"], ["all", "All"]] as [Filter, string][]).map(([f, label]) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
                 aria-pressed={filter === f}
-                className={`rounded-md px-3 py-1 text-[13px] font-medium ${filter === f ? "bg-surface-2 font-semibold text-primary-bright shadow-sm" : "text-ink-muted hover:text-ink"}`}
+                className={`whitespace-nowrap rounded-md px-3 py-1 text-[13px] font-medium ${filter === f ? "bg-surface-2 font-semibold text-primary-bright shadow-sm" : "text-ink-muted hover:text-ink"}`}
               >
                 {label}
               </button>
@@ -147,21 +147,21 @@ export function MediaView() {
               className="h-9 w-full rounded-lg border border-line-bright pl-9 pr-3 text-[14px] text-ink outline-none focus:border-primary"
             />
           </div>
-          <button
+          {filter !== "presentations" && <button
             onClick={addFiles}
             disabled={importing}
             className="flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-[14px] font-bold text-white hover:bg-primary-bright disabled:opacity-70"
           >
             {importing ? <Loader2 className="size-4 whq-spin" /> : <ImagePlus className="size-4" />}
             {importing ? "Copying…" : "Add pictures, videos or audio"}
-          </button>
-          <button
+          </button>}
+          {filter === "presentations" && <button
             onClick={async () => { const p = await importPresentation(); if (p) { setFilter("presentations"); setPresId(p.id); } }}
             disabled={importing}
-            className="flex h-10 items-center gap-2 rounded-lg border border-line-bright px-3 text-[14px] font-semibold text-ink hover:bg-surface-4 disabled:opacity-60"
+            className="flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-[14px] font-bold text-white hover:bg-primary-bright disabled:opacity-60"
           >
             <PresIcon className="size-4" /> Import PowerPoint or PDF
-          </button>
+          </button>}
         </div>
 
         {error && (
@@ -172,7 +172,7 @@ export function MediaView() {
         )}
 
         {filter === "stock" ? (
-          <StockLibrary onAdded={(item) => { setSelectedId(item.id); setToast(`“${item.name}” added to your pictures & videos`); }} />
+          <StockLibrary onAdded={(item) => { setSelectedId(item.id); setToast(`“${item.name}” added to your Media`); }} />
         ) : filter === "presentations" ? (
           <div className="flex-1 overflow-y-auto p-4">
             {presentations.length === 0 ? (

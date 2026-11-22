@@ -196,7 +196,7 @@ const NAV: { heading: string; items: NavItem[] }[] = [
     items: [
       { id: "bible", label: "Bible", Icon: BookOpen, ready: true },
       { id: "songs", label: "Songs", Icon: Music, ready: true },
-      { id: "media", label: "Pictures & videos", Icon: ImageIcon, ready: true },
+      { id: "media", label: "Media", Icon: ImageIcon, ready: true },
     ],
   },
   {

@@ -3,6 +3,7 @@ import { BookOpen, Keyboard, Mic, Palette, TvMinimal, Volume2 } from "lucide-rea
 import { LooksView } from "./LooksView";
 import { ScreensView } from "./ScreensView";
 import { useVoiceStore, type VoiceMode } from "../stores/voice-store";
+import { COMMAND_HELP } from "../lib/voice-commands";
 import { useBibleStore } from "../stores/bible-store";
 import { isDesktopApp } from "../lib/media-src";
 
@@ -126,6 +127,10 @@ function AudioSettings() {
 
         <Card title="Speech recognition" icon={<Mic className="size-5 text-primary-bright" />}>
           <WhisperSetup deviceId={deviceId} devices={devices} />
+        </Card>
+
+        <Card title="Voice commands" icon={<Mic className="size-5 text-primary-bright" />}>
+          <VoiceCommandsSetup />
         </Card>
 
         <Card title="Old Windows recogniser (only if you choose it above)" icon={<Mic className="size-5 text-primary-bright" />}>
@@ -281,7 +286,7 @@ const SHORTCUTS: [string, string][] = [
   ["Space (when a verse banner shows)", "Show the verse the voice assistant heard"],
   ["Esc (when a verse banner shows)", "Not now"],
   ["Ctrl + K  or  /", "Jump to the Bible search box"],
-  ["Ctrl + 1 … 7", "Service plan, Live, Bible, Songs, Pictures & videos, Voice assistant, Settings"],
+  ["Ctrl + 1 … 7", "Service plan, Live, Bible, Songs, Media, Voice assistant, Settings"],
 ];
 
 function Shortcuts() {
@@ -390,6 +395,57 @@ function WhisperProgressBar({ p }: { p: { stage: string; done: number; total: nu
         <div className="h-full rounded-full bg-primary transition-[width] duration-300" style={{ width: `${Math.max(2, pct)}%` }} />
       </div>
       <p className="mt-1.5 text-[12px] text-ink-faint">You can keep using WorshipHQ while this downloads.</p>
+    </div>
+  );
+}
+
+/** Which spoken commands may act, and whether they need a wake word first. */
+function VoiceCommandsSetup() {
+  const v = useVoiceStore();
+  const wakeOn = !!v.wakeWord;
+  return (
+    <div className="space-y-4">
+      <label className="flex cursor-pointer items-center gap-3">
+        <input type="checkbox" checked={v.commandsOn} onChange={(e) => v.setCommandsOn(e.target.checked)} className="size-5 accent-[var(--color-primary)]" />
+        <span className="text-[14px] font-semibold text-ink">Listen for spoken commands</span>
+      </label>
+      {v.commandsOn && (
+        <>
+          <p className="text-[13px] text-ink-muted">
+            A command only counts when it is said <b>on its own</b> (a short sentence with a pause before and after), so the sermon itself
+            (“and in the next verse Paul says…”) won't move the screen.
+          </p>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {COMMAND_HELP.map((g) => (
+              <label key={g.group} className={`flex cursor-pointer gap-3 rounded-lg p-3 ${v.commandGroups[g.group] ? "bg-primary-soft/60 ring-1 ring-primary/30" : "bg-surface-4/60"}`}>
+                <input type="checkbox" checked={v.commandGroups[g.group]} onChange={(e) => v.setCommandGroup(g.group, e.target.checked)} className="mt-0.5 size-4 accent-[var(--color-primary)]" />
+                <span>
+                  <span className="block text-[14px] font-semibold text-ink">{g.title}</span>
+                  <span className="block text-[13px] text-ink-muted">{g.examples.map((x) => `“${x}”`).join(" · ")}</span>
+                </span>
+              </label>
+            ))}
+          </div>
+          <div className="rounded-lg border border-line p-3">
+            <span className="mb-2 block text-[14px] font-semibold text-ink">When should a command act?</span>
+            <label className="flex cursor-pointer items-start gap-2 py-1">
+              <input type="radio" name="wake" checked={!wakeOn} onChange={() => v.setWakeWord("")} className="mt-1 size-4 accent-[var(--color-primary)]" />
+              <span className="text-[14px] text-ink">Straight away, when the command is said on its own <span className="text-ink-muted">(best when the operator wears the headset)</span></span>
+            </label>
+            <label className="flex cursor-pointer items-start gap-2 py-1">
+              <input type="radio" name="wake" checked={wakeOn} onChange={() => v.setWakeWord("Media")} className="mt-1 size-4 accent-[var(--color-primary)]" />
+              <span className="text-[14px] text-ink">Only when it starts with a wake word, e.g. “<b>{v.wakeWord || "Media"}</b>, next verse” <span className="text-ink-muted">(best on the preacher's microphone)</span></span>
+            </label>
+            {wakeOn && (
+              <label className="mt-2 flex items-center gap-2 pl-6 text-[13px] text-ink-muted">
+                Wake word
+                <input value={v.wakeWord} onChange={(e) => v.setWakeWord(e.target.value || "Media")} className="h-9 w-40 rounded-lg border border-line-bright bg-surface-2 px-2 text-[14px] text-ink" />
+              </label>
+            )}
+          </div>
+          <p className="text-[12px] text-ink-faint">You can try any command by typing it in the box on the Voice assistant page.</p>
+        </>
+      )}
     </div>
   );
 }

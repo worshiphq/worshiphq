@@ -9,6 +9,8 @@ import { isDesktopApp } from "../lib/media-src";
 import { useBibleStore } from "./bible-store";
 import { useProjectionStore } from "./projection-store";
 import { startWhisperListening, stopWhisperListening } from "../lib/whisper-listener";
+import { COMMAND_GROUP, describeCommand, parseVoiceCommand, type CommandGroup, type VoiceCommand } from "../lib/voice-commands";
+import { showPassage, stepPart, stepVerse, usePassageStore } from "../lib/show-passage";
 
 /** whisper = OpenAI Whisper on this computer (accurate); windows = the old Windows recogniser. */
 export type VoiceEngine = "whisper" | "windows";
@@ -27,7 +29,12 @@ export interface Detection {
   status: "waiting" | "shown" | "dismissed" | "listed";
 }
 
-export interface HeardLine { id: string; text: string; at: number; isReference: boolean }
+export interface HeardLine {
+  id: string; text: string; at: number; isReference: boolean;
+  /** A voice command it acted on (or why it couldn't). */
+  command?: string;
+  commandOk?: boolean;
+}
 
 interface VoiceState {
   status: VoiceStatus;
@@ -59,6 +66,15 @@ interface VoiceState {
   whisperProgress: { stage: string; done: number; total: number } | null;
   checkWhisper: () => Promise<void>;
   installWhisper: () => Promise<void>;
+  /** Spoken commands ("next verse", "verse 5", "clear the screen"). */
+  commandsOn: boolean;
+  setCommandsOn: (v: boolean) => void;
+  commandGroups: Record<CommandGroup, boolean>;
+  setCommandGroup: (g: CommandGroup, on: boolean) => void;
+  /** When set, a command must start with this word ("Media, next verse"). */
+  wakeWord: string;
+  setWakeWord: (w: string) => void;
+  runCommand: (c: VoiceCommand) => Promise<{ ok: boolean; note: string }>;
 
   start: () => Promise<void>;
   stop: () => Promise<void>;
@@ -144,6 +160,64 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     whisperInstalled: null,
     installingWhisper: false,
     whisperProgress: null,
+    commandsOn: true,
+    setCommandsOn: (commandsOn) => set({ commandsOn }),
+    commandGroups: { bible: true, slides: true, screen: true, banner: true },
+    setCommandGroup: (g, on) => set((s) => ({ commandGroups: { ...s.commandGroups, [g]: on } })),
+    wakeWord: "",
+    setWakeWord: (wakeWord) => set({ wakeWord: wakeWord.slice(0, 30) }),
+    runCommand: async (c) => {
+      const proj = useProjectionStore.getState();
+      const passage = usePassageStore.getState().passage;
+      const needPassage = { ok: false, note: "Show a Bible verse first" };
+      switch (c.type) {
+        case "verse": {
+          if (!passage) return needPassage;
+          const label = await stepVerse(c.delta);
+          return label ? { ok: true, note: label } : { ok: false, note: "No more verses that way" };
+        }
+        case "gotoVerse": {
+          if (!passage) return needPassage;
+          const label = await showPassage({ book: passage.book, chapter: passage.chapter, verseStart: c.start, verseEnd: c.end });
+          return label ? { ok: true, note: label } : { ok: false, note: "That verse isn't in this chapter" };
+        }
+        case "chapter": {
+          if (!passage) return needPassage;
+          const label = await showPassage({ book: passage.book, chapter: c.chapter, verseStart: c.start ?? 1, verseEnd: c.end });
+          return label ? { ok: true, note: label } : { ok: false, note: "That chapter isn't in this book" };
+        }
+        case "chapterDelta": {
+          if (!passage) return needPassage;
+          const label = await showPassage({ book: passage.book, chapter: passage.chapter + c.delta, verseStart: 1 });
+          return label ? { ok: true, note: label } : { ok: false, note: "No more chapters that way" };
+        }
+        case "slide": {
+          if (stepPart(c.delta)) return { ok: true, note: "Moved" };
+          // Songs and service items: the same as pressing the arrow keys on the Live page.
+          window.dispatchEvent(new KeyboardEvent("keydown", { key: c.delta > 0 ? "ArrowRight" : "ArrowLeft" }));
+          return { ok: true, note: "Moved" };
+        }
+        case "clear":
+          if (!proj.textCleared) proj.toggleClearText();
+          return { ok: true, note: "Words cleared (say “show it” to bring them back)" };
+        case "black":
+          if (!proj.isBlack) proj.toggleBlack();
+          return { ok: true, note: "Screen is black (say “show it” to bring it back)" };
+        case "show": {
+          const pending = get().pending;
+          if (pending) { await get().showDetection(pending.id); return { ok: true, note: pending.label }; }
+          if (proj.isBlack) { proj.toggleBlack(); return { ok: true, note: "Screen back on" }; }
+          if (proj.textCleared) { proj.toggleClearText(); return { ok: true, note: "Words back on" }; }
+          return { ok: false, note: "Nothing waiting to show" };
+        }
+        case "cancel": {
+          const pending = get().pending;
+          if (!pending) return { ok: false, note: "Nothing to cancel" };
+          get().dismiss(pending.id);
+          return { ok: true, note: "Cancelled" };
+        }
+      }
+    },
     checkWhisper: async () => {
       if (!isDesktopApp()) return;
       const { invoke } = await import("@tauri-apps/api/core");
@@ -227,6 +301,18 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
         case "heard": {
           const text = String(msg.text ?? "");
           const confidence = Number(msg.confidence) || 0;
+          const st = get();
+          const cmd = st.commandsOn ? parseVoiceCommand(text, st.wakeWord || undefined) : null;
+          if (cmd) {
+            const id = crypto.randomUUID();
+            const allowed = st.commandGroups[COMMAND_GROUP[cmd.type]];
+            const name = describeCommand(cmd);
+            set((s) => ({ lines: [{ id, text, at: Date.now(), isReference: false, command: allowed ? name : name + " (switched off in Settings)", commandOk: allowed }, ...s.lines].slice(0, MAX_LINES), partial: "" }));
+            if (allowed) {
+              get().runCommand(cmd).then((r) => set((s) => ({ lines: s.lines.map((l) => (l.id === id ? { ...l, command: name + " → " + r.note, commandOk: r.ok } : l)) })));
+            }
+            break;
+          }
           let ref: ScriptureRef | null = null;
           if (msg.kind === "reference" && typeof msg.book === "number") ref = referenceFromHeard(text, msg.book);
           // Free speech: only trust a reference it clearly heard.
@@ -242,6 +328,10 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     tryText: (text) => {
       const t = text.trim();
       if (!t) return;
+      if (get().commandsOn && parseVoiceCommand(t, get().wakeWord || undefined)) {
+        get().handleEvent(JSON.stringify({ type: "heard", text: t, confidence: 1, kind: "speech" }));
+        return;
+      }
       const ref = referenceInSpeech(t);
       addLine(t, !!ref);
       if (ref) detect(ref, t, 1);
@@ -270,19 +360,13 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
       }
 
       const ref = fixImpossibleVerse(det.ref, chapter[chapter.length - 1].verse);
-      const start = ref.verseStart ?? 1;
-      const end = ref.verseEnd ?? (ref.verseStart ? ref.verseStart : chapter[chapter.length - 1].verse);
-      const verses = chapter.filter((v) => v.verse >= start && v.verse <= end);
-      const label = formatReference({ ...ref, verseStart: start, verseEnd: end === start ? undefined : end });
-      const slides = buildScriptureSlides(verses, label, pack?.abbreviation);
-      if (!slides.length) return;
-
-      const proj = useProjectionStore.getState();
-      if (isDesktopApp() && !proj.projectionOpen) proj.openProjection();
-      proj.goLive(slides[0]);
+      void pack;
+      const label = await showPassage(ref);
+      const passage = usePassageStore.getState().passage;
+      if (!label || !passage) return;
       set((s) => ({
         pending: s.pending?.id === id ? null : s.pending,
-        shown: { label, slides, index: 0 },
+        shown: { label, slides: passage.slides, index: 0 },
         detections: s.detections.map((d) => (d.id === id ? { ...d, status: "shown", label } : d)),
       }));
     },
@@ -309,5 +393,10 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
 }, {
   name: "whq-media-voice",
   version: 1,
-  partialize: (s) => ({ mode: s.mode, autoDelay: s.autoDelay, minConfidence: s.minConfidence, matchQuotes: s.matchQuotes, engine: s.engine, micId: s.micId }),
+  partialize: (s) => ({ mode: s.mode, autoDelay: s.autoDelay, minConfidence: s.minConfidence, matchQuotes: s.matchQuotes, engine: s.engine, micId: s.micId, commandsOn: s.commandsOn, commandGroups: s.commandGroups, wakeWord: s.wakeWord }),
+  merge: (persisted, current) => ({
+    ...current,
+    ...(persisted as object),
+    commandGroups: { ...current.commandGroups, ...((persisted as { commandGroups?: object } | undefined)?.commandGroups ?? {}) },
+  }),
 }));

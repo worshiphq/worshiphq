@@ -175,7 +175,7 @@ export function StockLibrary({ onAdded }: { onAdded: (item: MediaItem) => void }
                     const it = await add(e);
                     if (it) onAdded(it);
                   }}
-                  title={have ? "Already in your pictures & videos" : "Add to your pictures & videos"}
+                  title={have ? "Already in your Media" : "Add to your Media"}
                   className="group rounded-lg p-1.5 text-left hover:bg-surface-4">
                   <div className="relative aspect-video overflow-hidden rounded-md bg-ink ring-1 ring-line">
                     <img src={e.thumb} alt="" loading="lazy" className="h-full w-full object-cover" />

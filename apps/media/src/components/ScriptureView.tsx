@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import { usePassageStore } from "../lib/show-passage";
 import {
   BookOpen, Check, ChevronLeft, ChevronRight, Copy, CornerDownLeft, Loader2,
   MonitorOff, MonitorPlay, Plus, Search, TextSearch, X,
@@ -159,6 +160,13 @@ export function ScriptureView({ onOpenLooks }: { onOpenLooks: () => void }) {
     if (isDesktopApp() && !projectionOpen) openProjection();
     setLiveParts(slides);
     goLive(slides[0]);
+    // So "next verse" / "verse 5" (voice) know where we are.
+    if (selectedBook !== null && selectedChapter !== null && selection && reference) {
+      usePassageStore.getState().set({
+        book: selectedBook, chapter: selectedChapter, start: selection.start, end: selection.end,
+        versesInChapter: verses[verses.length - 1]?.verse ?? selection.end, label: reference, slides, index: 0,
+      });
+    }
   }
 
   function addPassageToService() {

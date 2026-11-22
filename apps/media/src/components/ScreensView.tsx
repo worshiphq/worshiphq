@@ -168,7 +168,7 @@ export function ScreensView({ onOpenMedia }: { onOpenMedia: () => void }) {
                 </>
               )}
             </div>
-            {!logo && <p className="mt-2 text-[13px] text-ink-faint">In Pictures &amp; videos, pick your logo and press “Use as the church logo”.</p>}
+            {!logo && <p className="mt-2 text-[13px] text-ink-faint">In Media, pick your logo and press “Use as the church logo”.</p>}
           </section>
         </div>
       </div>

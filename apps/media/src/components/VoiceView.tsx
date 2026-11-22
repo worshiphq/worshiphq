@@ -78,6 +78,11 @@ export function VoiceView({ onOpenBible }: { onOpenBible: () => void }) {
                   <p key={l.id} className={`mb-1.5 text-[14px] ${l.isReference ? "font-semibold text-primary-bright" : "text-ink"}`}>
                     <span className="mr-2 font-mono text-[11px] text-ink-faint">{new Date(l.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}</span>
                     {l.text}
+                    {l.command && (
+                      <span className={`ml-2 inline-block rounded px-1.5 py-0.5 text-[12px] font-semibold ${l.commandOk ? "bg-success/15 text-success" : "bg-gold/15 text-gold"}`}>
+                        {l.commandOk ? "✓ " : ""}{l.command}
+                      </span>
+                    )}
                   </p>
                 ))}
               </div>
@@ -88,7 +93,7 @@ export function VoiceView({ onOpenBible }: { onOpenBible: () => void }) {
                 <input
                   value={typed}
                   onChange={(e) => setTyped(e.target.value)}
-                  placeholder="Try it: type what a preacher might say, e.g. “turn to Romans chapter eight verse twenty eight”"
+                  placeholder="Try it: type what someone might say, e.g. “turn to Romans chapter eight verse twenty eight” or “next verse”"
                   className="h-10 min-w-0 flex-1 rounded-lg border border-line-bright px-3 text-[14px] text-ink outline-none focus:border-primary"
                 />
                 <button type="submit" className="flex h-10 items-center gap-1.5 rounded-lg bg-surface-4 px-3 text-[14px] font-semibold text-ink hover:bg-surface-5">
