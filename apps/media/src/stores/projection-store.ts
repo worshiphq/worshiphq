@@ -8,7 +8,8 @@ import { themeKindFor } from "../lib/themes";
 function withLook(slide: Slide): Slide {
   const { themes, transition } = useThemeStore.getState();
   if (slide.media) return { ...slide, transition };
-  return { ...slide, style: themes[themeKindFor(slide.type)], transition };
+  const style = themes[themeKindFor(slide.type)];
+  return { ...slide, style: slide.background ? { ...style, background: { ...style.background, ...slide.background } } : style, transition };
 }
 
 function isTauri(): boolean {

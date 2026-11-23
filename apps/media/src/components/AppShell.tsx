@@ -1,5 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
+import { useShowStore } from "../stores/show-store";
 import logoMark from "../assets/worshiphq-mark.png";
+import { MenuBar, type MenuAction } from "./MenuBar";
+import { BackgroundPicker } from "./BackgroundPicker";
 import {
   BookOpen, CalendarDays, Cast, Church, Eraser, Image as ImageIcon, Mic, Minus, Monitor, MonitorOff,
   Music, Settings, Square, X,
@@ -23,7 +26,7 @@ async function windowAction(action: "minimize" | "toggleMaximize" | "close") {
 
 /* ─────────────────────────── Top bar ─────────────────────────── */
 
-export function AppHeader() {
+export function AppHeader({ onMenu, previewShown }: { onMenu: (a: MenuAction) => void; previewShown: boolean }) {
   const { currentSlide, isLive, isBlack, textCleared, projectionOpen, serviceItems, toggleBlack, toggleClearText, toggleLogo, openProjection, closeProjection, alert } =
     useProjectionStore();
 
@@ -43,17 +46,25 @@ export function AppHeader() {
   const showingSomething = isLive && !isBlack;
 
   return (
-    <header className="flex h-14 shrink-0 items-center gap-3 border-b border-line bg-surface-2 pl-4" data-tauri-drag-region>
-      <div className="flex items-center gap-2.5" data-tauri-drag-region>
-        <img src={logoMark} alt="WorshipHQ" className="size-8 object-contain" draggable={false} data-tauri-drag-region />
-        <span className="hidden text-[15px] font-bold tracking-tight text-ink lg:inline" data-tauri-drag-region>
+    <header className="shrink-0 border-b border-line bg-surface-2">
+      {/* Title row: logo, menus, window buttons (drag the empty space to move the window). */}
+      <div className="flex h-9 items-center gap-2 border-b border-line/70 pl-3" data-tauri-drag-region>
+        <img src={logoMark} alt="WorshipHQ" className="size-6 object-contain" draggable={false} data-tauri-drag-region />
+        <span className="hidden whitespace-nowrap text-[13px] font-bold tracking-tight text-ink xl:inline" data-tauri-drag-region>
           WorshipHQ <span className="text-primary">Media</span>
         </span>
+        <div className="mx-1 h-5 w-px bg-line" />
+        <MenuBar onAction={onMenu} previewShown={previewShown} projectorOn={projectionOpen} />
+        <div className="h-full flex-1" data-tauri-drag-region />
+        <div className="flex h-full items-center">
+          <WindowButton label="Minimise" onClick={() => windowAction("minimize")}><Minus className="size-4" /></WindowButton>
+          <WindowButton label="Maximise" onClick={() => windowAction("toggleMaximize")}><Square className="size-3.5" /></WindowButton>
+          <WindowButton label="Close" danger onClick={() => windowAction("close")}><X className="size-4" /></WindowButton>
+        </div>
       </div>
 
-      <div className="mx-2 h-7 w-px bg-line" />
-
-      {/* The three emergency buttons every operator needs, always in the same place. */}
+      <div className="flex h-12 items-center gap-3 px-3">
+      {/* The emergency buttons every operator needs, always in the same place, plus the background picker. */}
       <div className="flex items-center gap-1.5">
         <MasterButton
           icon={<MonitorOff className="size-4" />}
@@ -79,9 +90,10 @@ export function AppHeader() {
           activeClass="bg-primary text-white"
           onClick={toggleLogo}
         />
+        <BackgroundPicker />
       </div>
 
-      <div className="flex-1 self-stretch" data-tauri-drag-region />
+      <div className="flex-1 self-stretch" />
 
       {/* What the congregation sees right now, in plain words. */}
       <div
@@ -109,11 +121,6 @@ export function AppHeader() {
         <Monitor className="size-4" />
         {projectionOpen ? "Projector on" : "Open projector"}
       </button>
-
-      <div className="flex h-full items-center">
-        <WindowButton label="Minimise" onClick={() => windowAction("minimize")}><Minus className="size-4" /></WindowButton>
-        <WindowButton label="Maximise" onClick={() => windowAction("toggleMaximize")}><Square className="size-3.5" /></WindowButton>
-        <WindowButton label="Close" danger onClick={() => windowAction("close")}><X className="size-4" /></WindowButton>
       </div>
     </header>
   );
@@ -308,13 +315,17 @@ function ScheduleBox({ onOpen }: { onOpen: (w: Workspace) => void }) {
     return () => window.removeEventListener("click", close);
   }, [menuAt]);
 
-  const open = (i: number) => { setActiveItem(i); onOpen("live"); };
-  const show = (i: number) => {
-    const first = serviceItems[i]?.slides?.[0];
-    if (!first) return;
+  const open = (i: number) => {
     setActiveItem(i);
-    if (isDesktopApp() && !projectionOpen) openProjection();
-    goLive(first);
+    const it = serviceItems[i];
+    if (it?.slides?.length) useShowStore.getState().setPreview(it.title, it.slides, 0);
+  };
+  const show = (i: number) => {
+    const it = serviceItems[i];
+    if (!it?.slides?.length) return;
+    setActiveItem(i);
+    useShowStore.getState().setPreview(it.title, it.slides, 0);
+    useShowStore.getState().sendPreviewLive(0);
   };
   const onAir = (i: number) => isLive && !!currentSlide && !!serviceItems[i]?.slides?.includes(currentSlide);
 
@@ -347,7 +358,7 @@ function ScheduleBox({ onOpen }: { onOpen: (w: Workspace) => void }) {
                 onClick={() => open(i)}
                 onDoubleClick={() => show(i)}
                 onContextMenu={(e) => { e.preventDefault(); setMenuAt({ i, x: e.clientX, y: e.clientY }); }}
-                title={`${item.title} · click to open, double-click to show`}
+                title={`${item.title} · click for Preview, double-click (or Enter) to show`}
                 className={`mb-0.5 flex cursor-pointer select-none items-center gap-2 rounded-md px-2 py-1.5 ${live ? "bg-danger/10 ring-1 ring-danger/40" : active ? "bg-primary-soft" : "hover:bg-surface-2"} ${over === i && drag !== null && drag !== i ? "border-t-2 border-primary" : ""}`}
               >
                 <Icon className={`size-4 shrink-0 ${live ? "text-danger" : active ? "text-primary-bright" : "text-ink-faint"}`} />
@@ -364,7 +375,8 @@ function ScheduleBox({ onOpen }: { onOpen: (w: Workspace) => void }) {
       {menuAt && (
         <div className="fixed z-50 w-48 rounded-xl border border-line-bright bg-surface-2 py-1 shadow-[0_10px_30px_rgba(15,23,42,0.18)]" style={{ left: menuAt.x, top: menuAt.y }}>
           {[
-            ["Open on Live", () => open(menuAt.i)],
+            ["Put in Preview", () => open(menuAt.i)],
+            ["Open on the Live page", () => { setActiveItem(menuAt.i); onOpen("live"); }],
             ["Show on screen", () => show(menuAt.i)],
             ["Move up", () => menuAt.i > 0 && reorderService(menuAt.i, menuAt.i - 1)],
             ["Move down", () => menuAt.i < serviceItems.length - 1 && reorderService(menuAt.i, menuAt.i + 1)],

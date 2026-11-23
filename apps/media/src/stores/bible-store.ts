@@ -76,7 +76,9 @@ export const useBibleStore = create<BibleState>((set, get) => ({
     set({ loading: true });
     try {
       const packs = await tauriInvoke<BiblePack[]>("bible_list_packs") ?? DEMO_PACKS;
-      const activePack = get().activePack ?? packs[0]?.id ?? null;
+      let remembered: string | null = null;
+      try { remembered = localStorage.getItem("whq-last-version"); } catch { /* ignore */ }
+      const activePack = get().activePack ?? (remembered && packs.some((p) => p.id === remembered) ? remembered : null) ?? packs[0]?.id ?? null;
       set({ packs, activePack, loading: false });
     } catch (e) {
       console.error("Failed to load Bible packs:", e);
@@ -88,6 +90,7 @@ export const useBibleStore = create<BibleState>((set, get) => ({
     // Keep the reader on the same passage when switching translations.
     const { selectedBook, selectedChapter } = get();
     set({ activePack: id, searchResults: [], searchQuery: "" });
+    try { localStorage.setItem("whq-last-version", id); } catch { /* ignore */ }
     if (selectedBook !== null && selectedChapter !== null) {
       get().loadChapter(selectedBook, selectedChapter);
     }

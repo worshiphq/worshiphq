@@ -1,4 +1,10 @@
 import { useState, useEffect } from "react";
+import { backgroundSlide } from "./components/BackgroundPicker";
+import { lastBackground } from "./stores/show-store";
+import { PreviewLive } from "./components/PreviewLive";
+import { useShowStore } from "./stores/show-store";
+import type { MenuAction } from "./components/MenuBar";
+import { openSchedule, saveSchedule } from "./lib/schedule-file";
 import { AppHeader, AppSidebar, type Workspace } from "./components/AppShell";
 import { LiveView } from "./components/LiveView";
 import { ServiceView } from "./components/ServiceView";
@@ -19,6 +25,47 @@ export default function App() {
   const [launched, setLaunched] = useState(false);
   const [workspace, setWorkspaceRaw] = useState<Workspace>("bible");
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("looks");
+  const [previewShown, setPreviewShownRaw] = useState(() => { try { return localStorage.getItem("whq-preview-shown") !== "0"; } catch { return true; } });
+  const setPreviewShown = (v: boolean) => { setPreviewShownRaw(v); try { localStorage.setItem("whq-preview-shown", v ? "1" : "0"); } catch { /* ignore */ } };
+
+  /** Menu bar actions. Song and media actions open their page, then tell it what to do. */
+  async function onMenu(a: MenuAction) {
+    const tell = (page: Workspace, action: string) => { setWorkspace(page); setTimeout(() => window.dispatchEvent(new CustomEvent("whq-menu", { detail: action })), 80); };
+    const proj = useProjectionStore.getState();
+    switch (a) {
+      case "bible": case "songs": case "media": case "voice": setWorkspace(a); break;
+      case "live:tools": case "live": setWorkspace("live"); break;
+      case "schedule:plan": setWorkspace("service"); break;
+      case "settings": setWorkspace("settings"); break;
+      case "settings:looks": case "settings:screens": case "settings:audio": case "settings:shortcuts": case "settings:about":
+        setSettingsTab(a.split(":")[1] as SettingsTab); setWorkspaceRaw("settings"); break;
+      case "bible:versions": setSettingsTab("bibles"); setWorkspaceRaw("settings"); break;
+      case "view:preview": setPreviewShown(!previewShown); break;
+      case "song:new": case "song:edit": case "song:import-ew": case "song:import-files": tell("songs", a); break;
+      case "media:add": case "media:presentation": case "media:free": tell("media", a); break;
+      case "live:send": useShowStore.getState().sendPreviewLive(); break;
+      case "live:black": proj.toggleBlack(); break;
+      case "live:clear": proj.toggleClearText(); break;
+      case "live:logo": proj.toggleLogo(); break;
+      case "live:projector": proj.projectionOpen ? proj.closeProjection() : proj.openProjection(); break;
+      case "schedule:first": {
+        const i = proj.serviceItems.findIndex((it) => it.slides?.length);
+        if (i >= 0) { proj.setActiveItem(i); useShowStore.getState().setPreview(proj.serviceItems[i].title, proj.serviceItems[i].slides!, 0); useShowStore.getState().sendPreviewLive(0); }
+        break;
+      }
+      case "schedule:new": case "schedule:clear":
+        if (!proj.serviceItems.length || window.confirm("Start a new, empty schedule? (What is on the screen stays.)")) proj.newService();
+        break;
+      case "schedule:save": await saveSchedule(); break;
+      case "schedule:open": await openSchedule(); break;
+      case "help:website":
+        try { const { open } = await import("@tauri-apps/plugin-shell"); await open("https://worshiphq.app"); } catch { window.open("https://worshiphq.app", "_blank"); }
+        break;
+      case "exit":
+        if ((window as any).__TAURI_INTERNALS__) { const { getCurrentWindow } = await import("@tauri-apps/api/window"); getCurrentWindow().close(); }
+        break;
+    }
+  }
   // "looks" and "screens" open those tabs of Settings.
   const setWorkspace = (w: Workspace) => {
     if (w === "looks" || w === "screens") { setSettingsTab(w); setWorkspaceRaw("settings"); }
@@ -45,7 +92,36 @@ export default function App() {
       } else if (k === ",") { e.preventDefault(); setWorkspace("settings"); }
     };
     window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // Enter sends Preview live (like EasyWorship); Page Down / Page Up move through what is live.
+    const onPlain = (e: KeyboardEvent) => {
+      if (!launched || e.defaultPrevented || e.ctrlKey || e.altKey || e.metaKey) return;
+      const el = e.target as HTMLElement;
+      if (el?.tagName === "INPUT" || el?.tagName === "TEXTAREA" || el?.tagName === "SELECT" || el?.isContentEditable || el?.closest?.("[role=dialog]")) return;
+      if (e.key === "Enter" && el?.tagName !== "BUTTON") {
+        if (!useShowStore.getState().preview) return;
+        e.preventDefault();
+        useShowStore.getState().sendPreviewLive();
+      } else if (e.key === "PageDown") { e.preventDefault(); useShowStore.getState().liveStep(1); }
+      else if (e.key === "PageUp") { e.preventDefault(); useShowStore.getState().liveStep(-1); }
+    };
+    window.addEventListener("keydown", onPlain);
+    return () => { window.removeEventListener("keydown", onKey); window.removeEventListener("keydown", onPlain); };
+  }, [launched]);
+
+  // Opening the app: the projector comes on by itself and shows the last background, with no words.
+  useEffect(() => {
+    if (!launched) return;
+    const proj = useProjectionStore.getState();
+    if (!(window as any).__TAURI_INTERNALS__ || proj.isLive) return;
+    const bg = lastBackground();
+    const t = window.setTimeout(() => {
+      if (!proj.projectionOpen) proj.openProjection();
+      window.setTimeout(() => {
+        const slide = backgroundSlide(bg ?? { kind: "gradient", value: "linear-gradient(180deg, #000428 0%, #004e92 100%)" }, "Background");
+        useProjectionStore.getState().goLive(slide);
+      }, 900);
+    }, 300);
+    return () => window.clearTimeout(t);
   }, [launched]);
 
   // Keep the stage display (confidence monitor) up to date with what's on screen and what's next.
@@ -110,10 +186,12 @@ export default function App() {
   return (
     <LicenseGate>
       <div className="flex h-full flex-col bg-surface">
-        <AppHeader />
+        <AppHeader onMenu={onMenu} previewShown={previewShown} />
         <VoiceBanner />
         <div className="flex min-h-0 flex-1">
           <AppSidebar workspace={workspace} onChange={setWorkspace} />
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          {previewShown && <PreviewLive />}
           <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
             {workspace === "bible" ? (
               <ScriptureView onOpenLooks={() => setWorkspace("looks")} />
@@ -131,6 +209,7 @@ export default function App() {
               <LiveView onOpenBible={() => setWorkspace("bible")} />
             )}
           </main>
+          </div>
         </div>
       </div>
     </LicenseGate>

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { useShowStore } from "../stores/show-store";
 import { SongEditorDialog } from "./SongEditorDialog";
 import { Check, Music, Pencil, Plus, Search, Trash2, X } from "lucide-react";
 import { richText } from "../lib/rich-text";
@@ -59,7 +60,8 @@ export function SongsView() {
     setImporting(false);
   }
   const { addToService, goLive, serviceItems, projectionOpen, openProjection, currentSlide, isLive, isBlack } = useProjectionStore();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedIdRaw] = useState<string | null>(() => { try { return localStorage.getItem("whq-last-song"); } catch { return null; } });
+  const setSelectedId = (id: string | null) => { setSelectedIdRaw(id); try { if (id) localStorage.setItem("whq-last-song", id); } catch { /* ignore */ } };
   /** The slide picked in the middle (shown in the preview). */
   const [slideIndex, setSlideIndex] = useState(0);
   /** The song open in the edit window. */
@@ -71,7 +73,7 @@ export function SongsView() {
 
   useEffect(() => { loadSongs(); }, [loadSongs]);
   useEffect(() => {
-    if (!selectedId && songs.length) setSelectedId(songs[0].id);
+    if ((!selectedId || !songs.some((x) => x.id === selectedId)) && songs.length) setSelectedId(songs[0].id);
   }, [selectedId, songs]);
 
   const song = songs.find((s) => s.id === selectedId) ?? null;
@@ -88,13 +90,31 @@ export function SongsView() {
   const inService = !!song && serviceItems.some((i) => i.data?.songId === song.id);
   const liveText = isLive && !isBlack ? currentSlide?.content.primaryText : undefined;
 
+  // The song waits in Preview; picking a slide moves the Preview; Enter or double-click sends it live.
+  useEffect(() => {
+    if (song && slides.length) useShowStore.getState().setPreview(song.title, slides, slideIndex);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slides, slideIndex]);
+
   function showLive(i: number) {
-    const s = slides[i];
-    if (!s) return;
+    if (!song || !slides[i]) return;
     setSlideIndex(i);
-    if ((window as any).__TAURI_INTERNALS__ && !projectionOpen) openProjection();
-    goLive(s);
+    useShowStore.getState().setPreview(song.title, slides, i);
+    useShowStore.getState().sendPreviewLive(i);
   }
+
+  // Menu bar: Songs › New / Edit / Import.
+  useEffect(() => {
+    const on = (e: Event) => {
+      const a = (e as CustomEvent).detail;
+      if (a === "song:new") newSong();
+      else if (a === "song:edit" && song) editSong(song.id);
+      else if (a === "song:import-ew") importFromEasyWorship();
+      else if (a === "song:import-files") importTextFiles();
+    };
+    window.addEventListener("whq-menu", on);
+    return () => window.removeEventListener("whq-menu", on);
+  });
 
   function addSongToService(s: Song) {
     addToService(songToServiceItem(s));
@@ -116,7 +136,7 @@ export function SongsView() {
   function onSlidesKey(e: React.KeyboardEvent) {
     if (e.key === "ArrowDown" || e.key === "ArrowRight") { e.preventDefault(); setSlideIndex((i) => Math.min(slides.length - 1, i + 1)); }
     else if (e.key === "ArrowUp" || e.key === "ArrowLeft") { e.preventDefault(); setSlideIndex((i) => Math.max(0, i - 1)); }
-    else if (e.key === "Enter") { e.preventDefault(); showLive(slideIndex); }
+    else if (e.key === "Enter") { e.preventDefault(); e.stopPropagation(); showLive(slideIndex); }
   }
   useEffect(() => {
     listRef.current?.querySelector(`[data-slide="${slideIndex}"]`)?.scrollIntoView({ block: "nearest" });
@@ -132,7 +152,7 @@ export function SongsView() {
   ]);
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 gap-3 overflow-y-auto p-3 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[280px_minmax(0,1fr)_380px] xl:overflow-hidden">
+    <div className="grid h-full min-h-0 grid-cols-1 gap-3 overflow-y-auto p-3 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)] lg:overflow-hidden">
       {menu.element}
       {/* ─── Song list ─── */}
       <section className="flex min-h-0 flex-col rounded-xl border border-line bg-surface-2 p-3 shadow-sm max-xl:min-h-[560px]">
@@ -216,11 +236,16 @@ export function SongsView() {
                 <h2 className="truncate text-[20px] font-bold text-ink">{song.title}</h2>
                 <p className="truncate text-[13px] text-ink-muted">{[song.author, song.key ? `Key of ${song.key}` : null, `${slides.length} slides`].filter(Boolean).join(" · ")}</p>
               </div>
+              {toast && <span role="status" className="fade-in flex items-center gap-1 rounded-lg bg-success/10 px-2.5 py-1 text-[12px] font-medium text-success"><Check className="size-3.5" /> {toast}</span>}
               <button onClick={() => editSong(song.id)} className="flex h-9 items-center gap-1.5 rounded-lg border border-line-bright px-3 text-[13px] font-semibold text-ink hover:bg-surface-4">
                 <Pencil className="size-4" /> Edit
               </button>
+              <button onClick={() => addSongToService(song)} disabled={!slides.length} title={inService ? "Already in the schedule (adds it again)" : "Add to the schedule"}
+                className="flex h-9 items-center gap-1.5 rounded-lg bg-primary px-3 text-[13px] font-bold text-white hover:bg-primary-bright disabled:opacity-40">
+                <Plus className="size-4" /> {inService ? "In schedule" : "Add to schedule"}
+              </button>
             </div>
-            <p className="shrink-0 px-4 pt-2 text-[12px] text-ink-faint">Click a slide to preview it · double-click (or Enter) to show it on screen · ↑ ↓ to move</p>
+            <p className="shrink-0 px-4 pt-2 text-[12px] text-ink-faint">Click a slide to put it in Preview · double-click (or Enter) to send it live · ↑ ↓ to move · right-click a song to delete it</p>
             <div ref={listRef} tabIndex={0} onKeyDown={onSlidesKey} className="min-h-0 flex-1 space-y-1.5 overflow-y-auto p-3 outline-none">
               {slides.map((s, i) => {
                 const on = i === slideIndex;
@@ -257,48 +282,6 @@ export function SongsView() {
           </>
         )}
       </section>
-
-      {/* ─── Preview + actions ─── */}
-      <div className="flex min-h-0 flex-col gap-3 lg:col-span-2 xl:col-span-1 xl:overflow-y-auto">
-        {song && (
-          <section className="rounded-xl border border-line bg-surface-2 p-3 shadow-sm">
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="text-[15px] font-semibold text-ink">Preview</h3>
-              <span className="text-[12px] text-ink-muted">{picked ? `${slideIndex + 1} of ${slides.length} · ${picked.label}` : ""}</span>
-            </div>
-            {picked ? <SlidePreview slide={picked} /> : <div className="aspect-video rounded-lg bg-surface-4" />}
-            <div className="mt-3 grid grid-cols-2 gap-2">
-              <button onClick={() => showLive(slideIndex)} disabled={!picked}
-                className="flex h-12 items-center justify-center gap-2 rounded-xl bg-danger text-[15px] font-bold text-white hover:brightness-110 disabled:opacity-40">
-                <MonitorPlay className="size-5" /> Show on screen
-              </button>
-              <button onClick={() => addSongToService(song)} disabled={!slides.length}
-                className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary text-[15px] font-bold text-white hover:bg-primary-bright disabled:opacity-40">
-                <Plus className="size-5" /> Add to service
-              </button>
-            </div>
-            {inService && <p className="mt-2 text-center text-[13px] text-primary-bright">This song is already in the service</p>}
-            {toast && (
-              <p role="status" className="fade-in mt-2 flex items-center gap-2 rounded-lg bg-success/10 px-3 py-2 text-[13px] font-medium text-success">
-                <Check className="size-4" /> {toast}
-              </p>
-            )}
-            <div className="mt-2">
-              {confirmDelete ? (
-                <div className="flex items-center gap-2 rounded-lg bg-danger/10 px-3 py-2 text-[13px] text-ink">
-                  <span className="flex-1">Delete “{song.title}”?</span>
-                  <button onClick={() => { deleteSong(song.id); setSelectedId(null); }} className="rounded-md bg-danger px-2.5 py-1 font-semibold text-white">Delete</button>
-                  <button onClick={() => setConfirmDelete(false)} className="rounded-md px-2 py-1 font-semibold text-ink-muted hover:bg-surface-4">Keep</button>
-                </div>
-              ) : (
-                <button onClick={() => setConfirmDelete(true)} className="flex h-9 w-full items-center justify-center gap-2 rounded-lg text-[13px] font-semibold text-ink-faint hover:bg-danger/10 hover:text-danger">
-                  <Trash2 className="size-4" /> Delete song
-                </button>
-              )}
-            </div>
-          </section>
-        )}
-      </div>
 
       {editing && editingSong && (
         <SongEditorDialog

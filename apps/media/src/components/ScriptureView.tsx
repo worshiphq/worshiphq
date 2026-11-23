@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type MouseEvent as ReactMouseEvent, type ReactNode } from "react";
+import { useShowStore } from "../stores/show-store";
 import { usePassageStore } from "../lib/show-passage";
 import {
   BookOpen, Check, ChevronLeft, ChevronRight, Copy, CornerDownLeft, Loader2,
@@ -46,7 +47,13 @@ export function ScriptureView({ onOpenLooks }: { onOpenLooks: () => void }) {
   useEffect(() => { if (!packs.length) loadPacks(); }, [packs.length, loadPacks]);
   // First time the Bible opens: Genesis 1:1 is picked, ready to show (nothing goes on screen by itself).
   useEffect(() => {
-    if (selectedBook === null && packs.length) openReference(0, 1, 1, 1);
+    if (selectedBook === null && packs.length) {
+      // The passage used last time, or Genesis 1:1.
+      let last: { book: number; chapter: number; start: number; end: number } | null = null;
+      try { last = JSON.parse(localStorage.getItem("whq-last-passage") ?? "null"); } catch { /* ignore */ }
+      if (last && last.book >= 0 && last.book < 66) openReference(last.book, last.chapter, last.start, last.end);
+      else openReference(0, 1, 1, 1);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [packs.length]);
 
@@ -114,6 +121,15 @@ export function ScriptureView({ onOpenLooks }: { onOpenLooks: () => void }) {
       : []),
     [chosen, reference, pack?.abbreviation, style, secondPack, secondVerses],
   );
+  // The chosen verses wait in Preview (Enter or double-click sends them live), and are remembered for next time.
+  useEffect(() => {
+    if (!slides.length || !reference) return;
+    useShowStore.getState().setPreview(reference, slides, 0);
+    if (selectedBook !== null && selectedChapter !== null && selection) {
+      try { localStorage.setItem("whq-last-passage", JSON.stringify({ book: selectedBook, chapter: selectedChapter, start: selection.start, end: selection.end })); } catch { /* ignore */ }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slides]);
   const wordCount = chosen.reduce((n, v) => n + v.text.split(/\s+/).length, 0);
 
   const livePartIndex = currentSlide ? liveParts.findIndex((s) => s.content.primaryText === currentSlide.content.primaryText) : -1;
@@ -168,9 +184,9 @@ export function ScriptureView({ onOpenLooks }: { onOpenLooks: () => void }) {
 
   function showOnScreen() {
     if (!slides.length) return;
-    if (isDesktopApp() && !projectionOpen) openProjection();
     setLiveParts(slides);
-    goLive(slides[0]);
+    useShowStore.getState().setPreview(reference ?? "Bible", slides, 0);
+    useShowStore.getState().sendPreviewLive(0);
     // So "next verse" / "verse 5" (voice) know where we are.
     if (selectedBook !== null && selectedChapter !== null && selection && reference) {
       usePassageStore.getState().set({
@@ -360,18 +376,16 @@ export function ScriptureView({ onOpenLooks }: { onOpenLooks: () => void }) {
         {/* ─── Right: preview, look, send ─── */}
         <div className="flex min-h-0 flex-col gap-3 pl-0.5 max-xl:grid max-xl:grid-cols-2 xl:overflow-y-auto">
           <Card
-            title="Screen preview"
+            title="This passage"
             aside={
               thisPassageIsLive
                 ? <span className="font-semibold text-danger">● On screen</span>
                 : slides.length ? "Ready to show" : undefined
             }
           >
-            <SlidePreview
-              slide={slides[0] ?? null}
-              highlight={thisPassageIsLive ? "live" : slides.length ? "ready" : undefined}
-              placeholder="Choose a verse. It will appear here exactly as people will see it."
-            />
+            <p className="text-[13px] text-ink-muted">
+              {slides.length ? <>It is in <b className="text-ink">Preview</b> at the top. Press <b className="text-ink">Enter</b> or <b className="text-ink">Show on screen</b> to send it live.</> : "Choose a verse."}
+            </p>
             {slides.length > 1 && (
               <p className="mt-2 text-[13px] text-ink-muted">
                 This passage is long, so it will show in <b className="text-ink">{slides.length} parts</b>.
@@ -400,7 +414,7 @@ export function ScriptureView({ onOpenLooks }: { onOpenLooks: () => void }) {
               disabled={!slides.length}
               className="flex h-12 items-center justify-center gap-2 rounded-xl bg-primary text-[16px] font-bold text-white shadow-sm transition-colors hover:bg-primary-bright disabled:cursor-not-allowed disabled:bg-surface-5 disabled:text-ink-faint"
             >
-              <MonitorPlay className="size-5" /> Show on screen
+              <MonitorPlay className="size-5" /> Show on screen <span className="text-[12px] font-medium opacity-80">(Enter)</span>
             </button>
             <button
               onClick={addPassageToService}
@@ -421,39 +435,7 @@ export function ScriptureView({ onOpenLooks }: { onOpenLooks: () => void }) {
             )}
           </div>
 
-          {(isLive || isBlack) && (
-            <Card
-              title="On screen now"
-              aside={<span className={`font-semibold ${isBlack ? "text-ink" : "text-danger"}`}>{isBlack ? "Black" : "● Live"}</span>}
-            >
-              <SlidePreview slide={isBlack ? null : currentSlide} placeholder="The screen is black." highlight={isBlack ? undefined : "live"} />
-              {livePartIndex >= 0 && liveParts.length > 1 && (
-                <div className="mt-2 flex items-center gap-2">
-                  <button
-                    onClick={() => goLive(liveParts[livePartIndex - 1])}
-                    disabled={livePartIndex === 0}
-                    className="flex h-10 flex-1 items-center justify-center gap-1 rounded-lg bg-surface-4 text-[14px] font-semibold text-ink hover:bg-surface-5 disabled:text-ink-faint"
-                  >
-                    <ChevronLeft className="size-4" /> Back
-                  </button>
-                  <span className="text-[13px] text-ink-muted">Part {livePartIndex + 1} of {liveParts.length}</span>
-                  <button
-                    onClick={() => goLive(liveParts[livePartIndex + 1])}
-                    disabled={livePartIndex === liveParts.length - 1}
-                    className="flex h-10 flex-1 items-center justify-center gap-1 rounded-lg bg-surface-4 text-[14px] font-semibold text-ink hover:bg-surface-5 disabled:text-ink-faint"
-                  >
-                    Next <ChevronRight className="size-4" />
-                  </button>
-                </div>
-              )}
-              <button
-                onClick={goClear}
-                className="mt-2 flex h-10 w-full items-center justify-center gap-2 rounded-lg text-[14px] font-semibold text-ink-muted hover:bg-surface-4 hover:text-ink"
-              >
-                <MonitorOff className="size-4" /> Take it off the screen
-              </button>
-            </Card>
-          )}
+
         </div>
       </div>
     </div>
@@ -530,7 +512,12 @@ function ReferenceSearch({
         onKeyDown={(e) => {
           if (e.key === "ArrowDown") { e.preventDefault(); setActive((a) => Math.min(a + 1, options.length - 1)); }
           else if (e.key === "ArrowUp") { e.preventDefault(); setActive((a) => Math.max(a - 1, 0)); }
-          else if (e.key === "Enter") { e.preventDefault(); choose(active); }
+          else if (e.key === "Enter") {
+            e.preventDefault();
+            // Nothing typed, or the verse is already chosen: Enter sends Preview live (like EasyWorship).
+            if (!q.trim() || !open) { useShowStore.getState().sendPreviewLive(); return; }
+            choose(active);
+          }
           else if (e.key === "Escape") { setOpen(false); }
         }}
         placeholder="Type a verse, like John 3:16 or Psalm 23, then press Enter"

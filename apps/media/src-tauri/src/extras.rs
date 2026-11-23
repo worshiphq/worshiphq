@@ -116,3 +116,8 @@ pub fn list_fonts() -> Vec<String> {
     names.dedup();
     names
 }
+
+/// Saves text to a file the user chose (e.g. a schedule).
+pub fn write_text_file(path: &str, text: &str) -> Result<(), String> {
+    std::fs::write(path, text).map_err(|e| format!("Couldn't save the file: {e}"))
+}

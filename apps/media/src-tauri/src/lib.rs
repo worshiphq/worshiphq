@@ -254,6 +254,11 @@ async fn read_text_files(paths: Vec<String>) -> Result<Vec<extras::TextFile>, St
 }
 
 #[tauri::command]
+fn write_text_file(path: String, text: String) -> Result<(), String> {
+    extras::write_text_file(&path, &text)
+}
+
+#[tauri::command]
 async fn list_fonts() -> Vec<String> {
     extras::list_fonts()
 }
@@ -645,6 +650,7 @@ pub fn run() {
             whisper_install,
             whisper_progress,
             list_fonts,
+            write_text_file,
             whisper_start,
             whisper_stop,
             stock_bundled,

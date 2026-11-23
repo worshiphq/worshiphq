@@ -94,64 +94,8 @@ export function LiveView({ onOpenBible }: { onOpenBible: () => void }) {
     : null;
 
   return (
-    <div className="grid h-full min-h-0 grid-cols-1 gap-3 overflow-y-auto p-3 lg:grid-cols-[250px_minmax(0,1fr)] xl:grid-cols-[290px_minmax(0,1fr)_340px] xl:overflow-hidden">
+    <div className="grid h-full min-h-0 grid-cols-1 gap-3 overflow-y-auto p-3 lg:grid-cols-[minmax(0,1fr)_340px] xl:overflow-hidden">
       {menu.element}
-      {/* ─── Left: order of service ─── */}
-      <Card title="Service order" aside={`${serviceItems.length} item${serviceItems.length === 1 ? "" : "s"}`} className="min-h-0 max-xl:min-h-[560px]">
-        <div className="-mx-1 flex-1 overflow-y-auto px-1">
-          {serviceItems.length === 0 ? (
-            <p className="px-2 py-8 text-center text-[14px] leading-relaxed text-ink-muted">
-              Nothing here yet. Add songs from the list in the middle, or verses from the <button onClick={onOpenBible} className="font-semibold text-primary-bright hover:underline">Bible</button>.
-            </p>
-          ) : (
-            serviceItems.map((item, i) => {
-              const Icon = TYPE_ICON[item.type] ?? ListMusic;
-              const selected = i === activeItemIndex;
-              const onAir = livePos?.item === i && !isBlack;
-              return (
-                <div
-                  key={item.id}
-                  onClick={() => setActiveItem(i)}
-                  onContextMenu={menu.open(() => [
-                    { label: "Show the first slide", icon: <ChevronRight className="size-4" />, disabled: !item.slides?.length, onClick: () => show({ item: i, slide: 0 }) },
-                    { label: "Move up", icon: <ArrowUp className="size-4" />, disabled: i === 0, onClick: () => reorderService(i, i - 1) },
-                    { label: "Move down", icon: <ArrowDown className="size-4" />, disabled: i === serviceItems.length - 1, onClick: () => reorderService(i, i + 1) },
-                    { divider: true },
-                    { label: "Remove from service", icon: <Trash2 className="size-4" />, danger: true, onClick: () => removeFromService(i) },
-                  ])}
-                  className={`group relative mb-1 flex cursor-pointer items-center gap-2.5 rounded-lg border-l-[3px] py-2 pl-2 pr-1.5 transition-colors ${
-                    selected ? "border-primary bg-primary-soft/70" : "border-transparent hover:bg-surface-4"
-                  }`}
-                >
-                  <span className="w-5 shrink-0 text-center text-[12px] font-semibold text-ink-faint">{i + 1}</span>
-                  <span className={`grid size-8 shrink-0 place-items-center rounded-md ${selected ? "bg-primary text-white" : "bg-surface-4 text-ink-muted"}`}>
-                    <Icon className="size-4" />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate text-[14px] font-semibold text-ink">{item.title}</div>
-                    <div className="truncate text-[12px] text-ink-muted">
-                      {[item.subtitle, `${item.slides?.length ?? 0} slides`].filter(Boolean).join(" · ")}
-                    </div>
-                  </div>
-                  {onAir && <span className="shrink-0 rounded bg-danger px-1.5 py-0.5 text-[11px] font-bold text-white">ON SCREEN</span>}
-                  <div className="absolute right-1 top-1/2 hidden -translate-y-1/2 items-center gap-0.5 rounded-md bg-surface-2 p-0.5 shadow-sm group-hover:flex">
-                    <MiniButton label="Move up" disabled={i === 0} onClick={() => reorderService(i, i - 1)}><ArrowUp className="size-3.5" /></MiniButton>
-                    <MiniButton label="Move down" disabled={i === serviceItems.length - 1} onClick={() => reorderService(i, i + 1)}><ArrowDown className="size-3.5" /></MiniButton>
-                    <MiniButton label="Remove from service" danger onClick={() => removeFromService(i)}><Trash2 className="size-3.5" /></MiniButton>
-                  </div>
-                </div>
-              );
-            })
-          )}
-        </div>
-        <button
-          onClick={onOpenBible}
-          className="mt-2 flex h-10 shrink-0 items-center justify-center gap-2 rounded-lg border border-dashed border-line-bright text-[14px] font-semibold text-ink-muted hover:border-primary hover:text-primary-bright"
-        >
-          <BookOpen className="size-4" /> Add a Bible passage
-        </button>
-      </Card>
-
       {/* ─── Middle: slides of the selected item + song library ─── */}
       <div className="flex min-h-0 flex-col gap-3 max-xl:min-h-[560px]">
         <Card
@@ -200,7 +144,7 @@ export function LiveView({ onOpenBible }: { onOpenBible: () => void }) {
       </div>
 
       {/* ─── Right: what's on screen, and what comes next ─── */}
-      <div className="flex min-h-0 flex-col gap-3 lg:col-span-2 lg:grid lg:grid-cols-2 xl:col-span-1 xl:flex xl:overflow-y-auto">
+      <div className="flex min-h-0 flex-col gap-3 lg:overflow-y-auto">
         <Card
           title="On screen now"
           aside={

@@ -13,6 +13,8 @@ export interface Slide {
   hideText?: boolean;
   /** A second Bible version shown under the first (e.g. Twi on top, KJV below). */
   second?: { text: string; label: string };
+  /** A background picked for this slide (Background button), instead of the look's. */
+  background?: { kind: "image" | "video" | "gradient" | "color"; value: string };
   /** This slide's own font (e.g. a song's font), instead of the look's. */
   font?: string;
   /** A countdown clock to this time (ms since 1970). */

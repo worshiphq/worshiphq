@@ -12,7 +12,8 @@ export const CANVAS_H = 1080;
 export function useSlideStyle(slide: Slide | null): SlideStyle | null {
   const themes = useThemeStore((s) => s.themes);
   if (!slide) return null;
-  return slide.style ?? themes[themeKindFor(slide.type)];
+  const base = slide.style ?? themes[themeKindFor(slide.type)];
+  return slide.background ? { ...base, background: { ...base.background, ...slide.background } } : base;
 }
 
 /**

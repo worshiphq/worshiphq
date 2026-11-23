@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useShowStore } from "../stores/show-store";
 import {
   Check, Film, Image as ImageIcon, ImagePlus, Loader2, MonitorOff, MonitorPlay, Pause, Play, Plus,
   RotateCcw, Search, Trash2, Upload, X, Church,
@@ -90,10 +91,22 @@ export function MediaView() {
   }
 
   function show() {
-    if (!slide) return;
-    if (isDesktopApp() && !projectionOpen) openProjection();
-    goLive(slide);
+    if (!slide || !selected) return;
+    useShowStore.getState().setPreview(selected.name, [slide]);
+    useShowStore.getState().sendPreviewLive(0);
   }
+
+  // Menu bar: File › Add pictures…, Import PowerPoint or PDF…, Media › Free backgrounds.
+  useEffect(() => {
+    const on = (e: Event) => {
+      const a = (e as CustomEvent).detail;
+      if (a === "media:add") addFiles();
+      else if (a === "media:presentation") importPresentation().then((pr) => { if (pr) { setFilter("presentations"); setPresId(pr.id); } });
+      else if (a === "media:free") setFilter("stock");
+    };
+    window.addEventListener("whq-menu", on);
+    return () => window.removeEventListener("whq-menu", on);
+  });
 
   return (
     <div
@@ -225,8 +238,8 @@ export function MediaView() {
                 return (
                   <button
                     key={item.id}
-                    onClick={() => setSelectedId(item.id)}
-                    onDoubleClick={() => { setSelectedId(item.id); goLive(buildMediaSlide(item, options[item.id] ?? defaultMediaOptions(item))); }}
+                    onClick={() => { setSelectedId(item.id); if (item.kind !== "audio") useShowStore.getState().setPreview(item.name, [buildMediaSlide(item, options[item.id] ?? defaultMediaOptions(item))]); }}
+                    onDoubleClick={() => { setSelectedId(item.id); if (item.kind === "audio") return; useShowStore.getState().setPreview(item.name, [buildMediaSlide(item, options[item.id] ?? defaultMediaOptions(item))]); useShowStore.getState().sendPreviewLive(0); }}
                     onContextMenu={menu.open(() => {
                       setSelectedId(item.id);
                       const o = options[item.id] ?? defaultMediaOptions(item);
