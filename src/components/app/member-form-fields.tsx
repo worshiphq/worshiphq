@@ -1,6 +1,7 @@
 "use client";
 
 import { PhoneInput } from "@/components/ui/phone-input";
+import { DateParts } from "@/components/ui/date-parts";
 import { blurNumberOnWheel, keypadFor } from "@/components/ui/input";
 import { useRef, useState } from "react";
 import { Camera, Check, UploadCloud, X } from "lucide-react";
@@ -16,6 +17,14 @@ export interface MemberDefaults {
   departments?: string[];
   photoUrl?: string;
 }
+
+/**
+ * Dates in the past (birthdays, wedding anniversaries, joining date) use Day / Month / Year boxes instead of the
+ * phone's calendar, which makes people page back year by year. Other dates (an event, a "when do you need it")
+ * keep the calendar.
+ */
+const PAST_DATE_IDS = new Set(["dateOfBirth", "weddingDate", "dateOfMembership", "anniversary", "birthday"]);
+const isPastDate = (f: FormField) => PAST_DATE_IDS.has(f.id) || /birth|anniversary|wedding|married|joined|membership|baptis|salvation|born/i.test(f.label);
 
 export type SpecialRender = (ctx: { field: FormField; value: string; setValue: (v: string) => void; values: Record<string, string> }) => React.ReactNode;
 
@@ -149,6 +158,8 @@ export function MemberFormFields({
             <input type="checkbox" name={f.id} value="yes" required={f.required} checked={values[f.id] === "yes"} onChange={(e) => setValue(f.id, e.target.checked ? "yes" : "")} className="size-4 rounded border-line accent-primary" />
             {f.label} {f.required && <span className="text-danger">*</span>}
           </label>
+        ) : f.type === "date" && isPastDate(f) ? (
+          <DateParts name={f.id} id={f.id} required={f.required} value={values[f.id] ?? ""} onChange={(v) => setValue(f.id, v)} />
         ) : f.type === "tel" ? (
           <PhoneInput name={f.id} required={f.required} value={values[f.id] ?? ""} onChange={(v) => setValue(f.id, v)} />
         ) : (

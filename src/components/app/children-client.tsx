@@ -1,5 +1,6 @@
 "use client";
 
+import { DateParts } from "@/components/ui/date-parts";
 import { ParentSelect } from "@/components/app/parent-select";
 import { useServerList } from "@/components/ui/use-server-list";
 import { searchChildren } from "@/app/actions/lists";
@@ -400,7 +401,7 @@ function ChildForm({
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <Label htmlFor="dateOfBirth">Date of birth</Label>
-              <input id="dateOfBirth" name="dateOfBirth" type="date" defaultValue={person?.dateOfBirth ?? ""} className={inputBase} />
+              <DateParts id="dateOfBirth" name="dateOfBirth" value={person?.dateOfBirth ?? ""} />
             </div>
             <div>
               <Label htmlFor="phone">Phone (optional)</Label>
