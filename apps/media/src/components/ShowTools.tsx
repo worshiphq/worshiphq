@@ -1,19 +1,20 @@
 import { useEffect, useState } from "react";
-import { BellRing, MessageSquare, Timer, X } from "lucide-react";
+import { BellRing, MessageSquare, Timer, X, Rss, Stamp } from "lucide-react";
+import { PropTools, TickerTools } from "./ShowExtras";
 import { useProjectionStore } from "../stores/projection-store";
 import { formatCountdown } from "./SlideCanvas";
 import type { Slide } from "../types";
 import { isDesktopApp } from "../lib/media-src";
 
-type Tab = "countdown" | "alert" | "stage";
+type Tab = "countdown" | "alert" | "stage" | "ticker" | "props";
 
 /** Countdown clock, alert messages (nursery calls) and messages to the stage display, during the service. */
 export function ShowTools() {
   const [tab, setTab] = useState<Tab>("countdown");
   return (
     <section className="rounded-xl border border-line bg-surface-2 p-3 shadow-sm">
-      <div className="mb-3 grid grid-cols-3 gap-1 rounded-lg bg-surface-4 p-1">
-        {([["countdown", "Countdown", Timer], ["alert", "Alert", BellRing], ["stage", "Stage", MessageSquare]] as const).map(([id, label, Icon]) => (
+      <div className="mb-3 grid grid-cols-3 gap-1 rounded-lg bg-surface-4 p-1 xl:grid-cols-5">
+        {([["countdown", "Countdown", Timer], ["alert", "Alert", BellRing], ["ticker", "Ticker", Rss], ["props", "Props", Stamp], ["stage", "Stage", MessageSquare]] as const).map(([id, label, Icon]) => (
           <button key={id} onClick={() => setTab(id)} aria-pressed={tab === id}
             className={`flex items-center justify-center gap-1.5 rounded-md py-1.5 text-[13px] font-medium ${tab === id ? "bg-surface-2 font-semibold text-primary-bright shadow-sm" : "text-ink-muted hover:text-ink"}`}>
             <Icon className="size-4" /> {label}
@@ -23,6 +24,8 @@ export function ShowTools() {
       {tab === "countdown" && <Countdown />}
       {tab === "alert" && <Alert />}
       {tab === "stage" && <StageTools />}
+      {tab === "ticker" && <TickerTools />}
+      {tab === "props" && <PropTools />}
     </section>
   );
 }

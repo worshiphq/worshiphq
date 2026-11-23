@@ -3,8 +3,8 @@ import { formatCountdown } from "./SlideCanvas";
 
 /** What the operator's app sends to the stage display. */
 export interface StageState {
-  current: { text: string; label: string } | null;
-  next: { text: string; label: string } | null;
+  current: { text: string; label: string; chords?: string } | null;
+  next: { text: string; label: string; chords?: string } | null;
   message: string;
   timerTo: number | null;
   black: boolean;
@@ -37,6 +37,13 @@ export function StageWindow() {
     return () => off?.();
   }, []);
 
+  // Chord charts show when the song has them (press C on the stage screen to switch them off and on).
+  const [showChords, setShowChords] = useState(true);
+  useEffect(() => {
+    const k = (e: KeyboardEvent) => { if (e.key.toLowerCase() === "c") setShowChords((v) => !v); };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, []);
   const clock = new Date(now).toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
   const remaining = state?.timerTo ? state.timerTo - now : null;
 
@@ -57,9 +64,18 @@ export function StageWindow() {
         <div className="mb-[0.6vw] text-[1.6vw] font-semibold uppercase tracking-wide text-[#4ade80]">
           Now {state?.current?.label ? `· ${state.current.label}` : ""} {state?.black ? "· SCREEN IS BLACK" : ""}
         </div>
-        <div className="min-h-0 flex-1 overflow-hidden whitespace-pre-line text-[4vw] font-bold leading-[1.2]">
-          {state?.current?.text || <span className="text-white/40">Nothing on screen</span>}
-        </div>
+        {state?.current?.chords && showChords ? (
+          // Music stand: the chord chart for this part (chords above the words, lined up).
+          <pre className="min-h-0 flex-1 overflow-hidden whitespace-pre text-[2.6vw] font-bold leading-[1.25]" style={{ fontFamily: "Consolas, 'Courier New', monospace" }}>
+            {state.current.chords.split("\n").map((line, i) => (
+              <div key={i} className={isChordLine(line) ? "text-[#facc15]" : "text-white"}>{line || " "}</div>
+            ))}
+          </pre>
+        ) : (
+          <div className="min-h-0 flex-1 overflow-hidden whitespace-pre-line text-[4vw] font-bold leading-[1.2]">
+            {state?.current?.text || <span className="text-white/40">Nothing on screen</span>}
+          </div>
+        )}
       </div>
 
       <div className="mt-[1.2vw] flex min-h-0 flex-[2] flex-col rounded-[1vw] border-[0.3vw] border-white/25 p-[1.5vw]">
@@ -72,4 +88,10 @@ export function StageWindow() {
       </div>
     </div>
   );
+}
+
+/** A line of chords (G  D/F#  Em7  Csus2…) rather than words. */
+function isChordLine(line: string): boolean {
+  const tokens = line.trim().split(/\s+/).filter(Boolean);
+  return tokens.length > 0 && tokens.every((t) => /^[A-G][#b]?(m|maj|min|dim|aug|sus|add)?\d*(\/[A-G][#b]?)?$/.test(t) || /^[|:x\d.-]+$/.test(t));
 }

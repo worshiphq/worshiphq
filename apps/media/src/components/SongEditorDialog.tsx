@@ -24,10 +24,11 @@ export function SongEditorDialog({ song, isNew, onSave, onCancel }: {
   const [ccli, setCcli] = useState(song.ccli ?? "");
   const [translation, setTranslation] = useState(song.translation ?? "");
   const [trName, setTrName] = useState(song.translationName ?? "Twi");
-  const [tab, setTab] = useState<"words" | "translation">("words");
+  const [tab, setTab] = useState<"words" | "translation" | "chords">("words");
+  const [chords, setChords] = useState(song.chords ?? "");
   /** The newest values of the extra fields (read when saving). */
-  const extra = useRef({ ccli, translation, translationName: trName });
-  extra.current = { ccli, translation, translationName: trName };
+  const extra = useRef({ ccli, translation, translationName: trName, chords });
+  extra.current = { ccli, translation, translationName: trName, chords };
   const [dirty, setDirty] = useState(isNew);
   const [showHelp, setShowHelp] = useState(false);
   const [autoSave, setAutoSaveRaw] = useState(() => { try { return localStorage.getItem("whq-songs-autosave") === "1"; } catch { return false; } });
@@ -42,6 +43,7 @@ export function SongEditorDialog({ song, isNew, onSave, onCancel }: {
     ccli: extra.current.ccli.trim() || undefined,
     translation: extra.current.translation.trim() ? extra.current.translation : undefined,
     translationName: extra.current.translationName.trim() || undefined,
+    chords: extra.current.chords.trim() ? extra.current.chords : undefined,
   });
 
   /** Running order: the parts in the order they are sung (drag to change, × to drop a repeat, + to add). */
@@ -172,7 +174,7 @@ export function SongEditorDialog({ song, isNew, onSave, onCancel }: {
             </div>
             <div className="mb-2 flex items-center gap-2">
               <div className="flex rounded-lg bg-surface-4 p-0.5">
-                {([["words", "Words"], ["translation", `Translation${translation.trim() ? " ✓" : ""}`]] as const).map(([k, l]) => (
+                {([["words", "Words"], ["translation", `Translation${translation.trim() ? " ✓" : ""}`], ["chords", `Chords${chords.trim() ? " ✓" : ""}`]] as const).map(([k, l]) => (
                   <button key={k} onClick={() => setTab(k)} className={`rounded-md px-3 py-1 text-[13px] ${tab === k ? "bg-surface-2 font-semibold text-primary-bright shadow-sm" : "text-ink-muted hover:text-ink"}`}>{l}</button>
                 ))}
               </div>
@@ -187,7 +189,20 @@ export function SongEditorDialog({ song, isNew, onSave, onCancel }: {
                 Select words and click a colour or pick a font, or pick one first and keep typing.
               </div>
             )}
-            {tab === "words" ? (
+            {tab === "chords" ? (
+              <>
+                <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-primary-soft/50 p-2 text-[13px] text-ink">
+                  <span className="flex-1">For the band: chords above the words, under the same headings. Only the <b>stage display</b> shows this (press C on it to hide or show chords).</span>
+                  {!chords.trim() && (
+                    <button onClick={() => editExtra(() => setChords(plainWords(text)))} className="rounded-md bg-primary px-2.5 py-1 text-[12px] font-bold text-white hover:bg-primary-bright">Start from the words</button>
+                  )}
+                </div>
+                <textarea value={chords} onChange={(e) => editExtra(() => setChords(e.target.value))} spellCheck={false}
+                  placeholder={"[Verse 1]\nG              D/F#\nAmazing grace, how sweet the sound"}
+                  className="min-h-0 flex-1 resize-none rounded-lg border border-line-bright bg-surface-2 p-3 text-[14px] leading-relaxed text-ink outline-none focus:border-primary"
+                  style={{ fontFamily: "Consolas, 'Courier New', monospace", userSelect: "text" }} />
+              </>
+            ) : tab === "words" ? (
               <LyricsEditor value={text} onChange={(w) => edit({ w })} onCaretLine={setCaretLine} placeholder={"[Verse 1]\nType or paste the words here…"} />
             ) : (
               <>
@@ -242,4 +257,9 @@ export function SongEditorDialog({ song, isNew, onSave, onCancel }: {
       </div>
     </div>
   );
+}
+
+/** The words without colour/font marks, as a starting point for the chord chart. */
+function plainWords(text: string): string {
+  return text.replace(/\{(?:#[0-9a-fA-F]{6})?(?:\|[^{}|\n]+)?\}([\s\S]*?)\{\/\}/g, "$1");
 }

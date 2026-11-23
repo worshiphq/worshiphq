@@ -18,6 +18,8 @@ struct OutputState {
     black: Mutex<bool>,
     stage: Mutex<Option<String>>,
     alert: Mutex<Option<String>>,
+    /// Ticker, props and screen tuning: kind → JSON (sent to the projector and remembered for when it reopens).
+    extras: Mutex<std::collections::HashMap<String, String>>,
 }
 
 #[derive(Serialize)]
@@ -114,7 +116,7 @@ fn go_clear(app: tauri::AppHandle, output: State<OutputState>) -> Result<(), Str
 
 /// Tauri's default WebView2 switches, plus letting videos and music play with sound without a click
 /// (the projector window is never clicked).
-const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required";
+const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required --use-fake-ui-for-media-stream";
 
 /// Opens (or moves) one of the output windows: the projector, or the stage display for the preacher and band.
 async fn open_output_window(
@@ -264,6 +266,30 @@ fn send_alert(app: tauri::AppHandle, output: State<OutputState>, alert_json: Str
         win.emit("alert-update", &alert_json).map_err(|e| e.to_string())?;
     }
     Ok(())
+}
+
+/// A video on the projector that should lead on to the next slide has finished.
+#[tauri::command]
+fn video_ended(app: tauri::AppHandle) {
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.emit("video-ended", ());
+    }
+}
+
+/// Ticker, props or screen tuning for the projector (one channel for all the extra layers).
+#[tauri::command]
+fn send_extra(app: tauri::AppHandle, output: State<OutputState>, kind: String, json: String) -> Result<(), String> {
+    output.extras.lock().unwrap().insert(kind.clone(), json.clone());
+    let payload = serde_json::json!({ "kind": kind, "json": json }).to_string();
+    if let Some(win) = app.get_webview_window("projection") {
+        win.emit("extra-update", &payload).map_err(|e| e.to_string())?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn get_extras(output: State<OutputState>) -> std::collections::HashMap<String, String> {
+    output.extras.lock().unwrap().clone()
 }
 
 #[tauri::command]
@@ -676,6 +702,13 @@ pub fn run() {
                     let _ = app.asset_protocol_scope().allow_directory(e.path(), true);
                 }
             }
+            // Stream Deck / Companion buttons: http://127.0.0.1:18300/action/<name>
+            let handle = app.handle().clone();
+            extras::start_remote_server(move |action| {
+                if let Some(main) = handle.get_webview_window("main") {
+                    let _ = main.emit("remote-action", action);
+                }
+            });
             if let Err(e) = bible::install_bundled_packs(&data_dir, &resource_dir) {
                 eprintln!("[bible] failed to install bundled packs: {}", e);
             }
@@ -716,6 +749,9 @@ pub fn run() {
             whisper_status,
             whisper_install,
             whisper_progress,
+            send_extra,
+            video_ended,
+            get_extras,
             bible_search_all,
             open_obs_window,
             list_fonts,

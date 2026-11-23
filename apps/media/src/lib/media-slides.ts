@@ -5,6 +5,12 @@ export interface MediaOptions {
   fit: "cover" | "contain";
   loop: boolean;
   sound: boolean;
+  /** Videos: seconds to start at / stop at (0 = from the start / to the end). */
+  start?: number;
+  end?: number;
+  fade?: boolean;
+  /** When the video ends, go on to the next slide. */
+  next?: boolean;
 }
 
 export const defaultMediaOptions = (item: MediaItem): MediaOptions => ({
@@ -19,7 +25,10 @@ export function buildMediaSlide(item: MediaItem, o: MediaOptions): Slide {
     label: item.name,
     content: { primaryText: "" },
     template: { background: "#000", textLayout: "center" },
-    media: { kind: item.kind === "video" ? "video" : "image", src: item.path, fit: o.fit, loop: o.loop, muted: !o.sound },
+    media: {
+      kind: item.kind === "video" ? "video" : "image", src: item.path, fit: o.fit, loop: o.loop, muted: !o.sound,
+      ...(item.kind === "video" ? { start: o.start || undefined, end: o.end || undefined, fade: o.fade || undefined, next: o.next || undefined } : {}),
+    },
   };
 }
 

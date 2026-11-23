@@ -121,3 +121,34 @@ pub fn list_fonts() -> Vec<String> {
 pub fn write_text_file(path: &str, text: &str) -> Result<(), String> {
     std::fs::write(path, text).map_err(|e| format!("Couldn't save the file: {e}"))
 }
+
+/// Remote control for Stream Deck (Bitfocus Companion "HTTP request"), Elgato's own website buttons, AutoHotkey…
+/// Only this computer can reach it (127.0.0.1). GET http://127.0.0.1:18300/action/next → the app does "next".
+pub fn start_remote_server<F: Fn(String) + Send + 'static>(on_action: F) {
+    std::thread::spawn(move || {
+        let Ok(listener) = std::net::TcpListener::bind(("127.0.0.1", 18300)) else { return };
+        for stream in listener.incoming().flatten() {
+            use std::io::{Read, Write};
+            let mut stream = stream;
+            let _ = stream.set_read_timeout(Some(std::time::Duration::from_millis(800)));
+            let mut buf = [0u8; 2048];
+            let n = stream.read(&mut buf).unwrap_or(0);
+            let req = String::from_utf8_lossy(&buf[..n]);
+            let path = req.split_whitespace().nth(1).unwrap_or("/");
+            let action: String = path
+                .trim_start_matches('/')
+                .trim_start_matches("action/")
+                .chars()
+                .take_while(|c| c.is_ascii_alphanumeric() || *c == '-')
+                .take(40)
+                .collect();
+            let (status, body) = if action.is_empty() {
+                ("200 OK", "WorshipHQ Media remote. Try /action/next, /action/previous, /action/send, /action/black, /action/clear, /action/logo".to_string())
+            } else {
+                on_action(action.clone());
+                ("200 OK", format!("{{\"ok\":true,\"action\":\"{action}\"}}"))
+            };
+            let _ = write!(stream, "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
+        }
+    });
+}

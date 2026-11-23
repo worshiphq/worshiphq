@@ -6,7 +6,7 @@
 export type ThemeKind = "song" | "scripture" | "announcement";
 
 export interface SlideBackground {
-  kind: "color" | "gradient" | "image" | "video";
+  kind: "color" | "gradient" | "image" | "video" | "camera";
   /** CSS colour or gradient for color/gradient, file path for image/video. */
   value: string;
   /** 0 – 0.9: darkens a picture or video so the words stay readable. */

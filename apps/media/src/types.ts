@@ -14,9 +14,13 @@ export interface Slide {
   /** A second Bible version shown under the first (e.g. Twi on top, KJV below). */
   second?: { text: string; label: string };
   /** A background picked for this slide (Background button), instead of the look's. */
-  background?: { kind: "image" | "video" | "gradient" | "color"; value: string };
+  background?: { kind: "image" | "video" | "gradient" | "color" | "camera"; value: string };
   /** This slide's own font (e.g. a song's font), instead of the look's. */
   font?: string;
+  /** Chords for this part of a song (stage display only, never on the main screen). */
+  chords?: string;
+  /** A designed slide (slide editor): text boxes, pictures and shapes placed anywhere, over the background. */
+  elements?: SlideElement[];
   /** A countdown clock to this time (ms since 1970). */
   countdownTo?: number;
   type: "scripture" | "song" | "media" | "announcement" | "logo" | "custom";
@@ -44,8 +48,41 @@ export interface AlertMessage {
   color: string;
 }
 
+/** One thing on a designed slide. Positions and sizes are in projector pixels (1920 × 1080). */
+export interface SlideElement {
+  id: string;
+  kind: "text" | "image" | "shape";
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  /** text */
+  text?: string;
+  font?: string;
+  size?: number;
+  color?: string;
+  bold?: boolean;
+  italic?: boolean;
+  align?: "left" | "center" | "right";
+  shadow?: boolean;
+  /** shape fill / text box background */
+  fill?: string;
+  radius?: number;
+  /** image */
+  src?: string;
+  fit?: "cover" | "contain";
+  opacity?: number;
+}
+
 export interface SlideMedia {
-  kind: "image" | "video";
+  /** camera = a live camera or capture card (deviceId says which). */
+  kind: "image" | "video" | "camera";
+  deviceId?: string;
+  /** Video: play from / stop at (seconds), fade in and out, and go on to the next slide when it ends. */
+  start?: number;
+  end?: number;
+  fade?: boolean;
+  next?: boolean;
   /** File path on this computer (desktop app) or a temporary blob: URL (browser preview). */
   src: string;
   /** "cover" fills the screen (may crop); "contain" shows the whole picture. */
@@ -100,13 +137,15 @@ export interface Song {
   /** Words typed for an old Akan font: show j as ɛ and c as ɔ. */
   akan?: boolean;
   /** The background this song always uses (picked with the Background button while the song was in Preview). */
-  background?: { kind: "image" | "video" | "gradient" | "color"; value: string };
+  background?: { kind: "image" | "video" | "gradient" | "color" | "camera"; value: string };
   /** The same song in a second language (same [Verse]/[Chorus] layout), shown under the words. */
   translation?: string;
   /** Name of the second language, e.g. "Twi". */
   translationName?: string;
   /** CCLI song number, for licence reports. */
   ccli?: string;
+  /** Chord chart for the musicians (same [Verse]/[Chorus] layout). Shown on the stage display only. */
+  chords?: string;
 }
 
 export interface SongSection {

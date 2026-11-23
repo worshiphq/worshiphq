@@ -29,7 +29,12 @@ interface ShowState {
   liveGo: (index: number) => void;
   /** Move through the Live list (arrow keys). */
   liveStep: (delta: 1 | -1) => void;
+  /** Timed slides: move on by themselves every few seconds (0 = off), going round again if loop. */
+  auto: { seconds: number; loop: boolean };
+  setAuto: (a: { seconds: number; loop: boolean }) => void;
 }
+
+let autoTimer: number | null = null;
 
 const isDesktop = () => typeof window !== "undefined" && !!(window as any).__TAURI_INTERNALS__;
 
@@ -57,6 +62,21 @@ export const useShowStore = create<ShowState>()((set, get) => ({
     if (!l || !l.slides[index]) return;
     set({ live: { ...l, index } });
     show(l.slides[index]);
+  },
+  auto: { seconds: 0, loop: true },
+  setAuto: (auto) => {
+    set({ auto });
+    if (autoTimer) window.clearInterval(autoTimer);
+    autoTimer = null;
+    if (auto.seconds > 0) {
+      autoTimer = window.setInterval(() => {
+        const l = get().live;
+        if (!l || l.slides.length < 2) return;
+        if (l.index + 1 < l.slides.length) get().liveGo(l.index + 1);
+        else if (get().auto.loop) get().liveGo(0);
+        else get().setAuto({ ...get().auto, seconds: 0 });
+      }, auto.seconds * 1000);
+    }
   },
   liveStep: (delta) => {
     const l = get().live;

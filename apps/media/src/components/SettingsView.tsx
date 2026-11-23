@@ -1,14 +1,16 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BookOpen, Info, Keyboard, Mic, Palette, TvMinimal, Volume2 } from "lucide-react";
+import { BookOpen, CloudUpload, Info, Keyboard, Mic, Palette, TvMinimal, Volume2 } from "lucide-react";
+import { BackupView } from "./BackupView";
 import { AboutView } from "./AboutView";
 import { LooksView } from "./LooksView";
 import { ScreensView } from "./ScreensView";
 import { useVoiceStore, WHISPER_MODELS, type VoiceMode } from "../stores/voice-store";
 import { COMMAND_HELP } from "../lib/voice-commands";
+import { REMOTE_ACTIONS, learnMidi, readMidiMap, saveMidiMap, startMidi } from "../lib/remote";
 import { useBibleStore } from "../stores/bible-store";
 import { isDesktopApp } from "../lib/media-src";
 
-export type SettingsTab = "looks" | "screens" | "audio" | "bibles" | "shortcuts" | "about";
+export type SettingsTab = "looks" | "screens" | "audio" | "bibles" | "shortcuts" | "backup" | "about";
 
 const TABS: { id: SettingsTab; label: string; Icon: typeof Palette }[] = [
   { id: "looks", label: "Look & fonts", Icon: Palette },
@@ -16,6 +18,7 @@ const TABS: { id: SettingsTab; label: string; Icon: typeof Palette }[] = [
   { id: "audio", label: "Audio & microphone", Icon: Mic },
   { id: "bibles", label: "Bible versions", Icon: BookOpen },
   { id: "shortcuts", label: "Keyboard shortcuts", Icon: Keyboard },
+  { id: "backup", label: "Backup", Icon: CloudUpload },
   { id: "about", label: "About & licence", Icon: Info },
 ];
 
@@ -42,6 +45,7 @@ export function SettingsView({ tab, onTab, onOpenMedia }: { tab: SettingsTab; on
         {tab === "audio" && <AudioSettings />}
         {tab === "bibles" && <BibleSettings />}
         {tab === "shortcuts" && <Shortcuts />}
+        {tab === "backup" && <BackupView />}
         {tab === "about" && <AboutView />}
       </div>
     </div>
@@ -307,8 +311,9 @@ function Shortcuts() {
               ))}
             </tbody>
           </table>
-          <p className="mt-3 text-[13px] text-ink-muted">Ctrl + C still copies text when you have text selected or are typing in a box.</p>
+          <p className="mt-3 text-[13px] text-ink-muted">Ctrl + C still copies text when you have text selected or are typing in a box. Presentation clickers work too (Page Down / Page Up move through what is live).</p>
         </Card>
+        <div className="mt-3"><ControllerSetup /></div>
       </div>
     </div>
   );
@@ -483,5 +488,51 @@ function VoiceCommandsSetup() {
         </>
       )}
     </div>
+  );
+}
+
+/** Stream Deck (Bitfocus Companion) addresses, and MIDI buttons linked by pressing them ("learn"). */
+function ControllerSetup() {
+  const [map, setMap] = useState<Record<string, string>>(() => readMidiMap());
+  const [devices, setDevices] = useState<string[]>([]);
+  const [waiting, setWaiting] = useState<string | null>(null);
+  useEffect(() => { startMidi().then(setDevices); return () => learnMidi(null); }, []);
+  const keyFor = (action: string) => Object.entries(map).find(([, a]) => a === action)?.[0];
+  function learn(action: string) {
+    setWaiting(action);
+    learnMidi((key) => {
+      const next = Object.fromEntries(Object.entries(readMidiMap()).filter(([k, a]) => a !== action && k !== key));
+      next[key] = action;
+      saveMidiMap(next);
+      setMap(next);
+      setWaiting(null);
+    });
+  }
+  return (
+    <Card title="Stream Deck and MIDI buttons" icon={<Keyboard className="size-5 text-primary-bright" />}>
+      <p className="mb-3 text-[13px] text-ink-muted">
+        <b className="text-ink">Stream Deck:</b> in Bitfocus Companion add a <i>Generic HTTP › GET request</i> to each button with the address below.
+        <b className="ml-1 text-ink">MIDI:</b> {devices.length ? <>found {devices.join(", ")}. Press <i>Link a MIDI button</i>, then press the pad or key.</> : "plug in a MIDI pad, keyboard or foot switch to use it."}
+      </p>
+      <table className="w-full text-left text-[13px]">
+        <tbody>
+          {REMOTE_ACTIONS.map((a) => (
+            <tr key={a.id} className="border-t border-line-soft first:border-0">
+              <td className="py-2 pr-2 font-medium text-ink">{a.label}</td>
+              <td className="py-2 pr-2"><code className="select-all rounded bg-surface-4 px-1.5 py-0.5 text-[12px]">http://127.0.0.1:18300/action/{a.id}</code></td>
+              <td className="py-2 text-right">
+                {waiting === a.id ? (
+                  <span className="text-[12px] font-semibold text-gold">Press the MIDI button now…</span>
+                ) : (
+                  <button onClick={() => learn(a.id)} disabled={!devices.length} className="rounded-md px-2 py-1 text-[12px] font-semibold text-primary-bright hover:bg-primary-soft disabled:text-ink-faint">
+                    {keyFor(a.id) ? `MIDI ${keyFor(a.id)} · change` : "Link a MIDI button"}
+                  </button>
+                )}
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </Card>
   );
 }

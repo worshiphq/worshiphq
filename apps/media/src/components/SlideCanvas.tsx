@@ -43,9 +43,11 @@ export function SlideCanvas({
         {m.kind === "image" ? (
           <img src={mediaUrl(m.src)} alt="" style={{ width: "100%", height: "100%", objectFit: fit }} />
         ) : live ? (
-          <video ref={videoRef} src={mediaUrl(m.src)} autoPlay loop={!!m.loop} muted={!!m.muted} playsInline style={{ width: "100%", height: "100%", objectFit: fit }} />
+          m.kind === "camera" ? <CameraFeed deviceId={m.deviceId} fit={fit} /> : <LiveVideo m={m} fit={fit} videoRef={videoRef} />
         ) : (
-          <video src={mediaUrl(m.src) + "#t=0.5"} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: fit }} />
+          m.kind === "camera"
+            ? <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", background: "#0f172a", color: "#94a3b8", fontSize: 90, fontWeight: 700 }}>● Live camera</div>
+            : <video src={mediaUrl(m.src) + `#t=${(m.start ?? 0) + 0.5}`} muted playsInline preload="metadata" style={{ width: "100%", height: "100%", objectFit: fit }} />
         )}
       </div>
     );
@@ -58,7 +60,38 @@ export function SlideCanvas({
       </div>
     );
   }
+  if (slide.elements) return <DesignedSlide slide={slide} style={style} live={live} part={part} />;
   return <TextSlide slide={slide} style={style} live={live} transparent={part === "foreground"} />;
+}
+
+/** A slide made in the slide editor: the look's (or its own) background, then each text box, picture and shape. */
+function DesignedSlide({ slide, style, live, part }: { slide: Slide; style: SlideStyle; live: boolean; part: CanvasPart }) {
+  return (
+    <div style={{ width: CANVAS_W, height: CANVAS_H, position: "relative", overflow: "hidden", background: part === "foreground" ? "transparent" : "#000" }}>
+      {part !== "foreground" && <Background style={style} live={live} />}
+      {part !== "background" && (slide.elements ?? []).map((el) => <ElementView key={el.id} el={el} />)}
+    </div>
+  );
+}
+
+export function ElementView({ el }: { el: NonNullable<Slide["elements"]>[number] }) {
+  const box: CSSProperties = { position: "absolute", left: el.x, top: el.y, width: el.w, height: el.h, opacity: el.opacity ?? 1, borderRadius: el.radius ?? 0, overflow: "hidden" };
+  if (el.kind === "image") return el.src ? <img src={mediaUrl(el.src)} alt="" style={{ ...box, objectFit: el.fit ?? "cover" }} /> : <div style={{ ...box, background: "rgba(255,255,255,0.1)" }} />;
+  if (el.kind === "shape") return <div style={{ ...box, background: el.fill ?? "rgba(13,148,136,0.85)" }} />;
+  return (
+    <div style={{
+      ...box, background: el.fill, display: "flex", alignItems: "center",
+      justifyContent: el.align === "left" ? "flex-start" : el.align === "right" ? "flex-end" : "center",
+      padding: el.fill ? 24 : 0, boxSizing: "border-box",
+    }}>
+      <div style={{
+        width: "100%", textAlign: el.align ?? "center", whiteSpace: "pre-line", lineHeight: 1.2,
+        fontFamily: el.font ?? "'Segoe UI', sans-serif", fontSize: el.size ?? 72, color: el.color ?? "#ffffff",
+        fontWeight: el.bold ? 800 : 500, fontStyle: el.italic ? "italic" : "normal",
+        textShadow: el.shadow === false ? "none" : "0 3px 12px rgba(0,0,0,0.55)",
+      }}>{richText(el.text ?? "")}</div>
+    </div>
+  );
 }
 
 function Background({ style, live }: { style: SlideStyle; live: boolean }) {
@@ -82,7 +115,73 @@ function Background({ style, live }: { style: SlideStyle; live: boolean }) {
       </>
     );
   }
+  if ((bg.kind as string) === "camera") {
+    return live
+      ? <><div style={fill}><CameraFeed deviceId={bg.value || undefined} /></div><div style={{ ...fill, background: `rgba(0,0,0,${bg.dim})` }} /></>
+      : <div style={{ ...fill, background: "#0f172a", display: "grid", placeItems: "center", color: "#94a3b8", fontSize: 80, fontWeight: 700 }}>● Live camera</div>;
+  }
   return <div style={{ ...fill, background: bg.value || "#000" }} />;
+}
+
+/**
+ * A video on the projector: starts at its start point, stops (or loops back) at its end point, fades in and out
+ * (picture and sound), and tells the app when it has finished so the next slide can follow.
+ */
+function LiveVideo({ m, fit, videoRef }: { m: NonNullable<Slide["media"]>; fit: "cover" | "contain"; videoRef?: RefObject<HTMLVideoElement | null> }) {
+  const own = useRef<HTMLVideoElement>(null);
+  const ref = (videoRef ?? own) as RefObject<HTMLVideoElement | null>;
+  const [opacity, setOpacity] = useState(m.fade ? 0 : 1);
+  const done = useRef(false);
+  useEffect(() => {
+    const v = ref.current;
+    if (!v) return;
+    done.current = false;
+    const start = m.start ?? 0;
+    const onMeta = () => { if (start) v.currentTime = start; if (m.fade) requestAnimationFrame(() => setOpacity(1)); };
+    const finish = async () => {
+      if (done.current) return;
+      done.current = true;
+      if (m.next && (window as any).__TAURI_INTERNALS__) {
+        const { invoke } = await import("@tauri-apps/api/core");
+        invoke("video_ended").catch(() => {});
+      }
+    };
+    const onTime = () => {
+      const end = m.end && m.end > start ? m.end : v.duration;
+      if (!end || !isFinite(end)) return;
+      const left = end - v.currentTime;
+      if (m.fade && !m.muted) v.volume = Math.max(0, Math.min(1, left / 1.5, (v.currentTime - start) / 1.5));
+      if (m.fade) setOpacity(left < 1.2 && !m.loop ? Math.max(0, left / 1.2) : 1);
+      if (m.end && v.currentTime >= m.end) {
+        if (m.loop) v.currentTime = start;
+        else { v.pause(); finish(); }
+      }
+    };
+    v.addEventListener("loadedmetadata", onMeta);
+    v.addEventListener("timeupdate", onTime);
+    v.addEventListener("ended", finish);
+    return () => { v.removeEventListener("loadedmetadata", onMeta); v.removeEventListener("timeupdate", onTime); v.removeEventListener("ended", finish); };
+  }, [m.src, m.start, m.end, m.fade, m.next, m.loop, m.muted]); // eslint-disable-line react-hooks/exhaustive-deps
+  return (
+    <video ref={ref} src={mediaUrl(m.src)} autoPlay loop={!!m.loop && !m.end} muted={!!m.muted} playsInline
+      style={{ width: "100%", height: "100%", objectFit: fit, opacity, transition: "opacity 0.6s linear" }} />
+  );
+}
+
+/** A live camera or capture card, full screen or behind the words. */
+export function CameraFeed({ deviceId, fit = "cover" }: { deviceId?: string; fit?: "cover" | "contain" }) {
+  const ref = useRef<HTMLVideoElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    let stream: MediaStream | null = null;
+    let stopped = false;
+    navigator.mediaDevices?.getUserMedia({ video: deviceId ? { deviceId: { exact: deviceId }, width: { ideal: 1920 }, height: { ideal: 1080 } } : { width: { ideal: 1920 }, height: { ideal: 1080 } }, audio: false })
+      .then((s) => { if (stopped) { s.getTracks().forEach((t) => t.stop()); return; } stream = s; if (ref.current) ref.current.srcObject = s; })
+      .catch(() => setError("The camera couldn't be opened."));
+    return () => { stopped = true; stream?.getTracks().forEach((t) => t.stop()); };
+  }, [deviceId]);
+  if (error) return <div style={{ width: "100%", height: "100%", display: "grid", placeItems: "center", background: "#000", color: "#64748b", fontSize: 60 }}>{error}</div>;
+  return <video ref={ref} autoPlay muted playsInline style={{ width: "100%", height: "100%", objectFit: fit, background: "#000" }} />;
 }
 
 export function formatCountdown(ms: number): string {

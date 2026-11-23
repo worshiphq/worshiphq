@@ -1,6 +1,9 @@
 import { useState, useEffect } from "react";
+import { plainText } from "./lib/rich-text";
 import { backgroundSlide } from "./components/BackgroundPicker";
 import { lastBackground } from "./stores/show-store";
+import { useExtrasStore } from "./stores/extras-store";
+import { runRemoteAction, startMidi } from "./lib/remote";
 import { PreviewLive } from "./components/PreviewLive";
 import { useShowStore } from "./stores/show-store";
 import type { MenuAction } from "./components/MenuBar";
@@ -37,12 +40,12 @@ export default function App() {
       case "live:tools": case "live": setWorkspace("live"); break;
       case "schedule:plan": setWorkspace("service"); break;
       case "settings": setWorkspace("settings"); break;
-      case "settings:looks": case "settings:screens": case "settings:audio": case "settings:shortcuts": case "settings:about":
+      case "settings:looks": case "settings:screens": case "settings:audio": case "settings:shortcuts": case "settings:about": case "settings:backup":
         setSettingsTab(a.split(":")[1] as SettingsTab); setWorkspaceRaw("settings"); break;
       case "bible:versions": setSettingsTab("bibles"); setWorkspaceRaw("settings"); break;
       case "view:preview": setPreviewShown(!previewShown); break;
       case "song:new": case "song:edit": case "song:import-ew": case "song:import-files": tell("songs", a); break;
-      case "media:add": case "media:presentation": case "media:free": tell("media", a); break;
+      case "media:add": case "media:presentation": case "media:free": case "media:design": tell("media", a); break;
       case "live:send": useShowStore.getState().sendPreviewLive(); break;
       case "live:obs":
         if ((window as any).__TAURI_INTERNALS__) {
@@ -121,6 +124,16 @@ export default function App() {
     const proj = useProjectionStore.getState();
     if (!(window as any).__TAURI_INTERNALS__ || proj.isLive) return;
     const bg = lastBackground();
+    // Daily cloud backup (when switched on and there is internet).
+    window.setTimeout(() => {
+      try {
+        if (localStorage.getItem("whq-backup-auto") === "0") return;
+        const last = localStorage.getItem("whq-backup-last");
+        if (!last || Date.now() - Date.parse(last) > 20 * 3600_000) import("./lib/backup").then((b) => b.cloudBackup()).catch(() => {});
+      } catch { /* ignore */ }
+    }, 60_000);
+    // Screen tuning (and anything else on the projector's extra layers) goes to the projector again.
+    window.setTimeout(() => useExtrasStore.getState().resend(), 2500);
     const t = window.setTimeout(() => {
       if (!proj.projectionOpen) proj.openProjection();
       window.setTimeout(() => {
@@ -136,7 +149,7 @@ export default function App() {
     if (!(window as any).__TAURI_INTERNALS__) return;
     let last = "";
     const toText = (sl: Slide | null) =>
-      sl ? { text: sl.media ? `[${sl.media.kind === "video" ? "Video" : "Picture"}] ${sl.label ?? ""}` : sl.content.primaryText ?? "", label: sl.label ?? sl.content.secondaryText ?? "" } : null;
+      sl ? { text: sl.media ? `[${sl.media.kind === "video" ? "Video" : sl.media.kind === "camera" ? "Camera" : "Picture"}] ${sl.label ?? ""}` : plainText(sl.content.primaryText ?? ""), label: sl.label ?? sl.content.secondaryText ?? "", chords: sl.chords } : null;
     const push = () => {
       const p = useProjectionStore.getState();
       const state = {
@@ -166,6 +179,9 @@ export default function App() {
       off.push(await listen<string>("voice-event", (e) => useVoiceStore.getState().handleEvent(e.payload)));
       const voice = useVoiceStore.getState();
       if (voice.autoStart && voice.status === "off") voice.start();
+      off.push(await listen("video-ended", () => useShowStore.getState().liveStep(1)));
+      off.push(await listen<string>("remote-action", (e) => runRemoteAction(e.payload)));
+      startMidi();
       off.push(await listen("projection-closed", () => useProjectionStore.getState().markProjectionClosed()));
       off.push(await listen("stage-closed", () => useProjectionStore.getState().markStageClosed()));
       // After a reload, find out whether the projector window is still open.

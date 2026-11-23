@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
 import { saveCcliReport } from "../lib/ccli";
+import { openBackupFile } from "../lib/backup";
 import { deleteTemplate, listTemplates, saveAsTemplate, startFromTemplate } from "../lib/templates";
 import { createProfile, currentProfile, deleteProfile, listProfiles, switchProfile } from "../lib/profiles";
 
@@ -17,9 +18,9 @@ export interface MenuEntry {
 export type MenuAction =
   | "schedule:new" | "schedule:open" | "schedule:save" | "schedule:plan" | "schedule:first" | "schedule:clear"
   | "song:new" | "song:edit" | "song:import-ew" | "song:import-files" | "songs"
-  | "bible" | "bible:versions" | "media" | "media:add" | "media:presentation" | "media:free"
+  | "bible" | "bible:versions" | "media" | "media:add" | "media:presentation" | "media:free" | "media:design"
   | "voice" | "live" | "live:projector" | "live:black" | "live:clear" | "live:logo" | "live:send" | "live:tools" | "live:obs"
-  | "view:preview" | "settings" | "settings:looks" | "settings:screens" | "settings:audio" | "settings:shortcuts" | "settings:about"
+  | "view:preview" | "settings" | "settings:looks" | "settings:screens" | "settings:audio" | "settings:shortcuts" | "settings:about" | "settings:backup"
   | "help:website" | "exit";
 
 /**
@@ -52,6 +53,9 @@ export function MenuBar({ onAction, previewShown, projectorOn }: { onAction: (a:
       { label: "Import songs from EasyWorship…", onClick: a("song:import-ew") },
       { label: "Import PowerPoint or PDF…", onClick: a("media:presentation") },
       { label: "Add pictures, videos or audio…", onClick: a("media:add") },
+      { divider: true },
+      { label: "Back up…", onClick: a("settings:backup") },
+      { label: "Restore from a backup…", onClick: () => openBackupFile() },
       { divider: true },
       { label: "Settings", onClick: a("settings") },
       { divider: true },
@@ -101,6 +105,7 @@ export function MenuBar({ onAction, previewShown, projectorOn }: { onAction: (a:
     Media: [
       { label: "Pictures, videos and audio", onClick: a("media") },
       { label: "Free backgrounds", onClick: a("media:free") },
+      { label: "Design a slide…", onClick: a("media:design") },
       { label: "Add pictures, videos or audio…", onClick: a("media:add") },
       { label: "Import PowerPoint or PDF…", onClick: a("media:presentation") },
     ],

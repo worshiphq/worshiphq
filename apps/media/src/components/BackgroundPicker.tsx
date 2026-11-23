@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Film, Image as ImageIcon } from "lucide-react";
+import { Camera, Film, Image as ImageIcon } from "lucide-react";
 import type { Slide } from "../types";
 import { GRADIENTS } from "../lib/themes";
 import { useMediaStore } from "../stores/media-store";
@@ -36,6 +36,11 @@ export function BackgroundPicker() {
     import("@tauri-apps/api/core").then(({ invoke }) => invoke<typeof bundled>("stock_bundled").then(setBundled).catch(() => {}));
   }, [open, bundled.length]);
 
+  const [cams, setCams] = useState<MediaDeviceInfo[]>([]);
+  useEffect(() => {
+    if (!open) return;
+    navigator.mediaDevices?.enumerateDevices().then((d) => setCams(d.filter((x) => x.kind === "videoinput" && x.label))).catch(() => {});
+  }, [open]);
   const mine = useMemo(() => items.filter((i) => i.kind === "image" || i.kind === "video"), [items]);
 
   /** Put the background on what is in Preview (or on its own), ready to go live. */
@@ -82,6 +87,17 @@ export function BackgroundPicker() {
                     {m.kind === "video"
                       ? <><video src={mediaUrl(m.path)} muted preload="metadata" className="h-full w-full object-cover" /><Film className="absolute left-1 top-1 size-3.5 text-white drop-shadow" /></>
                       : <img src={mediaUrl(m.path)} alt="" className="h-full w-full object-cover" loading="lazy" />}
+                  </button>
+                ))}
+              </Group>
+            )}
+            {cams.length > 0 && (
+              <Group title="Live camera behind the words">
+                {cams.map((c) => (
+                  <button key={c.deviceId} title={c.label} className={tile + " grid place-items-center bg-ink text-[11px] font-semibold text-white"}
+                    onClick={() => pick({ kind: "camera", value: c.deviceId }, c.label || "Camera")}
+                    onDoubleClick={() => pick({ kind: "camera", value: c.deviceId }, c.label || "Camera", true)}>
+                    <span className="flex flex-col items-center gap-1 px-1 text-center"><Camera className="size-4" />{(c.label || "Camera").slice(0, 22)}</span>
                   </button>
                 ))}
               </Group>

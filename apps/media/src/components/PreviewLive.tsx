@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { ChevronsRight, MonitorPlay } from "lucide-react";
+import { ChevronsRight, MonitorPlay, Timer } from "lucide-react";
 import type { Slide } from "../types";
 import { useShowStore, type SlideSet } from "../stores/show-store";
 import { useProjectionStore } from "../stores/projection-store";
@@ -46,6 +46,24 @@ export function PreviewLive() {
   );
 }
 
+/** Timed slides: the Live list moves on by itself (for slideshows, announcements, songs with a backing track). */
+function AutoAdvance() {
+  const { auto, setAuto } = useShowStore();
+  return (
+    <span className="flex items-center gap-1 text-[11px] text-ink-muted" title="Move to the next slide by itself">
+      <Timer className={`size-3.5 ${auto.seconds ? "text-danger" : ""}`} />
+      <select value={auto.seconds} onChange={(e) => setAuto({ ...auto, seconds: Number(e.target.value) })}
+        className={`h-6 rounded border px-0.5 text-[11px] ${auto.seconds ? "border-danger/50 bg-danger/10 font-bold text-danger" : "border-line-bright bg-surface-2"}`}>
+        <option value={0}>Manual</option>
+        {[3, 5, 8, 10, 15, 20, 30, 60].map((n) => <option key={n} value={n}>Every {n}s</option>)}
+      </select>
+      {auto.seconds > 0 && (
+        <label className="flex items-center gap-0.5"><input type="checkbox" checked={auto.loop} onChange={(e) => setAuto({ ...auto, loop: e.target.checked })} className="size-3 accent-[var(--color-danger)]" />Loop</label>
+      )}
+    </span>
+  );
+}
+
 function Panel({ kind, set, screen, empty, note, onPick, onSend }: {
   kind: "preview" | "live";
   set: SlideSet | null;
@@ -67,6 +85,7 @@ function Panel({ kind, set, screen, empty, note, onPick, onSend }: {
         <span className={`rounded px-1.5 py-0.5 text-[11px] font-black uppercase tracking-wider ${isLivePanel ? "bg-danger text-white" : "bg-primary text-white"}`}>{isLivePanel ? "Live" : "Preview"}</span>
         <span className="min-w-0 flex-1 truncate text-[13px] font-semibold text-ink">{set?.title ?? ""}</span>
         {note && <span className="rounded bg-ink px-1.5 py-0.5 text-[10px] font-bold text-white">{note}</span>}
+        {isLivePanel && <AutoAdvance />}
         {!isLivePanel && set && (
           <button onClick={() => onSend(set.index)} title="Send to the screen (Enter)"
             className="flex h-7 items-center gap-1 rounded-md bg-danger px-2.5 text-[12px] font-bold text-white hover:brightness-110">

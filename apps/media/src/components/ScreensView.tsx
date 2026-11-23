@@ -1,3 +1,4 @@
+import { OutputAdjust } from "./ShowExtras";
 import { useEffect, useState } from "react";
 import { Check, Church, Monitor, MonitorCheck, MonitorOff, RefreshCw, TvMinimal } from "lucide-react";
 import { useProjectionStore } from "../stores/projection-store";
@@ -147,6 +148,10 @@ export function ScreensView({ onOpenMedia }: { onOpenMedia: () => void }) {
             {desktop && displays.length < 3 && <p className="mt-2 text-[13px] text-ink-faint">With fewer than three screens it opens as a window you can move and resize.</p>}
           </section>
 
+          <section className="rounded-xl border border-line bg-surface-2 p-4 shadow-sm">
+            <h3 className="mb-1 text-[16px] font-semibold text-ink">Fit the picture to the screen</h3>
+            <OutputAdjust />
+          </section>
           <section className="rounded-xl border border-line bg-surface-2 p-4 shadow-sm">
             <h3 className="mb-1 text-[16px] font-semibold text-ink">Church logo</h3>
             <p className="mb-3 text-[14px] text-ink-muted">Shown when you press the Logo button at the top, e.g. before the service starts.</p>

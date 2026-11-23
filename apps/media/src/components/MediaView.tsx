@@ -16,8 +16,10 @@ import { presentationSlides, presentationToServiceItem } from "../lib/media-slid
 import { Music2, Presentation as PresIcon, Square as StopIcon, Repeat, Volume2 } from "lucide-react";
 import type { ThemeKind } from "../lib/themes";
 import { StockLibrary } from "./StockLibrary";
+import { CameraSources } from "./CameraSources";
+import { DeckLibrary } from "./DeckLibrary";
 
-type Filter = "all" | "image" | "video" | "audio" | "presentations" | "stock";
+type Filter = "all" | "image" | "video" | "audio" | "presentations" | "stock" | "camera" | "slides";
 
 export function MediaView() {
   const { items, importing, error, pickFiles, importPaths, importBrowserFiles, remove, rename, clearError, presentations, importPresentation, removePresentation, renamePresentation } = useMediaStore();
@@ -103,6 +105,7 @@ export function MediaView() {
       if (a === "media:add") addFiles();
       else if (a === "media:presentation") importPresentation().then((pr) => { if (pr) { setFilter("presentations"); setPresId(pr.id); } });
       else if (a === "media:free") setFilter("stock");
+      else if (a === "media:design") { setFilter("slides"); setTimeout(() => window.dispatchEvent(new CustomEvent("whq-menu", { detail: "deck:new" })), 50); }
     };
     window.addEventListener("whq-menu", on);
     return () => window.removeEventListener("whq-menu", on);
@@ -140,7 +143,7 @@ export function MediaView() {
         <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-line px-4 py-3">
           <h2 className="text-[18px] font-bold text-ink">Media</h2>
           <div className="flex max-w-full flex-wrap rounded-lg bg-surface-4 p-1">
-            {([["image", "Images"], ["video", "Videos"], ["audio", "Audio"], ["presentations", "Presentations"], ["stock", "✦ Free backgrounds"], ["all", "All"]] as [Filter, string][]).map(([f, label]) => (
+            {([["image", "Images"], ["video", "Videos"], ["audio", "Audio"], ["presentations", "Presentations"], ["slides", "My slides"], ["stock", "✦ Free backgrounds"], ["camera", "Camera"], ["all", "All"]] as [Filter, string][]).map(([f, label]) => (
               <button
                 key={f}
                 onClick={() => setFilter(f)}
@@ -184,7 +187,11 @@ export function MediaView() {
           </div>
         )}
 
-        {filter === "stock" ? (
+        {filter === "slides" ? (
+          <DeckLibrary />
+        ) : filter === "camera" ? (
+          <CameraSources />
+        ) : filter === "stock" ? (
           <StockLibrary onAdded={(item) => { setSelectedId(item.id); setToast(`“${item.name}” added to your Media`); }} />
         ) : filter === "presentations" ? (
           <div className="flex-1 overflow-y-auto p-4">
@@ -344,6 +351,20 @@ export function MediaView() {
                       <input type="checkbox" checked={opts.loop} onChange={(e) => setOpt({ loop: e.target.checked })} className="size-4 accent-[var(--color-primary)]" />
                       Repeat (loop)
                     </label>
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <input type="checkbox" checked={!!opts.fade} onChange={(e) => setOpt({ fade: e.target.checked })} className="size-4 accent-[var(--color-primary)]" />
+                      Fade in and out
+                    </label>
+                    <label className="flex cursor-pointer items-center gap-2">
+                      <input type="checkbox" checked={!!opts.next} onChange={(e) => setOpt({ next: e.target.checked })} className="size-4 accent-[var(--color-primary)]" />
+                      When it ends, go to the next slide
+                    </label>
+                    <label className="flex items-center gap-1.5">Start at
+                      <input type="number" min={0} step={1} value={opts.start ?? 0} onChange={(e) => setOpt({ start: Math.max(0, Number(e.target.value) || 0) })} className="h-8 w-16 rounded-md border border-line-bright px-1.5" /> s
+                    </label>
+                    <label className="flex items-center gap-1.5">Stop at
+                      <input type="number" min={0} step={1} value={opts.end ?? 0} onChange={(e) => setOpt({ end: Math.max(0, Number(e.target.value) || 0) })} className="h-8 w-16 rounded-md border border-line-bright px-1.5" /> s <span className="text-[12px] text-ink-faint">(0 = to the end)</span>
+                    </label>
                   </div>
                 )}
               </div>
@@ -499,7 +520,42 @@ function AudioPanel({ item, onRename, onDelete }: { item: MediaItem; onRename: (
         <input type="range" min={0} max={1} step={0.05} value={a.volume} onChange={(e) => a.setVolume(Number(e.target.value))} className="flex-1 accent-[var(--color-primary)]" aria-label="Volume" />
         <button onClick={() => a.setLoop(!a.loop)} aria-pressed={a.loop} title="Repeat" className={`grid size-9 place-items-center rounded-lg ${a.loop ? "bg-primary text-white" : "bg-surface-4 text-ink-muted"}`}><Repeat className="size-4" /></button>
       </div>
+      <button onClick={() => a.addToPlaylist({ id: item.id, name: item.name, path: item.path })}
+        className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg border border-line-bright text-[13px] font-semibold text-ink hover:bg-surface-4">
+        <Plus className="size-4" /> Add to the playlist
+      </button>
+      <Playlist />
       <button onClick={onDelete} className="mt-3 flex h-9 w-full items-center justify-center gap-2 rounded-lg text-[13px] font-semibold text-ink-faint hover:bg-danger/10 hover:text-danger"><Trash2 className="size-4" /> Delete</button>
     </section>
+  );
+}
+
+/** Walk-in or background music: tracks one after another, each fading into the next. */
+function Playlist() {
+  const a = useAudioStore();
+  if (!a.playlist.length) return null;
+  return (
+    <div className="mt-3 rounded-lg border border-line p-2">
+      <div className="mb-1.5 flex items-center gap-2">
+        <span className="flex-1 text-[13px] font-bold text-ink">Playlist · {a.playlist.length}</span>
+        <button onClick={a.clearPlaylist} className="text-[12px] font-semibold text-ink-muted hover:text-danger">Clear</button>
+      </div>
+      {a.playlist.map((t, i) => (
+        <div key={i} className={`flex items-center gap-2 rounded px-1.5 py-1 text-[13px] ${a.trackId === t.id && a.playing ? "bg-primary-soft font-semibold text-primary-bright" : "text-ink"}`}>
+          <span className="w-4 text-right text-[11px] text-ink-faint">{i + 1}</span>
+          <button onClick={() => a.playPlaylist(i)} className="min-w-0 flex-1 truncate text-left hover:underline">{t.name}</button>
+          <button onClick={() => a.removeFromPlaylist(i)} aria-label="Remove" className="text-ink-faint hover:text-danger"><X className="size-3.5" /></button>
+        </div>
+      ))}
+      <div className="mt-2 flex items-center gap-2 text-[12px] text-ink-muted">
+        Fade between songs
+        <input type="range" min={0} max={10} value={a.crossfade} onChange={(e) => a.setCrossfade(Number(e.target.value))} className="flex-1 accent-[var(--color-primary)]" />
+        <span className="w-6 text-right">{a.crossfade}s</span>
+      </div>
+      <div className="mt-2 grid grid-cols-2 gap-2">
+        <button onClick={() => a.playPlaylist(0)} className="flex h-9 items-center justify-center gap-1.5 rounded-lg bg-primary text-[13px] font-bold text-white hover:bg-primary-bright"><Play className="size-4" /> Play all</button>
+        <button onClick={a.nextTrack} disabled={!a.playing} className="h-9 rounded-lg bg-surface-4 text-[13px] font-semibold text-ink hover:bg-surface-5 disabled:text-ink-faint">Next song</button>
+      </div>
+    </div>
   );
 }

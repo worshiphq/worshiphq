@@ -11,6 +11,10 @@ export function buildSongSlides(song: Song): Slide[] {
   const font = song.font ? cssFont(song.font) : undefined;
   // The translation, stanza by stanza, under the same section names (e.g. Twi under English).
   const second = new Map<string, string[]>();
+  const chords = new Map<string, string[]>();
+  if (song.chords?.trim()) {
+    for (const sec of textToSections(song.chords).sections) chords.set(sec.label.toLowerCase(), sec.lyrics.split(/\n\s*\n/).map((x) => x.replace(/^\n+|\s+$/g, "")).filter((x) => x.trim()));
+  }
   if (song.translation?.trim()) {
     const t = textToSections(song.translation);
     for (const sec of t.sections) second.set(sec.label.toLowerCase(), sec.lyrics.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean));
@@ -27,6 +31,8 @@ export function buildSongSlides(song: Song): Slide[] {
       if (font) slide.font = font;
       if (song.background) slide.background = song.background;
       const tr = second.get(section.label.toLowerCase())?.[i];
+      const ch = chords.get(section.label.toLowerCase())?.[i];
+      if (ch) slide.chords = ch;
       if (tr) slide.second = { text: song.akan ? akanFontToUnicode(tr) : tr, label: song.translationName ?? "" };
       slide.label = stanzas.length > 1 ? `${section.label} (${i + 1}/${stanzas.length})` : section.label;
       slides.push(slide);

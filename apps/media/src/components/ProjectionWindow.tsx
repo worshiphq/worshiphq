@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Slide, AlertMessage } from "../types";
+import { DEFAULT_ADJUST, DEFAULT_PROP, DEFAULT_TICKER, type Adjust, type Prop, type Ticker } from "../stores/extras-store";
+import { mediaUrl } from "../lib/media-src";
 import { useProjectionStore } from "../stores/projection-store";
 import { ScaledSlide, CANVAS_W } from "./SlideCanvas";
 import { DEFAULT_TRANSITION, themeKindFor, DEFAULT_THEMES, type Transition } from "../lib/themes";
@@ -40,6 +42,14 @@ function useLayers() {
 
 /** The window on the projector / TV. It only shows what the operator sends. */
 export function ProjectionWindow() {
+  const [ticker, setTicker] = useState<Ticker>(DEFAULT_TICKER);
+  const [prop, setProp] = useState<Prop>(DEFAULT_PROP);
+  const [adjust, setAdjust] = useState<Adjust>(DEFAULT_ADJUST);
+  const applyExtra = (kind: string, value: unknown) => {
+    if (kind === "ticker") setTicker({ ...DEFAULT_TICKER, ...(value as Ticker) });
+    else if (kind === "prop") setProp({ ...DEFAULT_PROP, ...(value as Prop) });
+    else if (kind === "adjust") setAdjust({ ...DEFAULT_ADJUST, ...(value as Adjust) });
+  };
   const [slide, setSlide] = useState<Slide | null>(null);
   const bg = useLayers();
   const fg = useLayers();
@@ -100,6 +110,14 @@ export function ProjectionWindow() {
           useProjectionStore.getState().setLicense({ isLicensed: lic.is_licensed, isTrial: lic.is_trial, trialDaysRemaining: lic.trial_days_remaining, hwid: lic.hwid });
         } catch { /* keep the default */ }
 
+        // Ticker, props and screen tuning.
+        const u6 = await listen<string>("extra-update", (e) => {
+          try { const { kind, json } = JSON.parse(e.payload); applyExtra(kind, JSON.parse(json)); } catch { /* ignore */ }
+        });
+        cleanup.push(u6);
+        const extras = await invoke<Record<string, string>>("get_extras").catch(() => ({} as Record<string, string>));
+        for (const [k, v] of Object.entries(extras)) { try { applyExtra(k, JSON.parse(v)); } catch { /* ignore */ } }
+
         // Opened after something was already sent? Catch up.
         const state = await invoke<{ slide: string | null; black: boolean }>("get_output_state");
         if (state.slide) {
@@ -127,8 +145,12 @@ export function ProjectionWindow() {
     };
   }, []);
 
+  const adjustStyle = adjust.x || adjust.y || adjust.scale !== 1 || adjust.keystone || adjust.tilt
+    ? { transform: `translate(${adjust.x}%, ${adjust.y}%) perspective(1200px) rotateX(${adjust.keystone}deg) rotateY(${adjust.tilt}deg) scale(${adjust.scale})`, transformOrigin: "center" }
+    : undefined;
   return (
-    <div className="relative h-screen w-screen cursor-none overflow-hidden bg-black">
+    <div className="h-screen w-screen cursor-none overflow-hidden bg-black">
+    <div className="relative h-screen w-screen overflow-hidden bg-black" style={adjustStyle}>
       {bg.layers.map((l, i) => (
         <LayerView key={l.id} layer={l} solid>
           {l.slide && <ScaledSlide slide={l.slide} live fill part="background" videoRef={i === bg.layers.length - 1 ? videoRef : undefined} />}
@@ -140,8 +162,42 @@ export function ProjectionWindow() {
         </LayerView>
       ))}
       <div className={`pointer-events-none absolute inset-0 bg-black transition-opacity duration-300 ${isBlack ? "opacity-100" : "opacity-0"}`} />
+      {prop.on && !isBlack && <PropLayer prop={prop} />}
+      {ticker.on && ticker.text.trim() && !isBlack && <TickerBand ticker={ticker} raised={!!alert} />}
       {alert && <AlertBar alert={alert} />}
       {isTrial && !isLicensed && <TrialWatermark />}
+    </div>
+    </div>
+  );
+}
+
+/** Words that keep scrolling along the bottom (announcements), above any alert. */
+function TickerBand({ ticker, raised }: { ticker: Ticker; raised: boolean }) {
+  return (
+    <div className="absolute inset-x-0 z-30 overflow-hidden" style={{ bottom: raised ? "5.6vw" : 0, background: ticker.background, color: ticker.color, padding: "0.7vw 0", fontSize: "1.9vw", fontWeight: 600, fontFamily: "'Segoe UI', sans-serif" }}>
+      <div className="whitespace-nowrap" style={{ display: "inline-block", animation: `alert-scroll ${Math.max(5, ticker.seconds)}s linear infinite` }}>
+        {ticker.text}
+      </div>
+    </div>
+  );
+}
+
+/** Stays on top of every slide: a corner logo, or a lower-third title. */
+function PropLayer({ prop }: { prop: Prop }) {
+  const pos: React.CSSProperties = {
+    position: "absolute", zIndex: 25,
+    ...(prop.corner.startsWith("top") ? { top: "3vw" } : { bottom: "3vw" }),
+    ...(prop.corner.endsWith("left") ? { left: "3vw" } : { right: "3vw" }),
+  };
+  if (prop.kind === "logo") {
+    if (!prop.image) return null;
+    return <img src={mediaUrl(prop.image)} alt="" style={{ ...pos, width: `${Math.round(prop.size * 100)}vw`, opacity: prop.opacity }} />;
+  }
+  if (!prop.title?.trim()) return null;
+  return (
+    <div style={{ position: "absolute", zIndex: 25, left: "4vw", bottom: "4vw", maxWidth: "70vw", opacity: prop.opacity, fontFamily: "'Segoe UI', sans-serif" }}>
+      <div style={{ background: "rgba(13,148,136,0.95)", color: "#fff", padding: "0.8vw 2vw", fontSize: "2.4vw", fontWeight: 800, borderRadius: "0.4vw 0.4vw 0 0", display: "inline-block" }}>{prop.title}</div>
+      {prop.subtitle?.trim() && <div style={{ background: "rgba(15,23,42,0.92)", color: "#e2e8f0", padding: "0.6vw 2vw", fontSize: "1.6vw", fontWeight: 600, borderRadius: "0 0.4vw 0.4vw 0.4vw" }}>{prop.subtitle}</div>}
     </div>
   );
 }
