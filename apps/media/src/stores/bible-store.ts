@@ -46,6 +46,8 @@ interface BibleState {
   versesLoading: boolean;
   searchResults: BibleVerse[];
   searchQuery: string;
+  /** A search is still running (AI answers can take a second). */
+  searching: boolean;
 
   loadPacks: () => Promise<void>;
   setActivePack: (id: string) => void;
@@ -71,6 +73,7 @@ export const useBibleStore = create<BibleState>((set, get) => ({
   versesLoading: false,
   searchResults: [],
   searchQuery: "",
+  searching: false,
 
   loadPacks: async () => {
     set({ loading: true });
@@ -152,21 +155,43 @@ export const useBibleStore = create<BibleState>((set, get) => ({
   },
 
   searchBible: async (query) => {
-    set({ searchQuery: query });
+    set({ searchQuery: query, searching: true });
     if (!query.trim()) {
-      set({ searchResults: [] });
+      set({ searchResults: [], searching: false });
       return;
     }
-    const pack = get().activePack;
-    if (!pack) return;
-
-    try {
-      const results = await tauriInvoke<BibleVerse[]>("bible_search", { packId: pack, query }) ?? [];
-      set({ searchResults: results });
-    } catch (e) {
-      console.error("Search failed:", e);
-      set({ searchResults: [] });
-    }
+    const { activePack, packs } = get();
+    if (!activePack) { set({ searching: false }); return; }
+    // Close wording in the English Bibles plus the chosen version and the second version (all at once)…
+    let second = "";
+    try { second = localStorage.getItem("whq-second-version") ?? ""; } catch { /* ignore */ }
+    const searchPacks = packs.filter((p) => /english/i.test(p.language) || p.id === activePack || p.id === second).map((p) => p.id);
+    const words = tauriInvoke<BibleVerse[]>("bible_search_all", { query, packs: searchPacks }).then((r) => r ?? []).catch(() => [] as BibleVerse[]);
+    // …and what it most likely means (WorshipHQ AI), shown as soon as each arrives.
+    const meaning = (async () => {
+      const { aiFindVerses } = await import("../lib/ai");
+      const { parseReference } = await import("../lib/scripture-ref");
+      const refs = await aiFindVerses(query).catch(() => []);
+      const out: BibleVerse[] = [];
+      for (const r of refs) {
+        const ref = parseReference(r.reference);
+        if (!ref) continue;
+        const chapter = await tauriInvoke<BibleVerse[]>("bible_get_chapter", { packId: activePack, book: ref.book + 1, chapter: ref.chapter }).catch(() => undefined) ?? [];
+        const start = ref.verseStart ?? 1, end = ref.verseEnd ?? start;
+        const vs = chapter.filter((v) => v.verse >= start && v.verse <= end);
+        if (vs.length) out.push({ ...vs[0], text: vs.map((v) => v.text).join(" "), ai: true, why: r.why, abbreviation: packs.find((p) => p.id === activePack)?.abbreviation });
+      }
+      return out;
+    })();
+    const merge = (a: BibleVerse[], b: BibleVerse[]) => {
+      const seen = new Set(a.map((v) => `${v.book}:${v.chapter}:${v.verse}`));
+      return [...a, ...b.filter((v) => !seen.has(`${v.book}:${v.chapter}:${v.verse}`))];
+    };
+    let got: BibleVerse[] = [];
+    words.then((w) => { if (get().searchQuery === query) { got = merge(got, w); set({ searchResults: got }); } });
+    meaning.then((m) => { if (get().searchQuery === query && m.length) { got = merge(m, got); set({ searchResults: got }); } });
+    await Promise.allSettled([words, meaning]);
+    if (get().searchQuery === query) set({ searching: false });
   },
 
   importPack: async (sourcePath, packId) => {

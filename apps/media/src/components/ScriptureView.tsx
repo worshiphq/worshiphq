@@ -39,6 +39,7 @@ export function ScriptureView({ onOpenLooks }: { onOpenLooks: () => void }) {
   /** Verses the search box asked for, applied once that chapter has finished loading. */
   const [pendingSelection, setPendingSelection] = useState<(Selection & { book: number; chapter: number }) | null>(null);
   const [showingWords, setShowingWords] = useState(false);
+  const searchingWords = useBibleStore((st) => st.searching);
   const [toast, setToast] = useState<string | null>(null);
   const [style, setStyle] = useState<ScriptureStyle>(DEFAULT_SCRIPTURE_STYLE);
   /** Slides last sent to the screen from here, so Back / Next part can work. */
@@ -325,7 +326,7 @@ export function ScriptureView({ onOpenLooks }: { onOpenLooks: () => void }) {
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto" role="listbox" aria-label="Verses" aria-multiselectable="true">
               {showingWords ? (
-                <WordResults results={searchResults} onOpen={(v) => openReference(v.book - 1, v.chapter, v.verse)} onClose={() => setShowingWords(false)} />
+                <WordResults results={searchResults} searching={searchingWords} onOpen={(v) => openReference(v.book - 1, v.chapter, v.verse)} onClose={() => setShowingWords(false)} />
               ) : selectedBook === null || selectedChapter === null ? (
                 <EmptyReader onExample={(text) => {
                   const ref = parseReference(text);
@@ -669,28 +670,30 @@ function EmptyReader({ onExample }: { onExample: (ref: string) => void }) {
 }
 
 function WordResults({
-  results, onOpen, onClose,
-}: { results: BibleVerse[]; onOpen: (v: BibleVerse) => void; onClose: () => void }) {
+  results, searching, onOpen, onClose,
+}: { results: BibleVerse[]; searching: boolean; onOpen: (v: BibleVerse) => void; onClose: () => void }) {
   return (
     <>
       <div className="flex shrink-0 items-center gap-3 border-b border-line px-4 py-3">
         <h2 className="flex-1 text-[18px] font-bold text-ink">
-          {results.length ? `${results.length} verse${results.length === 1 ? "" : "s"} found` : "No verses found"}
+          {results.length ? `${results.length} verse${results.length === 1 ? "" : "s"} found` : searching ? "Searching all your Bibles…" : "No verses found"}
         </h2>
         <button onClick={onClose} className="rounded-lg px-3 py-1.5 text-[13px] font-semibold text-primary-bright hover:bg-primary-soft">
           Back to reading
         </button>
       </div>
       <div className="flex-1 overflow-y-auto px-3 py-2">
-        {!results.length && (
+        {!results.length && !searching && (
           <p className="py-16 text-center text-[15px] text-ink-muted">
             Try fewer or different words, or type a verse like John 3:16.
           </p>
         )}
         {results.map((v, i) => (
           <button key={i} onClick={() => onOpen(v)} className="mb-1 w-full rounded-lg px-3 py-2.5 text-left hover:bg-surface-4">
-            <span className="text-[14px] font-bold text-primary-bright">
+            <span className="flex items-center gap-2 text-[14px] font-bold text-primary-bright">
               {BIBLE_BOOKS[v.book - 1]} {v.chapter}:{v.verse}
+              {v.abbreviation && <span className="rounded bg-surface-4 px-1.5 text-[11px] font-semibold text-ink-muted">{v.abbreviation}</span>}
+              {v.ai && <span className="rounded bg-primary-soft px-1.5 text-[11px] font-bold text-primary-bright" title={v.why}>AI · same meaning</span>}
             </span>
             <p className="mt-0.5 line-clamp-2 text-[15px] text-ink">{v.text}</p>
           </button>

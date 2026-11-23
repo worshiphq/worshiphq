@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicokosi/tauri-v2-schema/main/config.schema.json",
   "productName": "WorshipHQ Media",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "identifier": "com.worshiphq.media",
   "build": {
     "frontendDist": "../dist",

@@ -79,7 +79,9 @@ export async function startWhisperListening(deviceId: string | null, cb: Callbac
   running = true;
   const { invoke } = await import("@tauri-apps/api/core");
   const transcribe = (audio: Uint8Array) =>
-    invoke<string>("whisper_transcribe", audio as unknown as Record<string, unknown>, { headers: { "x-model": model } });
+    model === "twi"
+      ? import("./ai").then(({ transcribeTwi }) => transcribeTwi(audio))
+      : invoke<string>("whisper_transcribe", audio as unknown as Record<string, unknown>, { headers: { "x-model": model } });
 
   let noise = 0.008;              // learns the room's background level
   let chunks: Float32Array[] = [];
@@ -154,7 +156,7 @@ export async function startWhisperListening(deviceId: string | null, cb: Callbac
     if (speaking && speechMs + silentMs >= MAX_MS) { flush(); return; }
     // Early guess: short sentences only, every ~0.7 s, as soon as there is enough to hear a command.
     const length = speechMs + silentMs;
-    if (speaking && speechMs >= 500 && length <= EARLY_UNTIL_MS && performance.now() - lastEarlyAt >= EARLY_EVERY_MS) {
+    if (model !== "twi" && speaking && speechMs >= 500 && length <= EARLY_UNTIL_MS && performance.now() - lastEarlyAt >= EARLY_EVERY_MS) {
       lastEarlyAt = performance.now();
       early();
     }

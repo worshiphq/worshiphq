@@ -81,6 +81,10 @@ export interface BibleVerse {
   chapter: number;
   verse: number;
   text: string;
+  /** Search results: which Bible it was found in, and whether the AI suggested it (meaning, not wording). */
+  abbreviation?: string;
+  ai?: boolean;
+  why?: string;
 }
 
 export interface Song {

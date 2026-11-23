@@ -352,7 +352,14 @@ function WhisperSetup({ deviceId, devices }: { deviceId: string; devices: MediaD
           <span className="block text-[13px] text-ink-muted">Built into Windows, nothing to download, but often mishears.</span>
         </span>
       </label>
-      {v.engine === "whisper" && (
+      <label className={`flex cursor-pointer gap-3 rounded-lg p-3 ${v.engine === "twi" ? "bg-primary-soft/70 ring-1 ring-primary/40" : "bg-surface-4/60"}`}>
+        <input type="radio" name="engine" checked={v.engine === "twi"} onChange={() => v.setEngine("twi")} className="mt-1 size-4 accent-[var(--color-primary)]" />
+        <span>
+          <span className="flex items-center gap-2 text-[14px] font-semibold text-ink">Twi preaching <span className="rounded bg-gold/15 px-1.5 py-0.5 text-[11px] font-bold text-gold">Needs internet</span></span>
+          <span className="block text-[13px] text-ink-muted">For sermons in Twi (or Twi mixed with English). Uses Khaya by GhanaNLP, made in Ghana for Ghanaian languages, and WorshipHQ AI to understand what was meant. Uses the microphone chosen below.</span>
+        </span>
+      </label>
+      {(v.engine === "whisper" || v.engine === "twi") && (
         <div className="rounded-lg border border-line p-3">
           <span className="mb-2 block text-[13px] font-medium text-ink-muted">Speech model (each is a one-time download, then works without internet)</span>
           <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
@@ -426,6 +433,17 @@ function VoiceCommandsSetup() {
       <label className="flex cursor-pointer items-center gap-3">
         <input type="checkbox" checked={v.commandsOn} onChange={(e) => v.setCommandsOn(e.target.checked)} className="size-5 accent-[var(--color-primary)]" />
         <span className="text-[14px] font-semibold text-ink">Listen for spoken commands</span>
+      </label>
+      <label className="flex cursor-pointer items-start gap-3 rounded-lg bg-primary-soft/50 p-3">
+        <input type="checkbox" checked={v.aiOn} onChange={(e) => v.setAiOn(e.target.checked)} className="mt-0.5 size-5 accent-[var(--color-primary)]" />
+        <span>
+          <span className="block text-[14px] font-semibold text-ink">WorshipHQ AI <span className="ml-1 rounded bg-gold/15 px-1.5 py-0.5 text-[11px] font-bold text-gold">Needs internet</span></span>
+          <span className="block text-[13px] text-ink-muted">
+            Understands what was meant, in any words: “can I have King James”, “do you have NIV? give me NIV”, “let’s move on to verse five”.
+            It also notices when the preacher quotes or explains a verse without saying where it is, and suggests it for you to approve.
+            Suggested verses are always checked against your Bible first.
+          </span>
+        </span>
       </label>
       <label className="flex cursor-pointer items-start gap-3">
         <input type="checkbox" checked={v.matchSongs} onChange={(e) => v.setMatchSongs(e.target.checked)} className="mt-0.5 size-5 accent-[var(--color-primary)]" />

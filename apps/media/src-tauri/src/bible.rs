@@ -340,3 +340,81 @@ pub fn install_bundled_packs(app_data: &Path, resource_dir: &Path) -> Result<(),
 
     Ok(())
 }
+
+/// A verse found by a search, with which Bible it came from and how well it matched (0–1).
+#[derive(Debug, Clone, Serialize)]
+pub struct Found {
+    pub pack: String,
+    pub abbreviation: String,
+    pub book: u32,
+    pub chapter: u32,
+    pub verse: u32,
+    pub text: String,
+    pub score: f32,
+}
+
+const STOP: &[&str] = &[
+    "the", "and", "that", "for", "his", "her", "him", "unto", "with", "they", "them", "this", "shall", "was", "are", "you", "your",
+    "have", "not", "but", "all", "who", "which", "from", "thou", "thee", "thy", "ye", "our", "out", "into", "upon", "will", "has",
+    "had", "were", "been", "then", "there", "their", "what", "when", "also", "said", "says", "let", "may", "him", "its", "it's", "of",
+];
+
+/// Word roots, so "loved", "loveth" and "loving" all find "love", and "patiently" finds "patient".
+fn root(w: &str) -> String {
+    let w = w.to_lowercase();
+    for suf in ["eth", "est", "ing", "edly", "ed", "ly", "es", "s"] {
+        if w.len() > suf.len() + 3 && w.ends_with(suf) {
+            return w[..w.len() - suf.len()].to_string();
+        }
+    }
+    w
+}
+
+/// Finds verses whose words are close to what was typed or heard (not only the exact phrase), in one Bible.
+pub fn search_similar(db_path: &str, query: &str, limit: usize) -> Result<Vec<(Verse, f32)>, String> {
+    let words: Vec<String> = query
+        .split(|c: char| !c.is_alphanumeric() && c != '\'')
+        .filter(|w| w.chars().count() >= 3 && !STOP.contains(&w.to_lowercase().as_str()))
+        .map(root)
+        .collect::<std::collections::BTreeSet<_>>()
+        .into_iter()
+        .take(12)
+        .collect();
+    if words.is_empty() {
+        return Ok(vec![]);
+    }
+    let conn = Connection::open(db_path).map_err(|e| e.to_string())?;
+    // Score = how many of the words appear; keep verses with at least about half of them.
+    let score_sql = words.iter().enumerate().map(|(i, _)| format!("(text LIKE ?{})", i + 1)).collect::<Vec<_>>().join(" + ");
+    let need = ((words.len() as f32) * 0.5).ceil().max(1.0) as usize;
+    let sql = format!(
+        "SELECT book, chapter, verse, text, ({score_sql}) AS s FROM verses WHERE ({score_sql}) >= {need} ORDER BY s DESC LIMIT 200"
+    );
+    let params: Vec<String> = words.iter().map(|w| format!("%{w}%")).collect();
+    let mut stmt = conn.prepare(&sql).map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map(rusqlite::params_from_iter(params.iter()), |row| {
+            Ok((
+                Verse { book: row.get(0)?, chapter: row.get(1)?, verse: row.get(2)?, text: row.get(3)? },
+                row.get::<_, i64>(4)?,
+            ))
+        })
+        .map_err(|e| e.to_string())?
+        .filter_map(|r| r.ok());
+    let q_lower = query.to_lowercase();
+    let mut out: Vec<(Verse, f32)> = rows
+        .map(|(v, hits)| {
+            let mut score = hits as f32 / words.len() as f32;
+            // Same words in the same order (an actual phrase) count extra; short verses that match fully too.
+            if v.text.to_lowercase().contains(q_lower.trim()) {
+                score += 0.5;
+            }
+            let len = v.text.split_whitespace().count().max(1) as f32;
+            score += 0.1 * (hits as f32 / len).min(1.0);
+            (v, score)
+        })
+        .collect();
+    out.sort_by(|a, b| b.1.partial_cmp(&a.1).unwrap_or(std::cmp::Ordering::Equal));
+    out.truncate(limit);
+    Ok(out)
+}

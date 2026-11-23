@@ -16,9 +16,12 @@ import { startWhisperListening, stopWhisperListening } from "../lib/whisper-list
 import { COMMAND_GROUP, describeCommand, parseVoiceCommand, type CommandGroup, type VoiceCommand } from "../lib/voice-commands";
 import { showPassage, stepPart, stepVerse, usePassageStore, setSecondVersion } from "../lib/show-passage";
 import { findPack } from "../lib/version-match";
+import { understand, type AiAction } from "../lib/ai";
+import { parseReference } from "../lib/scripture-ref";
+import type { VoiceCommand as Cmd } from "../lib/voice-commands";
 
 /** whisper = OpenAI Whisper on this computer (accurate); windows = the old Windows recogniser. */
-export type VoiceEngine = "whisper" | "windows";
+export type VoiceEngine = "whisper" | "windows" | "twi";
 
 /** Whisper speech models: bigger ones hear better but need a faster computer. */
 export type WhisperModel = "tiny" | "base" | "small" | "turbo";
@@ -74,6 +77,9 @@ interface VoiceState {
   /** Recognise songs being sung: offer the song, and follow along when it is already on screen. */
   matchSongs: boolean;
   setMatchSongs: (v: boolean) => void;
+  /** WorshipHQ AI: understands requests in any wording and finds verses that are quoted or paraphrased. */
+  aiOn: boolean;
+  setAiOn: (v: boolean) => void;
   engine: VoiceEngine;
   setEngine: (e: VoiceEngine) => void;
   /** Microphone for Whisper (a browser device id; "default" = Windows default). */
@@ -118,6 +124,30 @@ interface VoiceState {
 }
 
 const MAX_LINES = 40;
+
+/** The last few sentences heard (the AI uses them to understand the next one). */
+const recent: string[] = [];
+
+/** Does the verse share enough words with what was said? (Guards against a wrong AI guess.) */
+async function verseMatches(ref: ScriptureRef, said: string): Promise<boolean> {
+  if (!isDesktopApp()) return true;
+  const { activePack } = useBibleStore.getState();
+  try {
+    const { invoke } = await import("@tauri-apps/api/core");
+    const chapter = await invoke<BibleVerse[]>("bible_get_chapter", { packId: activePack, book: ref.book + 1, chapter: ref.chapter });
+    const start = ref.verseStart ?? 1, end = ref.verseEnd ?? start;
+    const text = chapter.filter((v) => v.verse >= start && v.verse <= end).map((v) => v.text).join(" ");
+    const stop = new Set("the and that for his her him unto with they them this shall was are you your have not but all who which from thou thee thy our out into upon will has had were been then there their what when also said let may its".split(" "));
+    const ws = (t: string) => new Set(t.toLowerCase().replace(/[^a-z' ]+/g, " ").split(/\s+/).filter((w) => w.length > 2 && !stop.has(w)).map((w) => w.replace(/(eth|est|ing|ed|s)$/, "")));
+    const v = ws(text), h = ws(said);
+    if (!v.size) return false;
+    let hits = 0;
+    for (const w of h) if (v.has(w)) hits++;
+    return hits >= 2 && hits / Math.min(v.size, h.size || 1) >= 0.25;
+  } catch {
+    return false;
+  }
+}
 
 /* ── Songs being sung ── */
 const words = (t: string) => plainText(t).toLowerCase().replace(/[^a-zɛɔ0-9' ]+/g, " ").split(/\s+/).filter((w) => w.length > 1);
@@ -187,8 +217,8 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     set((s) => ({ lines: [{ id: crypto.randomUUID(), text, at: Date.now(), isReference }, ...s.lines].slice(0, MAX_LINES), partial: "" }));
   }
 
-  function detect(ref: ScriptureRef, said: string, confidence: number) {
-    const label = formatReference(ref);
+  function detect(ref: ScriptureRef, said: string, confidence: number, source?: "AI") {
+    const label = formatReference(ref) + (source ? " · AI" : "");
     // Ignore the same reference heard again within 30 seconds.
     const recent = get().detections.find((d) => d.label === label && Date.now() - d.at < 30_000);
     if (recent) return;
@@ -198,6 +228,64 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
       status: mode === "list" ? "listed" : "waiting",
     };
     set((s) => ({ detections: [det, ...s.detections].slice(0, 60), pending: mode === "list" ? s.pending : det }));
+  }
+
+  /** Puts a note next to the last heard line (what the AI did). */
+  function noteLast(note: string, ok: boolean) {
+    set((s) => ({ lines: s.lines.map((l, i) => (i === 0 ? { ...l, command: l.command ? `${l.command} · ${note}` : note, commandOk: ok } : l)) }));
+  }
+
+  /** Asks WorshipHQ AI about one sentence. Returns false when the AI could not be reached. */
+  async function askAi(said: string, confidence: number): Promise<boolean> {
+    const bible = useBibleStore.getState();
+    const passage = usePassageStore.getState().passage;
+    let second = "";
+    try { second = localStorage.getItem("whq-second-version") ?? ""; } catch { /* ignore */ }
+    const actions = await understand(said, {
+      before: recent.slice(-6).filter((x) => x !== said),
+      screen: { passage: passage?.label, showing: useShowStore.getState().live?.title, secondVersion: second || undefined },
+      versions: bible.packs.map((p) => ({ id: p.id, abbreviation: p.abbreviation, name: p.name, language: p.language })),
+    }).catch(() => null);
+    if (actions === null) return false;
+    for (const a of actions) await runAi(a, said, confidence);
+    return true;
+  }
+
+  async function runAi(a: AiAction, said: string, confidence: number) {
+    const groups = get().commandGroups;
+    const run = async (c: Cmd, group: keyof typeof groups) => {
+      if (!groups[group]) return;
+      const r = await get().runCommand(c);
+      noteLast(`AI: ${describeCommand(c)} → ${r.note}`, r.ok);
+    };
+    const packs = useBibleStore.getState().packs;
+    switch (a.type) {
+      case "verse": {
+        const ref = parseReference(a.reference);
+        if (!ref) return;
+        // Check the verse really says what was heard (the AI must not put a wrong verse up).
+        if (a.how !== "named" && (a.confidence ?? 0) < 0.85) {
+          const ok = await verseMatches(ref, `${recent.slice(-1)[0] ?? ""} ${said}`);
+          if (!ok) return;
+        }
+        detect(ref, said, Math.max(confidence, a.confidence ?? 0.7), "AI");
+        noteLast(`AI: ${formatReference(ref)}${a.how === "paraphrased" ? " (said in other words)" : ""}`, true);
+        return;
+      }
+      case "version": { const p = packs.find((x) => x.id === a.id); if (p) await run({ type: "version", query: p.abbreviation }, "bible"); return; }
+      case "second_version": {
+        if (!a.id) return run({ type: "secondOff" }, "bible");
+        const p = packs.find((x) => x.id === a.id); if (p) await run({ type: "version", query: p.abbreviation, second: true }, "bible");
+        return;
+      }
+      case "next_verse": return run({ type: "verse", delta: 1 }, "bible");
+      case "previous_verse": return run({ type: "verse", delta: -1 }, "bible");
+      case "go_verse": return run({ type: "gotoVerse", start: a.verse, end: a.to }, "bible");
+      case "go_chapter": return run({ type: "chapter", chapter: a.chapter, start: a.verse }, "bible");
+      case "clear": return run({ type: "clear" }, "screen");
+      case "black": return run({ type: "black" }, "screen");
+      case "show_again": return run({ type: "show" }, "banner");
+    }
   }
 
   return {
@@ -218,6 +306,8 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     setMatchQuotes: (matchQuotes) => set({ matchQuotes }),
     matchSongs: true,
     setMatchSongs: (matchSongs) => set({ matchSongs }),
+    aiOn: true,
+    setAiOn: (aiOn) => set({ aiOn }),
     engine: "whisper",
     setEngine: (engine) => { const was = get().status; if (was === "listening" || was === "starting") get().stop(); set({ engine }); },
     micId: "default",
@@ -343,6 +433,17 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
         return;
       }
       set({ status: "starting", message: null });
+      if (get().engine === "twi") {
+        // Twi (and Twi mixed with English): Khaya by GhanaNLP, through the WorshipHQ server. The AI then works out what was meant.
+        await startWhisperListening(get().micId, {
+          onLevel: (level) => set({ level }),
+          onSpeaking: (speaking) => set({ partial: speaking ? "…" : "" }),
+          onText: (text) => get().handleEvent(JSON.stringify({ type: "heard", text, confidence: 0.9, kind: "speech" })),
+          onError: (message) => set({ status: "error", message }),
+        }, "twi");
+        if (get().status === "starting") set({ status: "listening", recognizer: "Twi listening (Khaya by GhanaNLP) + WorshipHQ AI" });
+        return;
+      }
       if (get().engine === "whisper") {
         if (get().whisperInstalled === null) await get().checkWhisper();
         if (!get().whisperInstalled) {
@@ -461,7 +562,13 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
           if (!ref && confidence >= 0.3) ref = referenceInSpeech(text);
           addLine(text, !!ref);
           if (ref && confidence >= get().minConfidence * (msg.kind === "reference" ? 1 : 0.7)) detect(ref, text, confidence);
-          else if (!ref && get().matchQuotes && confidence >= 0.4) findQuotedVerse(text).then((q) => { if (q) detect(q, text, confidence); });
+          else if (!ref && get().aiOn && !msg.early && text.split(/\s+/).length >= 3) {
+            // The AI works out what was meant; if it can't be reached, the exact-wording search still runs.
+            askAi(text, confidence).then((handled) => {
+              if (!handled && get().matchQuotes && confidence >= 0.4) findQuotedVerse(text).then((q) => { if (q) detect(q, text, confidence); });
+            });
+          } else if (!ref && get().matchQuotes && confidence >= 0.4) findQuotedVerse(text).then((q) => { if (q) detect(q, text, confidence); });
+          if (!msg.early) { recent.push(text); if (recent.length > 8) recent.shift(); }
           break;
         }
       }
@@ -540,7 +647,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
 }, {
   name: "whq-media-voice",
   version: 1,
-  partialize: (s) => ({ matchSongs: s.matchSongs, mode: s.mode, autoDelay: s.autoDelay, minConfidence: s.minConfidence, matchQuotes: s.matchQuotes, engine: s.engine, micId: s.micId, commandsOn: s.commandsOn, commandGroups: s.commandGroups, wakeWord: s.wakeWord, whisperModel: s.whisperModel, autoStart: s.autoStart }),
+  partialize: (s) => ({ aiOn: s.aiOn, matchSongs: s.matchSongs, mode: s.mode, autoDelay: s.autoDelay, minConfidence: s.minConfidence, matchQuotes: s.matchQuotes, engine: s.engine, micId: s.micId, commandsOn: s.commandsOn, commandGroups: s.commandGroups, wakeWord: s.wakeWord, whisperModel: s.whisperModel, autoStart: s.autoStart }),
   merge: (persisted, current) => ({
     ...current,
     ...(persisted as object),

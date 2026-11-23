@@ -578,6 +578,37 @@ fn bible_delete_pack(app: tauri::AppHandle, pack_id: String) -> Result<(), Strin
 }
 
 // Legacy commands kept for backward compat
+/// Searches the given Bibles (or every Bible on this computer) for verses close to the words, several at once.
+/// Best matches first, one row per verse (the version that matched best).
+#[tauri::command]
+async fn bible_search_all(app: tauri::AppHandle, query: String, packs: Option<Vec<String>>) -> Result<Vec<bible::Found>, String> {
+    let dir = bible_dir(&app).join("bibles");
+    let mut list = bible::list_packs(&bible_dir(&app)).unwrap_or_default();
+    if let Some(only) = packs {
+        list.retain(|p| only.contains(&p.id));
+    }
+    let handles: Vec<_> = list
+        .into_iter()
+        .map(|p| {
+            let db = dir.join(format!("{}.db", p.id));
+            let q = query.clone();
+            std::thread::spawn(move || {
+                bible::search_similar(&db.to_string_lossy(), &q, 25)
+                    .unwrap_or_default()
+                    .into_iter()
+                    .map(|(v, score)| bible::Found { pack: p.id.clone(), abbreviation: p.abbreviation.clone(), book: v.book, chapter: v.chapter, verse: v.verse, text: v.text, score })
+                    .collect::<Vec<_>>()
+            })
+        })
+        .collect();
+    let mut all: Vec<bible::Found> = handles.into_iter().filter_map(|h| h.join().ok()).flatten().collect();
+    all.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
+    let mut seen = std::collections::HashSet::new();
+    all.retain(|f| seen.insert((f.book, f.chapter, f.verse)));
+    all.truncate(40);
+    Ok(all)
+}
+
 #[tauri::command]
 fn search_bible(
     db_path: String,
@@ -685,6 +716,7 @@ pub fn run() {
             whisper_status,
             whisper_install,
             whisper_progress,
+            bible_search_all,
             open_obs_window,
             list_fonts,
             write_text_file,

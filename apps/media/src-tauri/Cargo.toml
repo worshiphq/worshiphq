@@ -1,6 +1,6 @@
 [package]
 name = "worshiphq-media"
-version = "0.1.0"
+version = "1.0.0"
 description = "WorshipHQ Media — Church Presentation Software"
 authors = ["WorshipHQ"]
 edition = "2021"
