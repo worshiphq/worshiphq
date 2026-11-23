@@ -63,7 +63,9 @@ export interface AiContext {
 
 /** What should happen after this sentence (often nothing). null when the AI could not be reached. */
 export async function understand(said: string, ctx: AiContext): Promise<AiAction[] | null> {
-  const out = await post<{ actions?: AiAction[] }>({ task: "understand", said, ...ctx }, 6000);
+  // Versions as "id · abbreviation · language" only, to keep each request small (and cheap).
+  const versions = ctx.versions.map((v) => ({ id: v.id, abbreviation: v.abbreviation, name: v.abbreviation, language: v.language.split(" ")[0] }));
+  const out = await post<{ actions?: AiAction[] }>({ task: "understand", said, ...ctx, versions }, 6000);
   if (!out) return null;
   return Array.isArray(out.actions) ? out.actions : [];
 }

@@ -26,7 +26,24 @@ pub const MODELS: &[(&str, &str, u64)] = &[
     ("base", "ggml-base.en.bin", 147_964_211),
     ("small", "ggml-small.en.bin", 487_614_201),
     ("turbo", "ggml-large-v3-turbo-q5_0.bin", 574_041_195),
+    // Twi / Akan: "gha-whisper-small-twi-v6" by teckedd (Apache 2.0), converted for whisper.cpp by WorshipHQ.
+    ("twi", "ggml-twi-small-q5_0.bin", 175_209_680),
 ];
+
+/// Where each model downloads from (OpenAI's English models from the whisper.cpp project; Twi from WorshipHQ).
+fn model_url(id: &str) -> String {
+    let (_, file, _) = model(id);
+    if id == "twi" {
+        format!("https://media.worshiphq.app/media/models/{file}")
+    } else {
+        format!("https://huggingface.co/ggerganov/whisper.cpp/resolve/main/{file}")
+    }
+}
+
+/// The English Bible-words hint only helps the English models.
+fn prompt_args(id: &str) -> Vec<&'static str> {
+    if id == "twi" { vec![] } else { vec!["--prompt", PROMPT] }
+}
 
 fn model(id: &str) -> (&'static str, &'static str, u64) {
     MODELS.iter().copied().find(|m| m.0 == id).unwrap_or(MODELS[0])
@@ -97,7 +114,7 @@ if (-not (Test-Path (Join-Path $d 'whisper-cli.exe'))) {{
 }}
 $m = Join-Path $d '{file}'
 if (-not (Test-Path $m) -or (Get-Item $m).Length -lt {min}) {{
-  Invoke-WebRequest -UseBasicParsing -Uri 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/{file}' -OutFile ($m + '.part')
+  Invoke-WebRequest -UseBasicParsing -Uri '{url}' -OutFile ($m + '.part')
   Move-Item ($m + '.part') $m -Force
 }}
 'ok'"#,
@@ -105,6 +122,7 @@ if (-not (Test-Path $m) -or (Get-Item $m).Length -lt {min}) {{
         bin = BIN_URL,
         file = file,
         min = bytes * 9 / 10,
+        url = model_url(model_id),
     );
     let out = hidden(Command::new("powershell.exe").args(["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", &script]))
         .output()
@@ -180,7 +198,8 @@ pub fn start_server(app_data: &Path, model_id: &str) -> Result<(), String> {
         let child = hidden(
             Command::new(&exe)
                 .current_dir(dir(app_data))
-                .args(["-m", file, "-t", &t, "-l", "en", "--host", "127.0.0.1", "--port", &port, "-nt", "--prompt", PROMPT])
+                .args(["-m", file, "-t", &t, "-l", "en", "--host", "127.0.0.1", "--port", &port, "-nt"])
+                .args(prompt_args(model_id))
                 // Speed: look at up to ~10 s of audio (not 30), greedy decoding, no slow retries.
                 .args(FAST),
         )
@@ -273,7 +292,8 @@ pub fn transcribe(app_data: &Path, model_id: &str, wav: &[u8]) -> Result<String,
             .current_dir(dir(app_data))
             .args(["-m", file, "-f"])
             .arg(&tmp)
-            .args(["-nt", "-np", "-l", "en", "-t", &t, "--prompt", PROMPT])
+            .args(["-nt", "-np", "-l", "en", "-t", &t])
+            .args(prompt_args(&id))
             .args(FAST),
     )
     .output();

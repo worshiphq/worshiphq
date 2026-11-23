@@ -342,7 +342,7 @@ function WhisperSetup({ deviceId, devices }: { deviceId: string; devices: MediaD
         <input type="radio" name="engine" checked={v.engine === "whisper"} onChange={() => v.setEngine("whisper")} className="mt-1 size-4 accent-[var(--color-primary)]" />
         <span>
           <span className="flex items-center gap-2 text-[14px] font-semibold text-ink">Whisper by OpenAI <span className="rounded bg-primary-soft px-1.5 py-0.5 text-[11px] font-bold text-primary-bright">Recommended</span></span>
-          <span className="block text-[13px] text-ink-muted">Much more accurate, handles accents and headsets, works offline, and listens on the microphone you choose. English only for now.</span>
+          <span className="block text-[13px] text-ink-muted">Much more accurate, handles accents and headsets, works offline, and listens on the microphone you choose. English, plus Twi / Akan with the Twi model below.</span>
         </span>
       </label>
       <label className={`flex cursor-pointer gap-3 rounded-lg p-3 ${v.engine === "windows" ? "bg-primary-soft/70 ring-1 ring-primary/40" : "bg-surface-4/60"}`}>
@@ -352,17 +352,10 @@ function WhisperSetup({ deviceId, devices }: { deviceId: string; devices: MediaD
           <span className="block text-[13px] text-ink-muted">Built into Windows, nothing to download, but often mishears.</span>
         </span>
       </label>
-      <label className={`flex cursor-pointer gap-3 rounded-lg p-3 ${v.engine === "twi" ? "bg-primary-soft/70 ring-1 ring-primary/40" : "bg-surface-4/60"}`}>
-        <input type="radio" name="engine" checked={v.engine === "twi"} onChange={() => v.setEngine("twi")} className="mt-1 size-4 accent-[var(--color-primary)]" />
-        <span>
-          <span className="flex items-center gap-2 text-[14px] font-semibold text-ink">Twi preaching <span className="rounded bg-gold/15 px-1.5 py-0.5 text-[11px] font-bold text-gold">Needs internet</span></span>
-          <span className="block text-[13px] text-ink-muted">For sermons in Twi (or Twi mixed with English). Uses Khaya by GhanaNLP, made in Ghana for Ghanaian languages, and WorshipHQ AI to understand what was meant. Uses the microphone chosen below.</span>
-        </span>
-      </label>
-      {(v.engine === "whisper" || v.engine === "twi") && (
+      {v.engine === "whisper" && (
         <div className="rounded-lg border border-line p-3">
           <span className="mb-2 block text-[13px] font-medium text-ink-muted">Speech model (each is a one-time download, then works without internet)</span>
-          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+          <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
             {WHISPER_MODELS.map((m) => {
               const have = v.whisperModels.includes(m.id);
               const chosen = v.whisperModel === m.id;

@@ -24,11 +24,12 @@ import type { VoiceCommand as Cmd } from "../lib/voice-commands";
 export type VoiceEngine = "whisper" | "windows" | "twi";
 
 /** Whisper speech models: bigger ones hear better but need a faster computer. */
-export type WhisperModel = "tiny" | "base" | "small" | "turbo";
+export type WhisperModel = "tiny" | "base" | "small" | "turbo" | "twi";
 export const WHISPER_MODELS: { id: WhisperModel; label: string; size: string; note: string }[] = [
   { id: "tiny", label: "Fastest", size: "78 MB", note: "Answers almost at once, even on older computers. Best for spoken commands." },
   { id: "base", label: "Standard", size: "148 MB", note: "Quick, and better at full sentences and accents." },
   { id: "small", label: "Accurate", size: "488 MB", note: "Hears accents and busy rooms much better. Needs a fairly recent computer." },
+  { id: "twi", label: "Twi / Akan", size: "175 MB", note: "For preaching in Twi (and Twi mixed with English). Free and offline. WorshipHQ AI works out what was meant." },
   { id: "turbo", label: "Best", size: "574 MB", note: "The most accurate (OpenAI's large Whisper, turbo). Needs a fast computer." },
 ];
 
@@ -124,6 +125,19 @@ interface VoiceState {
 }
 
 const MAX_LINES = 40;
+
+/**
+ * Free check on this computer before asking the AI (which costs money per sentence): is it a request to the media
+ * team, or does it sound like scripture? Ordinary preaching never leaves the computer.
+ */
+const REQUEST = /\b(give me|can i have|could i have|do you have|let'?s|let us|read|turn|go to|go back|move on|show|put|switch|change|version|verse|verses|chapter|scripture|bible|king james|kjv|niv|nkjv|esv|amplified|message|living|good news|twi|asante|akuapem|next|previous|clear|black|screen|media|projector|kenkan|nkyekyɛmu|ti\b)/i;
+const SCRIPTURE = /\b(god|lord|jesus|christ|spirit|holy|faith|grace|love|sin|heaven|kingdom|father|prayer|pray|blessed|righteous|salvation|saved|believe|believeth|shepherd|cross|blood|word|written|says|saith|said|psalm|psalmist|apostle|paul|peter|david|moses|abraham|prophet|onyame|nyankopɔn|awurade|yesu|kristo|honhom|ɔsoro|nhyira|bɔne|gyidi|ɔdɔ)\b/i;
+function worthAsking(text: string): boolean {
+  if (REQUEST.test(text)) return true;
+  // Sounds like scripture (two or more Bible words in a fairly long sentence).
+  const hits = text.match(new RegExp(SCRIPTURE.source, "gi"))?.length ?? 0;
+  return hits >= 2 && text.split(/\s+/).length >= 6;
+}
 
 /** The last few sentences heard (the AI uses them to understand the next one). */
 const recent: string[] = [];
@@ -242,7 +256,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     let second = "";
     try { second = localStorage.getItem("whq-second-version") ?? ""; } catch { /* ignore */ }
     const actions = await understand(said, {
-      before: recent.slice(-6).filter((x) => x !== said),
+      before: recent.slice(-3).filter((x) => x !== said),
       screen: { passage: passage?.label, showing: useShowStore.getState().live?.title, secondVersion: second || undefined },
       versions: bible.packs.map((p) => ({ id: p.id, abbreviation: p.abbreviation, name: p.name, language: p.language })),
     }).catch(() => null);
@@ -562,7 +576,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
           if (!ref && confidence >= 0.3) ref = referenceInSpeech(text);
           addLine(text, !!ref);
           if (ref && confidence >= get().minConfidence * (msg.kind === "reference" ? 1 : 0.7)) detect(ref, text, confidence);
-          else if (!ref && get().aiOn && !msg.early && text.split(/\s+/).length >= 3) {
+          else if (!ref && get().aiOn && !msg.early && text.split(/\s+/).length >= 3 && worthAsking(text)) {
             // The AI works out what was meant; if it can't be reached, the exact-wording search still runs.
             askAi(text, confidence).then((handled) => {
               if (!handled && get().matchQuotes && confidence >= 0.4) findQuotedVerse(text).then((q) => { if (q) detect(q, text, confidence); });
