@@ -95,6 +95,14 @@ export interface Song {
   font?: string;
   /** Words typed for an old Akan font: show j as ɛ and c as ɔ. */
   akan?: boolean;
+  /** The background this song always uses (picked with the Background button while the song was in Preview). */
+  background?: { kind: "image" | "video" | "gradient" | "color"; value: string };
+  /** The same song in a second language (same [Verse]/[Chorus] layout), shown under the words. */
+  translation?: string;
+  /** Name of the second language, e.g. "Twi". */
+  translationName?: string;
+  /** CCLI song number, for licence reports. */
+  ccli?: string;
 }
 
 export interface SongSection {

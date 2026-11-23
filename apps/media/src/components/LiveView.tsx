@@ -1,3 +1,4 @@
+import { AnnouncementLoop } from "./AnnouncementLoop";
 import { useEffect, useMemo, useState, type ReactNode } from "react";
 import {
   ArrowDown, ArrowUp, BookOpen, Check, ChevronLeft, ChevronRight, Image as ImageIcon,
@@ -210,6 +211,7 @@ export function LiveView({ onOpenBible }: { onOpenBible: () => void }) {
         </Card>
 
         <ShowTools />
+        <AnnouncementLoop />
       </div>
     </div>
   );

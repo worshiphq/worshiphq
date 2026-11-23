@@ -427,6 +427,13 @@ function VoiceCommandsSetup() {
         <input type="checkbox" checked={v.commandsOn} onChange={(e) => v.setCommandsOn(e.target.checked)} className="size-5 accent-[var(--color-primary)]" />
         <span className="text-[14px] font-semibold text-ink">Listen for spoken commands</span>
       </label>
+      <label className="flex cursor-pointer items-start gap-3">
+        <input type="checkbox" checked={v.matchSongs} onChange={(e) => v.setMatchSongs(e.target.checked)} className="mt-0.5 size-5 accent-[var(--color-primary)]" />
+        <span>
+          <span className="block text-[14px] font-semibold text-ink">Recognise songs being sung</span>
+          <span className="block text-[13px] text-ink-muted">When it hears a line from a song in your library it offers that song. If the song is already on the screen, it follows along to the part being sung.</span>
+        </span>
+      </label>
       {v.commandsOn && (
         <>
           <p className="text-[13px] text-ink-muted">

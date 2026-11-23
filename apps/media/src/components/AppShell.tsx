@@ -318,13 +318,13 @@ function ScheduleBox({ onOpen }: { onOpen: (w: Workspace) => void }) {
   const open = (i: number) => {
     setActiveItem(i);
     const it = serviceItems[i];
-    if (it?.slides?.length) useShowStore.getState().setPreview(it.title, it.slides, 0);
+    if (it?.slides?.length) useShowStore.getState().setPreview(it.title, it.slides, 0, it.data?.songId);
   };
   const show = (i: number) => {
     const it = serviceItems[i];
     if (!it?.slides?.length) return;
     setActiveItem(i);
-    useShowStore.getState().setPreview(it.title, it.slides, 0);
+    useShowStore.getState().setPreview(it.title, it.slides, 0, it.data?.songId);
     useShowStore.getState().sendPreviewLive(0);
   };
   const onAir = (i: number) => isLive && !!currentSlide && !!serviceItems[i]?.slides?.includes(currentSlide);

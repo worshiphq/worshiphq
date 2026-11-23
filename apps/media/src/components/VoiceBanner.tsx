@@ -46,7 +46,7 @@ export function VoiceBanner() {
         <BookOpen className="size-5 shrink-0 text-primary-bright" />
         <div className="min-w-0 flex-1">
           <div className="text-[15px] font-bold text-ink">
-            Heard: {pending.label}
+            {pending.song ? "Heard a song: " + pending.label.replace(/^Song: /, "") : <>Heard: {pending.label}</>}
             {mode === "auto" && <span className="ml-2 font-semibold text-primary-bright">showing in {Math.max(left, 0)}…</span>}
           </div>
           <div className="truncate text-[13px] text-ink-muted">“{pending.said}”</div>

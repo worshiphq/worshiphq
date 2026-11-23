@@ -21,6 +21,13 @@ export function SongEditorDialog({ song, isNew, onSave, onCancel }: {
   const [author, setAuthor] = useState(song.author ?? "");
   const [keyName, setKeyName] = useState(song.key ?? "");
   const [text, setText] = useState(() => songToText(song));
+  const [ccli, setCcli] = useState(song.ccli ?? "");
+  const [translation, setTranslation] = useState(song.translation ?? "");
+  const [trName, setTrName] = useState(song.translationName ?? "Twi");
+  const [tab, setTab] = useState<"words" | "translation">("words");
+  /** The newest values of the extra fields (read when saving). */
+  const extra = useRef({ ccli, translation, translationName: trName });
+  extra.current = { ccli, translation, translationName: trName };
   const [dirty, setDirty] = useState(isNew);
   const [showHelp, setShowHelp] = useState(false);
   const [autoSave, setAutoSaveRaw] = useState(() => { try { return localStorage.getItem("whq-songs-autosave") === "1"; } catch { return false; } });
@@ -30,7 +37,23 @@ export function SongEditorDialog({ song, isNew, onSave, onCancel }: {
 
   useEffect(() => { if (isNew) setTimeout(() => { titleRef.current?.focus(); titleRef.current?.select(); }, 60); }, [isNew]);
 
-  const changes = (t = title, a = author, k = keyName, words = text): Partial<Song> => ({ title: t.trim() || "Untitled song", author: a, key: k, ...textToSections(words) });
+  const changes = (t = title, a = author, k = keyName, words = text): Partial<Song> => ({
+    title: t.trim() || "Untitled song", author: a, key: k, ...textToSections(words),
+    ccli: extra.current.ccli.trim() || undefined,
+    translation: extra.current.translation.trim() ? extra.current.translation : undefined,
+    translationName: extra.current.translationName.trim() || undefined,
+  });
+
+  /** Running order: the parts in the order they are sung (drag to change, × to drop a repeat, + to add). */
+  const arrangement = useMemo(() => textToSections(text), [text]);
+  const [dragAt, setDragAt] = useState<number | null>(null);
+  function setOrder(order: string[]) {
+    edit({ w: songToText({ ...song, sections: arrangement.sections, order } as Song) });
+  }
+  function editExtra(f: () => void) {
+    f();
+    edit({});
+  }
   const [caretLine, setCaretLine] = useState(1);
   /** The paragraph the cursor is in (lines between empty lines), shown on the one big screen. */
   const current = useMemo(() => {
@@ -46,12 +69,12 @@ export function SongEditorDialog({ song, isNew, onSave, onCancel }: {
     let label = "";
     for (let k = a - 1; k >= 0; k--) { const m = lines[k].match(/^\s*\[([^\]]{1,30})\]\s*$/); if (m) { label = m[1]; break; } }
     const words = lines.slice(a, b + 1).join("\n").trim();
-    const slide = words ? buildSongSlides({ ...song, sections: [{ id: "p", label: label || "Words", lyrics: words, order: 0 }], order: ["p"] } as Song)[0] : null;
+    const slide = words ? buildSongSlides({ ...song, translation, translationName: trName, sections: [{ id: "p", label: label || "Words", lyrics: words, order: 0 }], order: ["p"] } as Song)[0] : null;
     // Which screen this is, counting paragraphs from the top.
     let n = 0, total = 0, inPara = false;
     lines.forEach((l, k) => { const word = !!l.trim() && !heading(l); if (word && !inPara) { total++; if (k <= a) n = total; } inPara = word; });
     return { slide, label, n, total };
-  }, [text, caretLine, song]);
+  }, [text, caretLine, song, translation, trName]);
 
   function edit(next: { t?: string; a?: string; k?: string; w?: string }) {
     const t = next.t ?? title, a = next.a ?? author, k = next.k ?? keyName, w = next.w ?? text;
@@ -112,6 +135,11 @@ export function SongEditorDialog({ song, isNew, onSave, onCancel }: {
             <input value={keyName} onChange={(e) => edit({ k: e.target.value })} placeholder="G"
               className="h-10 w-full rounded-lg border border-line-bright px-3 text-[14px] text-ink outline-none focus:border-primary" />
           </label>
+          <label className="w-28">
+            <span className="mb-1 block text-[12px] font-medium text-ink-muted">CCLI number</span>
+            <input value={ccli} onChange={(e) => editExtra(() => setCcli(e.target.value.replace(/[^0-9]/g, "").slice(0, 10)))} placeholder="e.g. 7115744" inputMode="numeric"
+              className="h-10 w-full rounded-lg border border-line-bright px-3 text-[14px] text-ink outline-none focus:border-primary" />
+          </label>
           <button onClick={close} aria-label="Close" className="mb-1 ml-auto grid size-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-4 hover:text-ink">
             <X className="size-5" />
           </button>
@@ -120,8 +148,34 @@ export function SongEditorDialog({ song, isNew, onSave, onCancel }: {
         {/* Words + slides */}
         <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_420px]">
           <div className="flex min-h-0 flex-col">
+            <div className="mb-2 flex flex-wrap items-center gap-1.5">
+              <span className="mr-1 text-[12px] font-semibold text-ink-muted">Order sung</span>
+              {arrangement.order.map((id, i) => {
+                const sec = arrangement.sections.find((x) => x.id === id);
+                return (
+                  <span key={i} draggable
+                    onDragStart={() => setDragAt(i)}
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={() => { if (dragAt === null || dragAt === i) return; const o = [...arrangement.order]; const [m] = o.splice(dragAt, 1); o.splice(i, 0, m); setDragAt(null); setOrder(o); }}
+                    title="Drag to change the order"
+                    className="flex cursor-grab items-center gap-1 rounded-full bg-primary-soft py-0.5 pl-2.5 pr-1 text-[12px] font-semibold text-primary-bright">
+                    {sec?.label ?? "?"}
+                    <button onClick={() => setOrder(arrangement.order.filter((_, k) => k !== i))} title="Leave this part out here" className="grid size-4 place-items-center rounded-full hover:bg-primary hover:text-white">×</button>
+                  </span>
+                );
+              })}
+              <select value="" onChange={(e) => { if (e.target.value) setOrder([...arrangement.order, e.target.value]); }}
+                className="h-6 rounded-full border border-dashed border-line-bright bg-surface-2 px-1.5 text-[12px] text-ink-muted" title="Sing a part again">
+                <option value="">+ add a part</option>
+                {arrangement.sections.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+              </select>
+            </div>
             <div className="mb-2 flex items-center gap-2">
-              <span className="text-[14px] font-semibold text-ink">Words</span>
+              <div className="flex rounded-lg bg-surface-4 p-0.5">
+                {([["words", "Words"], ["translation", `Translation${translation.trim() ? " ✓" : ""}`]] as const).map(([k, l]) => (
+                  <button key={k} onClick={() => setTab(k)} className={`rounded-md px-3 py-1 text-[13px] ${tab === k ? "bg-surface-2 font-semibold text-primary-bright shadow-sm" : "text-ink-muted hover:text-ink"}`}>{l}</button>
+                ))}
+              </div>
               <button onClick={() => setShowHelp((h) => !h)} className="flex items-center gap-1 text-[13px] font-medium text-primary-bright hover:underline">
                 <HelpCircle className="size-4" /> How to write the words
               </button>
@@ -133,7 +187,23 @@ export function SongEditorDialog({ song, isNew, onSave, onCancel }: {
                 Select words and click a colour or pick a font, or pick one first and keep typing.
               </div>
             )}
-            <LyricsEditor value={text} onChange={(w) => edit({ w })} onCaretLine={setCaretLine} placeholder={"[Verse 1]\nType or paste the words here…"} />
+            {tab === "words" ? (
+              <LyricsEditor value={text} onChange={(w) => edit({ w })} onCaretLine={setCaretLine} placeholder={"[Verse 1]\nType or paste the words here…"} />
+            ) : (
+              <>
+                <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-primary-soft/50 p-2 text-[13px] text-ink">
+                  <span className="flex-1">The same song in another language, shown smaller under the words. Use the same headings (<b>[Verse 1]</b>, <b>[Chorus]</b>…) so each part lines up.</span>
+                  <label className="flex items-center gap-1.5">Language
+                    <input value={trName} onChange={(e) => editExtra(() => setTrName(e.target.value.slice(0, 20)))} className="h-8 w-24 rounded-md border border-line-bright bg-surface-2 px-2" />
+                  </label>
+                  {!translation.trim() && (
+                    <button onClick={() => editExtra(() => setTranslation(arrangement.sections.map((x) => `[${x.label}]\n`).join("\n")))}
+                      className="rounded-md bg-primary px-2.5 py-1 text-[12px] font-bold text-white hover:bg-primary-bright">Copy the headings</button>
+                  )}
+                </div>
+                <LyricsEditor value={translation} onChange={(w) => editExtra(() => setTranslation(w))} placeholder={"[Verse 1]\nType the translated words here…"} />
+              </>
+            )}
           </div>
           <div className="hidden min-h-0 flex-col lg:flex">
             <span className="mb-2 flex items-baseline justify-between text-[14px] font-semibold text-ink">

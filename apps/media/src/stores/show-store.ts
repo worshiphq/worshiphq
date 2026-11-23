@@ -3,6 +3,7 @@ import type { Slide } from "../types";
 import { useProjectionStore } from "./projection-store";
 import { useThemeStore } from "./theme-store";
 import { themeKindFor } from "../lib/themes";
+import { noteSongShown } from "../lib/ccli";
 
 /**
  * Preview and Live, like EasyWorship: clicking a song, verse, picture or background puts it in Preview;
@@ -12,13 +13,15 @@ export interface SlideSet {
   title: string;
   slides: Slide[];
   index: number;
+  /** Set when the slides are a song from the library (so a picked background is remembered for it). */
+  songId?: string;
 }
 
 interface ShowState {
   preview: SlideSet | null;
   live: SlideSet | null;
   /** Put something in Preview (nothing changes on the big screen). */
-  setPreview: (title: string, slides: Slide[], index?: number) => void;
+  setPreview: (title: string, slides: Slide[], index?: number, songId?: string) => void;
   setPreviewIndex: (index: number) => void;
   /** Preview → Live (the chosen slide, or the one picked in Preview). */
   sendPreviewLive: (index?: number) => void;
@@ -39,7 +42,7 @@ function show(slide: Slide) {
 export const useShowStore = create<ShowState>()((set, get) => ({
   preview: null,
   live: null,
-  setPreview: (title, slides, index = 0) => set({ preview: slides.length ? { title, slides, index: Math.max(0, Math.min(index, slides.length - 1)) } : null }),
+  setPreview: (title, slides, index = 0, songId) => set({ preview: slides.length ? { title, slides, index: Math.max(0, Math.min(index, slides.length - 1)), songId } : null }),
   setPreviewIndex: (index) => set((s) => (s.preview ? { preview: { ...s.preview, index: Math.max(0, Math.min(index, s.preview.slides.length - 1)) } } : s)),
   sendPreviewLive: (index) => {
     const p = get().preview;
@@ -47,6 +50,7 @@ export const useShowStore = create<ShowState>()((set, get) => ({
     const i = index ?? p.index;
     set({ live: { ...p, index: i }, preview: { ...p, index: i } });
     show(p.slides[i]);
+    if (p.songId) noteSongShown(p.songId);
   },
   liveGo: (index) => {
     const l = get().live;
@@ -90,7 +94,8 @@ useProjectionStore.subscribe((state, prev) => {
   // Was it one of the schedule's items? Then the Live list shows that whole item.
   const item = state.serviceItems.find((it) => it.slides?.includes(slide));
   if (item?.slides) {
-    useShowStore.setState({ live: { title: item.title, slides: item.slides, index: item.slides.indexOf(slide) } });
+    useShowStore.setState({ live: { title: item.title, slides: item.slides, index: item.slides.indexOf(slide), songId: item.data?.songId } });
+    if (item.data?.songId) noteSongShown(item.data.songId);
     return;
   }
   useShowStore.setState({ live: { title: slide.label ?? slide.content.secondaryText ?? "On screen", slides: [slide], index: 0 } });

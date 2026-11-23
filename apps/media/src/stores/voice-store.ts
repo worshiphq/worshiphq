@@ -8,6 +8,10 @@ import { demoChapter } from "../lib/demo-bible";
 import { isDesktopApp } from "../lib/media-src";
 import { useBibleStore } from "./bible-store";
 import { useProjectionStore } from "./projection-store";
+import { useSongStore } from "./song-store";
+import { useShowStore } from "./show-store";
+import { buildSongSlides } from "../lib/song-slides";
+import { plainText } from "../lib/rich-text";
 import { startWhisperListening, stopWhisperListening } from "../lib/whisper-listener";
 import { COMMAND_GROUP, describeCommand, parseVoiceCommand, type CommandGroup, type VoiceCommand } from "../lib/voice-commands";
 import { showPassage, stepPart, stepVerse, usePassageStore, setSecondVersion } from "../lib/show-passage";
@@ -31,6 +35,8 @@ export type VoiceMode = "ask" | "auto" | "list";
 
 export interface Detection {
   id: string;
+  /** A song line heard (instead of a Bible reference). */
+  song?: { id: string; slide: number };
   ref: ScriptureRef;
   label: string;
   said: string;
@@ -65,6 +71,9 @@ interface VoiceState {
   /** Also look up sentences in the Bible, to catch a verse being read without its reference. */
   matchQuotes: boolean;
   setMatchQuotes: (v: boolean) => void;
+  /** Recognise songs being sung: offer the song, and follow along when it is already on screen. */
+  matchSongs: boolean;
+  setMatchSongs: (v: boolean) => void;
   engine: VoiceEngine;
   setEngine: (e: VoiceEngine) => void;
   /** Microphone for Whisper (a browser device id; "default" = Windows default). */
@@ -109,6 +118,39 @@ interface VoiceState {
 }
 
 const MAX_LINES = 40;
+
+/* ── Songs being sung ── */
+const words = (t: string) => plainText(t).toLowerCase().replace(/[^a-zɛɔ0-9' ]+/g, " ").split(/\s+/).filter((w) => w.length > 1);
+let songIndex: { songs: unknown; lines: { id: string; title: string; slide: number; words: Set<string>; n: number }[] } | null = null;
+
+/** Finds the song (and the slide) a heard sentence comes from, if it clearly matches one line of lyrics. */
+function findSongLine(text: string): { id: string; title: string; slide: number } | null {
+  const heard = words(text);
+  if (heard.length < 4) return null;
+  const songs = useSongStore.getState().songs;
+  if (!songIndex || songIndex.songs !== songs) {
+    const lines: NonNullable<typeof songIndex>["lines"] = [];
+    for (const song of songs) {
+      buildSongSlides(song).forEach((sl, i) => {
+        // Two neighbouring lines together, so a sentence that runs over a line break still matches.
+        const ls = plainText(sl.content.primaryText).split("\n").filter((l) => l.trim());
+        for (let k = 0; k < ls.length; k++) {
+          const w = words(ls[k] + " " + (ls[k + 1] ?? ""));
+          if (w.length >= 3) lines.push({ id: song.id, title: song.title, slide: i, words: new Set(w), n: w.length });
+        }
+      });
+    }
+    songIndex = { songs, lines };
+  }
+  let best: { id: string; title: string; slide: number; score: number } | null = null;
+  for (const l of songIndex.lines) {
+    let hits = 0;
+    for (const w of heard) if (l.words.has(w)) hits++;
+    const score = hits / heard.length;
+    if (hits >= 4 && score >= 0.75 && (!best || score > best.score)) best = { id: l.id, title: l.title, slide: l.slide, score };
+  }
+  return best;
+}
 
 /** A command already acted on from an early guess, so the finished sentence doesn't run it again. */
 let earlyDone: { key: string; at: number } | null = null;
@@ -174,6 +216,8 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     minConfidence: 0.55,
     matchQuotes: true,
     setMatchQuotes: (matchQuotes) => set({ matchQuotes }),
+    matchSongs: true,
+    setMatchSongs: (matchSongs) => set({ matchSongs }),
     engine: "whisper",
     setEngine: (engine) => { const was = get().status; if (was === "listening" || was === "starting") get().stop(); set({ engine }); },
     micId: "default",
@@ -390,6 +434,27 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
             }
             break;
           }
+          // A line from a song in the library?
+          if (st.matchSongs && confidence >= 0.4) {
+            const hit = findSongLine(text);
+            if (hit) {
+              const live = useShowStore.getState().live;
+              if (live && live.title === hit.title) {
+                // That song is already on screen: follow along to the part being sung.
+                if (live.index !== hit.slide) useShowStore.getState().liveGo(hit.slide);
+                addLine(text, false);
+                break;
+              }
+              const label = `Song: ${hit.title}`;
+              if (!get().detections.some((d) => d.label === label && Date.now() - d.at < 60_000)) {
+                const mode = get().mode;
+                const det: Detection = { id: crypto.randomUUID(), song: { id: hit.id, slide: hit.slide }, ref: { book: 0, chapter: 1 }, label, said: text, confidence, at: Date.now(), status: mode === "list" ? "listed" : "waiting" };
+                set((s) => ({ detections: [det, ...s.detections].slice(0, 60), pending: mode === "list" ? s.pending : det }));
+              }
+              addLine(text, true);
+              break;
+            }
+          }
           let ref: ScriptureRef | null = null;
           if (msg.kind === "reference" && typeof msg.book === "number") ref = referenceFromHeard(text, msg.book);
           // Free speech: only trust a reference it clearly heard.
@@ -405,19 +470,23 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     tryText: (text) => {
       const t = text.trim();
       if (!t) return;
-      const typedCmd = get().commandsOn ? parseVoiceCommand(t, get().wakeWord || undefined) : null;
-      if (typedCmd && (typedCmd.type !== "version" || findPack(typedCmd.query, useBibleStore.getState().packs))) {
-        get().handleEvent(JSON.stringify({ type: "heard", text: t, confidence: 1, kind: "speech" }));
-        return;
-      }
-      const ref = referenceInSpeech(t);
-      addLine(t, !!ref);
-      if (ref) detect(ref, t, 1);
+      // Exactly as if it had been heard: commands, songs, Bible references.
+      get().handleEvent(JSON.stringify({ type: "heard", text: t, confidence: 1, kind: "speech" }));
     },
 
     showDetection: async (id) => {
       const det = get().detections.find((d) => d.id === id);
       if (!det) return;
+      if (det.song) {
+        const song = useSongStore.getState().songs.find((x) => x.id === det.song!.id);
+        if (song) {
+          const slides = buildSongSlides(song);
+          useShowStore.getState().setPreview(song.title, slides, det.song.slide, song.id);
+          useShowStore.getState().sendPreviewLive(det.song.slide);
+        }
+        set((s) => ({ pending: s.pending?.id === id ? null : s.pending, detections: s.detections.map((d) => (d.id === id ? { ...d, status: "shown" } : d)) }));
+        return;
+      }
       const bible = useBibleStore.getState();
       if (!bible.packs.length) await bible.loadPacks();
       const { activePack, packs } = useBibleStore.getState();
@@ -471,7 +540,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
 }, {
   name: "whq-media-voice",
   version: 1,
-  partialize: (s) => ({ mode: s.mode, autoDelay: s.autoDelay, minConfidence: s.minConfidence, matchQuotes: s.matchQuotes, engine: s.engine, micId: s.micId, commandsOn: s.commandsOn, commandGroups: s.commandGroups, wakeWord: s.wakeWord, whisperModel: s.whisperModel, autoStart: s.autoStart }),
+  partialize: (s) => ({ matchSongs: s.matchSongs, mode: s.mode, autoDelay: s.autoDelay, minConfidence: s.minConfidence, matchQuotes: s.matchQuotes, engine: s.engine, micId: s.micId, commandsOn: s.commandsOn, commandGroups: s.commandGroups, wakeWord: s.wakeWord, whisperModel: s.whisperModel, autoStart: s.autoStart }),
   merge: (persisted, current) => ({
     ...current,
     ...(persisted as object),

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
+import { saveCcliReport } from "../lib/ccli";
+import { deleteTemplate, listTemplates, saveAsTemplate, startFromTemplate } from "../lib/templates";
 import { createProfile, currentProfile, deleteProfile, listProfiles, switchProfile } from "../lib/profiles";
 
 /** One menu entry. `shortcut` is only shown. A divider has no label. */
@@ -16,7 +18,7 @@ export type MenuAction =
   | "schedule:new" | "schedule:open" | "schedule:save" | "schedule:plan" | "schedule:first" | "schedule:clear"
   | "song:new" | "song:edit" | "song:import-ew" | "song:import-files" | "songs"
   | "bible" | "bible:versions" | "media" | "media:add" | "media:presentation" | "media:free"
-  | "voice" | "live" | "live:projector" | "live:black" | "live:clear" | "live:logo" | "live:send" | "live:tools"
+  | "voice" | "live" | "live:projector" | "live:black" | "live:clear" | "live:logo" | "live:send" | "live:tools" | "live:obs"
   | "view:preview" | "settings" | "settings:looks" | "settings:screens" | "settings:audio" | "settings:shortcuts" | "settings:about"
   | "help:website" | "exit";
 
@@ -72,6 +74,13 @@ export function MenuBar({ onAction, previewShown, projectorOn }: { onAction: (a:
       { label: "Open schedule…", onClick: a("schedule:open") },
       { label: "Save schedule as…", onClick: a("schedule:save") },
       { divider: true },
+      { label: "Save as a template…", onClick: () => { saveAsTemplate(); refresh((n) => n + 1); } },
+      ...listTemplates().map((t) => ({ label: `New from “${t}”`, onClick: () => startFromTemplate(t) })),
+      ...(listTemplates().length ? [{ label: "Delete a template…", onClick: () => {
+        const name = window.prompt(`Which template should be deleted? (${listTemplates().join(", ")})`, "");
+        if (name && listTemplates().includes(name.trim())) { deleteTemplate(name.trim()); refresh((n) => n + 1); }
+      } }] : []),
+      { divider: true },
       { label: "Clear the schedule", onClick: a("schedule:clear") },
     ],
     Songs: [
@@ -80,6 +89,8 @@ export function MenuBar({ onAction, previewShown, projectorOn }: { onAction: (a:
       { divider: true },
       { label: "Import from EasyWorship 6 or 7…", onClick: a("song:import-ew") },
       { label: "Import song text files…", onClick: a("song:import-files") },
+      { divider: true },
+      { label: "CCLI song report…", onClick: () => saveCcliReport() },
       { divider: true },
       { label: "Song library", onClick: a("songs") },
     ],
@@ -102,6 +113,7 @@ export function MenuBar({ onAction, previewShown, projectorOn }: { onAction: (a:
       { divider: true },
       { label: projectorOn ? "Close the projector screen" : "Open the projector screen", onClick: a("live:projector") },
       { label: "Countdown, alerts and stage display", onClick: a("live:tools") },
+      { label: "Livestream words window (OBS)…", onClick: a("live:obs") },
       { label: "Screens and stage display settings…", onClick: a("settings:screens") },
     ],
     Profiles: [

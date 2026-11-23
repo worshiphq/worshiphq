@@ -4,6 +4,7 @@ import type { Slide } from "../types";
 import { GRADIENTS } from "../lib/themes";
 import { useMediaStore } from "../stores/media-store";
 import { useShowStore } from "../stores/show-store";
+import { useSongStore } from "../stores/song-store";
 import { isDesktopApp, mediaUrl } from "../lib/media-src";
 
 type Bg = NonNullable<Slide["background"]>;
@@ -41,7 +42,11 @@ export function BackgroundPicker() {
   function pick(bg: Bg, name: string, sendNow = false) {
     const { preview, setPreview, sendPreviewLive } = useShowStore.getState();
     const words = preview?.slides.some((s) => !s.media && s.content.primaryText?.trim());
-    if (preview && words) setPreview(preview.title, preview.slides.map((s) => (s.media ? s : { ...s, background: bg })), preview.index);
+    if (preview && words) {
+      setPreview(preview.title, preview.slides.map((s) => (s.media ? s : { ...s, background: bg })), preview.index, preview.songId);
+      // A song keeps this background from now on (Edit the song to change it).
+      if (preview.songId) useSongStore.getState().updateSong(preview.songId, { background: bg });
+    }
     else setPreview(`Background: ${name}`, [backgroundSlide(bg, name)]);
     if (sendNow) { sendPreviewLive(); setOpen(false); }
   }

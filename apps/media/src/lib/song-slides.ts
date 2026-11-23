@@ -1,5 +1,6 @@
 import { akanFontToUnicode, cssFont } from "./rich-text";
 import type { ServiceItem, Slide, Song } from "../types";
+import { textToSections } from "./song-text";
 import { DEFAULT_TEMPLATES, applyTemplate } from "./slide-templates";
 
 /**
@@ -8,6 +9,12 @@ import { DEFAULT_TEMPLATES, applyTemplate } from "./slide-templates";
  */
 export function buildSongSlides(song: Song): Slide[] {
   const font = song.font ? cssFont(song.font) : undefined;
+  // The translation, stanza by stanza, under the same section names (e.g. Twi under English).
+  const second = new Map<string, string[]>();
+  if (song.translation?.trim()) {
+    const t = textToSections(song.translation);
+    for (const sec of t.sections) second.set(sec.label.toLowerCase(), sec.lyrics.split(/\n\s*\n/).map((x) => x.trim()).filter(Boolean));
+  }
   const template = DEFAULT_TEMPLATES.find((t) => t.id === "midnight-blue") ?? DEFAULT_TEMPLATES[0];
   const slides: Slide[] = [];
   for (const sectionId of song.order) {
@@ -18,6 +25,9 @@ export function buildSongSlides(song: Song): Slide[] {
       const slide = applyTemplate(template, { primaryText: song.akan ? akanFontToUnicode(text) : text });
       slide.type = "song";
       if (font) slide.font = font;
+      if (song.background) slide.background = song.background;
+      const tr = second.get(section.label.toLowerCase())?.[i];
+      if (tr) slide.second = { text: song.akan ? akanFontToUnicode(tr) : tr, label: song.translationName ?? "" };
       slide.label = stanzas.length > 1 ? `${section.label} (${i + 1}/${stanzas.length})` : section.label;
       slides.push(slide);
     });

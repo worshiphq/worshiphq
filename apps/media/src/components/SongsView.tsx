@@ -92,14 +92,14 @@ export function SongsView() {
 
   // The song waits in Preview; picking a slide moves the Preview; Enter or double-click sends it live.
   useEffect(() => {
-    if (song && slides.length) useShowStore.getState().setPreview(song.title, slides, slideIndex);
+    if (song && slides.length) useShowStore.getState().setPreview(song.title, slides, slideIndex, song.id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slides, slideIndex]);
 
   function showLive(i: number) {
     if (!song || !slides[i]) return;
     setSlideIndex(i);
-    useShowStore.getState().setPreview(song.title, slides, i);
+    useShowStore.getState().setPreview(song.title, slides, i, song.id);
     useShowStore.getState().sendPreviewLive(i);
   }
 

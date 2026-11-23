@@ -77,6 +77,9 @@ fn go_live(app: tauri::AppHandle, output: State<OutputState>, slide_json: String
             .emit("slide-update", &slide_json)
             .map_err(|e| e.to_string())?;
     }
+    if let Some(obs) = app.get_webview_window("obs") {
+        let _ = obs.emit("slide-update", &slide_json);
+    }
     Ok(())
 }
 
@@ -87,6 +90,9 @@ fn go_black(app: tauri::AppHandle, output: State<OutputState>) -> Result<(), Str
         projection
             .emit("go-black", ())
             .map_err(|e| e.to_string())?;
+    }
+    if let Some(obs) = app.get_webview_window("obs") {
+        let _ = obs.emit("go-black", ());
     }
     Ok(())
 }
@@ -99,6 +105,9 @@ fn go_clear(app: tauri::AppHandle, output: State<OutputState>) -> Result<(), Str
         projection
             .emit("go-clear", ())
             .map_err(|e| e.to_string())?;
+    }
+    if let Some(obs) = app.get_webview_window("obs") {
+        let _ = obs.emit("go-clear", ());
     }
     Ok(())
 }
@@ -188,6 +197,30 @@ async fn open_output_window(
 #[tauri::command]
 async fn open_projection_window(app: tauri::AppHandle, monitor_index: Option<usize>) -> Result<(), String> {
     open_output_window(app, "projection", "projection", "WorshipHQ — Projector", monitor_index).await
+}
+
+/// A window for livestreaming: the words only, as a lower third on green (OBS: Window Capture + Color Key).
+#[tauri::command]
+async fn open_obs_window(app: tauri::AppHandle) -> Result<(), String> {
+    if let Some(win) = app.get_webview_window("obs") {
+        let _ = win.unminimize();
+        let _ = win.set_focus();
+        return Ok(());
+    }
+    let url = if cfg!(debug_assertions) {
+        WebviewUrl::External("http://localhost:1420/#obs".parse().unwrap())
+    } else {
+        WebviewUrl::App("index.html#obs".into())
+    };
+    WebviewWindowBuilder::new(&app, "obs", url)
+        .title("WorshipHQ — Livestream words (OBS)")
+        .additional_browser_args(BROWSER_ARGS)
+        .inner_size(1280.0, 720.0)
+        .resizable(true)
+        .decorations(true)
+        .build()
+        .map_err(|e| e.to_string())?;
+    Ok(())
 }
 
 #[tauri::command]
@@ -581,6 +614,9 @@ pub fn run() {
                     if let Some(p) = app.get_webview_window("stage") {
                         let _ = p.destroy();
                     }
+                    if let Some(p) = app.get_webview_window("obs") {
+                        let _ = p.destroy();
+                    }
                 } else if window.label() == "projection" {
                     // Let the operator screen know the projector window was closed by hand.
                     let _ = app.emit("projection-closed", ());
@@ -649,6 +685,7 @@ pub fn run() {
             whisper_status,
             whisper_install,
             whisper_progress,
+            open_obs_window,
             list_fonts,
             write_text_file,
             whisper_start,

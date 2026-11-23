@@ -44,6 +44,13 @@ export default function App() {
       case "song:new": case "song:edit": case "song:import-ew": case "song:import-files": tell("songs", a); break;
       case "media:add": case "media:presentation": case "media:free": tell("media", a); break;
       case "live:send": useShowStore.getState().sendPreviewLive(); break;
+      case "live:obs":
+        if ((window as any).__TAURI_INTERNALS__) {
+          const { invoke } = await import("@tauri-apps/api/core");
+          await invoke("open_obs_window").catch((e) => window.alert(String(e)));
+          window.alert("The livestream words window is open. In OBS: add a Window Capture of “WorshipHQ — Livestream words (OBS)”, then right-click it › Filters › Color Key (green). The words then appear over your camera.");
+        }
+        break;
       case "live:black": proj.toggleBlack(); break;
       case "live:clear": proj.toggleClearText(); break;
       case "live:logo": proj.toggleLogo(); break;
