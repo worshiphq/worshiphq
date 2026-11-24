@@ -51,3 +51,6 @@ scripts/image-migration-rollback.json
 # Python bytecode (never served from public/)
 __pycache__/
 *.pyc
+
+# Recordings and results for the voice accuracy test (private)
+voice-tests/

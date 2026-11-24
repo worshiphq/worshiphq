@@ -70,7 +70,7 @@ export function VoiceView({ onOpenBible }: { onOpenBible: () => void }) {
             {/* ─── What it heard ─── */}
             <Card title="What it heard">
               <div className="h-56 overflow-y-auto rounded-lg bg-surface-4/60 p-3">
-                {listening && v.partial && <p className="mb-1.5 text-[14px] italic text-ink-faint">{v.partial}…</p>}
+                {listening && v.partial && <p className="mb-1.5 text-[15px] text-ink">{v.partialSure} <span className="text-ink-faint">{v.partial.slice(v.partialSure.length).trim()}…</span></p>}
                 {v.lines.length === 0 && !v.partial && (
                   <p className="text-[14px] text-ink-faint">{listening ? "Waiting for someone to speak…" : "Start listening, or type a sentence below to try it."}</p>
                 )}

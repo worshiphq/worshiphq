@@ -52,6 +52,9 @@ fn model(id: &str) -> (&'static str, &'static str, u64) {
 /// Words Whisper should expect, so Bible books are spelled right.
 const PROMPT: &str = "Turn with me to John chapter 3 verse 16. Next verse. Verse 2. Genesis, Exodus, Psalm, Proverbs, Isaiah, Matthew, Mark, Luke, John, Acts, Romans, 1 Corinthians, 2 Corinthians, Galatians, Ephesians, Philippians, Colossians, Hebrews, James, 1 Peter, 1 John, Revelation. Amplified, NIV, King James, Twi.";
 
+/// A shorter hint for the live model (every word of it costs time on every reading).
+const LIVE_PROMPT: &str = "Romans chapter 8 verse 28. 1 Corinthians 13 verse 4. Psalm 23. Habakkuk, Philippians, Colossians, Ephesians, Hebrews. Next verse.";
+
 #[derive(Serialize)]
 pub struct WhisperStatus {
     /// The program plus at least one model.
@@ -162,28 +165,43 @@ struct Server {
     model: String,
 }
 
-static SERVER: Mutex<Option<Server>> = Mutex::new(None);
+/// Two servers: 0 = the chosen model (finished sentences), 1 = the fastest model (words as they are said).
+static SERVERS: Mutex<[Option<Server>; 2]> = Mutex::new([None, None]);
+/// The live words matter most: the chosen model gives way to them when the computer is busy.
+const NO_WINDOW: u32 = 0x0800_0000;
+const BELOW_NORMAL: u32 = 0x0000_4000;
 
-fn port_open() -> bool {
-    TcpStream::connect_timeout(&([127, 0, 0, 1], PORT).into(), Duration::from_millis(200)).is_ok()
+fn port(live: bool) -> u16 {
+    PORT + live as u16
+}
+
+fn port_open(live: bool) -> bool {
+    TcpStream::connect_timeout(&([127, 0, 0, 1], port(live)).into(), Duration::from_millis(200)).is_ok()
 }
 
 fn threads() -> String {
     std::thread::available_parallelism().map(|n| n.get().clamp(2, 6)).unwrap_or(4).to_string()
 }
 
+/// About one thread per real core (measured: more than that made it slower).
+fn core_threads() -> usize {
+    std::thread::available_parallelism().map(|n| (n.get() / 2).clamp(2, 6)).unwrap_or(2)
+}
+
 /// Starts (or keeps) the server with this model. Waits until it answers.
-pub fn start_server(app_data: &Path, model_id: &str) -> Result<(), String> {
+pub fn start_server(app_data: &Path, model_id: &str, live: bool) -> Result<(), String> {
+    let slot = live as usize;
     {
-        let mut guard = SERVER.lock().map_err(|e| e.to_string())?;
-        if let Some(s) = guard.as_mut() {
+        let mut guard = SERVERS.lock().map_err(|e| e.to_string())?;
+        let shared = live || guard[1].is_some();
+        if let Some(s) = guard[slot].as_mut() {
             let alive = s.child.try_wait().map(|x| x.is_none()).unwrap_or(false);
             if alive && s.model == model_id {
                 return Ok(());
             }
             let _ = s.child.kill();
             let _ = s.child.wait();
-            *guard = None;
+            guard[slot] = None;
         }
         if !model_ready(app_data, model_id) {
             return Err("That speech model isn't downloaded yet.".into());
@@ -193,53 +211,64 @@ pub fn start_server(app_data: &Path, model_id: &str) -> Result<(), String> {
             return Err("whisper-server.exe is missing".into());
         }
         let (_, file, _) = model(model_id);
-        let t = threads();
-        let port = PORT.to_string();
-        let child = hidden(
-            Command::new(&exe)
-                .current_dir(dir(app_data))
-                .args(["-m", file, "-t", &t, "-l", "en", "--host", "127.0.0.1", "--port", &port, "-nt"])
-                .args(prompt_args(model_id))
-                // Speed: look at up to ~10 s of audio (not 30), greedy decoding, no slow retries.
-                .args(FAST),
-        )
+        let t = if shared && !live { (core_threads() - 1).max(2) } else { core_threads() }.to_string();
+        let port = port(live).to_string();
+        let mut cmd = Command::new(&exe);
+        cmd.current_dir(dir(app_data))
+            .args(["-m", file, "-t", &t, "-l", "en", "--host", "127.0.0.1", "--port", &port, "-nt"])
+            .args(if live && model_id != "twi" { vec!["--prompt", LIVE_PROMPT] } else { prompt_args(model_id) })
+            // Speed: look at up to ~10 s of audio (not 30), greedy decoding, no slow retries.
+            .args(FAST);
+        #[cfg(target_os = "windows")]
+        {
+            use std::os::windows::process::CommandExt;
+            cmd.creation_flags(if shared && !live { NO_WINDOW | BELOW_NORMAL } else { NO_WINDOW });
+        }
+        let child = cmd
         .stdout(std::process::Stdio::null())
         .stderr(std::process::Stdio::null())
         .spawn()
         .map_err(|e| format!("Whisper couldn't start: {e}"))?;
-        *guard = Some(Server { child, model: model_id.to_string() });
+        guard[slot] = Some(Server { child, model: model_id.to_string() });
     }
     let started = Instant::now();
     while started.elapsed() < Duration::from_secs(60) {
-        if port_open() {
+        if port_open(live) {
             return Ok(());
         }
         std::thread::sleep(Duration::from_millis(250));
     }
-    stop_server();
+    stop_one(slot);
     Err("Whisper took too long to start.".into())
 }
 
-pub fn stop_server() {
-    if let Ok(mut guard) = SERVER.lock() {
-        if let Some(mut s) = guard.take() {
+fn stop_one(slot: usize) {
+    if let Ok(mut guard) = SERVERS.lock() {
+        if let Some(mut s) = guard[slot].take() {
             let _ = s.child.kill();
             let _ = s.child.wait();
         }
     }
 }
 
-fn server_running() -> bool {
-    SERVER
+pub fn stop_server() {
+    stop_one(0);
+    stop_one(1);
+}
+
+fn server_running(live: bool) -> bool {
+    SERVERS
         .lock()
-        .map(|mut g| g.as_mut().map(|s| s.child.try_wait().map(|x| x.is_none()).unwrap_or(false)).unwrap_or(false))
+        .map(|mut g| g[live as usize].as_mut().map(|s| s.child.try_wait().map(|x| x.is_none()).unwrap_or(false)).unwrap_or(false))
         .unwrap_or(false)
 }
 
 /// Sends one WAV to the server as a multipart form and returns the text.
-fn post_to_server(wav: &[u8]) -> Result<String, String> {
+fn post_to_server(wav: &[u8], live: bool) -> Result<String, String> {
+    let port = port(live);
     let boundary = format!("whq{}", uuid::Uuid::new_v4().simple());
     let mut body = Vec::with_capacity(wav.len() + 512);
+    // Don't lower audio_ctx for short clips: with a prompt, the model then rambles for 4 s on about 1 clip in 6.
     for (name, value) in [("response_format", "json"), ("temperature", "0.0")] {
         body.extend_from_slice(format!("--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n").as_bytes());
     }
@@ -247,10 +276,10 @@ fn post_to_server(wav: &[u8]) -> Result<String, String> {
     body.extend_from_slice(wav);
     body.extend_from_slice(format!("\r\n--{boundary}--\r\n").as_bytes());
 
-    let mut stream = TcpStream::connect_timeout(&([127, 0, 0, 1], PORT).into(), Duration::from_secs(2)).map_err(|e| e.to_string())?;
+    let mut stream = TcpStream::connect_timeout(&([127, 0, 0, 1], port).into(), Duration::from_secs(2)).map_err(|e| e.to_string())?;
     stream.set_read_timeout(Some(Duration::from_secs(60))).ok();
     let head = format!(
-        "POST /inference HTTP/1.1\r\nHost: 127.0.0.1:{PORT}\r\nContent-Type: multipart/form-data; boundary={boundary}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
+        "POST /inference HTTP/1.1\r\nHost: 127.0.0.1:{port}\r\nContent-Type: multipart/form-data; boundary={boundary}\r\nContent-Length: {}\r\nConnection: close\r\n\r\n",
         body.len()
     );
     stream.write_all(head.as_bytes()).map_err(|e| e.to_string())?;
@@ -268,11 +297,15 @@ fn post_to_server(wav: &[u8]) -> Result<String, String> {
 }
 
 /// Turns one spoken sentence (16 kHz mono WAV) into text.
-pub fn transcribe(app_data: &Path, model_id: &str, wav: &[u8]) -> Result<String, String> {
-    if server_running() {
-        if let Ok(text) = post_to_server(wav) {
+pub fn transcribe(app_data: &Path, model_id: &str, wav: &[u8], live: bool) -> Result<String, String> {
+    if server_running(live) {
+        if let Ok(text) = post_to_server(wav, live) {
             return Ok(text);
         }
+    }
+    if live {
+        // Loading a model for every few words would never keep up.
+        return Err("The live speech model stopped. Stop listening and start again.".into());
     }
     // Fallback: the command-line tool (loads the model each time, so slower).
     let id = if model_ready(app_data, model_id) {

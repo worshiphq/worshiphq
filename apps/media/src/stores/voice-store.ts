@@ -18,6 +18,7 @@ import { showPassage, stepPart, stepVerse, usePassageStore, setSecondVersion } f
 import { findPack } from "../lib/version-match";
 import { understand, type AiAction } from "../lib/ai";
 import { parseReference } from "../lib/scripture-ref";
+import { settledReference } from "../lib/live-words";
 import type { VoiceCommand as Cmd } from "../lib/voice-commands";
 
 /** whisper = OpenAI Whisper on this computer (accurate); windows = the old Windows recogniser. */
@@ -62,6 +63,8 @@ interface VoiceState {
   recognizer: string | null;
   level: number;
   partial: string;
+  /** The words of "partial" it is sure of. */
+  partialSure: string;
   lines: HeardLine[];
   detections: Detection[];
   /** The detection the banner is asking about. */
@@ -197,7 +200,7 @@ function findSongLine(text: string): { id: string; title: string; slide: number 
 }
 
 /** A command already acted on from an early guess, so the finished sentence doesn't run it again. */
-let earlyDone: { key: string; at: number } | null = null;
+let earlyDone: { key: string; at: number; id: string } | null = null;
 const commandKey = (c: VoiceCommand) => JSON.stringify(c);
 
 /**
@@ -227,8 +230,13 @@ async function findQuotedVerse(text: string): Promise<ScriptureRef | null> {
 }
 
 export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
-  function addLine(text: string, isReference: boolean) {
-    set((s) => ({ lines: [{ id: crypto.randomUUID(), text, at: Date.now(), isReference }, ...s.lines].slice(0, MAX_LINES), partial: "" }));
+  /** Adds a heard line, or puts the better reading in place of the quick one. */
+  function addLine(text: string, isReference: boolean, id: string, refine: boolean) {
+    set((s) => {
+      if (s.lines.some((l) => l.id === id)) return { lines: s.lines.map((l) => (l.id === id ? { ...l, text, isReference: l.isReference || isReference } : l)) };
+      const lines = [{ id, text, at: Date.now(), isReference }, ...s.lines].slice(0, MAX_LINES);
+      return refine ? { lines } : { lines, partial: "", partialSure: "" };
+    });
   }
 
   function detect(ref: ScriptureRef, said: string, confidence: number, source?: "AI") {
@@ -236,12 +244,64 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     // Ignore the same reference heard again within 30 seconds.
     const recent = get().detections.find((d) => d.label === label && Date.now() - d.at < 30_000);
     if (recent) return;
+    // "Romans 8" … "verse 28": the same suggestion, now complete.
+    const open = get().pending;
+    if (open && !open.song && !source && open.status === "waiting" && open.ref.book === ref.book && open.ref.chapter === ref.chapter && !open.ref.verseStart && ref.verseStart && Date.now() - open.at < 15_000) {
+      const full = { ...open, ref, label, said };
+      set((s) => ({ pending: full, detections: s.detections.map((d) => (d.id === open.id ? full : d)) }));
+      return;
+    }
     const mode = get().mode;
     const det: Detection = {
       id: crypto.randomUUID(), ref, label, said, confidence, at: Date.now(),
       status: mode === "list" ? "listed" : "waiting",
     };
     set((s) => ({ detections: [det, ...s.detections].slice(0, 60), pending: mode === "list" ? s.pending : det }));
+  }
+
+  /**
+   * While a sentence is still being said: verses named, songs being sung and verses being read out, from the words
+   * it is sure of. (The AI waits for the whole sentence: it costs money.)
+   */
+  let lastQuote: { label: string; words: number } | null = null;
+  let quoteBusy = false;
+  function followLive(sure: string) {
+    const st = get();
+    const ws = sure.split(/\s+/).filter(Boolean);
+    if (ws.length < 3) { lastQuote = null; return; }
+    const named = settledReference(sure);
+    if (named) { detect(named.ref, sure, 0.9); return; }
+    if (st.matchSongs && ws.length >= 5) {
+      const tail = ws.slice(-9).join(" ");
+      const hit = findSongLine(tail);
+      if (hit) { heardSong(hit, tail, 0.9); return; }
+    }
+    // A verse read out without its reference: both of two looks, a few words apart, must point to the same place.
+    if (st.matchQuotes && ws.length >= 8 && !quoteBusy && (!lastQuote || ws.length < lastQuote.words || ws.length - lastQuote.words >= 3)) {
+      quoteBusy = true;
+      const tail = ws.slice(-12).join(" ");
+      findQuotedVerse(tail).then((q) => {
+        const label = q ? formatReference(q) : "";
+        if (q && lastQuote?.label === label) detect(q, tail, 0.85);
+        lastQuote = { label, words: ws.length };
+      }).finally(() => { quoteBusy = false; });
+    }
+  }
+
+  /** A line of a song was heard: follow along when it is on screen, or suggest it. */
+  function heardSong(hit: { id: string; title: string; slide: number }, said: string, confidence: number): "followed" | "suggested" {
+    const live = useShowStore.getState().live;
+    if (live && live.title === hit.title) {
+      if (live.index !== hit.slide) useShowStore.getState().liveGo(hit.slide);
+      return "followed";
+    }
+    const label = `Song: ${hit.title}`;
+    if (!get().detections.some((d) => d.label === label && Date.now() - d.at < 60_000)) {
+      const mode = get().mode;
+      const det: Detection = { id: crypto.randomUUID(), song: { id: hit.id, slide: hit.slide }, ref: { book: 0, chapter: 1 }, label, said, confidence, at: Date.now(), status: mode === "list" ? "listed" : "waiting" };
+      set((s) => ({ detections: [det, ...s.detections].slice(0, 60), pending: mode === "list" ? s.pending : det }));
+    }
+    return "suggested";
   }
 
   /** Puts a note next to the last heard line (what the AI did). */
@@ -308,6 +368,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     recognizer: null,
     level: 0,
     partial: "",
+    partialSure: "",
     lines: [],
     detections: [],
     pending: null,
@@ -355,6 +416,12 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
           return label ? { ok: true, note: label } : { ok: false, note: "No more verses that way" };
         }
         case "gotoVerse": {
+          // "Romans chapter 8" … "verse 28": finishes the suggestion that is waiting, not what is on screen.
+          const open = get().pending;
+          if (open && !open.song && open.status === "waiting" && !open.ref.verseStart && Date.now() - open.at < 15_000) {
+            detect({ ...open.ref, verseStart: c.start, verseEnd: c.end }, open.said, 0.9);
+            return { ok: true, note: get().pending?.label ?? "" };
+          }
           if (!passage) return needPassage;
           const label = await showPassage({ book: passage.book, chapter: passage.chapter, verseStart: c.start, verseEnd: c.end });
           return label ? { ok: true, note: label } : { ok: false, note: "That verse isn't in this chapter" };
@@ -451,10 +518,10 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
         // Twi (and Twi mixed with English): Khaya by GhanaNLP, through the WorshipHQ server. The AI then works out what was meant.
         await startWhisperListening(get().micId, {
           onLevel: (level) => set({ level }),
-          onSpeaking: (speaking) => set({ partial: speaking ? "…" : "" }),
+          onSpeaking: (speaking) => { if (speaking) set({ partial: "…", partialSure: "" }); },
           onText: (text) => get().handleEvent(JSON.stringify({ type: "heard", text, confidence: 0.9, kind: "speech" })),
           onError: (message) => set({ status: "error", message }),
-        }, "twi");
+        }, { live: "twi", best: null, online: true });
         if (get().status === "starting") set({ status: "listening", recognizer: "Twi listening (Khaya by GhanaNLP) + WorshipHQ AI" });
         return;
       }
@@ -464,31 +531,43 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
           set({ status: "error", message: "Whisper isn't downloaded yet. Go to Settings › Audio & microphone and press Download Whisper (one time, about 155 MB)." });
           return;
         }
-        // Load the speech model once and keep it in memory (much faster than loading it for every sentence).
+        // The fastest model shows the words as they are said; the chosen one then tidies finished sentences.
         set({ recognizer: "Loading the speech model…" });
         const { invoke } = await import("@tauri-apps/api/core");
-        await invoke("whisper_start", { model: get().whisperModel }).catch(() => { /* falls back to the slower way */ });
-        if (get().status !== "starting") return;
+        const chosen = get().whisperModel;
+        // Twi has no smaller model, so it does both.
+        const hasTiny = get().whisperModels.includes("tiny");
+        const two = chosen !== "twi" && chosen !== "tiny" && hasTiny
+          && await invoke("whisper_start", { model: "tiny", live: true }).then(() => true, () => false);
+        await invoke("whisper_start", { model: chosen, live: !two }).catch(() => { /* reported when the first sentence fails */ });
+        if (get().status !== "starting") { invoke("whisper_stop").catch(() => {}); return; }
+        // Live listening needs the small "Fastest" model too: fetch it quietly for next time.
+        if (!hasTiny && chosen !== "twi") invoke("whisper_install", { model: "tiny" }).then(() => get().checkWhisper()).catch(() => {});
         await startWhisperListening(get().micId, {
           onLevel: (level) => set({ level }),
-          onSpeaking: (speaking) => set({ partial: speaking ? "…" : "" }),
-          onEarly: (text) => {
-            set({ partial: text });
+          onSpeaking: (speaking) => { if (speaking) set({ partial: "…", partialSure: "" }); },
+          onLive: ({ sure, maybe, text, id: sentenceId }) => {
+            set({ partial: `${sure} ${maybe}`.trim(), partialSure: sure });
+            followLive(sure);
             const st = get();
             if (!st.commandsOn) return;
+            // A number may still grow ("verse 2" → "verse 28"), so those wait until it is sure.
+            if (/\d|verse (?:one|two|three|four|five|six|seven|eight|nine|ten|\w+teen|\w+ty)|chapter \w+/i.test(text)) text = sure;
             const cmd = parseVoiceCommand(text, st.wakeWord || undefined);
             // Single words ("next", "back") could still become "next chapter": wait for those.
             if (!cmd || text.trim().split(/\s+/).length < 2 || !st.commandGroups[COMMAND_GROUP[cmd.type]]) return;
             if (cmd.type === "version" && !findPack(cmd.query, useBibleStore.getState().packs)) return;
             const key = commandKey(cmd);
             if (earlyDone && earlyDone.key === key && Date.now() - earlyDone.at < 4000) return;
-            earlyDone = { key, at: Date.now() };
+            earlyDone = { key, at: Date.now(), id: sentenceId };
             get().handleEvent(JSON.stringify({ type: "heard", text, confidence: 0.9, kind: "speech", early: true }));
           },
-          onText: (text) => get().handleEvent(JSON.stringify({ type: "heard", text, confidence: 0.92, kind: "speech" })),
+          onText: (text, id, draft) => get().handleEvent(JSON.stringify({ type: "heard", text, confidence: 0.9, kind: "speech", id, draft })),
+          onSettled: (text, id) => get().handleEvent(JSON.stringify({ type: "heard", text, confidence: 0.92, kind: "speech", id, refine: true })),
           onError: (message) => set({ status: "error", message }),
-        }, get().whisperModel);
-        if (get().status === "starting") set({ status: "listening", recognizer: `Whisper ${WHISPER_MODELS.find((x) => x.id === get().whisperModel)?.label ?? ""} (OpenAI) on this computer` });
+        }, { live: two ? "tiny" : chosen, best: two ? chosen : null });
+        const name = WHISPER_MODELS.find((x) => x.id === chosen)?.label ?? "";
+        if (get().status === "starting") set({ status: "listening", recognizer: `Whisper ${two ? `Fastest for live words, ${name} for finished sentences` : name} (OpenAI) on this computer` });
         return;
       }
       try {
@@ -532,18 +611,19 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
           const text = String(msg.text ?? "");
           const confidence = Number(msg.confidence) || 0;
           const st = get();
+          const lineId = String(msg.id ?? crypto.randomUUID());
+          const refine = !!msg.refine;
+          // Already acted on as a command from the quick reading: only tidy the words.
+          if (refine && st.lines.find((l) => l.id === lineId)?.command) { addLine(text, false, lineId, true); break; }
           let cmd = st.commandsOn ? parseVoiceCommand(text, st.wakeWord || undefined) : null;
           if (cmd?.type === "version" && !findPack(cmd.query, useBibleStore.getState().packs)) cmd = null;
           if (cmd) {
             // Already done from the early guess while it was being said.
-            if (!msg.early && earlyDone && earlyDone.key === commandKey(cmd) && Date.now() - earlyDone.at < 5000) {
-              earlyDone = null;
-              break;
-            }
-            const id = crypto.randomUUID();
+            if (!msg.early && earlyDone && earlyDone.id === lineId) { if (!refine) set({ partial: "", partialSure: "" }); break; }
+            const id = lineId;
             const allowed = st.commandGroups[COMMAND_GROUP[cmd.type]];
             const name = describeCommand(cmd);
-            set((s) => ({ lines: [{ id, text, at: Date.now(), isReference: false, command: allowed ? name : name + " (switched off in Settings)", commandOk: allowed }, ...s.lines].slice(0, MAX_LINES), partial: "" }));
+            set((s) => ({ lines: [{ id, text, at: Date.now(), isReference: false, command: allowed ? name : name + " (switched off in Settings)", commandOk: allowed }, ...s.lines.filter((l) => l.id !== id)].slice(0, MAX_LINES), ...(refine ? {} : { partial: "", partialSure: "" }) }));
             if (allowed) {
               get().runCommand(cmd).then((r) => set((s) => ({ lines: s.lines.map((l) => (l.id === id ? { ...l, command: name + " → " + r.note, commandOk: r.ok } : l)) })));
             }
@@ -553,20 +633,8 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
           if (st.matchSongs && confidence >= 0.4) {
             const hit = findSongLine(text);
             if (hit) {
-              const live = useShowStore.getState().live;
-              if (live && live.title === hit.title) {
-                // That song is already on screen: follow along to the part being sung.
-                if (live.index !== hit.slide) useShowStore.getState().liveGo(hit.slide);
-                addLine(text, false);
-                break;
-              }
-              const label = `Song: ${hit.title}`;
-              if (!get().detections.some((d) => d.label === label && Date.now() - d.at < 60_000)) {
-                const mode = get().mode;
-                const det: Detection = { id: crypto.randomUUID(), song: { id: hit.id, slide: hit.slide }, ref: { book: 0, chapter: 1 }, label, said: text, confidence, at: Date.now(), status: mode === "list" ? "listed" : "waiting" };
-                set((s) => ({ detections: [det, ...s.detections].slice(0, 60), pending: mode === "list" ? s.pending : det }));
-              }
-              addLine(text, true);
+              // The better reading arrives a little later: don't jump the song back to where it was then.
+              addLine(text, refine ? true : heardSong(hit, text, confidence) === "suggested", lineId, refine);
               break;
             }
           }
@@ -574,15 +642,17 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
           if (msg.kind === "reference" && typeof msg.book === "number") ref = referenceFromHeard(text, msg.book);
           // Free speech: only trust a reference it clearly heard.
           if (!ref && confidence >= 0.3) ref = referenceInSpeech(text);
-          addLine(text, !!ref);
+          addLine(text, !!ref, lineId, refine);
           if (ref && confidence >= get().minConfidence * (msg.kind === "reference" ? 1 : 0.7)) detect(ref, text, confidence);
+          // A better reading is on its way: the AI and the search wait for it.
+          else if (msg.draft) break;
           else if (!ref && get().aiOn && !msg.early && text.split(/\s+/).length >= 3 && worthAsking(text)) {
             // The AI works out what was meant; if it can't be reached, the exact-wording search still runs.
             askAi(text, confidence).then((handled) => {
               if (!handled && get().matchQuotes && confidence >= 0.4) findQuotedVerse(text).then((q) => { if (q) detect(q, text, confidence); });
             });
           } else if (!ref && get().matchQuotes && confidence >= 0.4) findQuotedVerse(text).then((q) => { if (q) detect(q, text, confidence); });
-          if (!msg.early) { recent.push(text); if (recent.length > 8) recent.shift(); }
+          if (!msg.early && !msg.draft) { recent.push(text); if (recent.length > 8) recent.shift(); }
           break;
         }
       }
@@ -665,6 +735,8 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
   merge: (persisted, current) => ({
     ...current,
     ...(persisted as object),
+    // The online Twi engine was never switched on; Twi is now the offline Twi model.
+    ...((persisted as { engine?: string } | undefined)?.engine === "twi" ? { engine: "whisper" as VoiceEngine, whisperModel: "twi" as WhisperModel } : {}),
     commandGroups: { ...current.commandGroups, ...((persisted as { commandGroups?: object } | undefined)?.commandGroups ?? {}) },
   }),
 }));

@@ -418,8 +418,8 @@ fn whisper_progress(app: tauri::AppHandle, model: Option<String>) -> whisper::Wh
 
 /// Loads the speech model and keeps it in memory while listening.
 #[tauri::command]
-async fn whisper_start(app: tauri::AppHandle, model: String) -> Result<(), String> {
-    whisper::start_server(&bible_dir(&app), &model)
+async fn whisper_start(app: tauri::AppHandle, model: String, live: Option<bool>) -> Result<(), String> {
+    whisper::start_server(&bible_dir(&app), &model, live.unwrap_or(false))
 }
 
 #[tauri::command]
@@ -439,7 +439,8 @@ async fn whisper_transcribe(app: tauri::AppHandle, request: tauri::ipc::Request<
         return Err("Expected audio".into());
     };
     let model = request.headers().get("x-model").and_then(|v| v.to_str().ok()).unwrap_or("base").to_string();
-    whisper::transcribe(&bible_dir(&app), &model, wav)
+    let live = request.headers().contains_key("x-live");
+    whisper::transcribe(&bible_dir(&app), &model, wav, live)
 }
 
 #[tauri::command]

@@ -93,23 +93,43 @@ function strictBook(raw: string): number | null {
 
 /** Looks for a reference inside free speech, e.g. "…as it says in John 3 16 that…". */
 export function referenceInSpeech(text: string): ScriptureRef | null {
-  const s = wordsToNumbers(text);
+  return referenceAt(text)?.ref ?? null;
+}
+
+export interface SpokenRef { ref: ScriptureRef; after: string; wordsAfter: number }
+
+/** The last Bible reference in what was said, and what was said after it. */
+export function referenceAt(text: string): SpokenRef | null {
+  const s = wordsToNumbers(text).replace(/(?:book|gospel|letter|epistle) of (?=(?:[123] )?[a-z])/g, "");
   // Windows often hears a lone "Psalm 23" as "some 23".
   const psalm = s.match(/^(?:some|sam|psalm|psalms|songs)\s+(\d{1,3})(?:\s+(?:verse\s+)?(\d{1,3}))?$/);
-  if (psalm) return { book: 18, chapter: Math.min(+psalm[1], 150), verseStart: psalm[2] ? +psalm[2] : undefined };
+  if (psalm) return { ref: { book: 18, chapter: Math.min(+psalm[1], 150), verseStart: psalm[2] ? +psalm[2] : undefined }, after: "", wordsAfter: 0 };
 
   const re = /\b((?:[123] )?[a-z]+(?: of [a-z]+)?) (?:chapter )?(\d{1,3})(?: ?(?::|verses?|and verse|from verse) ?(\d{1,3})| (\d{1,3}))?(?: (?:to|through) (\d{1,3}))?/g;
-  for (const m of s.matchAll(re)) {
-    const book = strictBook(m[1]);
-    if (book === null) continue;
+  let found: SpokenRef | null = null;
+  for (let m = re.exec(s); m; m = re.exec(s)) {
+    const book = strictBook(m[1]) ?? strictBook(m[1].replace(/^.* of /, ""));
+    // Not a book: look again from the next word ("to 1 corinthians": "to 1" must not swallow the 1).
+    if (book === null) { re.lastIndex = m.index + m[0].split(" ")[0].length; continue; }
     const chapter = +m[2];
     const verse = m[3] ?? m[4];
     // One-chapter books: "Jude 24" means verse 24.
-    if (CHAPTER_COUNTS[book] === 1 && !verse) return { book, chapter: 1, verseStart: chapter };
-    if (chapter < 1 || chapter > CHAPTER_COUNTS[book]) continue;
-    return { book, chapter, verseStart: verse ? +verse : undefined, verseEnd: m[5] ? +m[5] : undefined };
+    let ref: ScriptureRef;
+    let end = m.index + m[0].length;
+    if (CHAPTER_COUNTS[book] === 1 && !verse) ref = { book, chapter: 1, verseStart: chapter };
+    else {
+      if (chapter < 1 || chapter > CHAPTER_COUNTS[book]) continue;
+      ref = { book, chapter, verseStart: verse ? +verse : undefined, verseEnd: m[5] ? +m[5] : undefined };
+      // "Romans chapter 8, and we will read from verse 28": the verse a few words later belongs to it.
+      if (!verse) {
+        const later = s.slice(end).match(/^[^a-z0-9]*(?:[a-z']+[^a-z0-9]+){0,7}?verses? (\d{1,3})(?: (?:to|through) (\d{1,3}))?/);
+        if (later) { ref.verseStart = +later[1]; if (later[2]) ref.verseEnd = +later[2]; end += later[0].length; }
+      }
+    }
+    const after = s.slice(end).trim();
+    found = { ref, after, wordsAfter: after.split(/\s+/).filter(Boolean).length };
   }
-  return null;
+  return found;
 }
 
 /**
