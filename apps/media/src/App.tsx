@@ -1,3 +1,4 @@
+import { X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { plainText } from "./lib/rich-text";
 import { backgroundSlide } from "./components/BackgroundPicker";
@@ -31,6 +32,8 @@ export default function App() {
   const [launched, setLaunched] = useState(false);
   const [workspace, setWorkspaceRaw] = useState<Workspace>("bible");
   const [settingsTab, setSettingsTab] = useState<SettingsTab>("looks");
+  // Settings opens as a window over the page you are on, so you never lose your place.
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [previewShown, setPreviewShownRaw] = useState(() => { try { return localStorage.getItem("whq-preview-shown") !== "0"; } catch { return true; } });
   const setPreviewShown = (v: boolean) => { setPreviewShownRaw(v); try { localStorage.setItem("whq-preview-shown", v ? "1" : "0"); } catch { /* ignore */ } };
 
@@ -42,10 +45,10 @@ export default function App() {
       case "bible": case "songs": case "media": case "voice": setWorkspace(a); break;
       case "live:tools": case "live": setWorkspace("live"); break;
       case "schedule:plan": setWorkspace("service"); break;
-      case "settings": setWorkspace("settings"); break;
+      case "settings": setSettingsOpen(true); break;
       case "settings:looks": case "settings:screens": case "settings:audio": case "settings:shortcuts": case "settings:about": case "settings:backup":
-        setSettingsTab(a.split(":")[1] as SettingsTab); setWorkspaceRaw("settings"); break;
-      case "bible:versions": setSettingsTab("bibles"); setWorkspaceRaw("settings"); break;
+        setSettingsTab(a.split(":")[1] as SettingsTab); setSettingsOpen(true); break;
+      case "bible:versions": setSettingsTab("bibles"); setSettingsOpen(true); break;
       case "view:preview": setPreviewShown(!previewShown); break;
       case "song:new": case "song:edit": case "song:import-ew": case "song:import-files": tell("songs", a); break;
       case "media:add": case "media:presentation": case "media:free": case "media:design": tell("media", a); break;
@@ -72,9 +75,9 @@ export default function App() {
       case "schedule:save": await saveSchedule(); break;
       case "schedule:open": await openSchedule(); break;
       case "help:updates":
-        setSettingsTab("about"); setWorkspaceRaw("settings"); useUpdateStore.getState().check(true); break;
+        setSettingsTab("about"); setSettingsOpen(true); useUpdateStore.getState().check(true); break;
       case "help:account":
-        setSettingsTab("about"); setWorkspaceRaw("settings"); break;
+        setSettingsTab("about"); setSettingsOpen(true); break;
       case "help:website":
         try { const { open } = await import("@tauri-apps/plugin-shell"); await open("https://worshiphq.app"); } catch { window.open("https://worshiphq.app", "_blank"); }
         break;
@@ -85,8 +88,9 @@ export default function App() {
   }
   // "looks" and "screens" open those tabs of Settings.
   const setWorkspace = (w: Workspace) => {
-    if (w === "looks" || w === "screens") { setSettingsTab(w); setWorkspaceRaw("settings"); }
-    else setWorkspaceRaw(w);
+    if (w === "looks" || w === "screens") { setSettingsTab(w); setSettingsOpen(true); }
+    else if (w === "settings") setSettingsOpen(true);
+    else { setSettingsOpen(false); setWorkspaceRaw(w); }
   };
 
   // Other parts of the app can run a menu action (e.g. the trial bar opens the account page).
@@ -230,7 +234,7 @@ export default function App() {
         <UpdateBanner />
         <VoiceBanner />
         <div className="flex min-h-0 flex-1">
-          <AppSidebar workspace={workspace} onChange={setWorkspace} />
+          <AppSidebar workspace={settingsOpen ? "settings" : workspace} onChange={setWorkspace} />
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           {previewShown && <PreviewLive />}
           <main className="min-h-0 min-w-0 flex-1 overflow-hidden">
@@ -240,8 +244,6 @@ export default function App() {
               <SongsView />
             ) : workspace === "media" ? (
               <MediaView />
-            ) : workspace === "settings" ? (
-              <SettingsView tab={settingsTab} onTab={setSettingsTab} onOpenMedia={() => setWorkspace("media")} />
             ) : workspace === "voice" ? (
               <VoiceView onOpenBible={() => setWorkspace("bible")} />
             ) : workspace === "service" ? (
@@ -253,6 +255,33 @@ export default function App() {
           </div>
         </div>
       </div>
+      {settingsOpen && (
+        <SettingsWindow onClose={() => setSettingsOpen(false)}>
+          <SettingsView tab={settingsTab} onTab={setSettingsTab} onOpenMedia={() => setWorkspace("media")} />
+        </SettingsWindow>
+      )}
     </LicenseGate>
+  );
+}
+
+/** Settings as a window over the app: big enough to work in, not full screen. Esc, the X or a click outside closes it. */
+function SettingsWindow({ onClose, children }: { onClose: () => void; children: React.ReactNode }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); onClose(); } };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+  return (
+    <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/45 p-4" onMouseDown={onClose}>
+      <div role="dialog" aria-modal="true" aria-label="Settings"
+        className="relative flex h-[min(780px,88vh)] w-[min(1120px,92vw)] flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-2xl"
+        onMouseDown={(e) => e.stopPropagation()}>
+        <button onClick={onClose} aria-label="Close settings" title="Close (Esc)"
+          className="absolute right-3 top-2.5 z-10 grid size-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-4 hover:text-ink">
+          <X className="size-5" />
+        </button>
+        <div className="min-h-0 flex-1">{children}</div>
+      </div>
+    </div>
   );
 }

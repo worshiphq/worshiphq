@@ -25,7 +25,7 @@ const TABS: { id: SettingsTab; label: string; Icon: typeof Palette }[] = [
 export function SettingsView({ tab, onTab, onOpenMedia }: { tab: SettingsTab; onTab: (t: SettingsTab) => void; onOpenMedia: () => void }) {
   return (
     <div className="flex h-full min-h-0 flex-col">
-      <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-line bg-surface-2 px-3 py-2" role="tablist" aria-label="Settings">
+      <div className="flex shrink-0 flex-wrap items-center gap-1 border-b border-line bg-surface-2 py-2 pl-3 pr-14" role="tablist" aria-label="Settings">
         <span className="mr-3 text-[16px] font-bold text-ink">Settings</span>
         {TABS.map(({ id, label, Icon }) => (
           <button

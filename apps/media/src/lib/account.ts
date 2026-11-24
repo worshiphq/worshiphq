@@ -178,7 +178,10 @@ export async function mediaPrices(): Promise<{ monthly: Quote; yearly: Quote } |
   const a = useAccountStore.getState().account;
   if (!a) return null;
   const res = await fetch(`${apiBase()}/api/media/checkout`, { headers: { Authorization: `Bearer ${a.token}` } }).catch(() => null);
-  return res?.ok ? res.json() : null;
+  if (!res?.ok) return null;
+  const body = await res.json().catch(() => null);
+  // Only a reply that really has both prices; anything else shows the standard prices instead of breaking the screen.
+  return body?.monthly && body?.yearly && typeof body.monthly.usd === "number" ? body : null;
 }
 
 /** Opens Paystack in the browser. The app picks up the payment on its next check-in (it checks every minute for 15 minutes). */
