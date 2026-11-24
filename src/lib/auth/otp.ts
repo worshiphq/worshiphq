@@ -1,7 +1,7 @@
 import "server-only";
 import crypto from "node:crypto";
 import { db } from "@/lib/db";
-import { sendSms } from "@/lib/integrations/sms";
+import { textCode } from "@/lib/auth/otp-sms";
 import { sendEmail } from "@/lib/integrations/email";
 import { features } from "@/lib/env";
 import { normalisePhone } from "@/lib/phone";
@@ -147,12 +147,12 @@ export async function sendOtp(opts: {
     stubbed = res.stubbed;
   } else {
     // OTP is always a PLATFORM message - it goes out under the platform's own
-    // approved Hubtel sender (env.HUBTEL_SENDER_ID, e.g. "WorshipHQs"), never a
-    // church's custom sender ID.
-    const sms = await sendSms(
+    // approved sender, never a church's custom sender ID. The other carrier picks
+    // it up when the first one fails (see otp-sms.ts).
+    const sms = await textCode(
       destination,
       `Your WorshipHQ verification code is ${code}. It expires in ${CODE_TTL_MIN} minutes.`,
-      { heading: null },
+      record.id,
     );
     ok = sms.ok;
     stubbed = !features.sms;

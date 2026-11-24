@@ -50,6 +50,13 @@ export function routingForChurch(carrier: string | null | undefined): Routing {
   return { primary: carrier, international: carrier !== "nalo" && naloConfigured() ? "nalo" : null };
 }
 
+/** The carrier to fall back on for WorshipHQ's own texts in Ghana, when it is set up here. */
+export function otherCarrier(provider: string): "hubtel" | "nalo" | null {
+  if (provider === "hubtel") return naloConfigured() ? "nalo" : null;
+  if (provider === "nalo") return env.HUBTEL_CLIENT_ID && env.HUBTEL_CLIENT_SECRET ? "hubtel" : null;
+  return null;
+}
+
 /** Which carrier handles one number, given the routing. */
 export function providerForNumber(normalised: string, routing: Routing): SmsProvider {
   if (routing.international && !isGhanaNumber(normalised)) return routing.international;

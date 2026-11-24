@@ -6,7 +6,7 @@ import { getPlatformCarrier } from "@/lib/sms/platform-carrier";
 import { logPlatformSms } from "@/lib/admin-audit";
 import { segmentsFor } from "@/config/sms";
 import { getSmsRates, rateFor } from "@/lib/sms/cost";
-import { providerForNumber, routingForChurch, isGhanaNumber, type SmsProvider } from "@/lib/sms/routing";
+import { providerForNumber, routingForChurch, otherCarrier, isGhanaNumber, type SmsProvider } from "@/lib/sms/routing";
 
 /**
  * Sample phone numbers used in teaching and demo churches: Ghana numbers starting 010 (233 10…). No real Ghana
@@ -397,10 +397,12 @@ export async function sendSms(
   }
 
   const sentCount = perValidOk.filter(Boolean).length;
-  // Sign-in codes travel this way, so a problem at Nalo must never lock people out: try Hubtel before giving up.
-  if (sentCount === 0 && platformCarrier === "nalo") {
-    console.error(`[SMS] WorshipHQ's own text failed on Nalo, retrying on Hubtel: ${firstError ?? "no error given"}`);
-    return sendSms(to, rawMessage, { ...opts, carrier: "hubtel" });
+  // Sign-in codes travel this way, so a problem at one carrier must never lock people out: try the other before giving
+  // up. The retry names its carrier, so it can never bounce back here.
+  const backup = opts?.carrier === undefined && !opts?.logged && recipients.every(isGhanaNumber) ? otherCarrier(routing.primary) : null;
+  if (sentCount === 0 && backup) {
+    console.error(`[SMS] WorshipHQ's own text failed on ${routing.primary}, retrying on ${backup}: ${firstError ?? "no error given"}`);
+    return sendSms(to, rawMessage, { ...opts, carrier: backup });
   }
   return {
     ok: sentCount > 0,
