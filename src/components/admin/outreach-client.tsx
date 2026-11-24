@@ -41,7 +41,7 @@ const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "n
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-const NO_FILTERS = { country: "", phone: "", joined: "", contacted: "", size: "", status: "" };
+const NO_FILTERS = { country: "", phone: "", joined: "", contacted: "", size: "", status: "", credits: "" };
 const NOW = Date.now();
 const daysAgo = (iso: string) => (NOW - Date.parse(iso)) / 86_400_000;
 const countryOf = (c: OutreachChurch) => c.country?.trim() || "Not set";
@@ -73,6 +73,9 @@ export function OutreachClient({ data }: { data: OutreachData }) {
     if (more.contacted === "never" && c.lastContactAt) return false;
     if (Number(more.contacted) && c.lastContactAt && daysAgo(c.lastContactAt) < Number(more.contacted)) return false;
     if (more.size) { const [lo, hi] = more.size.split("-").map(Number); if (c.members < lo || c.members > hi) return false; }
+    if (more.credits === "none" && c.credits > 0) return false;
+    if (more.credits === "low" && (c.credits <= 0 || c.credits > 20)) return false;
+    if (more.credits === "plenty" && c.credits <= 20) return false;
     if (more.status && (more.status === "suspended") !== c.suspended) return false;
     const t = q.trim().toLowerCase();
     if (!t) return true;
@@ -183,12 +186,13 @@ export function OutreachClient({ data }: { data: OutreachData }) {
         <span className="ml-auto text-xs text-slate-500">{rows.length} {rows.length === 1 ? "church matches" : "churches match"}</span>
       </div>
 
-      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-7">
         <FilterSelect label="Country" value={more.country} onChange={(v) => setF("country", v)} options={[["", "All countries"], ["outside", "Outside Ghana"], ...countries.map(([c, n]): [string, string] => [c, `${c} (${n})`])]} />
         <FilterSelect label="Owner's phone" value={more.phone} onChange={(v) => setF("phone", v)} options={[["", "Any phone"], ...(Object.entries(PHONE_KIND_LABEL) as [PhoneKind, string][])]} />
         <FilterSelect label="Members" value={more.size} onChange={(v) => setF("size", v)} options={[["", "Any size"], ["0-0", "None yet"], ["1-30", "1 to 30"], ["31-150", "31 to 150"], ["151-300", "151 to 300"], ["301-9999999", "Over 300"]]} />
         <FilterSelect label="Joined" value={more.joined} onChange={(v) => setF("joined", v)} options={[["", "Any time"], ["7", "Last 7 days"], ["30", "Last 30 days"], ["90", "Last 90 days"]]} />
         <FilterSelect label="Last contacted" value={more.contacted} onChange={(v) => setF("contacted", v)} options={[["", "Any time"], ["never", "Never"], ["7", "Not in 7 days"], ["30", "Not in 30 days"]]} />
+        <FilterSelect label="SMS credits" value={more.credits} onChange={(v) => setF("credits", v)} options={[["", "Any balance"], ["none", "Finished"], ["low", "1 to 20 left"], ["plenty", "Over 20"]]} />
         <FilterSelect label="Status" value={more.status} onChange={(v) => setF("status", v)} options={[["", "Any status"], ["active", "Active"], ["suspended", "Suspended"]]} />
       </div>
       {filtered && <button type="button" className="mb-3 inline-flex items-center gap-1 text-xs text-slate-400 hover:text-white" onClick={() => { setMore(NO_FILTERS); setFilter("all"); setQ(""); setPage(1); }}><X className="size-3.5" /> Clear filters</button>}
@@ -348,7 +352,7 @@ function Compose({ data, composer, onClose, onDone }: { data: OutreachData; comp
   const skipped = churches.length - targets.length;
   const willEmail = mode === "sms" ? targets.filter((t) => phoneKind(t.contact.phone) !== "ghana" && t.contact.email).length : 0;
   const sample = targets[0];
-  const merge = sample ? { name: firstName(sample.contact.name), church: sample.church.name, contact: data.contactLine, senderId: sample.church.senderId ?? undefined, nextPlan: sample.church.trial.nextPlan ? cap(sample.church.trial.nextPlan) : undefined, trialDays: String(data.trialDays), trialPlan: sample.church.trial.trialPlan ? cap(sample.church.trial.trialPlan) : undefined, trialFeatures: sample.church.trial.features || undefined, trialFeaturesShort: sample.church.trial.featuresShort || undefined, daysLeft: sample.church.trial.phase === "active" ? `${sample.church.trial.daysLeft} ${sample.church.trial.daysLeft === 1 ? "day" : "days"}` : undefined } : { name: "Ama", church: "Your church", contact: data.contactLine, senderId: "GRACECHAPEL", nextPlan: "Starter", trialDays: String(data.trialDays), trialPlan: "Starter", daysLeft: "2 days" };
+  const merge = sample ? { name: firstName(sample.contact.name), church: sample.church.name, contact: data.contactLine, senderId: sample.church.senderId ?? undefined, creditsLeft: String(Math.max(0, sample.church.credits)), nextPlan: sample.church.trial.nextPlan ? cap(sample.church.trial.nextPlan) : undefined, trialDays: String(data.trialDays), trialPlan: sample.church.trial.trialPlan ? cap(sample.church.trial.trialPlan) : undefined, trialFeatures: sample.church.trial.features || undefined, trialFeaturesShort: sample.church.trial.featuresShort || undefined, daysLeft: sample.church.trial.phase === "active" ? `${sample.church.trial.daysLeft} ${sample.church.trial.daysLeft === 1 ? "day" : "days"}` : undefined } : { name: "Ama", church: "Your church", contact: data.contactLine, senderId: "GRACECHAPEL", nextPlan: "Starter", trialDays: String(data.trialDays), trialPlan: "Starter", daysLeft: "2 days" };
   const previewHtml = mode === "email" ? renderEmailHtml({ subject: mergeFields(subject, merge), body: mergeFields(body, merge), church: merge.church, contact: data.contact }) : "";
   const smsText = mergeFields(body, merge);
   const smsParts = Math.max(1, Math.ceil(smsText.length / 160));

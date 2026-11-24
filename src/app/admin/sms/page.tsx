@@ -7,6 +7,8 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requireSuperAdmin } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { getSmsLog, getSmsLogTotals, getCreditAdjustments, SMS_LOG_PAGE_SIZE } from "@/lib/data/sms-audit";
+import { CreditAlertsCard } from "@/components/admin/credit-alerts-card";
+import { churchesOutOfCredits } from "@/lib/sms/credit-alerts";
 import { AdminSmsLogRows } from "@/components/admin/sms-log-rows";
 import { SmsCarrierSwitch } from "@/components/admin/sms-carrier-switch";
 import { db } from "@/lib/db";
@@ -20,6 +22,8 @@ const FILTERS = [
   { key: "manual", label: "By a team member" },
   { key: "automatic", label: "Automatic" },
   { key: "failed", label: "Nothing sent" },
+  { key: "senderid", label: "Own sender ID" },
+  { key: "prefix", label: "Name prefix" },
 ] as const;
 
 const DAY = 86_400_000;
@@ -35,13 +39,14 @@ export default async function AdminSmsPage({
 
   // Ask the network about texts still waiting (briefly) so the page shows the latest word.
   await (await import("@/lib/sms/delivery")).checkDeliveries({ budgetMs: 4000, maxLookups: 80 });
-  const [log, allTime, last30, adjustments, onNalo, totalChurches] = await Promise.all([
+  const [log, allTime, last30, adjustments, onNalo, totalChurches, outOfCredits] = await Promise.all([
     getSmsLog({ page: parseInt(sp.page ?? "1", 10) || 1, filter, q: sp.q }),
     getSmsLogTotals(),
     getSmsLogTotals(undefined, new Date(Date.now() - 30 * DAY)),
     getCreditAdjustments(),
     db.church.count({ where: { ...LIVE_CHURCH, smsProvider: "nalo" } }),
     db.church.count({ where: LIVE_CHURCH }),
+    churchesOutOfCredits().catch(() => []),
   ]);
 
   const ap = paging(adjustments.length, readPage(sp.apage), 10);
@@ -84,6 +89,8 @@ export default async function AdminSmsPage({
           </div>
         ))}
       </div>
+
+      <CreditAlertsCard rows={outOfCredits} />
 
       {adjustments.length > 0 && (
         <div className="mb-5 rounded-2xl border border-white/10 bg-white/[0.02]">

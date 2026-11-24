@@ -36,6 +36,8 @@ type SendInput = {
   attachments?: { filename: string; content: Buffer }[];
   /** Texts only: when the text cannot go (no number, outside Ghana, refused), email the same words instead. */
   fallbackEmail?: boolean;
+  /** A history record already created for this send (it is the claim that stops a second one): fill it in instead of adding another. */
+  recordId?: string;
   /** A line added at the end of the email body. */
   appendBody?: string;
 };
@@ -43,14 +45,14 @@ type SendInput = {
 /** Send one email or text to one church contact and keep a record of it. */
 export async function sendOutreach(input: SendInput): Promise<OutreachResult> {
   const [church, user] = await Promise.all([
-    db.church.findUnique({ where: { id: input.churchId }, select: { id: true, name: true, smsSenderId: true, subscription: { select: { plan: true, status: true, renewsAt: true, trialPlan: true, trialEndsAt: true, trialsUsed: true, trialStartedAt: true } } } }),
+    db.church.findUnique({ where: { id: input.churchId }, select: { id: true, name: true, smsSenderId: true, smsCredits: true, subscription: { select: { plan: true, status: true, renewsAt: true, trialPlan: true, trialEndsAt: true, trialsUsed: true, trialStartedAt: true } } } }),
     db.user.findFirst({ where: { id: input.userId, churchId: input.churchId }, select: { id: true, name: true, email: true, phone: true } }),
   ]);
   if (!church || !user) return { ok: false, status: "failed", error: "That contact was not found." };
 
   const tpl = templateById(input.template);
   const contact = outreachContact();
-  const merge = { name: firstName(user.name), church: church.name, contact: await outreachContactLine(), senderId: church.smsSenderId ?? undefined, ...(await trialMerge(church.subscription)) };
+  const merge = { name: firstName(user.name), church: church.name, contact: await outreachContactLine(), senderId: church.smsSenderId ?? undefined, creditsLeft: String(Math.max(0, church.smsCredits)), ...(await trialMerge(church.subscription)) };
   const subject = mergeFields(input.subject ?? tpl?.subject ?? "A message from WorshipHQ", merge).trim();
   const written = mergeFields(input.body ?? tpl?.body ?? "", merge).trim();
   const body = written && input.appendBody ? `${written}
@@ -83,9 +85,10 @@ ${input.appendBody}` : written;
     if (input.fallbackEmail && status === "sent" && r.provider.includes("hubtel")) smsId = r.results[0]?.id;
   }
 
-  const saved = await db.outreachMessage.create({
-    data: { churchId: church.id, userId: user.id, toName: user.name, to, channel: input.channel, template: input.template, subject: input.channel === "email" ? subject : null, body, status, error: error ?? null, auto: !!input.auto },
-  });
+  const record = { churchId: church.id, userId: user.id, toName: user.name, to, channel: input.channel, template: input.template, subject: input.channel === "email" ? subject : null, body, status, error: error ?? null, auto: !!input.auto };
+  const saved = input.recordId
+    ? await db.outreachMessage.update({ where: { id: input.recordId }, data: record })
+    : await db.outreachMessage.create({ data: record });
   if (smsId) {
     // The table may not exist yet (sql/outreach-delivery.sql): the text itself has gone either way.
     await db.outreachDelivery.create({ data: { id: saved.id, churchId: church.id, smsId } }).catch(() => {});

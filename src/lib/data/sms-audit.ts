@@ -1,5 +1,6 @@
 import "server-only";
 import { db } from "@/lib/db";
+import { senderKind, type SenderKind } from "@/lib/sms/sender-kind";
 import { stateOf, type DeliveryState } from "@/lib/sms/delivery-status";
 
 /**
@@ -23,6 +24,8 @@ export type SmsLogRow = {
   sent: number;
   credits: number;
   senderName: string | null;
+  /** Whether senderName is the church's own approved sender ID, or only the name at the start of the message. */
+  senderKind: SenderKind;
   sentByName: string | null;
   trigger: string;
   numbers: { to: string; ok: boolean; st: DeliveryState; e?: string }[];
@@ -63,14 +66,21 @@ export async function getSmsLog(opts: {
   /** Omit to read every church (owner only - the caller must have checked that). */
   churchId?: string;
   page?: number;
-  /** "all" | "manual" | "automatic" | "failed" */
+  /** "all" | "manual" | "automatic" | "failed" | "senderid" | "prefix" */
   filter?: string;
   /** Free text over the message body and the label. */
   q?: string;
 }): Promise<SmsLogPage> {
   const filter = opts.filter ?? "all";
   const q = opts.q?.trim();
+  // Sends that used an approved sender ID carry that exact name, so the names themselves pick them out.
+  const own = filter === "senderid" || filter === "prefix"
+    ? (await db.church.findMany({ where: { smsSenderIdStatus: "approved", smsSenderId: { not: null }, ...(opts.churchId ? { id: opts.churchId } : {}) }, select: { id: true, smsSenderId: true } }))
+        .map((c) => ({ churchId: c.id, senderName: { equals: c.smsSenderId!, mode: "insensitive" as const } }))
+    : [];
   const where = {
+    ...(filter === "senderid" ? { AND: [{ OR: own }] } : {}),
+    ...(filter === "prefix" ? { NOT: own } : {}),
     ...(opts.churchId ? { churchId: opts.churchId } : {}),
     ...(filter === "manual" ? { trigger: "manual" } : {}),
     ...(filter === "automatic" ? { trigger: "automatic" } : {}),
@@ -97,7 +107,7 @@ export async function getSmsLog(opts: {
       skip: (page - 1) * SMS_LOG_PAGE_SIZE,
       take: SMS_LOG_PAGE_SIZE,
       // The church name only matters on the owner's all-churches view.
-      include: opts.churchId ? undefined : { church: { select: { name: true, smsCredits: true } } },
+      include: { church: { select: { name: true, smsCredits: true, smsSenderId: true, smsSenderIdStatus: true, smsPrefix: true } } },
     });
 
     // The newest ledger row at or before each send holds the balance it left behind. A send that failed outright
@@ -129,6 +139,7 @@ export async function getSmsLog(opts: {
         sent: r.sent,
         credits: r.credits,
         senderName: r.senderName,
+        senderKind: senderKind(r.senderName, r.church),
         sentByName: r.sentByName,
         trigger: r.trigger,
         numbers: parseNumbers(r.numbers),
@@ -136,9 +147,9 @@ export async function getSmsLog(opts: {
         failed: r.failed ?? Math.max(0, r.recipients - r.sent),
         pending: r.pending ?? 0,
         churchId: r.churchId,
-        churchName: "church" in r ? (r.church as { name: string } | undefined)?.name : undefined,
+        churchName: opts.churchId ? undefined : r.church.name,
         creditsLeftAfter: opts.churchId ? undefined : leftAfter.get(r.id) ?? null,
-        creditsLeftNow: "church" in r ? (r.church as { smsCredits: number } | undefined)?.smsCredits : undefined,
+        creditsLeftNow: opts.churchId ? undefined : r.church.smsCredits,
       })),
     };
   } catch {

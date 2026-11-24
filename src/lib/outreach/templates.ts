@@ -75,6 +75,22 @@ Blessings,
 The WorshipHQ team`,
   },
   {
+    id: "credits-low", channel: "email", label: "SMS credits running low", hint: "Sent automatically once when a church's texts are held back because its credits ran out. You can also send it by hand",
+    subject: "{{church}}: your SMS credits need a top-up",
+    body: `Hello {{name}},
+
+{{church}} has {{creditsLeft}} SMS credits left on WorshipHQ, and some of your messages could not be sent. Until you top up, texts such as birthday wishes, receipts, reminders and announcements will not go out.
+
+You can top up here: https://worshiphq.app/app/communications/credits
+
+Your credits do not expire, so you can add as many as you need. Please note that messages which could not be sent may not go out by themselves after you top up, so send again any that still matter.
+
+If you need help, reply to this email or reach us on {{contact}}.
+
+God Bless You!
+The WorshipHQ team`,
+  },
+  {
     id: "sms-trial", channel: "email", label: "Try bulk SMS free for 2 weeks", hint: "Tells free churches they can test Communications for 14 days",
     subject: "{{church}} can now try bulk SMS free for 2 weeks",
     body: `Hello {{name}},
@@ -340,14 +356,15 @@ The WorshipHQ team`,
 
 export const templateById = (id: string) => OUTREACH_TEMPLATES.find((t) => t.id === id) ?? null;
 
-export type MergeData = { name: string; church: string; contact: string; senderId?: string; nextPlan?: string; trialDays?: string; trialPlan?: string; daysLeft?: string; trialFeatures?: string; trialFeaturesShort?: string };
+export type MergeData = { name: string; church: string; contact: string; senderId?: string; nextPlan?: string; trialDays?: string; trialPlan?: string; daysLeft?: string; trialFeatures?: string; trialFeaturesShort?: string; creditsLeft?: string };
 
 /** Fill in {{name}}, {{church}}, {{contact}}, {{senderId}} and the trial fields {{nextPlan}}, {{trialDays}}, {{trialPlan}}, {{daysLeft}}, {{trialFeatures}} (a bullet list of the plan's best features) and {{trialFeaturesShort}} (the same in one line). Unknown fields are left alone. */
 export function mergeFields(text: string, d: MergeData): string {
-  return text.replace(/\{\{\s*(name|church|contact|senderId|nextPlan|trialDays|trialPlan|daysLeft|trialFeatures|trialFeaturesShort)\s*\}\}/g, (_, k: keyof MergeData) => {
+  return text.replace(/\{\{\s*(name|church|contact|senderId|nextPlan|trialDays|trialPlan|daysLeft|trialFeatures|trialFeaturesShort|creditsLeft)\s*\}\}/g, (_, k: keyof MergeData) => {
     if (d[k] !== undefined) return d[k] as string;
     if (k === "nextPlan" || k === "trialPlan") return "the next plan";
     if (k === "trialDays") return "7";
+    if (k === "creditsLeft") return "0";
     if (k === "daysLeft") return "2 days";
     if (k === "trialFeatures") return "- Texting your members\n- Birthday and anniversary reminders\n- Member ID cards";
     if (k === "trialFeaturesShort") return "texting, reminders, member ID cards";

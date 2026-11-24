@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { ChevronDown, Check, CheckCheck, X, Clock, Bot, User as UserIcon } from "lucide-react";
+import { hasPrefixedNumbers, type SenderKind } from "@/lib/sms/sender-kind";
 import { STATE_LABEL, type DeliveryState } from "@/lib/sms/delivery-status";
 import { cn } from "@/lib/utils";
 
@@ -15,6 +16,7 @@ export type SmsLogItem = {
   sent: number;
   credits: number;
   senderName: string | null;
+  senderKind?: SenderKind;
   sentByName: string | null;
   trigger: string;
   numbers: { to: string; ok: boolean; st?: DeliveryState; e?: string }[];
@@ -28,6 +30,18 @@ const when = (iso: string) =>
   new Date(iso).toLocaleString(undefined, {
     day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit",
   });
+
+function SenderBadge({ name, kind, mixed }: { name: string; kind: SenderKind; mixed: boolean }) {
+  if (!kind) return <span>as {name}</span>;
+  const id = kind === "id";
+  return (
+    <span className="inline-flex items-center gap-1.5" title={id ? "The text arrives from this name" : "Sent from WorshipHQ's sender, with this name as the first line of the message"}>
+      <span className={cn("rounded px-1.5 py-0.5 text-[11px] font-semibold", id ? "bg-primary/10 text-primary-bright" : "bg-surface-2 text-ink-muted")}>{id ? "Sender ID" : "Prefix"}</span>
+      <span className={id ? "font-medium text-ink" : undefined}>{name}</span>
+      {mixed && <span className="text-warning">(numbers outside Ghana: prefix)</span>}
+    </span>
+  );
+}
 
 /** Shown on both the church's own log and the owner's all-churches log, so one change fixes both. */
 export function SmsLogList({ rows, showChurch = false }: { rows: SmsLogItem[]; showChurch?: boolean }) {
@@ -81,7 +95,7 @@ export function SmsLogList({ rows, showChurch = false }: { rows: SmsLogItem[]; s
                   <span>{r.credits.toLocaleString()} {r.credits === 1 ? "credit" : "credits"}</span>
                   {r.segments > 1 && <><span>·</span><span>{r.segments} parts each</span></>}
                   {r.sentByName && <><span>·</span><span>by {r.sentByName}</span></>}
-                  {r.senderName && <><span>·</span><span>as {r.senderName}</span></>}
+                  {r.senderName && <><span>·</span><SenderBadge name={r.senderName} kind={r.senderKind ?? null} mixed={hasPrefixedNumbers(r.senderKind ?? null, r.numbers)} /></>}
                 </div>
               </div>
 

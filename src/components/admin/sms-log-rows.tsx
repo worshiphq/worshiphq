@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { hasPrefixedNumbers, type SenderKind } from "@/lib/sms/sender-kind";
 import { ChevronDown, Check, X, Bot, User as UserIcon } from "lucide-react";
 
 export type AdminSmsLogItem = {
@@ -13,6 +14,7 @@ export type AdminSmsLogItem = {
   sent: number;
   credits: number;
   senderName: string | null;
+  senderKind: SenderKind;
   sentByName: string | null;
   trigger: string;
   numbers: { to: string; ok: boolean }[];
@@ -23,6 +25,18 @@ export type AdminSmsLogItem = {
 
 const when = (iso: string) =>
   new Date(iso).toLocaleString("en-GB", { day: "2-digit", month: "short", hour: "2-digit", minute: "2-digit" });
+
+function SenderBadge({ name, kind, mixed }: { name: string; kind: SenderKind; mixed: boolean }) {
+  if (!kind) return <span>as {name}</span>;
+  const id = kind === "id";
+  return (
+    <span className="inline-flex items-center gap-1.5" title={id ? "The text arrives from this name" : "Sent from WorshipHQ's sender, with this name as the first line of the message"}>
+      <span className={`rounded px-1.5 py-0.5 text-[11px] font-semibold ${id ? "bg-teal-500/15 text-teal-300" : "bg-white/10 text-slate-400"}`}>{id ? "Sender ID" : "Prefix"}</span>
+      <span className={id ? "font-medium text-slate-200" : ""}>{name}</span>
+      {mixed && <span className="text-amber-300">(numbers outside Ghana: prefix)</span>}
+    </span>
+  );
+}
 
 /** The owner's view of every church's sends. Dark-themed to match the admin shell; the church-facing
  *  list lives in components/app/sms-log-list.tsx and reads the same rows. */
@@ -73,7 +87,7 @@ export function AdminSmsLogRows({ rows }: { rows: AdminSmsLogItem[] }) {
                   {r.creditsLeftNow != null && <><span>·</span><span className="text-slate-300">{r.creditsLeftNow.toLocaleString()} left now</span></>}
                   {r.segments > 1 && <><span>·</span><span>{r.segments} parts</span></>}
                   {r.sentByName && <><span>·</span><span>by {r.sentByName}</span></>}
-                  {r.senderName && <><span>·</span><span>as {r.senderName}</span></>}
+                  {r.senderName && <><span>·</span><SenderBadge name={r.senderName} kind={r.senderKind} mixed={hasPrefixedNumbers(r.senderKind, r.numbers)} /></>}
                 </div>
               </div>
 

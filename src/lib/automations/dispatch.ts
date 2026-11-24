@@ -124,6 +124,9 @@ export async function runDailyAutomations(now = new Date(), precise = false, sen
     (await import("@/lib/outreach/delivery")).checkOutreachDeliveries({ budgetMs: 8_000 }),
   );
 
+  // One email per run-out to churches whose texts are being held back for credits.
+  summary.creditAlerts = await safe("creditAlerts", async () => (await import("@/lib/sms/credit-alerts")).runCreditAlerts(now));
+
   // 4c) The automatic email sequence (SuperAdmin, Email sequence). It gates itself: off unless switched on, mornings only.
   summary.emailSequence = await safe("emailSequence", async () =>
     (await import("@/lib/lifecycle/run")).runEmailSequence(now, { budgetMs: Math.max(0, Math.min(15_000, t0 + 46_000 - Date.now())) }),
