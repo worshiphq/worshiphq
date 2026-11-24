@@ -140,8 +140,10 @@ export default function App() {
   }, [launched]);
 
   // Opening the app: the projector comes on by itself and shows the last background, with no words.
+  // Only once this computer is licensed: nothing goes on the church screen from the sign-in page.
+  const licensed = useProjectionStore((s) => s.isLicensed);
   useEffect(() => {
-    if (!launched) return;
+    if (!launched || !licensed) return;
     const proj = useProjectionStore.getState();
     if (!(window as any).__TAURI_INTERNALS__ || proj.isLive) return;
     const bg = lastBackground();
@@ -163,7 +165,14 @@ export default function App() {
       }, 900);
     }, 300);
     return () => window.clearTimeout(t);
-  }, [launched]);
+  }, [launched, licensed]);
+
+  // Signed out, or the licence ran out: take the projector down.
+  useEffect(() => {
+    if (!(window as any).__TAURI_INTERNALS__ || licensed) return;
+    const proj = useProjectionStore.getState();
+    if (proj.projectionOpen) proj.closeProjection();
+  }, [licensed]);
 
   // Keep the stage display (confidence monitor) up to date with what's on screen and what's next.
   useEffect(() => {
