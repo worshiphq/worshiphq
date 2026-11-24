@@ -77,9 +77,9 @@ export async function requestSupportAccess(churchId: string, reason: string): Pr
   });
   await db.supportAccess.update({ where: { id: rec.id }, data: { codeHash: hashCode(code, rec.id) } });
 
-  // Keep the SMS worded like the sign-in code text, which reaches phones reliably on the same sender. The older
+  // Keep the SMS worded like the sign-in code text, which goes out on the same sender. The older
   // wording ("...asking for temporary access... Only share it if...") was accepted by the carrier but never
-  // arrived for two churches, most likely caught by the phone networks' scam filters.
+  // arrived for two churches, possibly caught by the phone networks' scam filters (not confirmed).
   const smsBody = `Your WorshipHQ support code is ${code}. It expires in ${CODE_TTL_MIN} minutes. Give it to WorshipHQ Support only if you asked us for help.`;
   let delivered = false;
   let stubbed = true;

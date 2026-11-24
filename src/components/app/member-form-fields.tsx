@@ -24,7 +24,7 @@ export interface MemberDefaults {
  * keep the calendar.
  */
 const PAST_DATE_IDS = new Set(["dateOfBirth", "weddingDate", "dateOfMembership", "anniversary", "birthday"]);
-const isPastDate = (f: FormField) => PAST_DATE_IDS.has(f.id) || /birth|anniversary|wedding|married|joined|membership|baptis|salvation|born/i.test(f.label);
+const isPastDate = (f: FormField) => PAST_DATE_IDS.has(f.id) || (/birth|anniversary|wedding|married|joined|baptis|salvation/i.test(f.label) && !/prefer|would|want|wish|next|upcoming|plan|when do|when will|class/i.test(f.label));
 
 export type SpecialRender = (ctx: { field: FormField; value: string; setValue: (v: string) => void; values: Record<string, string> }) => React.ReactNode;
 
