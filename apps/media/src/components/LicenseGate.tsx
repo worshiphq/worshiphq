@@ -90,15 +90,15 @@ function SignInScreen({ stamp }: { stamp: LicenceStatus }) {
   const title = clock ? "Check this computer's date and time"
     : needsInternet ? "Connect to the internet for a moment"
     : !ended ? "Welcome to WorshipHQ Live"
-    : account!.media.trialBlocked ? "This computer has had its free trial"
+    : account!.media.trialBlocked ? "Buy WorshipHQ Live"
     : !account!.media.until ? "Buy WorshipHQ Live"
     : account!.media.isTrial ? "Your free trial has ended"
     : "Your subscription has ended";
 
   const text = clock ? "The clock on this computer is behind the last time WorshipHQ Live ran. Set the right date and time in Windows, then press Try again."
     : needsInternet ? "WorshipHQ Live works without internet for up to 30 days at a time. Connect this computer once so it can renew its licence; it only takes a second."
-    : !ended ? "Sign in with your church's WorshipHQ account, or create one. New churches get 14 days free (one free trial per computer)."
-    : account!.media.trialBlocked ? <>Each computer gets one 14-day free trial, and this one has already had it. Buy WorshipHQ Live for {account!.church.name} below to carry on. If you think this is a mistake, contact WorshipHQ support.</>
+    : !ended ? "Sign in with your church's WorshipHQ account, or create one. New churches get 14 days free."
+    : account!.media.trialBlocked ? <>The free trial isn't available on this computer. Buy WorshipHQ Live for {account!.church.name} below to carry on. If you think this is a mistake, contact WorshipHQ support.</>
     : account!.media.until ? <>WorshipHQ Live for {account!.church.name} ended on {longDate(account!.media.until)}. Buy it below to carry on. Your songs and settings are safe.</>
     : <>Buy WorshipHQ Live for {account!.church.name} below to start using it.</>;
 
