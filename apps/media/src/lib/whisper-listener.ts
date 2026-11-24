@@ -54,6 +54,11 @@ function wav(samples: Float32Array): Uint8Array {
   return new Uint8Array(buf);
 }
 
+/** Takes out Whisper's own remarks: "(speaking in foreign language)", "[Music]", "♪". */
+function clean(text: string): string {
+  return text.replace(/\([^)]*\)|\[[^\]]*\]?|♪/g, " ").replace(/\s+/g, " ").trim();
+}
+
 /** Whisper sometimes "hears" these in silence or music. */
 function junk(text: string): boolean {
   const t = text.trim().toLowerCase();
@@ -117,7 +122,7 @@ export async function startWhisperListening(deviceId: string | null, cb: Callbac
 
   const timed = async (audio: Float32Array) => {
     const at = performance.now();
-    const text = (await read(audio, true)).trim();
+    const text = clean(await read(audio, true));
     const took = performance.now() - at;
     readMs = readMs ? readMs * 0.7 + took * 0.3 : took;
     return text;
@@ -135,7 +140,7 @@ export async function startWhisperListening(deviceId: string | null, cb: Callbac
     bestBusy = true;
     let text = s.draft;
     try {
-      const better = (await read(s.audio, false)).trim();
+      const better = clean(await read(s.audio, false));
       if (!junk(better) && performance.now() - s.at < BEST_LATE_MS) text = better;
     } catch { /* keep the quick reading */ }
     if (on()) cb.onSettled?.(text, s.id);

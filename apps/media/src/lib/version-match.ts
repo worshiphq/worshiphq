@@ -8,6 +8,18 @@ const SAID: Record<string, string> = {
   amp: "amplified", "king james version": "king james", kjv: "kjv", message: "message", "good news": "good news",
 };
 
+/** "…give me the King James version of Mark 2 verse 10": the version asked for inside a longer sentence. */
+const NAMED = "new king james|king james|amplified classic|amplified|new living|good news|contemporary english|the message|message|english standard|new american standard|new international|revised standard|asante twi|ashanti twi|akuapem twi|akuapim twi|asante|akuapem|twi|fante|ewe|ga|nkjv|kjv|niv|nlt|esv|nasb|asv|amp|msg|gnb|cev|tpt|csb";
+export function versionAsked(text: string): string | null {
+  const t = text.toLowerCase().replace(/\b([a-z]) (?=[a-z]\b)/g, "$1").replace(/[^a-z0-9 ]+/g, " ").replace(/\s+/g, " ");
+  const a = t.match(new RegExp(`\\b(${NAMED}) (?:version|translation|bible)\\b`));
+  if (a) return a[1];
+  const b = t.match(new RegExp(`\\b(?:in|from|use|using|with)(?: the)? (${NAMED})\\b`));
+  if (b) return b[1];
+  // Initials are only ever a version.
+  return t.match(/\b(nkjv|kjv|niv|nlt|esv|nasb)\b/)?.[1] ?? null;
+}
+
 const noise = /\b(?:the|version|bible|translation|please)\b/g;
 
 export function findPack<T extends PackLike>(spoken: string, packs: T[]): T | null {

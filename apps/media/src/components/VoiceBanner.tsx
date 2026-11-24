@@ -15,6 +15,7 @@ export function VoiceBanner() {
     if (!pending) return;
     if (mode === "auto") {
       setLeft(autoDelay);
+      if (autoDelay === 0) { showDetection(pending.id); return; }
       const started = Date.now();
       const t = window.setInterval(() => {
         const remaining = autoDelay - Math.floor((Date.now() - started) / 1000);

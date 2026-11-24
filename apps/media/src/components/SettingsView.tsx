@@ -164,8 +164,8 @@ function AudioSettings() {
           </div>
           {v.mode === "auto" && (
             <label className="mt-3 block text-[14px] text-ink">
-              Wait <b>{v.autoDelay} seconds</b> before showing
-              <input type="range" min={1} max={8} value={v.autoDelay} onChange={(e) => v.setAutoDelay(+e.target.value)} className="mt-1 w-full accent-[var(--color-primary)]" />
+              {v.autoDelay === 0 ? <><b>Straight away</b>, no countdown</> : <>Wait <b>{v.autoDelay} second{v.autoDelay === 1 ? "" : "s"}</b> before showing</>}
+              <input type="range" min={0} max={8} value={v.autoDelay} onChange={(e) => v.setAutoDelay(+e.target.value)} className="mt-1 w-full accent-[var(--color-primary)]" />
             </label>
           )}
           <label className="mt-3 block text-[14px] text-ink">

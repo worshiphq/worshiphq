@@ -1,4 +1,4 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode, useRef } from "react";
 import { AlertTriangle, BookOpen, Loader2, Mic, MicOff, MonitorPlay, Send, Trash2 } from "lucide-react";
 import { useVoiceStore, type VoiceMode } from "../stores/voice-store";
 import { useBibleStore } from "../stores/bible-store";
@@ -69,23 +69,7 @@ export function VoiceView({ onOpenBible }: { onOpenBible: () => void }) {
 
             {/* ─── What it heard ─── */}
             <Card title="What it heard">
-              <div className="h-56 overflow-y-auto rounded-lg bg-surface-4/60 p-3">
-                {listening && v.partial && <p className="mb-1.5 text-[15px] text-ink">{v.partialSure} <span className="text-ink-faint">{v.partial.slice(v.partialSure.length).trim()}…</span></p>}
-                {v.lines.length === 0 && !v.partial && (
-                  <p className="text-[14px] text-ink-faint">{listening ? "Waiting for someone to speak…" : "Start listening, or type a sentence below to try it."}</p>
-                )}
-                {v.lines.map((l) => (
-                  <p key={l.id} className={`mb-1.5 text-[14px] ${l.isReference ? "font-semibold text-primary-bright" : "text-ink"}`}>
-                    <span className="mr-2 font-mono text-[11px] text-ink-faint">{new Date(l.at).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })}</span>
-                    {l.text}
-                    {l.command && (
-                      <span className={`ml-2 inline-block rounded px-1.5 py-0.5 text-[12px] font-semibold ${l.commandOk ? "bg-success/15 text-success" : "bg-gold/15 text-gold"}`}>
-                        {l.commandOk ? "✓ " : ""}{l.command}
-                      </span>
-                    )}
-                  </p>
-                ))}
-              </div>
+              <FlowingText listening={listening} />
               <form
                 onSubmit={(e) => { e.preventDefault(); v.tryText(typed); setTyped(""); }}
                 className="mt-3 flex gap-2"
@@ -122,8 +106,8 @@ export function VoiceView({ onOpenBible }: { onOpenBible: () => void }) {
               </div>
               {v.mode === "auto" && (
                 <label className="mt-3 block text-[14px] text-ink">
-                  Wait <b>{v.autoDelay} seconds</b> before showing
-                  <input type="range" min={1} max={8} step={1} value={v.autoDelay} onChange={(e) => v.setAutoDelay(+e.target.value)} className="mt-1 w-full accent-[var(--color-primary)]" />
+                  {v.autoDelay === 0 ? <><b>Straight away</b>, no countdown</> : <>Wait <b>{v.autoDelay} second{v.autoDelay === 1 ? "" : "s"}</b> before showing</>}
+                  <input type="range" min={0} max={8} step={1} value={v.autoDelay} onChange={(e) => v.setAutoDelay(+e.target.value)} className="mt-1 w-full accent-[var(--color-primary)]" />
                 </label>
               )}
               <label className="mt-3 block text-[14px] text-ink">
@@ -187,5 +171,34 @@ function Card({ title, aside, children }: { title: string; aside?: ReactNode; ch
       </div>
       {children}
     </section>
+  );
+}
+
+/** Everything heard, as one flowing paragraph that grows as the words are said. Stays at the end unless you scroll up. */
+function FlowingText({ listening }: { listening: boolean }) {
+  const lines = useVoiceStore((s) => s.lines);
+  const partial = useVoiceStore((s) => s.partial);
+  const sure = useVoiceStore((s) => s.partialSure);
+  const box = useRef<HTMLDivElement>(null);
+  const atEnd = useRef(true);
+  useEffect(() => { const b = box.current; if (b && atEnd.current) b.scrollTop = b.scrollHeight; }, [lines, partial]);
+  return (
+    <div ref={box} onScroll={(e) => { const b = e.currentTarget; atEnd.current = b.scrollHeight - b.scrollTop - b.clientHeight < 40; }}
+      className="h-56 overflow-y-auto rounded-lg bg-surface-4/60 p-3 text-[16px] leading-relaxed text-ink">
+      {lines.length === 0 && !partial && (
+        <p className="text-[14px] text-ink-faint">{listening ? "Waiting for someone to speak…" : "Start listening, or type a sentence below to try it."}</p>
+      )}
+      {[...lines].reverse().map((l) => (
+        <span key={l.id} title={new Date(l.at).toLocaleTimeString()}>
+          <span className={l.isReference ? "font-semibold text-primary-bright" : ""}>{l.text}</span>
+          {l.command && (
+            <span className={`mx-1.5 inline-block rounded px-1.5 text-[12px] font-semibold ${l.commandOk ? "bg-success/15 text-success" : "bg-gold/15 text-gold"}`}>
+              {l.commandOk ? "✓ " : ""}{l.command}
+            </span>
+          )}{" "}
+        </span>
+      ))}
+      {listening && partial && <span>{sure} <span className="text-ink-faint">{partial.slice(sure.length).trim()}{partial === "…" ? "" : "…"}</span></span>}
+    </div>
   );
 }

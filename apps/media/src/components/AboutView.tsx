@@ -135,7 +135,7 @@ export function AboutView() {
           <ul className="mt-2 space-y-1.5 text-[13px] text-ink-muted">
             <li>Speech recognition: Whisper by OpenAI, running on this computer with whisper.cpp (MIT licence).</li>
             <li>Twi / Akan speech model: “gha-whisper-small-twi-v6” by teckedd (Apache Licence 2.0), trained on Google WAXAL, Common Voice and GhanaNLP community Twi speech; converted for this app by WorshipHQ.</li>
-            <li>WorshipHQ AI uses Claude by Anthropic, through the WorshipHQ server.</li>
+            <li>WorshipHQ AI runs on gpt-oss (OpenAI, Apache Licence 2.0) through Groq, or Claude by Anthropic, through the WorshipHQ server.</li>
             <li>Public-domain and openly licensed Bibles from eBible.org (Biblica Open versions under CC BY-SA 4.0). Other versions are provided under licences held by WorshipHQ or your church.</li>
             <li>Hymns in the song library are in the public domain.</li>
             <li>Free backgrounds are original work by WorshipHQ.</li>

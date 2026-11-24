@@ -13,8 +13,6 @@ const [base, chosen = "base"] = process.argv.slice(2);
 const pcm = fs.readFileSync(base + ".wav").subarray(44);
 const spoken = JSON.parse(fs.readFileSync(base + ".json", "utf8"));
 const dir = path.join(process.env.APPDATA, "com.worshiphq.media", "whisper");
-const rs = fs.readFileSync("src-tauri/src/whisper.rs", "utf8");
-const str = (n) => rs.match(new RegExp(`const ${n}: &str = "([^"]+)"`))[1];
 const FILES = { tiny: "ggml-tiny.en.bin", base: "ggml-base.en.bin", small: "ggml-small.en.bin", turbo: "ggml-large-v3-turbo-q5_0.bin" };
 const cores = Math.min(6, Math.max(2, Math.floor(os.cpus().length / 2)));
 const two = chosen !== "tiny";
@@ -22,7 +20,7 @@ const kids = [];
 async function serve(model, live) {
   const port = live ? 18380 : 18379;
   const t = live || !two ? cores : Math.max(2, cores - 1);
-  const p = spawn(path.join(dir, "whisper-server.exe"), ["-m", FILES[model], "-t", String(t), "-l", "en", "--host", "127.0.0.1", "--port", String(port), "-nt", "--prompt", live ? str("LIVE_PROMPT") : str("PROMPT"), "-ac", "512", "-bo", "1", "-nf"], { cwd: dir, stdio: "ignore", windowsHide: true });
+  const p = spawn(path.join(dir, "whisper-server.exe"), ["-m", FILES[model], "-t", String(t), "-l", "en", "--host", "127.0.0.1", "--port", String(port), "-nt", "-ac", "512", "-bo", "1", "-nf"], { cwd: dir, stdio: "ignore", windowsHide: true });
   if (!live) os.setPriority(p.pid, os.constants.priority.PRIORITY_BELOW_NORMAL);
   kids.push(p);
   for (let i = 0; i < 120; i++) { if (await fetch(`http://127.0.0.1:${port}/`).then(() => true, () => false)) return; await new Promise((r) => setTimeout(r, 250)); }

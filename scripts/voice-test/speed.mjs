@@ -5,7 +5,7 @@ import path from "node:path";
 import { spawn, execFileSync } from "node:child_process";
 const dir = path.join(process.env.APPDATA, "com.worshiphq.media", "whisper");
 const FILES = { tiny: "ggml-tiny.en.bin", base: "ggml-base.en.bin", small: "ggml-small.en.bin", turbo: "ggml-large-v3-turbo-q5_0.bin" };
-const PROMPT = fs.readFileSync("apps/media/src-tauri/src/whisper.rs", "utf8").match(/const PROMPT: &str = "([^"]+)"/)[1];
+const PROMPT = "Romans chapter 8 verse 28. Habakkuk, Philippians.";
 const PORT = 18279;
 const clip = (s) => execFileSync("ffmpeg", ["-v", "error", "-i", process.argv[2], "-ss", "2", "-t", String(s), "-ac", "1", "-ar", "16000", "-f", "wav", "-"], { maxBuffer: 1 << 28 });
 const clips = { 2: clip(2), 5: clip(5), 9: clip(9) };

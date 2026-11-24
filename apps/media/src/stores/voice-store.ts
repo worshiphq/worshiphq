@@ -15,8 +15,9 @@ import { plainText } from "../lib/rich-text";
 import { startWhisperListening, stopWhisperListening } from "../lib/whisper-listener";
 import { COMMAND_GROUP, describeCommand, parseVoiceCommand, type CommandGroup, type VoiceCommand } from "../lib/voice-commands";
 import { showPassage, stepPart, stepVerse, usePassageStore, setSecondVersion } from "../lib/show-passage";
-import { findPack } from "../lib/version-match";
+import { findPack, versionAsked } from "../lib/version-match";
 import { understand, type AiAction } from "../lib/ai";
+import { wordsToNumbers } from "../lib/spoken-ref";
 import { parseReference } from "../lib/scripture-ref";
 import { settledReference } from "../lib/live-words";
 import type { VoiceCommand as Cmd } from "../lib/voice-commands";
@@ -43,6 +44,8 @@ export interface Detection {
   /** A song line heard (instead of a Bible reference). */
   song?: { id: string; slide: number };
   ref: ScriptureRef;
+  /** The Bible version asked for with it ("the King James version of Mark 2:10"). */
+  packId?: string;
   label: string;
   said: string;
   confidence: number;
@@ -133,7 +136,7 @@ const MAX_LINES = 40;
  * Free check on this computer before asking the AI (which costs money per sentence): is it a request to the media
  * team, or does it sound like scripture? Ordinary preaching never leaves the computer.
  */
-const REQUEST = /\b(give me|can i have|could i have|do you have|let'?s|let us|read|turn|go to|go back|move on|show|put|switch|change|version|verse|verses|chapter|scripture|bible|king james|kjv|niv|nkjv|esv|amplified|message|living|good news|twi|asante|akuapem|next|previous|clear|black|screen|media|projector|kenkan|nkyekyɛmu|ti\b)/i;
+const REQUEST = /\b(give me|can i have|could i have|do you have|let'?s|let us|read|turn|go to|go back|move on|show|put|switch|change|version|verse|verses|chapter|scripture|bible|king james|kjv|niv|nkjv|esv|amplified|message|living|good news|twi|asante|akuapem|next|previous|before that|after that|not that|that'?s not|wrong one|other one|i said|i want|i asked|go on|continue|clear|black|screen|media|projector|kenkan|nkyekyɛmu|ti\b)/i;
 const SCRIPTURE = /\b(god|lord|jesus|christ|spirit|holy|faith|grace|love|sin|heaven|kingdom|father|prayer|pray|blessed|righteous|salvation|saved|believe|believeth|shepherd|cross|blood|word|written|says|saith|said|psalm|psalmist|apostle|paul|peter|david|moses|abraham|prophet|onyame|nyankopɔn|awurade|yesu|kristo|honhom|ɔsoro|nhyira|bɔne|gyidi|ɔdɔ)\b/i;
 function worthAsking(text: string): boolean {
   if (REQUEST.test(text)) return true;
@@ -239,21 +242,30 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     });
   }
 
-  function detect(ref: ScriptureRef, said: string, confidence: number, source?: "AI") {
-    const label = formatReference(ref) + (source ? " · AI" : "");
-    // Ignore the same reference heard again within 30 seconds.
+  function detect(ref: ScriptureRef, said: string, confidence: number, source?: "AI", pack?: { id: string; abbreviation: string } | null) {
+    const label = formatReference(ref) + (pack ? ` · ${pack.abbreviation}` : "") + (source ? " · AI" : "");
+    const now = usePassageStore.getState().passage;
+    const onScreen = !!now && now.book === ref.book && now.chapter === ref.chapter && now.start === (ref.verseStart ?? 1);
+    // Ignore the same reference heard again within 30 seconds, unless it was shown and the screen has moved on since.
     const recent = get().detections.find((d) => d.label === label && Date.now() - d.at < 30_000);
-    if (recent) return;
+    if (recent && !(recent.status === "shown" && !onScreen && Date.now() - recent.at > 6000)) return;
+    // Same verse, now with the version that was asked for.
+    const waiting = get().pending;
+    if (pack && waiting && !waiting.song && waiting.status === "waiting" && !waiting.packId && formatReference(waiting.ref) === formatReference(ref)) {
+      const full = { ...waiting, packId: pack.id, label, said };
+      set((s) => ({ pending: full, detections: s.detections.map((d) => (d.id === waiting.id ? full : d)) }));
+      return;
+    }
     // "Romans 8" … "verse 28": the same suggestion, now complete.
     const open = get().pending;
     if (open && !open.song && !source && open.status === "waiting" && open.ref.book === ref.book && open.ref.chapter === ref.chapter && !open.ref.verseStart && ref.verseStart && Date.now() - open.at < 15_000) {
-      const full = { ...open, ref, label, said };
+      const full = { ...open, ref, label, said, packId: pack?.id ?? open.packId };
       set((s) => ({ pending: full, detections: s.detections.map((d) => (d.id === open.id ? full : d)) }));
       return;
     }
     const mode = get().mode;
     const det: Detection = {
-      id: crypto.randomUUID(), ref, label, said, confidence, at: Date.now(),
+      id: crypto.randomUUID(), ref, packId: pack?.id, label, said, confidence, at: Date.now(),
       status: mode === "list" ? "listed" : "waiting",
     };
     set((s) => ({ detections: [det, ...s.detections].slice(0, 60), pending: mode === "list" ? s.pending : det }));
@@ -263,6 +275,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
    * While a sentence is still being said: verses named, songs being sung and verses being read out, from the words
    * it is sure of. (The AI waits for the whole sentence: it costs money.)
    */
+  const askedPack = (text: string) => { const q = versionAsked(text); return q ? findPack(q, useBibleStore.getState().packs) : null; };
   let lastQuote: { label: string; words: number } | null = null;
   let quoteBusy = false;
   function followLive(sure: string) {
@@ -270,7 +283,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     const ws = sure.split(/\s+/).filter(Boolean);
     if (ws.length < 3) { lastQuote = null; return; }
     const named = settledReference(sure);
-    if (named) { detect(named.ref, sure, 0.9); return; }
+    if (named) { detect(named.ref, sure, 0.9, undefined, askedPack(sure)); return; }
     if (st.matchSongs && ws.length >= 5) {
       const tail = ws.slice(-9).join(" ");
       const hit = findSongLine(tail);
@@ -321,12 +334,17 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
       versions: bible.packs.map((p) => ({ id: p.id, abbreviation: p.abbreviation, name: p.name, language: p.language })),
     }).catch(() => null);
     if (actions === null) return false;
-    for (const a of actions) await runAi(a, said, confidence);
+    // "The King James version of Mark 2:10": one thing to show, not a version change and then a verse.
+    const wanted = actions.find((a) => a.type === "version");
+    const pack = wanted?.type === "version" && actions.some((a) => a.type === "verse") ? bible.packs.find((p) => p.id === wanted.id) ?? null : null;
+    for (const a of actions) if (!(pack && a === wanted)) await runAi(a, said, confidence, pack);
     return true;
   }
 
-  async function runAi(a: AiAction, said: string, confidence: number) {
+  async function runAi(a: AiAction, said: string, confidence: number, pack: { id: string; abbreviation: string } | null = null) {
     const groups = get().commandGroups;
+    // The AI may only jump to a verse or chapter when a number was said in this very sentence.
+    if ((a.type === "go_verse" || a.type === "go_chapter") && !/\d/.test(wordsToNumbers(said))) return;
     const run = async (c: Cmd, group: keyof typeof groups) => {
       if (!groups[group]) return;
       const r = await get().runCommand(c);
@@ -342,7 +360,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
           const ok = await verseMatches(ref, `${recent.slice(-1)[0] ?? ""} ${said}`);
           if (!ok) return;
         }
-        detect(ref, said, Math.max(confidence, a.confidence ?? 0.7), "AI");
+        detect(ref, said, Math.max(confidence, a.confidence ?? 0.7), "AI", pack);
         noteLast(`AI: ${formatReference(ref)}${a.how === "paraphrased" ? " (said in other words)" : ""}`, true);
         return;
       }
@@ -643,7 +661,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
           // Free speech: only trust a reference it clearly heard.
           if (!ref && confidence >= 0.3) ref = referenceInSpeech(text);
           addLine(text, !!ref, lineId, refine);
-          if (ref && confidence >= get().minConfidence * (msg.kind === "reference" ? 1 : 0.7)) detect(ref, text, confidence);
+          if (ref && confidence >= get().minConfidence * (msg.kind === "reference" ? 1 : 0.7)) detect(ref, text, confidence, undefined, askedPack(text));
           // A better reading is on its way: the AI and the search wait for it.
           else if (msg.draft) break;
           else if (!ref && get().aiOn && !msg.early && text.split(/\s+/).length >= 3 && worthAsking(text)) {
@@ -680,6 +698,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
       }
       const bible = useBibleStore.getState();
       if (!bible.packs.length) await bible.loadPacks();
+      if (det.packId && det.packId !== useBibleStore.getState().activePack) bible.setActivePack(det.packId);
       const { activePack, packs } = useBibleStore.getState();
       const pack = packs.find((p) => p.id === activePack);
 

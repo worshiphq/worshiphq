@@ -21,7 +21,7 @@ const RATE = 16000, SILENCE = 450, MAX = 10000, MIN = 350, FRAME = 1024; // the 
 
 // The prompt and flags come from the app's own source, so the test can't drift from it.
 const rs = fs.readFileSync("apps/media/src-tauri/src/whisper.rs", "utf8");
-const PROMPT = rs.match(/const PROMPT: &str = "([^"]+)"/)[1];
+const PROMPT = opt("hint", ""); // the app gives none: a hint made it invent Bible books in Twi
 const FAST = [...rs.match(/const FAST[^=]*= \[([^\]]+)\]/)[1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
 
 const pcm = execFileSync("ffmpeg", ["-v", "error", "-i", input, "-t", String(Number(opt("minutes", 10)) * 60), "-ac", "1", "-ar", String(RATE), "-f", "f32le", "-"], { maxBuffer: 1 << 30 });
@@ -90,9 +90,11 @@ function live(times) {
 }
 
 const rows = [];
-async function each(name, f) {
+// "gap": the free tiers allow about 20 requests a minute (the wait is not counted in the delay).
+async function each(name, f, gap = 0) {
   const texts = [], times = [];
   for (let i = 0; i < chunks.length; i++) {
+    if (gap && i) await new Promise((r) => setTimeout(r, gap));
     const t = performance.now();
     texts.push((await f(wav(chunks[i].samples))).replace(/\s+/g, " ").trim());
     times.push((performance.now() - t) / 1000);
@@ -110,7 +112,7 @@ const PORT = 18279; // not the app's own port
 for (const m of models) {
   if (!FILES[m] || !fs.existsSync(path.join(dir, FILES[m]))) { console.log(`${m}: not downloaded, skipped`); continue; }
   const threads = String(Math.min(6, Math.max(2, os.cpus().length)));
-  const p = spawn(path.join(dir, "whisper-server.exe"), ["-m", FILES[m], "-t", threads, "-l", "en", "--host", "127.0.0.1", "--port", String(PORT), "-nt", ...(m === "twi" ? [] : ["--prompt", PROMPT]), ...FAST], { cwd: dir, stdio: "ignore", windowsHide: true });
+  const p = spawn(path.join(dir, "whisper-server.exe"), ["-m", FILES[m], "-t", threads, "-l", "en", "--host", "127.0.0.1", "--port", String(PORT), "-nt", ...(m === "twi" || !PROMPT ? [] : ["--prompt", PROMPT]), ...FAST], { cwd: dir, stdio: "ignore", windowsHide: true });
   try {
     let up = false;
     for (let i = 0; i < 120 && !up; i++) { await new Promise((r) => setTimeout(r, 500)); up = await fetch(`http://127.0.0.1:${PORT}/`).then(() => true, () => false); }
@@ -123,14 +125,15 @@ for (const m of models) {
 }
 
 const ONLINE = {
-  groq: ["GROQ_API_KEY", (k) => async (w) => (await ok(await fetch("https://api.groq.com/openai/v1/audio/transcriptions", { method: "POST", headers: { Authorization: `Bearer ${k}` }, body: form(w, { model: "whisper-large-v3-turbo", temperature: "0", prompt: PROMPT }) }), "Groq")).text],
+  groq: ["GROQ_API_KEY", (k) => async (w) => (await ok(await fetch("https://api.groq.com/openai/v1/audio/transcriptions", { method: "POST", headers: { Authorization: `Bearer ${k}` }, body: form(w, { model: "whisper-large-v3-turbo", temperature: "0", language: "en", ...(PROMPT ? { prompt: PROMPT } : {}) }) }), "Groq")).text],
+  groqlarge: ["GROQ_API_KEY", (k) => async (w) => (await ok(await fetch("https://api.groq.com/openai/v1/audio/transcriptions", { method: "POST", headers: { Authorization: `Bearer ${k}` }, body: form(w, { model: "whisper-large-v3", temperature: "0", language: "en" }) }), "Groq")).text],
   openai: ["OPENAI_API_KEY", (k) => async (w) => (await ok(await fetch("https://api.openai.com/v1/audio/transcriptions", { method: "POST", headers: { Authorization: `Bearer ${k}` }, body: form(w, { model: "gpt-4o-mini-transcribe" }) }), "OpenAI")).text],
   deepgram: ["DEEPGRAM_API_KEY", (k) => async (w) => (await ok(await fetch("https://api.deepgram.com/v1/listen?model=nova-3&smart_format=true", { method: "POST", headers: { Authorization: `Token ${k}`, "Content-Type": "audio/wav" }, body: w }), "Deepgram")).results.channels[0].alternatives[0].transcript],
 };
 for (const o of online) {
   const [env, make] = ONLINE[o] ?? [];
   if (!make || !process.env[env]) { console.log(`${o}: skipped (${env ?? "unknown service"} is not set)`); continue; }
-  try { await each(`Online ${o}`, make(process.env[env])); } catch (e) { console.log(`${o}: failed, ${e.message}`); }
+  try { await each(`Online ${o}`, make(process.env[env]), o.startsWith("groq") ? 3200 : 0); } catch (e) { console.log(`${o}: failed, ${e.message}`); }
 }
 
 const billed = chunks.reduce((n, c) => n + Math.max(10, c.samples.length / RATE), 0);

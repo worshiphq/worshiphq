@@ -40,20 +40,12 @@ fn model_url(id: &str) -> String {
     }
 }
 
-/// The English Bible-words hint only helps the English models.
-fn prompt_args(id: &str) -> Vec<&'static str> {
-    if id == "twi" { vec![] } else { vec!["--prompt", PROMPT] }
-}
-
 fn model(id: &str) -> (&'static str, &'static str, u64) {
     MODELS.iter().copied().find(|m| m.0 == id).unwrap_or(MODELS[0])
 }
 
-/// Words Whisper should expect, so Bible books are spelled right.
-const PROMPT: &str = "Turn with me to John chapter 3 verse 16. Next verse. Verse 2. Genesis, Exodus, Psalm, Proverbs, Isaiah, Matthew, Mark, Luke, John, Acts, Romans, 1 Corinthians, 2 Corinthians, Galatians, Ephesians, Philippians, Colossians, Hebrews, James, 1 Peter, 1 John, Revelation. Amplified, NIV, King James, Twi.";
-
-/// A shorter hint for the live model (every word of it costs time on every reading).
-const LIVE_PROMPT: &str = "Romans chapter 8 verse 28. 1 Corinthians 13 verse 4. Psalm 23. Habakkuk, Philippians, Colossians, Ephesians, Hebrews. Next verse.";
+// No prompt on purpose. A list of Bible books as a hint made Whisper invent books ("Ephesians", "Isaiah", "Obadiah")
+// whenever it heard Twi: measured on a real Sunday service with scripts/voice-test, November 2026.
 
 #[derive(Serialize)]
 pub struct WhisperStatus {
@@ -216,7 +208,6 @@ pub fn start_server(app_data: &Path, model_id: &str, live: bool) -> Result<(), S
         let mut cmd = Command::new(&exe);
         cmd.current_dir(dir(app_data))
             .args(["-m", file, "-t", &t, "-l", "en", "--host", "127.0.0.1", "--port", &port, "-nt"])
-            .args(if live && model_id != "twi" { vec!["--prompt", LIVE_PROMPT] } else { prompt_args(model_id) })
             // Speed: look at up to ~10 s of audio (not 30), greedy decoding, no slow retries.
             .args(FAST);
         #[cfg(target_os = "windows")]
@@ -268,7 +259,6 @@ fn post_to_server(wav: &[u8], live: bool) -> Result<String, String> {
     let port = port(live);
     let boundary = format!("whq{}", uuid::Uuid::new_v4().simple());
     let mut body = Vec::with_capacity(wav.len() + 512);
-    // Don't lower audio_ctx for short clips: with a prompt, the model then rambles for 4 s on about 1 clip in 6.
     for (name, value) in [("response_format", "json"), ("temperature", "0.0")] {
         body.extend_from_slice(format!("--{boundary}\r\nContent-Disposition: form-data; name=\"{name}\"\r\n\r\n{value}\r\n").as_bytes());
     }
@@ -326,7 +316,6 @@ pub fn transcribe(app_data: &Path, model_id: &str, wav: &[u8], live: bool) -> Re
             .args(["-m", file, "-f"])
             .arg(&tmp)
             .args(["-nt", "-np", "-l", "en", "-t", &t])
-            .args(prompt_args(&id))
             .args(FAST),
     )
     .output();
