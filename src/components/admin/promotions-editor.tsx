@@ -89,10 +89,42 @@ export function PromotionsEditor({ initial }: { initial: Promotions }) {
           <Dates w={p.stepUp} set={(stepUp) => setP({ ...p, stepUp })} />
         </Card>
 
-        <Card title="WorshipHQ Live free for paying churches" w={p.mediaFree}>
-          <p className="mb-3 text-sm text-white/50">Churches on Starter, Pro or Max can use WorshipHQ Live free until the last day (it counts as their free trial). Free churches get the normal 14-day trial when they sign up.</p>
-          <Dates w={p.mediaFree} set={(mediaFree) => setP({ ...p, mediaFree })} />
+        <Card title="WorshipHQ Live free for a while" w={p.mediaFree}>
+          <p className="mb-3 text-sm text-white/50">
+            Churches use WorshipHQ Live free until the last day (it counts as their free trial). They still sign up in the app;
+            nothing to pay until it ends.
+          </p>
+          <label className="mb-3 flex items-center gap-2 text-sm text-white">
+            <input type="checkbox" checked={p.mediaFree.everyone} onChange={(e) => setP({ ...p, mediaFree: { ...p.mediaFree, everyone: e.target.checked } })} className="size-4 accent-teal-400" />
+            Every church (untick: only churches paying for Starter, Pro or Max)
+          </label>
+          <Dates w={p.mediaFree} set={(w) => setP({ ...p, mediaFree: { ...p.mediaFree, ...w } })} />
         </Card>
+
+        <div className="rounded-xl border border-white/10 bg-white/[0.02] p-4">
+          <h3 className="mb-1 font-semibold text-white">WorshipHQ Live prices (cedis)</h3>
+          <p className="mb-3 text-sm text-white/50">
+            What a church pays for WorshipHQ Live, by its WorshipHQ plan. &ldquo;Free plan or none&rdquo; is also for churches that only use
+            WorshipHQ Live. A running percentage discount below comes off these prices.
+          </p>
+          <table className="w-full max-w-xl text-sm">
+            <thead className="text-left text-white/50"><tr><th className="py-1.5 pr-3">WorshipHQ plan</th><th className="py-1.5 pr-3">Per month (GHS)</th><th className="py-1.5">Per year (GHS)</th></tr></thead>
+            <tbody>
+              {(["free", "starter", "pro", "max"] as const).map((k) => (
+                <tr key={k} className="border-t border-white/5">
+                  <td className="py-1.5 pr-3 text-white">{k === "free" ? "Free plan or none" : k[0].toUpperCase() + k.slice(1)}</td>
+                  {(["monthly", "yearly"] as const).map((iv) => (
+                    <td key={iv} className="py-1.5 pr-3">
+                      <input type="number" min={0} step="0.01" value={p.livePrices[k][iv]}
+                        onChange={(e) => setP({ ...p, livePrices: { ...p.livePrices, [k]: { ...p.livePrices[k], [iv]: Number(e.target.value) } } })}
+                        className={`${input} w-32`} />
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
         <Card title="WorshipHQ Live discount by plan" w={p.mediaDiscount}>
           <p className="mb-3 text-sm text-white/50">Percent off the WorshipHQ Live price, by the plan the church pays for. Free churches pay the full price.</p>

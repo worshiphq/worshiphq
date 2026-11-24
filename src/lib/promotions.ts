@@ -5,7 +5,8 @@ import { PLAN_IDS, planRank, type PlanId } from "@/lib/plan-gate";
  *
  * - stepUp: every church uses the next plan up (Free → Starter, Starter → Pro, Pro → Max). Billing is unchanged:
  *   churches keep paying for their own plan.
- * - mediaFree: churches on a paid plan can use WorshipHQ Live free (as a trial) until the end date.
+ * - mediaFree: churches on a paid plan (or every church, with `everyone`) use WorshipHQ Live free until the end date.
+ * - livePrices: what WorshipHQ Live costs in cedis, by the church's WorshipHQ plan ("free" = Free plan or none).
  * - mediaDiscount: a percentage off WorshipHQ Live, by the church's plan.
  *
  * Dates are whole days, from the start of `start` to the end of `end` (Ghana time = UTC). No end = until switched off.
@@ -15,15 +16,30 @@ export interface Promotions {
   /** WorshipHQ Live is closed to churches until this is switched on; testers (by email) can use it before. */
   launch: { on: boolean; testers: string[] };
   stepUp: Window;
-  mediaFree: Window;
+  mediaFree: Window & { everyone: boolean };
   mediaDiscount: Window & { starter: number; pro: number; max: number };
+  livePrices: LivePrices;
 }
+
+/** Cedis per month and per year, by WorshipHQ plan. */
+export type LivePrices = Record<PlanId, { monthly: number; yearly: number }>;
 
 export const DEFAULT_PROMOTIONS: Promotions = {
   launch: { on: false, testers: [] },
   stepUp: { on: false, start: "2026-12-01", end: "2026-12-31" },
-  mediaFree: { on: false, start: "2026-12-01", end: "2026-12-31" },
+  mediaFree: { on: false, start: "2026-12-01", end: "2026-12-31", everyone: true },
   mediaDiscount: { on: false, start: "2027-01-01", end: null, starter: 5, pro: 10, max: 15 },
+  livePrices: {
+    free: { monthly: 40, yearly: 400 },
+    starter: { monthly: 30, yearly: 300 },
+    pro: { monthly: 20, yearly: 200 },
+    max: { monthly: 10, yearly: 100 },
+  },
+};
+
+const ghs = (n: unknown, fallback: number) => {
+  const v = Number(n);
+  return Number.isFinite(v) && v >= 0 ? Math.round(v * 100) / 100 : fallback;
 };
 
 const day = (s: unknown, fallback: string | null) => (typeof s === "string" && /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : fallback);
@@ -46,7 +62,11 @@ export function normalizePromotions(raw: unknown): Promotions {
         : [],
     },
     stepUp: win(r.stepUp, d.stepUp),
-    mediaFree: win(r.mediaFree, d.mediaFree),
+    mediaFree: { ...win(r.mediaFree, d.mediaFree), everyone: r.mediaFree ? r.mediaFree.everyone === true : d.mediaFree.everyone },
+    livePrices: Object.fromEntries(PLAN_IDS.map((id) => {
+      const lp = (r.livePrices as Record<string, Record<string, unknown>> | undefined)?.[id];
+      return [id, { monthly: ghs(lp?.monthly, d.livePrices[id].monthly), yearly: ghs(lp?.yearly, d.livePrices[id].yearly) }];
+    })) as LivePrices,
     mediaDiscount: {
       ...win(r.mediaDiscount, d.mediaDiscount),
       starter: pct(r.mediaDiscount?.starter, d.mediaDiscount.starter),

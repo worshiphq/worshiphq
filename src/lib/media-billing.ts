@@ -1,12 +1,12 @@
 import "server-only";
 import { db } from "@/lib/db";
-import { mediaPrice } from "@/config/pricing";
 import { recordPlanPayment, periodEndFor } from "@/lib/billing/payments";
 import { openSealedMetadata, type PaystackTxn } from "@/lib/billing/checkout-seal";
 
 /**
  * Buying WorshipHQ Live on its own (any church, including one that uses nothing else from WorshipHQ).
- * Charged in cedis through Paystack at the live dollar rate; a church on Max pays half.
+ * Charged in cedis through Paystack. The price depends on the church's WorshipHQ plan (SuperAdmin › Pricing ›
+ * Promotions › WorshipHQ Live prices), less any running percentage-off promotion.
  */
 
 export type MediaInterval = "monthly" | "yearly";
@@ -17,12 +17,14 @@ export async function mediaQuote(churchId: string, interval: MediaInterval) {
   const { paidPlan } = await import("@/lib/plan-gate");
   const { mediaDiscountPercent } = await import("@/lib/promotions");
   const cfg = await getPlatformConfig();
-  // The discount follows the plan the church PAYS for (not a December step-up).
+  // The price follows the plan the church PAYS for (not a December step-up).
   const plan = paidPlan(sub);
   const percentOff = mediaDiscountPercent(plan, cfg.promotions);
-  const usd = mediaPrice(interval, percentOff);
+  const list = cfg.promotions.livePrices[plan][interval];
+  const ghs = Math.round(list * (1 - percentOff / 100) * 100) / 100;
   const rate = cfg.usdToGhsRate || 0;
-  return { usd, ghs: Math.round(usd * rate), rate, percentOff, plan };
+  const usd = rate ? Math.round((ghs / rate) * 100) / 100 : 0;
+  return { usd, ghs, rate, percentOff, plan };
 }
 
 export type MediaActivateResult = { ok: true; until: string; alreadyProcessed?: boolean } | { ok: false; error: string };

@@ -166,7 +166,7 @@ export function SignUpForm({ onDone, onSignIn }: { onDone?: () => void; onSignIn
         {busy && <Loader2 className="size-4 whq-spin" />} Email me a code
       </button>
       <p className="text-center text-[13px] text-ink-muted">
-        14 days free, then {`$19`} a month or {`$190`} a year. Already have an account?{" "}
+        14 days free, then a small monthly or yearly price. Already have an account?{" "}
         <button type="button" onClick={onSignIn} className="font-semibold text-primary-bright hover:underline">Sign in</button>
       </p>
     </form>
@@ -205,7 +205,9 @@ export function BuyMedia() {
   const [busy, setBusy] = useState<string | null>(null);
   const [msg, setMsg] = useState<{ ok: boolean; text: string } | null>(null);
   useEffect(() => { mediaPrices().then(setPrices).catch(() => {}); }, []);
-  const price = (q: Quote | undefined, fallback: string) => (q ? `$${q.usd} (GHS ${q.ghs.toLocaleString()})` : fallback);
+  const price = (q: Quote | undefined) => (q ? `GHS ${q.ghs.toLocaleString()}` : "");
+  // What paying yearly saves, against twelve months.
+  const saves = prices ? Math.round(prices.monthly.ghs * 12 - prices.yearly.ghs) : 0;
 
   async function buy(interval: "monthly" | "yearly") {
     setBusy(interval); setMsg(null);
@@ -224,11 +226,11 @@ export function BuyMedia() {
       <div className="flex flex-wrap gap-2">
         <button onClick={() => buy("monthly")} disabled={!!busy}
           className="flex h-10 items-center gap-2 rounded-lg border border-primary px-4 text-[14px] font-bold text-primary-bright hover:bg-primary-soft disabled:opacity-60">
-          {busy === "monthly" ? <Loader2 className="size-4 whq-spin" /> : <CreditCard className="size-4" />} Monthly · {price(prices?.monthly, "$19")}
+          {busy === "monthly" ? <Loader2 className="size-4 whq-spin" /> : <CreditCard className="size-4" />} Monthly{prices && <> · {price(prices.monthly)}</>}
         </button>
         <button onClick={() => buy("yearly")} disabled={!!busy}
           className="flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-[14px] font-bold text-white hover:bg-primary-bright disabled:opacity-60">
-          {busy === "yearly" ? <Loader2 className="size-4 whq-spin" /> : <CreditCard className="size-4" />} Yearly · {price(prices?.yearly, "$190")} <span className="font-medium opacity-80">2 months free</span>
+          {busy === "yearly" ? <Loader2 className="size-4 whq-spin" /> : <CreditCard className="size-4" />} Yearly{prices && <> · {price(prices.yearly)}</>} {saves > 0 && <span className="font-medium opacity-80">save GHS {saves.toLocaleString()}</span>}
         </button>
       </div>
       {msg && <p className={`text-[13px] ${msg.ok ? "text-ink-muted" : "text-danger"}`}>{msg.text}</p>}

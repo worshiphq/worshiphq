@@ -60,7 +60,7 @@ export async function getMediaEntitlement(churchId: string): Promise<MediaEntitl
   const { windowLive, windowEnd } = await import("@/lib/promotions");
   const promo = (await getPlatformConfig()).promotions.mediaFree;
   const promoEnd = windowEnd(promo);
-  if (sub && windowLive(promo) && paidPlan(sub) !== "free" && promoEnd && (!until || until < promoEnd)) {
+  if (sub && windowLive(promo) && (promo.everyone || paidPlan(sub) !== "free") && promoEnd && (!until || until < promoEnd)) {
     return { active: true, until: promoEnd.toISOString(), isTrial: true, plan: sub.plan, seats: sub.mediaSeats ?? media.computers };
   }
   return {
