@@ -35,7 +35,7 @@ const GROUPS: { title: string; items: { href: string; label: string; icon: React
       { href: "/admin/backups", label: "Backups", icon: DatabaseBackup },
       { href: "/admin/bibles", label: "Bibles (Live)", icon: BookOpen },
       { href: "/admin/stock", label: "Backgrounds (Live)", icon: ImageIcon },
-      { href: "/admin/media-trials", label: "Free trials (Live)", icon: MonitorCheck },
+      { href: "/admin/media-trials", label: "WorshipHQ Live", icon: MonitorCheck },
       { href: "/admin/access", label: "Access log", icon: KeyRound },
       { href: "/admin/team", label: "Admin team", icon: UserCog },
     ],

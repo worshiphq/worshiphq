@@ -42,7 +42,8 @@ export function accountActive(a: Account | null): boolean {
 /** Days left in the church's free trial (null when not on a trial). */
 export function trialDaysLeft(a: Account | null): number | null {
   if (!a?.media.isTrial || !a.media.until || !accountActive(a)) return null;
-  return Math.max(0, Math.ceil((new Date(a.media.until).getTime() - Date.now()) / DAY));
+  // Allow an hour of slack so a fresh 14-day trial reads "14 days", not 15.
+  return Math.max(0, Math.ceil((new Date(a.media.until).getTime() - Date.now() - 3_600_000) / DAY));
 }
 
 interface AccountState {

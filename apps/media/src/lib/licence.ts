@@ -44,7 +44,7 @@ export async function refreshLicence(): Promise<LicenceStatus> {
     const { invoke } = await import("@tauri-apps/api/core");
     hwid = await invoke<string>("get_hwid").catch(() => "unknown");
   }
-  const days = st.until ? Math.max(0, Math.ceil((new Date(st.until).getTime() - Date.now()) / 86_400_000)) : 0;
+  const days = st.until ? Math.max(0, Math.ceil((new Date(st.until).getTime() - Date.now() - 3_600_000) / 86_400_000)) : 0;
   useProjectionStore.getState().setLicense({ isLicensed: st.valid, isTrial: st.trial, trialDaysRemaining: days, hwid });
   return st;
 }

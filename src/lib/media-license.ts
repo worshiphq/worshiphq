@@ -31,7 +31,7 @@ export async function verifyMediaToken(authHeader: string | null): Promise<Media
   if (!user || user.church.suspended) return null;
   if (user.sessionVersion !== (typeof data.sv === "number" ? data.sv : -1)) return null;
   // Before launch (SuperAdmin › Pricing › WorshipHQ Live launch), only testers get anything from the server.
-  if (!(await liveOpenTo(user.email))) return null;
+  if (!(await liveOpenTo(user.email, data.cid))) return null;
   return { uid: data.uid, cid: data.cid, did: data.did };
 }
 
@@ -146,7 +146,7 @@ export async function finishMediaSignIn(opts: {
   rawDevice: string; deviceName: string; replaceId?: string;
 }): Promise<{ status: number; body: Record<string, unknown> }> {
   const { user, rawDevice, deviceName, replaceId } = opts;
-  if (!(await liveOpenTo(user.email))) return { status: 403, body: NOT_YET };
+  if (!(await liveOpenTo(user.email, user.churchId))) return { status: 403, body: NOT_YET };
   const deviceId = hashDeviceId(rawDevice);
   const trial = await startMediaTrialIfNew(user.churchId, deviceId);
   const ent = await getMediaEntitlement(user.churchId);
@@ -199,9 +199,15 @@ export async function signMediaLicence(opts: { churchId: string; churchName: str
 /** What the app shows before WorshipHQ Live is launched. */
 export const NOT_YET = { error: "WorshipHQ Live isn't open yet. It launches soon; watch worshiphq.app for the date.", code: "not_launched" };
 
-/** Is WorshipHQ Live open to this person (launched, or they are a tester)? */
-export async function liveOpenTo(email: string | null | undefined): Promise<boolean> {
+/**
+ * Is WorshipHQ Live open to this person: launched, they are a tester, or their church was given WorshipHQ Live
+ * (SuperAdmin › WorshipHQ Live › Gift) and the gift is still running?
+ */
+export async function liveOpenTo(email: string | null | undefined, churchId?: string): Promise<boolean> {
   const { getPlatformConfig } = await import("@/lib/data/platform-config");
   const { liveOpenFor } = await import("@/lib/promotions");
-  return liveOpenFor((await getPlatformConfig()).promotions, email);
+  if (liveOpenFor((await getPlatformConfig()).promotions, email)) return true;
+  if (!churchId) return false;
+  const sub = await db.subscription.findUnique({ where: { churchId }, select: { mediaInterval: true, mediaUntil: true } });
+  return sub?.mediaInterval === "granted" && !!sub.mediaUntil && sub.mediaUntil > new Date();
 }
