@@ -122,6 +122,31 @@ export const plans: Plan[] = [
   },
 ];
 
+/**
+ * WorshipHQ Live: the presentation app (songs, Bible, pictures & videos, voice assistant).
+ * Sold as its own subscription on top of any plan (or on its own). Discounts by plan come from SuperAdmin promotions.
+ */
+export const media = {
+  name: "WorshipHQ Live",
+  monthly: 19,
+  yearly: 190,
+  computers: 2,
+  trialDays: 14,
+  features: [
+    "Songs, Bible verses, pictures and videos on your church screen",
+    "Voice assistant: hears the preacher say a verse and puts it up",
+    "Service plan, live control and a church logo screen",
+    "Works offline during the service",
+    "Use it on 2 computers",
+  ],
+};
+
+/** The Media price in dollars, after any percentage off (from a running promotion). */
+export function mediaPrice(interval: "monthly" | "yearly", percentOff = 0): number {
+  const full = interval === "yearly" ? media.yearly : media.monthly;
+  return Math.round(full * (1 - Math.min(100, Math.max(0, percentOff)) / 100) * 100) / 100;
+}
+
 /** Full feature-comparison matrix shown below the cards.
  *  Columns: Free, Starter, Pro, Max - kept in sync with the plan-gate ladder. */
 export const comparison: { group: string; rows: { label: string; values: (boolean | string)[] }[] }[] = [

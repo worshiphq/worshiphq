@@ -23,12 +23,12 @@ export function BackupView() {
       <div className="mx-auto grid max-w-3xl gap-3">
         <section className="rounded-xl border border-line bg-surface-2 p-4 shadow-sm">
           <h3 className="mb-1 flex items-center gap-2 text-[16px] font-semibold text-ink"><Cloud className="size-5 text-primary-bright" /> WorshipHQ cloud backup</h3>
-          <p className="mb-3 text-[13px] text-ink-muted">Songs, schedules, templates, looks, profiles and settings are kept safe with WorshipHQ. If this computer breaks, install WorshipHQ Media on another one and type the backup code below.</p>
+          <p className="mb-3 text-[13px] text-ink-muted">Songs, schedules, templates, looks, profiles and settings are kept safe with WorshipHQ. If this computer breaks, install WorshipHQ Live on another one and type the backup code below.</p>
           <div className="mb-3 flex flex-wrap items-center gap-3 rounded-lg bg-primary-soft/60 px-3 py-2.5">
             <span className="text-[13px] text-ink-muted">This church's backup code</span>
             <code className="select-all font-mono text-[18px] font-bold tracking-wider text-ink">{mine}</code>
             <button onClick={() => navigator.clipboard.writeText(mine)} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[12px] font-semibold text-primary-bright hover:bg-primary-soft"><Copy className="size-3.5" /> Copy</button>
-            <span className="w-full text-[12px] text-ink-faint">Write it down somewhere safe (with your church records). Anyone with this code and a WorshipHQ Media licence can restore your songs.</span>
+            <span className="w-full text-[12px] text-ink-faint">Write it down somewhere safe (with your church records). Anyone with this code and a WorshipHQ Live licence can restore your songs.</span>
           </div>
           <div className="flex flex-wrap items-center gap-3">
             <button onClick={() => run("up", async () => setLast(await cloudBackup()), "Backed up to WorshipHQ.")} disabled={!!busy}

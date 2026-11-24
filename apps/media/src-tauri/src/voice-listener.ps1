@@ -1,4 +1,4 @@
-# WorshipHQ Media voice listener.
+# WorshipHQ Live voice listener.
 # Listens on the default microphone with the speech recognizer built into Windows and
 # prints one JSON message per line:
 #   {"type":"ready"}                       listening started

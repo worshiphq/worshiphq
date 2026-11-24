@@ -33,7 +33,8 @@ export async function onlyWithFeature<T extends { id: string }>(churches: T[], f
   const wanted = new Set(ids);
   const subs = allSubs.filter((s) => wanted.has(s.churchId));
 
-  const planOf = new Map(subs.map((s) => [s.churchId, effectivePlan(s)]));
+  const { withStepUp } = await import("@/lib/promotions");
+  const planOf = new Map(subs.map((s) => [s.churchId, withStepUp(effectivePlan(s), config.promotions)]));
   // Churches on a trial that holds this feature back do not get it from the trial.
   const heldBack = new Set(
     subs.filter((s) => {

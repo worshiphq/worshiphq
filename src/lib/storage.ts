@@ -191,3 +191,17 @@ export async function storeDocument(buf: Buffer, contentType: string, folder: st
     return null;
   }
 }
+
+/* ── Signed links (big files go straight between R2 and the app, not through our servers) ── */
+
+/** A link that downloads one private object for a short time. */
+export async function signedGetUrl(key: string, seconds = 3600): Promise<string> {
+  const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
+  return getSignedUrl(getR2Client(), new GetObjectCommand({ Bucket: env.R2_BUCKET, Key: key }), { expiresIn: seconds });
+}
+
+/** A link the SuperAdmin's browser uploads one file to (needs CORS on the bucket for PUT). */
+export async function signedPutUrl(key: string, contentType: string, seconds = 3600): Promise<string> {
+  const { getSignedUrl } = await import("@aws-sdk/s3-request-presigner");
+  return getSignedUrl(getR2Client(), new PutObjectCommand({ Bucket: env.R2_BUCKET, Key: key, ContentType: contentType }), { expiresIn: seconds });
+}

@@ -1,6 +1,6 @@
 {
   "name": "worshiphq-media",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -12,7 +12,9 @@
   "dependencies": {
     "@tauri-apps/api": "^2",
     "@tauri-apps/plugin-dialog": "^2.7.1",
+    "@tauri-apps/plugin-process": "^2.4.0",
     "@tauri-apps/plugin-shell": "^2",
+    "@tauri-apps/plugin-updater": "^2.14.1",
     "lucide-react": "^1.17.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",

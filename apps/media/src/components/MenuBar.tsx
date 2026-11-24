@@ -21,7 +21,7 @@ export type MenuAction =
   | "bible" | "bible:versions" | "media" | "media:add" | "media:presentation" | "media:free" | "media:design"
   | "voice" | "live" | "live:projector" | "live:black" | "live:clear" | "live:logo" | "live:send" | "live:tools" | "live:obs"
   | "view:preview" | "settings" | "settings:looks" | "settings:screens" | "settings:audio" | "settings:shortcuts" | "settings:about" | "settings:backup"
-  | "help:website" | "exit";
+  | "help:website" | "help:updates" | "help:account" | "exit";
 
 /**
  * The menu bar, laid out like EasyWorship's (File, View, Schedule, Songs, Bible, Media, Live, Profiles, Help),
@@ -144,7 +144,9 @@ export function MenuBar({ onAction, previewShown, projectorOn }: { onAction: (a:
       { label: "Voice commands", onClick: a("settings:audio") },
       { label: "WorshipHQ website and help", onClick: a("help:website") },
       { divider: true },
-      { label: "About WorshipHQ Media", onClick: a("settings:about") },
+      { label: "Check for updates…", onClick: a("help:updates") },
+      { label: "WorshipHQ account…", onClick: a("help:account") },
+      { label: "About WorshipHQ Live", onClick: a("settings:about") },
     ],
   };
 

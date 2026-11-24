@@ -1,5 +1,9 @@
 import { useEffect, useState, type ReactNode } from "react";
-import { Check, Copy, Eye, EyeOff, FolderOpen, Pencil } from "lucide-react";
+import { Check, Copy, FolderOpen, Loader2, LogIn, LogOut, Pencil, RefreshCw } from "lucide-react";
+import { accountActive, trialDaysLeft, useAccountStore } from "../lib/account";
+import { useUpdateStore } from "../lib/updates";
+import { useProjectionStore } from "../stores/projection-store";
+import { BuyMedia } from "./SignIn";
 import logoMark from "../assets/worshiphq-mark.png";
 import { isDesktopApp } from "../lib/media-src";
 import { useBibleStore } from "../stores/bible-store";
@@ -40,7 +44,6 @@ function CopyButton({ text }: { text: string }) {
 /** Settings › About: version, who this copy is registered to, the licence, and credits. */
 export function AboutView() {
   const [info, setInfo] = useState<LicenseInfo | null>(null);
-  const [showKey, setShowKey] = useState(false);
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState("");
   const packs = useBibleStore((s) => s.packs);
@@ -64,8 +67,11 @@ export function AboutView() {
     load();
   }
 
-  const status = !info ? "—" : info.is_licensed ? "Licensed: full version" : info.is_trial ? `Free trial: ${info.trial_days_remaining} day${info.trial_days_remaining === 1 ? "" : "s"} left` : "Trial ended";
-  const masked = info?.license_key ? (showKey ? info.license_key : info.license_key.replace(/(?<=WHQ-.{4}-).+(?=-.{4}$)/, "••••-••••")) : null;
+  const account = useAccountStore((s) => s.account);
+  const subscribed = accountActive(account);
+  const days = trialDaysLeft(account);
+  const isLicensed = useProjectionStore((s) => s.isLicensed);
+  const status = days !== null ? `Free trial: ${days} day${days === 1 ? "" : "s"} left` : isLicensed ? `Licensed to ${account?.church.name ?? "this church"}` : subscribed ? `WorshipHQ subscription: ${account!.church.name}` : "Not signed in";
 
   return (
     <div className="h-full overflow-y-auto p-3">
@@ -75,12 +81,15 @@ export function AboutView() {
             <img src={logoMark} alt="" className="h-full w-full object-contain" />
           </div>
           <div className="min-w-0 flex-1">
-            <h2 className="text-[22px] font-bold tracking-tight text-ink">WorshipHQ <span className="text-primary">Media</span></h2>
+            <h2 className="text-[22px] font-bold tracking-tight text-ink">WorshipHQ <span className="text-primary">Live</span></h2>
             <p className="text-[14px] text-ink-muted">Songs, Bible verses, pictures and videos on your church screen.</p>
             <p className="mt-1 text-[13px] text-ink-faint">Version {pkg.version} · Made by WorshipHQ · worshiphq.app</p>
           </div>
-          <span className={`rounded-full px-3 py-1 text-[13px] font-bold ${info?.is_licensed ? "bg-success/15 text-success" : "bg-gold/15 text-gold"}`}>{status}</span>
+          <span className={`rounded-full px-3 py-1 text-[13px] font-bold ${isLicensed || subscribed ? "bg-success/15 text-success" : "bg-gold/15 text-gold"}`}>{status}</span>
         </section>
+
+        <AccountSection />
+        <UpdatesSection />
 
         <section className="rounded-xl border border-line bg-surface-2 px-5 py-2 shadow-sm">
           <h3 className="pt-3 text-[16px] font-bold text-ink">Licence</h3>
@@ -102,26 +111,14 @@ export function AboutView() {
             )}
           </Row>
           <Row label="Status">{status}</Row>
-          {info?.activated_epoch && <Row label="Activated on">{new Date(info.activated_epoch * 1000).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" })}</Row>}
-          <Row label="Licence key">
-            {masked ? (
-              <span className="font-mono">
-                {masked}
-                <button onClick={() => setShowKey(!showKey)} className="ml-2 inline-flex items-center gap-1 rounded px-1.5 py-0.5 font-sans text-[12px] font-semibold text-primary-bright hover:bg-primary-soft">
-                  {showKey ? <EyeOff className="size-3.5" /> : <Eye className="size-3.5" />} {showKey ? "Hide" : "Show"}
-                </button>
-                {showKey && <CopyButton text={info!.license_key!} />}
-              </span>
-            ) : <span className="text-ink-faint">No licence key on this computer</span>}
-          </Row>
           <Row label="This computer's ID">
             <span className="break-all font-mono text-[13px]">{info?.hwid ?? "—"}</span>{info?.hwid && <CopyButton text={info.hwid} />}
-            <span className="mt-0.5 block text-[12px] text-ink-faint">Send this to WorshipHQ when you buy or move a licence. Each licence covers 2 computers.</span>
+            <span className="mt-0.5 block text-[12px] text-ink-faint">WorshipHQ support may ask for this. Each church's subscription covers 2 computers; signing out of one frees its place.</span>
           </Row>
           <Row label="Your files">
             <button onClick={async () => { const { invoke } = await import("@tauri-apps/api/core"); invoke("open_data_folder"); }}
               className="inline-flex items-center gap-1.5 rounded-lg border border-line-bright px-3 py-1.5 text-[13px] font-semibold text-ink hover:bg-surface-4">
-              <FolderOpen className="size-4" /> Open the WorshipHQ Media folder
+              <FolderOpen className="size-4" /> Open the WorshipHQ Live folder
             </button>
             <span className="mt-1 block text-[12px] text-ink-faint">Your pictures, videos, presentations, Bibles and licence are kept here.</span>
           </Row>
@@ -148,5 +145,90 @@ export function AboutView() {
         </section>
       </div>
     </div>
+  );
+}
+
+const longDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
+
+/** The church's WorshipHQ account on this computer. */
+function AccountSection() {
+  const { account, signOut, checkIn } = useAccountStore();
+  const [busy, setBusy] = useState(false);
+  if (!account) {
+    return (
+      <section className="flex flex-wrap items-center gap-4 rounded-xl border border-line bg-surface-2 p-5 shadow-sm">
+        <div className="min-w-0 flex-1">
+          <h3 className="text-[16px] font-bold text-ink">WorshipHQ account</h3>
+          <p className="text-[13px] text-ink-muted">Sign in with your church's WorshipHQ account, or make one here if your church doesn't have one yet (you don't need to use anything else from WorshipHQ). Then buy WorshipHQ Live for your church: it covers 2 computers, with the AI helper, free backgrounds and cloud backup.</p>
+        </div>
+        <button onClick={() => window.dispatchEvent(new Event("whq-sign-in"))}
+          className="flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-[14px] font-bold text-white hover:bg-primary-bright"><LogIn className="size-4" /> Sign in</button>
+      </section>
+    );
+  }
+  const m = account.media;
+  const active = accountActive(account);
+  return (
+    <section className="rounded-xl border border-line bg-surface-2 px-5 py-2 shadow-sm">
+      <h3 className="pt-3 text-[16px] font-bold text-ink">WorshipHQ account</h3>
+      <Row label="Church">{account.church.name}</Row>
+      <Row label="Signed in as">{account.user.name || account.user.email || "—"}{account.user.name && account.user.email && <span className="text-ink-faint"> · {account.user.email}</span>}</Row>
+      <Row label="WorshipHQ Live">
+        {active
+          ? <span className="font-semibold text-success">{m.isTrial ? "Free trial" : "Active"}{m.until ? ` until ${longDate(m.until)}` : ""}</span>
+          : <span className="font-semibold text-danger">Not active{m.until ? ` (ended ${longDate(m.until)})` : ""}.</span>}
+        <span className="mt-0.5 block text-[12px] text-ink-faint">Covers {m.seats} computer{m.seats === 1 ? "" : "s"}. Works without internet for up to 30 days at a time.</span>
+      </Row>
+      <Row label={active && !m.isTrial ? "Pay ahead" : "Buy WorshipHQ Live"}>
+        <BuyMedia />
+        {active && !m.isTrial && <span className="mt-1 block text-[12px] text-ink-faint">Paying early adds the time on after {m.until ? longDate(m.until) : "the current period"}; no days are lost.</span>}
+      </Row>
+      <Row label="Last checked">
+        {new Date(account.checkedAt).toLocaleString()}
+        <button disabled={busy} onClick={async () => { setBusy(true); await checkIn(); setBusy(false); }}
+          className="ml-2 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-[12px] font-semibold text-primary-bright hover:bg-primary-soft">
+          {busy ? <Loader2 className="size-3.5 whq-spin" /> : <RefreshCw className="size-3.5" />} Check now
+        </button>
+      </Row>
+      <Row label="This computer">
+        <button onClick={() => { if (window.confirm("Sign this computer out of WorshipHQ? That frees its place so another computer can sign in.")) signOut(); }}
+          className="inline-flex items-center gap-1.5 rounded-lg border border-line-bright px-3 py-1.5 text-[13px] font-semibold text-ink hover:bg-surface-4">
+          <LogOut className="size-4" /> Sign out
+        </button>
+      </Row>
+    </section>
+  );
+}
+
+/** Automatic updates: what version is here, and whether a newer one is waiting. */
+function UpdatesSection() {
+  const { phase, version, progress, error, checkedAt, check, install } = useUpdateStore();
+  const line =
+    phase === "checking" ? "Looking for a new version…"
+    : phase === "downloading" ? `Downloading version ${version}… ${progress}%`
+    : phase === "ready" ? `Version ${version} is downloaded and ready.`
+    : phase === "installing" ? "Updating… WorshipHQ Live will restart."
+    : phase === "none" ? "You have the newest version."
+    : phase === "error" ? `Couldn't check for updates: ${error ?? "no internet?"}`
+    : "WorshipHQ Live looks for updates by itself and downloads them quietly. You choose when to restart.";
+  return (
+    <section className="flex flex-wrap items-center gap-4 rounded-xl border border-line bg-surface-2 p-5 shadow-sm">
+      <div className="min-w-0 flex-1">
+        <h3 className="text-[16px] font-bold text-ink">Updates</h3>
+        <p className="text-[13px] text-ink-muted">This is version {pkg.version}. {line}</p>
+        {phase === "downloading" && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-4"><div className="h-full bg-primary transition-[width]" style={{ width: `${progress}%` }} /></div>}
+        {checkedAt && phase !== "checking" && <p className="mt-0.5 text-[12px] text-ink-faint">Last checked {new Date(checkedAt).toLocaleTimeString()}</p>}
+      </div>
+      {phase === "ready" || phase === "installing" ? (
+        <button onClick={install} disabled={phase === "installing"} className="flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-[14px] font-bold text-white hover:bg-primary-bright disabled:opacity-60">
+          {phase === "installing" ? <Loader2 className="size-4 whq-spin" /> : <RefreshCw className="size-4" />} Restart and update
+        </button>
+      ) : (
+        <button onClick={() => check(true)} disabled={phase === "checking" || phase === "downloading"}
+          className="flex h-10 items-center gap-2 rounded-lg border border-line-bright px-4 text-[14px] font-semibold text-ink hover:bg-surface-4 disabled:opacity-60">
+          {phase === "checking" ? <Loader2 className="size-4 whq-spin" /> : <RefreshCw className="size-4" />} Check for updates
+        </button>
+      )}
+    </section>
   );
 }

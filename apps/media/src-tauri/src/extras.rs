@@ -143,7 +143,7 @@ pub fn start_remote_server<F: Fn(String) + Send + 'static>(on_action: F) {
                 .take(40)
                 .collect();
             let (status, body) = if action.is_empty() {
-                ("200 OK", "WorshipHQ Media remote. Try /action/next, /action/previous, /action/send, /action/black, /action/clear, /action/logo".to_string())
+                ("200 OK", "WorshipHQ Live remote. Try /action/next, /action/previous, /action/send, /action/black, /action/clear, /action/logo".to_string())
             } else {
                 on_action(action.clone());
                 ("200 OK", format!("{{\"ok\":true,\"action\":\"{action}\"}}"))

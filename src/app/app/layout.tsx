@@ -18,6 +18,7 @@ import { getChurchPlan, getChurchSub } from "@/lib/plan-gate-server";
 import { commsTrialOf, paidPlan } from "@/lib/plan-gate";
 import { BillingBanner } from "@/components/app/billing-banner";
 import { TrialBanner } from "@/components/app/trial-banner";
+import { ChristmasBanner } from "@/components/app/christmas-banner";
 import { OverLimitBanner } from "@/components/app/over-limit-banner";
 import { TrialProvider, TrialWelcome } from "@/components/app/trial-context";
 import { getTrialAccess } from "@/lib/trials";
@@ -105,6 +106,8 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <TourProvider>
           <PhoneDefaults country={countryFromName(church?.country)}>
             <AmountPrivacy enabled={church?.hideAmounts ?? false}>
+              {/* December gift (SuperAdmin promotions): everyone in the church sees it once, and can close it. */}
+              {!session.isDemo && <ChristmasBanner paid={paidPlan(subRow)} promotions={platformConfig.promotions} canBuy={session.role === "Owner"} />}
               {/* Only the Main Admin can renew, so only they are nagged. */}
               {session.role === "Owner" && !session.isDemo && !session.impersonating && <BillingBanner churchId={session.churchId} />}
               {session.role === "Owner" && !session.isDemo && !session.impersonating && <TrialBanner churchId={session.churchId} />}

@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { cache } from "react";
 import { ALWAYS_ON_FEATURES, effectivePlan, planHasFeature, type PlanId } from "./plan-gate";
 import { getPlatformConfig } from "@/lib/data/platform-config";
+import { withStepUp } from "@/lib/promotions";
 
 /** The church's subscription as the plan gate needs it, read once per request. */
 export const getChurchSub = cache(async (churchId: string) => {
@@ -12,8 +13,14 @@ export const getChurchSub = cache(async (churchId: string) => {
   });
 });
 
-/** The plan the church gets right now: what it pays for, or the next plan up while a free trial is running. */
-export const getChurchPlan = cache(async (churchId: string): Promise<PlanId> => effectivePlan(await getChurchSub(churchId)));
+/**
+ * The plan the church gets right now: what it pays for, or the next plan up while a free trial is running,
+ * lifted one more step while a SuperAdmin plan step-up promotion runs.
+ */
+export const getChurchPlan = cache(async (churchId: string): Promise<PlanId> => {
+  const [sub, cfg] = await Promise.all([getChurchSub(churchId), getPlatformConfig()]);
+  return withStepUp(effectivePlan(sub), cfg.promotions);
+});
 
 /**
  * Does this church's plan include a feature? For screens nobody is signed in to, like a church's public visitor or

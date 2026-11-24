@@ -1,4 +1,4 @@
-# WorshipHQ Media: turn a PowerPoint or PDF into one picture per slide/page.
+# WorshipHQ Live: turn a PowerPoint or PDF into one picture per slide/page.
 # Usage: powershell -File import-slides.ps1 <file> <output folder>
 # Prints one JSON line per picture: {"type":"slide","path":"..."} and finally {"type":"done","count":n}
 # or {"type":"error","message":"..."}.

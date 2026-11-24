@@ -1,9 +1,10 @@
+import { serverHeaders } from "../lib/account";
 import { useEffect, useMemo, useState } from "react";
 import { Check, CloudDownload, Film, Image as ImageIcon, Loader2, RefreshCw, Sparkles } from "lucide-react";
 import { useMediaStore, type MediaItem } from "../stores/media-store";
 import { formatBytes, isDesktopApp, mediaUrl } from "../lib/media-src";
 
-/** Where WorshipHQ Media finds the WorshipHQ server (can be changed for testing). */
+/** Where WorshipHQ Live finds the WorshipHQ server (can be changed for testing). */
 export function apiBase(): string {
   try {
     return localStorage.getItem("whq-api-base") || "https://worshiphq.app";
@@ -44,10 +45,10 @@ export function StockLibrary({ onAdded }: { onAdded: (item: MediaItem) => void }
     const { invoke } = await import("@tauri-apps/api/core");
     const local = await invoke<{ id: string; title: string; category: string; path: string; thumb: string }[]>("stock_bundled").catch(() => []);
     setBundled(local.map((b) => ({ id: b.id, title: b.title, category: b.category, kind: "image", thumb: mediaUrl(b.thumb), local: b.path })));
-    const licence = await invoke<string | null>("stock_licence").catch(() => null);
+    const licence = await serverHeaders();
     if (!licence) { setStatus("unlicensed"); return; }
     try {
-      const res = await fetch(`${apiBase()}/api/media/stock`, { headers: { "X-WHQ-Licence": licence } });
+      const res = await fetch(`${apiBase()}/api/media/stock`, { headers: licence });
       if (res.status === 401) { setStatus("unlicensed"); return; }
       if (!res.ok) throw new Error(String(res.status));
       const data = (await res.json()) as { items: { id: string; title: string; category: string; kind: "image" | "video"; thumbUrl: string; ext: string; bytes: number; width: number; height: number; seconds: number | null }[] };
@@ -77,8 +78,8 @@ export function StockLibrary({ onAdded }: { onAdded: (item: MediaItem) => void }
     try {
       let file: { path: string; name: string; kind: "image" | "video" | "audio"; size: number };
       if (e.online) {
-        const licence = await invoke<string | null>("stock_licence");
-        const res = await fetch(`${apiBase()}/api/media/stock/${encodeURIComponent(e.id)}`, { headers: { "X-WHQ-Licence": licence ?? "" } });
+        const licence = (await serverHeaders()) ?? {};
+        const res = await fetch(`${apiBase()}/api/media/stock/${encodeURIComponent(e.id)}`, { headers: licence });
         if (!res.ok) throw new Error((await res.json().catch(() => null))?.error ?? "The WorshipHQ server didn't answer.");
         const link = (await res.json()) as { url: string; bytes: number; ext: string };
         const token = `stock-${e.id}-${Date.now().toString(36)}`.replace(/[^a-zA-Z0-9-]/g, "");
@@ -146,7 +147,7 @@ export function StockLibrary({ onAdded }: { onAdded: (item: MediaItem) => void }
 
       {status === "unlicensed" && (
         <p className="mx-4 mt-3 rounded-lg bg-primary-soft/60 px-3 py-2 text-[13px] text-ink">
-          These pictures came with WorshipHQ Media. Activate your licence to download the full collection, including the motion backgrounds.
+          These pictures came with WorshipHQ Live. Sign in with your church's WorshipHQ account (Help › WorshipHQ account) to download the full collection, including the motion backgrounds.
         </p>
       )}
       {status === "offline" && (

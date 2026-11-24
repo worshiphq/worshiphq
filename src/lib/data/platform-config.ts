@@ -5,6 +5,7 @@ import { db } from "@/lib/db";
 import { getUsdToGhsRate } from "@/lib/integrations/fx";
 import { normalizeTrialSettings } from "@/lib/trial-settings";
 import { plans as defaultPlans } from "@/config/pricing";
+import { normalizePromotions } from "@/lib/promotions";
 import {
   DEFAULT_PLAN_TABLE, PLAN_IDS, membersText, syncMemberText, ALL_FEATURES, FEATURES_ADDED_LATER,
   type PlanId, type PlanTable,
@@ -196,6 +197,8 @@ async function loadPlatformConfig() {
   }, {} as PlanTable);
 
   return {
+    /** Promotions that run between dates (SuperAdmin › Pricing › Promotions). */
+    promotions: normalizePromotions((config as { promotions?: unknown }).promotions),
     /** Free trials of the next plan up (see lib/trial-settings.ts). */
     trials: normalizeTrialSettings(config.trialSettings),
     currency: config.currency,

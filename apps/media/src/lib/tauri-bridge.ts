@@ -60,27 +60,3 @@ export async function getHwid(): Promise<string> {
   return invoke<string>("get_hwid");
 }
 
-export async function checkLicense(hwid: string): Promise<{
-  is_licensed: boolean;
-  is_trial: boolean;
-  trial_days_remaining: number;
-  hwid: string;
-}> {
-  if (!IS_TAURI) {
-    return { is_licensed: false, is_trial: true, trial_days_remaining: 14, hwid };
-  }
-  return invoke("check_license", { hwid });
-}
-
-export async function activateLicense(hwid: string, key: string): Promise<{
-  is_licensed: boolean;
-  is_trial: boolean;
-  trial_days_remaining: number;
-  hwid: string;
-}> {
-  return invoke("activate_license", { hwid, key });
-}
-
-export async function generateLicenseKey(hwid: string): Promise<string> {
-  return invoke<string>("generate_license_key", { hwid });
-}

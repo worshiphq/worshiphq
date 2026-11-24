@@ -5,7 +5,7 @@ import { activatePlanPayment } from "@/lib/billing/activate-plan";
 import { openSealedMetadata, rawMetadata, type PaystackTxn } from "@/lib/billing/checkout-seal";
 
 export type FulfilResult = {
-  kind: "sms_topup" | "plan_upgrade" | "online_gift" | "other";
+  kind: "sms_topup" | "plan_upgrade" | "media" | "online_gift" | "other";
   ok: boolean;
   ignored?: boolean;
   reason?: string;
@@ -65,6 +65,14 @@ export async function fulfilPaystackCharge(data: PaystackTxn): Promise<FulfilRes
     const res = await activatePlanPayment({ ...data, status: "success" });
     if (!res.ok) return { kind: "plan_upgrade", ok: false, ignored: true, reason: res.error };
     return { kind: "plan_upgrade", ok: true, plan: res.plan };
+  }
+
+  // WorshipHQ Live bought on its own (sealed by /api/media/checkout; once per reference).
+  if (meta.kind === "media" && data.reference) {
+    const { activateMediaPayment } = await import("@/lib/media-billing");
+    const res = await activateMediaPayment({ ...data, status: "success" });
+    if (!res.ok) return { kind: "media", ok: false, ignored: true, reason: res.error };
+    return { kind: "media", ok: true };
   }
 
   // Only our online-giving charges from here on; ignore subscription and other charges.

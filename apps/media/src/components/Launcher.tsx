@@ -6,6 +6,9 @@ import {
 } from "lucide-react";
 import { useProjectionStore } from "../stores/projection-store";
 import { WindowControls } from "./AppShell";
+import { accountActive, trialDaysLeft, useAccountStore } from "../lib/account";
+import { refreshLicence } from "../lib/licence";
+import pkg from "../../package.json";
 
 function isTauri(): boolean {
   return typeof window !== "undefined" && !!(window as any).__TAURI_INTERNALS__;
@@ -29,20 +32,7 @@ export function Launcher({ onEnter }: LauncherProps) {
       if (isTauri()) {
         try {
           const { invoke } = await import("@tauri-apps/api/core");
-          const deviceHwid = await invoke<string>("get_hwid");
-          const status = await invoke<{
-            is_licensed: boolean;
-            is_trial: boolean;
-            trial_days_remaining: number;
-            hwid: string;
-          }>("check_license", { hwid: deviceHwid });
-
-          setLicense({
-            isLicensed: status.is_licensed,
-            isTrial: status.is_trial,
-            trialDaysRemaining: status.trial_days_remaining,
-            hwid: status.hwid,
-          });
+          await refreshLicence();
 
           // Detect displays
           const displays = await invoke<{ id: number; name: string; width: number; height: number; is_primary: boolean }[]>("list_displays");
@@ -69,10 +59,12 @@ export function Launcher({ onEnter }: LauncherProps) {
     setTimeout(() => onEnter(), 400);
   };
 
-  const version = "0.1.0";
+  const version = pkg.version;
+  const account = useAccountStore((s) => s.account);
+  const subscribed = accountActive(account);
   const { serviceItems, serviceName } = useProjectionStore();
   const hasPlan = serviceItems.length > 0;
-  const trialOver = !isLicensed && !(isTrial && trialDaysRemaining > 0);
+  const daysLeft = trialDaysLeft(account);
 
   return (
     <div
@@ -89,7 +81,7 @@ export function Launcher({ onEnter }: LauncherProps) {
             <img src={logoMark} alt="WorshipHQ" className="h-full w-full object-contain" draggable={false} />
           </div>
           <h1 className="text-[28px] font-bold tracking-tight text-ink">
-            WorshipHQ <span className="text-primary">Media</span>
+            WorshipHQ <span className="text-primary">Live</span>
           </h1>
           <p className="mt-1 text-[15px] text-ink-muted">Songs, Bible verses, pictures and videos on your church screen</p>
         </div>
@@ -103,7 +95,15 @@ export function Launcher({ onEnter }: LauncherProps) {
           <>
             <div className="mb-6 grid w-full gap-2">
               <div className="flex items-center gap-3 rounded-xl border border-line bg-surface-2 px-4 py-3 shadow-sm">
-                {isLicensed ? (
+                {subscribed ? (
+                  <>
+                    <ShieldCheck className="size-5 text-success" />
+                    <div>
+                      <p className="text-[14px] font-semibold text-ink">{account!.church.name}</p>
+                      <p className="text-[13px] text-ink-muted">{daysLeft !== null ? `Free trial · ${daysLeft} day${daysLeft !== 1 ? "s" : ""} left` : "WorshipHQ subscription"}</p>
+                    </div>
+                  </>
+                ) : isLicensed ? (
                   <>
                     <ShieldCheck className="size-5 text-success" />
                     <div>
@@ -111,20 +111,12 @@ export function Launcher({ onEnter }: LauncherProps) {
                       <p className="text-[13px] text-ink-muted">Full version</p>
                     </div>
                   </>
-                ) : !trialOver ? (
+                ) : (
                   <>
                     <Clock className="size-5 text-gold" />
                     <div>
-                      <p className="text-[14px] font-semibold text-ink">Free trial · {trialDaysRemaining} day{trialDaysRemaining !== 1 ? "s" : ""} left</p>
-                      <p className="text-[13px] text-ink-muted">A small “Trial” mark shows on the projector</p>
-                    </div>
-                  </>
-                ) : (
-                  <>
-                    <AlertTriangle className="size-5 text-danger" />
-                    <div>
-                      <p className="text-[14px] font-semibold text-ink">Your free trial has ended</p>
-                      <p className="text-[13px] text-ink-muted">Open the app to enter your licence key</p>
+                      <p className="text-[14px] font-semibold text-ink">Not signed in</p>
+                      <p className="text-[13px] text-ink-muted">Sign in or create an account for a 14-day free trial</p>
                     </div>
                   </>
                 )}
@@ -166,14 +158,13 @@ export function Launcher({ onEnter }: LauncherProps) {
           {isLicensed && (
             <button
               onClick={async () => {
-                if (!window.confirm("Remove the licence from this computer? You can enter the key again any time.")) return;
-                const { invoke } = await import("@tauri-apps/api/core");
-                await invoke("remove_license");
+                if (!window.confirm("Sign this computer out of WorshipHQ? That frees its place so another computer can sign in.")) return;
+                await useAccountStore.getState().signOut();
                 window.location.reload();
               }}
               className="mt-2 text-[12px] font-semibold text-ink-muted underline-offset-2 hover:text-danger hover:underline"
             >
-              Remove licence from this computer (sign out)
+              Sign out of WorshipHQ on this computer
             </button>
           )}
           {hwid && hwid !== "unknown" && <p className="mt-0.5 font-mono text-[11px] text-ink-faint/70">{hwid}</p>}

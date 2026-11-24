@@ -5,6 +5,7 @@ import { PlanEditor } from "@/components/admin/plan-editor";
 import { CouponManager } from "@/components/admin/coupon-manager";
 import { SmsTierControl } from "@/components/admin/sms-tier-control";
 import { getPlatformConfig } from "@/lib/data/platform-config";
+import { PromotionsEditor } from "@/components/admin/promotions-editor";
 import { db } from "@/lib/db";
 
 export default async function AdminPricingPage() {
@@ -37,6 +38,8 @@ export default async function AdminPricingPage() {
         planList={config.planList}
         planCounts={planCounts}
       />
+
+      <PromotionsEditor initial={config.promotions} />
 
       <SmsTierControl current={config.smsTier} />
 

@@ -1,296 +1,134 @@
 import { useEffect, useState } from "react";
 import { WindowControls } from "./AppShell";
-import { Shield, Copy, Check, AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
 import { useProjectionStore } from "../stores/projection-store";
+import { accountActive, useAccountStore } from "../lib/account";
+import { refreshLicence, type LicenceStatus } from "../lib/licence";
+import { AccountForms, BuyMedia, SignInDialog } from "./SignIn";
+import logoMark from "../assets/worshiphq-mark.png";
 
 function isTauri(): boolean {
   return typeof window !== "undefined" && !!(window as any).__TAURI_INTERNALS__;
 }
 
+/**
+ * Who may use the app: this computer holds a licence signed by WorshipHQ's server (the "stamp"), which it gets by
+ * signing in to a church with an active subscription or free trial. Without one, the sign-in screen.
+ * (In the browser preview there is no stamp, so the signed-in account stands in for it.)
+ */
 export function LicenseGate({ children }: { children: React.ReactNode }) {
-  const { isLicensed, isTrial, trialDaysRemaining, hwid, setLicense } = useProjectionStore();
-  const [loading, setLoading] = useState(true);
-  const [showActivation, setShowActivation] = useState(false);
+  const isLicensed = useProjectionStore((s) => s.isLicensed);
+  const isTrial = useProjectionStore((s) => s.isTrial);
+  const trialDays = useProjectionStore((s) => s.trialDaysRemaining);
+  const account = useAccountStore((s) => s.account);
+  const [stamp, setStamp] = useState<LicenceStatus | null>(null);
+  const [dialog, setDialog] = useState(false);
 
   useEffect(() => {
-    async function checkLicense() {
-      if (!isTauri()) {
-        setLicense({ isLicensed: false, isTrial: true, trialDaysRemaining: 14, hwid: "browser-dev" });
-        setLoading(false);
-        return;
-      }
+    // Opening the sign-in from anywhere (menu, Settings, Voice page).
+    const on = () => setDialog(true);
+    window.addEventListener("whq-sign-in", on);
+    return () => window.removeEventListener("whq-sign-in", on);
+  }, []);
 
-      try {
-        const { invoke } = await import("@tauri-apps/api/core");
-        const deviceHwid = await invoke<string>("get_hwid");
-        const status = await invoke<{
-          is_licensed: boolean;
-          is_trial: boolean;
-          trial_days_remaining: number;
-          hwid: string;
-        }>("check_license", { hwid: deviceHwid });
+  // Check the stamp at the start, after every sign-in, sign-out or check-in, and every 10 minutes.
+  useEffect(() => {
+    refreshLicence().then(setStamp);
+    const t = window.setInterval(() => refreshLicence().then(setStamp), 10 * 60 * 1000);
+    return () => window.clearInterval(t);
+  }, [account]);
 
-        setLicense({
-          isLicensed: status.is_licensed,
-          isTrial: status.is_trial,
-          trialDaysRemaining: status.trial_days_remaining,
-          hwid: status.hwid,
-        });
-      } catch (e) {
-        console.error("License check failed:", e);
-        setLicense({ isLicensed: false, isTrial: true, trialDaysRemaining: 14, hwid: "unknown" });
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    checkLicense();
-  }, [setLicense]);
-
-  const handleActivated = (status: { isLicensed: boolean; isTrial: boolean; trialDaysRemaining: number; hwid: string }) => {
-    setLicense(status);
-    setShowActivation(false);
-  };
-
-  if (loading) {
+  if (!stamp) {
     return (
       <div className="flex h-full items-center justify-center bg-surface">
         <div className="text-center">
           <Loader2 className="mx-auto size-8 whq-spin text-primary-bright" />
-          <p className="mt-3 text-sm text-ink-muted">Checking license...</p>
+          <p className="mt-3 text-sm text-ink-muted">Starting…</p>
         </div>
       </div>
     );
   }
 
-  if (!isLicensed && isTrial && trialDaysRemaining <= 0) {
-    return <TrialExpired hwid={hwid} onActivated={handleActivated} />;
-  }
+  const allowed = isTauri() ? isLicensed : accountActive(account);
+  if (!allowed) return <SignInScreen stamp={stamp} />;
 
   return (
     <>
-      {isTrial && !isLicensed && (
-        <TrialBanner
-          daysRemaining={trialDaysRemaining}
-          onActivate={() => setShowActivation(true)}
-        />
-      )}
-
-      {showActivation && (
-        <ActivationDialog
-          hwid={hwid}
-          onClose={() => setShowActivation(false)}
-          onActivated={handleActivated}
-        />
-      )}
-
+      {isTrial && <TrialBanner daysRemaining={trialDays} onBuy={() => window.dispatchEvent(new CustomEvent("whq-menu-open", { detail: "help:account" }))} />}
+      {dialog && <SignInDialog onClose={() => setDialog(false)} />}
       {children}
     </>
   );
 }
 
-function TrialBanner({ daysRemaining, onActivate }: { daysRemaining: number; onActivate: () => void }) {
+function TrialBanner({ daysRemaining, onBuy }: { daysRemaining: number; onBuy: () => void }) {
   if (daysRemaining > 7) return null;
-
   return (
-    <div className="flex items-center justify-between bg-gold/10 px-4 py-1.5">
-      <div className="flex items-center gap-2">
-        <AlertTriangle className="size-3.5 text-gold" />
-        <span className="text-[11px] font-medium text-gold">
-          {daysRemaining} day{daysRemaining !== 1 ? "s" : ""} remaining in trial
-        </span>
-      </div>
-      <button
-        onClick={onActivate}
-        className="rounded-xl bg-gold/20 px-3 py-1 text-[10px] font-semibold text-gold hover:bg-gold/30"
-      >
-        Activate License
-      </button>
+    <div className="flex items-center gap-2 bg-gold/10 px-4 py-1.5">
+      <AlertTriangle className="size-3.5 text-gold" />
+      <span className="flex-1 text-[12px] font-medium text-gold">
+        Free trial: {daysRemaining} day{daysRemaining !== 1 ? "s" : ""} left. Buy WorshipHQ Live to keep using it after that.
+      </span>
+      <button onClick={onBuy} className="rounded-md bg-primary px-3 py-1 text-[12px] font-bold text-white hover:bg-primary-bright">Buy WorshipHQ Live</button>
     </div>
   );
 }
 
-function TrialExpired({ hwid, onActivated }: { hwid: string; onActivated: (s: any) => void }) {
-  const [copied, setCopied] = useState(false);
-  const [key, setKey] = useState("");
-  const [error, setError] = useState("");
-  const [activating, setActivating] = useState(false);
+const longDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "long", year: "numeric" });
 
-  function copyHwid() {
-    navigator.clipboard.writeText(hwid);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
+/** Not licensed: sign in / create an account, buy, or (offline too long, clock wrong) say what to fix. */
+function SignInScreen({ stamp }: { stamp: LicenceStatus }) {
+  const account = useAccountStore((s) => s.account);
+  const signOut = useAccountStore((s) => s.signOut);
+  const checkIn = useAccountStore((s) => s.checkIn);
+  const [busy, setBusy] = useState(false);
+  const stillPaid = !!account?.media.active && !!account.media.until && new Date(account.media.until) > new Date();
+  const needsInternet = stamp.reason === "expired" && stillPaid;
+  const clock = stamp.reason === "clock";
+  const ended = !!account && !needsInternet && !clock;
 
-  async function handleActivate() {
-    if (!key.trim()) { setError("Enter a license key"); return; }
-    setError("");
-    setActivating(true);
-    try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const status = await invoke<{
-        is_licensed: boolean;
-        is_trial: boolean;
-        trial_days_remaining: number;
-        hwid: string;
-      }>("activate_license", { hwid, key: key.trim() });
-      onActivated({
-        isLicensed: status.is_licensed,
-        isTrial: status.is_trial,
-        trialDaysRemaining: status.trial_days_remaining,
-        hwid: status.hwid,
-      });
-    } catch (e: any) {
-      setError(typeof e === "string" ? e : e?.message ?? "Activation failed");
-    } finally {
-      setActivating(false);
-    }
+  const title = clock ? "Check this computer's date and time"
+    : needsInternet ? "Connect to the internet for a moment"
+    : !ended ? "Welcome to WorshipHQ Live"
+    : account!.media.trialBlocked ? "This computer has had its free trial"
+    : !account!.media.until ? "Buy WorshipHQ Live"
+    : account!.media.isTrial ? "Your free trial has ended"
+    : "Your subscription has ended";
+
+  const text = clock ? "The clock on this computer is behind the last time WorshipHQ Live ran. Set the right date and time in Windows, then press Try again."
+    : needsInternet ? "WorshipHQ Live works without internet for up to 30 days at a time. Connect this computer once so it can renew its licence; it only takes a second."
+    : !ended ? "Sign in with your church's WorshipHQ account, or create one. New churches get 14 days free (one free trial per computer)."
+    : account!.media.trialBlocked ? <>Each computer gets one 14-day free trial, and this one has already had it. Buy WorshipHQ Live for {account!.church.name} below to carry on. If you think this is a mistake, contact WorshipHQ support.</>
+    : account!.media.until ? <>WorshipHQ Live for {account!.church.name} ended on {longDate(account!.media.until)}. Buy it below to carry on. Your songs and settings are safe.</>
+    : <>Buy WorshipHQ Live for {account!.church.name} below to start using it.</>;
+
+  async function retry() {
+    setBusy(true);
+    await checkIn();
+    await refreshLicence();
+    setBusy(false);
   }
 
   return (
-    <div className="flex h-full items-center justify-center bg-surface" data-tauri-drag-region>
+    <div className="flex h-full items-center justify-center overflow-y-auto bg-surface p-6" data-tauri-drag-region>
       <WindowControls />
-      <div className="w-full max-w-md rounded-2xl border border-line bg-surface-2 p-8 text-center">
-        <div className="mx-auto grid size-16 place-items-center rounded-2xl bg-danger/10">
-          <Shield className="size-8 text-danger" />
-        </div>
-        <h2 className="mt-4 text-xl font-bold text-ink">Trial Expired</h2>
-        <p className="mt-2 text-sm text-ink-muted">
-          Your 14-day trial has ended. Enter your license key to continue using WorshipHQ Media.
-        </p>
-
-        <div className="mt-6">
-          <label className="block text-left text-[11px] font-medium text-ink-muted">Your Hardware ID</label>
-          <div className="mt-1 flex gap-1.5">
-            <code className="flex-1 rounded-xl border border-line bg-surface-3 px-3 py-2 text-xs text-ink-faint">{hwid}</code>
-            <button onClick={copyHwid} className="grid size-9 place-items-center rounded-xl border border-line transition-colors hover:bg-surface-3">
-              {copied ? <Check className="size-4 text-success" /> : <Copy className="size-4 text-ink-faint" />}
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <label className="block text-left text-[11px] font-medium text-ink-muted">License Key</label>
-          <input
-            type="text"
-            value={key}
-            onChange={(e) => setKey(e.target.value.toUpperCase())}
-            onKeyDown={(e) => e.key === "Enter" && handleActivate()}
-            placeholder="WHQ-XXXX-XXXX-XXXX-XXXX"
-            className="input mt-1"
-          />
-        </div>
-
-        {error && (
-          <p className="mt-2 text-xs font-medium text-danger">{error}</p>
-        )}
-
-        <button
-          onClick={handleActivate}
-          disabled={activating}
-          className="btn-primary mt-4 w-full py-2.5 text-sm"
-        >
-          {activating && <Loader2 className="mr-2 inline size-4 whq-spin" />}
-          {activating ? "Activating..." : "Activate"}
-        </button>
-
-        <p className="mt-4 text-[11px] text-ink-faint">
-          Get a licence at <span className="text-primary-bright">worshiphq.app/pricing</span>
-        </p>
-      </div>
-    </div>
-  );
-}
-
-function ActivationDialog({ hwid, onClose, onActivated }: { hwid: string; onClose: () => void; onActivated: (s: any) => void }) {
-  const [copied, setCopied] = useState(false);
-  const [key, setKey] = useState("");
-  const [error, setError] = useState("");
-  const [activating, setActivating] = useState(false);
-
-  function copyHwid() {
-    navigator.clipboard.writeText(hwid);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  }
-
-  async function handleActivate() {
-    if (!key.trim()) { setError("Enter a license key"); return; }
-    setError("");
-    setActivating(true);
-    try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      const status = await invoke<{
-        is_licensed: boolean;
-        is_trial: boolean;
-        trial_days_remaining: number;
-        hwid: string;
-      }>("activate_license", { hwid, key: key.trim() });
-      onActivated({
-        isLicensed: status.is_licensed,
-        isTrial: status.is_trial,
-        trialDaysRemaining: status.trial_days_remaining,
-        hwid: status.hwid,
-      });
-    } catch (e: any) {
-      setError(typeof e === "string" ? e : e?.message ?? "Invalid license key");
-    } finally {
-      setActivating(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl border border-line bg-surface-2 p-6" onClick={(e) => e.stopPropagation()}>
-        <div className="flex items-center gap-3">
-          <div className="grid size-10 place-items-center rounded-xl bg-primary/10">
-            <Shield className="size-5 text-primary-bright" />
-          </div>
-          <div>
-            <h3 className="text-sm font-bold text-ink">Activate License</h3>
-            <p className="text-[11px] text-ink-faint">Enter your license key to remove trial limitations</p>
-          </div>
-        </div>
-
-        <div className="mt-4">
-          <label className="block text-[11px] font-medium text-ink-muted">Hardware ID</label>
-          <div className="mt-1 flex gap-1.5">
-            <code className="flex-1 truncate rounded-xl border border-line bg-surface-3 px-3 py-2 text-xs text-ink-faint">{hwid}</code>
-            <button onClick={copyHwid} className="grid size-9 shrink-0 place-items-center rounded-xl border border-line transition-colors hover:bg-surface-3">
-              {copied ? <Check className="size-4 text-success" /> : <Copy className="size-4 text-ink-faint" />}
-            </button>
-          </div>
-        </div>
-
-        <div className="mt-3">
-          <label className="block text-[11px] font-medium text-ink-muted">License Key</label>
-          <input
-            type="text"
-            value={key}
-            onChange={(e) => setKey(e.target.value.toUpperCase())}
-            onKeyDown={(e) => e.key === "Enter" && handleActivate()}
-            placeholder="WHQ-XXXX-XXXX-XXXX-XXXX"
-            className="input mt-1"
-          />
-        </div>
-
-        {error && (
-          <p className="mt-2 text-xs font-medium text-danger">{error}</p>
-        )}
-
-        <div className="mt-5 flex gap-2">
-          <button onClick={onClose} className="btn-ghost flex-1 py-2 text-xs font-medium">
-            Cancel
+      <div className="w-full max-w-md rounded-2xl border border-line bg-surface-2 p-8 text-center shadow-sm">
+        <img src={logoMark} alt="" className="mx-auto size-16 rounded-2xl bg-white object-contain p-2 ring-1 ring-line" />
+        <h2 className="mt-4 text-xl font-bold text-ink">{title}</h2>
+        <p className="mb-5 mt-2 text-sm text-ink-muted">{text}</p>
+        {needsInternet || clock ? (
+          <button onClick={retry} disabled={busy}
+            className="flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-primary text-[15px] font-bold text-white hover:bg-primary-bright disabled:opacity-60">
+            {busy ? <Loader2 className="size-4 whq-spin" /> : <RefreshCw className="size-4" />} Try again
           </button>
-          <button
-            onClick={handleActivate}
-            disabled={activating}
-            className="btn-primary flex-1 py-2 text-xs"
-          >
-            {activating && <Loader2 className="mr-1.5 inline size-3.5 whq-spin" />}
-            {activating ? "Activating..." : "Activate"}
-          </button>
-        </div>
+        ) : ended ? (
+          <div className="grid gap-3 text-left">
+            <BuyMedia />
+            <button onClick={() => signOut()} className="text-[13px] font-semibold text-ink-muted hover:text-ink">Use a different account</button>
+          </div>
+        ) : (
+          <AccountForms />
+        )}
       </div>
     </div>
   );

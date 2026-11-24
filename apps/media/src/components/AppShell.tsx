@@ -8,6 +8,7 @@ import {
   Music, Settings, Square, X,
 } from "lucide-react";
 import { useProjectionStore } from "../stores/projection-store";
+import { accountActive, useAccountStore } from "../lib/account";
 import { useVoiceStore } from "../stores/voice-store";
 import { useAudioStore } from "../stores/audio-store";
 
@@ -51,7 +52,7 @@ export function AppHeader({ onMenu, previewShown }: { onMenu: (a: MenuAction) =>
       <div className="flex h-9 items-center gap-2 border-b border-line/70 pl-3" data-tauri-drag-region>
         <img src={logoMark} alt="WorshipHQ" className="size-6 object-contain" draggable={false} data-tauri-drag-region />
         <span className="hidden whitespace-nowrap text-[13px] font-bold tracking-tight text-ink xl:inline" data-tauri-drag-region>
-          WorshipHQ <span className="text-primary">Media</span>
+          WorshipHQ <span className="text-primary">Live</span>
         </span>
         <div className="mx-1 h-5 w-px bg-line" />
         <MenuBar onAction={onMenu} previewShown={previewShown} projectorOn={projectionOpen} />
@@ -216,6 +217,8 @@ const NAV: { heading: string; items: NavItem[] }[] = [
 
 export function AppSidebar({ workspace, onChange }: { workspace: Workspace; onChange: (w: Workspace) => void }) {
   const { isTrial, isLicensed, trialDaysRemaining, isLive, isBlack } = useProjectionStore();
+  const account = useAccountStore((s) => s.account);
+  const subscribed = accountActive(account);
   const voiceOn = useVoiceStore((v) => v.status === "listening");
 
   return (
@@ -255,7 +258,9 @@ export function AppSidebar({ workspace, onChange }: { workspace: Workspace; onCh
       </nav>
 
       <div className="hidden border-t border-line px-4 py-2.5 text-[13px] lg:block">
-        {isLicensed ? (
+        {subscribed ? (
+          <span className="block truncate font-medium text-success" title="Signed in to WorshipHQ">{account!.church.name}</span>
+        ) : isLicensed ? (
           <span className="font-medium text-success">Licensed</span>
         ) : isTrial ? (
           <span className="text-ink-muted">

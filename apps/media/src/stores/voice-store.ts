@@ -91,7 +91,7 @@ interface VoiceState {
   whisperModels: WhisperModel[];
   whisperModel: WhisperModel;
   setWhisperModel: (m: WhisperModel) => void;
-  /** Start listening as soon as WorshipHQ Media opens. */
+  /** Start listening as soon as WorshipHQ Live opens. */
   autoStart: boolean;
   setAutoStart: (v: boolean) => void;
   installingWhisper: boolean;

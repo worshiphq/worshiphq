@@ -11,7 +11,7 @@ const TEST_SLIDE: Slide = {
   label: "Test screen",
   content: {
     primaryText: "If you can read this,\nthe projector is working",
-    secondaryText: "WorshipHQ Media · test screen",
+    secondaryText: "WorshipHQ Live · test screen",
   },
   template: {
     background: "linear-gradient(135deg, #0f766e 0%, #134e4a 45%, #0f172a 100%)",

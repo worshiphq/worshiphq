@@ -1,5 +1,5 @@
 import { apiBase } from "../components/StockLibrary";
-import { isDesktopApp } from "./media-src";
+import { serverHeaders } from "./account";
 
 /**
  * WorshipHQ AI (Claude, through the WorshipHQ server): understands what was said in the service and what someone
@@ -15,30 +15,18 @@ export type AiAction =
   | { type: "go_chapter"; chapter: number; verse?: number }
   | { type: "clear" } | { type: "black" } | { type: "show_again" };
 
-let licence: Promise<string | null> | null = null;
-function licenceHeader(): Promise<string | null> {
-  if (!licence) {
-    licence = (async () => {
-      if (!isDesktopApp()) return null;
-      const { invoke } = await import("@tauri-apps/api/core");
-      return invoke<string | null>("stock_licence").catch(() => null);
-    })();
-  }
-  return licence;
-}
-
 /** "ok", or why the AI isn't answering (shown in Settings and on the Voice page). */
 export let aiStatus: "unknown" | "ok" | "offline" | "unlicensed" | "not-set-up" = "unknown";
 
 async function post<T>(body: unknown, timeoutMs: number): Promise<T | null> {
-  const lic = await licenceHeader();
+  const lic = await serverHeaders();
   if (!lic) { aiStatus = "unlicensed"; return null; }
   const ctl = new AbortController();
   const timer = window.setTimeout(() => ctl.abort(), timeoutMs);
   try {
     const res = await fetch(`${apiBase()}/api/media/ai`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-WHQ-Licence": lic },
+      headers: { "Content-Type": "application/json", ...lic },
       body: JSON.stringify(body),
       signal: ctl.signal,
     });
@@ -78,11 +66,11 @@ export async function aiFindVerses(query: string): Promise<{ reference: string; 
 
 /** Twi speech → text through Khaya on the WorshipHQ server. */
 export async function transcribeTwi(wav: Uint8Array): Promise<string> {
-  const lic = await licenceHeader();
-  if (!lic) throw new Error("Twi listening needs a WorshipHQ Media licence.");
+  const lic = await serverHeaders();
+  if (!lic) throw new Error("Twi listening needs you signed in to WorshipHQ (Help › WorshipHQ account).");
   const res = await fetch(`${apiBase()}/api/media/twi`, {
     method: "POST",
-    headers: { "Content-Type": "audio/wav", "X-WHQ-Licence": lic },
+    headers: { "Content-Type": "audio/wav", ...lic },
     body: wav as unknown as BodyInit,
   });
   const body = (await res.json().catch(() => ({}))) as { text?: string; error?: string };

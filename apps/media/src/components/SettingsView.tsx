@@ -386,7 +386,7 @@ function WhisperSetup({ deviceId, devices }: { deviceId: string; devices: MediaD
           {v.installingWhisper && v.whisperProgress && <div className="mt-3"><WhisperProgressBar p={v.whisperProgress} /></div>}
           <label className="mt-3 flex cursor-pointer items-center gap-2">
             <input type="checkbox" checked={v.autoStart} onChange={(e) => v.setAutoStart(e.target.checked)} className="size-4 accent-[var(--color-primary)]" />
-            <span className="text-[14px] text-ink">Start listening as soon as WorshipHQ Media opens</span>
+            <span className="text-[14px] text-ink">Start listening as soon as WorshipHQ Live opens</span>
           </label>
           <label className="mt-3 block">
             <span className="mb-1 block text-[13px] font-medium text-ink-muted">Microphone to listen to</span>

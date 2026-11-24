@@ -4,6 +4,8 @@ import { DEFAULT_ADJUST, DEFAULT_PROP, DEFAULT_TICKER, type Adjust, type Prop, t
 import { mediaUrl } from "../lib/media-src";
 import { useProjectionStore } from "../stores/projection-store";
 import { ScaledSlide, CANVAS_W } from "./SlideCanvas";
+import { useAccountStore } from "../lib/account";
+import { refreshLicence } from "../lib/licence";
 import { DEFAULT_TRANSITION, themeKindFor, DEFAULT_THEMES, type Transition } from "../lib/themes";
 
 interface Layer { id: number; slide: Slide | null; transition: Transition; leaving: boolean }
@@ -59,6 +61,12 @@ export function ProjectionWindow() {
   const [alert, setAlert] = useState<AlertMessage | null>(null);
   const isTrial = useProjectionStore((s) => s.isTrial);
   const isLicensed = useProjectionStore((s) => s.isLicensed);
+  // Signing in happens in the main window; pick it up here too.
+  useEffect(() => {
+    const on = (e: StorageEvent) => { if (e.key === "whq-account") { useAccountStore.persist.rehydrate(); refreshLicence(); } };
+    window.addEventListener("storage", on);
+    return () => window.removeEventListener("storage", on);
+  }, []);
   const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
@@ -105,9 +113,7 @@ export function ProjectionWindow() {
 
         // This window has its own copy of the app state, so check the licence here too (for the trial mark).
         try {
-          const hwid = await invoke<string>("get_hwid");
-          const lic = await invoke<{ is_licensed: boolean; is_trial: boolean; trial_days_remaining: number; hwid: string }>("check_license", { hwid });
-          useProjectionStore.getState().setLicense({ isLicensed: lic.is_licensed, isTrial: lic.is_trial, trialDaysRemaining: lic.trial_days_remaining, hwid: lic.hwid });
+          await refreshLicence();
         } catch { /* keep the default */ }
 
         // Ticker, props and screen tuning.
@@ -165,7 +171,7 @@ export function ProjectionWindow() {
       {prop.on && !isBlack && <PropLayer prop={prop} />}
       {ticker.on && ticker.text.trim() && !isBlack && <TickerBand ticker={ticker} raised={!!alert} />}
       {alert && <AlertBar alert={alert} />}
-      {isTrial && !isLicensed && <TrialWatermark />}
+      {(!isLicensed || isTrial) && <TrialWatermark />}
     </div>
     </div>
   );
@@ -238,7 +244,7 @@ function TrialWatermark() {
   return (
     <div className="pointer-events-none absolute inset-0 z-50 flex items-center justify-center">
       <div className="select-none text-white/[0.08]" style={{ fontSize: "5vw", fontWeight: 800, transform: "rotate(-30deg)", letterSpacing: "0.1em", textTransform: "uppercase" }}>
-        WorshipHQ Media — Trial
+        WorshipHQ Live — Trial
       </div>
     </div>
   );

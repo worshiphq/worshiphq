@@ -80,7 +80,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
             <Church className="size-4 text-primary-bright" />
           </div>
           <div>
-            <h1 className="text-sm font-bold text-ink">WorshipHQ Media</h1>
+            <h1 className="text-sm font-bold text-ink">WorshipHQ Live</h1>
             <p className="text-[10px] text-ink-faint">Setup Wizard</p>
           </div>
         </div>
@@ -119,7 +119,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
           {currentStep === "sign-in" && (
             <div className="space-y-6">
               <div>
-                <h2 className="text-2xl font-bold text-ink">Welcome to WorshipHQ Media</h2>
+                <h2 className="text-2xl font-bold text-ink">Welcome to WorshipHQ Live</h2>
                 <p className="mt-1 text-sm text-ink-muted">
                   Sign in with your WorshipHQ account to sync your church's data.
                 </p>
@@ -382,7 +382,7 @@ export function SetupWizard({ onComplete }: { onComplete: () => void }) {
                 onClick={onComplete}
                 className="flex h-12 w-full items-center justify-center gap-2 rounded-xl bg-primary text-sm font-bold text-white transition-colors hover:bg-primary-bright"
               >
-                Start Using WorshipHQ Media <ChevronRight className="size-4" />
+                Start Using WorshipHQ Live <ChevronRight className="size-4" />
               </button>
             </div>
           )}

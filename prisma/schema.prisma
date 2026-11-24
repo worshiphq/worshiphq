@@ -18,6 +18,8 @@ datasource db {
 // ── Platform config (singleton — one row, id="default") ──
 model PlatformConfig {
   id                      String    @id @default("default")
+  // Site-wide promotions (plan step-up, free Media, Media discounts), see src/lib/promotions.ts.
+  promotions              Json?
   // The platform owner's number for "a church just signed up" texts. Empty = the phone saved in the receipt company details.
   alertPhone              String?
   currency                String    @default("USD")
@@ -320,6 +322,7 @@ model Church {
   budgetEntries         BudgetEntry[]
   coupons               Coupon[]
   planPayments          PlanPayment[]
+  mediaDevices          MediaDevice[]
   refundRequests        RefundRequest[]
   volunteerRosters      VolunteerRoster[]
   volunteerSlots        VolunteerSlot[]
@@ -1540,7 +1543,55 @@ model Subscription {
   commsTrialStartedAt DateTime?
   commsTrialEndsAt    DateTime?
 
+  // ── WorshipHQ Media (the presentation app) ──
+  // A separate subscription on top of any plan. On Max it costs half ("Max Plus").
+  // The church can use Media while mediaUntil is in the future.
+  mediaUntil          DateTime?
+  mediaInterval       String?   // monthly | yearly | granted
+  mediaIsTrial        Boolean   @default(false)
+  mediaTrialUsed      Boolean   @default(false)
+  // How many computers can be signed in to Media at the same time.
+  mediaSeats          Int       @default(2)
+
   @@index([trialEndsAt])
+}
+
+/// A Bible the platform owner publishes for churches to download inside WorshipHQ Media
+/// (SuperAdmin › Bibles). The file sits privately in R2 and is only handed to signed-in churches it is meant for.
+model MediaBible {
+  id           String   @id @default(cuid())
+  abbreviation String
+  name         String
+  language     String   @default("English")
+  /// "ewb" (EasyWorship Bible) or "db-gz" (WorshipHQ Bible, gzipped)
+  format       String
+  objectKey    String
+  sizeBytes    Int
+  sha256       String
+  /// Who holds the licence and what it allows (shown to the owner only).
+  licence      String   @default("")
+  /// "all" = every church with WorshipHQ Media; "churches" = only the churches in churchIds.
+  audience     String   @default("all")
+  churchIds    String[] @default([])
+  active       Boolean  @default(true)
+  downloads    Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+/// A computer signed in to WorshipHQ Media. Limited to Subscription.mediaSeats per church.
+model MediaDevice {
+  id         String   @id @default(cuid())
+  churchId   String
+  church     Church   @relation(fields: [churchId], references: [id], onDelete: Cascade)
+  deviceId   String   // hash of the computer's hardware id
+  name       String
+  userId     String?
+  lastSeenAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+
+  @@unique([churchId, deviceId])
+  @@index([churchId])
 }
 
 /**
@@ -3753,5 +3804,13 @@ model LifecycleSend {
 /// Addresses that pressed "Stop these emails". Only the sequence and offers stop; codes and receipts still go.
 model EmailOptOut {
   email     String   @id
+  createdAt DateTime @default(now())
+}
+
+/// A computer that has had its WorshipHQ Media free trial (one per computer, whatever the account).
+/// machineId is a hash of the motherboard id, so it survives Windows being reinstalled.
+model MediaTrialMachine {
+  machineId String   @id
+  churchId  String?
   createdAt DateTime @default(now())
 }

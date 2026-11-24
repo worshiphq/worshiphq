@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicokosi/tauri-v2-schema/main/config.schema.json",
-  "productName": "WorshipHQ Media",
-  "version": "1.0.0",
+  "productName": "WorshipHQ Live",
+  "version": "1.0.1",
   "identifier": "com.worshiphq.media",
   "build": {
     "frontendDist": "../dist",
@@ -11,7 +11,9 @@
   },
   "bundle": {
     "active": true,
-    "targets": ["nsis"],
+    "targets": [
+      "nsis"
+    ],
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -29,20 +31,23 @@
       "nsis": {
         "displayLanguageSelector": false,
         "installerIcon": "icons/icon.ico",
-        "languages": ["English"],
+        "languages": [
+          "English"
+        ],
         "installMode": "currentUser"
       }
     },
     "shortDescription": "Church Presentation Software",
-    "longDescription": "WorshipHQ Media — Professional church presentation software for worship services. Project scripture, songs, and media to screens.",
+    "longDescription": "WorshipHQ Live — Professional church presentation software for worship services. Project scripture, songs, and media to screens.",
     "copyright": "© 2025 WorshipHQ",
-    "category": "Utility"
+    "category": "Utility",
+    "createUpdaterArtifacts": true
   },
   "app": {
     "withGlobalTauri": false,
     "windows": [
       {
-        "title": "WorshipHQ Media",
+        "title": "WorshipHQ Live",
         "width": 1280,
         "height": 800,
         "minWidth": 1024,
@@ -56,13 +61,24 @@
       "csp": null,
       "assetProtocol": {
         "enable": true,
-        "scope": ["$APPDATA/media/**"]
+        "scope": [
+          "$APPDATA/media/**"
+        ]
       }
     }
   },
   "plugins": {
     "shell": {
       "open": true
+    },
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRDMzg0ODczQTVGN0Q4ODQKUldTRTJQZWxjMGc0VEpIMldON1dZYlB4WE0zM2pDbDNZSHZxbS9EaENqa3YvOVJuT2RxWk1nSXQK",
+      "endpoints": [
+        "https://worshiphq.app/api/media/update?target={{target}}&arch={{arch}}&current={{current_version}}"
+      ],
+      "windows": {
+        "installMode": "passive"
+      }
     }
   }
 }

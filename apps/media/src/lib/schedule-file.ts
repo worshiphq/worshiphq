@@ -3,7 +3,7 @@ import type { ServiceItem } from "../types";
 
 /** Schedules can be saved to a file and opened again (or on another computer), like EasyWorship schedules. */
 interface ScheduleFile {
-  app: "WorshipHQ Media";
+  app: "WorshipHQ Live" | "WorshipHQ Media";
   version: 1;
   name: string;
   date: string;
@@ -20,7 +20,7 @@ export async function saveSchedule(): Promise<void> {
   const safe = `${p.serviceName} ${p.serviceDate}`.replace(/[\\/:*?"<>|]+/g, " ").trim() || "Schedule";
   const path = await save({ title: "Save the schedule", defaultPath: `${safe}.whqschedule`, filters: [{ name: "WorshipHQ schedule", extensions: ["whqschedule"] }] });
   if (!path) return;
-  const file: ScheduleFile = { app: "WorshipHQ Media", version: 1, name: p.serviceName, date: p.serviceDate, startTime: p.startTime, items: p.serviceItems };
+  const file: ScheduleFile = { app: "WorshipHQ Live", version: 1, name: p.serviceName, date: p.serviceDate, startTime: p.startTime, items: p.serviceItems };
   const { invoke } = await import("@tauri-apps/api/core");
   await invoke("write_text_file", { path, text: JSON.stringify(file, null, 1) }).catch((e) => window.alert(String(e)));
 }

@@ -141,6 +141,10 @@ const schema = z.object({
 
   // ── AI ───────────────────────────────────────────────
   ANTHROPIC_API_KEY: str,
+  /** Khaya (GhanaNLP) speech recognition for Twi in WorshipHQ Live. */
+  KHAYA_API_KEY: str,
+  /** Signs WorshipHQ Live licences (Ed25519, PKCS8 DER in base64). The app holds the matching public key. */
+  MEDIA_LICENCE_PRIVATE_KEY: str,
   OPENAI_API_KEY: str,
 
   // ── STOCK IMAGES ─────────────────────────────────────

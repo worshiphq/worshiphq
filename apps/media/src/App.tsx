@@ -23,6 +23,9 @@ import { useVoiceStore } from "./stores/voice-store";
 import { useThemeStore } from "./stores/theme-store";
 import { Launcher } from "./components/Launcher";
 import type { Slide } from "./types";
+import { UpdateBanner } from "./components/UpdateBanner";
+import { startUpdateChecks, useUpdateStore } from "./lib/updates";
+import { startAccountCheckIns } from "./lib/account";
 
 export default function App() {
   const [launched, setLaunched] = useState(false);
@@ -68,6 +71,10 @@ export default function App() {
         break;
       case "schedule:save": await saveSchedule(); break;
       case "schedule:open": await openSchedule(); break;
+      case "help:updates":
+        setSettingsTab("about"); setWorkspaceRaw("settings"); useUpdateStore.getState().check(true); break;
+      case "help:account":
+        setSettingsTab("about"); setWorkspaceRaw("settings"); break;
       case "help:website":
         try { const { open } = await import("@tauri-apps/plugin-shell"); await open("https://worshiphq.app"); } catch { window.open("https://worshiphq.app", "_blank"); }
         break;
@@ -81,6 +88,16 @@ export default function App() {
     if (w === "looks" || w === "screens") { setSettingsTab(w); setWorkspaceRaw("settings"); }
     else setWorkspaceRaw(w);
   };
+
+  // Other parts of the app can run a menu action (e.g. the trial bar opens the account page).
+  useEffect(() => {
+    const on = (e: Event) => onMenu((e as CustomEvent).detail as MenuAction);
+    window.addEventListener("whq-menu-open", on);
+    return () => window.removeEventListener("whq-menu-open", on);
+  });
+
+  // Account check-ins and automatic updates (both quiet when offline).
+  useEffect(() => { const a = startAccountCheckIns(); const u = startUpdateChecks(); return () => { a(); u(); }; }, []);
 
   // Shortcuts, like EasyWorship: Ctrl+C clear/unclear the words, Ctrl+B black, Ctrl+L logo,
   // Ctrl+1…6 to move between screens. (Ctrl+C still copies when you have text selected or are typing.)
@@ -210,6 +227,7 @@ export default function App() {
     <LicenseGate>
       <div className="flex h-full flex-col bg-surface">
         <AppHeader onMenu={onMenu} previewShown={previewShown} />
+        <UpdateBanner />
         <VoiceBanner />
         <div className="flex min-h-0 flex-1">
           <AppSidebar workspace={workspace} onChange={setWorkspace} />

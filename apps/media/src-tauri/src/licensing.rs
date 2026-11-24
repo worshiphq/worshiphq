@@ -73,39 +73,9 @@ fn generate_valid_key(hwid: &str) -> String {
 pub fn get_hardware_id() -> Result<String, String> {
     #[cfg(target_os = "windows")]
     {
-        let output = Command::new("wmic")
-            .args(["csproduct", "get", "uuid"])
-            .output()
-            .map_err(|e| format!("Failed to get HWID: {}", e))?;
-
-        let stdout = String::from_utf8_lossy(&output.stdout);
-        let hwid = stdout
-            .lines()
-            .nth(1)
-            .unwrap_or("")
-            .trim()
-            .to_string();
-
-        if hwid.is_empty() || hwid == "FFFFFFFF-FFFF-FFFF-FFFF-FFFFFFFFFFFF" {
-            let output = Command::new("cmd")
-                .args(["/c", "vol c:"])
-                .output()
-                .map_err(|e| format!("Failed to get volume serial: {}", e))?;
-
-            let stdout = String::from_utf8_lossy(&output.stdout);
-            let serial = stdout
-                .lines()
-                .find(|l| l.contains("Serial"))
-                .unwrap_or("")
-                .split_whitespace()
-                .last()
-                .unwrap_or("UNKNOWN")
-                .to_string();
-
-            return Ok(format!("WHQ-VOL-{}", serial));
-        }
-
-        Ok(format!("WHQ-{}", hwid))
+        // Worked out once per run (it starts a small hidden process).
+        static HWID: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+        return Ok(HWID.get_or_init(windows_hardware_id).clone());
     }
 
     #[cfg(target_os = "macos")]
@@ -138,6 +108,47 @@ pub fn get_hardware_id() -> Result<String, String> {
         let machine_id = String::from_utf8_lossy(&output.stdout).trim().to_string();
         Ok(format!("WHQ-{}", machine_id))
     }
+}
+
+/// The motherboard's id (SMBIOS UUID). It stays the same after Windows is reinstalled or the disk is formatted,
+/// which is what lets WorshipHQ give each computer one free trial. "wmic" is gone from new Windows 11, so this asks
+/// Windows through PowerShell first, then wmic, then the Windows install id, then the disk serial.
+#[cfg(target_os = "windows")]
+fn windows_hardware_id() -> String {
+    use std::os::windows::process::CommandExt;
+    const NO_WINDOW: u32 = 0x0800_0000;
+    let run = |exe: &str, args: &[&str]| -> String {
+        Command::new(exe)
+            .args(args)
+            .creation_flags(NO_WINDOW)
+            .output()
+            .map(|o| String::from_utf8_lossy(&o.stdout).to_string())
+            .unwrap_or_default()
+    };
+    let good = |u: &str| {
+        let u = u.trim();
+        u.len() >= 32
+            && !u.chars().all(|c| c == 'F' || c == '-' || c == '0')
+            && u != "03000200-0400-0500-0006-000700080009"
+    };
+
+    let ps = run("powershell", &["-NoProfile", "-NonInteractive", "-Command", "(Get-CimInstance -ClassName Win32_ComputerSystemProduct).UUID"]);
+    let ps = ps.trim().to_uppercase();
+    if good(&ps) {
+        return format!("WHQ-{ps}");
+    }
+    let wm = run("wmic", &["csproduct", "get", "uuid"]);
+    let wm = wm.lines().nth(1).unwrap_or("").trim().to_uppercase();
+    if good(&wm) {
+        return format!("WHQ-{wm}");
+    }
+    let reg = run("reg", &["query", r"HKLM\SOFTWARE\Microsoft\Cryptography", "/v", "MachineGuid"]);
+    if let Some(g) = reg.lines().find(|l| l.contains("MachineGuid")).and_then(|l| l.split_whitespace().last()) {
+        return format!("WHQ-MG-{}", g.to_uppercase());
+    }
+    let vol = run("cmd", &["/c", "vol c:"]);
+    let serial = vol.lines().find(|l| l.contains("Serial")).and_then(|l| l.split_whitespace().last()).unwrap_or("UNKNOWN").to_string();
+    format!("WHQ-VOL-{serial}")
 }
 
 pub fn check_license(hwid: &str, data_dir: &PathBuf) -> Result<LicenseStatus, String> {
@@ -177,45 +188,6 @@ pub fn check_license(hwid: &str, data_dir: &PathBuf) -> Result<LicenseStatus, St
         trial_days_remaining: remaining,
         hwid: hwid.to_string(),
     })
-}
-
-/// Takes the licence off this computer (e.g. before moving it to another computer). The trial does not restart.
-pub fn remove_license(data_dir: &PathBuf) -> Result<(), String> {
-    let mut lf = read_license_file(data_dir);
-    lf.license_key = None;
-    write_license_file(data_dir, &lf)
-}
-
-pub fn activate_license(hwid: &str, key: &str, data_dir: &PathBuf) -> Result<LicenseStatus, String> {
-    let valid_key = generate_valid_key(hwid);
-    let input = key.trim().to_uppercase();
-
-    if input != valid_key {
-        return Err("Invalid license key".to_string());
-    }
-
-    let mut lf = read_license_file(data_dir);
-    lf.license_key = Some(input);
-    lf.activated_epoch = Some(now_epoch());
-    write_license_file(data_dir, &lf)?;
-
-    Ok(LicenseStatus {
-        is_licensed: true,
-        is_trial: false,
-        trial_days_remaining: 0,
-        hwid: hwid.to_string(),
-    })
-}
-
-/// Generate a license key for a given HWID (admin/server use)
-pub fn generate_key_for_hwid(hwid: &str) -> String {
-    generate_valid_key(hwid)
-}
-
-/// "<computer id> <licence key>" for the WorshipHQ server, when this computer is licensed.
-pub fn licence_header(hwid: &str, data_dir: &PathBuf) -> Option<String> {
-    let key = read_license_file(data_dir).license_key?;
-    (key == generate_valid_key(hwid)).then(|| format!("{hwid} {key}"))
 }
 
 #[derive(Debug, Serialize)]

@@ -1,5 +1,6 @@
 mod bible;
 mod licensing;
+mod stamp;
 mod ewb;
 mod extras;
 mod media;
@@ -375,10 +376,27 @@ fn stock_bundled(app: tauri::AppHandle) -> Vec<stock::BundledStock> {
     list
 }
 
+fn data_dir(app: &tauri::AppHandle) -> std::path::PathBuf {
+    app.path().app_data_dir().unwrap_or_else(|_| std::path::PathBuf::from("."))
+}
+
+/// Is this computer licensed (a genuine WorshipHQ-signed licence for this computer, not expired)?
 #[tauri::command]
-fn stock_licence(app: tauri::AppHandle) -> Option<String> {
-    let hwid = licensing::get_hardware_id().ok()?;
-    licensing::licence_header(&hwid, &bible_dir(&app))
+fn licence_status(app: tauri::AppHandle) -> Result<stamp::StampStatus, String> {
+    let hwid = licensing::get_hardware_id()?;
+    Ok(stamp::status(&data_dir(&app), &hwid))
+}
+
+/// Keep the licence WorshipHQ sent after signing in or checking in.
+#[tauri::command]
+fn licence_save(app: tauri::AppHandle, licence: String) -> Result<stamp::StampStatus, String> {
+    let hwid = licensing::get_hardware_id()?;
+    stamp::save(&data_dir(&app), &hwid, &licence)
+}
+
+#[tauri::command]
+fn licence_clear(app: tauri::AppHandle) -> Result<(), String> {
+    stamp::clear(&data_dir(&app))
 }
 
 #[tauri::command]
@@ -467,18 +485,15 @@ async fn close_projection_window(app: tauri::AppHandle) -> Result<(), String> {
     Ok(())
 }
 
+/// The Windows computer name, so the church can tell its computers apart when signing in.
 #[tauri::command]
-fn get_hwid() -> Result<String, String> {
-    licensing::get_hardware_id()
+fn computer_name() -> String {
+    std::env::var("COMPUTERNAME").unwrap_or_else(|_| "This computer".into())
 }
 
 #[tauri::command]
-fn check_license(app: tauri::AppHandle, hwid: String) -> Result<licensing::LicenseStatus, String> {
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .unwrap_or_else(|_| std::path::PathBuf::from("."));
-    licensing::check_license(&hwid, &data_dir)
+fn get_hwid() -> Result<String, String> {
+    licensing::get_hardware_id()
 }
 
 #[tauri::command]
@@ -499,26 +514,6 @@ fn open_data_folder(app: tauri::AppHandle) -> Result<(), String> {
     let data_dir = app.path().app_data_dir().map_err(|e| e.to_string())?;
     std::process::Command::new("explorer.exe").arg(&data_dir).spawn().map_err(|e| e.to_string())?;
     Ok(())
-}
-
-#[tauri::command]
-fn remove_license(app: tauri::AppHandle) -> Result<(), String> {
-    let data_dir = app.path().app_data_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
-    licensing::remove_license(&data_dir)
-}
-
-#[tauri::command]
-fn activate_license(app: tauri::AppHandle, hwid: String, key: String) -> Result<licensing::LicenseStatus, String> {
-    let data_dir = app
-        .path()
-        .app_data_dir()
-        .unwrap_or_else(|_| std::path::PathBuf::from("."));
-    licensing::activate_license(&hwid, &key, &data_dir)
-}
-
-#[tauri::command]
-fn generate_license_key(hwid: String) -> String {
-    licensing::generate_key_for_hwid(&hwid)
 }
 
 // ── Bible commands ──────────────────────────────────────────────
@@ -656,6 +651,8 @@ pub fn run() {
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .plugin(tauri_plugin_process::init())
         .manage(OutputState::default())
         .manage(voice::VoiceState::default())
         .on_window_event(|window, event| {
@@ -715,6 +712,10 @@ pub fn run() {
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
+            computer_name,
+            licence_status,
+            licence_save,
+            licence_clear,
             list_displays,
             go_live,
             go_black,
@@ -722,13 +723,9 @@ pub fn run() {
             open_projection_window,
             close_projection_window,
             get_hwid,
-            check_license,
-            activate_license,
-            remove_license,
             license_info,
             set_registered_to,
             open_data_folder,
-            generate_license_key,
             search_bible,
             search_bible_text,
             bible_list_packs,
@@ -759,7 +756,6 @@ pub fn run() {
             whisper_start,
             whisper_stop,
             stock_bundled,
-            stock_licence,
             stock_download,
             stock_progress,
             whisper_transcribe,
@@ -779,5 +775,5 @@ pub fn run() {
             open_sound_settings,
         ])
         .run(tauri::generate_context!())
-        .expect("error while running WorshipHQ Media");
+        .expect("error while running WorshipHQ Live");
 }
