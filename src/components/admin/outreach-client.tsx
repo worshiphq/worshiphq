@@ -14,6 +14,7 @@ import {
   type TestSmsResult, type OutreachData, type OutreachChurch, type OutreachContact, type OutreachHistoryRow,
 } from "@/app/actions/admin-outreach";
 import { OUTREACH_TEMPLATES, firstName, mergeFields, renderEmailHtml, templateById, type OutreachChannel } from "@/lib/outreach/templates";
+import { phoneKind, PHONE_KIND_LABEL, type PhoneKind } from "@/lib/outreach/phone-kind";
 import { cn } from "@/lib/utils";
 import { ClientPager, PagedList } from "@/components/admin/pager";
 import { ADMIN_PAGE_SIZE } from "@/lib/admin-paging";
@@ -40,12 +41,18 @@ const day = (iso: string) => new Date(iso).toLocaleDateString("en-GB", { day: "n
 const cap = (s: string) => s.charAt(0).toUpperCase() + s.slice(1);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
+const NO_FILTERS = { country: "", phone: "", joined: "", contacted: "", size: "", status: "" };
+const NOW = Date.now();
+const daysAgo = (iso: string) => (NOW - Date.parse(iso)) / 86_400_000;
+const countryOf = (c: OutreachChurch) => c.country?.trim() || "Not set";
+
 type Composer = { mode: OutreachChannel; churches: OutreachChurch[]; template?: string } | null;
 
 export function OutreachClient({ data }: { data: OutreachData }) {
   const router = useRouter();
   const [q, setQ] = useState("");
   const [filter, setFilter] = useState<"all" | "new" | "free" | "paid" | "trialEligible" | "trialActive" | "trialEnded">("all");
+  const [more, setMore] = useState(NO_FILTERS);
   const [page, setPage] = useState(1);
   const [sort, setSort] = useState<{ k: string; dir: SortDir }>({ k: "joined", dir: "desc" });
   const [composer, setComposer] = useState<Composer>(null);
@@ -60,9 +67,16 @@ export function OutreachClient({ data }: { data: OutreachData }) {
     if (filter === "trialEligible" && !c.trial.nextPlan) return false;
     if (filter === "trialActive" && c.trial.phase !== "active") return false;
     if (filter === "trialEnded" && c.trial.phase !== "ended") return false;
+    if (more.country === "outside" ? countryOf(c) === "Ghana" : more.country && countryOf(c) !== more.country) return false;
+    if (more.phone && phoneKind(c.contacts[0]?.phone) !== more.phone) return false;
+    if (more.joined && daysAgo(c.createdAt) > Number(more.joined)) return false;
+    if (more.contacted === "never" && c.lastContactAt) return false;
+    if (Number(more.contacted) && c.lastContactAt && daysAgo(c.lastContactAt) < Number(more.contacted)) return false;
+    if (more.size) { const [lo, hi] = more.size.split("-").map(Number); if (c.members < lo || c.members > hi) return false; }
+    if (more.status && (more.status === "suspended") !== c.suspended) return false;
     const t = q.trim().toLowerCase();
     if (!t) return true;
-    return c.name.toLowerCase().includes(t) || (c.city ?? "").toLowerCase().includes(t) || c.contacts.some((x) => `${x.name} ${x.email} ${x.phone ?? ""}`.toLowerCase().includes(t));
+    return c.name.toLowerCase().includes(t) || `${c.city ?? ""} ${c.country ?? ""}`.toLowerCase().includes(t) || c.contacts.some((x) => `${x.name} ${x.email} ${x.phone ?? ""}`.toLowerCase().includes(t));
   }).sort((a, b) => {
     const m = sort.dir === "asc" ? 1 : -1;
     const val = (c: OutreachChurch): number | string =>
@@ -73,7 +87,14 @@ export function OutreachClient({ data }: { data: OutreachData }) {
       : Date.parse(c.createdAt);
     const x = val(a), y = val(b);
     return (x < y ? -1 : x > y ? 1 : 0) * m;
-  }), [data.churches, q, filter, sort]);
+  }), [data.churches, q, filter, sort, more]);
+  const countries = useMemo(() => {
+    const n = new Map<string, number>();
+    for (const c of data.churches) n.set(countryOf(c), (n.get(countryOf(c)) ?? 0) + 1);
+    return [...n].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  }, [data.churches]);
+  const setF = (k: keyof typeof NO_FILTERS, v: string) => { setMore((m) => ({ ...m, [k]: v })); setPage(1); };
+  const filtered = filter !== "all" || q.trim() !== "" || Object.values(more).some(Boolean);
   const onSort = (k: string, dir: SortDir) => { setSort({ k, dir }); setPage(1); };
   // A page at a time. What is ticked is kept across pages, so a church ticked on page 1 is still chosen on page 3.
   const pages = Math.max(1, Math.ceil(rows.length / ADMIN_PAGE_SIZE));
@@ -82,6 +103,8 @@ export function OutreachClient({ data }: { data: OutreachData }) {
   const pageIds = useMemo(() => pageRows.map((r) => r.id), [pageRows]);
   const { sel, setSel, tick } = useRangeSelect(pageIds);
   const chosen = data.churches.filter((c) => sel.has(c.id));
+  const rowIds = new Set(rows.map((r) => r.id));
+  const hiddenChosen = chosen.filter((c) => !rowIds.has(c.id)).length;
   const allOn = pageRows.length > 0 && pageRows.every((r) => sel.has(r.id));
   const moreMatching = rows.some((r) => !sel.has(r.id));
 
@@ -160,9 +183,20 @@ export function OutreachClient({ data }: { data: OutreachData }) {
         <span className="ml-auto text-xs text-slate-500">{rows.length} {rows.length === 1 ? "church matches" : "churches match"}</span>
       </div>
 
+      <div className="mb-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+        <FilterSelect label="Country" value={more.country} onChange={(v) => setF("country", v)} options={[["", "All countries"], ["outside", "Outside Ghana"], ...countries.map(([c, n]): [string, string] => [c, `${c} (${n})`])]} />
+        <FilterSelect label="Owner's phone" value={more.phone} onChange={(v) => setF("phone", v)} options={[["", "Any phone"], ...(Object.entries(PHONE_KIND_LABEL) as [PhoneKind, string][])]} />
+        <FilterSelect label="Members" value={more.size} onChange={(v) => setF("size", v)} options={[["", "Any size"], ["0-0", "None yet"], ["1-30", "1 to 30"], ["31-150", "31 to 150"], ["151-300", "151 to 300"], ["301-9999999", "Over 300"]]} />
+        <FilterSelect label="Joined" value={more.joined} onChange={(v) => setF("joined", v)} options={[["", "Any time"], ["7", "Last 7 days"], ["30", "Last 30 days"], ["90", "Last 90 days"]]} />
+        <FilterSelect label="Last contacted" value={more.contacted} onChange={(v) => setF("contacted", v)} options={[["", "Any time"], ["never", "Never"], ["7", "Not in 7 days"], ["30", "Not in 30 days"]]} />
+        <FilterSelect label="Status" value={more.status} onChange={(v) => setF("status", v)} options={[["", "Any status"], ["active", "Active"], ["suspended", "Suspended"]]} />
+      </div>
+      {filtered && <button type="button" className="mb-3 inline-flex items-center gap-1 text-xs text-slate-400 hover:text-white" onClick={() => { setMore(NO_FILTERS); setFilter("all"); setQ(""); setPage(1); }}><X className="size-3.5" /> Clear filters</button>}
+
       {chosen.length > 0 && (
         <div className="mb-3 flex flex-wrap items-center gap-2 rounded-xl border border-teal-500/30 bg-teal-500/10 px-4 py-2.5 text-sm">
           <b className="text-teal-300">{chosen.length} selected</b>
+          {hiddenChosen > 0 && <span className="text-xs text-amber-300">{hiddenChosen} of them not shown by these filters</span>}
           <button className={ghost} onClick={() => setComposer({ mode: "email", churches: chosen })}><Mail className="size-4" /> Email them</button>
           <button className={ghost} onClick={() => setComposer({ mode: "sms", churches: chosen })}><MessageSquare className="size-4" /> Text them</button>
           {moreMatching && rows.length > pageRows.length && (
@@ -195,6 +229,7 @@ export function OutreachClient({ data }: { data: OutreachData }) {
                       <div className="font-medium text-slate-100">{c.name}</div>
                       <div className="mt-0.5 flex flex-wrap items-center gap-x-2 text-xs text-slate-500">
                         <span className="rounded bg-white/5 px-1.5 py-0.5 capitalize text-slate-300">{c.plan}</span>
+                        <span>{[c.city, countryOf(c)].filter(Boolean).join(", ")}</span>
                         <button type="button" onClick={() => onSort("joined", sort.k === "joined" && sort.dir === "desc" ? "asc" : "desc")} className="hover:text-slate-300" title="Sort by date joined">Joined {day(c.createdAt)}</button>
                         {c.suspended && <span className="text-red-400">Suspended</span>}
                       </div>
@@ -208,7 +243,7 @@ export function OutreachClient({ data }: { data: OutreachData }) {
                         <>
                           <div className="text-slate-200">{o.name}</div>
                           <div className="break-all text-xs text-slate-400">{o.email}</div>
-                          <div className="text-xs text-slate-400">{o.phone || <span className="text-slate-600">no phone</span>}</div>
+                          <div className="text-xs text-slate-400">{o.phone || <span className="text-slate-600">no phone</span>}{o.phone && phoneKind(o.phone) !== "ghana" && <span className="ml-1.5 text-[11px] text-amber-300">{PHONE_KIND_LABEL[phoneKind(o.phone)]}</span>}</div>
                           {c.contacts.length > 1 && <div className="mt-0.5 text-[11px] text-slate-500">+{c.contacts.length - 1} admin{c.contacts.length > 2 ? "s" : ""}</div>}
                         </>
                       ) : <span className="text-xs text-slate-600">No owner or admin</span>}
@@ -222,7 +257,7 @@ export function OutreachClient({ data }: { data: OutreachData }) {
                     <td className="px-2 py-3">
                       <div className="flex flex-wrap justify-end gap-1.5">
                         <button title="Email" className={ghost} disabled={!c.contacts.some((x) => x.email)} onClick={() => setComposer({ mode: "email", churches: [c] })}><Mail className="size-4" /></button>
-                        <button title="Text message" className={ghost} disabled={!c.contacts.some((x) => x.phone)} onClick={() => setComposer({ mode: "sms", churches: [c] })}><MessageSquare className="size-4" /></button>
+                        <button title="Text message" className={ghost} disabled={!c.contacts.some((x) => x.phone || x.email)} onClick={() => setComposer({ mode: "sms", churches: [c] })}><MessageSquare className="size-4" /></button>
                         {o?.phone ? (
                           <>
                             <a title={`Call ${o.phone}`} className={ghost} href={`tel:+${intl(o.phone)}`}><Phone className="size-4" /></a>
@@ -248,6 +283,16 @@ export function OutreachClient({ data }: { data: OutreachData }) {
       )}
       {history && <HistoryDialog church={history} onClose={() => setHistory(null)} />}
     </div>
+  );
+}
+
+function FilterSelect({ label, value, onChange, options }: { label: string; value: string; onChange: (v: string) => void; options: [string, string][] }) {
+  return (
+    <label className="block text-[11px] text-slate-500">{label}
+      <select className={cn(input, "mt-1", value && "border-teal-500/60")} value={value} onChange={(e) => onChange(e.target.value)}>
+        {options.map(([v, l]) => <option key={v} value={v} className="bg-slate-900">{l}</option>)}
+      </select>
+    </label>
   );
 }
 
@@ -278,8 +323,10 @@ function Modal({ title, onClose, children, wide }: { title: string; onClose: () 
 
 /** The contact we reach for a church: the chosen one, else the first who has an email or phone. */
 function pickContact(c: OutreachChurch, mode: OutreachChannel, chosenId?: string): OutreachContact | null {
+  // A text to someone with no phone goes by email instead, so they still count.
+  const any = (x: OutreachContact) => (mode === "email" ? !!x.email : !!x.phone || !!x.email);
   const ok = (x: OutreachContact) => (mode === "email" ? !!x.email : !!x.phone);
-  return c.contacts.find((x) => x.userId === chosenId && ok(x)) ?? c.contacts.find(ok) ?? null;
+  return c.contacts.find((x) => x.userId === chosenId && any(x)) ?? c.contacts.find(ok) ?? c.contacts.find(any) ?? null;
 }
 
 function Compose({ data, composer, onClose, onDone }: { data: OutreachData; composer: NonNullable<Composer>; onClose: () => void; onDone: () => void }) {
@@ -294,11 +341,12 @@ function Compose({ data, composer, onClose, onDone }: { data: OutreachData; comp
   const [view, setView] = useState<"edit" | "preview">("edit");
   const [contactId, setContactId] = useState<string | undefined>(undefined);
   const [sending, setSending] = useState(false);
-  const [progress, setProgress] = useState<{ done: number; total: number; fails: { church: string; error: string }[] } | null>(null);
+  const [progress, setProgress] = useState<{ done: number; total: number; emailed: number; fails: { church: string; error: string }[] } | null>(null);
 
   const live = mode === "email" ? data.emailLive : data.smsLive;
   const targets = churches.map((c) => ({ church: c, contact: pickContact(c, mode, bulk ? undefined : contactId) })).filter((t): t is { church: OutreachChurch; contact: OutreachContact } => !!t.contact);
   const skipped = churches.length - targets.length;
+  const willEmail = mode === "sms" ? targets.filter((t) => phoneKind(t.contact.phone) !== "ghana" && t.contact.email).length : 0;
   const sample = targets[0];
   const merge = sample ? { name: firstName(sample.contact.name), church: sample.church.name, contact: data.contactLine, senderId: sample.church.senderId ?? undefined, nextPlan: sample.church.trial.nextPlan ? cap(sample.church.trial.nextPlan) : undefined, trialDays: String(data.trialDays), trialPlan: sample.church.trial.trialPlan ? cap(sample.church.trial.trialPlan) : undefined, trialFeatures: sample.church.trial.features || undefined, trialFeaturesShort: sample.church.trial.featuresShort || undefined, daysLeft: sample.church.trial.phase === "active" ? `${sample.church.trial.daysLeft} ${sample.church.trial.daysLeft === 1 ? "day" : "days"}` : undefined } : { name: "Ama", church: "Your church", contact: data.contactLine, senderId: "GRACECHAPEL", nextPlan: "Starter", trialDays: String(data.trialDays), trialPlan: "Starter", daysLeft: "2 days" };
   const previewHtml = mode === "email" ? renderEmailHtml({ subject: mergeFields(subject, merge), body: mergeFields(body, merge), church: merge.church, contact: data.contact }) : "";
@@ -316,23 +364,26 @@ function Compose({ data, composer, onClose, onDone }: { data: OutreachData; comp
     if (bulk && !window.confirm(`Send this ${mode === "email" ? "email" : "text"} to ${targets.length} church${targets.length === 1 ? "" : "es"}? This cannot be undone.`)) return;
     setSending(true);
     const fails: { church: string; error: string }[] = [];
-    setProgress({ done: 0, total: targets.length, fails });
+    let emailed = 0;
+    setProgress({ done: 0, total: targets.length, emailed, fails });
     for (let i = 0; i < targets.length; i++) {
       const t = targets[i];
+      let viaEmail = mode === "email";
       try {
         const r = mode === "email"
           ? await sendChurchEmail({ churchId: t.church.id, userId: t.contact.userId, template: tplId, subject, body })
           : await sendChurchSms({ churchId: t.church.id, userId: t.contact.userId, template: tplId, body });
+        if (r.emailedInstead) { emailed++; viaEmail = true; }
         if (!r.ok) fails.push({ church: t.church.name, error: r.error ?? "Failed" });
       } catch (e) {
         fails.push({ church: t.church.name, error: (e as Error).message || "Failed" });
       }
-      setProgress({ done: i + 1, total: targets.length, fails: [...fails] });
-      if (mode === "email" && i < targets.length - 1) await sleep(700); // stay inside the email provider's rate limit
+      setProgress({ done: i + 1, total: targets.length, emailed, fails: [...fails] });
+      if (viaEmail && i < targets.length - 1) await sleep(700); // stay inside the email provider's rate limit
     }
     setSending(false);
     onDone();
-    if (fails.length === 0) { toast(`Sent to ${targets.length} church${targets.length === 1 ? "" : "es"}.`, "success"); onClose(); }
+    if (fails.length === 0) { toast(`Sent to ${targets.length} church${targets.length === 1 ? "" : "es"}${emailed ? `: ${targets.length - emailed} by text, ${emailed} by email instead` : ""}.`, "success"); onClose(); }
     else toast(`${targets.length - fails.length} sent, ${fails.length} failed. See the list.`, "error");
   }
 
@@ -357,14 +408,24 @@ function Compose({ data, composer, onClose, onDone }: { data: OutreachData; comp
           </label>
           <div className="text-xs text-slate-400">To
             {bulk ? (
-              <div className="mt-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300">Each church&apos;s owner ({targets.length}){skipped > 0 ? `, ${skipped} skipped (no ${mode === "email" ? "email" : "phone"})` : ""}</div>
+              <div className="mt-1 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-slate-300">Each church&apos;s owner ({targets.length}){skipped > 0 ? `, ${skipped} skipped (no ${mode === "email" ? "email" : "phone or email"})` : ""}</div>
             ) : (
               <select className={`${input} mt-1`} value={contactId ?? targets[0]?.contact.userId ?? ""} onChange={(e) => setContactId(e.target.value)}>
-                {churches[0].contacts.filter((x) => (mode === "email" ? x.email : x.phone)).map((x) => <option key={x.userId} value={x.userId} className="bg-slate-900">{x.name} ({x.role}) - {mode === "email" ? x.email : x.phone}</option>)}
+                {churches[0].contacts.filter((x) => (mode === "email" ? x.email : x.phone || x.email)).map((x) => <option key={x.userId} value={x.userId} className="bg-slate-900">{x.name} ({x.role}) - {mode === "email" ? x.email : x.phone || `${x.email} (no phone)`}</option>)}
               </select>
             )}
           </div>
         </div>
+
+        {mode === "sms" && (
+          <div className="flex items-start gap-2 rounded-lg border border-white/10 bg-white/5 p-3 text-xs text-slate-300">
+            <Mail className="mt-0.5 size-4 shrink-0 text-teal-400" />
+            <span>
+              {willEmail > 0 && <><b className="text-teal-300">{willEmail}</b> will be emailed instead (outside Ghana, a wrong number or no phone). </>}
+              Anyone a text cannot reach gets the same message by email.
+            </span>
+          </div>
+        )}
 
         {mode === "email" && (
           <div className="flex gap-1 rounded-lg bg-white/5 p-1 text-sm">
@@ -393,7 +454,7 @@ function Compose({ data, composer, onClose, onDone }: { data: OutreachData; comp
           <div className="rounded-lg border border-white/10 bg-white/5 p-3 text-sm">
             <div className="flex items-center gap-2 text-slate-200">
               {sending ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4 text-emerald-400" />}
-              {sending ? "Sending" : "Finished"}: {progress.done} of {progress.total}
+              {sending ? "Sending" : "Finished"}: {progress.done} of {progress.total}{progress.emailed > 0 ? `, ${progress.emailed} by email instead` : ""}
             </div>
             <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-white/10"><div className="h-full bg-teal-500 transition-all" style={{ width: `${(progress.done / Math.max(progress.total, 1)) * 100}%` }} /></div>
             {progress.fails.length > 0 && (
@@ -426,7 +487,8 @@ function HistoryDialog({ church, onClose }: { church: OutreachChurch; onClose: (
     return () => { live = false; };
   }, [church.id]);
   const tone: Record<string, string> = { sent: "text-emerald-400", stubbed: "text-amber-300", failed: "text-red-400" };
-  const label: Record<string, string> = { sent: "Delivered", stubbed: "Not delivered (email not connected)", failed: "Failed" };
+  const label: Record<string, string> = { sent: "Sent", stubbed: "Not delivered (not connected)", failed: "Failed" };
+  const textState: Record<string, string> = { delivered: "Delivered", pending: "Waiting for the network", failed: "Not delivered", sent: "Sent" };
   return (
     <Modal title={`History: ${church.name}`} onClose={onClose} wide>
       {failed ? <p className="text-sm text-red-300">Could not load the history.</p>
@@ -441,7 +503,7 @@ function HistoryDialog({ church, onClose }: { church: OutreachChurch; onClose: (
                     <div className="truncate text-sm text-slate-100">{r.subject || r.body.slice(0, 70)}</div>
                     <div className="text-xs text-slate-500">{r.toName ? `${r.toName} · ` : ""}{r.to} · {day(r.at)}{r.auto ? " · automatic" : ""} · {r.template}</div>
                   </div>
-                  <span className={cn("shrink-0 text-xs", tone[r.status])}>{label[r.status] ?? r.status}</span>
+                  <span className={cn("shrink-0 text-xs", r.delivery === "failed" || r.delivery === "pending" ? "text-amber-300" : tone[r.status])}>{(r.delivery && textState[r.delivery]) ?? label[r.status] ?? r.status}</span>
                 </button>
                 {open === r.id && (
                   <div className="mt-2 whitespace-pre-wrap rounded-lg bg-white/5 p-3 text-xs leading-relaxed text-slate-300">

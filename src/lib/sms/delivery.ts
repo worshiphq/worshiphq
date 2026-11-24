@@ -17,7 +17,7 @@ const STOP_AFTER_HOURS = 72;
 /** Do not ask about a text in its first minute: the network has not answered yet. */
 const MIN_AGE_MS = 60_000;
 
-async function hubtelStatus(messageId: string): Promise<{ state: ReturnType<typeof mapHubtelStatus>; raw?: string }> {
+export async function hubtelStatus(messageId: string): Promise<{ state: ReturnType<typeof mapHubtelStatus>; raw?: string }> {
   const auth = Buffer.from(`${env.HUBTEL_CLIENT_ID}:${env.HUBTEL_CLIENT_SECRET}`).toString("base64");
   const res = await fetch(`https://sms.hubtel.com/v1/messages/${encodeURIComponent(messageId)}`, {
     headers: { authorization: `Basic ${auth}`, accept: "application/json" },

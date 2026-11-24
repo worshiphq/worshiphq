@@ -2695,6 +2695,19 @@ model ReceiptRevision {
 
 // ── SuperAdmin outreach ────────────────────────────────
 // Every email or SMS the platform owner (or the automatic signup welcome) sends to a church contact.
+/// One SuperAdmin outreach text being watched for delivery. `id` is the OutreachMessage id.
+model OutreachDelivery {
+  id        String    @id
+  churchId  String
+  smsId     String // Hubtel's message id
+  state     String    @default("pending") // pending | delivered | failed (emailed instead) | sent (never reported)
+  checkedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([state, checkedAt])
+  @@index([churchId])
+}
+
 model OutreachMessage {
   id        String   @id @default(cuid())
   churchId  String

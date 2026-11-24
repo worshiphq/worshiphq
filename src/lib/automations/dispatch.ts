@@ -119,6 +119,11 @@ export async function runDailyAutomations(now = new Date(), precise = false, sen
     return checkDeliveries({ budgetMs: 15_000 });
   });
 
+  // SuperAdmin outreach texts the network could not deliver: email them instead.
+  summary.outreachDelivery = await safe("outreachDelivery", async () =>
+    (await import("@/lib/outreach/delivery")).checkOutreachDeliveries({ budgetMs: 8_000 }),
+  );
+
   // 4c) The automatic email sequence (SuperAdmin, Email sequence). It gates itself: off unless switched on, mornings only.
   summary.emailSequence = await safe("emailSequence", async () =>
     (await import("@/lib/lifecycle/run")).runEmailSequence(now, { budgetMs: Math.max(0, Math.min(15_000, t0 + 46_000 - Date.now())) }),

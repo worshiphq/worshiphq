@@ -66,6 +66,7 @@ function SenderIdTest({ church, run }: { church: ChurchRow; run: ReturnType<type
 /** What the approval or rejection text did, said plainly, so nobody has to wonder whether the church was told. */
 export function noticeMessage(what: string, n: SenderIdNotice): { text: string; type: "success" | "error" } {
   if (n.status === "sent") return { text: `${what}. Text sent to the church (${n.to}).`, type: "success" };
+  if (n.status === "emailed") return { text: `${what}. The text could not go, so it was emailed to ${n.to}.`, type: "success" };
   if (n.status === "no-phone") return { text: `${what}, but nobody at the church has a verified phone, so NO text was sent. Tell them another way.`, type: "error" };
   if (n.status === "not-connected") return { text: `${what}. No text was sent: SMS is not connected where this is running.`, type: "error" };
   return { text: `${what}, but the text to the church (${n.to}) did NOT go: ${n.error}. Tell them another way.`, type: "error" };
@@ -165,7 +166,7 @@ export function ChurchTable({ churches, q, total, page, pages, size, params = {}
     run(async () => {
       const r = await sendSenderIdUpdate(c.id, "submitted");
       if (!r.ok) throw new Error(`Not changed, and no text was sent: ${r.error}`);
-      toast(`${c.name}'s sender name is now in process, and the church was texted.`, "success");
+      toast(`${c.name}'s sender name is now in process, and the church was ${r.emailed ? "emailed (the text could not go)" : "texted"}.`, "success");
     }, { pending: "Marking in process and texting the church..." });
   const reject = (c: ChurchRow) =>
     run(async () => {

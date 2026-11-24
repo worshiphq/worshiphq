@@ -25,7 +25,7 @@ export type OutreachChurch = {
   trial: { phase: "none" | "active" | "ended" | "converted"; nextPlan: string | null; trialPlan: string | null; daysLeft: number; features: string; featuresShort: string };
 };
 export type OutreachData = { emailSenders: string[]; brevoLeft: number | null; trialDays: number; platformCarrier: string; churches: OutreachChurch[]; emailLive: boolean; smsLive: boolean; contact: string; contactLine: string; smsProvider: string; alert: { phone: string; from: "saved" | "company" | "none"; saved: string } };
-export type OutreachHistoryRow = { id: string; channel: string; template: string; to: string; toName: string | null; subject: string | null; body: string; status: string; error: string | null; auto: boolean; at: string };
+export type OutreachHistoryRow = { id: string; channel: string; template: string; to: string; toName: string | null; subject: string | null; body: string; status: string; error: string | null; auto: boolean; at: string; delivery: string | null };
 
 /** Every real church with its owner and admins, and what we have already sent them. */
 export async function getOutreachData(): Promise<OutreachData> {
@@ -78,18 +78,22 @@ export async function sendChurchEmail(input: { churchId: string; userId: string;
   return sendOutreach({ churchId: input.churchId, userId: input.userId, channel: "email", template: t?.channel === "email" ? t.id : "custom-email", subject: input.subject, body: input.body });
 }
 
-/** One text message to one contact. */
+/** One text message to one contact, emailed instead when the text cannot reach them. */
 export async function sendChurchSms(input: { churchId: string; userId: string; template: string; body: string }): Promise<OutreachResult> {
   await requireSuperAdmin();
   await logAdminAction("sendChurchSms", { input });
   const t = templateById(input.template);
-  return sendOutreach({ churchId: input.churchId, userId: input.userId, channel: "sms", template: t?.channel === "sms" ? t.id : "custom-sms", body: input.body });
+  return sendOutreach({ churchId: input.churchId, userId: input.userId, channel: "sms", template: t?.channel === "sms" ? t.id : "custom-sms", body: input.body, fallbackEmail: true });
 }
 
 export async function getOutreachHistory(churchId: string): Promise<OutreachHistoryRow[]> {
   await requireSuperAdmin();
+  const { checkOutreachDeliveries } = await import("@/lib/outreach/delivery");
+  await checkOutreachDeliveries({ churchId, budgetMs: 4_000 });
   const rows = await db.outreachMessage.findMany({ where: { churchId }, orderBy: { createdAt: "desc" }, take: 50 });
-  return rows.map((r) => ({ id: r.id, channel: r.channel, template: r.template, to: r.to, toName: r.toName, subject: r.subject, body: r.body, status: r.status, error: r.error, auto: r.auto, at: r.createdAt.toISOString() }));
+  const states = await db.outreachDelivery.findMany({ where: { id: { in: rows.map((r) => r.id) } }, select: { id: true, state: true } }).catch(() => []);
+  const byId = new Map(states.map((s) => [s.id, s.state]));
+  return rows.map((r) => ({ delivery: byId.get(r.id) ?? null, id: r.id, channel: r.channel, template: r.template, to: r.to, toName: r.toName, subject: r.subject, body: r.body, status: r.status, error: r.error, auto: r.auto, at: r.createdAt.toISOString() }));
 }
 
 /** The number that gets a text whenever a church signs up. Empty = use the phone from the receipt company details. */

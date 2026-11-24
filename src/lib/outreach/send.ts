@@ -21,7 +21,7 @@ export async function outreachContactLine(): Promise<string> {
 }
 
 export type OutreachStatus = "sent" | "failed" | "stubbed";
-export type OutreachResult = { ok: boolean; status: OutreachStatus; error?: string; skipped?: boolean };
+export type OutreachResult = { ok: boolean; status: OutreachStatus; error?: string; skipped?: boolean; emailedInstead?: boolean };
 
 type SendInput = {
   churchId: string;
@@ -34,6 +34,8 @@ type SendInput = {
   auto?: boolean;
   /** Files to attach to an email (the welcome email carries the free-forever receipt). */
   attachments?: { filename: string; content: Buffer }[];
+  /** Texts only: when the text cannot go (no number, outside Ghana, refused), email the same words instead. */
+  fallbackEmail?: boolean;
   /** A line added at the end of the email body. */
   appendBody?: string;
 };
@@ -59,6 +61,7 @@ ${input.appendBody}` : written;
   let status: OutreachStatus;
   let error: string | undefined;
   let to: string;
+  let smsId: string | undefined;
 
   if (input.channel === "email") {
     to = user.email;
@@ -69,15 +72,24 @@ ${input.appendBody}` : written;
     if (!r.ok) error = r.error ?? "The email provider refused it.";
   } else {
     to = user.phone ?? "";
-    if (!to) return { ok: false, status: "failed", error: "This contact has no phone number." };
+    if (!to) {
+      if (input.fallbackEmail && user.email) return emailInsteadOfText(input);
+      return { ok: false, status: "failed", error: "This contact has no phone number." };
+    }
     const r = await sendSms(to, body, { heading: null });
     status = r.stubbed ? "stubbed" : r.ok ? "sent" : "failed";
     if (!r.ok) error = r.error ?? "The SMS provider refused it.";
+    // Hubtel can be asked later whether it arrived. Only a text we may email instead is worth watching.
+    if (input.fallbackEmail && status === "sent" && r.provider.includes("hubtel")) smsId = r.results[0]?.id;
   }
 
-  await db.outreachMessage.create({
+  const saved = await db.outreachMessage.create({
     data: { churchId: church.id, userId: user.id, toName: user.name, to, channel: input.channel, template: input.template, subject: input.channel === "email" ? subject : null, body, status, error: error ?? null, auto: !!input.auto },
   });
+  if (smsId) {
+    // The table may not exist yet (sql/outreach-delivery.sql): the text itself has gone either way.
+    await db.outreachDelivery.create({ data: { id: saved.id, churchId: church.id, smsId } }).catch(() => {});
+  }
   // Sending a trial invitation is what invites the church: from now on it sees the Start button.
   if (status !== "failed" && (input.template === "trial-invite" || input.template === "trial-invite-sms")) {
     await db.subscription.upsert({
@@ -86,7 +98,19 @@ ${input.appendBody}` : written;
       create: { churchId: church.id, plan: "free", interval: "monthly", status: "active", trialInvitedAt: new Date() },
     }).catch(() => {});
   }
+  if (status === "failed" && input.channel === "sms" && input.fallbackEmail && user.email) {
+    const mail = await emailInsteadOfText(input);
+    return mail.ok ? mail : { ok: false, status: "failed", error: `${error} Email also failed: ${mail.error ?? "unknown reason"}` };
+  }
   return { ok: status !== "failed", status, error };
+}
+
+/** The same words as a text, by email, for someone the text cannot reach. Kept in the history as an email. */
+export async function emailInsteadOfText(input: { churchId: string; userId: string; template: string; body?: string; auto?: boolean }): Promise<OutreachResult> {
+  // "check-in-sms" borrows the subject of "check-in" when there is one.
+  const subject = templateById(input.template.replace(/-sms$/, ""))?.subject || "A message from WorshipHQ";
+  const r = await sendOutreach({ churchId: input.churchId, userId: input.userId, channel: "email", template: input.template, subject, body: input.body, auto: input.auto });
+  return { ...r, emailedInstead: r.ok };
 }
 
 /** Has this church already been sent the welcome email? Only a real delivery counts, never a test (stubbed) or failed send. */

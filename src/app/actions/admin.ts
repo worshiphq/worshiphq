@@ -228,17 +228,31 @@ export async function sendSenderIdTest(churchId: string, carrier: string, target
 }
 
 /** Whether the text telling a church about its sender name decision actually went out. */
-export type SenderIdNotice = { status: "sent" | "failed" | "no-phone" | "not-connected"; to?: string; error?: string };
+export type SenderIdNotice = { status: "sent" | "emailed" | "failed" | "no-phone" | "not-connected"; to?: string; error?: string };
+
+/** The same words by email, for a church whose phone a text cannot reach. Null when there is no address or it did not go. */
+async function emailChurchInstead(churchId: string, subject: string, message: string, to?: string | null, isPrivate = false): Promise<string | null> {
+  const address = to || (await db.user.findFirst({ where: { churchId, role: "Owner" }, orderBy: { createdAt: "asc" }, select: { email: true } }))?.email;
+  if (!address) return null;
+  const r = await sendEmail({ to: address, subject, churchId, private: isPrivate, html: `<div style="font-family:system-ui,sans-serif;max-width:480px;margin:0 auto;padding:24px;white-space:pre-line">${escapeHtml(message)}</div>` });
+  return r.ok && !r.stubbed ? address : null;
+}
 
 /** The oldest phone-verified user is who these notices go to, the same person every sender name text reaches. */
 async function sendSenderIdNotice(churchId: string, message: string): Promise<SenderIdNotice> {
-  const owner = await db.user.findFirst({ where: { churchId, phoneVerified: true }, orderBy: { createdAt: "asc" }, select: { phone: true } });
-  if (!owner?.phone) return { status: "no-phone" };
+  const owner = await db.user.findFirst({ where: { churchId, phoneVerified: true }, orderBy: { createdAt: "asc" }, select: { phone: true, email: true } });
+  const byEmail = () => emailChurchInstead(churchId, "Your WorshipHQ sender name", message, owner?.email).catch(() => null);
+  if (!owner?.phone) {
+    const mailed = await byEmail();
+    return mailed ? { status: "emailed", to: mailed } : { status: "no-phone" };
+  }
   const to = `${owner.phone.replace(/\s/g, "").slice(0, 4)}...${owner.phone.slice(-3)}`;
   try {
     const r = await sendSms(owner.phone, message, { heading: null, churchId });
     if (r.stubbed) return { status: "not-connected", to };
-    return r.ok ? { status: "sent", to } : { status: "failed", to, error: r.error ?? "The carrier did not accept it." };
+    if (r.ok) return { status: "sent", to };
+    const mailed = await byEmail();
+    return mailed ? { status: "emailed", to: mailed } : { status: "failed", to, error: r.error ?? "The carrier did not accept it." };
   } catch (e) {
     return { status: "failed", to, error: (e as Error).message };
   }
@@ -299,21 +313,21 @@ export async function sendSenderIdUpdate(churchId: string, key: string) {
   const owner = await db.user.findFirst({
     where: { churchId, phoneVerified: true },
     orderBy: { createdAt: "asc" },
-    select: { phone: true },
+    select: { phone: true, email: true },
   });
-  if (!owner?.phone) return { ok: false as const, error: "No phone-verified owner to text." };
 
   const body = update.body({ senderId: church.smsSenderId, churchName: church.name });
-  const res = await sendSms(owner.phone, body, { heading: null });
-  // Only move the status once the text actually went, so the record never claims we told them
-  // something they were never told.
-  if (!res.ok) return { ok: false as const, error: res.error || "Could not send the text. Status unchanged." };
+  const res = owner?.phone ? await sendSms(owner.phone, body, { heading: null }) : { ok: false, error: "No verified phone to text." };
+  const emailed = res.ok ? null : await emailChurchInstead(churchId, "Your WorshipHQ sender name", body, owner?.email).catch(() => null);
+  // Only move the status once the text or the email actually went, so the record never claims we told
+  // them something they were never told.
+  if (!res.ok && !emailed) return { ok: false as const, error: res.error || "Could not send the text. Status unchanged." };
   if (update.status && update.status !== church.smsSenderIdStatus) {
     await db.church.update({ where: { id: churchId }, data: { smsSenderIdStatus: update.status } });
   }
 
   revalidatePath("/admin");
-  return { ok: true as const, sent: update.label };
+  return { ok: true as const, sent: update.label, emailed: !!emailed };
 }
 
 export async function rejectSenderId(churchId: string): Promise<SenderIdNotice> {
@@ -417,7 +431,7 @@ export async function grantPlanBypass(churchId: string, plan: string) {
 
   const owner = await db.user.findFirst({
     where: { churchId, role: "Owner" },
-    select: { phone: true, name: true },
+    select: { phone: true, name: true, email: true },
   });
 
   // crypto, not Math.random(): this code unlocks a paid plan, and Math.random() is predictable.
@@ -429,13 +443,11 @@ export async function grantPlanBypass(churchId: string, plan: string) {
     update: { bypassPlan: plan, bypassCode: code },
   });
 
-  if (owner?.phone) {
+  if (owner) {
     const planNames: Record<string, string> = { starter: "Starter", pro: "Pro", max: "Max" };
-    await sendSms(
-      owner.phone,
-      `You've been granted a free upgrade to the ${planNames[plan]} plan! Go to Settings → Billing and enter code: ${code} to activate.`,
-      { heading: null },
-    );
+    const text = `You've been granted a free upgrade to the ${planNames[plan]} plan! Go to Settings → Billing and enter code: ${code} to activate.`;
+    const r = owner.phone ? await sendSms(owner.phone, text, { heading: null }) : null;
+    if (!r?.ok) await emailChurchInstead(churchId, "Your WorshipHQ upgrade code", text, owner.email, true).catch(() => null);
   }
 
   revalidatePath("/admin");
