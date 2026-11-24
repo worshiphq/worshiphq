@@ -3,7 +3,7 @@ import { db } from "@/lib/db";
 import { hashPassword } from "@/lib/auth";
 import { sendOtp } from "@/lib/auth/otp";
 import { rateLimitAll, ipFromRequest, MINUTE } from "@/lib/rate-limit";
-import { MEDIA_CORS } from "@/lib/media-license";
+import { MEDIA_CORS, NOT_YET, liveOpenTo } from "@/lib/media-license";
 
 export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: MEDIA_CORS });
@@ -40,6 +40,7 @@ export async function POST(req: Request) {
     if (!/^\S+@\S+\.\S+$/.test(email)) return json({ error: "Enter a real email address. We send a code to it." }, 400);
     if (!passwordMeetsPolicy(password)) return json({ error: "Choose a stronger password: at least 8 characters, with a capital letter, a number and a symbol (like ! or #)." }, 400);
     if (b.acceptedTerms !== true) return json({ error: "Please agree to the Terms and Privacy Policy." }, 400);
+    if (!(await liveOpenTo(email))) return json(NOT_YET, 403);
     if (await db.user.findUnique({ where: { email } })) {
       return json({ error: "There's already a WorshipHQ account with that email. Sign in instead.", code: "exists" }, 409);
     }

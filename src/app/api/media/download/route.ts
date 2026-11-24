@@ -3,6 +3,10 @@ import { getObject, signedGetUrl } from "@/lib/storage";
 
 /** Download the newest WorshipHQ Live installer (the one published with scripts/publish-media-release.mjs). */
 export async function GET() {
+  const { getPlatformConfig } = await import("@/lib/data/platform-config");
+  if (!(await getPlatformConfig()).promotions.launch.on) {
+    return new NextResponse("WorshipHQ Live isn't available to download yet. It launches soon.", { status: 404 });
+  }
   try {
     const r = JSON.parse((await getObject("media-releases/latest.json")).toString("utf8")) as { platforms: Record<string, { key: string }> };
     const file = r.platforms["windows-x86_64"];

@@ -26,10 +26,12 @@ export async function verifyMediaToken(authHeader: string | null): Promise<Media
   if (!data || typeof data.uid !== "string" || typeof data.cid !== "string" || typeof data.did !== "string") return null;
   const user = await db.user.findFirst({
     where: { id: data.uid, churchId: data.cid },
-    select: { sessionVersion: true, church: { select: { suspended: true } } },
+    select: { sessionVersion: true, email: true, church: { select: { suspended: true } } },
   });
   if (!user || user.church.suspended) return null;
   if (user.sessionVersion !== (typeof data.sv === "number" ? data.sv : -1)) return null;
+  // Before launch (SuperAdmin › Pricing › WorshipHQ Live launch), only testers get anything from the server.
+  if (!(await liveOpenTo(user.email))) return null;
   return { uid: data.uid, cid: data.cid, did: data.did };
 }
 
@@ -144,6 +146,7 @@ export async function finishMediaSignIn(opts: {
   rawDevice: string; deviceName: string; replaceId?: string;
 }): Promise<{ status: number; body: Record<string, unknown> }> {
   const { user, rawDevice, deviceName, replaceId } = opts;
+  if (!(await liveOpenTo(user.email))) return { status: 403, body: NOT_YET };
   const deviceId = hashDeviceId(rawDevice);
   const trial = await startMediaTrialIfNew(user.churchId, deviceId);
   const ent = await getMediaEntitlement(user.churchId);
@@ -191,4 +194,14 @@ export async function signMediaLicence(opts: { churchId: string; churchName: str
     iat: now, exp, until: opts.ent.until, trial: opts.ent.isTrial, seats: opts.ent.seats,
   }));
   return `${payload.toString("base64url")}.${sign(null, payload, key).toString("base64url")}`;
+}
+
+/** What the app shows before WorshipHQ Live is launched. */
+export const NOT_YET = { error: "WorshipHQ Live isn't open yet. It launches soon; watch worshiphq.app for the date.", code: "not_launched" };
+
+/** Is WorshipHQ Live open to this person (launched, or they are a tester)? */
+export async function liveOpenTo(email: string | null | undefined): Promise<boolean> {
+  const { getPlatformConfig } = await import("@/lib/data/platform-config");
+  const { liveOpenFor } = await import("@/lib/promotions");
+  return liveOpenFor((await getPlatformConfig()).promotions, email);
 }

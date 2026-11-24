@@ -11,7 +11,7 @@ const label = (p: string) => p.charAt(0).toUpperCase() + p.slice(1);
  */
 export function ChristmasBanner({ paid, promotions, canBuy }: { paid: PlanId; promotions: Promotions; canBuy: boolean }) {
   const stepUp = windowLive(promotions.stepUp);
-  const liveFree = windowLive(promotions.mediaFree) && paid !== "free";
+  const liveFree = promotions.launch.on && windowLive(promotions.mediaFree) && paid !== "free";
   if (!stepUp && !liveFree) return null;
 
   const lifted = withStepUp(paid, promotions);

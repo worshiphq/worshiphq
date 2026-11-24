@@ -12,12 +12,15 @@ import { PLAN_IDS, planRank, type PlanId } from "@/lib/plan-gate";
  */
 export interface Window { on: boolean; start: string; end: string | null }
 export interface Promotions {
+  /** WorshipHQ Live is closed to churches until this is switched on; testers (by email) can use it before. */
+  launch: { on: boolean; testers: string[] };
   stepUp: Window;
   mediaFree: Window;
   mediaDiscount: Window & { starter: number; pro: number; max: number };
 }
 
 export const DEFAULT_PROMOTIONS: Promotions = {
+  launch: { on: false, testers: [] },
   stepUp: { on: false, start: "2026-12-01", end: "2026-12-31" },
   mediaFree: { on: false, start: "2026-12-01", end: "2026-12-31" },
   mediaDiscount: { on: false, start: "2027-01-01", end: null, starter: 5, pro: 10, max: 15 },
@@ -34,7 +37,14 @@ export function normalizePromotions(raw: unknown): Promotions {
     end: w && "end" in w ? day(w.end, null) : d.end,
   });
   const d = DEFAULT_PROMOTIONS;
+  const l = (raw && typeof raw === "object" ? (raw as Record<string, unknown>).launch : undefined) as Record<string, unknown> | undefined;
   return {
+    launch: {
+      on: l?.on === true,
+      testers: Array.isArray(l?.testers)
+        ? [...new Set((l!.testers as unknown[]).map((e) => String(e).trim().toLowerCase()).filter((e) => /^\S+@\S+\.\S+$/.test(e)))].slice(0, 100)
+        : [],
+    },
     stepUp: win(r.stepUp, d.stepUp),
     mediaFree: win(r.mediaFree, d.mediaFree),
     mediaDiscount: {
@@ -68,4 +78,10 @@ export function withStepUp(plan: PlanId, p: Promotions, now = new Date()): PlanI
 export function mediaDiscountPercent(plan: string, p: Promotions, now = new Date()): number {
   if (!windowLive(p.mediaDiscount, now)) return 0;
   return plan === "starter" ? p.mediaDiscount.starter : plan === "pro" ? p.mediaDiscount.pro : plan === "max" ? p.mediaDiscount.max : 0;
+}
+
+/** May this person use WorshipHQ Live yet? Everyone once it is launched; before that, only the testers. */
+export function liveOpenFor(p: Promotions, email: string | null | undefined): boolean {
+  if (p.launch.on) return true;
+  return !!email && p.launch.testers.includes(email.trim().toLowerCase());
 }
