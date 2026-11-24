@@ -83,7 +83,7 @@ ${input.appendBody}` : written;
     if (!r.ok) error = r.error ?? "The SMS provider refused it.";
     // Hubtel can be asked later whether it arrived, and Nalo reports it when reports are on. Only a text we may email
     // instead is worth watching.
-    const first = r.results[0];
+    const first = r.results?.[0];
     if (input.fallbackEmail && status === "sent" && first?.id && (first.report || r.provider === "hubtel")) smsId = first.id;
   }
 
