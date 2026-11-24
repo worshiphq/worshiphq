@@ -19,12 +19,15 @@ export type NaloConfig = {
   baseUrl?: string;
   /** Give up on one message after this long. */
   timeoutMs?: number;
+  /** Ask for a delivery report. "get" is the method Nalo documents it for; "json" adds the same fields to the usual call. */
+  report?: { method: "get" | "json"; next: () => { ref: string; url: string } };
 };
 
-export type NaloOutcome = { ok: boolean; id?: string; code?: string; error?: string };
+export type NaloOutcome = { ok: boolean; id?: string; code?: string; error?: string; ref?: string };
 
 const DEFAULT_BASE = "https://sms.nalosolutions.com";
 const ENDPOINT = "/smsbackend/Resl_Nalo/send-message/";
+const GET_ENDPOINT = "/smsbackend/clientapi/Resl_Nalo/send-message/";
 
 /** What the codes we know mean. Anything else is passed through with its number so it can be looked up with Nalo. */
 const CODES: Record<string, string> = {
@@ -65,14 +68,25 @@ export async function sendNaloOne(cfg: NaloConfig, to: string, message: string, 
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), cfg.timeoutMs ?? 15_000);
   try {
-    const res = await doFetch(`${cfg.baseUrl ?? DEFAULT_BASE}${ENDPOINT}`, {
-      method: "POST",
-      headers: { "content-type": "application/json" },
-      body: JSON.stringify({ ...auth, msisdn: to.replace(/\D/g, ""), message, sender_id: cfg.sender }),
-      signal: ctrl.signal,
-    });
+    const base = cfg.baseUrl ?? DEFAULT_BASE;
+    const digits = to.replace(/\D/g, "");
+    const cb = cfg.report?.next();
+    let res: Response;
+    if (cb && cfg.report!.method === "get") {
+      const url = new URL(`${base}${GET_ENDPOINT}`);
+      const fields = { ...auth, type: "0", dlr: "1", destination: digits, source: cfg.sender, message, callback_url: cb.url };
+      for (const [k, v] of Object.entries(fields)) if (v) url.searchParams.set(k, v);
+      res = await doFetch(url.toString(), { signal: ctrl.signal });
+    } else {
+      res = await doFetch(`${base}${ENDPOINT}`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ ...auth, msisdn: digits, message, sender_id: cfg.sender, ...(cb ? { dlr: "1", callback_url: cb.url } : {}) }),
+        signal: ctrl.signal,
+      });
+    }
     const { code, id } = parseNaloResponse(await res.text());
-    if (code === "1701") return { ok: true, id, code };
+    if (code === "1701") return { ok: true, id, code, ...(cb ? { ref: cb.ref } : {}) };
     if (code) return { ok: false, code, error: describeNaloCode(code) };
     return { ok: false, error: `Nalo answered with HTTP ${res.status} and no status code.` };
   } catch (e) {

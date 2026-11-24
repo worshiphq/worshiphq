@@ -1,11 +1,11 @@
 import "server-only";
 import { db } from "@/lib/db";
 import { env, features } from "@/lib/env";
-import { hubtelStatus } from "@/lib/sms/delivery";
+import { carrierStatus } from "@/lib/sms/delivery";
 import { emailInsteadOfText } from "@/lib/outreach/send";
 
 /**
- * Outreach texts Hubtel took but the phone network could not deliver (a wrong or dead number) are emailed instead.
+ * Outreach texts the carrier took but the phone network could not deliver (a wrong or dead number) are emailed instead.
  * Needs the OutreachDelivery table (sql/outreach-delivery.sql). Until that exists every call here does nothing, so
  * sending itself is never affected.
  */
@@ -29,7 +29,7 @@ export async function checkOutreachDeliveries(opts: { churchId?: string; budgetM
         const row = rows[next++]!;
         summary.checked++;
         try {
-          const { state } = await hubtelStatus(row.smsId);
+          const { state } = await carrierStatus(row.smsId);
           const settled = state === "delivered" || state === "failed" ? state : Date.now() - row.createdAt.getTime() > STOP_AFTER_MS ? "sent" : null;
           // Claimed by the update itself, so two runs at once can never both send the email.
           const claim = await db.outreachDelivery.updateMany({

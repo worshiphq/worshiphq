@@ -124,6 +124,8 @@ export async function runDailyAutomations(now = new Date(), precise = false, sen
     (await import("@/lib/outreach/delivery")).checkOutreachDeliveries({ budgetMs: 8_000 }),
   );
 
+  summary.nalo = await safe("nalo", async () => (await import("@/lib/sms/nalo-reports")).watchNalo());
+
   // One email per run-out to churches whose texts are being held back for credits.
   summary.creditAlerts = await safe("creditAlerts", async () => (await import("@/lib/sms/credit-alerts")).runCreditAlerts(now));
 

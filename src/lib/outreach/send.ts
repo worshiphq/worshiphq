@@ -81,8 +81,10 @@ ${input.appendBody}` : written;
     const r = await sendSms(to, body, { heading: null });
     status = r.stubbed ? "stubbed" : r.ok ? "sent" : "failed";
     if (!r.ok) error = r.error ?? "The SMS provider refused it.";
-    // Hubtel can be asked later whether it arrived. Only a text we may email instead is worth watching.
-    if (input.fallbackEmail && status === "sent" && r.provider.includes("hubtel")) smsId = r.results[0]?.id;
+    // Hubtel can be asked later whether it arrived, and Nalo reports it when reports are on. Only a text we may email
+    // instead is worth watching.
+    const first = r.results[0];
+    if (input.fallbackEmail && status === "sent" && first?.id && (first.report || r.provider === "hubtel")) smsId = first.id;
   }
 
   const record = { churchId: church.id, userId: user.id, toName: user.name, to, channel: input.channel, template: input.template, subject: input.channel === "email" ? subject : null, body, status, error: error ?? null, auto: !!input.auto };

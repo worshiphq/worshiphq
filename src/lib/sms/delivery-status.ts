@@ -17,10 +17,11 @@ export function stateOf(n: { ok: boolean; st?: DeliveryState }): DeliveryState {
   return n.st ?? (n.ok ? "sent" : "failed");
 }
 
-export function toLogNumber(r: { to: string; ok: boolean; id?: string; error?: string }, carrier?: string | null): LogNumber {
+export function toLogNumber(r: { to: string; ok: boolean; id?: string; error?: string; report?: boolean }, carrier?: string | null): LogNumber {
   if (!r.ok) return { to: r.to, ok: false, st: "failed", ...(r.error ? { e: r.error.slice(0, 160) } : {}) };
-  // Only Hubtel can be asked later whether a message arrived, and only when it gave us the message id.
-  const checkable = !!r.id && (carrier ?? "").includes("hubtel");
+  // Hubtel can be asked later whether a message arrived, when it gave us the message id. Nalo ("api." ids) tells us
+  // itself, and only for texts that asked for a report.
+  const checkable = !!r.report || (!!r.id && !r.id.startsWith("api.") && (carrier ?? "").includes("hubtel"));
   return { to: r.to, ok: true, ...(r.id ? { id: r.id } : {}), st: checkable ? "pending" : "sent" };
 }
 

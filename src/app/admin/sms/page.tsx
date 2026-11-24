@@ -7,6 +7,9 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import { requireSuperAdmin } from "@/lib/auth";
 import { AdminShell } from "@/components/admin/admin-shell";
 import { getSmsLog, getSmsLogTotals, getCreditAdjustments, SMS_LOG_PAGE_SIZE } from "@/lib/data/sms-audit";
+import { NaloReportsCard } from "@/components/admin/nalo-reports-card";
+import { naloHealth } from "@/lib/sms/nalo-reports";
+import { getAlertPhone } from "@/lib/outreach/owner-alert";
 import { CreditAlertsCard } from "@/components/admin/credit-alerts-card";
 import { churchesOutOfCredits } from "@/lib/sms/credit-alerts";
 import { AdminSmsLogRows } from "@/components/admin/sms-log-rows";
@@ -39,7 +42,7 @@ export default async function AdminSmsPage({
 
   // Ask the network about texts still waiting (briefly) so the page shows the latest word.
   await (await import("@/lib/sms/delivery")).checkDeliveries({ budgetMs: 4000, maxLookups: 80 });
-  const [log, allTime, last30, adjustments, onNalo, totalChurches, outOfCredits] = await Promise.all([
+  const [log, allTime, last30, adjustments, onNalo, totalChurches, outOfCredits, nalo, alertTo] = await Promise.all([
     getSmsLog({ page: parseInt(sp.page ?? "1", 10) || 1, filter, q: sp.q }),
     getSmsLogTotals(),
     getSmsLogTotals(undefined, new Date(Date.now() - 30 * DAY)),
@@ -47,6 +50,8 @@ export default async function AdminSmsPage({
     db.church.count({ where: { ...LIVE_CHURCH, smsProvider: "nalo" } }),
     db.church.count({ where: LIVE_CHURCH }),
     churchesOutOfCredits().catch(() => []),
+    naloHealth(),
+    getAlertPhone(),
   ]);
 
   const ap = paging(adjustments.length, readPage(sp.apage), 10);
@@ -89,6 +94,8 @@ export default async function AdminSmsPage({
           </div>
         ))}
       </div>
+
+      <NaloReportsCard health={nalo} testPhone={alertTo.phone} />
 
       <CreditAlertsCard rows={outOfCredits} />
 

@@ -17,7 +17,13 @@ const STOP_AFTER_HOURS = 72;
 /** Do not ask about a text in its first minute: the network has not answered yet. */
 const MIN_AGE_MS = 60_000;
 
-export async function hubtelStatus(messageId: string): Promise<{ state: ReturnType<typeof mapHubtelStatus>; raw?: string }> {
+/** The final word on one text, from whichever carrier took it. */
+export async function carrierStatus(messageId: string): Promise<{ state: ReturnType<typeof mapHubtelStatus>; raw?: string }> {
+  const nalo = await import("@/lib/sms/nalo-reports");
+  return nalo.isNaloId(messageId) ? nalo.naloState(messageId) : hubtelStatus(messageId);
+}
+
+async function hubtelStatus(messageId: string): Promise<{ state: ReturnType<typeof mapHubtelStatus>; raw?: string }> {
   const auth = Buffer.from(`${env.HUBTEL_CLIENT_ID}:${env.HUBTEL_CLIENT_SECRET}`).toString("base64");
   const res = await fetch(`https://sms.hubtel.com/v1/messages/${encodeURIComponent(messageId)}`, {
     headers: { authorization: `Basic ${auth}`, accept: "application/json" },
@@ -76,7 +82,7 @@ export async function checkDeliveries(opts: { churchId?: string; logIds?: string
         const { n } = waiting[next++]!;
         summary.lookups++;
         try {
-          const { state, raw } = await hubtelStatus(n.id!);
+          const { state, raw } = await carrierStatus(n.id!);
           if (state && state !== "pending") {
             n.st = state;
             n.at = new Date().toISOString();

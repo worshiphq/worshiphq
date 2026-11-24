@@ -2695,6 +2695,21 @@ model ReceiptRevision {
 
 // ── SuperAdmin outreach ────────────────────────────────
 // Every email or SMS the platform owner (or the automatic signup welcome) sends to a church contact.
+/// One Nalo text that asked for a delivery report. `id` is the reference in its callback address.
+model NaloReport {
+  id         String    @id
+  jobId      String?
+  to         String?
+  state      String    @default("pending") // pending | delivered | failed
+  status     String? // Nalo's own word
+  raw        String? // the report exactly as it came
+  reportedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([jobId])
+  @@index([createdAt])
+}
+
 /// One SuperAdmin outreach text being watched for delivery. `id` is the OutreachMessage id.
 model OutreachDelivery {
   id        String    @id

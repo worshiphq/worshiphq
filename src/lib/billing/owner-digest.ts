@@ -53,6 +53,8 @@ export const digestHasNews = (d: DigestInput) =>
   d.upcoming.some((r) => r.isNew && r.daysLeft <= OWNER_TRIGGER_DAYS) || d.newlyExpired.length > 0 || d.newlyLapsed.length > 0 || d.autoFailed.length > 0;
 
 const day = (d: Date) => d.toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+// Texts say GHS: one cedi sign turns a whole text into Unicode, which is shorter per part and less reliable.
+const ghs = (n: number) => `GHS ${Math.round(n).toLocaleString("en-GB")}`;
 const cedi = (n: number) => `₵${Math.round(n).toLocaleString("en-GB")}`;
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
@@ -62,7 +64,7 @@ export function digestSms(d: DigestInput): string {
   if (up.length) {
     const total = up.reduce((s, r) => s + r.priceGhs, 0);
     const range = up.length > 1 && day(up[0].renewsAt) !== day(up[up.length - 1].renewsAt) ? `${day(up[0].renewsAt)} to ${day(up[up.length - 1].renewsAt)}` : day(up[0].renewsAt);
-    parts.push(`${plural(up.length, "church", "churches")} renew ${up.length === 1 ? `on ${range}` : `${range}`} (about ${cedi(total)})`);
+    parts.push(`${plural(up.length, "church", "churches")} renew ${up.length === 1 ? `on ${range}` : `${range}`} (about ${ghs(total)})`);
   }
   if (d.newlyExpired.length) parts.push(`${d.newlyExpired.length} expired`);
   if (d.newlyLapsed.length) parts.push(`${d.newlyLapsed.length} dropped to Free`);

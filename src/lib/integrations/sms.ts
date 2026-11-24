@@ -39,7 +39,7 @@ export type SmsResult = {
 };
 
 /** One recipient's outcome. `id` is the carrier's message id, kept so delivery can be checked later. */
-export type SmsRecipientResult = { to: string; ok: boolean; id?: string; error?: string };
+export type SmsRecipientResult = { to: string; ok: boolean; id?: string; error?: string; report?: boolean };
 
 // Approved sender IDs (e.g. Hubtel "HostHub") aren't our brand name, so we brand
 // every message body with a heading (default "WorshipHQ"; church messages pass
@@ -79,7 +79,7 @@ function reportHubtelUsage(segments: number) {
   }).catch(() => {});
 }
 
-type GroupResult = { perOk: boolean[]; ids?: (string | undefined)[]; errors?: (string | undefined)[]; id?: string; error?: string; providerCost?: string };
+type GroupResult = { perOk: boolean[]; reports?: boolean[]; ids?: (string | undefined)[]; errors?: (string | undefined)[]; id?: string; error?: string; providerCost?: string };
 
 /** Africa's Talking status codes that mean it took the message: 100 processed, 101 sent, 102 queued. */
 const AT_OK = new Set([100, 101, 102]);
@@ -201,17 +201,22 @@ async function sendViaProvider(provider: SmsProvider, recipients: string[], mess
     if (provider === "nalo") {
       // Nalo takes one number per request and reaches Ghana and other countries the same way, so a church
       // abroad can text its own members. Every number already arrives as digits with the country code.
+      const reports = await import("@/lib/sms/nalo-reports");
+      const mode = await reports.getNaloReportMode();
       const outcomes = await sendNaloBatch(
-        { authKey: env.NALO_AUTH_KEY, username: env.NALO_USERNAME, password: env.NALO_PASSWORD, sender },
+        { ...(mode !== "off" ? { report: { method: mode, next: reports.newNaloCallback } } : {}), authKey: env.NALO_AUTH_KEY, username: env.NALO_USERNAME, password: env.NALO_PASSWORD, sender },
         recipients,
         message,
       );
+      // Reports are filed under the message id, so a text without one could never be matched.
+      const watched = outcomes.flatMap((o, i) => (o.ok && o.ref && o.id ? [{ ref: o.ref, jobId: o.id, to: recipients[i]! }] : []));
+      if (watched.length) await reports.rememberNaloSends(watched);
       const firstFailure = outcomes.find((o) => !o.ok);
       if (firstFailure) {
         const failed = outcomes.filter((o) => !o.ok).length;
         console.error(`[SMS:nalo] ${failed} of ${outcomes.length} not sent (${firstFailure.code ?? "no code"}): ${firstFailure.error}`);
       }
-      return { perOk: outcomes.map((o) => o.ok), ids: outcomes.map((o) => o.id), errors: outcomes.map((o) => o.error), id: outcomes.find((o) => o.ok)?.id, error: firstFailure?.error };
+      return { perOk: outcomes.map((o) => o.ok), reports: outcomes.map((o) => !!(o.ok && o.ref && o.id)), ids: outcomes.map((o) => o.id), errors: outcomes.map((o) => o.error), id: outcomes.find((o) => o.ok)?.id, error: firstFailure?.error };
     }
 
     // mnotify / twilio implementations follow the same shape.
@@ -274,7 +279,7 @@ export async function sendSms(
     if (isSamplePhone(p)) sampleIdx.push(i);
     else if (p.length >= 11 && !blocked(p)) { validIdx.push(i); recipients.push(p); }
   });
-  const toFullResults = (perValidOk: boolean[], ids?: (string | undefined)[], errs?: (string | undefined)[]): SmsRecipientResult[] => {
+  const toFullResults = (perValidOk: boolean[], ids?: (string | undefined)[], errs?: (string | undefined)[], reps?: boolean[]): SmsRecipientResult[] => {
     const out: SmsRecipientResult[] = normalised.map((p) => ({
       to: p, ok: false,
       ...(p.length < 11 ? { error: "Not a valid phone number" } : blocked(p) ? { error: "Not sent: this message is not texted to numbers outside Ghana" } : {}),
@@ -283,6 +288,7 @@ export async function sendSms(
     validIdx.forEach((origIdx, i) => {
       out[origIdx].ok = perValidOk[i];
       if (ids?.[i]) out[origIdx].id = ids[i];
+      if (reps?.[i]) out[origIdx].report = true;
       if (!perValidOk[i] && errs?.[i]) out[origIdx].error = errs[i];
     });
     return out;
@@ -329,6 +335,7 @@ export async function sendSms(
   const perValidOk = new Array<boolean>(recipients.length).fill(false);
   const perValidId = new Array<string | undefined>(recipients.length);
   const perValidErr = new Array<string | undefined>(recipients.length);
+  const perValidRep = new Array<boolean>(recipients.length).fill(false);
   let id: string | undefined;
   let firstError: string | undefined;
   let providerCost: string | undefined;
@@ -361,6 +368,7 @@ export async function sendSms(
     idxs.forEach((origIdx, k) => {
       perValidOk[origIdx] = r.perOk[k] ?? false;
       perValidId[origIdx] = r.ids?.[k];
+      perValidRep[origIdx] = r.reports?.[k] ?? false;
       perValidErr[origIdx] = r.errors?.[k] ?? (r.perOk[k] ? undefined : r.error);
     });
     if (!id && r.id) id = r.id;
@@ -404,6 +412,6 @@ export async function sendSms(
     costGhs,
     billedSegments,
     ...(providerCost ? { providerCost } : {}),
-    results: toFullResults(perValidOk, perValidId, perValidErr),
+    results: toFullResults(perValidOk, perValidId, perValidErr, perValidRep),
   };
 }
