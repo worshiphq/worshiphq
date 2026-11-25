@@ -1,7 +1,9 @@
+import { appearance, setAppearance } from "../lib/appearance";
+import { ask, askText, pickOne } from "./Dialogs";
 import { useEffect, useRef, useState } from "react";
 import { Check } from "lucide-react";
-import { saveCcliReport } from "../lib/ccli";
 import { openBackupFile } from "../lib/backup";
+import { saveProfileFile, startFromSharedProfile } from "../lib/shared-profiles";
 import { deleteTemplate, listTemplates, saveAsTemplate, startFromTemplate } from "../lib/templates";
 import { createProfile, currentProfile, deleteProfile, listProfiles, switchProfile } from "../lib/profiles";
 
@@ -50,7 +52,7 @@ export function MenuBar({ onAction, previewShown, projectorOn }: { onAction: (a:
       { label: "Open schedule…", shortcut: "Ctrl+O", onClick: a("schedule:open") },
       { label: "Save schedule as…", shortcut: "Ctrl+S", onClick: a("schedule:save") },
       { divider: true },
-      { label: "Import songs from EasyWorship…", onClick: a("song:import-ew") },
+      { label: "Import from other software…", onClick: a("song:import-ew") },
       { label: "Import PowerPoint or PDF…", onClick: a("media:presentation") },
       { label: "Add pictures, videos or audio…", onClick: a("media:add") },
       { divider: true },
@@ -62,6 +64,9 @@ export function MenuBar({ onAction, previewShown, projectorOn }: { onAction: (a:
       { label: "Exit", shortcut: "Alt+F4", onClick: a("exit") },
     ],
     View: [
+      ...(["light", "dark", "auto"] as const).map((a) => ({ label: a === "light" ? "Light" : a === "dark" ? "Dark" : "Light or dark, like Windows", checked: appearance() === a, onClick: () => { setAppearance(a); refresh((n) => n + 1); } })),
+      { divider: true },
+      { label: "Whole schedule, every slide", onClick: () => window.dispatchEvent(new Event("whq-whole-schedule")) },
       { label: "Preview and Live screens", checked: previewShown, onClick: a("view:preview") },
       { divider: true },
       { label: "Bible", shortcut: "Ctrl+3", onClick: a("bible") },
@@ -79,11 +84,11 @@ export function MenuBar({ onAction, previewShown, projectorOn }: { onAction: (a:
       { label: "Open schedule…", onClick: a("schedule:open") },
       { label: "Save schedule as…", onClick: a("schedule:save") },
       { divider: true },
-      { label: "Save as a template…", onClick: () => { saveAsTemplate(); refresh((n) => n + 1); } },
+      { label: "Save as a template…", onClick: async () => { await saveAsTemplate(); refresh((n) => n + 1); } },
       ...listTemplates().map((t) => ({ label: `New from “${t}”`, onClick: () => startFromTemplate(t) })),
-      ...(listTemplates().length ? [{ label: "Delete a template…", onClick: () => {
-        const name = window.prompt(`Which template should be deleted? (${listTemplates().join(", ")})`, "");
-        if (name && listTemplates().includes(name.trim())) { deleteTemplate(name.trim()); refresh((n) => n + 1); }
+      ...(listTemplates().length ? [{ label: "Delete a template…", onClick: async () => {
+        const name = await pickOne("Which template should be deleted?", listTemplates().map((t) => ({ id: t, label: t })));
+        if (name) { deleteTemplate(name); refresh((n) => n + 1); }
       } }] : []),
       { divider: true },
       { label: "Clear the schedule", onClick: a("schedule:clear") },
@@ -92,10 +97,7 @@ export function MenuBar({ onAction, previewShown, projectorOn }: { onAction: (a:
       { label: "New song…", onClick: a("song:new") },
       { label: "Edit the selected song…", onClick: a("song:edit") },
       { divider: true },
-      { label: "Import from EasyWorship 6 or 7…", onClick: a("song:import-ew") },
-      { label: "Import song text files…", onClick: a("song:import-files") },
-      { divider: true },
-      { label: "CCLI song report…", onClick: () => saveCcliReport() },
+      { label: "Import from EasyWorship and others…", onClick: a("song:import-ew") },
       { divider: true },
       { label: "Song library", onClick: a("songs") },
     ],
@@ -127,16 +129,19 @@ export function MenuBar({ onAction, previewShown, projectorOn }: { onAction: (a:
       { divider: true },
       {
         label: "New profile…",
-        onClick: () => {
-          const name = window.prompt("Name for the new profile (it starts with the settings you have now):", "");
+        onClick: async () => {
+          const name = await askText("It starts with the settings you have now.", "", { title: "New profile", placeholder: "Name", yes: "Create" });
           if (name?.trim()) { createProfile(name); refresh((n) => n + 1); }
         },
       },
       {
         label: `Delete “${profile}”`,
         disabled: profile === "Default",
-        onClick: () => { if (window.confirm(`Delete the profile “${profile}”?`)) deleteProfile(profile); },
+        onClick: async () => { if (await ask(`Delete the profile “${profile}”?`, "Delete", { danger: true })) deleteProfile(profile); },
       },
+      { divider: true },
+      { label: "Templates from WorshipHQ…", onClick: () => startFromSharedProfile() },
+      { label: "Save this profile as a file…", onClick: () => saveProfileFile() },
       { divider: true },
       { label: "Look & fonts…", onClick: a("settings:looks") },
     ],

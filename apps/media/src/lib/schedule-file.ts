@@ -1,3 +1,4 @@
+import { ask, tell } from "../components/Dialogs";
 import { useProjectionStore } from "../stores/projection-store";
 import type { ServiceItem } from "../types";
 
@@ -22,13 +23,13 @@ export async function saveSchedule(): Promise<void> {
   if (!path) return;
   const file: ScheduleFile = { app: "WorshipHQ Live", version: 1, name: p.serviceName, date: p.serviceDate, startTime: p.startTime, items: p.serviceItems };
   const { invoke } = await import("@tauri-apps/api/core");
-  await invoke("write_text_file", { path, text: JSON.stringify(file, null, 1) }).catch((e) => window.alert(String(e)));
+  await invoke("write_text_file", { path, text: JSON.stringify(file, null, 1) }).catch((e) => tell(String(e)));
 }
 
 export async function openSchedule(): Promise<void> {
   if (!isDesktop()) return;
   const p = useProjectionStore.getState();
-  if (p.serviceItems.length && !window.confirm("Open another schedule? The one you have now will be replaced (save it first if you need it).")) return;
+  if (p.serviceItems.length && !(await ask("Open another schedule? The one you have now will be replaced (save it first if you need it).", "Open"))) return;
   const { open } = await import("@tauri-apps/plugin-dialog");
   const picked = await open({ title: "Open a schedule", multiple: false, filters: [{ name: "WorshipHQ schedule", extensions: ["whqschedule", "json"] }] });
   if (!picked) return;
@@ -41,6 +42,6 @@ export async function openSchedule(): Promise<void> {
     for (const it of data.items) p.addToService(it);
     p.setServiceDetails({ serviceName: data.name || p.serviceName, serviceDate: data.date || p.serviceDate, startTime: data.startTime || p.startTime });
   } catch (e) {
-    window.alert(`Couldn't open that schedule: ${e instanceof Error ? e.message : e}`);
+    tell(`Couldn't open that schedule: ${e instanceof Error ? e.message : e}`);
   }
 }

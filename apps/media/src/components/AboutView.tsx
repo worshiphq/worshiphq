@@ -1,3 +1,4 @@
+import { ask } from "./Dialogs";
 import { useEffect, useState, type ReactNode } from "react";
 import { Check, Copy, FolderOpen, Loader2, LogIn, LogOut, Pencil, RefreshCw } from "lucide-react";
 import { accountActive, trialDaysLeft, useAccountStore } from "../lib/account";
@@ -191,7 +192,7 @@ function AccountSection() {
         </button>
       </Row>
       <Row label="This computer">
-        <button onClick={() => { if (window.confirm("Sign this computer out of WorshipHQ? That frees its place so another computer can sign in.")) signOut(); }}
+        <button onClick={async () => { if (await ask("Sign this computer out of WorshipHQ? That frees its place so another computer can sign in.", "Sign out")) signOut(); }}
           className="inline-flex items-center gap-1.5 rounded-lg border border-line-bright px-3 py-1.5 text-[13px] font-semibold text-ink hover:bg-surface-4">
           <LogOut className="size-4" /> Sign out
         </button>

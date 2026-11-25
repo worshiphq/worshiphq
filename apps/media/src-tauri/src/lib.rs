@@ -4,6 +4,8 @@ mod stamp;
 mod ewb;
 mod extras;
 mod media;
+mod paradox;
+mod phone;
 mod voice;
 mod whisper;
 mod stock;
@@ -365,6 +367,40 @@ fn find_easyworship() -> Option<String> {
 #[tauri::command]
 async fn import_easyworship(folder: String) -> Result<Vec<extras::ImportedSong>, String> {
     extras::import_easyworship(&folder)
+}
+
+#[tauri::command]
+async fn phone_start(app: tauri::AppHandle, pin: String) -> Result<String, String> {
+    phone::start(pin, move |action| {
+        if let Some(main) = app.get_webview_window("main") {
+            let _ = main.emit("remote-action", action);
+        }
+    })
+}
+
+#[tauri::command]
+async fn phone_stop() {
+    phone::stop();
+}
+
+#[tauri::command]
+async fn phone_state(json: String) {
+    phone::set_state(json);
+}
+
+#[tauri::command]
+async fn find_import_sources() -> Vec<extras::ImportSource> {
+    extras::find_import_sources()
+}
+
+#[tauri::command]
+async fn import_openlp(path: String) -> Result<Vec<extras::ImportedSong>, String> {
+    extras::import_openlp(&path)
+}
+
+#[tauri::command]
+async fn song_files_in(folder: String) -> Vec<String> {
+    extras::song_files_in(&folder)
 }
 
 #[tauri::command]
@@ -838,6 +874,12 @@ pub fn run() {
             get_alert_state,
             find_easyworship,
             import_easyworship,
+            find_import_sources,
+            import_openlp,
+            phone_start,
+            phone_stop,
+            phone_state,
+            song_files_in,
             read_text_files,
             open_sound_settings,
         ])

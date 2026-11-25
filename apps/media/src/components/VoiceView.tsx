@@ -1,9 +1,9 @@
 import { useEffect, useState, type ReactNode, useRef } from "react";
 import { AlertTriangle, BookOpen, Loader2, Mic, MicOff, MonitorPlay, Send, Trash2 } from "lucide-react";
-import { useVoiceStore, type VoiceMode } from "../stores/voice-store";
+import { useVoiceStore, WHISPER_MODELS, type VoiceMode } from "../stores/voice-store";
 import { useBibleStore } from "../stores/bible-store";
 import { isDesktopApp } from "../lib/media-src";
-import { testAi } from "../lib/ai";
+import { testAi, testOnline } from "../lib/ai";
 
 const MODES: { id: VoiceMode; title: string; detail: string; tag?: string }[] = [
   { id: "ask", title: "Ask me first", detail: "A banner pops up with the verse. You press Show (or Space) to put it on the screen.", tag: "Recommended" },
@@ -65,7 +65,7 @@ export function VoiceView({ onOpenBible }: { onOpenBible: () => void }) {
                   ? "The bar moves when someone speaks. If it stays still, check the microphone."
                   : v.engine === "whisper" ? "Uses Whisper and the microphone chosen in Settings › Audio & microphone." : "Uses the computer's default microphone. To change it, open Windows Settings › System › Sound › Input."}
               </p>
-              {v.recognizer && listening && <p className="mt-1 text-[12px] text-ink-faint">Using {v.recognizer} · works offline</p>}
+              <WhatIsListening />
             </Card>
 
             {/* ─── What it heard ─── */}
@@ -126,8 +126,8 @@ export function VoiceView({ onOpenBible }: { onOpenBible: () => void }) {
                 <Switch on={v.commandsOn} set={v.setCommandsOn} title="Spoken commands" detail="“Next verse”, “give me NIV”." />
                 <Switch on={v.aiOn} set={v.setAiOn} title="WorshipHQ AI" detail="Understands requests in any words. Needs internet." />
                 <Switch on={v.onlineOn} set={v.setOnlineOn} title="Online listening (testing)" detail="A bigger speech model over the internet. Offline listening carries on when there is none. The sound goes to Groq to be read." />
-                {v.onlineOn && listening && <p className={`text-[12px] font-semibold ${v.onlineNote === "ok" ? "text-success" : v.onlineNote ? "text-gold" : "text-ink-faint"}`}>{v.onlineNote === "ok" ? "✓ Online listening is working" : v.onlineNote ? `Online listening: ${v.onlineNote} (using offline)` : "Waiting for someone to speak…"}</p>}
-                <AiTest />
+                <TestButton label="Test the AI" run={testAi} />
+                <TestButton label="Test online listening" run={testOnline} />
               </div>
             </Card>
 
@@ -226,13 +226,43 @@ function Switch({ on, set, title, detail }: { on: boolean; set: (v: boolean) => 
   );
 }
 
-function AiTest() {
+/** Which speech models are reading right now, and how the online one is doing. */
+function WhatIsListening() {
+  const v = useVoiceStore();
+  const listening = v.status === "listening";
+  const [, tick] = useState(0);
+  useEffect(() => { if (!listening) return; const t = setInterval(() => tick((n) => n + 1), 1000); return () => clearInterval(t); }, [listening]);
+  if (v.engine !== "whisper") return v.recognizer && listening ? <p className="mt-1 text-[12px] text-ink-faint">Using {v.recognizer}</p> : null;
+  const model = WHISPER_MODELS.find((m) => m.id === v.whisperModel)?.label ?? v.whisperModel;
+  const r = v.onlineReads;
+  const ago = r?.at ? Math.round((Date.now() - r.at) / 1000) : 0;
+  const bad = v.onlineNote && v.onlineNote !== "ok";
+  const row = (dot: string, name: string, what: string) => (
+    <div className="flex items-start gap-2.5 py-1.5">
+      <span className={`mt-1.5 size-2.5 shrink-0 rounded-full ${dot}`} />
+      <span className="min-w-0 text-[13px]"><span className="font-semibold text-ink">{name}</span><span className="block text-ink-muted">{what}</span></span>
+    </div>
+  );
+  return (
+    <div className="mt-2 divide-y divide-line-soft border-t border-line pt-1">
+      {row(listening ? "bg-success" : "bg-surface-6", `On this computer: ${model}`, v.whisperModel === "twi" ? "Twi. Works without internet; a few seconds behind the speaker." : "English. Works without internet; it always listens.")}
+      {!v.onlineOn
+        ? row("bg-surface-6", "Online (Groq): off", "Turn it on under “What it does”.")
+        : !listening ? row("bg-surface-6", "Online (Groq): on", "Starts when listening starts.")
+        : bad ? row("bg-gold", "Online (Groq): not answering", `${v.onlineNote}. The words come from this computer until it answers.`)
+        : !r?.n ? row("bg-gold", "Online (Groq): ready", "Nothing sent yet. It starts when someone speaks.")
+        : row("bg-success", "Online (Groq): working", `Read ${r.n} time${r.n === 1 ? "" : "s"}${r.failed ? `, missed ${r.failed}` : ""} · last ${ago} s ago, took ${(r.ms / 1000).toFixed(1)} s${r.text ? ` · “…${r.text.slice(-70)}”` : ""}`)}
+    </div>
+  );
+}
+
+function TestButton({ label, run }: { label: string; run: () => Promise<{ ok: boolean; text: string }> }) {
   const [r, setR] = useState<{ ok: boolean; text: string } | null>(null);
   const [busy, setBusy] = useState(false);
   return (
     <div className="border-t border-line pt-2.5">
-      <button disabled={busy} onClick={async () => { setBusy(true); setR(null); setR(await testAi()); setBusy(false); }} className="flex h-9 items-center gap-2 rounded-lg border border-line-bright px-3 text-[13px] font-semibold text-ink hover:bg-surface-4 disabled:opacity-60">
-        {busy && <Loader2 className="size-4 whq-spin" />} Test the AI
+      <button disabled={busy} onClick={async () => { setBusy(true); setR(null); setR(await run()); setBusy(false); }} className="flex h-9 items-center gap-2 rounded-lg border border-line-bright px-3 text-[13px] font-semibold text-ink hover:bg-surface-4 disabled:opacity-60">
+        {busy && <Loader2 className="size-4 whq-spin" />} {label}
       </button>
       {r && <p className={`mt-1.5 text-[12px] font-semibold ${r.ok ? "text-success" : "text-danger"}`}>{r.text}</p>}
     </div>

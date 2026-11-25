@@ -1,3 +1,5 @@
+import { ask } from "./Dialogs";
+import { useNotesStore } from "../stores/notes-store";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useShowStore } from "../stores/show-store";
 import { SongEditorDialog } from "./SongEditorDialog";
@@ -10,55 +12,14 @@ import { NEW_SONG_TEXT, textToSections } from "../lib/song-text";
 import type { Song } from "../types";
 import { SlidePreview } from "./SlidePreview";
 import { useContextMenu } from "./ContextMenu";
-import { Copy as CopyIcon, MonitorPlay, Download, FileText, Loader2 } from "lucide-react";
-import { makeSong, rtfToText, songFromTextFile } from "../lib/song-import";
+import { Copy as CopyIcon, MonitorPlay, Download, FileText } from "lucide-react";
+import { partColor } from "../lib/part-colors";
+import { ImportDialog } from "./ImportDialog";
 
 export function SongsView() {
-  const { songs, filteredSongs, searchQuery, loadSongs, search, addSong, addSongs, updateSong, deleteSong } = useSongStore();
-  const [importing, setImporting] = useState(false);
+  const { songs, filteredSongs, searchQuery, loadSongs, search, addSong, updateSong, deleteSong } = useSongStore();
   const [importOpen, setImportOpen] = useState(false);
-  const desktop = !!(window as any).__TAURI_INTERNALS__;
 
-  async function importFromEasyWorship() {
-    setImportOpen(false);
-    if (!desktop) { setToast("Importing works in the installed app."); return; }
-    setImporting(true);
-    try {
-      const { invoke } = await import("@tauri-apps/api/core");
-      let folder = await invoke<string | null>("find_easyworship");
-      if (!folder) {
-        const { open } = await import("@tauri-apps/plugin-dialog");
-        const picked = await open({ directory: true, title: "Find EasyWorship's Databases\\Data folder (it has Songs.db in it)" });
-        if (!picked) { setImporting(false); return; }
-        folder = String(picked);
-      }
-      const list = await invoke<{ title: string; author: string; copyright: string; words: string }[]>("import_easyworship", { folder });
-      const added = addSongs(list.map((x) => makeSong(x.title, x.author, rtfToText(x.words), ["easyworship"])));
-      setToast(`Imported ${added} new song${added === 1 ? "" : "s"} from EasyWorship (${list.length - added} were already here)`);
-    } catch (e) {
-      setToast(`Couldn't import from EasyWorship: ${e}`);
-    }
-    setImporting(false);
-  }
-
-  async function importTextFiles() {
-    setImportOpen(false);
-    if (!desktop) { setToast("Importing works in the installed app."); return; }
-    try {
-      const { open } = await import("@tauri-apps/plugin-dialog");
-      const picked = await open({ multiple: true, title: "Choose song files", filters: [{ name: "Song text files", extensions: ["txt", "usr"] }] });
-      if (!picked) return;
-      setImporting(true);
-      const { invoke } = await import("@tauri-apps/api/core");
-      const files = await invoke<{ name: string; text: string }[]>("read_text_files", { paths: (Array.isArray(picked) ? picked : [picked]).map(String) });
-      const parsed = files.map((f) => songFromTextFile(f.name, f.text)).filter((x): x is Song => !!x);
-      const added = addSongs(parsed);
-      setToast(`Imported ${added} song${added === 1 ? "" : "s"}`);
-    } catch (e) {
-      setToast(`Couldn't import: ${e}`);
-    }
-    setImporting(false);
-  }
   const { addToService, goLive, serviceItems, projectionOpen, openProjection, currentSlide, isLive, isBlack } = useProjectionStore();
   const [selectedId, setSelectedIdRaw] = useState<string | null>(() => { try { return localStorage.getItem("whq-last-song"); } catch { return null; } });
   const setSelectedId = (id: string | null) => { setSelectedIdRaw(id); try { if (id) localStorage.setItem("whq-last-song", id); } catch { /* ignore */ } };
@@ -109,8 +70,7 @@ export function SongsView() {
       const a = (e as CustomEvent).detail;
       if (a === "song:new") newSong();
       else if (a === "song:edit" && song) editSong(song.id);
-      else if (a === "song:import-ew") importFromEasyWorship();
-      else if (a === "song:import-files") importTextFiles();
+      else if (a === "song:import-ew" || a === "song:import-files") setImportOpen(true);
     };
     window.addEventListener("whq-menu", on);
     return () => window.removeEventListener("whq-menu", on);
@@ -147,13 +107,21 @@ export function SongsView() {
     { label: "Add to service", icon: <Plus className="size-4" />, onClick: () => addSongToService(s) },
     { label: "Edit", icon: <Pencil className="size-4" />, onClick: () => editSong(s.id) },
     { label: "Make a copy", icon: <CopyIcon className="size-4" />, onClick: () => { const c = { ...JSON.parse(JSON.stringify(s)), id: crypto.randomUUID(), title: `${s.title} (copy)` }; addSong(c); setSelectedId(c.id); } },
+    { label: "Move to Notes", icon: <FileText className="size-4" />, onClick: async () => {
+      if (!(await ask(`“${s.title}” becomes a page in Notes and leaves the song list.`, "Move", { title: "Move to Notes" }))) return;
+      useNotesStore.getState().addPage(s.title, s.sections.map((x) => x.lyrics.trim()).join("\n\n"));
+      deleteSong(s.id);
+      if (selectedId === s.id) setSelectedId(null);
+      setToast("Moved to Notes");
+    } },
     { divider: true },
-    { label: "Delete", icon: <Trash2 className="size-4" />, danger: true, onClick: () => { if (window.confirm(`Delete “${s.title}”? This can't be undone.`)) { deleteSong(s.id); if (selectedId === s.id) setSelectedId(null); } } },
+    { label: "Delete", icon: <Trash2 className="size-4" />, danger: true, onClick: async () => { if (await ask(`Delete “${s.title}”? This can't be undone.`, "Delete", { danger: true })) { deleteSong(s.id); if (selectedId === s.id) setSelectedId(null); } } },
   ]);
 
   return (
     <div className="grid h-full min-h-0 grid-cols-1 gap-3 overflow-y-auto p-3 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)] lg:overflow-hidden">
       {menu.element}
+      {importOpen && <ImportDialog onClose={() => setImportOpen(false)} />}
       {/* ─── Song list ─── */}
       <section className="flex min-h-0 flex-col rounded-xl border border-line bg-surface-2 p-3 shadow-sm max-xl:min-h-[560px]">
         <div className="mb-2.5 flex items-center justify-between">
@@ -168,22 +136,10 @@ export function SongsView() {
             className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-line-bright px-2.5 text-[14px] font-semibold text-ink hover:bg-surface-4 disabled:opacity-40">
             <Pencil className="size-4" /> Edit
           </button>
-          <button onClick={() => setImportOpen((o) => !o)} disabled={importing} title="Import songs"
+          <button onClick={() => setImportOpen(true)} title="Import from EasyWorship and other software"
             className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-line-bright px-2.5 text-[14px] font-semibold text-ink hover:bg-surface-4">
-            {importing ? <Loader2 className="size-4 whq-spin" /> : <Download className="size-4" />} <span className="hidden xl:inline">Import</span>
+            <Download className="size-4" /> <span className="hidden xl:inline">Import</span>
           </button>
-          {importOpen && (
-            <div className="absolute right-0 top-full z-30 mt-1 w-72 rounded-xl border border-line-bright bg-surface-2 py-1.5 shadow-[0_10px_30px_rgba(15,23,42,0.18)]">
-              <button onClick={importFromEasyWorship} className="flex w-full items-start gap-2.5 px-3 py-2 text-left hover:bg-primary-soft">
-                <Download className="mt-0.5 size-4 text-ink-muted" />
-                <span><span className="block text-[14px] font-semibold text-ink">From EasyWorship 6 or 7</span><span className="block text-[12px] text-ink-muted">Finds EasyWorship on this computer and copies its songs</span></span>
-              </button>
-              <button onClick={importTextFiles} className="flex w-full items-start gap-2.5 px-3 py-2 text-left hover:bg-primary-soft">
-                <FileText className="mt-0.5 size-4 text-ink-muted" />
-                <span><span className="block text-[14px] font-semibold text-ink">From song text files</span><span className="block text-[12px] text-ink-muted">.txt files, including SongSelect lyrics downloads</span></span>
-              </button>
-            </div>
-          )}
         </div>
         <div className="relative mb-2">
           <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-ink-faint" />
@@ -262,6 +218,7 @@ export function SongsView() {
                     ]; })}
                     className={`group flex cursor-pointer select-none gap-3 rounded-lg border px-3 py-2.5 transition-colors ${live ? "border-danger bg-danger/5" : on ? "border-primary bg-primary-soft/60" : "border-transparent hover:bg-surface-4"}`}
                   >
+                    <span className="w-1 shrink-0 rounded-full" style={{ background: partColor(s.label) ?? "transparent" }} />
                     <div className="w-24 shrink-0 pt-0.5">
                       <span className={`inline-block rounded px-1.5 py-0.5 text-[11px] font-bold uppercase tracking-wide ${live ? "bg-danger text-white" : on ? "bg-primary text-white" : "bg-surface-4 text-ink-muted"}`}>
                         {live ? "On screen" : s.label}

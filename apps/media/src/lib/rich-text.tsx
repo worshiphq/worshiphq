@@ -6,19 +6,31 @@ import type { ReactNode } from "react";
  *   {#e11d48}Jesus{/}                         a colour
  *   {|Akan Times New Roman}Onyame{/}          a font
  *   {#e11d48|Akan Times New Roman}Yesu{/}     both
+ *   {~bi150}…{/}                              bold, italic (u = underlined), 150% size; after any colour and font
  */
-const RUN = /\{(?:#([0-9a-fA-F]{6}))?(?:\|([^{}|\n]+))?\}([\s\S]*?)\{\/\}/g;
+const RUN = /\{(?:#([0-9a-fA-F]{6}))?(?:\|([^{}|~\n]+))?(?:~([biu]{0,3}\d{0,3}))?\}([\s\S]*?)\{\/\}/g;
 
-export interface Run { text: string; color?: string; font?: string }
+export interface RunLook { color?: string; font?: string; bold?: boolean; italic?: boolean; under?: boolean; /** Percent of the normal size. */ size?: number }
+export interface Run extends RunLook { text: string }
+export const isPlain = (r: RunLook) => !r.color && !r.font && !r.bold && !r.italic && !r.under && !r.size;
+const sameLook = (a: RunLook, b: RunLook) => a.color === b.color && a.font === b.font && !a.bold === !b.bold && !a.italic === !b.italic && !a.under === !b.under && (a.size || 0) === (b.size || 0);
+export const runStyle = (r: RunLook) => ({
+  color: r.color, fontFamily: r.font ? cssFont(r.font) : undefined, fontWeight: r.bold ? 800 : undefined,
+  fontStyle: r.italic ? "italic" : undefined, textDecoration: r.under ? "underline" : undefined, fontSize: r.size ? `${r.size / 100}em` : undefined,
+});
 
 /** Splits text into runs of the same colour and font. */
 export function parseRuns(text: string): Run[] {
   const out: Run[] = [];
   let last = 0;
   for (const m of text.matchAll(RUN)) {
-    if (!m[1] && !m[2]) continue;
+    if (!m[1] && !m[2] && !m[3]) continue;
     if (m.index! > last) out.push({ text: text.slice(last, m.index) });
-    out.push({ text: m[3], color: m[1] ? `#${m[1].toLowerCase()}` : undefined, font: m[2]?.trim() || undefined });
+    const o = m[3] ?? "", size = +o.replace(/\D/g, "");
+    out.push({
+      text: m[4], color: m[1] ? `#${m[1].toLowerCase()}` : undefined, font: m[2]?.trim() || undefined,
+      ...(o.includes("b") ? { bold: true } : {}), ...(o.includes("i") ? { italic: true } : {}), ...(o.includes("u") ? { under: true } : {}), ...(size ? { size } : {}),
+    });
     last = m.index! + m[0].length;
   }
   if (last < text.length) out.push({ text: text.slice(last) });
@@ -31,20 +43,21 @@ export function runsToText(runs: Run[]): string {
   for (const r of runs) {
     if (!r.text) continue;
     const prev = merged[merged.length - 1];
-    if (prev && prev.color === r.color && prev.font === r.font) prev.text += r.text;
+    if (prev && sameLook(prev, r)) prev.text += r.text;
     else merged.push({ ...r });
   }
   return merged
     .map((r) => {
-      if (!r.color && !r.font) return r.text;
-      const open = `{${r.color ? r.color.toLowerCase() : ""}${r.font ? `|${r.font}` : ""}}`;
+      if (isPlain(r)) return r.text;
+      const more = `${r.bold ? "b" : ""}${r.italic ? "i" : ""}${r.under ? "u" : ""}${r.size || ""}`;
+      const open = `{${r.color ? r.color.toLowerCase() : ""}${r.font ? `|${r.font}` : ""}${more ? `~${more}` : ""}}`;
       return r.text.split("\n").map((line) => (line ? `${open}${line}{/}` : line)).join("\n");
     })
     .join("");
 }
 
 export function hasFormatting(text: string): boolean {
-  return parseRuns(text).some((r) => r.color || r.font);
+  return parseRuns(text).some((r) => !isPlain(r));
 }
 
 /** The words without colours or fonts (for search, the stage display, lists). */
@@ -61,9 +74,9 @@ export function cssFont(name: string): string {
 export function richText(text: string): ReactNode {
   if (!text.includes("{")) return text;
   const runs = parseRuns(text);
-  if (!runs.some((r) => r.color || r.font)) return text;
+  if (runs.every(isPlain)) return text;
   return runs.map((r, i) =>
-    r.color || r.font ? <span key={i} style={{ color: r.color, fontFamily: r.font ? cssFont(r.font) : undefined }}>{r.text}</span> : r.text,
+    isPlain(r) ? r.text : <span key={i} style={runStyle(r)}>{r.text}</span>,
   );
 }
 

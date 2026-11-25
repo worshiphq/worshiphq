@@ -78,13 +78,22 @@ export async function transcribeTwi(wav: Uint8Array): Promise<string> {
   return body.text ?? "";
 }
 
-export interface AiNote { kind: "title" | "point" | "sub" | "line"; text: string }
+export type NoteChange =
+  | { do: "add"; kind: "point" | "sub" | "line"; text: string; under?: string }
+  | { do: "fix"; was: string; text: string }
+  | { do: "drop"; was: string };
 
-/** What in the words just preached should be noted: the title, points, sub-points, key lines. null = AI not reached. */
-export async function aiNotes(said: string, have: string[], title?: string): Promise<AiNote[] | null> {
-  const out = await post<{ notes?: AiNote[] }>({ task: "notes", said, have: have.slice(-30), title }, 15000);
+/** What the words just preached change on the notes page. null = AI not reached. */
+export async function aiNotes(said: string, before: string, page: { text: string; yours: boolean }[], heading: string): Promise<{ heading: string | null; changes: NoteChange[] } | null> {
+  const out = await post<{ heading?: string | null; changes?: NoteChange[] }>({ task: "page", said, before: [before], page, heading }, 26000);
   if (!out) return null;
-  return Array.isArray(out.notes) ? out.notes : [];
+  return { heading: out.heading ?? null, changes: Array.isArray(out.changes) ? out.changes : [] };
+}
+
+/** The page put in order. null = AI not reached. */
+export async function aiTidy(heading: string, page: string): Promise<{ heading: string; page: string } | null> {
+  const out = await post<{ heading?: string; page?: string }>({ task: "tidy", heading, page }, 27000);
+  return out?.page ? { heading: out.heading ?? heading, page: out.page } : null;
 }
 
 /** Online listening: the last seconds of sound, read by a big speech model through the WorshipHQ server. */
@@ -112,4 +121,19 @@ export async function testAi(): Promise<{ ok: boolean; text: string }> {
   }
   const got = actions.map((a) => (a.type === "verse" ? a.reference : a.type === "version" ? a.id.toUpperCase() : a.type)).join(" + ");
   return { ok: true, text: `Working. Asked for “the King James version of Mark 2:10”, it understood: ${got || "nothing"} (${s} s).` };
+}
+
+/** Voice › test: sends three seconds of quiet, to see whether the online speech model answers. */
+export async function testOnline(): Promise<{ ok: boolean; text: string }> {
+  const RATE = 16000, n = RATE * 3, b = new Uint8Array(44 + n * 2), d = new DataView(b.buffer);
+  const word = (at: number, s: string) => [...s].forEach((c, i) => d.setUint8(at + i, c.charCodeAt(0)));
+  word(0, "RIFF"); d.setUint32(4, 36 + n * 2, true); word(8, "WAVEfmt "); d.setUint32(16, 16, true); d.setUint16(20, 1, true); d.setUint16(22, 1, true);
+  d.setUint32(24, RATE, true); d.setUint32(28, RATE * 2, true); d.setUint16(32, 2, true); d.setUint16(34, 16, true); word(36, "data"); d.setUint32(40, n * 2, true);
+  const t = performance.now();
+  try {
+    await listenOnline(b, "en");
+    return { ok: true, text: `Working. Groq answered in ${((performance.now() - t) / 1000).toFixed(1)} s.` };
+  } catch (e) {
+    return { ok: false, text: e instanceof Error ? e.message : String(e) };
+  }
 }

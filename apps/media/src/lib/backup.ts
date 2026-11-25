@@ -1,3 +1,4 @@
+import { ask, tell } from "../components/Dialogs";
 import { serverHeaders } from "./account";
 import { apiBase } from "../components/StockLibrary";
 import { isDesktopApp } from "./media-src";
@@ -56,7 +57,7 @@ export async function saveBackupFile() {
   if (!path) return;
   const { invoke } = await import("@tauri-apps/api/core");
   await invoke("write_text_file", { path, text: JSON.stringify(file) });
-  window.alert(`Backup saved: ${summary(file)}.\n\nKeep it on a USB stick or in Google Drive. Restore it from File › Restore from a backup.`);
+  await tell(`Backup saved: ${summary(file)}.\n\nKeep it on a USB stick or in Google Drive. Restore it from File › Restore from a backup.`);
 }
 
 export async function openBackupFile() {
@@ -67,7 +68,7 @@ export async function openBackupFile() {
   const { invoke } = await import("@tauri-apps/api/core");
   const [f] = await invoke<{ text: string }[]>("read_text_files", { paths: [String(picked)] });
   const file = JSON.parse(f.text) as BackupFile;
-  if (!window.confirm(`Restore this backup from ${new Date(file.made).toLocaleString()}?\n\n${summary(file)}\n\nWhat is on this computer now will be replaced.`)) return;
+  if (!(await ask(`Restore this backup from ${new Date(file.made).toLocaleString()}?\n\n${summary(file)}\n\nWhat is on this computer now will be replaced.`, "Restore", { danger: true }))) return;
   restoreBackup(file);
 }
 
@@ -112,7 +113,7 @@ export async function cloudRestore(code: string) {
   const res = await fetch(`${apiBase()}/api/media/backup?code=${encodeURIComponent(clean)}`, { headers: lic });
   if (!res.ok) throw new Error(res.status === 404 ? "No backup found for that code." : `WorshipHQ didn't answer (${res.status}).`);
   const file = (await res.json()) as BackupFile;
-  if (!window.confirm(`Restore the backup from ${new Date(file.made).toLocaleString()}?\n\n${summary(file)}\n\nWhat is on this computer now will be replaced.`)) return;
+  if (!(await ask(`Restore the backup from ${new Date(file.made).toLocaleString()}?\n\n${summary(file)}\n\nWhat is on this computer now will be replaced.`, "Restore", { danger: true }))) return;
   localStorage.setItem("whq-backup-code", clean);
   restoreBackup(file);
 }

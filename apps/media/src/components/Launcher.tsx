@@ -1,3 +1,4 @@
+import { ask } from "./Dialogs";
 import { useEffect, useState } from "react";
 import logoMark from "../assets/worshiphq-mark.png";
 import {
@@ -163,7 +164,7 @@ export function Launcher({ onEnter }: LauncherProps) {
           {isLicensed && (
             <button
               onClick={async () => {
-                if (!window.confirm("Sign this computer out of WorshipHQ? That frees its place so another computer can sign in.")) return;
+                if (!(await ask("Sign this computer out of WorshipHQ? That frees its place so another computer can sign in.", "Sign out"))) return;
                 await useAccountStore.getState().signOut();
                 window.location.reload();
               }}

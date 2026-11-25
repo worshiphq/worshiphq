@@ -4,6 +4,7 @@ import type { Slide } from "../types";
 import { useShowStore, type SlideSet } from "../stores/show-store";
 import { useProjectionStore } from "../stores/projection-store";
 import { SlidePreview } from "./SlidePreview";
+import { partColor } from "../lib/part-colors";
 import { plainText } from "../lib/rich-text";
 
 /** The first words of a slide, for the slide lists. */
@@ -126,6 +127,7 @@ function Panel({ kind, set, screen, empty, note, onPick, onSend }: {
                     on ? (isLivePanel ? "bg-danger text-white" : "bg-primary text-white") : "text-ink hover:bg-surface-2"
                   }`}
                 >
+                  {partColor(s.label) && <span className="w-1 shrink-0 self-stretch rounded-full" style={{ background: partColor(s.label)! }} />}
                   <span className={`w-5 shrink-0 text-right font-mono ${on ? "text-white/80" : "text-ink-faint"}`}>{i + 1}</span>
                   <span className="min-w-0 flex-1">
                     {s.label && <span className={`block truncate text-[10px] font-bold uppercase tracking-wide ${on ? "text-white/80" : "text-ink-muted"}`}>{s.label}</span>}

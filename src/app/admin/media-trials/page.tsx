@@ -3,6 +3,8 @@ import { requireSuperAdmin } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { logAdminAction } from "@/lib/admin-audit";
 import { LIVE_CHURCH } from "@/lib/live-church";
+import { LiveProfilesAdmin } from "@/components/admin/live-profiles-admin";
+import { listProfiles } from "@/lib/live-profiles";
 import { AdminShell } from "@/components/admin/admin-shell";
 
 export const dynamic = "force-dynamic";
@@ -63,7 +65,7 @@ export default async function LiveAdminPage({ searchParams }: { searchParams: Pr
   const q = ((await searchParams).q ?? "").trim().slice(0, 80);
   const now = new Date();
 
-  const [allChurches, withLive, rows] = await Promise.all([
+  const [allChurches, withLive, rows, profiles] = await Promise.all([
     db.church.findMany({ where: LIVE_CHURCH, select: { id: true, name: true }, orderBy: { name: "asc" } }),
     db.subscription.findMany({
       where: { mediaUntil: { gt: now } },
@@ -71,6 +73,7 @@ export default async function LiveAdminPage({ searchParams }: { searchParams: Pr
       orderBy: { mediaUntil: "desc" },
     }),
     db.mediaTrialMachine.findMany({ orderBy: { createdAt: "desc" }, take: 200 }),
+    listProfiles().catch(() => []),
   ]);
   const churchName = new Map(allChurches.map((c) => [c.id, c.name]));
   const devices = await db.mediaDevice.findMany({ where: { deviceId: { in: rows.map((r) => r.machineId) } }, select: { deviceId: true, name: true } });
@@ -128,6 +131,8 @@ export default async function LiveAdminPage({ searchParams }: { searchParams: Pr
             </tbody>
           </table>
         </section>
+
+        <LiveProfilesAdmin profiles={profiles} />
 
         <section className="mt-6 rounded-2xl border border-white/10 bg-white/[0.03] p-6">
           <h2 className="font-semibold">Computers that have had the free trial</h2>

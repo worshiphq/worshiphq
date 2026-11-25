@@ -1,3 +1,4 @@
+import { ask, tell as tellUser } from "./components/Dialogs";
 import { X } from "lucide-react";
 import { useState, useEffect } from "react";
 import { plainText } from "./lib/rich-text";
@@ -26,6 +27,8 @@ import { Launcher } from "./components/Launcher";
 import type { Slide } from "./types";
 import { NotesView } from "./components/NotesView";
 import { startNotes } from "./stores/notes-store";
+import { startPhoneRemote } from "./lib/phone-remote";
+import { WholeSchedule } from "./components/WholeSchedule";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { startUpdateChecks, useUpdateStore } from "./lib/updates";
 import { startAccountCheckIns } from "./lib/account";
@@ -58,8 +61,8 @@ export default function App() {
       case "live:obs":
         if ((window as any).__TAURI_INTERNALS__) {
           const { invoke } = await import("@tauri-apps/api/core");
-          await invoke("open_obs_window").catch((e) => window.alert(String(e)));
-          window.alert("The livestream words window is open. In OBS: add a Window Capture of “WorshipHQ — Livestream words (OBS)”, then right-click it › Filters › Color Key (green). The words then appear over your camera.");
+          await invoke("open_obs_window").catch((e) => tellUser(String(e)));
+          await tellUser("The livestream words window is open. In OBS: add a Window Capture of “WorshipHQ — Livestream words (OBS)”, then right-click it › Filters › Color Key (green). The words then appear over your camera.");
         }
         break;
       case "live:black": proj.toggleBlack(); break;
@@ -72,7 +75,7 @@ export default function App() {
         break;
       }
       case "schedule:new": case "schedule:clear":
-        if (!proj.serviceItems.length || window.confirm("Start a new, empty schedule? (What is on the screen stays.)")) proj.newService();
+        if (!proj.serviceItems.length || await ask("Start a new, empty schedule? What is on the screen stays.", "Start new")) proj.newService();
         break;
       case "schedule:save": await saveSchedule(); break;
       case "schedule:open": await openSchedule(); break;
@@ -104,6 +107,9 @@ export default function App() {
 
   // Notes of the message are taken in the background, whatever page is open.
   useEffect(() => startNotes(), []);
+  useEffect(() => startPhoneRemote(), []);
+  const [whole, setWhole] = useState(false);
+  useEffect(() => { const on = () => setWhole(true); window.addEventListener("whq-whole-schedule", on); return () => window.removeEventListener("whq-whole-schedule", on); }, []);
 
   // Account check-ins and automatic updates (both quiet when offline).
   useEffect(() => { const a = startAccountCheckIns(); const u = startUpdateChecks(); return () => { a(); u(); }; }, []);
@@ -271,6 +277,7 @@ export default function App() {
           </div>
         </div>
       </div>
+      {whole && <WholeSchedule onClose={() => setWhole(false)} />}
       {settingsOpen && (
         <SettingsWindow onClose={() => setSettingsOpen(false)}>
           <SettingsView tab={settingsTab} onTab={setSettingsTab} onOpenMedia={() => setWorkspace("media")} />

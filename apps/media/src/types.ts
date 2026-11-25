@@ -65,6 +65,7 @@ export interface SlideElement {
   italic?: boolean;
   align?: "left" | "center" | "right";
   shadow?: boolean;
+  lineHeight?: number;
   /** shape fill / text box background */
   fill?: string;
   radius?: number;

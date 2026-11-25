@@ -19,7 +19,7 @@ interface Callbacks {
    */
   onSettled?: (text: string, id: string, context?: string) => void;
   /** Online listening worked (null) or why it didn't; offline listening carries on either way. */
-  onCloud?: (problem: string | null) => void;
+  onCloud?: (problem: string | null, read?: { ms: number; text: string }) => void;
   /** The sentence still going on: the words it is sure of, and the newest ones it isn't sure of yet. */
   onLive?: (live: { sure: string; maybe: string; text: string; id: string }) => void;
   onError: (message: string) => void;
@@ -185,6 +185,7 @@ export async function startWhisperListening(deviceId: string | null, cb: Callbac
     before = audio.slice(-CLOUD_WINDOW_S * RATE);
     const last = batch[batch.length - 1];
     try {
+      const asked = performance.now();
       const segs = await cloud!(wav(audio));
       if (!on()) return;
       const from = lead.length / RATE;
@@ -196,7 +197,7 @@ export async function startWhisperListening(deviceId: string | null, cb: Callbac
         if (b !== last) cb.onSettled?.(useful ? "" : b.draft, b.id);
         else cb.onSettled?.(useful ? mine : b.draft, b.id, all);
       });
-      cb.onCloud?.(null);
+      cb.onCloud?.(null, { ms: performance.now() - asked, text: mine });
     } catch (e) {
       if (!on()) return;
       cb.onCloud?.(e instanceof Error ? e.message : String(e));

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from "react";
-import { BookOpen, CloudUpload, Info, Keyboard, Mic, Palette, TvMinimal, Volume2 } from "lucide-react";
+import { BookOpen, CloudUpload, Info, Keyboard, Mic, Palette, Smartphone, TvMinimal, Volume2 } from "lucide-react";
 import { BackupView } from "./BackupView";
 import { AboutView } from "./AboutView";
 import { LooksView } from "./LooksView";
@@ -7,6 +7,7 @@ import { ScreensView } from "./ScreensView";
 import { useVoiceStore, WHISPER_MODELS, type VoiceMode } from "../stores/voice-store";
 import { COMMAND_HELP } from "../lib/voice-commands";
 import { REMOTE_ACTIONS, learnMidi, readMidiMap, saveMidiMap, startMidi } from "../lib/remote";
+import { usePhoneRemote } from "../lib/phone-remote";
 import { useBibleStore } from "../stores/bible-store";
 import { isDesktopApp } from "../lib/media-src";
 
@@ -313,7 +314,8 @@ function Shortcuts() {
           </table>
           <p className="mt-3 text-[13px] text-ink-muted">Ctrl + C still copies text when you have text selected or are typing in a box. Presentation clickers work too (Page Down / Page Up move through what is live).</p>
         </Card>
-        <div className="mt-3"><ControllerSetup /></div>
+        <div className="mt-3 grid gap-3"><PhoneRemote />
+          <ControllerSetup /></div>
       </div>
     </div>
   );
@@ -488,6 +490,29 @@ function VoiceCommandsSetup() {
         </>
       )}
     </div>
+  );
+}
+
+/** A phone on the same Wi-Fi as the remote. */
+function PhoneRemote() {
+  const { on, url, pin, error, setOn, newPin } = usePhoneRemote();
+  const [busy, setBusy] = useState(false);
+  const run = async (f: () => Promise<void>) => { setBusy(true); await f(); setBusy(false); };
+  return (
+    <Card title="Phone remote" icon={<Smartphone className="size-5 text-primary-bright" />}>
+      <label className="flex cursor-pointer items-start gap-2.5">
+        <input type="checkbox" checked={on} disabled={busy} onChange={(e) => run(() => setOn(e.target.checked))} className="mt-0.5 size-4 accent-[var(--color-primary)]" />
+        <span><span className="block text-[14px] font-semibold text-ink">Move slides from a phone or tablet</span><span className="block text-[13px] text-ink-muted">The phone must be on the same Wi-Fi as this computer. If Windows asks, allow WorshipHQ Live on private networks.</span></span>
+      </label>
+      {on && url && (
+        <div className="mt-3 flex flex-wrap items-end gap-6 rounded-lg bg-surface-4 p-4">
+          <div><p className="text-[12px] text-ink-muted">Open this on the phone</p><p className="select-all text-[20px] font-bold text-ink">{url.replace("http://", "")}</p></div>
+          <div><p className="text-[12px] text-ink-muted">PIN</p><p className="select-all font-mono text-[20px] font-bold tracking-widest text-ink">{pin}</p></div>
+          <button disabled={busy} onClick={() => run(newPin)} className="h-9 rounded-lg border border-line-bright px-3 text-[13px] font-semibold text-ink hover:bg-surface-5">New PIN</button>
+        </div>
+      )}
+      {error && <p className="mt-2 text-[13px] font-semibold text-danger">{error}</p>}
+    </Card>
   );
 }
 

@@ -19,22 +19,136 @@ pub struct TextFile {
     pub text: String,
 }
 
-/// EasyWorship 6/7 keep their songs here.
-pub fn find_easyworship() -> Option<String> {
+fn easyworship_root() -> PathBuf {
     let public = std::env::var("PUBLIC").unwrap_or_else(|_| "C:\\Users\\Public".into());
-    let candidates = [
-        PathBuf::from(&public).join("Documents\\Softouch\\EasyWorship\\Default\\v6.1\\Databases\\Data"),
-        PathBuf::from(&public).join("Documents\\Softouch\\EasyWorship\\Default\\Databases\\Data"),
-    ];
-    candidates
+    PathBuf::from(public).join("Documents\\Softouch\\EasyWorship")
+}
+
+fn has_songs(dir: &Path) -> bool {
+    // Windows sees Songs.db and Songs.DB as one name: SongWords.db is only there in EasyWorship 6/7.
+    dir.join("Songs.db").exists() && (dir.join("SongWords.db").exists() || dir.join("Songs.MB").exists())
+}
+
+/// EasyWorship keeps its songs here (6/7 first, then 2009).
+pub fn find_easyworship() -> Option<String> {
+    let root = easyworship_root().join("Default");
+    [root.join("v6.1\\Databases\\Data"), root.join("Databases\\Data")]
         .into_iter()
-        .find(|p| p.join("Songs.db").exists() && p.join("SongWords.db").exists())
+        .find(|p| has_songs(p))
         .map(|p| p.to_string_lossy().to_string())
 }
 
-/// Reads songs from an EasyWorship 6/7 database folder (read-only; EasyWorship is not changed).
+#[derive(Debug, Serialize)]
+pub struct ImportSource {
+    /// "easyworship" | "openlp" | "files"
+    pub kind: String,
+    pub name: String,
+    pub path: String,
+    /// Pictures, videos and sound that belong to it.
+    pub media: Vec<String>,
+    /// Song files ("files" only).
+    pub files: Vec<String>,
+}
+
+fn walk(dir: &Path, depth: usize, out: &mut Vec<PathBuf>, ext: &[&str]) {
+    if depth == 0 || out.len() >= 5000 {
+        return;
+    }
+    let Ok(list) = std::fs::read_dir(dir) else { return };
+    for e in list.flatten() {
+        let p = e.path();
+        if p.is_dir() {
+            walk(&p, depth - 1, out, ext);
+        } else {
+            let x = p.extension().and_then(|x| x.to_str()).unwrap_or("").to_lowercase();
+            if ext.contains(&x.as_str()) {
+                out.push(p);
+            }
+        }
+    }
+}
+const SONG_FILES: &[&str] = &["show", "pro", "pro6", "pro5", "xml", "cho", "crd", "chopro", "chordpro", "sng", "usr", "txt", "vpagd", "json"];
+const MEDIA_FILES: &[&str] = &["jpg", "jpeg", "png", "bmp", "gif", "webp", "mp4", "m4v", "mov", "webm", "mp3", "wav", "m4a"];
+fn strings(v: Vec<PathBuf>) -> Vec<String> {
+    v.into_iter().map(|p| p.to_string_lossy().to_string()).collect()
+}
+
+/// Song files in a folder the user chose (and the folders in it).
+pub fn song_files_in(folder: &str) -> Vec<String> {
+    let mut out = Vec::new();
+    walk(Path::new(folder), 5, &mut out, SONG_FILES);
+    // OpenSong songs have no extension.
+    if out.is_empty() {
+        walk(Path::new(folder), 3, &mut out, &[""]);
+    }
+    strings(out)
+}
+
+/// Other church software on this computer, with what can be brought over.
+pub fn find_import_sources() -> Vec<ImportSource> {
+    let mut out: Vec<ImportSource> = Vec::new();
+    // Every EasyWorship profile ("Default" and any others).
+    if let Ok(profiles) = std::fs::read_dir(easyworship_root()) {
+        for p in profiles.flatten().map(|e| e.path()).filter(|p| p.is_dir()) {
+            let profile = p.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
+            let mut found = Vec::new();
+            for f in ["Images", "Videos", "Audio"] {
+                walk(&p.join("Resources").join(f), 3, &mut found, MEDIA_FILES);
+            }
+            let mut media = strings(found);
+            for (data, version) in [(p.join("v6.1\\Databases\\Data"), "6/7"), (p.join("Databases\\Data"), "2009")] {
+                if !has_songs(&data) {
+                    continue;
+                }
+                let label = if profile == "Default" { String::new() } else { format!(" ({profile})") };
+                out.push(ImportSource { kind: "easyworship".into(), name: format!("EasyWorship {version}{label}"), path: data.to_string_lossy().into(), media: std::mem::take(&mut media), files: vec![] });
+            }
+        }
+    }
+    if let Ok(app) = std::env::var("APPDATA") {
+        let db = PathBuf::from(app).join("openlp\\data\\songs\\songs.sqlite");
+        if db.exists() {
+            out.push(ImportSource { kind: "openlp".into(), name: "OpenLP".into(), path: db.to_string_lossy().into(), media: vec![], files: vec![] });
+        }
+    }
+    if let Ok(home) = std::env::var("USERPROFILE") {
+        for (name, dir) in [("FreeShow", "FreeShow\\Shows"), ("ProPresenter 7", "ProPresenter\\Libraries"), ("ProPresenter 6", "ProPresenter6"), ("OpenSong", "OpenSong\\Songs"), ("VideoPsalm", "VideoPsalm")] {
+            let p = PathBuf::from(&home).join("Documents").join(dir);
+            if !p.is_dir() {
+                continue;
+            }
+            let files = song_files_in(&p.to_string_lossy());
+            if !files.is_empty() {
+                out.push(ImportSource { kind: "files".into(), name: name.into(), path: p.to_string_lossy().into(), media: vec![], files });
+            }
+        }
+    }
+    out
+}
+
+/// OpenLP's songs (its words are XML, which the app reads).
+pub fn import_openlp(path: &str) -> Result<Vec<ImportedSong>, String> {
+    let db = Connection::open_with_flags(path, OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX).map_err(|e| format!("Couldn't open OpenLP's songs: {e}"))?;
+    let mut stmt = db
+        .prepare("SELECT s.title, COALESCE((SELECT group_concat(a.display_name, ', ') FROM authors_songs x JOIN authors a ON a.id = x.author_id WHERE x.song_id = s.id), ''), COALESCE(s.copyright,''), COALESCE(s.lyrics,'') FROM songs s")
+        .map_err(|e| e.to_string())?;
+    let rows = stmt
+        .query_map([], |r| Ok(ImportedSong { title: r.get(0)?, author: r.get(1)?, copyright: r.get(2)?, words: r.get(3)? }))
+        .map_err(|e| e.to_string())?;
+    Ok(rows.filter_map(Result::ok).collect())
+}
+
+/// Reads songs from an EasyWorship database folder, 2009 or 6/7 (read-only; EasyWorship is not changed).
 pub fn import_easyworship(folder: &str) -> Result<Vec<ImportedSong>, String> {
     let dir = Path::new(folder);
+    if !dir.join("SongWords.db").exists() {
+        let field = |r: &std::collections::HashMap<String, String>, n: &str| r.get(n).cloned().unwrap_or_default();
+        return Ok(crate::paradox::read_table(&dir.join("Songs.DB"))?
+            .iter()
+            .map(|r| ImportedSong { title: field(r, "Title"), author: field(r, "Author"), copyright: field(r, "Copyright"), words: field(r, "Words") })
+            .filter(|s| !s.title.trim().is_empty() || !s.words.is_empty())
+            .collect());
+    }
     let flags = OpenFlags::SQLITE_OPEN_READ_ONLY | OpenFlags::SQLITE_OPEN_NO_MUTEX;
     let songs = Connection::open_with_flags(dir.join("Songs.db"), flags)
         .map_err(|e| format!("Couldn't open EasyWorship's Songs.db: {e}"))?;

@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>WorshipHQ Live remote</title>
+<style>
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:#0b1220;color:#e8eef7;font:16px/1.4 system-ui,sans-serif;height:100dvh;display:flex;flex-direction:column}
+button,input{font:inherit;color:inherit}
+#pin{margin:auto;width:min(320px,90vw);text-align:center}
+#pin input{width:100%;height:56px;font-size:28px;letter-spacing:8px;text-align:center;border-radius:12px;border:1px solid #3a4a68;background:#162034}
+#pin button{margin-top:12px;width:100%;height:52px;border:0;border-radius:12px;background:#0c7a71;font-weight:700}
+#err{min-height:24px;color:#fca5a5;font-weight:600}
+header{padding:12px 16px;border-bottom:1px solid #26334c;display:flex;gap:10px;align-items:center}
+header b{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+#flag{font-size:12px;font-weight:800;color:#fca5a5}
+nav{display:flex;border-bottom:1px solid #26334c}
+nav button{flex:1;height:44px;border:0;background:none;color:#a9b7cc;font-weight:600}
+nav button[aria-selected=true]{color:#5eead4;box-shadow:inset 0 -2px #5eead4}
+#list{flex:1;overflow:auto;padding:8px 12px}
+.s{display:block;width:100%;text-align:left;border:1px solid #26334c;background:#131c2e;border-radius:12px;padding:10px 12px;margin:6px 0;white-space:pre-line}
+.s.on{border-color:#f87171;background:#3b1219}
+.s small{display:block;color:#a9b7cc;font-weight:700;font-size:12px;text-transform:uppercase}
+footer{padding:10px 12px calc(10px + env(safe-area-inset-bottom));border-top:1px solid #26334c;display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+footer button{height:48px;border:1px solid #3a4a68;background:#1c2840;border-radius:12px;font-weight:700}
+footer .big{height:76px;font-size:20px;grid-column:span 1}
+footer .next{grid-column:span 2;background:#0c7a71;border-color:#0c7a71}
+footer button.on{background:#b91c1c;border-color:#b91c1c}
+[hidden]{display:none!important}
+</style>
+</head>
+<body>
+<form id="pin"><h2>WorshipHQ Live</h2><p>Type the PIN shown on the computer.</p><input inputmode="numeric" maxlength="6" autocomplete="off" aria-label="PIN"><button>Open the remote</button><p id="err" role="alert"></p></form>
+<div id="app" hidden style="display:flex;flex-direction:column;height:100%">
+<header><b id="title"></b><span id="flag"></span></header>
+<nav><button id="t0" aria-selected="true">On screen</button><button id="t1" aria-selected="false">Schedule</button></nav>
+<div id="list"></div>
+<footer><button class="big" data-a="previous">Back</button><button class="big next" data-a="next">Next</button><button data-a="black" id="b">Black</button><button data-a="clear" id="c">Clear words</button><button data-a="logo" id="l">Logo</button></footer>
+</div>
+<script>
+var $=function(i){return document.getElementById(i)},pin='',tab=0,last='',st=null;
+try{pin=sessionStorage.getItem('pin')||''}catch(e){}
+function call(p,post){return fetch(p,{method:post?'POST':'GET',headers:{'X-Pin':pin}})}
+function out(m){$('app').hidden=true;$('pin').hidden=false;$('err').textContent=m||'';pin=''}
+async function tick(){
+  if(pin){try{
+    var r=await call('/state');
+    if(!r.ok){out((await r.json()).error)}
+    else{var t=await r.text();$('pin').hidden=true;$('app').hidden=false;$('flag').textContent='';if(t!==last){last=t;st=JSON.parse(t);draw()}else if(st)flags()}
+  }catch(e){$('flag').textContent='No connection'}}
+  setTimeout(tick,700)
+}
+function flags(){$('flag').textContent=st.black?'BLACK':st.cleared?'WORDS OFF':st.logo?'LOGO':'';$('b').className=st.black?'on':'';$('c').className=st.cleared?'on':'';$('l').className=st.logo?'on':''}
+function item(text,label,on,act){var b=document.createElement('button');b.className='s'+(on?' on':'');if(label){var s=document.createElement('small');s.textContent=label;b.appendChild(s)}b.appendChild(document.createTextNode(text));b.onclick=function(){go(act)};return b}
+function draw(){
+  flags();$('title').textContent=st.title||'Nothing on the screen';
+  var L=$('list');L.textContent='';
+  if(tab===0)(st.slides||[]).forEach(function(s,i){L.appendChild(item(s.t,s.l,i===st.index,'go-'+i))});
+  else (st.items||[]).forEach(function(s,i){L.appendChild(item(s.t,s.k,s.t===st.title,'item-'+i))});
+  if(!L.children.length)L.textContent=tab?'The schedule is empty.':'Nothing on the screen yet. Pick something from the schedule.';
+  var on=L.querySelector('.on');if(on)on.scrollIntoView({block:'nearest'});
+}
+function go(a){if(navigator.vibrate)navigator.vibrate(15);call('/do/'+a,true).catch(function(){$('flag').textContent='No connection'})}
+$('pin').onsubmit=function(e){e.preventDefault();pin=this.querySelector('input').value.trim();try{sessionStorage.setItem('pin',pin)}catch(x){}};
+document.querySelectorAll('[data-a]').forEach(function(b){b.onclick=function(){go(b.dataset.a)}});
+[0,1].forEach(function(n){$('t'+n).onclick=function(){tab=n;$('t0').setAttribute('aria-selected',n===0);$('t1').setAttribute('aria-selected',n===1);if(st)draw()}});
+tick();
+</script>
+</body>
+</html>

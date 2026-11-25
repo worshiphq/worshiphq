@@ -26,6 +26,15 @@ export const REMOTE_ACTIONS: { id: string; label: string }[] = [
 export function runRemoteAction(id: string) {
   const proj = useProjectionStore.getState();
   const show = useShowStore.getState();
+  // From the phone: one slide of what is live, or one item of the schedule.
+  const pick = id.match(/^(go|item)-(\d{1,4})$/);
+  if (pick) {
+    const i = +pick[2];
+    if (pick[1] === "go") { if (show.live && i < show.live.slides.length) show.liveGo(i); return; }
+    const it = proj.serviceItems[i];
+    if (it?.slides?.length) { proj.setActiveItem(i); show.setPreview(it.title, it.slides, 0, it.data?.songId); show.sendPreviewLive(0); }
+    return;
+  }
   switch (id) {
     case "next": show.liveStep(1); break;
     case "previous": show.liveStep(-1); break;

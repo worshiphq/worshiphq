@@ -15,27 +15,41 @@ export const maxDuration = 30;
 const MODEL = "claude-haiku-5-5";
 const GROQ_MODEL = "openai/gpt-oss-120b";
 
-const NOTES = `You take notes of a sermon for the church's screen. You get the words just heard (speech recognition, so some words are wrong; it may mix English and Twi), the message title if known, and what is already noted. Reply with ONLY a JSON object: {"notes":[{"kind":"title"|"point"|"sub"|"line","text":"..."}]}, in the order they were said, at most 4.
-- "title": the title or theme of the whole message, only when the preacher gives it ("my topic this morning is…", "the title of the message is…"). At most one, and none when the title is already known.
-- "point": a main point or lesson of the message.
-- "sub": something that explains or belongs under the point before it (a reason, a step, a way to do it).
-- "line": a short, striking sentence the preacher clearly wants people to remember, close to the words used.
-Write each in English, at most 18 words, in the preacher's own sense, as the thing itself ("Faith pleases God"), never as a report ("He teaches that…"). Never note greetings, stories, jokes, announcements, prayers, songs, Bible references on their own, anything already noted (even in other words), or anything you are unsure was said. Never add ideas of your own. {"notes":[]} when there is nothing.`;
+const NOTES = `You write the notes page of a sermon while it is being preached, for the church's screen. You get:
+- "before": what was said just before (already dealt with; only for understanding),
+- "heard": the new words. They come from speech recognition: names and words can be wrong, sentences are broken, and Twi often comes out as English nonsense,
+- "heading": the heading of the message, if there is one,
+- "page": the lines already on the page, each with its number "n". "yours": true means you wrote it and nobody has touched it.
 
-async function askGroq(system: string, user: string, maxTokens: number): Promise<unknown> {
+First work out what the preacher is actually teaching, the way an attentive listener with a notebook would. Then reply with ONLY a JSON object: {"heading":string|null,"changes":[...]}, at most 4 changes, usually 0 to 2:
+- {"do":"add","kind":"point","text":"..."}: a main point of the message.
+- {"do":"add","kind":"sub","text":"...","under":n}: something that explains, proves or lists under line n (a reason, a step, a meaning, an example given as teaching). Prefer this to a new point when it belongs to a point already there.
+- {"do":"add","kind":"line","text":"..."}: a definition or a short sentence the preacher clearly wants remembered, in the preacher's words.
+- {"do":"fix","n":n,"text":"..."}: reword one of your own lines because you now understand it better (never because of style).
+- {"do":"drop","n":n}: one of your own lines that you now see was wrong or a repeat.
+"heading": only when the preacher says what the message is about ("my topic is…", "we are looking at…", a theme announced) and "heading" is empty; otherwise null. Never invent one, and never take the first thing said as the heading.
+
+Writing: plain English, correct spelling, 4 to 16 words, the truth itself ("A steward answers to God for everything entrusted"), never a report ("The preacher says…"). When the preacher lists things ("stewardship rests on faithfulness, obedience and accountability"), add one point for the whole and one sub for each. Repair obvious mishearings from the meaning; if you cannot tell what was said, leave it out.
+A phrase that is misheard the same way again and again ("still worship" for "stewardship") may only become clear later: then fix your own lines.
+When unsure, add nothing. Never note: greetings, "hallelujah", stories, jokes, announcements, offerings, prayers, songs, testimony details, a Bible reference by itself, text that makes no sense, single catchphrases, anything already on the page in other words, or any idea that was not said.`;
+
+const TIDY = `You tidy a page of sermon notes so it reads well. You get "heading" and "page" (the notes as typed, some by a person, some automatically). Reply with ONLY a JSON object: {"heading":string,"page":string}.
+Keep everything the page says: never drop, soften or add a teaching. Merge lines that say the same thing, fix spelling and broken sentences, put points in the order they come, number main points "1. ", put what belongs to a point right under it as "   - ", and leave a blank line between separate parts. A label with what it names ("Speaker:" then a name), dates, and Bible references on a line of their own are not points: leave each exactly as written, between the same neighbours. Leave "heading" as it is.`;
+
+async function askGroq(system: string, user: string, maxTokens: number, careful = false): Promise<unknown> {
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
     headers: { "content-type": "application/json", authorization: `Bearer ${env.GROQ_API_KEY}` },
     body: JSON.stringify({
       model: GROQ_MODEL,
       temperature: 0,
-      reasoning_effort: "low",
+      reasoning_effort: careful ? "medium" : "low",
       // Room for a little thinking before the answer.
-      max_completion_tokens: maxTokens + 400,
+      max_completion_tokens: maxTokens + (careful ? 1500 : 400),
       response_format: { type: "json_object" },
       messages: [{ role: "system", content: system }, { role: "user", content: user }],
     }),
-    signal: AbortSignal.timeout(6000),
+    signal: AbortSignal.timeout(careful ? 24000 : 6000),
   });
   if (!res.ok) throw new Error(`AI ${res.status}: ${(await res.text()).slice(0, 200)}`);
   const data = (await res.json()) as { choices?: { message?: { content?: string } }[] };
@@ -73,9 +87,9 @@ Requests may be casual, mis-transcribed by speech recognition, or in Ghanaian En
 
 const SEARCH = `You find Bible verses. You get words, a phrase, a paraphrase or an idea someone typed or said. Reply with ONLY a JSON object: {"verses":[{"reference":"Philippians 4:13","why":"<few words>"}]} — the most likely verses, best first, at most 6. Use standard English book names. Include the well-known verse that is meant even if the wording is different (e.g. "I lack nothing" → Psalm 23:1). Return {"verses":[]} if nothing fits.`;
 
-async function ask(system: string, user: string, maxTokens: number): Promise<unknown> {
+async function ask(system: string, user: string, maxTokens: number, careful = false): Promise<unknown> {
   if (env.GROQ_API_KEY) {
-    try { return await askGroq(system, user, maxTokens); } catch (e) {
+    try { return await askGroq(system, user, maxTokens, careful); } catch (e) {
       if (!env.ANTHROPIC_API_KEY) throw e;
       console.warn("[media/ai] Groq failed, using Claude:", (e as Error).message);
     }
@@ -121,8 +135,8 @@ export async function POST(req: Request) {
     screen?: Record<string, unknown>;
     versions?: { id: string; abbreviation: string; name: string; language: string }[];
     query?: string;
-    have?: string[];
-    title?: string;
+    heading?: string;
+    page?: unknown;
   };
   try { body = await req.json(); } catch { return json({ error: "Bad request" }, 400); }
   const t = Date.now();
@@ -133,17 +147,31 @@ export async function POST(req: Request) {
       const out = (await ask(SEARCH, q, 300)) as { verses?: unknown[] };
       return json({ verses: Array.isArray(out.verses) ? out.verses.slice(0, 6) : [], ms: Date.now() - t });
     }
-    if (body.task === "notes") {
+    if (body.task === "page") {
       const words = String(body.said ?? "").slice(0, 6000).trim();
-      if (!words) return json({ notes: [] });
-      const have = (body.have ?? []).slice(-30).map((x) => String(x).slice(0, 200));
-      const out = (await ask(NOTES, JSON.stringify({ heard: words, title: String(body.title ?? "").slice(0, 120) || null, alreadyNoted: have }), 500)) as { notes?: unknown[] };
-      const notes = (Array.isArray(out.notes) ? out.notes : [])
-        .map((n) => n as { kind?: unknown; text?: unknown })
-        .filter((n) => typeof n?.text === "string" && ["title", "point", "sub", "line"].includes(String(n.kind)))
-        .slice(0, 4)
-        .map((n) => ({ kind: n.kind, text: String(n.text).slice(0, 240) }));
-      return json({ notes, ms: Date.now() - t });
+      if (!words) return json({ heading: null, changes: [] });
+      const page = (Array.isArray(body.page) ? body.page : []).slice(-60).map((x, i) => ({ n: i + 1, text: String((x as { text?: unknown })?.text ?? "").slice(0, 240), yours: !!(x as { yours?: unknown })?.yours }));
+      const out = (await ask(NOTES, JSON.stringify({ before: (Array.isArray(body.before) ? body.before : []).map(String).join(" ").slice(-2500), heard: words, heading: String(body.heading ?? "").slice(0, 160) || null, page }), 600, true)) as { heading?: unknown; changes?: unknown[] };
+      type Change = { do?: unknown; kind?: unknown; text?: unknown; n?: unknown; under?: unknown };
+      const line = (n: unknown) => page.find((p) => p.n === Number(n));
+      const changes = (Array.isArray(out.changes) ? out.changes : []).slice(0, 5).flatMap((x): Record<string, unknown>[] => {
+        const ch = x as Change;
+        const text = typeof ch.text === "string" ? ch.text.replace(/\s+/g, " ").trim().slice(0, 240) : "";
+        if (ch.do === "add" && text && ["point", "sub", "line"].includes(String(ch.kind))) return [{ do: "add", kind: ch.kind, text, under: line(ch.under)?.text }];
+        const l = line(ch.n);
+        if (!l?.yours) return [];
+        if (ch.do === "fix" && text) return [{ do: "fix", was: l.text, text }];
+        if (ch.do === "drop") return [{ do: "drop", was: l.text }];
+        return [];
+      });
+      return json({ heading: typeof out.heading === "string" && out.heading.trim() ? out.heading.trim().slice(0, 160) : null, changes, ms: Date.now() - t });
+    }
+    if (body.task === "tidy") {
+      const page = String(body.page ?? "").slice(0, 8000);
+      if (!page.trim()) return json({ error: "Nothing to tidy." }, 400);
+      const out = (await ask(TIDY, JSON.stringify({ heading: String(body.heading ?? "").slice(0, 160), page }), 2500, true)) as { heading?: unknown; page?: unknown };
+      if (typeof out.page !== "string" || !out.page.trim()) return json({ error: "The AI gave nothing back." }, 502);
+      return json({ heading: typeof out.heading === "string" ? out.heading.trim().slice(0, 160) : "", page: out.page.replace(/\r/g, "").replace(/\\n/g, "\n").slice(0, 12000), ms: Date.now() - t });
     }
     const said = String(body.said ?? "").slice(0, 600).trim();
     if (!said) return json({ actions: [] });

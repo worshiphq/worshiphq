@@ -85,7 +85,7 @@ export function ElementView({ el }: { el: NonNullable<Slide["elements"]>[number]
       padding: el.fill ? 24 : 0, boxSizing: "border-box",
     }}>
       <div style={{
-        width: "100%", textAlign: el.align ?? "center", whiteSpace: "pre-line", lineHeight: 1.2,
+        width: "100%", textAlign: el.align ?? "center", whiteSpace: el.align === "left" ? "pre-wrap" : "pre-line", lineHeight: el.lineHeight ?? 1.2,
         fontFamily: el.font ?? "'Segoe UI', sans-serif", fontSize: el.size ?? 72, color: el.color ?? "#ffffff",
         fontWeight: el.bold ? 800 : 500, fontStyle: el.italic ? "italic" : "normal",
         textShadow: el.shadow === false ? "none" : "0 3px 12px rgba(0,0,0,0.55)",

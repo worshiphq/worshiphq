@@ -1,3 +1,4 @@
+import { ask } from "./Dialogs";
 import { useEffect, useState } from "react";
 import { Pencil, Plus, Trash2 } from "lucide-react";
 import { useDeckStore, type Deck } from "../stores/deck-store";
@@ -53,7 +54,7 @@ export function DeckLibrary() {
                 <button onClick={() => setEditing(d)} className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[12px] font-semibold text-primary-bright hover:bg-primary-soft"><Pencil className="size-3.5" /> Edit</button>
                 <button onClick={() => { useProjectionStore.getState().addToService({ id: crypto.randomUUID(), type: "custom", title: d.title, subtitle: "Designed slides", order: 0, slides: d.slides }); setToast(`${d.title} added to the schedule`); }}
                   className="flex items-center gap-1 rounded px-1.5 py-0.5 text-[12px] font-semibold text-ink hover:bg-surface-5"><Plus className="size-3.5" /> Schedule</button>
-                <button onClick={() => { if (window.confirm(`Delete “${d.title}”?`)) deleteDeck(d.id); }} className="ml-auto rounded p-0.5 text-ink-faint hover:text-danger"><Trash2 className="size-3.5" /></button>
+                <button onClick={async () => { if (await ask(`Delete “${d.title}”?`, "Delete", { danger: true })) deleteDeck(d.id); }} className="ml-auto rounded p-0.5 text-ink-faint hover:text-danger"><Trash2 className="size-3.5" /></button>
               </div>
             </div>
           ))}

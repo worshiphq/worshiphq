@@ -1,8 +1,11 @@
+import { ask, dialogOpen } from "./Dialogs";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { HelpCircle, X } from "lucide-react";
 import type { Song } from "../types";
 import { songToText, textToSections } from "../lib/song-text";
 import { buildSongSlides } from "../lib/song-slides";
+import { partColor } from "../lib/part-colors";
+import { plainText } from "../lib/rich-text";
 import { LyricsEditor } from "./LyricsEditor";
 import { SlidePreview } from "./SlidePreview";
 
@@ -97,9 +100,10 @@ export function SongEditorDialog({ song, isNew, onSave, onCancel }: {
     setDirty(false);
   }
 
-  function close() {
+  async function close() {
+    if (dialogOpen()) return;
     if (dirty && !autoSave && !isNew) {
-      if (!window.confirm(`Close without saving your changes to “${title || "this song"}”?`)) return;
+      if (!(await ask(`Close without saving your changes to “${title || "this song"}”?`, "Close without saving", { danger: true, no: "Keep editing" }))) return;
     }
     window.clearTimeout(timer.current);
     if (autoSave && dirty) onSave(changes());
@@ -116,130 +120,112 @@ export function SongEditorDialog({ song, isNew, onSave, onCancel }: {
     return () => window.removeEventListener("keydown", onKey, true);
   });
 
+  const field = "h-9 w-full min-w-0 rounded-lg border border-line bg-surface-2 px-3 text-[13px] text-ink outline-none focus:border-primary placeholder:text-ink-faint";
   return (
     <div className="fixed inset-0 z-[60] grid place-items-center bg-ink/40 p-3 backdrop-blur-[2px]" onMouseDown={(e) => { if (e.target === e.currentTarget) close(); }}>
       <div role="dialog" aria-modal="true" aria-label={isNew ? "New song" : `Edit ${song.title}`}
         className="flex h-[min(860px,96vh)] w-[min(1180px,98vw)] flex-col overflow-hidden rounded-2xl border border-line bg-surface-2 shadow-[0_30px_80px_rgba(15,23,42,0.35)]">
-        {/* Header */}
-        <div className="flex shrink-0 flex-wrap items-end gap-3 border-b border-line px-5 py-4">
-          <label className="min-w-[240px] flex-1">
-            <span className="mb-1 block text-[12px] font-medium text-ink-muted">{isNew ? "New song" : "Song title"}</span>
-            <input ref={titleRef} value={title} onChange={(e) => edit({ t: e.target.value })} placeholder="Song title"
-              className="h-10 w-full rounded-lg border border-line-bright px-3 text-[18px] font-bold text-ink outline-none focus:border-primary" />
-          </label>
-          <label className="w-56">
-            <span className="mb-1 block text-[12px] font-medium text-ink-muted">Written by</span>
-            <input value={author} onChange={(e) => edit({ a: e.target.value })} placeholder="e.g. Chris Tomlin"
-              className="h-10 w-full rounded-lg border border-line-bright px-3 text-[14px] text-ink outline-none focus:border-primary" />
-          </label>
-          <label className="w-20">
-            <span className="mb-1 block text-[12px] font-medium text-ink-muted">Key</span>
-            <input value={keyName} onChange={(e) => edit({ k: e.target.value })} placeholder="G"
-              className="h-10 w-full rounded-lg border border-line-bright px-3 text-[14px] text-ink outline-none focus:border-primary" />
-          </label>
-          <label className="w-28">
-            <span className="mb-1 block text-[12px] font-medium text-ink-muted">CCLI number</span>
-            <input value={ccli} onChange={(e) => editExtra(() => setCcli(e.target.value.replace(/[^0-9]/g, "").slice(0, 10)))} placeholder="e.g. 7115744" inputMode="numeric"
-              className="h-10 w-full rounded-lg border border-line-bright px-3 text-[14px] text-ink outline-none focus:border-primary" />
-          </label>
-          <button onClick={close} aria-label="Close" className="mb-1 ml-auto grid size-9 place-items-center rounded-lg text-ink-muted hover:bg-surface-4 hover:text-ink">
-            <X className="size-5" />
-          </button>
-        </div>
-
-        {/* Words + slides */}
-        <div className="grid min-h-0 flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[minmax(0,1fr)_420px]">
+        <div className="grid min-h-0 flex-1 grid-cols-1 lg:grid-cols-[minmax(0,1fr)_330px]">
+          {/* The words */}
           <div className="flex min-h-0 flex-col">
-            <div className="mb-2 flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 text-[12px] font-semibold text-ink-muted">Order sung</span>
-              {arrangement.order.map((id, i) => {
-                const sec = arrangement.sections.find((x) => x.id === id);
-                return (
-                  <span key={i} draggable
-                    onDragStart={() => setDragAt(i)}
-                    onDragOver={(e) => e.preventDefault()}
-                    onDrop={() => { if (dragAt === null || dragAt === i) return; const o = [...arrangement.order]; const [m] = o.splice(dragAt, 1); o.splice(i, 0, m); setDragAt(null); setOrder(o); }}
-                    title="Drag to change the order"
-                    className="flex cursor-grab items-center gap-1 rounded-full bg-primary-soft py-0.5 pl-2.5 pr-1 text-[12px] font-semibold text-primary-bright">
-                    {sec?.label ?? "?"}
-                    <button onClick={() => setOrder(arrangement.order.filter((_, k) => k !== i))} title="Leave this part out here" className="grid size-4 place-items-center rounded-full hover:bg-primary hover:text-white">×</button>
-                  </span>
-                );
-              })}
-              <select value="" onChange={(e) => { if (e.target.value) setOrder([...arrangement.order, e.target.value]); }}
-                className="h-6 rounded-full border border-dashed border-line-bright bg-surface-2 px-1.5 text-[12px] text-ink-muted" title="Sing a part again">
-                <option value="">+ add a part</option>
-                {arrangement.sections.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
-              </select>
-            </div>
-            <div className="mb-2 flex items-center gap-2">
+            <input ref={titleRef} value={title} onChange={(e) => edit({ t: e.target.value })} placeholder="Song title" aria-label="Song title"
+              className="shrink-0 bg-transparent px-5 pb-1 pt-4 text-[24px] font-bold text-ink outline-none placeholder:text-ink-faint" />
+            <div className="flex shrink-0 items-center gap-2 px-5 pb-2">
               <div className="flex rounded-lg bg-surface-4 p-0.5">
-                {([["words", "Words"], ["translation", `Translation${translation.trim() ? " ✓" : ""}`], ["chords", `Chords${chords.trim() ? " ✓" : ""}`]] as const).map(([k, l]) => (
-                  <button key={k} onClick={() => setTab(k)} className={`rounded-md px-3 py-1 text-[13px] ${tab === k ? "bg-surface-2 font-semibold text-primary-bright shadow-sm" : "text-ink-muted hover:text-ink"}`}>{l}</button>
+                {([["words", "Words"], ["translation", "Translation"], ["chords", "Chords"]] as const).map(([k, l]) => (
+                  <button key={k} onClick={() => setTab(k)} className={`flex items-center gap-1.5 rounded-md px-3 py-1 text-[13px] ${tab === k ? "bg-surface-2 font-semibold text-ink shadow-sm" : "text-ink-muted hover:text-ink"}`}>
+                    {l}{((k === "translation" && translation.trim()) || (k === "chords" && chords.trim())) && <span className="size-1.5 rounded-full bg-primary" />}
+                  </button>
                 ))}
               </div>
-              <button onClick={() => setShowHelp((h) => !h)} className="flex items-center gap-1 text-[13px] font-medium text-primary-bright hover:underline">
-                <HelpCircle className="size-4" /> How to write the words
-              </button>
+              <button onClick={() => setShowHelp((h) => !h)} title="How to write the words" aria-label="How to write the words" aria-expanded={showHelp} className={`grid size-8 place-items-center rounded-lg ${showHelp ? "bg-primary-soft text-primary-bright" : "text-ink-faint hover:bg-surface-4 hover:text-ink"}`}><HelpCircle className="size-4" /></button>
             </div>
             {showHelp && (
-              <div className="mb-2 rounded-lg bg-primary-soft/60 p-3 text-[13px] leading-relaxed text-ink">
+              <div className="mx-5 mb-2 shrink-0 rounded-xl bg-primary-soft/60 p-3 text-[13px] leading-relaxed text-ink">
                 Put each part under a heading in square brackets, like <b>[Verse 1]</b>, <b>[Chorus]</b> or <b>[Bridge]</b>.
                 Leave an empty line to start a new slide. To sing the chorus again, write <b>[Chorus]</b> again with nothing under it.
-                Select words and click a colour or pick a font, or pick one first and keep typing.
               </div>
             )}
             {tab === "chords" ? (
               <>
-                <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-primary-soft/50 p-2 text-[13px] text-ink">
-                  <span className="flex-1">For the band: chords above the words, under the same headings. Only the <b>stage display</b> shows this (press C on it to hide or show chords).</span>
-                  {!chords.trim() && (
-                    <button onClick={() => editExtra(() => setChords(plainWords(text)))} className="rounded-md bg-primary px-2.5 py-1 text-[12px] font-bold text-white hover:bg-primary-bright">Start from the words</button>
-                  )}
+                <div className="flex shrink-0 items-center gap-3 border-b border-line px-5 py-2 text-[13px] text-ink-muted">
+                  <span className="flex-1">For the band. Only the stage display shows this.</span>
+                  {!chords.trim() && <button onClick={() => editExtra(() => setChords(plainText(text)))} className="font-semibold text-primary-bright hover:underline">Start from the words</button>}
                 </div>
                 <textarea value={chords} onChange={(e) => editExtra(() => setChords(e.target.value))} spellCheck={false}
                   placeholder={"[Verse 1]\nG              D/F#\nAmazing grace, how sweet the sound"}
-                  className="min-h-0 flex-1 resize-none rounded-lg border border-line-bright bg-surface-2 p-3 text-[14px] leading-relaxed text-ink outline-none focus:border-primary"
+                  className="min-h-0 flex-1 resize-none bg-transparent px-5 py-3 text-[14px] leading-relaxed text-ink outline-none"
                   style={{ fontFamily: "Consolas, 'Courier New', monospace", userSelect: "text" }} />
               </>
             ) : tab === "words" ? (
               <LyricsEditor value={text} onChange={(w) => edit({ w })} onCaretLine={setCaretLine} placeholder={"[Verse 1]\nType or paste the words here…"} />
             ) : (
               <>
-                <div className="mb-2 flex flex-wrap items-center gap-2 rounded-lg bg-primary-soft/50 p-2 text-[13px] text-ink">
-                  <span className="flex-1">The same song in another language, shown smaller under the words. Use the same headings (<b>[Verse 1]</b>, <b>[Chorus]</b>…) so each part lines up.</span>
-                  <label className="flex items-center gap-1.5">Language
-                    <input value={trName} onChange={(e) => editExtra(() => setTrName(e.target.value.slice(0, 20)))} className="h-8 w-24 rounded-md border border-line-bright bg-surface-2 px-2" />
-                  </label>
+                <div className="flex shrink-0 flex-wrap items-center gap-3 border-b border-line px-5 py-1.5 text-[13px] text-ink-muted">
+                  <span className="flex-1">Shown smaller under the words. Use the same headings.</span>
                   {!translation.trim() && (
-                    <button onClick={() => editExtra(() => setTranslation(arrangement.sections.map((x) => `[${x.label}]\n`).join("\n")))}
-                      className="rounded-md bg-primary px-2.5 py-1 text-[12px] font-bold text-white hover:bg-primary-bright">Copy the headings</button>
+                    <button onClick={() => editExtra(() => setTranslation(arrangement.sections.map((x) => `[${x.label}]\n`).join("\n")))} className="font-semibold text-primary-bright hover:underline">Copy the headings</button>
                   )}
+                  <label className="flex items-center gap-1.5">Language
+                    <input value={trName} onChange={(e) => editExtra(() => setTrName(e.target.value.slice(0, 20)))} className="h-8 w-24 rounded-md border border-line bg-surface-2 px-2 text-ink" />
+                  </label>
                 </div>
                 <LyricsEditor value={translation} onChange={(w) => editExtra(() => setTranslation(w))} placeholder={"[Verse 1]\nType the translated words here…"} />
               </>
             )}
           </div>
-          <div className="hidden min-h-0 flex-col lg:flex">
-            <span className="mb-2 flex items-baseline justify-between text-[14px] font-semibold text-ink">
-              On screen
-              <span className="text-[12px] font-normal text-ink-muted">{current.total ? `${current.label ? current.label + " · " : ""}screen ${current.n} of ${current.total}` : ""}</span>
-            </span>
-            {current.slide ? <SlidePreview slide={current.slide} /> : <div className="grid aspect-video place-items-center rounded-lg bg-ink text-[13px] text-white/60">Type some words</div>}
-            <p className="mt-3 text-[12px] leading-relaxed text-ink-muted">
-              Click in any part of the words to see how it looks on the screen. Lines that are together show together;
-              leave an empty line between them to make a new screen.
-            </p>
+
+          {/* On screen, order and details */}
+          <div className="hidden min-h-0 flex-col gap-5 overflow-y-auto border-l border-line bg-surface p-4 lg:flex">
+            <div className="flex items-center">
+              <span className="flex-1 text-[13px] font-semibold text-ink">{current.total ? `${current.label ? `${current.label} · ` : ""}${current.n} of ${current.total}` : "On screen"}</span>
+              <button onClick={close} aria-label="Close" title="Close (Esc)" className="-my-1 grid size-8 place-items-center rounded-lg text-ink-muted hover:bg-surface-4 hover:text-ink"><X className="size-5" /></button>
+            </div>
+            {current.slide ? <SlidePreview slide={current.slide} className="-mt-3 shrink-0" /> : <div className="-mt-3 grid aspect-video shrink-0 place-items-center rounded-lg bg-ink text-[13px] text-white/60">Type some words</div>}
+
+            <div>
+              <p className="mb-2 text-[13px] font-semibold text-ink">Order sung</p>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {arrangement.order.map((id, i) => {
+                  const sec = arrangement.sections.find((x) => x.id === id);
+                  return (
+                    <span key={i} draggable
+                      onDragStart={() => setDragAt(i)}
+                      onDragOver={(e) => e.preventDefault()}
+                      onDrop={() => { if (dragAt === null || dragAt === i) return; const o = [...arrangement.order]; const [m] = o.splice(dragAt, 1); o.splice(i, 0, m); setDragAt(null); setOrder(o); }}
+                      title="Drag to change the order"
+                      className="group flex cursor-grab items-center gap-1.5 rounded-lg border border-line bg-surface-2 py-1 pl-2 pr-1.5 text-[12px] font-semibold text-ink">
+                      <span className="size-2 rounded-full" style={{ background: partColor(sec?.label) ?? "var(--color-ink-faint)" }} />
+                      {sec?.label ?? "?"}
+                      <button onClick={() => setOrder(arrangement.order.filter((_, k) => k !== i))} title="Leave this part out here" aria-label={`Leave out ${sec?.label ?? "this part"}`} className="grid size-4 place-items-center rounded text-ink-faint hover:bg-danger hover:text-white">×</button>
+                    </span>
+                  );
+                })}
+                <select value="" onChange={(e) => { if (e.target.value) setOrder([...arrangement.order, e.target.value]); }} aria-label="Sing a part again"
+                  className="h-7 rounded-lg border border-dashed border-line-bright bg-transparent px-1 text-[12px] text-ink-muted" title="Sing a part again">
+                  <option value="">+ Add</option>
+                  {arrangement.sections.map((x) => <option key={x.id} value={x.id}>{x.label}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <p className="text-[13px] font-semibold text-ink">Details</p>
+              <input value={author} onChange={(e) => edit({ a: e.target.value })} placeholder="Written by" aria-label="Written by" className={field} />
+              <div className="grid grid-cols-2 gap-2">
+                <input value={keyName} onChange={(e) => edit({ k: e.target.value })} placeholder="Key" aria-label="Key" className={field} />
+                <input value={ccli} onChange={(e) => editExtra(() => setCcli(e.target.value.replace(/[^0-9]/g, "").slice(0, 10)))} placeholder="CCLI number" aria-label="CCLI number" inputMode="numeric" className={field} />
+              </div>
+            </div>
           </div>
         </div>
 
         {/* Footer */}
-        <div className="flex shrink-0 flex-wrap items-center gap-3 border-t border-line bg-surface-4/40 px-5 py-3">
+        <div className="flex shrink-0 flex-wrap items-center gap-3 border-t border-line px-5 py-2.5">
           <label className="flex cursor-pointer items-center gap-2 text-[13px] text-ink-muted" title="Save every change as you type">
             <input type="checkbox" checked={autoSave} onChange={(e) => { setAutoSave(e.target.checked); if (e.target.checked && dirty) save(); }} className="size-4 accent-[var(--color-primary)]" />
             Save automatically
           </label>
-          <span className="text-[12px] text-ink-faint">Ctrl+S saves · Esc closes</span>
           <div className="ml-auto flex gap-2">
             {autoSave ? (
               <>
@@ -248,8 +234,8 @@ export function SongEditorDialog({ song, isNew, onSave, onCancel }: {
               </>
             ) : (
               <>
-                <button onClick={() => { window.clearTimeout(timer.current); onCancel(); }} className="h-10 rounded-lg border border-line-bright px-4 text-[14px] font-semibold text-ink hover:bg-surface-4">Cancel</button>
-                <button onClick={() => { save(); onCancel(); }} className="h-10 rounded-lg bg-primary px-6 text-[14px] font-bold text-white hover:bg-primary-bright">Save</button>
+                <button onClick={() => { window.clearTimeout(timer.current); onCancel(); }} className="h-10 rounded-lg px-4 text-[14px] font-semibold text-ink-muted hover:bg-surface-4 hover:text-ink">Cancel</button>
+                <button onClick={() => { save(); onCancel(); }} title="Ctrl+S" className="h-10 rounded-lg bg-primary px-6 text-[14px] font-bold text-white hover:bg-primary-bright">Save</button>
               </>
             )}
           </div>
@@ -259,7 +245,3 @@ export function SongEditorDialog({ song, isNew, onSave, onCancel }: {
   );
 }
 
-/** The words without colour/font marks, as a starting point for the chord chart. */
-function plainWords(text: string): string {
-  return text.replace(/\{(?:#[0-9a-fA-F]{6})?(?:\|[^{}|\n]+)?\}([\s\S]*?)\{\/\}/g, "$1");
-}

@@ -1,3 +1,4 @@
+import { ask, dialogOpen } from "./Dialogs";
 import { useEffect, useMemo, useRef, useState, type PointerEvent as RPointerEvent } from "react";
 import { ArrowDown, ArrowUp, Copy, Image as ImageIcon, Plus, Square, Trash2, Type, X } from "lucide-react";
 import type { Slide, SlideElement } from "../types";
@@ -91,8 +92,9 @@ export function SlideEditor({ deck, onSave, onClose }: { deck: Deck; onSave: (d:
     setDirty(false);
     if (close) onClose();
   }
-  function close() {
-    if (dirty && !window.confirm("Close without saving your changes?")) return;
+  async function close() {
+    if (dialogOpen()) return;
+    if (dirty && !(await ask("Close without saving your changes?", "Close without saving", { danger: true, no: "Keep editing" }))) return;
     onClose();
   }
 

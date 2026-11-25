@@ -14,6 +14,27 @@ const STARTER_SONGS: Song[] = (hymns as { title: string; author: string; words: 
   ...textToSections(h.words),
 }));
 
+const words = (s: Song) => new Set(s.sections.map((x) => x.lyrics).join(" ").toLowerCase().replace(/<[^>]+>/g, " ").split(/[^\p{L}']+/u).filter((w) => w.length > 2));
+const alike = (a: Set<string>, b: Set<string>) => {
+  if (a.size < 4 || b.size < 4) return true;
+  let n = 0;
+  for (const w of a) if (b.has(w)) n++;
+  return n / Math.min(a.size, b.size) > 0.5;
+};
+function newOnes(have: Song[], incoming: Song[]): Song[] {
+  const key = (t: string) => t.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, " ").trim();
+  const by = new Map<string, Set<string>[]>();
+  const add = (s: Song) => { const k = key(s.title); by.set(k, [...(by.get(k) ?? []), words(s)]); };
+  have.forEach(add);
+  return incoming.flatMap((s) => {
+    const same = by.get(key(s.title));
+    if (same?.some((w) => alike(w, words(s)))) return [];
+    add(s);
+    // Another song with the same title.
+    return [same ? { ...s, title: `${s.title} (${s.author?.trim() || same.length + 1})` } : s];
+  });
+}
+
 interface SongState {
   songs: Song[];
   activeSong: Song | null;
@@ -24,8 +45,10 @@ interface SongState {
   setActiveSong: (song: Song | null) => void;
   search: (query: string) => void;
   addSong: (song: Song) => void;
-  /** Adds many songs at once, skipping titles that are already in the library. Returns how many were added. */
+  /** Adds many songs at once, skipping ones already in the library (same title and much the same words; a different song of the same title is kept). Returns how many were added. */
   addSongs: (songs: Song[]) => number;
+  /** How many of these aren't in the library yet. */
+  countNew: (songs: Song[]) => number;
   updateSong: (id: string, updates: Partial<Song>) => void;
   deleteSong: (id: string) => void;
   addSection: (songId: string, section: SongSection) => void;
@@ -195,11 +218,12 @@ export const useSongStore = create<SongState>()(persist((set, get) => ({
   },
 
   addSongs: (incoming) => {
-    const have = new Set(get().songs.map((x) => x.title.trim().toLowerCase()));
-    const fresh = incoming.filter((x) => { const k = x.title.trim().toLowerCase(); if (have.has(k)) return false; have.add(k); return true; });
+    const fresh = newOnes(get().songs, incoming);
     if (fresh.length) set((state) => { const songs = sortSongs([...state.songs, ...fresh]); return { songs, filteredSongs: filterSongs(songs, state.searchQuery) }; });
     return fresh.length;
   },
+
+  countNew: (incoming) => newOnes(get().songs, incoming).length,
 
   addSong: (song) =>
     set((state) => {

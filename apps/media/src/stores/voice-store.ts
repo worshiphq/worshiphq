@@ -89,6 +89,8 @@ interface VoiceState {
   onlineOn: boolean;
   setOnlineOn: (v: boolean) => void;
   onlineNote: string | null;
+  /** Since listening started: how many stretches were read online, the last one, and how long it took. */
+  onlineReads: { n: number; failed: number; ms: number; at: number; text: string } | null;
   /** Verses mentioned go into the schedule. */
   toSchedule: boolean;
   setToSchedule: (v: boolean) => void;
@@ -413,6 +415,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
       if (st === "listening" || st === "starting") get().stop().then(() => get().start());
     },
     onlineNote: null,
+    onlineReads: null,
     toSchedule: true,
     setToSchedule: (toSchedule) => set({ toSchedule }),
     aiOn: true,
@@ -547,7 +550,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
         set({ status: "error", message: "The microphone works in the installed desktop app. Here you can try it by typing below." });
         return;
       }
-      set({ status: "starting", message: null });
+      set({ status: "starting", message: null, onlineNote: null, onlineReads: null });
       if (get().engine === "twi") {
         // Twi (and Twi mixed with English): Khaya by GhanaNLP, through the WorshipHQ server. The AI then works out what was meant.
         await startWhisperListening(get().micId, {
@@ -598,7 +601,10 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
           },
           onText: (text, id, draft) => get().handleEvent(JSON.stringify({ type: "heard", text, confidence: 0.9, kind: "speech", id, draft })),
           onSettled: (text, id, context) => get().handleEvent(JSON.stringify({ type: "heard", text, confidence: 0.92, kind: "speech", id, refine: true, context })),
-          onCloud: (problem) => { if (get().onlineNote !== (problem ?? "ok")) set({ onlineNote: problem ?? "ok" }); },
+          onCloud: (problem, read) => {
+            const was = get().onlineReads ?? { n: 0, failed: 0, ms: 0, at: 0, text: "" };
+            set({ onlineNote: problem ?? "ok", onlineReads: read ? { ...was, n: was.n + 1, ms: read.ms, at: Date.now(), text: read.text || was.text } : { ...was, failed: was.failed + 1 } });
+          },
           onError: (message) => set({ status: "error", message }),
         }, {
           live: two ? "tiny" : chosen,

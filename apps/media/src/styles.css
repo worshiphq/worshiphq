@@ -305,3 +305,43 @@ body { font-size: 14px; }
 @keyframes whq-in-fade-black { 0%, 50% { opacity: 0; } 100% { opacity: 1; } }
 @keyframes whq-out-fade { from { opacity: 1; } to { opacity: 0; } }
 @keyframes whq-out-push-left { from { transform: translateX(0); } to { transform: translateX(-100%); } }
+
+/* ─── Dark ───
+   Only the control window has data-theme. Text colours are lighter, filled buttons keep the same colours (with white
+   words on them), so a colour used for both is set apart below. */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --color-surface: #0b1220;
+  --color-surface-2: #131c2e;
+  --color-surface-3: #162034;
+  --color-surface-4: #1c2840;
+  --color-surface-5: #26344f;
+  --color-surface-6: #3a4b69;
+  --color-line: #26334c;
+  --color-line-soft: #1d293f;
+  --color-line-bright: #3a4a68;
+  --color-ink: #e8eef7;
+  --color-ink-muted: #a9b7cc;
+  --color-ink-faint: #8697b0;
+  --color-primary: #0c7a71;
+  --color-primary-bright: #5eead4;
+  --color-primary-dim: #0f766e;
+  --color-primary-soft: #123c40;
+  --color-primary-glow: rgba(45, 212, 191, 0.2);
+}
+[data-theme="dark"] .text-primary { color: #2dd4bf; }
+[data-theme="dark"] .text-danger, [data-theme="dark"] .hover\:text-danger:hover { color: #f87171; }
+[data-theme="dark"] .text-gold, [data-theme="dark"] .text-gold-dim, [data-theme="dark"] .text-amber { color: #fbbf24; }
+[data-theme="dark"] .text-success { color: #4ade80; }
+[data-theme="dark"] .text-rose { color: #fb7185; }
+[data-theme="dark"] .text-cyan { color: #22d3ee; }
+[data-theme="dark"] .bg-primary-bright, [data-theme="dark"] .hover\:bg-primary-bright:hover { background-color: #0f766e; }
+[data-theme="dark"] .bg-ink { background-color: #000; }
+[data-theme="dark"] .bg-ink\/30, [data-theme="dark"] .bg-ink\/40 { background-color: rgba(0, 0, 0, 0.6); }
+[data-theme="dark"] .hover\:bg-ink:hover, [data-theme="dark"] .hover\:bg-ink\/90:hover { background-color: #000; }
+[data-theme="dark"] .glass { background: rgba(19, 28, 46, 0.85); }
+[data-theme="dark"] .badge-live { color: #f87171; }
+/* Tiles behind logos stay white: the logos are drawn for white. */
+[data-theme="dark"] img[src*="worshiphq-mark"] { background: #fff; border-radius: 5px; }
+/* Light colours can still be read on the white page. */
+:root:not([data-theme="dark"]) .lyrics-editor span[style*="color"] { text-shadow: 0 0 1px rgba(0, 0, 0, 0.8); }
