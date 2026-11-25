@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { Gift, Loader2 } from "lucide-react";
-import { savePromotions } from "@/app/actions/admin-promotions";
+import { savePromotions, setLiveLaunched } from "@/app/actions/admin-promotions";
 import type { Promotions, Window } from "@/lib/promotions";
 
 const input =
@@ -78,10 +78,7 @@ export function PromotionsEditor({ initial }: { initial: Promotions }) {
             Launching also puts the WorshipHQ Live page (/live), its prices on the pricing page and a menu link on the website.{" "}
             <a href="/admin/live-preview" target="_blank" className="font-semibold text-teal-300 underline">See the page first</a>.
           </p>
-          <label className="mb-3 flex items-center gap-2 text-sm text-white">
-            <input type="checkbox" checked={p.launch.on} onChange={(e) => setP({ ...p, launch: { ...p.launch, on: e.target.checked } })} className="size-4 accent-teal-400" />
-            Launched: open to every church
-          </label>
+          <LaunchButton on={p.launch.on} done={(on) => setP((x) => ({ ...x, launch: { ...x.launch, on } }))} />
           <label className="grid gap-1 text-xs text-white/60">Testers (one email per line; they can use WorshipHQ Live before launch)
             <textarea value={testers} onChange={(e) => setTesters(e.target.value)} rows={3} placeholder="you@yourchurch.org"
               className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-white focus-visible:border-teal-400/60 focus-visible:outline-none" />
@@ -151,5 +148,33 @@ export function PromotionsEditor({ initial }: { initial: Promotions }) {
         {msg && <span className={`text-sm ${msg.ok ? "text-teal-300" : "text-red-300"}`}>{msg.text}</span>}
       </div>
     </section>
+  );
+}
+
+/** Launches (or closes) WorshipHQ Live at once: no "Save promotions" needed. */
+function LaunchButton({ on, done }: { on: boolean; done: (on: boolean) => void }) {
+  const [ask, setAsk] = useState(false);
+  const [note, setNote] = useState("");
+  const [pending, start] = useTransition();
+  const go = () => start(async () => {
+    const r = await setLiveLaunched(!on).catch(() => null);
+    setAsk(false);
+    if (!r?.ok) { setNote(r?.error ?? "That didn't work. Try again."); return; }
+    done(!on);
+    setNote(on ? "Closed. The page and prices are off the website." : r.installer ? "Launched. The page, prices and menu link are on the website." : "Launched, but no installer is published yet, so the page says the download opens soon.");
+  });
+  return (
+    <div className="mb-4">
+      {ask ? (
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-400/40 bg-amber-400/10 p-3 text-sm text-white">
+          <span className="flex-1">{on ? "Close WorshipHQ Live to everyone except testers and churches with a gift? Churches using it are signed out at their next check-in." : "Open WorshipHQ Live to every church and show it on the website now?"}</span>
+          <button onClick={go} disabled={pending} className="flex h-9 items-center gap-2 rounded-lg bg-teal-500 px-4 font-semibold hover:bg-teal-400 disabled:opacity-60">{pending && <Loader2 className="size-4 animate-spin" />} {on ? "Yes, close it" : "Yes, launch"}</button>
+          <button onClick={() => setAsk(false)} disabled={pending} className="h-9 rounded-lg px-3 font-semibold text-white/70 hover:text-white">Cancel</button>
+        </div>
+      ) : (
+        <button onClick={() => { setNote(""); setAsk(true); }} className={`h-10 rounded-lg px-5 text-sm font-bold text-white ${on ? "border border-white/20 hover:bg-white/10" : "bg-teal-500 hover:bg-teal-400"}`}>{on ? "Close WorshipHQ Live" : "Launch WorshipHQ Live"}</button>
+      )}
+      {note && <p className="mt-2 text-sm font-semibold text-teal-300">{note}</p>}
+    </div>
   );
 }

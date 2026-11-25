@@ -11,9 +11,9 @@ export default async function Page() {
   await requireSuperAdmin();
   const { promotions } = await getPlatformConfig();
   return (
-    <main className="bg-base">
+    <main className="bg-base text-ink">
       <p className="relative z-10 bg-amber-300 px-4 py-2 text-center text-sm font-semibold text-black">
-        Preview. {promotions.launch.on ? "Visitors see this at /live." : "Visitors can't see this until you tick Launched in Pricing › Promotions."}
+        Preview. {promotions.launch.on ? "Visitors see this at /live." : "Visitors can't see this until you press Launch in Pricing › Promotions."}
       </p>
       <LivePage promotions={promotions} downloadReady={await liveInstallerReady()} />
     </main>
