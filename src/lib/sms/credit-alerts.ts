@@ -20,7 +20,7 @@ const LIST_DAYS = 30;
 const MAX_PER_RUN = 20;
 
 export type OutOfCreditsChurch = {
-  id: string; name: string; credits: number; plan: string;
+  id: string; name: string; credits: number; plan: string; country: string; city: string | null;
   /** Sends and texts held back since the last top-up (within the window), and when the last one was. */
   blockedSends: number; blockedTexts: number; lastBlocked: string;
   contact: { userId: string; name: string; email: string } | null;
@@ -48,7 +48,7 @@ export async function churchesOutOfCredits(days = LIST_DAYS): Promise<OutOfCredi
     db.church.findMany({
       where: { id: { in: allowed } },
       select: {
-        id: true, name: true, smsCredits: true, subscription: { select: { plan: true } },
+        id: true, name: true, smsCredits: true, country: true, city: true, subscription: { select: { plan: true } },
         users: { where: { role: { in: ["Owner", "Admin"] } }, orderBy: { createdAt: "asc" }, select: { id: true, name: true, email: true, role: true } },
       },
     }),
@@ -65,7 +65,7 @@ export async function churchesOutOfCredits(days = LIST_DAYS): Promise<OutOfCredi
     const to = users.find((u) => u.email);
     const mail = emails.find((e) => e.churchId === c.id);
     return [{
-      id: c.id, name: c.name, credits: c.smsCredits, plan: c.subscription?.plan ?? "free",
+      id: c.id, name: c.name, credits: c.smsCredits, plan: c.subscription?.plan ?? "free", country: c.country?.trim() || "Country not set", city: c.city?.trim() || null,
       blockedSends: blocked.length,
       blockedTexts: blocked.reduce((a, r) => a + Math.max(0, r.recipients - r.sent), 0),
       lastBlocked: blocked[0]!.createdAt.toISOString(),

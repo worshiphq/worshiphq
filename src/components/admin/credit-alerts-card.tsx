@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { CheckCircle2, Loader2, Mail } from "lucide-react";
+import { CheckCircle2, Loader2, Mail, MapPin } from "lucide-react";
 import { sendCreditAlert } from "@/app/actions/admin-credits";
 import { useFeedback } from "@/components/ui/feedback";
 import { PagedList } from "@/components/admin/pager";
@@ -40,6 +40,12 @@ export function CreditAlertsCard({ rows }: { rows: OutOfCreditsChurch[] }) {
             <li key={c.id} className="flex flex-wrap items-center gap-x-4 gap-y-2 py-3 text-sm">
               <div className="min-w-52 flex-1">
                 <div className="font-medium text-slate-100">{c.name} <span className="ml-1 rounded bg-white/5 px-1.5 py-0.5 text-[11px] capitalize text-slate-400">{c.plan}</span></div>
+                <div className="mt-0.5 flex items-center gap-1 text-xs text-slate-400">
+                  <MapPin className="size-3.5 shrink-0" />
+                  {c.city && c.city.toLowerCase() !== c.country.toLowerCase() ? `${c.city}, ` : ""}
+                  <span className={c.country === "Ghana" ? "" : "font-semibold text-sky-300"}>{c.country}</span>
+                  {c.country !== "Ghana" && c.country !== "Country not set" && <span className="rounded bg-sky-500/15 px-1.5 py-0.5 text-[11px] font-semibold text-sky-300">Outside Ghana</span>}
+                </div>
                 <div className="mt-0.5 text-xs text-slate-500">
                   <span className={c.credits <= 0 ? "text-rose-300" : "text-amber-300"}>{c.credits} credit{c.credits === 1 ? "" : "s"} left</span>
                   {" · "}{c.blockedTexts.toLocaleString()} text{c.blockedTexts === 1 ? "" : "s"} held back, last on {day(c.lastBlocked)}
