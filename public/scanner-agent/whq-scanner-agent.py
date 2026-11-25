@@ -383,6 +383,7 @@ def match_probe_fast(probe_b64):
 ALLOWED_ORIGINS = {
     "https://worshiphq.app",
     "https://www.worshiphq.app",
+    "https://worshiphq.vercel.app",
     "http://localhost:3000",
     "http://127.0.0.1:3000",
 }
