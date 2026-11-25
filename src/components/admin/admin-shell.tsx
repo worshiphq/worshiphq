@@ -1,5 +1,5 @@
 import Link from "@/components/ui/app-link";
-import { LayoutDashboard, PackageCheck, FileText, Megaphone, LogOut, CreditCard, Wallet, Undo2, DatabaseBackup, KeyRound, TrendingUp, Mail, Receipt, Users, UserCog, Menu, PiggyBank, ScrollText, MessageSquare, BookOpen, CalendarClock, Sparkles, Inbox, LineChart, MailCheck, Image as ImageIcon, MonitorCheck, PackageCheck } from "lucide-react";
+import { LayoutDashboard, FileText, Megaphone, LogOut, CreditCard, Wallet, Undo2, DatabaseBackup, KeyRound, TrendingUp, Mail, Receipt, Users, UserCog, Menu, PiggyBank, ScrollText, MessageSquare, BookOpen, CalendarClock, Sparkles, Inbox, LineChart, MailCheck, Image as ImageIcon, MonitorCheck, PackageCheck } from "lucide-react";
 import { superAdminSignOut } from "@/app/actions/admin";
 
 const GROUPS: { title: string; items: { href: string; label: string; icon: React.ComponentType<{ className?: string }> }[] }[] = [
