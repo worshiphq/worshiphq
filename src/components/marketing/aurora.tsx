@@ -23,20 +23,3 @@ export function Aurora({ className, intensity = "default" }: { className?: strin
     </div>
   );
 }
-
-/** Subtle dotted grid backdrop. */
-export function GridBackdrop({ className }: { className?: string }) {
-  return (
-    <div
-      className={cn("pointer-events-none absolute inset-0", className)}
-      aria-hidden
-      style={{
-        backgroundImage:
-          "radial-gradient(circle at 1px 1px, rgba(28,26,22,0.06) 1px, transparent 0)",
-        backgroundSize: "32px 32px",
-        maskImage: "radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%)",
-        WebkitMaskImage: "radial-gradient(ellipse 80% 60% at 50% 0%, black 30%, transparent 75%)",
-      }}
-    />
-  );
-}

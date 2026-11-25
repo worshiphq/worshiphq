@@ -1,7 +1,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { Logo } from "@/components/brand/logo";
-import { Aurora, GridBackdrop } from "@/components/marketing/aurora";
+import { Aurora } from "@/components/marketing/aurora";
 import { brand } from "@/config/brand";
 import { SiteAnalytics } from "@/components/marketing/site-analytics";
 
@@ -12,7 +12,6 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
       {/* Brand panel */}
       <div className="relative hidden flex-col overflow-hidden border-r border-line p-12 lg:flex">
         <Aurora />
-        <GridBackdrop />
         <div className="relative flex flex-1 flex-col items-center justify-center text-center">
           {/* Huge centered logo */}
           <Image

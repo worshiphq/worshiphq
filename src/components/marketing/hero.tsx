@@ -290,11 +290,7 @@ export function Hero({
               <div className="absolute inset-0 bg-gradient-to-r from-evergreen-deep via-evergreen-deep/70 to-transparent" />
             </>
           ) : (
-            <>
-              <div className="absolute inset-0" style={{ background: "radial-gradient(90% 70% at 78% 38%, #1c5a4f 0%, #0f3a33 38%, #0b2b26 72%)" }} />
-              {/* Engraved guide lines, like a ledger page */}
-              <div className="absolute inset-0 opacity-[0.07]" style={{ backgroundImage: "linear-gradient(to right, #f6f1e6 1px, transparent 1px), linear-gradient(to bottom, #f6f1e6 1px, transparent 1px)", backgroundSize: "88px 88px", maskImage: "radial-gradient(70% 70% at 70% 40%, black, transparent)" }} />
-            </>
+            <div className="absolute inset-0" style={{ background: "radial-gradient(90% 70% at 78% 38%, #1c5a4f 0%, #0f3a33 38%, #0b2b26 72%)" }} />
           )}
           <div className="absolute inset-0 bg-gradient-to-t from-evergreen-deep via-transparent to-evergreen-deep/50" />
         </motion.div>
