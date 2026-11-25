@@ -55,7 +55,7 @@ export default function App() {
         setSettingsTab(a.split(":")[1] as SettingsTab); setSettingsOpen(true); break;
       case "bible:versions": setSettingsTab("bibles"); setSettingsOpen(true); break;
       case "view:preview": setPreviewShown(!previewShown); break;
-      case "song:new": case "song:edit": case "song:import-ew": case "song:import-files": tell("songs", a); break;
+      case "song:new": case "song:edit": case "song:import-ew": case "song:import-ewp": case "song:import-files": tell("songs", a); break;
       case "media:add": case "media:presentation": case "media:free": case "media:design": tell("media", a); break;
       case "live:send": useShowStore.getState().sendPreviewLive(); break;
       case "live:obs":

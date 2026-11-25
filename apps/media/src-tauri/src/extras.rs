@@ -48,6 +48,113 @@ pub struct ImportSource {
     pub media: Vec<String>,
     /// Song files ("files" only).
     pub files: Vec<String>,
+    /// PowerPoint and PDF files.
+    pub decks: Vec<String>,
+    /// The EasyWorship profile it came from (a .ewp file).
+    pub profile: Option<String>,
+    /// A profile whose folder isn't on this computer: where it should be.
+    pub missing: Option<String>,
+}
+
+fn source(kind: &str, name: String, path: &Path) -> ImportSource {
+    ImportSource { kind: kind.into(), name, path: path.to_string_lossy().into(), media: vec![], files: vec![], decks: vec![], profile: None, missing: None }
+}
+
+const DECK_FILES: &[&str] = &["ppt", "pptx", "pps", "ppsx", "pdf"];
+
+/// What is in one EasyWorship data folder (the one with Databases, Resources and v6.1 in it).
+pub fn easyworship_folder(p: &Path, label: &str) -> Vec<ImportSource> {
+    let mut found = Vec::new();
+    for f in ["Images", "Videos", "Audio", "SharedMedia"] {
+        walk(&p.join("Resources").join(f), 3, &mut found, MEDIA_FILES);
+    }
+    let mut decks = Vec::new();
+    walk(&p.join("Resources").join("Presentations"), 3, &mut decks, DECK_FILES);
+    let (mut media, mut decks) = (strings(found), strings(decks));
+    let mut out = Vec::new();
+    for (data, version) in [(p.join("v6.1\\Databases\\Data"), "6/7"), (p.join("Databases\\Data"), "2009")] {
+        if !has_songs(&data) {
+            continue;
+        }
+        let mut s = source("easyworship", format!("EasyWorship {version}{label}"), &data);
+        s.media = std::mem::take(&mut media);
+        s.decks = std::mem::take(&mut decks);
+        out.push(s);
+    }
+    // Media without songs.
+    if !media.is_empty() || !decks.is_empty() {
+        let mut s = source("easyworship", format!("EasyWorship{label}"), p);
+        s.media = media;
+        s.decks = decks;
+        out.push(s);
+    }
+    out
+}
+
+/// A folder the user chose: an EasyWorship data folder, or one just above or inside it.
+pub fn easyworship_in(folder: &str, label: &str) -> Vec<ImportSource> {
+    let p = PathBuf::from(folder);
+    let mut tries = vec![p.clone(), p.join("Default")];
+    let mut up = p.as_path();
+    for _ in 0..3 {
+        match up.parent() {
+            Some(x) if x.parent().is_some() => { tries.push(x.to_path_buf()); up = x; }
+            _ => break,
+        }
+    }
+    tries.iter().map(|t| easyworship_folder(t, label)).find(|s| !s.is_empty()).unwrap_or_default()
+}
+
+/// An EasyWorship profile (.ewp): a small file that says which folder its songs and media are in. If the folder has
+/// moved (another drive letter, or copied next to the profile) it is looked for there too.
+pub fn easyworship_profile(file: &Path) -> Result<Vec<ImportSource>, String> {
+    let name = file.file_stem().and_then(|s| s.to_str()).unwrap_or("EasyWorship").to_string();
+    let text = read_text_files(vec![file.to_string_lossy().into()])?.remove(0).text;
+    let dir = text
+        .lines()
+        .find_map(|l| l.split_once('=').filter(|(k, _)| k.trim().eq_ignore_ascii_case("AppInstDataDir")).map(|(_, v)| v.trim().trim_matches('"').to_string()))
+        .filter(|d| !d.is_empty())
+        .ok_or_else(|| format!("{name} isn't an EasyWorship profile."))?;
+    let label = format!(" · {name}");
+    let said = PathBuf::from(&dir);
+    let parts: Vec<String> = said.components().filter_map(|c| match c { std::path::Component::Normal(x) => Some(x.to_string_lossy().to_string()), _ => None }).collect();
+    let tail = |from: usize| parts[from..].iter().collect::<PathBuf>();
+    let mut tries = vec![said.clone()];
+    if let Some(near) = file.parent() {
+        for i in 0..parts.len() { tries.push(near.join(tail(i))); }
+        tries.push(near.to_path_buf());
+    }
+    for letter in b'C'..=b'Z' {
+        let root = PathBuf::from(format!("{}:\\", letter as char));
+        for i in 0..parts.len().saturating_sub(1) { tries.push(root.join(tail(i))); }
+    }
+    for t in tries {
+        let mut found = easyworship_folder(&t, &label);
+        if !found.is_empty() {
+            for s in &mut found { s.profile = Some(name.clone()); }
+            return Ok(found);
+        }
+    }
+    let mut s = source("easyworship", format!("EasyWorship profile “{name}”"), file);
+    s.profile = Some(name);
+    s.missing = Some(dir);
+    Ok(vec![s])
+}
+
+/// Profiles saved in the usual places: Desktop, Documents, Downloads, and the top of each drive.
+fn find_profiles() -> Vec<PathBuf> {
+    let mut out = Vec::new();
+    for var in ["USERPROFILE", "PUBLIC"] {
+        if let Ok(home) = std::env::var(var) {
+            for f in ["Desktop", "Documents", "Downloads", "OneDrive\\Desktop", "OneDrive\\Documents"] {
+                walk(&PathBuf::from(&home).join(f), 3, &mut out, &["ewp"]);
+            }
+        }
+    }
+    for letter in b'C'..=b'Z' {
+        walk(&PathBuf::from(format!("{}:\\", letter as char)), 1, &mut out, &["ewp"]);
+    }
+    out
 }
 
 fn walk(dir: &Path, depth: usize, out: &mut Vec<PathBuf>, ext: &[&str]) {
@@ -91,24 +198,24 @@ pub fn find_import_sources() -> Vec<ImportSource> {
     if let Ok(profiles) = std::fs::read_dir(easyworship_root()) {
         for p in profiles.flatten().map(|e| e.path()).filter(|p| p.is_dir()) {
             let profile = p.file_name().and_then(|n| n.to_str()).unwrap_or("").to_string();
-            let mut found = Vec::new();
-            for f in ["Images", "Videos", "Audio"] {
-                walk(&p.join("Resources").join(f), 3, &mut found, MEDIA_FILES);
-            }
-            let mut media = strings(found);
-            for (data, version) in [(p.join("v6.1\\Databases\\Data"), "6/7"), (p.join("Databases\\Data"), "2009")] {
-                if !has_songs(&data) {
-                    continue;
-                }
-                let label = if profile == "Default" { String::new() } else { format!(" ({profile})") };
-                out.push(ImportSource { kind: "easyworship".into(), name: format!("EasyWorship {version}{label}"), path: data.to_string_lossy().into(), media: std::mem::take(&mut media), files: vec![] });
+            let label = if profile == "Default" { String::new() } else { format!(" ({profile})") };
+            out.extend(easyworship_folder(&p, &label));
+        }
+    }
+    // Saved profiles (.ewp) whose folder isn't listed yet.
+    let mut missing = std::collections::HashSet::new();
+    for f in find_profiles() {
+        for s in easyworship_profile(&f).unwrap_or_default() {
+            let key = s.missing.clone().map(|m| format!("{}|{m}", s.name).to_lowercase());
+            if match key { Some(k) => missing.insert(k), None => !out.iter().any(|o| o.path.eq_ignore_ascii_case(&s.path)) } {
+                out.push(s);
             }
         }
     }
     if let Ok(app) = std::env::var("APPDATA") {
         let db = PathBuf::from(app).join("openlp\\data\\songs\\songs.sqlite");
         if db.exists() {
-            out.push(ImportSource { kind: "openlp".into(), name: "OpenLP".into(), path: db.to_string_lossy().into(), media: vec![], files: vec![] });
+            out.push(source("openlp", "OpenLP".into(), &db));
         }
     }
     if let Ok(home) = std::env::var("USERPROFILE") {
@@ -119,7 +226,9 @@ pub fn find_import_sources() -> Vec<ImportSource> {
             }
             let files = song_files_in(&p.to_string_lossy());
             if !files.is_empty() {
-                out.push(ImportSource { kind: "files".into(), name: name.into(), path: p.to_string_lossy().into(), media: vec![], files });
+                let mut s = source("files", name.into(), &p);
+                s.files = files;
+                out.push(s);
             }
         }
     }
@@ -265,4 +374,17 @@ pub fn start_remote_server<F: Fn(String) + Send + 'static>(on_action: F) {
             let _ = write!(stream, "HTTP/1.1 {status}\r\nContent-Type: application/json\r\nAccess-Control-Allow-Origin: *\r\nContent-Length: {}\r\nConnection: close\r\n\r\n{body}", body.len());
         }
     });
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn profile() {
+        for f in std::env::var("EWP").unwrap_or_default().split(';').filter(|f| !f.is_empty()) {
+            for s in super::easyworship_profile(std::path::Path::new(f)).unwrap() {
+                println!("{} | {} | media {} decks {} | missing {:?} | songs {:?}", s.name, s.path, s.media.len(), s.decks.len(), s.missing, super::import_easyworship(&s.path).map(|x| x.len()).ok());
+            }
+        }
+        for s in super::find_import_sources() { println!("FOUND {} | {} | missing {:?}", s.name, s.path, s.missing); }
+    }
 }

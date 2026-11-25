@@ -19,6 +19,8 @@ interface Callbacks {
    */
   onSettled?: (text: string, id: string, context?: string) => void;
   /** Online listening worked (null) or why it didn't; offline listening carries on either way. */
+  /** The microphone in use, and whether it is instead of the chosen one. */
+  onMic?: (name: string, instead: boolean) => void;
   onCloud?: (problem: string | null, read?: { ms: number; text: string }) => void;
   /** The sentence still going on: the words it is sure of, and the newest ones it isn't sure of yet. */
   onLive?: (live: { sure: string; maybe: string; text: string; id: string }) => void;
@@ -85,21 +87,43 @@ function join(chunks: Float32Array[]): Float32Array {
   return all;
 }
 
+/**
+ * The chosen microphone; if it isn't there (unplugged, in use), the one Windows uses, then any other that opens.
+ */
+async function openMicrophone(chosen: string | null): Promise<{ stream: MediaStream; name: string; instead: boolean }> {
+  const get = (id?: string) => navigator.mediaDevices.getUserMedia({
+    audio: { deviceId: id ? { exact: id } : undefined, channelCount: 1, echoCancellation: false, noiseSuppression: true, autoGainControl: true },
+  });
+  const wants = chosen && chosen !== "default" ? chosen : null;
+  const inputs = (await navigator.mediaDevices.enumerateDevices().catch(() => [])).filter((d) => d.kind === "audioinput" && d.deviceId !== "default" && d.deviceId !== "communications");
+  const tries: (string | undefined)[] = [...(wants ? [wants] : []), undefined, ...inputs.map((d) => d.deviceId).filter((id) => id && id !== wants)];
+  let problem = "";
+  for (let i = 0; i < tries.length; i++) {
+    try {
+      const st = await get(tries[i]);
+      return { stream: st, name: st.getAudioTracks()[0]?.label || "Microphone", instead: i > 0 };
+    } catch (e) {
+      const name = (e as DOMException).name;
+      if (!problem || name === "NotAllowedError") problem = name;
+      if (name === "NotAllowedError") break;
+    }
+  }
+  throw new Error(
+    problem === "NotAllowedError" ? "Windows isn't letting WorshipHQ use the microphone. In Windows, open Settings › Privacy › Microphone and turn on access for apps and desktop apps."
+    : inputs.length ? "None of this computer's microphones would open. Another program may be using them: close it, or unplug the microphone and plug it in again."
+    : "No microphone was found. Plug one in, or turn one on in Windows sound settings.",
+  );
+}
+
 export async function startWhisperListening(deviceId: string | null, cb: Callbacks, models: ListenModels) {
   const { best, online = false, cloud } = models;
   await stopWhisperListening();
   try {
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        deviceId: deviceId && deviceId !== "default" ? { exact: deviceId } : undefined,
-        channelCount: 1,
-        echoCancellation: false,
-        noiseSuppression: true,
-        autoGainControl: true,
-      },
-    });
-  } catch {
-    cb.onError("WorshipHQ couldn't open the microphone. Check it is plugged in and that Windows allows apps to use the microphone.");
+    const got = await openMicrophone(deviceId);
+    stream = got.stream;
+    cb.onMic?.(got.name, got.instead);
+  } catch (e) {
+    cb.onError(e instanceof Error ? e.message : String(e));
     return;
   }
   ctx = new AudioContext({ sampleRate: RATE });

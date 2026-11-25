@@ -29,7 +29,7 @@ interface MediaState {
   presentations: Presentation[];
   importing: boolean;
   /** Choose a PowerPoint or PDF and turn it into slides. */
-  importPresentation: () => Promise<Presentation | null>;
+  importPresentation: (path?: string) => Promise<Presentation | null>;
   removePresentation: (id: string) => Promise<void>;
   renamePresentation: (id: string, name: string) => void;
   error: string | null;
@@ -55,10 +55,10 @@ export const useMediaStore = create<MediaState>()(persist((set, get) => ({
   presentations: [],
   importing: false,
 
-  importPresentation: async () => {
+  importPresentation: async (path) => {
     if (!isDesktopApp()) { set({ error: "Importing PowerPoint and PDF works in the installed app." }); return null; }
     const { open } = await import("@tauri-apps/plugin-dialog");
-    const picked = await open({ multiple: false, title: "Choose a PowerPoint or PDF", filters: [{ name: "PowerPoint or PDF", extensions: ["pptx", "ppt", "ppsx", "pps", "pdf"] }] });
+    const picked = path ?? await open({ multiple: false, title: "Choose a PowerPoint or PDF", filters: [{ name: "PowerPoint or PDF", extensions: ["pptx", "ppt", "ppsx", "pps", "pdf"] }] });
     if (!picked) return null;
     const file = String(picked);
     set({ importing: true, error: null });

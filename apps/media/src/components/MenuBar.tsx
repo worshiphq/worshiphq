@@ -19,7 +19,7 @@ export interface MenuEntry {
 
 export type MenuAction =
   | "schedule:new" | "schedule:open" | "schedule:save" | "schedule:plan" | "schedule:first" | "schedule:clear"
-  | "song:new" | "song:edit" | "song:import-ew" | "song:import-files" | "songs"
+  | "song:new" | "song:edit" | "song:import-ew" | "song:import-ewp" | "song:import-files" | "songs"
   | "bible" | "bible:versions" | "media" | "media:add" | "media:presentation" | "media:free" | "media:design"
   | "voice" | "notes" | "live" | "live:projector" | "live:black" | "live:clear" | "live:logo" | "live:send" | "live:tools" | "live:obs"
   | "view:preview" | "settings" | "settings:looks" | "settings:screens" | "settings:audio" | "settings:shortcuts" | "settings:about" | "settings:backup"
@@ -140,6 +140,7 @@ export function MenuBar({ onAction, previewShown, projectorOn }: { onAction: (a:
         onClick: async () => { if (await ask(`Delete the profile “${profile}”?`, "Delete", { danger: true })) deleteProfile(profile); },
       },
       { divider: true },
+      { label: "Open an EasyWorship profile…", onClick: a("song:import-ewp") },
       { label: "Templates from WorshipHQ…", onClick: () => startFromSharedProfile() },
       { label: "Save this profile as a file…", onClick: () => saveProfileFile() },
       { divider: true },

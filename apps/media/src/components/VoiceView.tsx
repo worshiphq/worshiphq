@@ -65,6 +65,7 @@ export function VoiceView({ onOpenBible }: { onOpenBible: () => void }) {
                   ? "The bar moves when someone speaks. If it stays still, check the microphone."
                   : v.engine === "whisper" ? "Uses Whisper and the microphone chosen in Settings › Audio & microphone." : "Uses the computer's default microphone. To change it, open Windows Settings › System › Sound › Input."}
               </p>
+              {listening && v.micInUse && <p className={`mt-1 text-[13px] font-semibold ${v.micInUse.instead ? "text-gold" : "text-ink-muted"}`}>{v.micInUse.instead ? `The chosen microphone didn't open, so this one is used: ${v.micInUse.name}` : v.micInUse.name}</p>}
               <WhatIsListening />
             </Card>
 

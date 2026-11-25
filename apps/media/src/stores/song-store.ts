@@ -47,8 +47,8 @@ interface SongState {
   addSong: (song: Song) => void;
   /** Adds many songs at once, skipping ones already in the library (same title and much the same words; a different song of the same title is kept). Returns how many were added. */
   addSongs: (songs: Song[]) => number;
-  /** How many of these aren't in the library yet. */
-  countNew: (songs: Song[]) => number;
+  /** The ones that are not in the library yet. */
+  newSongs: (songs: Song[]) => Song[];
   updateSong: (id: string, updates: Partial<Song>) => void;
   deleteSong: (id: string) => void;
   addSection: (songId: string, section: SongSection) => void;
@@ -223,7 +223,7 @@ export const useSongStore = create<SongState>()(persist((set, get) => ({
     return fresh.length;
   },
 
-  countNew: (incoming) => newOnes(get().songs, incoming).length,
+  newSongs: (incoming) => newOnes(get().songs, incoming),
 
   addSong: (song) =>
     set((state) => {

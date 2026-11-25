@@ -18,7 +18,7 @@ import { ImportDialog } from "./ImportDialog";
 
 export function SongsView() {
   const { songs, filteredSongs, searchQuery, loadSongs, search, addSong, updateSong, deleteSong } = useSongStore();
-  const [importOpen, setImportOpen] = useState(false);
+  const [importOpen, setImportOpen] = useState<false | "all" | "ewp">(false);
 
   const { addToService, goLive, serviceItems, projectionOpen, openProjection, currentSlide, isLive, isBlack } = useProjectionStore();
   const [selectedId, setSelectedIdRaw] = useState<string | null>(() => { try { return localStorage.getItem("whq-last-song"); } catch { return null; } });
@@ -70,7 +70,8 @@ export function SongsView() {
       const a = (e as CustomEvent).detail;
       if (a === "song:new") newSong();
       else if (a === "song:edit" && song) editSong(song.id);
-      else if (a === "song:import-ew" || a === "song:import-files") setImportOpen(true);
+      else if (a === "song:import-ew" || a === "song:import-files") setImportOpen("all");
+      else if (a === "song:import-ewp") setImportOpen("ewp");
     };
     window.addEventListener("whq-menu", on);
     return () => window.removeEventListener("whq-menu", on);
@@ -121,7 +122,7 @@ export function SongsView() {
   return (
     <div className="grid h-full min-h-0 grid-cols-1 gap-3 overflow-y-auto p-3 lg:grid-cols-[260px_minmax(0,1fr)] xl:grid-cols-[300px_minmax(0,1fr)] lg:overflow-hidden">
       {menu.element}
-      {importOpen && <ImportDialog onClose={() => setImportOpen(false)} />}
+      {importOpen && <ImportDialog openProfile={importOpen === "ewp"} onClose={() => setImportOpen(false)} />}
       {/* ─── Song list ─── */}
       <section className="flex min-h-0 flex-col rounded-xl border border-line bg-surface-2 p-3 shadow-sm max-xl:min-h-[560px]">
         <div className="mb-2.5 flex items-center justify-between">
@@ -136,7 +137,7 @@ export function SongsView() {
             className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-line-bright px-2.5 text-[14px] font-semibold text-ink hover:bg-surface-4 disabled:opacity-40">
             <Pencil className="size-4" /> Edit
           </button>
-          <button onClick={() => setImportOpen(true)} title="Import from EasyWorship and other software"
+          <button onClick={() => setImportOpen("all")} title="Import from EasyWorship and other software"
             className="flex h-10 items-center justify-center gap-1.5 rounded-lg border border-line-bright px-2.5 text-[14px] font-semibold text-ink hover:bg-surface-4">
             <Download className="size-4" /> <span className="hidden xl:inline">Import</span>
           </button>

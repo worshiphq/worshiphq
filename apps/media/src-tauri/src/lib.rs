@@ -394,6 +394,16 @@ async fn find_import_sources() -> Vec<extras::ImportSource> {
 }
 
 #[tauri::command]
+async fn easyworship_profile(path: String) -> Result<Vec<extras::ImportSource>, String> {
+    extras::easyworship_profile(std::path::Path::new(&path))
+}
+
+#[tauri::command]
+async fn easyworship_in(folder: String, label: String) -> Vec<extras::ImportSource> {
+    extras::easyworship_in(&folder, &label)
+}
+
+#[tauri::command]
 async fn import_openlp(path: String) -> Result<Vec<extras::ImportedSong>, String> {
     extras::import_openlp(&path)
 }
@@ -876,6 +886,8 @@ pub fn run() {
             import_easyworship,
             find_import_sources,
             import_openlp,
+            easyworship_profile,
+            easyworship_in,
             phone_start,
             phone_stop,
             phone_state,

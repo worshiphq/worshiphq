@@ -100,6 +100,8 @@ interface VoiceState {
   setEngine: (e: VoiceEngine) => void;
   /** Microphone for Whisper (a browser device id; "default" = Windows default). */
   micId: string;
+  /** The microphone listening now. */
+  micInUse: { name: string; instead: boolean } | null;
   setMicId: (id: string) => void;
   whisperInstalled: boolean | null;
   /** Models downloaded on this computer. */
@@ -423,6 +425,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     engine: "whisper",
     setEngine: (engine) => { const was = get().status; if (was === "listening" || was === "starting") get().stop(); set({ engine }); },
     micId: "default",
+    micInUse: null,
     setMicId: (micId) => set({ micId }),
     whisperInstalled: null,
     whisperModels: [],
@@ -554,6 +557,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
       if (get().engine === "twi") {
         // Twi (and Twi mixed with English): Khaya by GhanaNLP, through the WorshipHQ server. The AI then works out what was meant.
         await startWhisperListening(get().micId, {
+          onMic: (name, instead) => set({ micInUse: { name, instead } }),
           onLevel: (level) => set({ level }),
           onSpeaking: (speaking) => { if (speaking) set({ partial: "…", partialSure: "" }); },
           onText: (text) => get().handleEvent(JSON.stringify({ type: "heard", text, confidence: 0.9, kind: "speech" })),
@@ -581,6 +585,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
         // Live listening needs the small "Fastest" model too: fetch it quietly for next time.
         if (!hasTiny && chosen !== "twi") invoke("whisper_install", { model: "tiny" }).then(() => get().checkWhisper()).catch(() => {});
         await startWhisperListening(get().micId, {
+          onMic: (name, instead) => set({ micInUse: { name, instead } }),
           onLevel: (level) => set({ level }),
           onSpeaking: (speaking) => { if (speaking) set({ partial: "…", partialSure: "" }); },
           onLive: ({ sure, maybe, text, id: sentenceId }) => {
