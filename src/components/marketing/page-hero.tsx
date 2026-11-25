@@ -10,11 +10,14 @@ export function PageHero({
   eyebrow,
   title,
   subtitle,
+  photo,
   children,
 }: {
   eyebrow: string;
   title: React.ReactNode;
   subtitle: string;
+  /** A photo in public/marketing/bg, without its ending. Shown faintly, in the band's own green. */
+  photo?: string;
   /** Optional extra under the subtitle, for example buttons. */
   children?: React.ReactNode;
 }) {
@@ -22,6 +25,14 @@ export function PageHero({
     <section className="relative overflow-hidden bg-evergreen-deep pb-16 pt-32 text-parchment sm:pb-20 sm:pt-40">
       {/* Atmosphere */}
       <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(70% 90% at 50% 0%, #1c5a4f 0%, #0f3a33 45%, #0b2b26 80%)" }} aria-hidden />
+      {photo && (
+        <div className="pointer-events-none absolute inset-0" aria-hidden>
+          {/* eslint-disable-next-line @next/next/no-img-element -- a small, ready-sized file, so it needs no image server work */}
+          <img src={`/marketing/bg/${photo}.webp`} alt="" decoding="async" className="size-full object-cover opacity-30 mix-blend-luminosity" />
+          <div className="absolute inset-0" style={{ background: "radial-gradient(60% 75% at 50% 52%, rgba(11,43,38,0.78) 0%, rgba(11,43,38,0.2) 100%)" }} />
+          <div className="absolute inset-0 bg-gradient-to-b from-evergreen-deep/60 via-transparent to-evergreen-deep/80" />
+        </div>
+      )}
       <div className="pointer-events-none absolute left-1/2 top-[-30%] size-[70vw] max-w-[900px] -translate-x-1/2 rounded-full opacity-40 blur-3xl" style={{ background: "radial-gradient(circle, rgba(151,116,42,0.5) 0%, transparent 62%)" }} aria-hidden />
       {/* Gilt rules along the bottom edge */}
       <div className="absolute inset-x-0 bottom-0 h-px bg-brass/50" aria-hidden />

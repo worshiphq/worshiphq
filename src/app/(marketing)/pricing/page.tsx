@@ -23,6 +23,7 @@ export default async function PricingPage() {
     <>
       <JsonLd data={[faqLd(starterPrice, freeMembers), breadcrumbLd([{ name: "Home", path: "/" }, { name: "Pricing", path: "/pricing" }])]} />
       <PageHero
+        photo="pricing"
         eyebrow="Pricing"
         title={
           <>

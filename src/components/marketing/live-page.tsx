@@ -35,6 +35,7 @@ export function LivePage({ promotions, downloadReady }: { promotions: Promotions
   return (
     <>
       <PageHero
+        photo="live"
         eyebrow="WorshipHQ Live"
         title={<>Your church screen,<br /><span className="text-primary">simply done.</span></>}
         subtitle="Songs, Bible verses, pictures, videos and sermon notes on the projector, with a voice assistant that finds verses as they are preached."

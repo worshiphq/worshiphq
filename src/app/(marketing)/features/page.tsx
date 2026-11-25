@@ -19,6 +19,7 @@ export default async function FeaturesPage() {
   return (
     <>
       <PageHero
+        photo="features"
         eyebrow="Features"
         title={
           <>

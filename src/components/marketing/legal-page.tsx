@@ -15,7 +15,7 @@ export function LegalPage({
 }) {
   return (
     <>
-      <PageHero eyebrow={eyebrow} title={title} subtitle={`Last updated ${updated}`} />
+      <PageHero photo="legal" eyebrow={eyebrow} title={title} subtitle={`Last updated ${updated}`} />
       <section className="py-14 sm:py-16">
         <div className="legal-prose mx-auto max-w-2xl px-5">{children}</div>
       </section>

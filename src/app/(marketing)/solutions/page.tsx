@@ -67,6 +67,7 @@ export default async function SolutionsPage() {
   return (
     <>
       <PageHero
+        photo="solutions"
         eyebrow="Solutions"
         title={
           <>

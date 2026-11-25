@@ -234,6 +234,7 @@ export default async function HelpPage() {
   return (
     <>
       <PageHero
+        photo="help"
         eyebrow="Help center"
         title={
           <>

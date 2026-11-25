@@ -25,6 +25,9 @@ export function DevicesCallout() {
   return (
     <section ref={ref} className="relative overflow-hidden bg-evergreen-deep py-20 text-parchment sm:py-28">
       {/* Atmosphere: a brass glow and gilt rules */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- a small, ready-sized file */}
+      <img src="/marketing/bg/door.webp" alt="" aria-hidden loading="lazy" decoding="async" className="pointer-events-none absolute inset-0 size-full object-cover opacity-20 mix-blend-luminosity" />
+      <div className="pointer-events-none absolute inset-0 bg-gradient-to-r from-evergreen-deep via-evergreen-deep/70 to-evergreen-deep/40" aria-hidden />
       <div className="pointer-events-none absolute inset-0" style={{ background: "radial-gradient(60% 60% at 80% 50%, rgba(151,116,42,0.22) 0%, transparent 70%)" }} aria-hidden />
       <div className="absolute inset-x-0 top-3 h-px bg-brass/40" aria-hidden />
       <div className="absolute inset-x-0 bottom-3 h-px bg-brass/40" aria-hidden />

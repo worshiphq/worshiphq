@@ -17,6 +17,7 @@ export default function DocsHome() {
   return (
     <>
       <PageHero
+        photo="docs"
         eyebrow="User manual"
         title={
           <>

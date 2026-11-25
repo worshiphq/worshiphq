@@ -26,6 +26,7 @@ export default async function AboutPage() {
   return (
     <>
       <PageHero
+        photo="about"
         eyebrow="About"
         title={
           <>

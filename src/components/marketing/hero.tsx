@@ -19,7 +19,7 @@ const DEFAULT_SUBHEAD =
 
 /** The four slides. `image` null = the engraved gradient backdrop (the product slide needs no photo behind it). */
 const SLIDES = [
-  { id: "dashboard", label: "One dashboard", image: null, alt: "" },
+  { id: "dashboard", label: "One dashboard", image: "/marketing/bg/home.webp", alt: "Hands raised in worship" },
   { id: "door", label: "At the door", image: "/marketing/hero-sanctuary.webp", alt: "Church interior" },
   { id: "reach", label: "Reach everyone", image: "/marketing/hero-media-desk.webp", alt: "Church media team at the production desk" },
   { id: "welcome", label: "Welcome home", image: "/marketing/hero-worship.webp", alt: "Congregation in worship" },

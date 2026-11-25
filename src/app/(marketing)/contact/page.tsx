@@ -20,6 +20,7 @@ export default async function ContactPage() {
   return (
     <>
       <PageHero
+        photo="contact"
         eyebrow="Get in touch"
         title={
           <>

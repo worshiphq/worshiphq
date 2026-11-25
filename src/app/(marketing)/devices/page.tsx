@@ -47,6 +47,7 @@ export default async function DevicesPage() {
   return (
     <>
       <PageHero
+        photo="devices"
         eyebrow="Devices"
         title={
           <>
