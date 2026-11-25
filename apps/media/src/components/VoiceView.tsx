@@ -3,6 +3,7 @@ import { AlertTriangle, BookOpen, Loader2, Mic, MicOff, MonitorPlay, Send, Trash
 import { useVoiceStore, type VoiceMode } from "../stores/voice-store";
 import { useBibleStore } from "../stores/bible-store";
 import { isDesktopApp } from "../lib/media-src";
+import { testAi } from "../lib/ai";
 
 const MODES: { id: VoiceMode; title: string; detail: string; tag?: string }[] = [
   { id: "ask", title: "Ask me first", detail: "A banner pops up with the verse. You press Show (or Space) to put it on the screen.", tag: "Recommended" },
@@ -117,6 +118,19 @@ export function VoiceView({ onOpenBible }: { onOpenBible: () => void }) {
               </label>
             </Card>
 
+            <Card title="What it does">
+              <div className="space-y-2.5">
+                <Switch on={v.matchSongs} set={v.setMatchSongs} title="Pick up songs being sung" detail="Offers the song, or follows along when it is on the screen." />
+                <Switch on={v.toSchedule} set={v.setToSchedule} title="Put verses mentioned in the schedule" detail="Each verse named or shown is added once." />
+                <Switch on={v.matchQuotes} set={v.setMatchQuotes} title="Catch verses read without the reference" />
+                <Switch on={v.commandsOn} set={v.setCommandsOn} title="Spoken commands" detail="“Next verse”, “give me NIV”." />
+                <Switch on={v.aiOn} set={v.setAiOn} title="WorshipHQ AI" detail="Understands requests in any words. Needs internet." />
+                <Switch on={v.onlineOn} set={v.setOnlineOn} title="Online listening (testing)" detail="A bigger speech model over the internet. Offline listening carries on when there is none. The sound goes to Groq to be read." />
+                {v.onlineOn && listening && <p className={`text-[12px] font-semibold ${v.onlineNote === "ok" ? "text-success" : v.onlineNote ? "text-gold" : "text-ink-faint"}`}>{v.onlineNote === "ok" ? "✓ Online listening is working" : v.onlineNote ? `Online listening: ${v.onlineNote} (using offline)` : "Waiting for someone to speak…"}</p>}
+                <AiTest />
+              </div>
+            </Card>
+
             <Card title="Bible version used">
               <p className="text-[14px] text-ink">{pack ? `${pack.name} (${pack.abbreviation})` : "Loading…"}</p>
               <button onClick={onOpenBible} className="mt-2 flex items-center gap-1.5 text-[13px] font-semibold text-primary-bright hover:underline">
@@ -199,6 +213,28 @@ function FlowingText({ listening }: { listening: boolean }) {
         </span>
       ))}
       {listening && partial && <span>{sure} <span className="text-ink-faint">{partial.slice(sure.length).trim()}{partial === "…" ? "" : "…"}</span></span>}
+    </div>
+  );
+}
+
+function Switch({ on, set, title, detail }: { on: boolean; set: (v: boolean) => void; title: string; detail?: string }) {
+  return (
+    <label className="flex cursor-pointer items-start gap-2.5">
+      <input type="checkbox" checked={on} onChange={(e) => set(e.target.checked)} className="mt-0.5 size-4 accent-[var(--color-primary)]" />
+      <span><span className="block text-[14px] font-semibold text-ink">{title}</span>{detail && <span className="block text-[12px] text-ink-muted">{detail}</span>}</span>
+    </label>
+  );
+}
+
+function AiTest() {
+  const [r, setR] = useState<{ ok: boolean; text: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  return (
+    <div className="border-t border-line pt-2.5">
+      <button disabled={busy} onClick={async () => { setBusy(true); setR(null); setR(await testAi()); setBusy(false); }} className="flex h-9 items-center gap-2 rounded-lg border border-line-bright px-3 text-[13px] font-semibold text-ink hover:bg-surface-4 disabled:opacity-60">
+        {busy && <Loader2 className="size-4 whq-spin" />} Test the AI
+      </button>
+      {r && <p className={`mt-1.5 text-[12px] font-semibold ${r.ok ? "text-success" : "text-danger"}`}>{r.text}</p>}
     </div>
   );
 }

@@ -19,7 +19,7 @@ export type MenuAction =
   | "schedule:new" | "schedule:open" | "schedule:save" | "schedule:plan" | "schedule:first" | "schedule:clear"
   | "song:new" | "song:edit" | "song:import-ew" | "song:import-files" | "songs"
   | "bible" | "bible:versions" | "media" | "media:add" | "media:presentation" | "media:free" | "media:design"
-  | "voice" | "live" | "live:projector" | "live:black" | "live:clear" | "live:logo" | "live:send" | "live:tools" | "live:obs"
+  | "voice" | "notes" | "live" | "live:projector" | "live:black" | "live:clear" | "live:logo" | "live:send" | "live:tools" | "live:obs"
   | "view:preview" | "settings" | "settings:looks" | "settings:screens" | "settings:audio" | "settings:shortcuts" | "settings:about" | "settings:backup"
   | "help:website" | "help:updates" | "help:account" | "exit";
 
@@ -68,6 +68,7 @@ export function MenuBar({ onAction, previewShown, projectorOn }: { onAction: (a:
       { label: "Songs", shortcut: "Ctrl+4", onClick: a("songs") },
       { label: "Media", shortcut: "Ctrl+5", onClick: a("media") },
       { label: "Voice assistant", shortcut: "Ctrl+6", onClick: a("voice") },
+      { label: "Notes", shortcut: "Ctrl+8", onClick: a("notes") },
       { label: "Live tools (countdown, alerts, stage)", shortcut: "Ctrl+2", onClick: a("live:tools") },
     ],
     Schedule: [

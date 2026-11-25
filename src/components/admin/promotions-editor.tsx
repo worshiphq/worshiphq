@@ -74,6 +74,10 @@ export function PromotionsEditor({ initial }: { initial: Promotions }) {
             While closed, nobody can sign in to WorshipHQ Live, create an account in it, buy it, download it or use its AI, backgrounds,
             Bibles and backup, except the tester emails below. Switch it on when you are ready to launch.
           </p>
+          <p className="mb-3 text-sm text-white/50">
+            Launching also puts the WorshipHQ Live page (/live), its prices on the pricing page and a menu link on the website.{" "}
+            <a href="/admin/live-preview" target="_blank" className="font-semibold text-teal-300 underline">See the page first</a>.
+          </p>
           <label className="mb-3 flex items-center gap-2 text-sm text-white">
             <input type="checkbox" checked={p.launch.on} onChange={(e) => setP({ ...p, launch: { ...p.launch, on: e.target.checked } })} className="size-4 accent-teal-400" />
             Launched: open to every church

@@ -62,7 +62,7 @@ export function Launcher({ onEnter }: LauncherProps) {
   const version = pkg.version;
   const account = useAccountStore((s) => s.account);
   const subscribed = accountActive(account);
-  const { serviceItems, serviceName } = useProjectionStore();
+  const { serviceItems, serviceName, setServiceDetails } = useProjectionStore();
   const hasPlan = serviceItems.length > 0;
   const daysLeft = trialDaysLeft(account);
 
@@ -135,6 +135,11 @@ export function Launcher({ onEnter }: LauncherProps) {
               </div>
             </div>
 
+            <label className="mb-3 block w-full text-left">
+              <span className="mb-1 block text-[13px] font-medium text-ink-muted">Service</span>
+              <input value={serviceName} onChange={(e) => setServiceDetails({ serviceName: e.target.value })} onKeyDown={(e) => e.key === "Enter" && handleEnter()}
+                placeholder="e.g. Midweek prayers" className="h-11 w-full rounded-xl border border-line bg-surface-2 px-4 text-[15px] font-semibold text-ink" />
+            </label>
             <button
               onClick={handleEnter}
               disabled={entering}

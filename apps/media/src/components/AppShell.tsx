@@ -5,14 +5,15 @@ import { MenuBar, type MenuAction } from "./MenuBar";
 import { BackgroundPicker } from "./BackgroundPicker";
 import {
   BookOpen, CalendarDays, Cast, Church, Eraser, Image as ImageIcon, Mic, Minus, Monitor, MonitorOff,
-  Music, Settings, Square, X,
-} from "lucide-react";
+  Music, Settings, Square, X, NotebookPen } from "lucide-react";
+import { useNotesStore } from "../stores/notes-store";
+import { NotesPill } from "./NotesView";
 import { useProjectionStore } from "../stores/projection-store";
 import { accountActive, useAccountStore } from "../lib/account";
 import { useVoiceStore } from "../stores/voice-store";
 import { useAudioStore } from "../stores/audio-store";
 
-export type Workspace = "service" | "live" | "bible" | "songs" | "media" | "screens" | "voice" | "looks" | "settings";
+export type Workspace = "service" | "live" | "bible" | "songs" | "media" | "screens" | "voice" | "looks" | "settings" | "notes";
 
 const isDesktopApp = () => typeof window !== "undefined" && !!(window as any).__TAURI_INTERNALS__;
 
@@ -106,6 +107,7 @@ export function AppHeader({ onMenu, previewShown }: { onMenu: (a: MenuAction) =>
         <span className={`size-2 shrink-0 rounded-full ${showingSomething ? "live-dot bg-danger" : "bg-ink-faint/60"}`} />
         <span className="truncate">{onScreen}</span>
       </div>
+      <NotesPill onOpen={() => onMenu("notes")} />
       <VoicePill />
       <NowPlaying />
       {alert && <span className="max-w-[180px] truncate rounded-full bg-danger px-3 py-1.5 text-[12px] font-bold text-white" title={alert.text}>Alert: {alert.text}</span>}
@@ -204,6 +206,7 @@ const NAV: { heading: string; items: NavItem[] }[] = [
       { id: "bible", label: "Bible", Icon: BookOpen, ready: true },
       { id: "songs", label: "Songs", Icon: Music, ready: true },
       { id: "media", label: "Media", Icon: ImageIcon, ready: true },
+      { id: "notes", label: "Notes", Icon: NotebookPen, ready: true },
     ],
   },
   {
@@ -220,6 +223,7 @@ export function AppSidebar({ workspace, onChange }: { workspace: Workspace; onCh
   const account = useAccountStore((s) => s.account);
   const subscribed = accountActive(account);
   const voiceOn = useVoiceStore((v) => v.status === "listening");
+  const taking = useNotesStore((s) => !!s.recordingId);
 
   return (
     <aside className="flex w-16 shrink-0 flex-col border-r border-line bg-surface-2 lg:w-64 xl:w-72">
@@ -248,6 +252,7 @@ export function AppSidebar({ workspace, onChange }: { workspace: Workspace; onCh
                   <Icon className="size-[18px] shrink-0" />
                   <span className="hidden flex-1 lg:inline">{label}</span>
                   {id === "live" && isLive && !isBlack && <span className="live-dot size-2 rounded-full bg-danger" title="Something is on screen" />}
+                  {id === "notes" && taking && <span className="live-dot size-2 rounded-full bg-danger" title="Taking notes" />}
                   {id === "voice" && voiceOn && <span className="live-dot size-2 rounded-full bg-success" title="Listening" />}
                   {!ready && <span className="rounded bg-surface-4 px-1.5 py-0.5 text-[11px] font-medium text-ink-faint">Soon</span>}
                 </button>
@@ -309,7 +314,7 @@ const ITEM_ICON: Record<string, typeof Music> = { song: Music, scripture: BookOp
  * drag to reorder, right-click for more.
  */
 function ScheduleBox({ onOpen }: { onOpen: (w: Workspace) => void }) {
-  const { serviceItems, activeItemIndex, setActiveItem, goLive, removeFromService, reorderService, projectionOpen, openProjection, currentSlide, isLive } = useProjectionStore();
+  const { serviceItems, serviceName, setServiceDetails, activeItemIndex, setActiveItem, goLive, removeFromService, reorderService, projectionOpen, openProjection, currentSlide, isLive } = useProjectionStore();
   const [drag, setDrag] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
   const [menuAt, setMenuAt] = useState<{ i: number; x: number; y: number } | null>(null);
@@ -337,7 +342,9 @@ function ScheduleBox({ onOpen }: { onOpen: (w: Workspace) => void }) {
   return (
     <section className="flex min-h-[180px] flex-1 flex-col border-b border-line p-2 lg:p-3" aria-label="Schedule">
       <div className="mb-1.5 hidden items-center justify-between lg:flex">
-        <span className="text-[13px] font-bold text-ink">Schedule <span className="font-normal text-ink-muted">· {serviceItems.length}</span></span>
+        <input value={serviceName} onChange={(e) => setServiceDetails({ serviceName: e.target.value })} aria-label="Service title" title="The service this schedule is for: click to change it"
+          placeholder="Service title" className="min-w-0 flex-1 truncate rounded bg-transparent px-1 text-[13px] font-bold text-ink hover:bg-surface-4 focus:bg-surface-4" />
+        <span className="px-1 text-[12px] text-ink-muted">{serviceItems.length}</span>
         <button onClick={() => onOpen("service")} className="rounded-md px-1.5 py-0.5 text-[12px] font-semibold text-primary-bright hover:bg-primary-soft">Plan</button>
       </div>
       <div

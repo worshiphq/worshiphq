@@ -55,6 +55,9 @@ export function wordsToNumbers(text: string): string {
 function bookWords(book: number): string[] {
   const name = BIBLE_BOOKS[book].toLowerCase().replace(/^[123] /, "");
   const words = [name.split(" ").pop()!];
+  // "Hebrew chapter 11", "Roman 8": said without the s. (Not "Number 3", "Judge 2" or "King 4", which are ordinary words.)
+  if (/^(?:romans|corinthians|galatians|ephesians|philippians|colossians|thessalonians|hebrews|proverbs|lamentations)$/.test(words[0])) words.push(words[0].slice(0, -1));
+  if (words[0] === "revelation") words.push("revelations");
   if (book === 18) words.push("psalm", "psalms");
   if (book === 21) words.push("songs", "song");
   if (book === 65) words.push("revelations");

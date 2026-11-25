@@ -37,14 +37,12 @@ async function chapterOf(packId: string | null, book: number, chapter: number): 
   }
 }
 
-/**
- * Puts a Bible passage on the screen in the chosen version (and the second version, if one is chosen on the
- * Bible page). Returns the label shown, or null when the passage doesn't exist in this Bible.
- */
-export async function showPassage(ref: ScriptureRef): Promise<string | null> {
+/** The slides of a passage in a version (the chosen one unless given), with the second version if one is on. */
+export async function buildPassage(ref: ScriptureRef, packId?: string): Promise<PassageOnScreen | null> {
   const bible = useBibleStore.getState();
   if (!bible.packs.length) await bible.loadPacks();
-  const { activePack, packs } = useBibleStore.getState();
+  const { packs, activePack: chosen } = useBibleStore.getState();
+  const activePack = packId && packs.some((p) => p.id === packId) ? packId : chosen;
   const pack = packs.find((p) => p.id === activePack);
   const chapter = await chapterOf(activePack, ref.book, ref.chapter);
   if (!chapter.length) return null;
@@ -65,11 +63,30 @@ export async function showPassage(ref: ScriptureRef): Promise<string | null> {
   }
   const slides = buildScriptureSlides(verses, label, pack?.abbreviation, undefined, second);
   if (!slides.length) return null;
+  return { book: ref.book, chapter: ref.chapter, start, end, versesInChapter: last, label, slides, index: 0 };
+}
+
+/**
+ * Puts a Bible passage on the screen in the chosen version (and the second version, if one is chosen on the
+ * Bible page). Returns the label shown, or null when the passage doesn't exist in this Bible.
+ */
+export async function showPassage(ref: ScriptureRef): Promise<string | null> {
+  const p = await buildPassage(ref);
+  if (!p) return null;
   const proj = useProjectionStore.getState();
   if (isDesktopApp() && !proj.projectionOpen) proj.openProjection();
-  proj.goLive(slides[0]);
-  usePassageStore.getState().set({ book: ref.book, chapter: ref.chapter, start, end, versesInChapter: last, label, slides, index: 0 });
-  return label;
+  proj.goLive(p.slides[0]);
+  usePassageStore.getState().set(p);
+  return p.label;
+}
+
+/** Adds a passage to the schedule, unless it is already there. */
+export async function scheduleVerse(ref: ScriptureRef, packId?: string): Promise<void> {
+  const p = await buildPassage(ref, packId);
+  if (!p) return;
+  const proj = useProjectionStore.getState();
+  if (proj.serviceItems.some((i) => i.type === "scripture" && i.title === p.label)) return;
+  proj.addToService({ id: crypto.randomUUID(), type: "scripture", title: p.label, subtitle: "Mentioned in the message", order: 0, slides: p.slides });
 }
 
 /** Next / previous verse, crossing into the next or previous chapter at the ends. */

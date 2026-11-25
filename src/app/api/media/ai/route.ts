@@ -15,6 +15,13 @@ export const maxDuration = 30;
 const MODEL = "claude-haiku-5-5";
 const GROQ_MODEL = "openai/gpt-oss-120b";
 
+const NOTES = `You take notes of a sermon for the church's screen. You get the words just heard (speech recognition, so some words are wrong; it may mix English and Twi), the message title if known, and what is already noted. Reply with ONLY a JSON object: {"notes":[{"kind":"title"|"point"|"sub"|"line","text":"..."}]}, in the order they were said, at most 4.
+- "title": the title or theme of the whole message, only when the preacher gives it ("my topic this morning is…", "the title of the message is…"). At most one, and none when the title is already known.
+- "point": a main point or lesson of the message.
+- "sub": something that explains or belongs under the point before it (a reason, a step, a way to do it).
+- "line": a short, striking sentence the preacher clearly wants people to remember, close to the words used.
+Write each in English, at most 18 words, in the preacher's own sense, as the thing itself ("Faith pleases God"), never as a report ("He teaches that…"). Never note greetings, stories, jokes, announcements, prayers, songs, Bible references on their own, anything already noted (even in other words), or anything you are unsure was said. Never add ideas of your own. {"notes":[]} when there is nothing.`;
+
 async function askGroq(system: string, user: string, maxTokens: number): Promise<unknown> {
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -114,6 +121,8 @@ export async function POST(req: Request) {
     screen?: Record<string, unknown>;
     versions?: { id: string; abbreviation: string; name: string; language: string }[];
     query?: string;
+    have?: string[];
+    title?: string;
   };
   try { body = await req.json(); } catch { return json({ error: "Bad request" }, 400); }
   const t = Date.now();
@@ -123,6 +132,18 @@ export async function POST(req: Request) {
       if (!q) return json({ verses: [] });
       const out = (await ask(SEARCH, q, 300)) as { verses?: unknown[] };
       return json({ verses: Array.isArray(out.verses) ? out.verses.slice(0, 6) : [], ms: Date.now() - t });
+    }
+    if (body.task === "notes") {
+      const words = String(body.said ?? "").slice(0, 6000).trim();
+      if (!words) return json({ notes: [] });
+      const have = (body.have ?? []).slice(-30).map((x) => String(x).slice(0, 200));
+      const out = (await ask(NOTES, JSON.stringify({ heard: words, title: String(body.title ?? "").slice(0, 120) || null, alreadyNoted: have }), 500)) as { notes?: unknown[] };
+      const notes = (Array.isArray(out.notes) ? out.notes : [])
+        .map((n) => n as { kind?: unknown; text?: unknown })
+        .filter((n) => typeof n?.text === "string" && ["title", "point", "sub", "line"].includes(String(n.kind)))
+        .slice(0, 4)
+        .map((n) => ({ kind: n.kind, text: String(n.text).slice(0, 240) }));
+      return json({ notes, ms: Date.now() - t });
     }
     const said = String(body.said ?? "").slice(0, 600).trim();
     if (!said) return json({ actions: [] });

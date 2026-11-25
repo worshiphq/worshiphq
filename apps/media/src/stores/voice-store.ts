@@ -14,9 +14,9 @@ import { buildSongSlides } from "../lib/song-slides";
 import { plainText } from "../lib/rich-text";
 import { startWhisperListening, stopWhisperListening } from "../lib/whisper-listener";
 import { COMMAND_GROUP, describeCommand, parseVoiceCommand, type CommandGroup, type VoiceCommand } from "../lib/voice-commands";
-import { showPassage, stepPart, stepVerse, usePassageStore, setSecondVersion } from "../lib/show-passage";
+import { scheduleVerse, showPassage, stepPart, stepVerse, usePassageStore, setSecondVersion } from "../lib/show-passage";
 import { findPack, versionAsked } from "../lib/version-match";
-import { understand, type AiAction } from "../lib/ai";
+import { listenOnline, understand, type AiAction } from "../lib/ai";
 import { wordsToNumbers } from "../lib/spoken-ref";
 import { parseReference } from "../lib/scripture-ref";
 import { settledReference } from "../lib/live-words";
@@ -85,6 +85,13 @@ interface VoiceState {
   matchSongs: boolean;
   setMatchSongs: (v: boolean) => void;
   /** WorshipHQ AI: understands requests in any wording and finds verses that are quoted or paraphrased. */
+  /** Online listening (most accurate; needs internet). Offline listening carries on when it can't be reached. */
+  onlineOn: boolean;
+  setOnlineOn: (v: boolean) => void;
+  onlineNote: string | null;
+  /** Verses mentioned go into the schedule. */
+  toSchedule: boolean;
+  setToSchedule: (v: boolean) => void;
   aiOn: boolean;
   setAiOn: (v: boolean) => void;
   engine: VoiceEngine;
@@ -399,6 +406,15 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
     setMatchQuotes: (matchQuotes) => set({ matchQuotes }),
     matchSongs: true,
     setMatchSongs: (matchSongs) => set({ matchSongs }),
+    onlineOn: false,
+    setOnlineOn: (onlineOn) => {
+      set({ onlineOn, onlineNote: null });
+      const st = get().status;
+      if (st === "listening" || st === "starting") get().stop().then(() => get().start());
+    },
+    onlineNote: null,
+    toSchedule: true,
+    setToSchedule: (toSchedule) => set({ toSchedule }),
     aiOn: true,
     setAiOn: (aiOn) => set({ aiOn }),
     engine: "whisper",
@@ -581,11 +597,16 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
             get().handleEvent(JSON.stringify({ type: "heard", text, confidence: 0.9, kind: "speech", early: true }));
           },
           onText: (text, id, draft) => get().handleEvent(JSON.stringify({ type: "heard", text, confidence: 0.9, kind: "speech", id, draft })),
-          onSettled: (text, id) => get().handleEvent(JSON.stringify({ type: "heard", text, confidence: 0.92, kind: "speech", id, refine: true })),
+          onSettled: (text, id, context) => get().handleEvent(JSON.stringify({ type: "heard", text, confidence: 0.92, kind: "speech", id, refine: true, context })),
+          onCloud: (problem) => { if (get().onlineNote !== (problem ?? "ok")) set({ onlineNote: problem ?? "ok" }); },
           onError: (message) => set({ status: "error", message }),
-        }, { live: two ? "tiny" : chosen, best: two ? chosen : null });
+        }, {
+          live: two ? "tiny" : chosen,
+          best: two ? chosen : null,
+          cloud: get().onlineOn ? (w) => listenOnline(w, chosen === "twi" ? undefined : "en") : undefined,
+        });
         const name = WHISPER_MODELS.find((x) => x.id === chosen)?.label ?? "";
-        if (get().status === "starting") set({ status: "listening", recognizer: `Whisper ${two ? `Fastest for live words, ${name} for finished sentences` : name} (OpenAI) on this computer` });
+        if (get().status === "starting") set({ status: "listening", recognizer: `Whisper ${two ? `Fastest for live words, ${name} for finished sentences` : name} (OpenAI) on this computer${get().onlineOn ? ", with online listening" : ""}` });
         return;
       }
       try {
@@ -631,6 +652,11 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
           const st = get();
           const lineId = String(msg.id ?? crypto.randomUUID());
           const refine = !!msg.refine;
+          // Its words are now part of the next one (online listening reads several sentences together).
+          if (refine && !text) {
+            set((s) => ({ lines: s.lines.filter((l) => l.id !== lineId || l.command) }));
+            break;
+          }
           // Already acted on as a command from the quick reading: only tidy the words.
           if (refine && st.lines.find((l) => l.id === lineId)?.command) { addLine(text, false, lineId, true); break; }
           let cmd = st.commandsOn ? parseVoiceCommand(text, st.wakeWord || undefined) : null;
@@ -660,6 +686,16 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
           if (msg.kind === "reference" && typeof msg.book === "number") ref = referenceFromHeard(text, msg.book);
           // Free speech: only trust a reference it clearly heard.
           if (!ref && confidence >= 0.3) ref = referenceInSpeech(text);
+          // Said across two sentences ("Romans chapter 8." "Let us read verse 28.").
+          if (!ref && msg.context) {
+            const r = referenceInSpeech(String(msg.context));
+            // The same 15 seconds come round more than once: never go back to a verse already noticed.
+            if (r?.verseStart && !get().detections.some((d) => Date.now() - d.at < 60_000 && formatReference(d.ref) === formatReference(r))) ref = r;
+          }
+          if (!msg.early && !msg.draft) {
+            window.dispatchEvent(new CustomEvent("whq-heard", { detail: text }));
+            if (ref?.verseStart && st.toSchedule && confidence >= st.minConfidence * 0.7) scheduleVerse(ref, askedPack(text)?.id).catch(() => {});
+          }
           addLine(text, !!ref, lineId, refine);
           if (ref && confidence >= get().minConfidence * (msg.kind === "reference" ? 1 : 0.7)) detect(ref, text, confidence, undefined, askedPack(text));
           // A better reading is on its way: the AI and the search wait for it.
@@ -721,6 +757,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
       const label = await showPassage(ref);
       const passage = usePassageStore.getState().passage;
       if (!label || !passage) return;
+      if (get().toSchedule) scheduleVerse(ref, det.packId).catch(() => {});
       set((s) => ({
         pending: s.pending?.id === id ? null : s.pending,
         shown: { label, slides: passage.slides, index: 0 },
@@ -750,7 +787,7 @@ export const useVoiceStore = create<VoiceState>()(persist((set, get) => {
 }, {
   name: "whq-media-voice",
   version: 1,
-  partialize: (s) => ({ aiOn: s.aiOn, matchSongs: s.matchSongs, mode: s.mode, autoDelay: s.autoDelay, minConfidence: s.minConfidence, matchQuotes: s.matchQuotes, engine: s.engine, micId: s.micId, commandsOn: s.commandsOn, commandGroups: s.commandGroups, wakeWord: s.wakeWord, whisperModel: s.whisperModel, autoStart: s.autoStart }),
+  partialize: (s) => ({ onlineOn: s.onlineOn, toSchedule: s.toSchedule, aiOn: s.aiOn, matchSongs: s.matchSongs, mode: s.mode, autoDelay: s.autoDelay, minConfidence: s.minConfidence, matchQuotes: s.matchQuotes, engine: s.engine, micId: s.micId, commandsOn: s.commandsOn, commandGroups: s.commandGroups, wakeWord: s.wakeWord, whisperModel: s.whisperModel, autoStart: s.autoStart }),
   merge: (persisted, current) => ({
     ...current,
     ...(persisted as object),

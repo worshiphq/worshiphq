@@ -7,7 +7,7 @@ import { Menu, X } from "lucide-react";
 import { Logo } from "@/components/brand/logo";
 import { cn } from "@/lib/utils";
 
-const links = [
+const LINKS = [
   { label: "Features", href: "/features" },
   { label: "Solutions", href: "/solutions" },
   { label: "Devices", href: "/devices" },
@@ -16,9 +16,11 @@ const links = [
 ];
 
 /** Pages that open on a dark band (the homepage slider, or PageHero): the nav uses light text there until scrolled. */
-const DARK_HERO_PATHS = new Set(["/", "/features", "/solutions", "/devices", "/pricing", "/about", "/contact", "/help", "/docs", "/privacy", "/terms", "/refund-policy"]);
+const DARK_HERO_PATHS = new Set(["/", "/features", "/solutions", "/devices", "/live", "/pricing", "/about", "/contact", "/help", "/docs", "/privacy", "/terms", "/refund-policy"]);
 
-export function SiteNav() {
+/** "live": WorshipHQ Live is launched, so it gets its place in the menu. */
+export function SiteNav({ live = false }: { live?: boolean }) {
+  const links = live ? [...LINKS.slice(0, 3), { label: "Live", href: "/live" }, ...LINKS.slice(3)] : LINKS;
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
   const pathname = usePathname();

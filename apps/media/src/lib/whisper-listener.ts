@@ -13,15 +13,26 @@ interface Callbacks {
   onSpeaking: (speaking: boolean) => void;
   /** A finished sentence. "draft" = a better reading of it follows in onSettled. */
   onText: (text: string, id: string, draft: boolean) => void;
-  /** The better reading of a draft (or the same words, when it would have come too late). */
-  onSettled?: (text: string, id: string) => void;
+  /**
+   * The better reading of a draft (or the same words, when it would have come too late). Empty = its words are now
+   * part of the next one. "context" = the last 15 seconds or so in one piece (online only).
+   */
+  onSettled?: (text: string, id: string, context?: string) => void;
+  /** Online listening worked (null) or why it didn't; offline listening carries on either way. */
+  onCloud?: (problem: string | null) => void;
   /** The sentence still going on: the words it is sure of, and the newest ones it isn't sure of yet. */
   onLive?: (live: { sure: string; maybe: string; text: string; id: string }) => void;
   onError: (message: string) => void;
 }
 
 /** live: reads the words as they are said. best: a better model for finished sentences (null = the same one). */
-export interface ListenModels { live: string; best: string | null; online?: boolean }
+export interface ListenModels {
+  live: string;
+  best: string | null;
+  online?: boolean;
+  /** Online listening: reads the last seconds of sound (with what came before, for context). */
+  cloud?: (wav: Uint8Array) => Promise<{ start: number; end: number; text: string }[]>;
+}
 
 const RATE = 16000;
 const SILENCE_MS = 450;     // a pause this long ends a sentence
@@ -31,6 +42,8 @@ const LIVE_EVERY_MS = 250;  // gap between readings of the sentence so far (long
 const LIVE_TOO_SLOW_MS = 2500; // a reading this slow would hold up finished sentences: don't read mid-sentence
 const CUT_BACK_MS = 2000;   // when a sentence is too long, cut at the quietest moment in its last 2 s
 const STALE_MS = 4000;      // never act on speech this long after it was said: keep up with the speaker instead
+const CLOUD_GAP_MS = 6000;  // online: at most one request this often (each is billed as 10 s or more)
+const CLOUD_WINDOW_S = 15;  // online: this much sound at once; shorter pieces lose "Hebrews… chapter what?… 11"
 const BEST_LATE_MS = 6000;  // a better reading later than this is no use
 
 let ctx: AudioContext | null = null;
@@ -73,7 +86,7 @@ function join(chunks: Float32Array[]): Float32Array {
 }
 
 export async function startWhisperListening(deviceId: string | null, cb: Callbacks, models: ListenModels) {
-  const { best, online = false } = models;
+  const { best, online = false, cloud } = models;
   await stopWhisperListening();
   try {
     stream = await navigator.mediaDevices.getUserMedia({
@@ -150,6 +163,51 @@ export async function startWhisperListening(deviceId: string | null, cb: Callbac
     if (next && on()) improve(next);
   };
 
+  /* Online listening: everything said since the last request, plus enough before it to understand it. */
+  let cloudWait: (Said & { draft: string })[] = [];
+  let cloudBusy = false;
+  let lastCloud = -CLOUD_GAP_MS;
+  let cloudTimer = 0;
+  let before = new Float32Array(0);
+  const sendCloud = async () => {
+    window.clearTimeout(cloudTimer);
+    if (cloudBusy || !cloudWait.length || !on()) return;
+    const wait = CLOUD_GAP_MS - (performance.now() - lastCloud);
+    if (wait > 0) { cloudTimer = window.setTimeout(sendCloud, wait); return; }
+    cloudBusy = true;
+    lastCloud = performance.now();
+    const batch = cloudWait;
+    cloudWait = [];
+    const fresh = join(batch.map((b) => b.audio));
+    const room = Math.max(0, CLOUD_WINDOW_S * RATE - fresh.length);
+    const lead = room ? before.slice(-room) : new Float32Array(0);
+    const audio = join([lead, fresh]);
+    before = audio.slice(-CLOUD_WINDOW_S * RATE);
+    const last = batch[batch.length - 1];
+    try {
+      const segs = await cloud!(wav(audio));
+      if (!on()) return;
+      const from = lead.length / RATE;
+      const all = clean(segs.map((s) => s.text).join(" "));
+      const mine = clean(segs.filter((s) => (s.start + s.end) / 2 >= from).map((s) => s.text).join(" "));
+      // Its timings can put a sentence wholly in the part before: then keep the quick readings.
+      const useful = !junk(mine);
+      batch.forEach((b) => {
+        if (b !== last) cb.onSettled?.(useful ? "" : b.draft, b.id);
+        else cb.onSettled?.(useful ? mine : b.draft, b.id, all);
+      });
+      cb.onCloud?.(null);
+    } catch (e) {
+      if (!on()) return;
+      cb.onCloud?.(e instanceof Error ? e.message : String(e));
+      batch.forEach((b) => { if (b !== last) cb.onSettled?.(b.draft, b.id); });
+      if (best) improve(last); else cb.onSettled?.(last.draft, last.id);
+    } finally {
+      cloudBusy = false;
+      if (cloudWait.length && on()) sendCloud();
+    }
+  };
+
   const pump = async () => {
     if (busy || !queue.length || !on()) return;
     busy = true;
@@ -162,8 +220,11 @@ export async function startWhisperListening(deviceId: string | null, cb: Callbac
     }
     try {
       const text = await timed(s.audio);
-      if (on() && !junk(text)) {
-        cb.onText(text, s.id, !!best);
+      const heard = !junk(text);
+      if (on() && heard) cb.onText(text, s.id, !!best || !!cloud);
+      // Online listening gets the sound even when the quick model made nothing of it (that is often Twi).
+      if (on() && cloud) { cloudWait.push({ ...s, draft: heard ? text : "" }); sendCloud(); }
+      else if (on() && heard) {
         if (best) improve({ ...s, draft: text });
       }
     } catch (e) {

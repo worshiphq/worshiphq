@@ -60,7 +60,7 @@ const columns = [
   },
 ];
 
-export function SiteFooter() {
+export function SiteFooter({ live = false }: { live?: boolean }) {
   return (
     <footer className="relative bg-evergreen-deep text-parchment">
       {/* Gilt top edge */}
@@ -94,7 +94,7 @@ export function SiteFooter() {
                 {col.title}
               </h4>
               <ul className="space-y-3">
-                {col.links.map((l) => (
+                {(live && col.title === "Product" ? [...col.links, { label: "WorshipHQ Live", href: "/live" }] : col.links).map((l) => (
                   <li key={l.label}>
                     <Link
                       href={l.href}

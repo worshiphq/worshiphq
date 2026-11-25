@@ -69,6 +69,17 @@ export function ProjectionWindow() {
   }, []);
   const videoRef = useRef<HTMLVideoElement>(null);
 
+  // Esc brings the operator's window back (like EasyWorship); double-click fills the screen when there is only one.
+  useEffect(() => {
+    if (!(window as any).__TAURI_INTERNALS__) return;
+    const call = (cmd: string) => import("@tauri-apps/api/core").then(({ invoke }) => invoke(cmd)).catch(() => {});
+    const key = (e: KeyboardEvent) => { if (e.key === "Escape") { e.preventDefault(); call("leave_projector"); } };
+    const dbl = () => call("projector_full");
+    window.addEventListener("keydown", key);
+    window.addEventListener("dblclick", dbl);
+    return () => { window.removeEventListener("keydown", key); window.removeEventListener("dblclick", dbl); };
+  }, []);
+
   useEffect(() => {
     let cleanup: (() => void)[] = [];
     let cancelled = false;

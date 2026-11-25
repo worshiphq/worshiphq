@@ -24,6 +24,8 @@ import { useVoiceStore } from "./stores/voice-store";
 import { useThemeStore } from "./stores/theme-store";
 import { Launcher } from "./components/Launcher";
 import type { Slide } from "./types";
+import { NotesView } from "./components/NotesView";
+import { startNotes } from "./stores/notes-store";
 import { UpdateBanner } from "./components/UpdateBanner";
 import { startUpdateChecks, useUpdateStore } from "./lib/updates";
 import { startAccountCheckIns } from "./lib/account";
@@ -42,7 +44,7 @@ export default function App() {
     const tell = (page: Workspace, action: string) => { setWorkspace(page); setTimeout(() => window.dispatchEvent(new CustomEvent("whq-menu", { detail: action })), 80); };
     const proj = useProjectionStore.getState();
     switch (a) {
-      case "bible": case "songs": case "media": case "voice": setWorkspace(a); break;
+      case "bible": case "songs": case "media": case "voice": case "notes": setWorkspace(a); break;
       case "live:tools": case "live": setWorkspace("live"); break;
       case "schedule:plan": setWorkspace("service"); break;
       case "settings": setSettingsOpen(true); break;
@@ -100,6 +102,9 @@ export default function App() {
     return () => window.removeEventListener("whq-menu-open", on);
   });
 
+  // Notes of the message are taken in the background, whatever page is open.
+  useEffect(() => startNotes(), []);
+
   // Account check-ins and automatic updates (both quiet when offline).
   useEffect(() => { const a = startAccountCheckIns(); const u = startUpdateChecks(); return () => { a(); u(); }; }, []);
 
@@ -117,8 +122,8 @@ export default function App() {
         e.preventDefault(); proj.toggleClearText();
       } else if (k === "b" && !e.shiftKey && !typing) { e.preventDefault(); proj.toggleBlack(); }
       else if (k === "l" && !e.shiftKey && !typing) { e.preventDefault(); proj.toggleLogo(); }
-      else if (/^[1-7]$/.test(k)) {
-        const map: Workspace[] = ["service", "live", "bible", "songs", "media", "voice", "settings"];
+      else if (/^[1-8]$/.test(k)) {
+        const map: Workspace[] = ["service", "live", "bible", "songs", "media", "voice", "settings", "notes"];
         e.preventDefault(); setWorkspace(map[Number(k) - 1]);
       } else if (k === ",") { e.preventDefault(); setWorkspace("settings"); }
     };
@@ -253,6 +258,8 @@ export default function App() {
               <SongsView />
             ) : workspace === "media" ? (
               <MediaView />
+            ) : workspace === "notes" ? (
+              <NotesView />
             ) : workspace === "voice" ? (
               <VoiceView onOpenBible={() => setWorkspace("bible")} />
             ) : workspace === "service" ? (

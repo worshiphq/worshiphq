@@ -102,6 +102,9 @@ interface ProjectionState {
   setLicense: (status: { isLicensed: boolean; isTrial: boolean; trialDaysRemaining: number; hwid: string }) => void;
 }
 
+/** Until it is given a name: it can be any service, on any day. */
+const NEW_SERVICE = "New service";
+
 export const useProjectionStore = create<ProjectionState>()(persist((set) => ({
   currentSlide: null,
   nextSlide: null,
@@ -123,8 +126,8 @@ export const useProjectionStore = create<ProjectionState>()(persist((set) => ({
   setLogo: (logo) => set({ logo }),
   markProjectionClosed: () => set({ projectionOpen: false }),
 
-  serviceName: "Sunday Service",
-  serviceDate: nextSunday(),
+  serviceName: NEW_SERVICE,
+  serviceDate: today(),
   startTime: "09:00",
 
   displays: [],
@@ -275,7 +278,7 @@ export const useProjectionStore = create<ProjectionState>()(persist((set) => ({
   setServiceDetails: (details) => set(details),
 
   newService: () =>
-    set({ serviceItems: [], activeItemIndex: -1, serviceName: "Sunday Service", serviceDate: nextSunday(), startTime: "09:00" }),
+    set({ serviceItems: [], activeItemIndex: -1, serviceName: NEW_SERVICE, serviceDate: today(), startTime: "09:00" }),
 
   setDisplays: (displays) =>
     set({ displays }),
@@ -296,7 +299,9 @@ export const useProjectionStore = create<ProjectionState>()(persist((set) => ({
 }), {
   // The service plan is saved on this computer, so it is still there after closing the app.
   name: "whq-media-service",
-  version: 1,
+  version: 2,
+  // "Sunday Service" used to be filled in for everyone.
+  migrate: (saved) => { const s = saved as { serviceName?: string }; return s?.serviceName === "Sunday Service" ? { ...s, serviceName: NEW_SERVICE } : s; },
   partialize: (s) => ({
     serviceItems: s.serviceItems,
     activeItemIndex: s.activeItemIndex,
@@ -309,9 +314,8 @@ export const useProjectionStore = create<ProjectionState>()(persist((set) => ({
   }),
 }));
 
-function nextSunday(): string {
+function today(): string {
   const d = new Date();
-  d.setDate(d.getDate() + ((7 - d.getDay()) % 7));
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }

@@ -3,6 +3,7 @@ import { pageMeta } from "@/lib/seo/meta";
 import { JsonLd, breadcrumbLd, faqLd } from "@/lib/seo/json-ld";
 import { PageHero } from "@/components/marketing/page-hero";
 import { PricingSection } from "@/components/marketing/pricing-section";
+import { LivePrices } from "@/components/marketing/live-page";
 import { FAQ } from "@/components/marketing/faq";
 import { FinalCTA } from "@/components/marketing/final-cta";
 import { getPlatformConfig } from "@/lib/data/platform-config";
@@ -33,6 +34,7 @@ export default async function PricingPage() {
         subtitle="Start free forever. Upgrade when you're ready - no hidden fees, no surprises."
       />
       <PricingSection platformPricing={platformConfig} />
+      {platformConfig.promotions.launch.on && <LivePrices promotions={platformConfig.promotions} link />}
       <FAQ
         starterPrice={starterPrice}
         freeMembers={freeMembers}

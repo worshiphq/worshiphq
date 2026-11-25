@@ -194,7 +194,66 @@ async fn open_output_window(
             .focused(false)
     };
     builder.build().map_err(|e| e.to_string())?;
+    keep_operator_reachable(&app);
     Ok(())
+}
+
+/// The projector and stage windows stay on top of their own screen, except while the operator's window is on that
+/// screen too: then the operator's window must be reachable (clicking the projector still brings it forward).
+fn keep_operator_reachable(app: &tauri::AppHandle) {
+    static COVERED: std::sync::Mutex<[Option<bool>; 2]> = std::sync::Mutex::new([None, None]);
+    let Some(main) = app.get_webview_window("main") else { return };
+    let (Ok(pos), Ok(size)) = (main.outer_position(), main.outer_size()) else { return };
+    let minimised = main.is_minimized().unwrap_or(false);
+    for (i, label) in ["projection", "stage"].iter().enumerate() {
+        let Some(win) = app.get_webview_window(label) else {
+            if let Ok(mut c) = COVERED.lock() { c[i] = None; }
+            continue;
+        };
+        if win.is_decorated().unwrap_or(true) {
+            continue; // an ordinary window (one screen only)
+        }
+        let Ok(Some(mon)) = win.current_monitor() else { continue };
+        let (mp, ms) = (mon.position(), mon.size());
+        // How much of the operator's window is on the projector's screen?
+        let w = (pos.x + size.width as i32).min(mp.x + ms.width as i32) - pos.x.max(mp.x);
+        let h = (pos.y + size.height as i32).min(mp.y + ms.height as i32) - pos.y.max(mp.y);
+        // A maximised window reaches about 8 px over the edge of its own screen: that isn't "on" the other one.
+        let covered = !minimised && w > 60 && h > 30;
+        let changed = COVERED.lock().map(|mut c| { let ch = c[i] != Some(covered); c[i] = Some(covered); ch }).unwrap_or(false);
+        if changed {
+            let _ = win.set_always_on_top(!covered);
+            if covered {
+                let _ = main.set_focus();
+            }
+        }
+    }
+}
+
+/// Esc on the projector: bring the operator's window to the front.
+#[tauri::command]
+async fn leave_projector(app: tauri::AppHandle) {
+    if let Some(p) = app.get_webview_window("projection") {
+        // One screen: back to an ordinary window.
+        if p.is_decorated().unwrap_or(false) && p.is_fullscreen().unwrap_or(false) {
+            let _ = p.set_fullscreen(false);
+        }
+    }
+    if let Some(main) = app.get_webview_window("main") {
+        let _ = main.unminimize();
+        let _ = main.set_focus();
+    }
+}
+
+/// Double-click on the projector when there is only one screen: fill the screen (Esc comes back).
+#[tauri::command]
+async fn projector_full(app: tauri::AppHandle) {
+    if let Some(p) = app.get_webview_window("projection") {
+        if p.is_decorated().unwrap_or(false) {
+            let full = p.is_fullscreen().unwrap_or(false);
+            let _ = p.set_fullscreen(!full);
+        }
+    }
 }
 
 #[tauri::command]
@@ -657,6 +716,11 @@ pub fn run() {
         .manage(OutputState::default())
         .manage(voice::VoiceState::default())
         .on_window_event(|window, event| {
+            if window.label() == "main" {
+                if let tauri::WindowEvent::Moved(_) | tauri::WindowEvent::Resized(_) | tauri::WindowEvent::Focused(true) = event {
+                    keep_operator_reachable(window.app_handle());
+                }
+            }
             if let tauri::WindowEvent::Destroyed = event {
                 let app = window.app_handle();
                 if window.label() == "main" {
@@ -722,6 +786,8 @@ pub fn run() {
             go_black,
             go_clear,
             open_projection_window,
+            leave_projector,
+            projector_full,
             close_projection_window,
             get_hwid,
             license_info,

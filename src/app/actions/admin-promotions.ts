@@ -22,5 +22,7 @@ export async function savePromotions(input: Promotions): Promise<{ ok: boolean; 
   });
   invalidatePlatformConfig();
   revalidatePath("/admin/pricing");
+  // The launch, the prices and the free dates show on the public pages (menu, pricing, /live).
+  revalidatePath("/", "layout");
   return { ok: true };
 }
