@@ -61,6 +61,7 @@ export const attendance: DocArticle[] = [
         "**How many people one phone can check in**: no limit, or 1 to 5 per service. This stops one person typing in lots of names; a family sharing one phone may need 2 to 4.",
       ] },
       { list: [
+        "People already checked in to this service, by any method, move to the bottom of the list, greyed out and marked **Already checked in**. So when two people share a name, the next one sees their own name at the top.",
         "A visitor who has been before is found by name or phone, so they are not asked to fill in the form again. After the service you can welcome them back (see **End a service**).",
         "Typing a phone number we already know as a \"new visitor\" is not accepted while a check is switched on, so nobody can check in as someone else that way.",
       ] },

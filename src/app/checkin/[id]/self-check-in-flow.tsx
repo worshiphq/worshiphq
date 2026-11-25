@@ -4,7 +4,7 @@ import { isValidPhone } from "@/lib/phone";
 import { PhoneInput } from "@/components/ui/phone-input";
 import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, MapPin, Search, UserPlus, ShieldCheck, ArrowLeft } from "lucide-react";
+import { CheckCircle2, Loader2, MapPin, Search, UserPlus, ShieldCheck, ArrowLeft } from "lucide-react";
 import { findForCheckIn, sendCheckInCode, completeCheckIn, checkInNewVisitor, type Candidate } from "@/app/actions/self-checkin";
 
 type Step = "find" | "confirm" | "verify" | "new";
@@ -65,6 +65,14 @@ export function SelfCheckInFlow({ sessionId, accent, verify, geoOn }: { sessionI
     setPeople(r.people);
   }
 
+  /** Someone checked this name in after the list was shown: say so, and show the list as it is now. */
+  async function alreadyIn(c: Candidate) {
+    const r = await findForCheckIn({ ...base(), query });
+    setPeople(r.ok ? r.people : null);
+    setChosen(null); setStep("find"); setBusy(false);
+    setError(`${c.name} is already checked in for this service. If that is not right, please ask an usher.`);
+  }
+
   async function pick(c: Candidate) {
     setChosen(c); setDigits(""); setCode(""); setCodeSent(null); setError("");
     setStep("confirm");
@@ -76,7 +84,7 @@ export function SelfCheckInFlow({ sessionId, accent, verify, geoOn }: { sessionI
     if (verify === "none") {
       setBusy(true);
       const r = await completeCheckIn({ ...base(), personId: chosen.id });
-      if (r.ok) return done(r.sessionId);
+      if (r.ok) return r.already ? alreadyIn(chosen) : done(r.sessionId);
       return fail(r.error);
     }
     if (verify === "sms") {
@@ -93,7 +101,7 @@ export function SelfCheckInFlow({ sessionId, accent, verify, geoOn }: { sessionI
     if (!chosen) return;
     setBusy(true); setError("");
     const r = await completeCheckIn({ ...base(), personId: chosen.id, digits, code });
-    if (r.ok) return done(r.sessionId);
+    if (r.ok) return r.already ? alreadyIn(chosen) : done(r.sessionId);
     fail(r.error);
   }
 
@@ -152,10 +160,17 @@ export function SelfCheckInFlow({ sessionId, accent, verify, geoOn }: { sessionI
             <ul className="divide-y divide-[#eee8dc] overflow-hidden rounded-xl border border-[#e8e2d6]">
               {people.map((p) => (
                 <li key={p.id}>
+                  {p.here ? (
+                    <div className="flex w-full items-center justify-between gap-3 bg-[#f3f1ec] px-4 py-3" aria-disabled="true">
+                      <span className="text-[1rem]/6 font-medium text-[#a09888]">{p.name}</span>
+                      <span className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-[#857d70]"><CheckCircle2 className="size-4" /> Already checked in</span>
+                    </div>
+                  ) : (
                   <button type="button" onClick={() => pick(p)} className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left hover:bg-[#faf8f4]">
                     <span className="text-[1rem]/6 font-medium text-[#1c1a16]">{p.name}</span>
                     <span className="text-xs text-[#a09888]">{p.hint ?? ""}</span>
                   </button>
+                  )}
                 </li>
               ))}
             </ul>

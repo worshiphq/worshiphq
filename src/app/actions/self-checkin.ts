@@ -2,6 +2,7 @@
 
 import crypto from "crypto";
 import { revalidatePath } from "next/cache";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { requireSession, assertCanWrite } from "@/lib/auth";
 import { audit } from "@/lib/audit";
@@ -127,9 +128,13 @@ function pickedPerson(token: string, churchId: string): string {
   return data && data.c === churchId && typeof data.p === "string" ? data.p : "";
 }
 
-export type Candidate = { id: string; name: string; hint: string | null; visitor: boolean };
+export type Candidate = { id: string; name: string; hint: string | null; visitor: boolean; here: boolean };
 
-/** Find yourself by name or phone. Only a short name and the end of the phone number are shown, never the whole roster. */
+/** Most names shown from each group: people still to check in, then those already in this service. */
+const SHOW_WAITING = 6;
+const SHOW_HERE = 4;
+
+/** Find yourself by name or phone. People already in this service come last, marked as checked in. Only a short name and the end of the phone number are shown, never the whole roster. */
 export async function findForCheckIn(input: { sessionId: string; query: string } & Where): Promise<{ ok: true; people: Candidate[] } | { ok: false; error: string }> {
   const ctx = await load(input.sessionId);
   if (!ctx) return { ok: false, error: "This check-in link is not available." };
@@ -142,8 +147,7 @@ export async function findForCheckIn(input: { sessionId: string; query: string }
   const showHint = ctx.church.qrVerify !== "digits";
 
   const tokens = /^[+\d][\d\s\-()]*$/.test(q) ? [q.replace(/[\s\-()]/g, "")] : q.split(/\s+/).filter(Boolean).slice(0, 4);
-  const rows = await db.person.findMany({
-    where: {
+  const match: Prisma.PersonWhereInput = {
       churchId: ctx.church.id,
       status: { in: ["active", "visitor"] },
       OR: [{ ageGroup: null }, { ageGroup: { not: "child" } }],
@@ -154,15 +158,20 @@ export async function findForCheckIn(input: { sessionId: string; query: string }
           ...(phoneKey(t).length >= 4 && /^[+\d][\d\-()]*$/.test(t) ? [{ phone: { contains: phoneKey(t) } }] : []),
         ],
       })),
-    },
+  };
+  const find = (here: boolean, take: number) => db.person.findMany({
+    where: { ...match, attendance: here ? { some: { sessionId: ctx.sess.id } } : { none: { sessionId: ctx.sess.id } } },
     select: { id: true, firstName: true, lastName: true, phone: true, status: true },
-    orderBy: { firstName: "asc" },
-    take: 6,
+    orderBy: [{ firstName: "asc" }, { lastName: "asc" }],
+    take,
   });
+  // Looked up apart, so people already in can never push out someone still waiting to check in.
+  const [waiting, here] = await Promise.all([find(false, SHOW_WAITING), find(true, SHOW_HERE)]);
+  const rows = [...waiting.map((p) => ({ ...p, here: false })), ...here.map((p) => ({ ...p, here: true }))];
   // Full first and last name on every result, so nobody picks the wrong person.
   return {
     ok: true,
-    people: rows.map((p) => ({ id: pickToken(p.id, ctx.church.id), name: `${p.firstName} ${p.lastName}`.trim(), hint: showHint && p.phone ? `phone ends ${phoneKey(p.phone).slice(-3)}` : null, visitor: p.status === "visitor" })),
+    people: rows.map((p) => ({ id: pickToken(p.id, ctx.church.id), name: `${p.firstName} ${p.lastName}`.trim(), hint: showHint && p.phone ? `phone ends ${phoneKey(p.phone).slice(-3)}` : null, visitor: p.status === "visitor", here: p.here })),
   };
 }
 
