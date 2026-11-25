@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { signedGetUrl } from "@/lib/storage";
 import { isTester, latestRelease, newer } from "@/lib/live-release";
 
 /**
@@ -17,7 +16,7 @@ export async function GET(req: Request) {
     if (!r || !newer(r.version, q.get("current") ?? "0.0.0")) return none();
     const published = r.log.filter((l) => l.what.startsWith("Published")).pop()?.at ?? r.uploadedAt;
     return NextResponse.json(
-      { version: r.version, notes: r.notes, pub_date: published, url: await signedGetUrl(r.key, 6 * 3600), signature: r.signature },
+      { version: r.version, notes: r.notes, pub_date: published, url: `${new URL(req.url).origin}/api/media/update/file?v=${encodeURIComponent(r.version)}`, signature: r.signature },
       { headers: { "Cache-Control": "no-store" } },
     );
   } catch (e) {
