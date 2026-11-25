@@ -66,6 +66,12 @@ export function VoiceView({ onOpenBible }: { onOpenBible: () => void }) {
                   : v.engine === "whisper" ? "Uses Whisper and the microphone chosen in Settings › Audio & microphone." : "Uses the computer's default microphone. To change it, open Windows Settings › System › Sound › Input."}
               </p>
               {listening && v.micInUse && <p className={`mt-1 text-[13px] font-semibold ${v.micInUse.instead ? "text-gold" : "text-ink-muted"}`}>{v.micInUse.instead ? `The chosen microphone didn't open, so this one is used: ${v.micInUse.name}` : v.micInUse.name}</p>}
+              {listening && v.micState && !v.micState.ok && <p role="alert" className="mt-1 text-[13px] font-semibold text-danger">{v.micState.note}</p>}
+              {listening && v.micLog.length > 1 && (
+                <details className="mt-1 text-[12px] text-ink-muted"><summary className="cursor-pointer font-semibold">What happened to the microphone</summary>
+                  <ul className="mt-1 space-y-0.5">{v.micLog.map((l, i) => <li key={i}>{new Date(l.at).toLocaleTimeString()} · {l.text}</li>)}</ul>
+                </details>
+              )}
               <WhatIsListening />
             </Card>
 

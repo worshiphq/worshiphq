@@ -1,7 +1,7 @@
 {
   "$schema": "https://raw.githubusercontent.com/nicokosi/tauri-v2-schema/main/config.schema.json",
   "productName": "WorshipHQ Live",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "identifier": "com.worshiphq.media",
   "build": {
     "frontendDist": "../dist",
@@ -53,7 +53,7 @@
         "minWidth": 1024,
         "minHeight": 600,
         "decorations": false,
-        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required --use-fake-ui-for-media-stream",
+        "additionalBrowserArgs": "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,CalculateNativeWinOcclusion --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --autoplay-policy=no-user-gesture-required --use-fake-ui-for-media-stream",
         "transparent": false
       }
     ],

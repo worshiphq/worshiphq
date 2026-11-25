@@ -119,7 +119,7 @@ fn go_clear(app: tauri::AppHandle, output: State<OutputState>) -> Result<(), Str
 
 /// Tauri's default WebView2 switches, plus letting videos and music play with sound without a click
 /// (the projector window is never clicked).
-const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection --autoplay-policy=no-user-gesture-required --use-fake-ui-for-media-stream";
+const BROWSER_ARGS: &str = "--disable-features=msWebOOUI,msPdfOOUI,msSmartScreenProtection,CalculateNativeWinOcclusion --disable-background-timer-throttling --disable-renderer-backgrounding --disable-backgrounding-occluded-windows --autoplay-policy=no-user-gesture-required --use-fake-ui-for-media-stream";
 
 /// Opens (or moves) one of the output windows: the projector, or the stage display for the preacher and band.
 async fn open_output_window(

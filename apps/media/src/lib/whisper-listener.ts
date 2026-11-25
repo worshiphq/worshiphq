@@ -21,6 +21,8 @@ interface Callbacks {
   /** Online listening worked (null) or why it didn't; offline listening carries on either way. */
   /** The microphone in use, and whether it is instead of the chosen one. */
   onMic?: (name: string, instead: boolean) => void;
+  /** The microphone stopped (ok = false, with why) or came back (ok = true). */
+  onMicState?: (ok: boolean, note: string) => void;
   onCloud?: (problem: string | null, read?: { ms: number; text: string }) => void;
   /** The sentence still going on: the words it is sure of, and the newest ones it isn't sure of yet. */
   onLive?: (live: { sure: string; maybe: string; text: string; id: string }) => void;
@@ -95,13 +97,25 @@ async function openMicrophone(chosen: string | null): Promise<{ stream: MediaStr
     audio: { deviceId: id ? { exact: id } : undefined, channelCount: 1, echoCancellation: false, noiseSuppression: true, autoGainControl: true },
   });
   const wants = chosen && chosen !== "default" ? chosen : null;
-  const inputs = (await navigator.mediaDevices.enumerateDevices().catch(() => [])).filter((d) => d.kind === "audioinput" && d.deviceId !== "default" && d.deviceId !== "communications");
-  const tries: (string | undefined)[] = [...(wants ? [wants] : []), undefined, ...inputs.map((d) => d.deviceId).filter((id) => id && id !== wants)];
+  // Cables and mixers that are only software (they open, but carry no voice) go last.
+  const VIRTUAL = /cable|virtual|sonar|voicemeeter|stereo mix|loopback|vb-audio|obs|nvidia broadcast/i;
+  const all = await navigator.mediaDevices.enumerateDevices().catch(() => []);
+  const inputs = all.filter((d) => d.kind === "audioinput" && d.deviceId !== "default" && d.deviceId !== "communications");
+  const windowsPick = all.find((d) => d.kind === "audioinput" && d.deviceId === "default")?.label ?? "";
+  const real = inputs.filter((d) => !VIRTUAL.test(d.label)), fake = inputs.filter((d) => VIRTUAL.test(d.label));
+  const tries: (string | undefined)[] = [
+    ...(wants ? [wants] : []),
+    // What Windows uses, unless that is a virtual cable and there is a real microphone.
+    ...(VIRTUAL.test(windowsPick) && real.length ? [] : [undefined]),
+    ...real.map((d) => d.deviceId).filter((id) => id && id !== wants),
+    ...(VIRTUAL.test(windowsPick) && real.length ? [undefined] : []),
+    ...fake.map((d) => d.deviceId).filter((id) => id && id !== wants),
+  ];
   let problem = "";
   for (let i = 0; i < tries.length; i++) {
     try {
       const st = await get(tries[i]);
-      return { stream: st, name: st.getAudioTracks()[0]?.label || "Microphone", instead: i > 0 };
+      return { stream: st, name: st.getAudioTracks()[0]?.label || "Microphone", instead: !!wants && tries[i] !== wants };
     } catch (e) {
       const name = (e as DOMException).name;
       if (!problem || name === "NotAllowedError") problem = name;
@@ -127,7 +141,7 @@ export async function startWhisperListening(deviceId: string | null, cb: Callbac
     return;
   }
   ctx = new AudioContext({ sampleRate: RATE });
-  const src = ctx.createMediaStreamSource(stream);
+  let src = ctx.createMediaStreamSource(stream);
   node = ctx.createScriptProcessor(1024, 1, 1);
   src.connect(node);
   node.connect(ctx.destination);
@@ -288,8 +302,10 @@ export async function startWhisperListening(deviceId: string | null, cb: Callbac
     silentMs = 0;
   };
 
+  let lastBlock = performance.now();
   node.onaudioprocess = (e) => {
     if (!on()) return;
+    lastBlock = performance.now();
     const data = new Float32Array(e.inputBuffer.getChannelData(0));
     let sum = 0;
     for (const x of data) sum += x * x;
@@ -317,10 +333,65 @@ export async function startWhisperListening(deviceId: string | null, cb: Callbac
       readLive().then(() => { lastLiveAt = performance.now(); });
     }
   };
+
+  /*
+   * The microphone can stop for reasons outside the app: a USB sound card going to sleep or being unplugged, Windows
+   * giving it to another program, a driver reset. It is noticed within a couple of seconds, said so, and taken back.
+   * If the chosen one was missing and another is in use, the chosen one is taken again when it comes back.
+   */
+  let usingInstead = false, reopening = false, lost = false, tick = 0;
+  const wantsId = deviceId && deviceId !== "default" ? deviceId : null;
+  const reconnect = async (why: string) => {
+    if (reopening || !on()) return;
+    reopening = true;
+    if (!lost) { lost = true; cb.onMicState?.(false, why); }
+    try {
+      stream?.getTracks().forEach((t) => t.stop());
+      const got = await openMicrophone(deviceId);
+      if (!on()) { got.stream.getTracks().forEach((t) => t.stop()); return; }
+      if (ctx && ctx.state !== "running") await ctx.resume().catch(() => {});
+      src.disconnect();
+      stream = got.stream;
+      src = ctx!.createMediaStreamSource(stream);
+      src.connect(node!);
+      lastBlock = performance.now();
+      usingInstead = got.instead;
+      lost = false;
+      cb.onMic?.(got.name, got.instead);
+      cb.onMicState?.(true, "");
+    } catch (e) {
+      cb.onMicState?.(false, e instanceof Error ? e.message : String(e));
+    } finally {
+      reopening = false;
+    }
+  };
+  const check = async () => {
+    if (!on()) return;
+    tick++;
+    if (ctx && ctx.state !== "running") await ctx.resume().catch(() => {});
+    const track = stream?.getAudioTracks()[0];
+    const silentFor = performance.now() - lastBlock;
+    if (!track || track.readyState === "ended") { reconnect("The microphone stopped (unplugged, asleep, or taken by another program). Trying again…"); return; }
+    if (silentFor > 3500) { reconnect(track.muted ? "Windows muted the microphone. Trying again…" : "The microphone stopped sending sound. Trying again…"); return; }
+    if (lost && !reopening) { lost = false; cb.onMicState?.(true, ""); }
+    // The chosen microphone is back (another one was used instead).
+    if (usingInstead && wantsId && tick % 4 === 0) {
+      const there = (await navigator.mediaDevices.enumerateDevices().catch(() => [])).some((d) => d.kind === "audioinput" && d.deviceId === wantsId);
+      if (there) reconnect("Your microphone is back. Switching to it…");
+    }
+  };
+  const watch = window.setInterval(() => { if (!on()) { window.clearInterval(watch); return; } check(); }, 1500);
+  const changed = () => { if (on()) check(); };
+  navigator.mediaDevices.addEventListener("devicechange", changed);
+  stopWatching = () => { window.clearInterval(watch); navigator.mediaDevices.removeEventListener("devicechange", changed); };
 }
+
+let stopWatching: (() => void) | null = null;
 
 export async function stopWhisperListening() {
   running = false;
+  stopWatching?.();
+  stopWatching = null;
   if (node) { node.onaudioprocess = null; node.disconnect(); node = null; }
   stream?.getTracks().forEach((t) => t.stop());
   stream = null;

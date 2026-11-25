@@ -1,6 +1,6 @@
 import { ask } from "./Dialogs";
 import { useEffect, useState, type ReactNode } from "react";
-import { Check, Copy, FolderOpen, Loader2, LogIn, LogOut, Pencil, RefreshCw } from "lucide-react";
+import { Check, Copy, Download, FolderOpen, Loader2, LogIn, LogOut, Pencil, RefreshCw } from "lucide-react";
 import { accountActive, trialDaysLeft, useAccountStore } from "../lib/account";
 import { useUpdateStore } from "../lib/updates";
 import { useProjectionStore } from "../stores/projection-store";
@@ -203,15 +203,16 @@ function AccountSection() {
 
 /** Automatic updates: what version is here, and whether a newer one is waiting. */
 function UpdatesSection() {
-  const { phase, version, progress, error, checkedAt, check, install } = useUpdateStore();
+  const { phase, version, progress, error, checkedAt, check, install, download, mode, setMode } = useUpdateStore();
   const line =
     phase === "checking" ? "Looking for a new version…"
+    : phase === "available" ? `Version ${version} is available.${error ? ` The last download didn't finish: ${error}` : ""}`
     : phase === "downloading" ? `Downloading version ${version}… ${progress}%`
-    : phase === "ready" ? `Version ${version} is downloaded and ready.`
+    : phase === "ready" ? `Version ${version} is downloaded. Restart when you're not in a service.`
     : phase === "installing" ? "Updating… WorshipHQ Live will restart."
     : phase === "none" ? "You have the newest version."
     : phase === "error" ? `Couldn't check for updates: ${error ?? "no internet?"}`
-    : "WorshipHQ Live looks for updates by itself and downloads them quietly. You choose when to restart.";
+    : "Choose below how updates are handled. Nothing is installed until you press Restart and update.";
   return (
     <section className="flex flex-wrap items-center gap-4 rounded-xl border border-line bg-surface-2 p-5 shadow-sm">
       <div className="min-w-0 flex-1">
@@ -220,12 +221,24 @@ function UpdatesSection() {
         {phase === "downloading" && <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-4"><div className="h-full bg-primary transition-[width]" style={{ width: `${progress}%` }} /></div>}
         {checkedAt && phase !== "checking" && <p className="mt-0.5 text-[12px] text-ink-faint">Last checked {new Date(checkedAt).toLocaleTimeString()}</p>}
       </div>
-      {phase === "ready" || phase === "installing" ? (
+      <div role="radiogroup" aria-label="How updates are handled" className="basis-full border-t border-line pt-3">
+        {([["auto", "Automatic", "Looks by itself and downloads in the background. You press Restart and update."], ["ask", "Ask me", "Looks by itself and tells you. You press Download."], ["manual", "Manual", "Only looks when you press Check for updates."]] as const).map(([v, name, detail]) => (
+          <label key={v} className="flex cursor-pointer items-start gap-2.5 py-1">
+            <input type="radio" name="update-mode" checked={mode === v} onChange={() => setMode(v)} className="mt-1 size-4 accent-[var(--color-primary)]" />
+            <span><span className="block text-[14px] font-semibold text-ink">{name}</span><span className="block text-[12px] text-ink-muted">{detail}</span></span>
+          </label>
+        ))}
+      </div>
+      {phase === "available" || phase === "downloading" ? (
+        <button onClick={download} disabled={phase === "downloading"} className="flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-[14px] font-bold text-white hover:bg-primary-bright disabled:opacity-60">
+          {phase === "downloading" ? <Loader2 className="size-4 whq-spin" /> : <Download className="size-4" />} {phase === "downloading" ? "Downloading…" : `Download ${version}`}
+        </button>
+      ) : phase === "ready" || phase === "installing" ? (
         <button onClick={install} disabled={phase === "installing"} className="flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-[14px] font-bold text-white hover:bg-primary-bright disabled:opacity-60">
           {phase === "installing" ? <Loader2 className="size-4 whq-spin" /> : <RefreshCw className="size-4" />} Restart and update
         </button>
       ) : (
-        <button onClick={() => check(true)} disabled={phase === "checking" || phase === "downloading"}
+        <button onClick={() => check(true)} disabled={phase === "checking"}
           className="flex h-10 items-center gap-2 rounded-lg border border-line-bright px-4 text-[14px] font-semibold text-ink hover:bg-surface-4 disabled:opacity-60">
           {phase === "checking" ? <Loader2 className="size-4 whq-spin" /> : <RefreshCw className="size-4" />} Check for updates
         </button>
