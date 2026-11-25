@@ -1,4 +1,5 @@
 import { BIBLE_BOOKS } from "../types";
+import { twiReferenceAt } from "./twi-ref";
 import { CHAPTER_COUNTS, matchBooks, type ScriptureRef } from "./scripture-ref";
 
 const SMALL: Record<string, number> = {
@@ -103,6 +104,15 @@ export interface SpokenRef { ref: ScriptureRef; after: string; wordsAfter: numbe
 
 /** The last Bible reference in what was said, and what was said after it. */
 export function referenceAt(text: string): SpokenRef | null {
+  const english = englishReferenceAt(text);
+  // Twi (or Twi and English): whichever was said last, or said more fully.
+  const twi = twiReferenceAt(text);
+  if (!english || !twi) return english ?? twi;
+  if (twi.ref.book === english.ref.book && twi.ref.chapter === english.ref.chapter) return twi.ref.verseStart && !english.ref.verseStart ? twi : english;
+  return twi.wordsAfter < english.wordsAfter ? twi : english;
+}
+
+function englishReferenceAt(text: string): SpokenRef | null {
   const s = wordsToNumbers(text).replace(/(?:book|gospel|letter|epistle) of (?=(?:[123] )?[a-z])/g, "");
   // Windows often hears a lone "Psalm 23" as "some 23".
   const psalm = s.match(/^(?:some|sam|psalm|psalms|songs)\s+(\d{1,3})(?:\s+(?:verse\s+)?(\d{1,3}))?$/);

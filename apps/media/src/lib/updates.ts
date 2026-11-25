@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { serverHeaders } from "./account";
 import { isDesktopApp } from "./media-src";
 
 /**
@@ -42,7 +43,9 @@ export const useUpdateStore = create<UpdateState>()((set, get) => ({
     set({ phase: "checking", error: null, ...(manual ? { dismissed: false } : {}) });
     try {
       const { check } = await import("@tauri-apps/plugin-updater");
-      const update = await check({ timeout: 30_000 });
+      // Signed in: testers are offered test versions too.
+      const headers = await serverHeaders().catch(() => null);
+      const update = await check({ timeout: 30_000, ...(headers ? { headers } : {}) });
       set({ checkedAt: Date.now() });
       if (!update) { set({ phase: "none" }); return; }
       set({ phase: "downloading", version: update.version, notes: update.body ?? null, progress: 0 });

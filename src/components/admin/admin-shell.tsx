@@ -1,5 +1,5 @@
 import Link from "@/components/ui/app-link";
-import { LayoutDashboard, FileText, Megaphone, LogOut, CreditCard, Wallet, Undo2, DatabaseBackup, KeyRound, TrendingUp, Mail, Receipt, Users, UserCog, Menu, PiggyBank, ScrollText, MessageSquare, BookOpen, CalendarClock, Sparkles, Inbox, LineChart, MailCheck, Image as ImageIcon, MonitorCheck } from "lucide-react";
+import { LayoutDashboard, PackageCheck, FileText, Megaphone, LogOut, CreditCard, Wallet, Undo2, DatabaseBackup, KeyRound, TrendingUp, Mail, Receipt, Users, UserCog, Menu, PiggyBank, ScrollText, MessageSquare, BookOpen, CalendarClock, Sparkles, Inbox, LineChart, MailCheck, Image as ImageIcon, MonitorCheck, PackageCheck } from "lucide-react";
 import { superAdminSignOut } from "@/app/actions/admin";
 
 const GROUPS: { title: string; items: { href: string; label: string; icon: React.ComponentType<{ className?: string }> }[] }[] = [
@@ -36,6 +36,7 @@ const GROUPS: { title: string; items: { href: string; label: string; icon: React
       { href: "/admin/bibles", label: "Bibles (Live)", icon: BookOpen },
       { href: "/admin/stock", label: "Backgrounds (Live)", icon: ImageIcon },
       { href: "/admin/media-trials", label: "WorshipHQ Live", icon: MonitorCheck },
+      { href: "/admin/live-releases", label: "Live versions", icon: PackageCheck },
       { href: "/admin/access", label: "Access log", icon: KeyRound },
       { href: "/admin/team", label: "Admin team", icon: UserCog },
     ],
